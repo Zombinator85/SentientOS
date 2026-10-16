@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-Sequence 285 resolves the projection-to-plan evidence capacity mismatch without dropping omission rows or changing plan identity. Large projection-bound evidence is stored in a bounded immutable sidecar and reconstructed exactly by the canonical loader. The local work-plan, planner, executor, and historical applicability regressions passed. Exact-source hosted verification is pending.
+Sequence 286 closes a positive-history applicability gap: scoped supported positions remain visible to canonical planning, exact model/family matches preserve the current decision, and mismatches defer with explicit applicability evidence. The exact state, update event, supporting binding, and contradictory binding identities are retained in canonical plan evidence. The combined affected suite passed 86/86 with no skips or failures; targeted Mypy, compilation, diff checking, and construction custody passed. The finalizer cleanup now preserves append-only test provenance. Nine earlier provenance payloads were removed by its prior cleanup attempt; their hashes and outcomes remain recorded, but the payload bytes could not be recovered. The finalizer now reaches only the Administrator-backed strict-audit and immutability stages before blocking; Required Quality Gate is configured to run on this construction branch and is pending exact-source verification; exact-source hosted verification is pending.
 
-Latest verified main: `b633036b50b6cd3a01dd22aa179d685da9496634`
-Latest verified tree: `e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0`
-Latest segment: `work/construction/segments/0285-epistemic-evidence-sidecar.md`
-Latest segment SHA-256: `0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea`
-Evidence: `work/construction/evidence/0285-epistemic-evidence-sidecar.json`
-Sequence: 285
+Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
+Latest verified tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
+Latest segment: `work/construction/segments/0286-positive-position-model-applicability.md`
+Latest segment SHA-256: `376ca13180b68a58619371505c33ca1351c975d0c1c86a72083ff7c65e138444`
+Evidence: `work/construction/evidence/0286-positive-position-model-applicability.json`
+Sequence: 286
 
-Next: carry exact state, update-event, supporting-binding, and adverse-binding identities through source/model-bound developmental outcomes into canonical daemon allocation after owner reconstruction.
+Next: carry scoped positive and adverse position identities through allocation results and follow-on plan outcomes without treating prior support as proof that an unexecuted plan succeeded; retain deterministic ordering and exact model/state/event/evidence scope.

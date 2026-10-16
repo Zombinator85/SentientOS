@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import time
 import os
+import re
 import stat
 import uuid
 from dataclasses import asdict, dataclass
@@ -532,6 +533,10 @@ def _is_safe_untracked_task_file(path: str, task_slugs: frozenset[str] = frozens
         return True
     if path.startswith("tests/fixtures/") and (path.endswith("/") or path.endswith(".json")):
         return _is_task_scoped_fixture_path(path, task_slugs)
+    if path.startswith("glow/test_runs/provenance/"):
+        name = path.removeprefix("glow/test_runs/provenance/")
+        if "/" not in name and re.fullmatch(r"\d{8}T\d{6}Z_[0-9a-f]{12}_[0-9a-f]{32}\.json", name):
+            return True
     if path.startswith("artifacts/proof_bundles/") and path.endswith(".json"):
         return True
     return False
@@ -553,7 +558,14 @@ def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_
     for line in status_lines:
         is_untracked = line.startswith("??")
         path = line[3:] if len(line) > 3 else line
-        if path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS):
+        if path == "glow/test_runs/test_run_provenance.json" or path.rstrip("/") == "glow/test_runs/provenance" or path.startswith("glow/test_runs/provenance/"):
+            if path in changed_file_set or path in set(inferred_untracked_task_files):
+                cls = "intended_task_change"
+                action = "allow_pre_commit"
+            else:
+                cls = "source_change_not_declared"
+                action = "block"
+        elif path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS):
             cls = "generated_runtime_artifact"
             action = "cleanup"
         elif path.lower().endswith(MEDIA_SUFFIXES):
@@ -565,7 +577,7 @@ def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_
         elif is_untracked and path in set(inferred_untracked_task_files):
             cls = "intended_task_change"
             action = "allow_pre_commit"
-        elif (not is_untracked) and path in changed_file_set:
+        elif path in changed_file_set:
             cls = "intended_task_change"
             action = "allow_pre_commit"
         elif path.endswith((".py", ".md", ".json", ".yaml", ".yml", ".toml", ".txt", ".bat")):
@@ -614,6 +626,12 @@ def _cleanup_generated(status_lines: list[str]) -> dict[str, tuple[bool, str, st
     for line in status_lines:
         git_status = line[:2]
         path = line[3:] if len(line) > 3 else line
+        # Per-run provenance is append-only evidence. It may be produced by
+        # validation, but automatic cleanup must never restore or remove it.
+        if (path == "glow/test_runs/test_run_provenance.json"
+                or path.rstrip("/") == "glow/test_runs/provenance"
+                or path.startswith("glow/test_runs/provenance/")):
+            continue
         is_generated = path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS) or path == "pulse/audit/privileged_audit.runtime.jsonl"
         if not is_generated:
             continue

@@ -1,0 +1,1175 @@
+{
+  "defect": {
+    "positive_current_scoped_positions_were_discarded_before_planning_applicability_checks": true,
+    "risk": "positive evidence scoped to a former task-family model could silently disappear from plan evidence after a serving-model change"
+  },
+  "evidence_path": "work/construction/evidence/0286-positive-position-model-applicability.json",
+  "implementation": {
+    "exact_applicability": "matching task family and observed model identity preserves the existing decision; mismatch defers as epistemic_applicability_unresolved",
+    "execution_or_authority_changed": false,
+    "hosted_privileged_route": "Required Quality Gate now also runs on codex/construct-sentientos* pushes without changing its exact SHA binding or required audit checks.",
+    "position_identity_fields": [
+      "state_id",
+      "state_digest",
+      "generation",
+      "update_event_id",
+      "supporting_binding_ids",
+      "contradicting_binding_ids"
+    ],
+    "positive_scopes_retained": "current supported positions remain in review scopes when they declare task_family_id or active_model_identity_digest",
+    "task_ranking_changed": false
+  },
+  "landing_evidence_preservation_fix": {
+    "behavior": "never restore or remove glow/test_runs/provenance entries or the append-only directory during generated-artifact cleanup",
+    "path": "scripts/codex_finalize_landing.py",
+    "regression_test": "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance"
+  },
+  "local_regression": {
+    "append_only_chain_verified": false,
+    "append_only_payload_recovery": {
+      "cause": "The pre-commit finalizer classified untracked glow/test_runs/provenance entries as generated cleanup and ran git clean. Digests, hash links, outcomes, and paths for nine records remain recorded in this evidence; one additional bootstrap-failure record was logged as removed without a captured digest. The cleanup now preserves both the append-only directory and current test-run summary.",
+      "known_deleted_record_count": 9,
+      "payload_bytes_recovered": false,
+      "status": "incomplete_after_finalizer_cleanup",
+      "unidentified_deleted_record_count": 1
+    },
+    "append_only_provenance": [
+      {
+        "file_sha256": "d6020d643bbe151233b8e0ed489cfef62a7b4abc5f3fa8d9fd417f82bbd84e38",
+        "path": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+        "previous_provenance_hash": "eee1ee4fcbb56dd730dbf2cc21e32150887ec682330a26aef1c86b3eb5723f6a",
+        "provenance_hash": "ed4007d5a852d2854d5ca546aef90a0920819c9b10b15f92e09f434ffb40db8c",
+        "tests_executed": 17,
+        "tests_failed": 0,
+        "tests_passed": 17,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "3e37503db6dc492ebe7898421b1735577353e30cbec09b17b1fb80fb629846cb",
+        "path": "glow/test_runs/provenance/20261016T172920Z_d8d7a219221c_1f52399174d0492a8f45658cbab54615.json",
+        "previous_provenance_hash": "ed4007d5a852d2854d5ca546aef90a0920819c9b10b15f92e09f434ffb40db8c",
+        "provenance_hash": "f8c973b7cf4cdb813d71ab3e7ddae08f7b8492e04ffee73c81bd55103923308d",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "metrics_missing"
+      },
+      {
+        "file_sha256": "73c7b478c9de5a769337aad97378e2be68e7e11d878875e6962e92b6d72b9935",
+        "path": "glow/test_runs/provenance/20261016T172930Z_d8d7a219221c_a20ee0cedd9f4b8a9771a176b8604ba4.json",
+        "previous_provenance_hash": "f8c973b7cf4cdb813d71ab3e7ddae08f7b8492e04ffee73c81bd55103923308d",
+        "provenance_hash": "69798e2787a86889a90951d4c074fadb7f0cc756ff44cc3d6de5747bd4f56d99",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "collection_failed"
+      },
+      {
+        "file_sha256": "e74b761d27518e9eb02b96fba1830a00205116999f057cce45a3bfe3c2228294",
+        "path": "glow/test_runs/provenance/20261016T172949Z_d8d7a219221c_03903662785843caad7acc0b6918967b.json",
+        "previous_provenance_hash": "69798e2787a86889a90951d4c074fadb7f0cc756ff44cc3d6de5747bd4f56d99",
+        "provenance_hash": "7f4ce09873018d451e2dad9658a934a81edfcefffba8b05ea6857b5cd99933c4",
+        "tests_executed": 9,
+        "tests_failed": 0,
+        "tests_passed": 9,
+        "tests_skipped": 8,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "f9eabbb362f011560e49a8e3dada9be0365f6aac3b63d2bdbe62e75ebe4a5886",
+        "path": "glow/test_runs/provenance/20261016T173008Z_d8d7a219221c_5bb7464a8efe499c93e4d72fc197e45f.json",
+        "previous_provenance_hash": "7f4ce09873018d451e2dad9658a934a81edfcefffba8b05ea6857b5cd99933c4",
+        "provenance_hash": "dba853b2450286e42ff2462d357be19f1a64fe75358c8a544ebe14e996b3c807",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "63e5d363cc0d342e559d3bdfff797a023efb377c065859dcad315e27f13376f6",
+        "path": "glow/test_runs/provenance/20261016T173036Z_d8d7a219221c_6cc0d5aa0f78435a94692aa32b405c8e.json",
+        "previous_provenance_hash": "dba853b2450286e42ff2462d357be19f1a64fe75358c8a544ebe14e996b3c807",
+        "provenance_hash": "83dc3107fd2650c5565fe6e79b89d49558a0e9b16b0b274914df330869f80b60",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "047decf618e895a054f1c8b065a28f3b7548e23f034261f0e9a55a37db63087f",
+        "path": "glow/test_runs/provenance/20261016T173051Z_d8d7a219221c_79c48af3cca340edac23c50ef30b3cd9.json",
+        "previous_provenance_hash": "83dc3107fd2650c5565fe6e79b89d49558a0e9b16b0b274914df330869f80b60",
+        "provenance_hash": "1425b5644b195162008146b98cd7f8c2ee47c28ac14d3d07cf852ed5d63544e2",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "collection_failed"
+      },
+      {
+        "file_sha256": "9c357647cea9ed75930c09299ee8afcd0184b6efc8aaae2c41ebfe91de556c64",
+        "path": "glow/test_runs/provenance/20261016T173115Z_d8d7a219221c_cbbbe72c3da94e48a0624b1b8aaf8628.json",
+        "previous_provenance_hash": "1425b5644b195162008146b98cd7f8c2ee47c28ac14d3d07cf852ed5d63544e2",
+        "provenance_hash": "07e36994c012896459c482f9ae818bcf04ae2804e09e4c790b9680f58dcac5f6",
+        "tests_executed": 135,
+        "tests_failed": 0,
+        "tests_passed": 135,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "c7dff6c9563e1ea31f2aa2053c7d0ce074fc84ad43bbdedbfe5bf6a978e0eb22",
+        "path": "glow/test_runs/provenance/20261016T173645Z_d8d7a219221c_e02038ac43674912be862dfe6c1665dd.json",
+        "previous_provenance_hash": "07e36994c012896459c482f9ae818bcf04ae2804e09e4c790b9680f58dcac5f6",
+        "provenance_hash": "d946298f4a30317ef0512be47e555beccad72c04a185ff65b01693705141e666",
+        "tests_executed": 135,
+        "tests_failed": 0,
+        "tests_passed": 135,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "96e8d67a0c30240b6b649090d701f6c162bc5ff01eb0f7b6575ca8a0a2bf33ed",
+        "path": "glow/test_runs/provenance/20261016T174546Z_d8d7a219221c_d33e25d943004e11a3392c7e6e5dbfb7.json",
+        "previous_provenance_hash": "d946298f4a30317ef0512be47e555beccad72c04a185ff65b01693705141e666",
+        "provenance_hash": "f6f8764787c554826b74e5a93536dd7b1ef08d26d505aaf79aeca7fc0f146a19",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "4bfc035a487cfcc43b98423d9201716c66cfe2604fae20d15f3d139bdb82e023",
+        "path": "glow/test_runs/provenance/20261016T174722Z_d8d7a219221c_6d3a24874c6743cd9b8cdde422dc90cf.json",
+        "previous_provenance_hash": "f6f8764787c554826b74e5a93536dd7b1ef08d26d505aaf79aeca7fc0f146a19",
+        "provenance_hash": "942634ca116b8f47e2d51af1528851bba09cb039542cc91271a79ee4a0bd54e9",
+        "tests_executed": 93,
+        "tests_failed": 10,
+        "tests_passed": 83,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "a3745ffc1e75495ba225ddc8ab029c07f36fbe36b8afd438bc6469195c67a0ac",
+        "path": "glow/test_runs/provenance/20261016T174928Z_d8d7a219221c_3f9cd9443eec495ab788b9fd2b6fe2e9.json",
+        "previous_provenance_hash": "942634ca116b8f47e2d51af1528851bba09cb039542cc91271a79ee4a0bd54e9",
+        "provenance_hash": "c84282410e324b8c4de8e1e24f391f1ab1a37afe1877952a877f71519734dc3c",
+        "tests_executed": 93,
+        "tests_failed": 0,
+        "tests_passed": 93,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "d624af3339d1d5305d86917c41d34b0187ebe5b28fc9122ad07dc1568fc7de2b",
+        "path": "glow/test_runs/provenance/20261016T180715Z_d8d7a219221c_967351cf5bfa4068bc740157ed051cbf.json",
+        "previous_provenance_hash": "c84282410e324b8c4de8e1e24f391f1ab1a37afe1877952a877f71519734dc3c",
+        "provenance_hash": "a34dbba8636f85a35fc9546facc76f0cb069957585975cdb3920c99e5c618cf5",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "metrics_missing"
+      },
+      {
+        "file_sha256": "853b34d8a47dd6fbf814f2846799e162a824e3997406ec19556ffac50ee09c97",
+        "path": "glow/test_runs/provenance/20261016T180721Z_d8d7a219221c_2760f554e5204be8a85c78163fc41982.json",
+        "previous_provenance_hash": "a34dbba8636f85a35fc9546facc76f0cb069957585975cdb3920c99e5c618cf5",
+        "provenance_hash": "9c5d172d7b4c701298a554926fd73baeca08e9a34999316f70c626a5b0edbcd0",
+        "tests_executed": 36,
+        "tests_failed": 0,
+        "tests_passed": 36,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "5aaf69c2749682062a87c5b9ec08135aeda35bd1a3a0492a2b41d9f12cf1f5a9",
+        "path": "glow/test_runs/provenance/20261016T180741Z_d8d7a219221c_e696ca81ab99493b8df91c12bb454f87.json",
+        "previous_provenance_hash": "9c5d172d7b4c701298a554926fd73baeca08e9a34999316f70c626a5b0edbcd0",
+        "provenance_hash": "35b576c884246e95aed2c20d785a1500ba3d3c80cc262568605c813b90cc75ee",
+        "tests_executed": 9,
+        "tests_failed": 0,
+        "tests_passed": 9,
+        "tests_skipped": 8,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "c5ea98a2a9f7ad6860cee3920ffca5fd3024ffd3a9dfb5ca835846114f71b378",
+        "path": "glow/test_runs/provenance/20261016T180803Z_d8d7a219221c_4e4e1cfa615e4269ac8a729248083b33.json",
+        "previous_provenance_hash": "35b576c884246e95aed2c20d785a1500ba3d3c80cc262568605c813b90cc75ee",
+        "provenance_hash": "277bbba3ab4550613aea9bb51804dc1474d19d3ff13e62e43cac96e980740451",
+        "tests_executed": 8,
+        "tests_failed": 0,
+        "tests_passed": 8,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "366b1e3d529d832e1067f4442b56bf1e59589b033e56987dccca4762caace7b8",
+        "path": "glow/test_runs/provenance/20261016T180828Z_d8d7a219221c_336ee0a0764745d2b11860d76bb30382.json",
+        "previous_provenance_hash": "277bbba3ab4550613aea9bb51804dc1474d19d3ff13e62e43cac96e980740451",
+        "provenance_hash": "e4e8341da56a01b7006ceada9fae33a25cb42943515bd9d767ba0a1a6dd8b504",
+        "tests_executed": 17,
+        "tests_failed": 0,
+        "tests_passed": 17,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "7e55084b247b5c898231ca71552d84edc36329f4076a102a624b7ed777021fa4",
+        "path": "glow/test_runs/provenance/20261016T180946Z_d8d7a219221c_9c1ec2804af841169978af739e222d1b.json",
+        "previous_provenance_hash": "e4e8341da56a01b7006ceada9fae33a25cb42943515bd9d767ba0a1a6dd8b504",
+        "provenance_hash": "ac3a1eb82fef457a4373c422e7394f5ab93468b558d22d065a97a71f8186d0e4",
+        "tests_executed": 22,
+        "tests_failed": 0,
+        "tests_passed": 22,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "c6e2f19718a70fc3c317fee3ee0e85581cd67d8585af94a2e7526f975d98add4",
+        "path": "glow/test_runs/provenance/20261016T181858Z_d8d7a219221c_2c173f317630495a8c537a7df51a9ebf.json",
+        "previous_provenance_hash": "ac3a1eb82fef457a4373c422e7394f5ab93468b558d22d065a97a71f8186d0e4",
+        "provenance_hash": "3601167f37b5618a3830ee55bc8166e8990a00e149875057f40aea29b1e59b87",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "f6ae86f3062feab2c7808de802da613738f341cc4c61b84c1f8077aa648cb433",
+        "path": "glow/test_runs/provenance/20261016T182258Z_d8d7a219221c_d6d3807815ce4aeeb730436c548eaf29.json",
+        "previous_provenance_hash": "3601167f37b5618a3830ee55bc8166e8990a00e149875057f40aea29b1e59b87",
+        "provenance_hash": "e9984c42e3c4a7f69f14c2c8d3e522ffc758842d36bb068efc6d6644feb9c424",
+        "tests_executed": 22,
+        "tests_failed": 0,
+        "tests_passed": 22,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "077ab4778b1be572d0639846de93176e1f37b5fb644f0dec72501d4430d73989",
+        "path": "glow/test_runs/provenance/20261016T183226Z_d8d7a219221c_abd9c8e59bb64ba0983f57335be71989.json",
+        "previous_provenance_hash": "e9984c42e3c4a7f69f14c2c8d3e522ffc758842d36bb068efc6d6644feb9c424",
+        "provenance_hash": "911da2a340f12467db73d478e1f43756c9d15edcfa043934671664884788eddd",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "d839208b0b048ca02930ac10dfb2211e403e8177163b91daa4a46f86e8828da8",
+        "path": "glow/test_runs/provenance/20261016T183233Z_d8d7a219221c_3edf577efb64487b9d1955ed7774d8e6.json",
+        "previous_provenance_hash": "911da2a340f12467db73d478e1f43756c9d15edcfa043934671664884788eddd",
+        "provenance_hash": "45ab3a8c2fc48647de3a7b1514db47d5c8193f43ecc180879270b235d2c9f592",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "c561063148db5449b17b0472ec98c333d09039537829b1adfc776138daf66fa2",
+        "path": "glow/test_runs/provenance/20261016T184559Z_d8d7a219221c_4ef27fa9ccf24f9cb43de179731479e8.json",
+        "previous_provenance_hash": "45ab3a8c2fc48647de3a7b1514db47d5c8193f43ecc180879270b235d2c9f592",
+        "provenance_hash": "1c2da6ac5fff633977b6b152a3506fc91fbbbd6ea88188599acdf1a52faf2ccc",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "b5c5df32f97c30197a199c103299d400885d132025aa3e06878cfca274729262",
+        "path": "glow/test_runs/provenance/20261016T184611Z_d8d7a219221c_be095331672a4fbfa20fbc33bb5d32d0.json",
+        "previous_provenance_hash": "1c2da6ac5fff633977b6b152a3506fc91fbbbd6ea88188599acdf1a52faf2ccc",
+        "provenance_hash": "025c7994fdba96384dc2113e7c059f0e242625f5c03e92405e7e0285ab2379fb",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "7773c6acce9208d59eb9744559e29369e55bbeba671fcbdc8f518405730bba7c",
+        "path": "glow/test_runs/provenance/20261016T184827Z_d8d7a219221c_006763da28434cccbc3cd430fccb822b.json",
+        "previous_provenance_hash": "025c7994fdba96384dc2113e7c059f0e242625f5c03e92405e7e0285ab2379fb",
+        "provenance_hash": "bd2abc3cb21c7955455daa6c07da7b40c15e97f2284f910c91294dc67c2599c9",
+        "tests_executed": 93,
+        "tests_failed": 0,
+        "tests_passed": 93,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "c99089279b096bd5a1270bb0f59f52f32ba05958a3ac06dbc96396da99dc78f8",
+        "path": "glow/test_runs/provenance/20261016T190456Z_d8d7a219221c_177e5acf622d4de98b2f6795e15dc4bd.json",
+        "previous_provenance_hash": "bd2abc3cb21c7955455daa6c07da7b40c15e97f2284f910c91294dc67c2599c9",
+        "provenance_hash": "ef01c41bea6cd2dd8fdafa4b6e4d69b1a1a39ec9037356fa11f6353915276b7f",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "dbeca961b04897e760d486b2dfc76ed4cd6573de4bdb6b6a67de74c80a865307",
+        "path": "glow/test_runs/provenance/20261016T190511Z_d8d7a219221c_003f726cb1fb40239d087f29fbdb0597.json",
+        "previous_provenance_hash": "ef01c41bea6cd2dd8fdafa4b6e4d69b1a1a39ec9037356fa11f6353915276b7f",
+        "provenance_hash": "1b3c7e6eebaf15778a63de87daf43fa55625ec0602f3905e55ce317d417b4382",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "d98d30d57b7343e75eec0677c75d6ef4733dc3b603c0d18566db264e25775579",
+        "path": "glow/test_runs/provenance/20261016T190650Z_d8d7a219221c_1f0fa2fd37a248ff967b96814b1703a0.json",
+        "previous_provenance_hash": "1b3c7e6eebaf15778a63de87daf43fa55625ec0602f3905e55ce317d417b4382",
+        "provenance_hash": "550d3a60c48a90018f7d3320d2483bc475f60ec1df3417015ac71c2c6dd737a5",
+        "tests_executed": 93,
+        "tests_failed": 0,
+        "tests_passed": 93,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "b04978e32f364cbf179df6014ebcbb257cad9d008d86581b9bd87cd5ca933e58",
+        "path": "glow/test_runs/provenance/20261016T191946Z_d8d7a219221c_d5a5e6d973254103a74265796dc8e9b5.json",
+        "previous_provenance_hash": "550d3a60c48a90018f7d3320d2483bc475f60ec1df3417015ac71c2c6dd737a5",
+        "provenance_hash": "5f31f3d74113334a0f4d9069dd02fabef6973f331a6dc131bb7b4f545d94486a",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "c10796c4009d51a210b3cd112680ac4eb9a4be5125fc6a70e09e711a2de2ff9c",
+        "path": "glow/test_runs/provenance/20261016T192003Z_d8d7a219221c_c930347f2b8f4e6f966bd50808c99fc7.json",
+        "previous_provenance_hash": "5f31f3d74113334a0f4d9069dd02fabef6973f331a6dc131bb7b4f545d94486a",
+        "provenance_hash": "f6c16ee26ab314f7e916e962ad4741057987009e69547ca4cd4d678eeaa8fbed",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "d645076f05aa32c9fac5c5c33074437eb2f1a7e7e3db844f3989d5bbe9895447",
+        "path": "glow/test_runs/provenance/20261016T192024Z_d8d7a219221c_146d668c6b9e440ea0e3bcbab57148ab.json",
+        "previous_provenance_hash": "f6c16ee26ab314f7e916e962ad4741057987009e69547ca4cd4d678eeaa8fbed",
+        "provenance_hash": "8a2b05dc1225e81158f8093cba0ba239eeaacd8799ab9a8cd8f7d7bf3933c871",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "fb4b185968404cf03380337ff433d695f6a20d703e8747ea78074ef058f3d56d",
+        "path": "glow/test_runs/provenance/20261016T192039Z_d8d7a219221c_61856f32c6114bcd8e33ca256df57a1a.json",
+        "previous_provenance_hash": "8a2b05dc1225e81158f8093cba0ba239eeaacd8799ab9a8cd8f7d7bf3933c871",
+        "provenance_hash": "2cc26e4e823f195303f7cf73f925ce162c35ab5b421b7c6f97f28e6c6395dded",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "628e87040cfd738f0f01aa9bba027c18d928dbab6ea0c90ad7a1d886610439ee",
+        "path": "glow/test_runs/provenance/20261016T192050Z_d8d7a219221c_71dabcf171d540a29cad1e4f737581d8.json",
+        "previous_provenance_hash": "2cc26e4e823f195303f7cf73f925ce162c35ab5b421b7c6f97f28e6c6395dded",
+        "provenance_hash": "b222b8739f503282b46d3acf035cffc1619844c24d0dfe2c45d3a5699cb682ef",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "2c3ebfaad33debf55a253f9df0215bed4bc97805f17d3facc761fd90a451173b",
+        "path": "glow/test_runs/provenance/20261016T192109Z_d8d7a219221c_a6e3ea41d5554f12b8148441d21b9c5e.json",
+        "previous_provenance_hash": "b222b8739f503282b46d3acf035cffc1619844c24d0dfe2c45d3a5699cb682ef",
+        "provenance_hash": "4eee3be7b8b91aaf799a7d8ca15f225540d87b26dd03164a6ba49290884e74a4",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "b2227ee7061584358ad766a751d57a3298f98aced55241d905d6544b120c07f2",
+        "path": "glow/test_runs/provenance/20261016T192248Z_d8d7a219221c_971bf883744b487284a394744bd689af.json",
+        "previous_provenance_hash": "4eee3be7b8b91aaf799a7d8ca15f225540d87b26dd03164a6ba49290884e74a4",
+        "provenance_hash": "9183b3acee049ea5ba711846f9f7142e834258cf9435973cf4f5d9f0cd6e061d",
+        "tests_executed": 93,
+        "tests_failed": 0,
+        "tests_passed": 93,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "8c71258dabafed706049bae0554d91de04af9b7a2b142ab83e1ce02c94ff3ec9",
+        "path": "glow/test_runs/provenance/20261016T192253Z_d8d7a219221c_e095876564f94e26ae268da712876311.json",
+        "previous_provenance_hash": "9183b3acee049ea5ba711846f9f7142e834258cf9435973cf4f5d9f0cd6e061d",
+        "provenance_hash": "c135dcc7010d0d21e24d2883bda052e1dafce5d6af6eb5756edcc226b6351e78",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "3404726df6e68f52cb75f2fdf5f8219a87a48d8c205d2e6b75a8e22617d75d98",
+        "path": "glow/test_runs/provenance/20261016T193410Z_d8d7a219221c_25f9303212cb4f2aa5a9c5536d386622.json",
+        "previous_provenance_hash": "c135dcc7010d0d21e24d2883bda052e1dafce5d6af6eb5756edcc226b6351e78",
+        "provenance_hash": "9f206785f9b58717d73960a36b2b8c9b9a55e0aee9c522572f658bef2253eb07",
+        "tests_executed": 21,
+        "tests_failed": 1,
+        "tests_passed": 20,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "0fb8b9016b0f1683d06c0ce2eda22d0d8bae40d7864949b9a6d04ff7eb0c7fe5",
+        "path": "glow/test_runs/provenance/20261016T193421Z_d8d7a219221c_5f156e9d116d4112add40f80cfae19cd.json",
+        "previous_provenance_hash": "9f206785f9b58717d73960a36b2b8c9b9a55e0aee9c522572f658bef2253eb07",
+        "provenance_hash": "d4ac9ee0a04194b2c934a725fecdda0c8e4c20af867a065c224624d71c1f6724",
+        "tests_executed": 21,
+        "tests_failed": 0,
+        "tests_passed": 21,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "7e2b21e6aa3f6e8a7e9eb17c324ecc84a4d769b42f1727206a22945506ac98fb",
+        "path": "glow/test_runs/provenance/20261016T193820Z_d8d7a219221c_af469222558e454ead0cbafce869369c.json",
+        "previous_provenance_hash": "d4ac9ee0a04194b2c934a725fecdda0c8e4c20af867a065c224624d71c1f6724",
+        "provenance_hash": "6d22be3d5f2d4c7341d2112dcc8386aae2669bbec3c2f5568f9b5681d1ef7820",
+        "tests_executed": 115,
+        "tests_failed": 1,
+        "tests_passed": 114,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "5d200873e828cd1132b27af8e0bc8e7ecc4facbf86703a0c7f0c5b801743cf6f",
+        "path": "glow/test_runs/provenance/20261016T193830Z_d8d7a219221c_3d862dac3080410eae8b1144540b9bf9.json",
+        "previous_provenance_hash": "6d22be3d5f2d4c7341d2112dcc8386aae2669bbec3c2f5568f9b5681d1ef7820",
+        "provenance_hash": "1f2aa60a0701a83ef3fd08433dcdc97a3fb6bf867365084a50ee790568cb77bd",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "1723e592ee2d291b79af23a49e0e21849a8ea334d3bb37cd504ba9f5c3b96779",
+        "path": "glow/test_runs/provenance/20261016T194002Z_d8d7a219221c_a4241124a17f4d3585acecf16b4df450.json",
+        "previous_provenance_hash": "1f2aa60a0701a83ef3fd08433dcdc97a3fb6bf867365084a50ee790568cb77bd",
+        "provenance_hash": "373f49a8bcc83e0c841f2b12e197c550449a2eb629041f7c2beb17be306b6740",
+        "tests_executed": 115,
+        "tests_failed": 0,
+        "tests_passed": 115,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "a4c1147747e65fd57e70c4de5832e3b6ba53f71ee80d02bbf29180d7dba08c07",
+        "path": "glow/test_runs/provenance/20261016T194320Z_d8d7a219221c_0a79a43eb5bb431790278af259d87248.json",
+        "previous_provenance_hash": "373f49a8bcc83e0c841f2b12e197c550449a2eb629041f7c2beb17be306b6740",
+        "provenance_hash": "832abcf0f17e86c4cf347c8ee6f6e8137f01b2a7548d55cd156eaf2d9d1b2322",
+        "tests_executed": 115,
+        "tests_failed": 0,
+        "tests_passed": 115,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "541c790899762b00c164dbf6c404fc539766ab20cf04b33b1381475483bac67c",
+        "path": "glow/test_runs/provenance/20261016T194330Z_d8d7a219221c_fc3aaac1774c41d78462da5c1280c76e.json",
+        "previous_provenance_hash": "832abcf0f17e86c4cf347c8ee6f6e8137f01b2a7548d55cd156eaf2d9d1b2322",
+        "provenance_hash": "762ea4c1b9224837720cff416206ebfea15405ea00f3c741923187e9a6e982cf",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "4f3633400ae0f5949f8032f89f335c3ec0590314327ad9ec418e7f78611bc605",
+        "path": "glow/test_runs/provenance/20261016T200319Z_16cadc3ada34_e01fc15417924e6ab07bf94a4cc435b3.json",
+        "previous_provenance_hash": "762ea4c1b9224837720cff416206ebfea15405ea00f3c741923187e9a6e982cf",
+        "provenance_hash": "03d6ce891b272aaa1ef2bc8adbfd3adafa1b9860b2de1ce6b4b4f6e72ee67189",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "a3c158d0e8842c07bf4790dc5af9dff84c2e8753942b8c4a9b2fa91603869470",
+        "path": "glow/test_runs/provenance/20261016T200350Z_16cadc3ada34_675bfdc202cd45bc94840bd9b1776fef.json",
+        "previous_provenance_hash": "03d6ce891b272aaa1ef2bc8adbfd3adafa1b9860b2de1ce6b4b4f6e72ee67189",
+        "provenance_hash": "b9d4d25cffb790c52e0769c2b586b441c310ec6b55c430c85dfe88a0b3467fb6",
+        "tests_executed": 1,
+        "tests_failed": 1,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "2ffdb72dda25bf2aed181470d9938f3f909defcadb1aa32c460ec16535aa4ffa",
+        "path": "glow/test_runs/provenance/20261016T200401Z_16cadc3ada34_d20e02cbf3fa49488db821420eefaa02.json",
+        "previous_provenance_hash": "b9d4d25cffb790c52e0769c2b586b441c310ec6b55c430c85dfe88a0b3467fb6",
+        "provenance_hash": "075ffdb975a311d1c8d521dcdddcba865517595238e1045856aa0ad90fa2fe7e",
+        "tests_executed": 1,
+        "tests_failed": 0,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "69bfd3aff0e55275e81cc61e2302d00f0a7ef2b8807cf1303a4addbfd0f727e9",
+        "path": "glow/test_runs/provenance/20261016T200411Z_16cadc3ada34_6613e5d818a14e44a137bff7f3ff4431.json",
+        "previous_provenance_hash": "075ffdb975a311d1c8d521dcdddcba865517595238e1045856aa0ad90fa2fe7e",
+        "provenance_hash": "fa2702d8f524273cd183dd797b21c3d1e60c32cea370463873e49478f28f4b9e",
+        "tests_executed": 22,
+        "tests_failed": 0,
+        "tests_passed": 22,
+        "tests_skipped": 1,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "654bbb98b4d7a909d8b8e61c039e8d018b2297ab48badc3a2c7815821052e45d",
+        "path": "glow/test_runs/provenance/20261016T200528Z_16cadc3ada34_ba397ce64ca648e79363382803a8e0b3.json",
+        "previous_provenance_hash": "fa2702d8f524273cd183dd797b21c3d1e60c32cea370463873e49478f28f4b9e",
+        "provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+        "tests_executed": 22,
+        "tests_failed": 0,
+        "tests_passed": 22,
+        "tests_skipped": 1,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "8a077d3fd9dbd8ab9c8a55f94e295e7a0c46a88137d7d887c9a72025545bd8d2",
+        "path": "glow/test_runs/provenance/20261016T201443Z_318b74620951_0540033e68d84231b4fd863b8f86e0e4.json",
+        "previous_provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+        "provenance_hash": "47aa31e1e1c5c24076f06d34d567ba5164440e76f243b8aed17ac58ba030a34b",
+        "tests_executed": 3,
+        "tests_failed": 1,
+        "tests_passed": 2,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "3a7f1e0d15759433fb165e80785cdfed67b596cd4bc1ca4200e184edef917d1f",
+        "path": "glow/test_runs/provenance/20261016T201454Z_318b74620951_f8a5be7306104fa4b119365fdf20132a.json",
+        "previous_provenance_hash": "47aa31e1e1c5c24076f06d34d567ba5164440e76f243b8aed17ac58ba030a34b",
+        "provenance_hash": "d12936cb6444d7580198bf5b70c9ecf75dc91a249a2ef3411eb6de22fbefd8bd",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "3ae7aa78868d3587ab17fb8de672f3b1da2ff4666bf411ba438c8117c8c1589f",
+        "path": "glow/test_runs/provenance/20261016T201501Z_318b74620951_931cf8e1046048dfab87c759e5b0d640.json",
+        "previous_provenance_hash": "d12936cb6444d7580198bf5b70c9ecf75dc91a249a2ef3411eb6de22fbefd8bd",
+        "provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
+        "tests_executed": 22,
+        "tests_failed": 0,
+        "tests_passed": 22,
+        "tests_skipped": 1,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "6bdbe1deafcd67a0921856e6f10b7ccf808642022a637e1733abaa0f569efe10",
+        "path": "glow/test_runs/provenance/20261016T202723Z_7f14f2e0cfdd_a017681d830e4356b2ebf5e405ed10c1.json",
+        "previous_provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
+        "provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "47e4a83543525b18dc56c904ef9e42920e2e15081183d4feef4526ef0fbdc3c1",
+        "path": "glow/test_runs/provenance/20261016T202731Z_7f14f2e0cfdd_e1fbe345073f4314ad9417c196d3fc96.json",
+        "previous_provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+        "provenance_hash": "d2b822030b3fa6dbaf48dde130461ecc56197be559c50e5c0ed535035d3d899f",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "e7f84b008c201eec95377ef980e1399ff42f3832b857185601d514b05548c4db",
+        "path": "glow/test_runs/provenance/20261016T202814Z_7f14f2e0cfdd_fca0cd9e0ac945619ef4343b32da554d.json",
+        "previous_provenance_hash": "d2b822030b3fa6dbaf48dde130461ecc56197be559c50e5c0ed535035d3d899f",
+        "provenance_hash": "2c2eeb68606eeddb6dbbb25bf35178526ac5fcd5dcbf5fcd43d40e1588ce4432",
+        "tests_executed": 27,
+        "tests_failed": 0,
+        "tests_passed": 27,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "fe713995c5dc199f92ad7ea687db0ed5be154654b61d8ac05c26c3132709f6fc",
+        "path": "glow/test_runs/provenance/20261016T204209Z_b633036b50b6_8885bb3eaf6a4be78f2c1f858a53b53b.json",
+        "previous_provenance_hash": "2c2eeb68606eeddb6dbbb25bf35178526ac5fcd5dcbf5fcd43d40e1588ce4432",
+        "provenance_hash": "0c68831cac08212e06e3bd5b0b458020270654f1486ed45b0aab38da924d4379",
+        "tests_executed": 4,
+        "tests_failed": 0,
+        "tests_passed": 4,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "422494459f5651dec1196b21e8f15f347d37a419eaa21059f7eba38d6dd84e98",
+        "path": "glow/test_runs/provenance/20261016T204318Z_b633036b50b6_41008b53acef4df7a336f5832ddf5df0.json",
+        "previous_provenance_hash": "0c68831cac08212e06e3bd5b0b458020270654f1486ed45b0aab38da924d4379",
+        "provenance_hash": "14262adf5ccb175ad8a0ca1f912b586d9be9b542854f8e88703dea4eaaf28a67",
+        "tests_executed": 4,
+        "tests_failed": 0,
+        "tests_passed": 4,
+        "tests_skipped": 1,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "d5dfec9227218d14bd5eca7fc6110d961d1426ab42a0ff287bcbe60e4e9e3900",
+        "path": "glow/test_runs/provenance/20261016T204345Z_b633036b50b6_2aff5085961a4800ad5ed7977dfcb212.json",
+        "previous_provenance_hash": "14262adf5ccb175ad8a0ca1f912b586d9be9b542854f8e88703dea4eaaf28a67",
+        "provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "814a6cfcc64e6a691a5998de09360cb3843367cfd9c44fbef8f107411150b4c3",
+        "path": "glow/test_runs/provenance/20261016T204407Z_b633036b50b6_4a599f8826f64b009dcecd993f1f5d40.json",
+        "previous_provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
+        "provenance_hash": "6f9dcfcdf517d9ead5bcf554f91f176848465c75fe27031b318ade8f315614e9",
+        "tests_executed": 79,
+        "tests_failed": 0,
+        "tests_passed": 79,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "2d3d3515eed5171ea6a6dc43c141cb0f24aea573dfedece0a2dfb3fe2abd40a9",
+        "path": "glow/test_runs/provenance/20261016T205723Z_d9fbac78dad9_c17711a32e954ac1a8cebca0926bf67c.json",
+        "previous_provenance_hash": "6f9dcfcdf517d9ead5bcf554f91f176848465c75fe27031b318ade8f315614e9",
+        "provenance_hash": "c8b679b3bd698fb65e160ac4c1058ba0e60a07fcc1ce142008619c04a6aa4504",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "264ca0ec83b226ae579d8d37bd5daec8c2a302bfab6e0b4e43ddf13a0ac19b67",
+        "path": "glow/test_runs/provenance/20261016T205752Z_d9fbac78dad9_06338244b981493e914be10a381ad093.json",
+        "previous_provenance_hash": "c8b679b3bd698fb65e160ac4c1058ba0e60a07fcc1ce142008619c04a6aa4504",
+        "provenance_hash": "e51bb584df66f7d38d8920dfe37aea5bfd5a5cc9f1c18ea53d58d69ee109a267",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "341a1d73f763b4edbccbcfa35fd6dcbe9b390af09398643d5d25f13c830408c5",
+        "path": "glow/test_runs/provenance/20261016T205805Z_d9fbac78dad9_3a6359f0ead24c87b67d2fb57b18ea5b.json",
+        "previous_provenance_hash": "e51bb584df66f7d38d8920dfe37aea5bfd5a5cc9f1c18ea53d58d69ee109a267",
+        "provenance_hash": "abbf21a9a362d6a7fc243d46bc92c882650ca71161331baa67aaec99926cc38e",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "ae04cbe53787117ac70e628ffe6fab6c3b889194ca173bb1e45c3f11616dd413",
+        "path": "glow/test_runs/provenance/20261016T205817Z_d9fbac78dad9_d91eec007cf6412aa89616d905c30ae2.json",
+        "previous_provenance_hash": "abbf21a9a362d6a7fc243d46bc92c882650ca71161331baa67aaec99926cc38e",
+        "provenance_hash": "68f63d05ee95d927e8bf736eb9ef1ebf53b6f91c71c477cae2aeaab6e86fccdb",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "file_sha256": "452522a9eeed5a416bc1dc7d2b35741c6d7036c85d1743d62e483d51069383e4",
+        "path": "glow/test_runs/provenance/20261016T205833Z_d9fbac78dad9_248d2e553a6648eaa0480a8c4462003f.json",
+        "previous_provenance_hash": "68f63d05ee95d927e8bf736eb9ef1ebf53b6f91c71c477cae2aeaab6e86fccdb",
+        "provenance_hash": "eb7945736a34aa51ba8007738383be3654a878537434bf63622860f8ba51c293",
+        "tests_executed": 3,
+        "tests_failed": 1,
+        "tests_passed": 2,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "48f91438e40aa808b08691c4eca99f6b98694dd4ffe4fe47fe7a81a7ef2f0c98",
+        "path": "glow/test_runs/provenance/20261016T205855Z_d9fbac78dad9_73b062dbbce84f39a04e5041861273f5.json",
+        "previous_provenance_hash": "eb7945736a34aa51ba8007738383be3654a878537434bf63622860f8ba51c293",
+        "provenance_hash": "7e5e6a932ae1eba8191b2306cbe5c1f94712728e783fd5f4e65005d231374886",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "682793e0a287ddee6cff811c8ef73558fb4c0345b821312622667cd7bcfa703f",
+        "path": "glow/test_runs/provenance/20261016T205908Z_d9fbac78dad9_4bc0446e75f04c35a2313df7af470792.json",
+        "previous_provenance_hash": "7e5e6a932ae1eba8191b2306cbe5c1f94712728e783fd5f4e65005d231374886",
+        "provenance_hash": "9d8af7e26cd9f669b960dce7f5df2a86595fc7d3ac533ba4db49692ca6bf4a85",
+        "tests_executed": 80,
+        "tests_failed": 0,
+        "tests_passed": 80,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "f01e57e485ad776d2397659b5b7e41146a838feadef6e9c49423abe961d8d17e",
+        "path": "glow/test_runs/provenance/20261016T210058Z_d9fbac78dad9_9d8152d858b0478884949bee0c9728d5.json",
+        "previous_provenance_hash": "9d8af7e26cd9f669b960dce7f5df2a86595fc7d3ac533ba4db49692ca6bf4a85",
+        "provenance_hash": "ef1f3587626fecc5f4cf33b65b0c649183d5e0611eaa55de57eea2923f97c51e",
+        "tests_executed": 80,
+        "tests_failed": 1,
+        "tests_passed": 79,
+        "tests_skipped": 0,
+        "validation_status": "validation_failed"
+      },
+      {
+        "file_sha256": "98a7397db27d80c7947dd8864325c09d2edbfdcd00932d4238d9f84bfbd63791",
+        "path": "glow/test_runs/provenance/20261016T210115Z_d9fbac78dad9_4435e0a40bf84ec487e62a93a87d12ea.json",
+        "previous_provenance_hash": "ef1f3587626fecc5f4cf33b65b0c649183d5e0611eaa55de57eea2923f97c51e",
+        "provenance_hash": "463515daad0b38cd2ea0ce2ebd4763c4177aabe7a1a89428d6b34b1005274ba0",
+        "tests_executed": 80,
+        "tests_failed": 0,
+        "tests_passed": 80,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "a13ecf695fb0f4ba3a303cfd456b33501d13993f4f6e3f06ee480c36964434bd",
+        "path": "glow/test_runs/provenance/20261016T210431Z_d9fbac78dad9_3bf3454ff8de4e49a87ead0e43b2666e.json",
+        "previous_provenance_hash": "6f9dcfcdf517d9ead5bcf554f91f176848465c75fe27031b318ade8f315614e9",
+        "provenance_hash": "5ef7e6a3251ca427c87fd5231d45f4253021f442eef407af3ccc7f6c8048f498",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "f27fcf2b2ed199733677b5468eee7333af4e4a7d22a3500562a6ab30216609cf",
+        "path": "glow/test_runs/provenance/20261016T210502Z_d9fbac78dad9_ab42a5c7add448d8860fff184892d64d.json",
+        "previous_provenance_hash": "5ef7e6a3251ca427c87fd5231d45f4253021f442eef407af3ccc7f6c8048f498",
+        "provenance_hash": "b95ced96041b9cb55375b1531cb46a29b21d381dd7a7c6667df3d54294b2c20e",
+        "tests_executed": 83,
+        "tests_failed": 0,
+        "tests_passed": 83,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "f27b6076f04d32254c920731db71d59f9433c37c8613834c823d569c41e9b96a",
+        "path": "glow/test_runs/provenance/20261016T210542Z_d9fbac78dad9_43afb6b3b5a342ba807a1b7c74fa02af.json",
+        "previous_provenance_hash": "b95ced96041b9cb55375b1531cb46a29b21d381dd7a7c6667df3d54294b2c20e",
+        "provenance_hash": "3c2a58bc5350c605dc2422b61156aec6226d2c73a098068902db34520e2e34de",
+        "tests_executed": 83,
+        "tests_failed": 0,
+        "tests_passed": 83,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "6ed39a7c71d9e84da58a5b12afeeafd6c5dc4c443ccaa608faa173dc347a1e67",
+        "path": "glow/test_runs/provenance/20261016T210733Z_d9fbac78dad9_4c10a013f360424a88d105b3d1f53f7c.json",
+        "previous_provenance_hash": "3c2a58bc5350c605dc2422b61156aec6226d2c73a098068902db34520e2e34de",
+        "provenance_hash": "75f9a6ff610646d49aab7de8997e9acbe4430e03c983dbead4828fcbc7dae196",
+        "tests_executed": 84,
+        "tests_failed": 0,
+        "tests_passed": 84,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "ad5bd961b7cb51c3876b311d7a78de095cc5b8e72dff92467cded83d0ba1cdbc",
+        "path": "glow/test_runs/provenance/20261016T210806Z_d9fbac78dad9_ed4c9bc5bc724a9ca047748a5b1079e0.json",
+        "previous_provenance_hash": "75f9a6ff610646d49aab7de8997e9acbe4430e03c983dbead4828fcbc7dae196",
+        "provenance_hash": "13aa5699e6c47658d514fb384f81641f0887ec77e49f5af4e7ecc3a5bd21ef34",
+        "tests_executed": 84,
+        "tests_failed": 0,
+        "tests_passed": 84,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "0fcb68aab5419ca37a212e9618985b1649ae505d701185a80dea6532a327900a",
+        "path": "glow/test_runs/provenance/20261016T210931Z_d9fbac78dad9_c500de6c2ee24916ba4cf5cd87ef1992.json",
+        "previous_provenance_hash": "13aa5699e6c47658d514fb384f81641f0887ec77e49f5af4e7ecc3a5bd21ef34",
+        "provenance_hash": "ce0955309ad96c8da38a8fe6b6ff51d371296ab8e4e9033f45161b260f361e43",
+        "tests_executed": 84,
+        "tests_failed": 0,
+        "tests_passed": 84,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "673e8e8113252c19c7b42428bd46623b5d53aa5c309f2a4db0e4759f8aba4942",
+        "path": "glow/test_runs/provenance/20261016T211011Z_d9fbac78dad9_8868c8d42f9842ab92ea42de64dbab64.json",
+        "previous_provenance_hash": "ce0955309ad96c8da38a8fe6b6ff51d371296ab8e4e9033f45161b260f361e43",
+        "provenance_hash": "64ed5d5889b313840a5d041f5f2da4241469aee1c14d168b3fedb464afebb4cd",
+        "tests_executed": 84,
+        "tests_failed": 0,
+        "tests_passed": 84,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "497c6e9f8a16e234b624da90e5fb3feea9632d814bbf90c1086ee21c2839b307",
+        "path": "glow/test_runs/provenance/20261016T211142Z_d9fbac78dad9_7d6a01d1946c40c580fe0838ec9b865a.json",
+        "previous_provenance_hash": "64ed5d5889b313840a5d041f5f2da4241469aee1c14d168b3fedb464afebb4cd",
+        "provenance_hash": "455f7e6b9694884b052af3f8663c3b68028eee47801de278646d45f1999015bf",
+        "tests_executed": 85,
+        "tests_failed": 0,
+        "tests_passed": 85,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": null,
+        "path": "glow/test_runs/provenance/20261016T210333Z_d9fbac78dad9_21f8a0d399e942d7b7b4c65fd95c9ba0.json",
+        "payload_recovered": false,
+        "previous_provenance_hash": null,
+        "provenance_hash": null,
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "bootstrap_failed_record_removed_by_finalizer_cleanup"
+      },
+      {
+        "file_sha256": "7d261cf17585ad47a23acf403ba8024af225047ed1ef2eadf6badfe9a9702e57",
+        "path": "glow/test_runs/provenance/20261016T211359Z_d9fbac78dad9_38c9cd721d9b4dcc8f51bae552966702.json",
+        "previous_provenance_hash": "455f7e6b9694884b052af3f8663c3b68028eee47801de278646d45f1999015bf",
+        "provenance_hash": "6ddf1260b017388659c290b4353ca08530a98d2badc42be40933c5f014796099",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "validation_status": "collection_failed"
+      },
+      {
+        "file_sha256": "349b5670af29fa23bc93c4b799f8160b718c84c4d1c376a1c91c83b6190ef339",
+        "path": "glow/test_runs/provenance/20261016T211414Z_d9fbac78dad9_3876ace2aa6e46ca85afc471933e4e89.json",
+        "previous_provenance_hash": "6ddf1260b017388659c290b4353ca08530a98d2badc42be40933c5f014796099",
+        "provenance_hash": "a71426b7a34ea27cff157781f1c9fd43c46c1a0af1ed4fbaaf112e609f4425a5",
+        "tests_executed": 86,
+        "tests_failed": 0,
+        "tests_passed": 86,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      }
+    ],
+    "append_only_provenance_count": 78,
+    "bootstrap_and_fixture_failures_preserved": [
+      {
+        "provenance_hash": "dba853b2450286e42ff2462d357be19f1a64fe75358c8a544ebe14e996b3c807",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "942634ca116b8f47e2d51af1528851bba09cb039542cc91271a79ee4a0bd54e9",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "1c2da6ac5fff633977b6b152a3506fc91fbbbd6ea88188599acdf1a52faf2ccc",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "ef01c41bea6cd2dd8fdafa4b6e4d69b1a1a39ec9037356fa11f6353915276b7f",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "5f31f3d74113334a0f4d9069dd02fabef6973f331a6dc131bb7b4f545d94486a",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "f6c16ee26ab314f7e916e962ad4741057987009e69547ca4cd4d678eeaa8fbed",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "8a2b05dc1225e81158f8093cba0ba239eeaacd8799ab9a8cd8f7d7bf3933c871",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "2cc26e4e823f195303f7cf73f925ce162c35ab5b421b7c6f97f28e6c6395dded",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "b222b8739f503282b46d3acf035cffc1619844c24d0dfe2c45d3a5699cb682ef",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "9f206785f9b58717d73960a36b2b8c9b9a55e0aee9c522572f658bef2253eb07",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "6d22be3d5f2d4c7341d2112dcc8386aae2669bbec3c2f5568f9b5681d1ef7820",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "03d6ce891b272aaa1ef2bc8adbfd3adafa1b9860b2de1ce6b4b4f6e72ee67189",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "b9d4d25cffb790c52e0769c2b586b441c310ec6b55c430c85dfe88a0b3467fb6",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "47aa31e1e1c5c24076f06d34d567ba5164440e76f243b8aed17ac58ba030a34b",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "c8b679b3bd698fb65e160ac4c1058ba0e60a07fcc1ce142008619c04a6aa4504",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "e51bb584df66f7d38d8920dfe37aea5bfd5a5cc9f1c18ea53d58d69ee109a267",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "abbf21a9a362d6a7fc243d46bc92c882650ca71161331baa67aaec99926cc38e",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "68f63d05ee95d927e8bf736eb9ef1ebf53b6f91c71c477cae2aeaab6e86fccdb",
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "provenance_hash": "eb7945736a34aa51ba8007738383be3654a878537434bf63622860f8ba51c293",
+        "validation_status": "validation_failed"
+      },
+      {
+        "provenance_hash": "ef1f3587626fecc5f4cf33b65b0c649183d5e0611eaa55de57eea2923f97c51e",
+        "validation_status": "validation_failed"
+      }
+    ],
+    "compileall": "passed",
+    "construction_custody_segments_verified_before_increment": 285,
+    "custody_after_refresh": "passed: 286 segments",
+    "diff_check": "passed",
+    "exact_source_hosted_verification": "pending",
+    "exploratory_source": "exploratory_worktree_based_on_d9fbac78dad9187065fcdeaf112bf641cf3508ea",
+    "finalizer_attempts": [
+      {
+        "artifact": "/tmp/seq286-precommit.json",
+        "failures": [
+          "focused test bootstrap offline",
+          "Mypy baseline toolchain unavailable in isolated environment",
+          "strict audits Administrator required",
+          "immutability Administrator required",
+          "untracked evidence undeclared"
+        ],
+        "status": "repair_required_task_caused"
+      },
+      {
+        "artifact": "/tmp/seq286-precommit-rerun.json",
+        "failures": [
+          "strict audits Administrator required",
+          "immutability Administrator required",
+          "new run output appeared after dirty-path snapshot"
+        ],
+        "status": "repair_required_task_caused"
+      },
+      {
+        "artifact": "/tmp/seq286-precommit-final.json",
+        "failures": [
+          "strict audits Administrator required",
+          "immutability Administrator required"
+        ],
+        "status": "repair_required_task_caused"
+      },
+      {
+        "artifact": "/tmp/seq286-precommit-verified-env.json",
+        "failures": [
+          "strict audits Administrator required",
+          "immutability Administrator required"
+        ],
+        "status": "repair_required_task_caused"
+      }
+    ],
+    "finalizer_cleanup_regression": "passed: cleanup preserves both exact provenance entries and the provenance directory path",
+    "finalizer_precommit_result": {
+      "append_only_cleanup": "preserved during finalizer cleanup",
+      "focused_tests": "passed: 85/85 before the Required Quality Gate branch-trigger regression was added",
+      "mypy_baseline": "mypy_baseline_improved; new_errors=0",
+      "note": "The explicit construction-mode exception is used for this bounded checkpoint; commit marked untested pending exact-source hosted workflows.",
+      "prompt_boundary": "passed",
+      "reasons": [
+        "stage_failed:strict_audits",
+        "stage_failed:audit_immutability"
+      ],
+      "status": "repair_required_task_caused",
+      "targeted_mypy": "passed: 4 source files"
+    },
+    "latest_collection_failure_preserved": {
+      "cause": "incorrectly quoted assertion in new Required Quality Gate trigger regression; corrected before successful 86/86 rerun",
+      "path": "glow/test_runs/provenance/20261016T211359Z_d9fbac78dad9_38c9cd721d9b4dcc8f51bae552966702.json",
+      "validation_status": "collection_failed"
+    },
+    "latest_failed_rerun_preserved": "ef1f3587626fecc5f4cf33b65b0c649183d5e0611eaa55de57eea2923f97c51e",
+    "required_quality_gate_candidate_push": {
+      "branch_pattern": "codex/construct-sentientos*",
+      "checks_preserved": [
+        "sudo -n id -u == 0",
+        "run_privileged_audit_verification.py --expected-sha \"$GITHUB_SHA\"",
+        "strict audits and audit immutability must both pass",
+        "exact-source artifacts retained"
+      ],
+      "hosted_candidate_result": "pending",
+      "workflow": ".github/workflows/required-quality-gate.yml"
+    },
+    "spoof_regression": "adverse proposition context cannot set reserved position_posture to positive",
+    "successful_command": "python -m scripts.run_tests -- -m \"legacy or no_legacy_skip\" -q sentientos/tests/test_epistemic_planning.py sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_work_plan_cli.py sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_plan_only.py tests/test_persistent_epistemic_state.py tests/test_github_hosted_acceptance_workflows.py tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file",
+    "summary_sha256": "349b5670af29fa23bc93c4b799f8160b718c84c4d1c376a1c91c83b6190ef339",
+    "targeted_mypy": "passed: mypy --config-file pyproject.toml scripts/codex_finalize_landing.py sentientos/epistemic_planning.py sentientos/tests/test_epistemic_planning.py sentientos/tests/test_orchestrator_plan_only.py",
+    "tests_executed": 86,
+    "tests_failed": 0,
+    "tests_passed": 86,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Carry scoped positive and adverse position identities through allocation results and follow-on plan outcomes without treating prior support as proof that an unexecuted plan succeeded; retain deterministic ordering and exact model/state/event/evidence scope.",
+  "predecessor_segment_sha256": "0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea",
+  "segment_path": "work/construction/segments/0286-positive-position-model-applicability.md",
+  "segment_sha256": "376ca13180b68a58619371505c33ca1351c975d0c1c86a72083ff7c65e138444",
+  "sequence": 286,
+  "sequence_285_merge_closure": {
+    "candidate_commit": "f0d90f73879d936464e928c4f9d8f720fc44566e",
+    "candidate_merge_parents": [
+      "b633036b50b6cd3a01dd22aa179d685da9496634",
+      "f0d90f73879d936464e928c4f9d8f720fc44566e"
+    ],
+    "candidate_merge_ref": "e445aecf02ddb5413eda65d1abc241ca33c4391c",
+    "candidate_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a",
+    "candidate_workflows": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 38964738768
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 38964738478
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 38964738456
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 38964738635
+      },
+      "invariant_tests": {
+        "conclusion": "success",
+        "run_id": 38964738529
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 38964738392
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 38964738781
+      },
+      "required_quality_gate": {
+        "artifact_contents_independently_read_back": false,
+        "artifact_digest_matches_runner_upload_log": true,
+        "artifact_id": 12073359917,
+        "artifact_sha256": "09b98a458e91c0a65ae5d397ea65426b25fd04d669657b3e435fd1f7e4638c84",
+        "conclusion": "success",
+        "download_attempt_result": "HTTP 403 from temporary artifact download URL",
+        "effective_uid": 0,
+        "run_id": 38964739395,
+        "source_sha": "e445aecf02ddb5413eda65d1abc241ca33c4391c",
+        "source_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a",
+        "strict_audit_and_immutability_wrapper": "passed"
+      }
+    },
+    "history_preserved": true,
+    "merge_commit": "d9fbac78dad9187065fcdeaf112bf641cf3508ea",
+    "merge_parents": [
+      "b633036b50b6cd3a01dd22aa179d685da9496634",
+      "f0d90f73879d936464e928c4f9d8f720fc44566e"
+    ],
+    "merge_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a",
+    "post_merge_workflows": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 38965484224
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 38965484170
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 38965484171
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 38965484336
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_workflow_policy",
+        "run_id": 38965484270
+      },
+      "invariant_tests": {
+        "conclusion": "success",
+        "run_id": 38965484029
+      },
+      "required_quality_gate": {
+        "artifact_contents_independently_read_back": false,
+        "artifact_digest_matches_runner_upload_log": true,
+        "artifact_id": 12074935695,
+        "artifact_sha256": "e7c5474cf3ee4254da1362883f8234172233324822f716ccff374fcbe4ebd828",
+        "conclusion": "success",
+        "download_attempt_result": "HTTP 403 from temporary artifact download URL",
+        "effective_uid": 0,
+        "run_id": 38965484174,
+        "source_sha": "d9fbac78dad9187065fcdeaf112bf641cf3508ea",
+        "source_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a",
+        "strict_audit_and_immutability_wrapper": "passed"
+      }
+    },
+    "pull_request": 2276
+  },
+  "source_commit": "d9fbac78dad9187065fcdeaf112bf641cf3508ea",
+  "source_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a",
+  "title": "Keep positive model-bound history inside canonical applicability checks"
+}

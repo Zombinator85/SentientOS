@@ -3,6 +3,7 @@
   "allow_nonexecution": false,
   "behavioral_witness_count": 0,
   "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence": 0,
     "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability": 0,
     "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted": 0,
     "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_risk_budget_omissions": 0,
@@ -43,6 +44,11 @@
     "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity": 0,
     "sentientos/tests/test_work_plan_execution_journal.py::test_legacy_v1_started_journal_remains_explicitly_unknown": 0,
     "sentientos/tests/test_work_plan_execution_journal.py::test_terminal_task_result_is_recovered_with_original_artifacts_and_times": 0,
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file": 0,
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup": 0,
@@ -60,6 +66,7 @@
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence": 0,
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap": 0,
@@ -94,7 +101,7 @@
   },
   "budget_violations": [],
   "bypass_env": false,
-  "call_phase_outcome_count": 79,
+  "call_phase_outcome_count": 86,
   "canonical_requirements_path": "requirements-codex.txt",
   "collection_completed": true,
   "collection_error": false,
@@ -103,15 +110,25 @@
   "editable_reason": "direct-url",
   "execution_mode": "execute",
   "full_capability_dependencies_requested": false,
-  "git_sha": "b633036b50b6cd3a01dd22aa179d685da9496634",
+  "git_sha": "d9fbac78dad9187065fcdeaf112bf641cf3508ea",
   "hash_algo": "sha256",
   "install_attempted_modes": [],
   "install_fallback_reason": null,
   "install_mode": "none",
   "install_performed": false,
-  "junitxml_path": "/workspace/SentientOS-main-7f14f2e0/glow/test_runs/pytest_junitxml_cfe47eb0bec9432aad91bd8399188dad.xml",
+  "junitxml_path": "/workspace/SentientOS-seq286/glow/test_runs/pytest_junitxml_0781232008fa4ad3a57574c063f3289c.xml",
   "metrics_status": "ok",
   "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
     {
       "node_id": "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
       "outcome": "passed",
@@ -308,11 +325,6 @@
       "phase": "call"
     },
     {
-      "node_id": "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
       "node_id": "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails",
       "outcome": "passed",
       "phase": "call"
@@ -418,6 +430,11 @@
       "phase": "call"
     },
     {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
       "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique",
       "outcome": "passed",
       "phase": "call"
@@ -506,36 +523,68 @@
       "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode",
       "outcome": "passed",
       "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file",
+      "outcome": "passed",
+      "phase": "call"
     }
   ],
   "non_execution_flags": [],
-  "prev_provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
-  "provenance_hash": "6f9dcfcdf517d9ead5bcf554f91f176848465c75fe27031b318ade8f315614e9",
+  "prev_provenance_hash": "6ddf1260b017388659c290b4353ca08530a98d2badc42be40933c5f014796099",
+  "provenance_hash": "a71426b7a34ea27cff157781f1c9fd43c46c1a0af1ed4fbaaf112e609f4425a5",
   "pytest_args": [
     "-m",
     "legacy or no_legacy_skip",
     "-q",
+    "sentientos/tests/test_epistemic_planning.py",
     "sentientos/tests/test_work_plan_evidence_bounds.py",
     "sentientos/tests/test_work_plan_cli.py",
     "sentientos/tests/test_goal_executor_plan.py",
     "sentientos/tests/test_goal_executor_run.py",
     "sentientos/tests/test_work_plan_execution_journal.py",
     "sentientos/tests/test_orchestrator_plan_only.py",
-    "sentientos/tests/test_epistemic_planning.py",
     "tests/test_persistent_epistemic_state.py",
-    "tests/test_github_hosted_acceptance_workflows.py"
+    "tests/test_github_hosted_acceptance_workflows.py",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file"
   ],
   "pytest_exit_code": 0,
-  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
-  "repo_root": "/workspace/SentientOS-main-7f14f2e0",
+  "python": "/tmp/sentientos-seq286-test/bin/python",
+  "repo_root": "/workspace/SentientOS-seq286",
   "reporter_error": null,
   "reporter_loaded": true,
   "reporter_ok": true,
   "reporter_status": "complete",
-  "run_id": "8db2b1fe333c40638718e53782c85f57",
+  "run_id": "5fb979d379c445c3b46e4b5b74634500",
   "run_intent": "targeted",
   "schema_version": 1,
   "selected_node_ids": [
+    "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
+    "sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence",
     "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
     "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed",
     "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
@@ -575,7 +624,6 @@
     "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
     "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
     "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
-    "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
     "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails",
     "tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper",
     "tests/test_persistent_epistemic_state.py::test_refinement_preserves_old_evidence_and_temporal_firewall",
@@ -597,6 +645,7 @@
     "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup",
     "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing",
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes",
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique",
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap",
     "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke",
@@ -614,31 +663,41 @@
     "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts",
     "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes",
     "tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance",
-    "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode"
+    "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file"
   ],
   "selection_flags": [
     "-m",
+    "sentientos/tests/test_epistemic_planning.py",
     "sentientos/tests/test_work_plan_evidence_bounds.py",
     "sentientos/tests/test_work_plan_cli.py",
     "sentientos/tests/test_goal_executor_plan.py",
     "sentientos/tests/test_goal_executor_run.py",
     "sentientos/tests/test_work_plan_execution_journal.py",
     "sentientos/tests/test_orchestrator_plan_only.py",
-    "sentientos/tests/test_epistemic_planning.py",
     "tests/test_persistent_epistemic_state.py",
-    "tests/test_github_hosted_acceptance_workflows.py"
+    "tests/test_github_hosted_acceptance_workflows.py",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file"
   ],
   "session_finish_reached": true,
   "skip_rate": 0.0,
-  "tests_collected": 79,
-  "tests_executed": 79,
+  "tests_collected": 86,
+  "tests_executed": 86,
   "tests_failed": 0,
-  "tests_passed": 79,
-  "tests_selected": 79,
+  "tests_passed": 86,
+  "tests_selected": 86,
   "tests_skipped": 0,
   "tests_xfailed": 0,
   "tests_xpassed": 0,
-  "timestamp": "2026-10-16T20:44:07.707266+00:00",
+  "timestamp": "2026-10-16T21:14:14.471171+00:00",
   "validation_complete": true,
   "validation_status": "validation_complete",
   "xfail_rate": 0.0
