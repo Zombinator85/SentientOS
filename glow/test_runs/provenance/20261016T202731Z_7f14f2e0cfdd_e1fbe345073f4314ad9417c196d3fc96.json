@@ -1,0 +1,108 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest": 0,
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts": 0,
+    "tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks": 0,
+    "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout": 0,
+    "tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 5,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "7f14f2e0cfddbf0edd995d7286c395543da583f0",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-main-7f14f2e0/glow/test_runs/pytest_junitxml_6e80b94c45d643d5977802d61e050d06.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+  "provenance_hash": "d2b822030b3fa6dbaf48dde130461ecc56197be559c50e5c0ed535035d3d899f",
+  "pytest_args": [
+    "tests/test_privileged_audit_verification.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-main-7f14f2e0",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "cdb2c7a82fb94c7da912f4328eb70ef0",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks",
+    "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
+    "tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence",
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts",
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest"
+  ],
+  "selection_flags": [
+    "tests/test_privileged_audit_verification.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 5,
+  "tests_executed": 5,
+  "tests_failed": 0,
+  "tests_passed": 5,
+  "tests_selected": 5,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T20:27:31.728915+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

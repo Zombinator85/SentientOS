@@ -27,6 +27,8 @@ RESULT_FILES = (
     "glow/contracts/final_strict_audit_digest.json",
     "glow/contracts/strict_audit_status.json",
     "glow/contracts/strict_audit_breakdown.json",
+    "glow/contracts/strict_audit_recovery_links.json",
+    "glow/contracts/strict_audit_manifest.json",
 )
 
 
@@ -65,6 +67,70 @@ def _result_digests(root: Path) -> dict[str, str | None]:
     return results
 
 
+def _load_result(root: Path, relative: str) -> dict[str, Any] | None:
+    path = root / relative
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _stable_json_digest(payload: object) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _validate_audit_results(root: Path) -> dict[str, Any]:
+    """Require successful audit receipts and a self-consistent strict-audit bundle."""
+    errors: list[str] = []
+    verify = _load_result(root, "glow/audits/verify_audits_result.json")
+    immutability = _load_result(root, "glow/audits/audit_immutability_result.json")
+    if verify is None or verify.get("tool") != "verify_audits" or verify.get("ok") is not True:
+        errors.append("strict_audit_result_missing_or_not_ok")
+    if (immutability is None
+            or immutability.get("tool") != "audit_immutability_verifier"
+            or immutability.get("ok") is not True):
+        errors.append("immutability_result_missing_or_not_ok")
+
+    status = _load_result(root, "glow/contracts/strict_audit_status.json")
+    breakdown = _load_result(root, "glow/contracts/strict_audit_breakdown.json")
+    recovery = _load_result(root, "glow/contracts/strict_audit_recovery_links.json")
+    manifest = _load_result(root, "glow/contracts/strict_audit_manifest.json")
+    final_digest = _load_result(root, "glow/contracts/final_strict_audit_digest.json")
+    if status is None or status.get("blocking") is not False:
+        errors.append("strict_audit_status_missing_or_blocking")
+    if breakdown is None:
+        errors.append("strict_audit_breakdown_missing_or_invalid")
+    if recovery is None or manifest is None:
+        errors.append("strict_audit_custody_evidence_missing_or_invalid")
+    if final_digest is None:
+        errors.append("strict_audit_digest_missing_or_invalid")
+    elif all(item is not None for item in (status, breakdown, recovery, manifest)):
+        expected = {
+            "strict_audit_status_digest": _stable_json_digest(status),
+            "strict_audit_breakdown_digest": _stable_json_digest(breakdown),
+            "strict_audit_recovery_links_digest": _stable_json_digest(recovery),
+            "strict_audit_manifest_digest": _stable_json_digest(manifest),
+        }
+        if any(final_digest.get(key) != value for key, value in expected.items()):
+            errors.append("strict_audit_evidence_digest_mismatch")
+        digest_identity = dict(final_digest)
+        claimed_digest = digest_identity.pop("strict_audit_digest", None)
+        if claimed_digest != _stable_json_digest(digest_identity):
+            errors.append("strict_audit_final_digest_mismatch")
+
+    return {
+        "valid": not errors,
+        "errors": errors,
+        "strict_audit_ok": verify is not None and verify.get("ok") is True,
+        "immutability_ok": immutability is not None and immutability.get("ok") is True,
+        "strict_audit_nonblocking": status is not None and status.get("blocking") is False,
+    }
+
+
 def _command_record(command: list[str], root: Path) -> dict[str, Any]:
     completed = subprocess.run(
         command, cwd=root, capture_output=True, text=True, check=False,
@@ -90,8 +156,8 @@ def run_verification(root: Path, *, expected_sha: str, output: Path) -> dict[str
     tree = _git(root, "rev-parse", "HEAD^{tree}")
     if head != expected_sha:
         raise RuntimeError("verification_head_does_not_match_expected_sha")
-    if _git(root, "status", "--porcelain", "--untracked-files=no"):
-        raise RuntimeError("verification_checkout_has_tracked_changes")
+    if _git(root, "status", "--porcelain", "--untracked-files=all"):
+        raise RuntimeError("verification_checkout_is_not_clean")
     source_before = _source_digests(root)
 
     commands = [
@@ -104,7 +170,11 @@ def run_verification(root: Path, *, expected_sha: str, output: Path) -> dict[str
     final_tree = _git(root, "rev-parse", "HEAD^{tree}")
     source_unchanged = source_before == source_after
     identity_unchanged = head == final_head and tree == final_tree
-    checks_passed = all(item["exit_code"] == 0 for item in command_results)
+    result_validation = _validate_audit_results(root)
+    checks_passed = (
+        all(item["exit_code"] == 0 for item in command_results)
+        and result_validation["valid"]
+    )
     report: dict[str, Any] = {
         "schema_version": 1,
         "tool": "privileged_audit_verification",
@@ -118,6 +188,7 @@ def run_verification(root: Path, *, expected_sha: str, output: Path) -> dict[str
         "source_unchanged": source_unchanged,
         "repository_identity_unchanged": identity_unchanged,
         "commands": command_results,
+        "audit_result_validation": result_validation,
         "result_artifact_sha256": _result_digests(root),
     }
     output_path = output if output.is_absolute() else root / output
