@@ -26,6 +26,7 @@ from sentientos.policy_fingerprint import emit_policy_fingerprint
 from sentientos.goal_graph import GOAL_GRAPH_PATH, GoalGraph, goal_graph_hash, load_goal_graph
 from sentientos.goal_graph import load_goal_state, persist_goal_state
 from sentientos.goal_planner import ExecutorState, GoalPlanner
+from sentientos.goal_completion import CompletionContext, eval_check
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
@@ -1061,6 +1062,19 @@ def _plan_goal_work(
 ) -> GoalPlanningResult:
     """Compose allocation and durable plan artifacts; this helper never executes."""
     graph_digest = goal_graph_hash(graph)
+    verified_completion_evidence: dict[str, dict[str, object]] = {}
+    for goal in graph.goals:
+        completion = eval_check(goal.completion_check_name, CompletionContext(
+            repo_root=root, goal_id=goal.goal_id, operating_mode=operating_mode,
+            pressure_level=pressure_level, posture=posture,
+            quarantine_active=quarantine_active, risk_budget_summary=budget.to_dict(),
+        ))
+        if completion.done:
+            verified_completion_evidence[goal.goal_id] = {
+                "check_name": completion.check_name,
+                "evidence_digest": completion.evidence_digest,
+                "evidence_paths": list(completion.evidence_paths),
+            }
     target_identity_digest = _observe_target_model_identity_digest(
         target_model_identity_observer)
     target_identity_observed_at = (
@@ -1072,6 +1086,7 @@ def _plan_goal_work(
         target_active_model_identity_digest=target_identity_digest,
         target_identity_observed_at=target_identity_observed_at,
         planning_time=planning_time,
+        verified_completion_evidence=verified_completion_evidence,
     )
     allocation_path = _emit_goal_allocation_artifact(
         root=root, generated_at=planning_time, operating_mode=operating_mode,
@@ -1088,7 +1103,9 @@ def _plan_goal_work(
             after={
                 "selected_goals": list(allocation.selected),
                 "deferred_goals": [{"goal_id": item.goal_id,
-                    "reason": item.reason} for item in allocation.deferred],
+                    "reason": item.reason,
+                    "completion_evidence": item.completion_evidence}
+                    for item in allocation.deferred],
                 "budget_summary": allocation.budget_summary,
                 "target_active_model_identity_digest": target_identity_digest,
                 "target_identity_observed_at": target_identity_observed_at,
@@ -1164,7 +1181,8 @@ def _emit_goal_allocation_artifact(
         "goal_graph_hash": goal_graph_hash_value,
         "selected_goals": list(allocation.selected),
         "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason,
-            "epistemic_positions": list(item.epistemic_positions)}
+            "epistemic_positions": list(item.epistemic_positions),
+            "completion_evidence": item.completion_evidence}
             for item in allocation.deferred],
         "selection_reasons": list(allocation.selected_reasons),
         "budget_summary": allocation.budget_summary,

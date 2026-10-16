@@ -15,6 +15,7 @@ class DeferredGoal:
     goal_id: str
     reason: str
     epistemic_positions: tuple[dict[str, object], ...] = ()
+    completion_evidence: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ def allocate_goals(
     target_active_model_identity_digest: str | None = None,
     target_identity_observed_at: str | None = None,
     planning_time: str | None = None,
+    verified_completion_evidence: Mapping[str, dict[str, object]] | None = None,
 ) -> AllocationDecision:
     selected: list[str] = []
     selected_reasons: list[dict[str, object]] = []
@@ -49,6 +51,8 @@ def allocate_goals(
     spent_risk = 0
     spent_throughput = 0
     all_goal_ids = {goal.goal_id for goal in graph.goals}
+    completed_evidence = dict(verified_completion_evidence or {})
+    verified_completed_ids = set(completed_evidence)
     projection_digest: str | None = None
     review_scopes: dict[str, dict[str, object]] = {}
     if prior_epistemic_projection is not None:
@@ -57,11 +61,17 @@ def allocate_goals(
 
     for goal in order_goals_deterministic(graph.goals):
         positions = _epistemic_positions_for_goal(goal, review_scopes)
+        completion_evidence = completed_evidence.get(goal.goal_id)
+        if completion_evidence is not None:
+            deferred.append(DeferredGoal(goal_id=goal.goal_id,
+                reason="verified_completion", epistemic_positions=positions,
+                completion_evidence=dict(completion_evidence)))
+            continue
         if not goal.enabled:
             deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="disabled",
                 epistemic_positions=positions))
             continue
-        if dependency_unmet(goal, set(selected), all_goal_ids):
+        if dependency_unmet(goal, set(selected) | verified_completed_ids, all_goal_ids):
             deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="dependency_unmet",
                 epistemic_positions=positions))
             continue
@@ -108,6 +118,12 @@ def allocate_goals(
         if projection_digest is not None:
             reason["epistemic_projection_digest"] = projection_digest
             reason["epistemic_positions"] = list(positions)
+        verified_dependencies = [
+            {"goal_id": dependency, **completed_evidence[dependency]}
+            for dependency in goal.dependencies if dependency in completed_evidence
+        ]
+        if verified_dependencies:
+            reason["verified_completed_dependencies"] = verified_dependencies
         selected_reasons.append(reason)
 
     return AllocationDecision(

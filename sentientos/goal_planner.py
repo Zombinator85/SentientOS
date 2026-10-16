@@ -160,7 +160,8 @@ class GoalPlanner:
                     for tag in goal.tags)},
             "omissions": [item.to_dict() for item in omissions],
             "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason,
-                "epistemic_positions": list(item.epistemic_positions)}
+                "epistemic_positions": list(item.epistemic_positions),
+                "completion_evidence": item.completion_evidence}
                 for item in allocation.deferred],
             "selected_reasons": list(allocation.selected_reasons),
             "prior_run_digest": next((part.split("=", 1)[1] for part in context_parts

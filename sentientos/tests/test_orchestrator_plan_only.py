@@ -11,16 +11,19 @@ from types import SimpleNamespace
 import pytest
 
 from sentientos.control_plane_kernel import ControlPlaneKernel
-from sentientos.goal_executor import GoalExecutor, GoalPlanner
-from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
+from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.goal_executor import ExecutorState, GoalExecutor, GoalPlanner
+from sentientos.goal_graph import Goal, GoalGraph, goal_graph_hash, persist_goal_graph
 from sentientos.orchestrator import (GoalPlanningResult,
-    _emit_goal_allocation_artifact, plan_goals)
+    _emit_goal_allocation_artifact, _plan_goal_work, plan_goals)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition)
 from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
-    WorkPlan, persist_work_plan_evidence)
+    TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
+    persist_work_plan_evidence, persist_work_run, work_run_id)
+from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -80,6 +83,73 @@ def test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwri
     assert artifact.read_bytes() == original
 
 
+def test_reconstructed_completion_changes_next_canonical_allocation(
+    tmp_path: Path,
+) -> None:
+    completed_goal = Goal("completed", "done", 1.0, 2, (),
+        "check_forge_last_run_ok", 1, 1, ("integrity",), True)
+    prior_graph = GoalGraph(schema_version=1, goals=(completed_goal,))
+    prior_time = "2026-10-16T08:00:00Z"
+    prior_allocation = AllocationDecision(selected=("completed",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    budget = RiskBudget(router_k_max=8, router_m_max=8, forge_max_files_changed=0)
+    prior_state = ExecutorState(repo_root=tmp_path, created_at=prior_time,
+        context="orchestrator_tick", operating_mode="normal",
+        quarantine_active=False, allow_mutation=False,
+        goal_graph_hash=goal_graph_hash(prior_graph), allocation_id="allocation_prior",
+        risk_budget=budget)
+    prior_draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        prior_allocation, prior_state, prior_graph)
+    prior_plan = prior_draft.work_plan
+    prior_plan_path = persist_work_plan(tmp_path, prior_plan)
+    _, prior_evidence_digest = persist_work_plan_evidence(
+        tmp_path, prior_plan, dict(prior_draft.evidence_binding))
+    prior_run_id = work_run_id(prior_plan, created_at=prior_plan.created_at)
+    prior_task_runs = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+        "success", None, prior_time, prior_time, 0, (), task.destructive)
+        for task in prior_plan.tasks)
+    prior_run = WorkPlanRun(schema_version=3, run_id=prior_run_id,
+        plan_id=prior_plan.plan_id, created_at=prior_time, status="ok",
+        operating_mode="normal", quarantine_active=False,
+        task_runs=prior_task_runs, reason_stack=(),
+        plan_digest=prior_plan.identity_digest(),
+        evidence_digest=prior_evidence_digest)
+    prior_run_path = persist_work_run(tmp_path, prior_run)
+    append_catalog_entry(tmp_path, kind="work_plan", artifact_id=prior_plan.plan_id,
+        relative_path=prior_plan_path, schema_name="work_plan", schema_version=1,
+        links={"work_plan_id": prior_plan.plan_id}, summary={"status": "persisted"})
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=prior_run_id,
+        relative_path=prior_run_path, schema_name="", schema_version=3,
+        links={"work_run_id": prior_run_id, "goal_ids": ["completed"]},
+        summary={"status": "ok"})
+
+    dependent_goal = Goal("dependent", "next", 1.0, 1, ("completed",),
+        "unrecognized_check", 1, 1, ("integrity",), True)
+    graph = GoalGraph(schema_version=1, goals=(completed_goal, dependent_goal))
+    result = _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+        operating_mode="normal", pressure_level=0, quarantine_active=False,
+        posture="balanced", mutation_allowed=False,
+        prior_epistemic_projection=None, target_model_identity_observer=None,
+        planning_time="2026-10-16T09:00:00Z",
+        catalog_timestamp="2026-10-16T09:00:00Z", context="orchestrator_tick")
+
+    assert result.allocation.selected == ("dependent",)
+    completed = next(item for item in result.allocation.deferred
+        if item.goal_id == "completed")
+    assert completed.reason == "verified_completion"
+    assert completed.completion_evidence == {
+        "check_name": "check_forge_last_run_ok",
+        "evidence_digest": prior_evidence_digest,
+        "evidence_paths": [prior_run_path],
+    }
+    assert result.work_plan is not None
+    evidence = load_work_plan_evidence(tmp_path, result.work_plan)
+    binding = evidence["evidence_binding"]
+    assert isinstance(binding, dict)
+    assert binding["deferred_goals"][0]["completion_evidence"] == completed.completion_evidence
+    assert binding["selected_reasons"][0]["verified_completed_dependencies"] == [
+        {"goal_id": "completed", **completed.completion_evidence}
+    ]
 def test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution(
     tmp_path: Path, monkeypatch,
 ) -> None:
