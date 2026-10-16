@@ -10,6 +10,7 @@ env:
   SENTIENTOS_HEADLESS: "1"
   SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docker-governor
   SENTIENTOS_FEDERATION_ROOT: .ci-runtime/docker-federation
+  SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-docker-audit-runtime
   SENTIENTOS_CI_MIN_PASSED: "1"
   SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
   SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
