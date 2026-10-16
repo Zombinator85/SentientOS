@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 271 fixes a CI-detected privilege-banner issue and isolates the canonical planning test from host `/glow` state. Sequence 270's required hosted root gate passed both strict audits at UID 0 on the exact candidate tree. Sequence 271's hosted rerun is pending publication.
+Sequence 272 replaces the hand-written test banner with the exact repository constant. The canonical planning test is isolated from host-global governance paths. Sequence 271's hosted root gate passed at UID 0 on tree `0ecb531de79f37aae39a9f369e5f90cb8557cd72`; its lint failure and the source correction are retained as separate append-only evidence. Sequence 272 hosted checks are pending.
 
-Latest source commit: `504065c1fefe3e6020281aa30cc97e23f449891c`
-Latest source tree: `bc378a8eedb8c716a985b228421a8d10e62cc00a`
-Latest segment: work/construction/segments/0271-isolated-planning-test-governance.md
-Latest segment SHA-256: `f44891e5d697d4c0a45e80e5db6add777a0beba2c81cdb0825c40a68839a7596`
-Evidence: work/construction/evidence/0271-isolated-planning-test-governance.json
+Latest source commit: `4758d5a0da3cda802eeb9de055a95d81ce9293bf`
+Latest source tree: `0ecb531de79f37aae39a9f369e5f90cb8557cd72`
+Latest segment: work/construction/segments/0272-canonical-banner-lint-repair.md
+Latest segment SHA-256: `9c6600cd8eddbac44907722d726216fda365f1020cc58e2ee0f83ed34a44362f`
+Evidence: work/construction/evidence/0272-canonical-banner-lint-repair.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 271
+Sequence: 272
 
-Validation: 135 focused regression tests and all 17 exact acceptance nodes passed. The privilege linter, compilation, and targeted CLI mypy passed.
+Validation: the focused suite passed 135/135, the exact acceptance nodes passed 17/17, and targeted lint, compileall, diff, and mypy checks passed.
 
-Next: publish the repair, verify every hosted check, and append the exact hosted source/audit identities before continuing construction.
+Next: publish and verify sequence 272 with the required hosted root audit and all CI checks; then append exact publication and verification identities before continuing the next developmental dependency.
