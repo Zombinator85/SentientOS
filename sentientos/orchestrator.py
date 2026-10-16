@@ -47,6 +47,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.work_plan import (WorkPlan, WorkPlanError, load_work_plan,
     load_work_plan_evidence, load_work_run, persist_work_plan,
     persist_work_plan_evidence, persist_work_run)
+from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 from sentientos.strategic_adaptation import (
     apply_requires_stable,
     auto_propose_enabled,
@@ -1264,6 +1265,20 @@ def _latest_verified_prior_plan(root: Path) -> tuple[WorkPlan | None, bool]:
             or run.evidence_digest != payload.get("evidence_digest")
             or run_path != f"glow/forge/work_runs/{run.run_id}.json"):
         raise WorkPlanError("canonical_prior_work_run_reconstruction_mismatch")
+    journal = WorkPlanExecutionJournal(root, plan)
+    for task_run in run.task_runs:
+        journal_status = journal.state(task_run.task_id)
+        journal_result = journal.result(task_run.task_id)
+        if task_run.reason == "prior_attempt_outcome_unknown":
+            matched = journal_status == "interrupted" and journal_result is None
+        elif ((task_run.reason or "").startswith("prior_terminal_")
+                and (task_run.reason or "").endswith("_not_replayed")):
+            prior_status = (task_run.reason or "")[len("prior_terminal_"):-len("_not_replayed")]
+            matched = journal_status == prior_status and journal_result is None
+        else:
+            matched = journal_status == task_run.status and journal_result == task_run
+        if not matched:
+            raise WorkPlanError("canonical_prior_work_run_journal_mismatch")
     if run_links.get("goal_ids") != list(plan.selected_goals):
         raise WorkPlanError("canonical_prior_work_run_goal_links_mismatch")
     return plan, False

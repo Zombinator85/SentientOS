@@ -24,6 +24,7 @@ from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
     TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
     persist_work_plan_evidence, persist_work_run, work_run_id)
+from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
@@ -109,6 +110,11 @@ def test_reconstructed_completion_changes_next_canonical_allocation(
     prior_task_runs = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
         "success", None, prior_time, prior_time, 0, (), task.destructive)
         for task in prior_plan.tasks)
+    prior_journal = WorkPlanExecutionJournal(tmp_path, prior_plan)
+    for task_run in prior_task_runs:
+        prior_journal.start(task_run.task_id)
+        prior_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
     prior_run = WorkPlanRun(schema_version=3, run_id=prior_run_id,
         plan_id=prior_plan.plan_id, created_at=prior_time, status="ok",
         operating_mode="normal", quarantine_active=False,
@@ -190,6 +196,11 @@ def test_canonical_planning_uses_reconstructed_adverse_run_for_review_gate(
         prior_time, prior_time, 0,
         ("glow/forge/report.json",) if task.kind == "forge_apply" else (),
         task.destructive) for task in prior_plan.tasks)
+    prior_journal = WorkPlanExecutionJournal(tmp_path, prior_plan)
+    for task_run in prior_tasks:
+        prior_journal.start(task_run.task_id)
+        prior_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
     prior_run = WorkPlanRun(schema_version=3,
         run_id=work_run_id(prior_plan, created_at=prior_time),
         plan_id=prior_plan.plan_id, created_at=prior_time, status="failed",
