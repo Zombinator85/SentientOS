@@ -3372,6 +3372,7 @@ print(json.dumps(score["score"], sort_keys=True))
 def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "task-family"}
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7,
@@ -3410,7 +3411,9 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         subject="task_family:integer_affine_prediction", predicate="history_effect",
         object_value="history presence changes held-out correctness", polarity="positive",
         qualifiers={"run_scope": run_id}, temporal_scope={"kind": "single_run"},
-        context_scope={"task_family_id": "integer_affine_prediction"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": "sha256:" + digest_payload(
+                fake.active_model_identity)},
         proposition_class="causal_hypothesis")
     epistemics.register_proposition(proposition)
     with pytest.raises(DevelopmentalHistoryInterventionError,
@@ -3554,6 +3557,71 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert projected[0]["payload"]["objective_evaluation"] == run["objective_evaluation"]
     assert "output_text" not in json.dumps(projected)
     assert len(fake.requests) == request_count
+
+    # Carry the recovered run's admitted, dependency-unresolved position into
+    # canonical planning. It must change allocation only inside its declared
+    # family/model scope and trigger review rather than authority or execution.
+    from sentientos.goal_executor import GoalExecutor
+    from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
+    from sentientos.orchestrator import plan_goals
+
+    planning_root = tmp_path / "planning-from-recovered-history"
+    (planning_root / "glow/contracts").mkdir(parents=True)
+    (planning_root / "glow/contracts/ci_baseline.json").write_text(
+        "{}\n", encoding="utf-8")
+    history_goal = Goal("history-sensitive", "history-scoped work", 10.0, 100, (),
+        "task:forge_propose", 1, 1,
+        ("integrity", f"epistemic_proposition:{proposition.proposition_id}",
+            "epistemic_task_family:integer_affine_prediction"), True)
+    independent_goal = Goal("independent", "independent work", 1.0, 1, (),
+        "task:forge_propose", 1, 1, ("integrity",), True)
+    persist_goal_graph(planning_root,
+        GoalGraph(schema_version=1, goals=(history_goal, independent_goal)))
+    planning_time = "2026-10-16T10:01:00+00:00"
+    without_history = plan_goals(planning_root,
+        planning_time="2026-10-16T10:00:00+00:00")
+    assert "history-sensitive" in without_history.allocation.selected
+
+    class ServingIdentityObserver:
+        def observed_current_model_identity(self):
+            return dict(fake.active_model_identity)
+
+        def current_session(self):
+            raise AssertionError("canonical planning cannot acquire a model session")
+
+        def invoke(self, *_args, **_kwargs):
+            raise AssertionError("canonical planning cannot invoke a model")
+
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("canonical planning cannot execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    recovered_state_before_plan = recovered_epistemics.current_state(
+        proposition.proposition_id)
+    planning_surfaces = RuntimeMaintenanceSurfaces(
+        planning_root,
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "configured",
+            "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 4},
+        resident_cognitive_invoker=ServingIdentityObserver())
+    with_history = planning_surfaces.plan_canonical_goals(tick_id=planning_time)
+    assert "history-sensitive" not in with_history.allocation.selected
+    assert "independent" in with_history.allocation.selected
+    assert {item.goal_id: item.reason for item in with_history.allocation.deferred}[
+        "history-sensitive"] == "epistemic_review_required"
+    assert with_history.work_plan is not None
+    assert with_history.work_plan.selected_goals == ("independent",)
+    assert with_history.work_plan_evidence_path is not None
+    planning_evidence = json.loads((planning_root /
+        with_history.work_plan_evidence_path).read_text(encoding="utf-8"))
+    assert planning_evidence["evidence_binding"]["projection_digest"]
+    assert planning_evidence["evidence_binding"]["goal_applicability"][
+        "history-sensitive"] == "epistemic_review_required"
+    assert recovered_epistemics.current_state(proposition.proposition_id) == (
+        recovered_state_before_plan)
+    assert list((planning_root / "glow/forge/work_runs").glob("run_*.json")) == []
+
     state = restarted._state()
     intent = next(row for row in state["incomplete_ticks"]
         if row.get("tick_id") == "final-score-recovery-trial")

@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Sequence 277 strengthens canonical planning acceptance by composing a real persistent epistemic owner through the daemon planning surface. Its verified prior position changes goal selection; planning leaves owner state unchanged and invokes neither a model nor the executor. Local unit and module tests pass, but their runner records identify the stale workspace HEAD and are exploratory only. Exact-source hosted verification is pending.
+Sequence 278 connects a recovered, receipt-bound developmental outcome to canonical daemon planning. After fresh persistent-owner reconstruction, its dependency-unresolved proposition changes allocation only within the declared task-family and serving-model scope: the scoped goal is deferred for review, independent work remains selected, and planning creates no execution effects.
 
-Latest verified main commit: `c0ec52ce695d74ad7d8f970081790ff86bad7acf`
-Latest verified main tree: `240bec26d5473acb501de24a9dbdbb93aea80cd2`
-Latest segment: work/construction/segments/0277-persistent-epistemic-planning-composition.md
-Latest segment SHA-256: `74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d`
-Evidence: work/construction/evidence/0277-persistent-epistemic-planning-composition.json
+The final focused test passed 1/1 and the full resident developmental cognition module passed 93/93 locally after correcting a fixture collision between immutable allocation timestamps. Both failed-first and passing provenance records are retained. Local HEAD is stale d8d7a219221cd94240accf7991fe353b14f6a84e, so these are exploratory; hosted exact-source CI and UID-0 audit remain pending.
+
+Latest verified main commit: `80ffe95b2a6470063e45781d312b2ff56fc46451`
+Latest verified main tree: `3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a`
+Latest segment: work/construction/segments/0278-recovered-outcome-to-canonical-planning.md
+Latest segment SHA-256: `db17843b5a1972443999c88a41df3e221808bb4fc2f1224ff81e44773fd42b5b`
+Evidence: work/construction/evidence/0278-recovered-outcome-to-canonical-planning.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 277
+Sequence: 278
 
-Next: publish the bounded integration test, require fresh hosted source validation and UID-0 audit on the exact candidate, then continue F1-F8. External subject sessions and physical outcomes remain unverified.
+Next: publish and run exact-source hosted lifecycle, planning acceptance and privileged audit, then continue F1-F8. External sessions and physical outcomes remain unverified.
