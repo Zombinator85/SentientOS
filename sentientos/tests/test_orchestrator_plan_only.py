@@ -163,6 +163,7 @@ def test_reconstructed_completion_changes_next_canonical_allocation(
     assert binding["selected_reasons"][0]["verified_completed_dependencies"] == [
         {"goal_id": "completed", **completed.completion_evidence}
     ]
+    assert binding["prior_run_journal_digest"] == prior_journal.head_digest
 
 
 def test_canonical_planning_uses_reconstructed_adverse_run_for_review_gate(
@@ -240,6 +241,7 @@ def test_canonical_planning_uses_reconstructed_adverse_run_for_review_gate(
     assert isinstance(binding, dict)
     assert binding["no_replay_goal_outcomes"] == {"g1": ["failed"]}
     assert binding["prior_run_digest"] is not None
+    assert binding["prior_run_journal_digest"] == prior_journal.head_digest
 
 
 def test_legacy_prior_run_is_unknown_instead_of_clean(tmp_path: Path) -> None:
@@ -253,10 +255,11 @@ def test_legacy_prior_run_is_unknown_instead_of_clean(tmp_path: Path) -> None:
         relative_path=relative_path, schema_name="", schema_version=2,
         links={"work_run_id": run_id}, summary={"status": "failed"})
 
-    prior_plan, outcome_unknown = _latest_verified_prior_plan(tmp_path)
+    prior_plan, outcome_unknown, journal_digest = _latest_verified_prior_plan(tmp_path)
 
     assert prior_plan is None
     assert outcome_unknown is True
+    assert journal_digest is None
 def test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution(
     tmp_path: Path, monkeypatch,
 ) -> None:

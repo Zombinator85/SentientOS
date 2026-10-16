@@ -1082,7 +1082,8 @@ def _plan_goal_work(
         target_model_identity_observer)
     target_identity_observed_at = (
         planning_time if target_identity_digest is not None else None)
-    prior_plan, prior_outcome_unknown = _latest_verified_prior_plan(root)
+    prior_plan, prior_outcome_unknown, prior_journal_digest = (
+        _latest_verified_prior_plan(root))
     allocation = allocate_goals(
         graph=graph, budget=budget, operating_mode=operating_mode,
         integrity_pressure_level=pressure_level, quarantine_active=quarantine_active,
@@ -1132,6 +1133,7 @@ def _plan_goal_work(
             target_identity_observed_at=target_identity_observed_at,
             prior_plan=prior_plan,
             prior_run_outcome_unknown=prior_outcome_unknown,
+            prior_run_journal_digest=prior_journal_digest,
         )
         draft = GoalPlanner(repo_root=root).build_plan_with_evidence(
             allocation=allocation, state=executor_state, graph=graph)
@@ -1165,11 +1167,13 @@ def _plan_goal_work(
     )
 
 
-def _latest_verified_prior_plan(root: Path) -> tuple[WorkPlan | None, bool]:
+def _latest_verified_prior_plan(
+    root: Path,
+) -> tuple[WorkPlan | None, bool, str | None]:
     """Return a reconstructed prior plan, or mark unbound history unknown."""
     run_entry = latest(root, "work_run")
     if run_entry is None:
-        return None, False
+        return None, False, None
     run_id_hint = run_entry.get("id")
     if (not isinstance(run_id_hint, str) or len(run_id_hint) != 68
             or not run_id_hint.startswith("run_")
@@ -1195,7 +1199,7 @@ def _latest_verified_prior_plan(root: Path) -> tuple[WorkPlan | None, bool]:
         # Legacy runs have no canonical evidence digest and cannot influence
         # planning, but their outcome cannot be treated as clean either. Gate
         # destructive planning for one verification cycle without replaying it.
-        return None, True
+        return None, True, None
     if (version != 3 or not isinstance(run_id, str) or not run_id
             or not isinstance(plan_id, str) or not plan_id
             or run_entry.get("kind") != "work_run"
@@ -1281,7 +1285,7 @@ def _latest_verified_prior_plan(root: Path) -> tuple[WorkPlan | None, bool]:
             raise WorkPlanError("canonical_prior_work_run_journal_mismatch")
     if run_links.get("goal_ids") != list(plan.selected_goals):
         raise WorkPlanError("canonical_prior_work_run_goal_links_mismatch")
-    return plan, False
+    return plan, False, journal.head_digest
 
 
 def _emit_goal_allocation_artifact(

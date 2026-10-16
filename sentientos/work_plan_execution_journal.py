@@ -69,6 +69,11 @@ class WorkPlanExecutionJournal:
     def state(self, task_id: str) -> str | None:
         return self._states.get(task_id)
 
+    @property
+    def head_digest(self) -> str:
+        """Return the verified append-only journal head for plan evidence."""
+        return self._head
+
     def result(self, task_id: str) -> TaskRun | None:
         return self._results.get(task_id)
 

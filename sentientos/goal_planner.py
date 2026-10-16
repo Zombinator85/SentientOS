@@ -43,6 +43,7 @@ class ExecutorState:
     target_active_model_identity_digest: str | None = None
     target_identity_observed_at: str | None = None
     prior_run_outcome_unknown: bool = False
+    prior_run_journal_digest: str | None = None
 
 
 class GoalPlanner:
@@ -171,6 +172,7 @@ class GoalPlanner:
             "prior_run_digest": next((part.split("=", 1)[1] for part in context_parts
                 if part.startswith("prior_work_run_digest=")), None),
             "prior_run_outcome_unknown": state.prior_run_outcome_unknown,
+            "prior_run_journal_digest": state.prior_run_journal_digest,
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }
