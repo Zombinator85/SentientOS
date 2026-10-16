@@ -1,0 +1,7 @@
+# Sequence 295 — Bound append-only journal I/O
+
+The journal-backed recovery path now rejects oversized history before reading journal contents. Recovery opens only a regular no-follow file, confirms that the opened descriptor still matches the lstat identity, and reads at most the configured limit plus one byte. Journal appends likewise use no-follow descriptor operations, validate regular-file identity and available size before writing, and preserve the existing append-only hash chain.
+
+Regression tests cover an oversized existing journal, an oversized journal that grows after recovery, a symlinked journal read, and a symlinked append target that must remain unchanged. The affected journal, executor, and canonical planner suites pass 34/34 with no skips or failures. Compilation, Mypy for the changed module, custody verification, and diff checks pass.
+
+The verified local source commit is `c0a6bdfa24605b04632bc137cbba4e0ac0b8fc7e`; GitHub published the same tree `f2b27d03bf58a4f289a4dbb961f65a9e27f2ffea` as `86272401cbb15d2503a45860634bbb068642ce6f`, descending from the sequence-294 evidence head. Hosted CI `38976182105`, Required Quality Gate `38976182254`, and Invariant Tests `38976182245` all passed on that exact SHA. Gate artifact `12078982143` read back with GitHub's matching ZIP digest and confirms UID 0 Administrator, exact source/tree, unchanged source and repository identity, strict audit, and immutability.

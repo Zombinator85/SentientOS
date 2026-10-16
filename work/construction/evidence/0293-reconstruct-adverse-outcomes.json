@@ -1,0 +1,69 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "adverse_outcomes": "verified failed/partial prior outcomes suppress destructive forge_apply and record review omission",
+    "append_only_journal": "each prior task outcome must match the verified hash-chained journal; journal head digest is bound into canonical plan evidence",
+    "authority_boundary": "planning only changes task proposal/evidence; execution, mutation, quarantine, operating mode, proposal, and apply controls remain intact",
+    "legacy_or_unbound_outcomes": "marked unknown and gate destructive planning; never treated as a clean outcome",
+    "prior_run_reconstruction": "requires exact catalog identities for work run, plan, and evidence; strict plan/evidence/run replay; and matching run summary/goal links"
+  },
+  "local_verification": {
+    "affected_tests_collected": 62,
+    "affected_tests_failed": 0,
+    "affected_tests_passed": 62,
+    "affected_tests_skipped": 0,
+    "compileall": "passed",
+    "diff_check": "passed",
+    "hosted_mypy_baseline": "passed",
+    "targeted_mypy": "one existing no-any-return diagnostic in identity observer; no new diagnostics in changed logic"
+  },
+  "next_dependency": "Verify that a successful journal-backed diagnostic/review cycle changes the later plan predictably after an adverse outcome, while retaining explicit execution and apply authority checks.",
+  "predecessor_evidence_sha256": "d04bc2ac2269aeac9c97ef648566e8011b694417f2f979d41b8621dc3690635e",
+  "predecessor_segment_sha256": "96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
+  "remote_blob_readback": "all changed blobs matched local source bytes",
+  "remote_source_commit": "06e80aa80dd32a301437b3204fa3ed9a6b06c039",
+  "remote_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282",
+  "segment_path": "work/construction/segments/0293-reconstruct-adverse-outcomes.md",
+  "segment_sha256": "decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9",
+  "sequence": 293,
+  "sequence_292_final_hosted": {
+    "ci": "success",
+    "ci_run_id": 38973374924,
+    "gate_artifact_id": 12077852113,
+    "gate_artifact_readback_sha256": "17538a95a44452e82f2e6d95a8192ab0510ba0a91f113d2addc047e87202b0b6",
+    "gate_artifact_sha256": "17538a95a44452e82f2e6d95a8192ab0510ba0a91f113d2addc047e87202b0b6",
+    "invariant_run_id": 38973374893,
+    "invariants": "success",
+    "remote_head": "7ee146f1293a00b7706d861711262b7fe65de82a",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38973374941,
+    "tree": "20293ce0b184735c1ff42771246949e845cb79d7"
+  },
+  "sequence_293_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38974495577,
+    "effective_uid": 0,
+    "expected_sha": "06e80aa80dd32a301437b3204fa3ed9a6b06c039",
+    "gate_artifact_id": 12078871501,
+    "gate_artifact_readback_sha256": "2ee3b01789b67389ef8c755cf5fe168bd3090e6501cb384be125190f86b683b3",
+    "gate_artifact_sha256": "2ee3b01789b67389ef8c755cf5fe168bd3090e6501cb384be125190f86b683b3",
+    "immutability_ok": true,
+    "invariant_run_id": 38974495608,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38974495592,
+    "source_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "source_commit": "32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61",
+  "source_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282",
+  "title": "Let verified adverse outcomes change canonical plans"
+}

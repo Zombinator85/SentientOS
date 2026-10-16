@@ -1,0 +1,49 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "local_verification": {
+    "affected_tests_collected": 39,
+    "affected_tests_failed": 0,
+    "affected_tests_passed": 39,
+    "affected_tests_skipped": 0,
+    "compileall": "passed",
+    "construction_custody": "construction_continuation_custody_ready; 296 segments verified",
+    "diff_check": "passed",
+    "mypy_changed_test_module": "passed"
+  },
+  "next_dependency": "Verify competing journal writers in separate processes serialize through the kernel lock and cannot fork the append-only hash chain.",
+  "predecessor_evidence_sha256": "1a88166a749d83ba75e2266cc223649c6457245ea4df7c3e2c1c8375ce57591c",
+  "predecessor_segment_sha256": "31383680be9626c4452bc8a93429e00e091dc44ce0c39baff7434d50dd0e3c5f",
+  "remote_blob_readback": "changed test source blob independently read back byte-for-byte; remote branch head and tree matched the candidate",
+  "remote_source_commit": "0b71e1826bf8cb68269c4ee5930f5c3e7cb608ff",
+  "remote_tree": "3db7e4a1981a36716b8f56c988d48ca841b998e5",
+  "segment_path": "work/construction/segments/0297-interrupted-journal-tail-rejection.md",
+  "segment_sha256": "44c7be06a612554359a23c5ea88726d868be5202ae1ce533417528ef7a26a957",
+  "sequence": 297,
+  "sequence_297_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38983181075,
+    "effective_uid": 0,
+    "expected_sha": "0b71e1826bf8cb68269c4ee5930f5c3e7cb608ff",
+    "gate_artifact_id": 12081932247,
+    "gate_artifact_readback_sha256": "78f16057c770c6588f9c11889df72df7d7a5b7475621ad00076eaaa672a79f6a",
+    "gate_artifact_sha256": "78f16057c770c6588f9c11889df72df7d7a5b7475621ad00076eaaa672a79f6a",
+    "immutability_ok": true,
+    "invariant_run_id": 38983181083,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38983181073,
+    "source_tree": "3db7e4a1981a36716b8f56c988d48ca841b998e5",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "source_commit": "7cb74e9849e9f236e9ccec7d575cbb68e75b676a",
+  "source_tree": "3db7e4a1981a36716b8f56c988d48ca841b998e5",
+  "title": "Preserve interrupted journal tails and reject same-size drift"
+}

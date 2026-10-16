@@ -11,16 +11,22 @@ from types import SimpleNamespace
 import pytest
 
 from sentientos.control_plane_kernel import ControlPlaneKernel
-from sentientos.goal_executor import GoalExecutor, GoalPlanner
-from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
+from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.goal_executor import ExecutorState, GoalExecutor, GoalPlanner
+from sentientos.goal_graph import Goal, GoalGraph, goal_graph_hash, persist_goal_graph
 from sentientos.orchestrator import (GoalPlanningResult,
-    _emit_goal_allocation_artifact, plan_goals)
+    _emit_goal_allocation_artifact, _latest_verified_prior_plan,
+    _plan_goal_work, plan_goals)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition)
 from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
-    WorkPlan, persist_work_plan_evidence)
+    TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
+    persist_work_plan_evidence, persist_work_run, work_run_id)
+from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
+    WorkPlanJournalError)
+from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -80,6 +86,300 @@ def test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwri
     assert artifact.read_bytes() == original
 
 
+def test_reconstructed_completion_changes_next_canonical_allocation(
+    tmp_path: Path,
+) -> None:
+    completed_goal = Goal("completed", "done", 1.0, 2, (),
+        "check_forge_last_run_ok", 1, 1, ("integrity",), True)
+    prior_graph = GoalGraph(schema_version=1, goals=(completed_goal,))
+    prior_time = "2026-10-16T08:00:00Z"
+    prior_allocation = AllocationDecision(selected=("completed",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    budget = RiskBudget(router_k_max=8, router_m_max=8, forge_max_files_changed=0)
+    prior_state = ExecutorState(repo_root=tmp_path, created_at=prior_time,
+        context="orchestrator_tick", operating_mode="normal",
+        quarantine_active=False, allow_mutation=False,
+        goal_graph_hash=goal_graph_hash(prior_graph), allocation_id="allocation_prior",
+        risk_budget=budget)
+    prior_draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        prior_allocation, prior_state, prior_graph)
+    prior_plan = prior_draft.work_plan
+    prior_plan_path = persist_work_plan(tmp_path, prior_plan)
+    prior_evidence_path, prior_evidence_digest = persist_work_plan_evidence(
+        tmp_path, prior_plan, dict(prior_draft.evidence_binding))
+    prior_run_id = work_run_id(prior_plan, created_at=prior_plan.created_at)
+    prior_task_runs = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+        "success", None, prior_time, prior_time, 0, (), task.destructive)
+        for task in prior_plan.tasks)
+    prior_journal = WorkPlanExecutionJournal(tmp_path, prior_plan)
+    for task_run in prior_task_runs:
+        prior_journal.start(task_run.task_id)
+        prior_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
+    prior_run = WorkPlanRun(schema_version=3, run_id=prior_run_id,
+        plan_id=prior_plan.plan_id, created_at=prior_time, status="ok",
+        operating_mode="normal", quarantine_active=False,
+        task_runs=prior_task_runs, reason_stack=(),
+        plan_digest=prior_plan.identity_digest(),
+        evidence_digest=prior_evidence_digest)
+    prior_run_path = persist_work_run(tmp_path, prior_run)
+    append_catalog_entry(tmp_path, kind="work_plan", artifact_id=prior_plan.plan_id,
+        relative_path=prior_plan_path, schema_name="work_plan", schema_version=1,
+        links={"work_plan_id": prior_plan.plan_id}, summary={"status": "persisted"})
+    append_catalog_entry(tmp_path, kind="work_plan_evidence",
+        artifact_id=f"evidence_{prior_plan.plan_id}",
+        relative_path=prior_evidence_path, schema_name="work_plan_evidence",
+        schema_version=1, links={"work_plan_id": prior_plan.plan_id},
+        summary={"evidence_digest": prior_evidence_digest,
+            "plan_digest": prior_plan.identity_digest()})
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=prior_run_id,
+        relative_path=prior_run_path, schema_name="", schema_version=3,
+        links={"work_run_id": prior_run_id, "goal_ids": ["completed"]},
+        summary={"status": "ok", "evidence_digest": prior_evidence_digest})
+
+    dependent_goal = Goal("dependent", "next", 1.0, 1, ("completed",),
+        "unrecognized_check", 1, 1, ("integrity",), True)
+    graph = GoalGraph(schema_version=1, goals=(completed_goal, dependent_goal))
+    result = _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+        operating_mode="normal", pressure_level=0, quarantine_active=False,
+        posture="balanced", mutation_allowed=False,
+        prior_epistemic_projection=None, target_model_identity_observer=None,
+        planning_time="2026-10-16T09:00:00Z",
+        catalog_timestamp="2026-10-16T09:00:00Z", context="orchestrator_tick")
+
+    assert result.allocation.selected == ("dependent",)
+    completed = next(item for item in result.allocation.deferred
+        if item.goal_id == "completed")
+    assert completed.reason == "verified_completion"
+    assert completed.completion_evidence == {
+        "check_name": "check_forge_last_run_ok",
+        "evidence_digest": prior_evidence_digest,
+        "evidence_paths": [prior_run_path],
+    }
+    assert result.work_plan is not None
+    evidence = load_work_plan_evidence(tmp_path, result.work_plan)
+    binding = evidence["evidence_binding"]
+    assert isinstance(binding, dict)
+    assert binding["deferred_goals"][0]["completion_evidence"] == completed.completion_evidence
+    assert binding["selected_reasons"][0]["verified_completed_dependencies"] == [
+        {"goal_id": "completed", **completed.completion_evidence}
+    ]
+    assert binding["prior_run_journal_digest"] == prior_journal.head_digest
+
+
+def test_canonical_planning_uses_reconstructed_adverse_run_for_review_gate(
+    tmp_path: Path,
+) -> None:
+    from sentientos.artifact_catalog import append_catalog_entry
+
+    goal = Goal("g1", "recover from prior apply", 1.0, 1, (),
+        "check_forge_last_run_ok", 2, 1, ("integrity",), True)
+    graph = GoalGraph(schema_version=1, goals=(goal,))
+    budget = RiskBudget(router_k_max=20, router_m_max=20,
+        forge_max_files_changed=10)
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    prior_time = "2026-10-16T08:00:00Z"
+    prior_state = ExecutorState(repo_root=tmp_path, created_at=prior_time,
+        context="orchestrator_tick", operating_mode="normal",
+        quarantine_active=False, allow_mutation=True,
+        goal_graph_hash=goal_graph_hash(graph), allocation_id="prior-allocation",
+        risk_budget=budget)
+    prior_draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        allocation, prior_state, graph)
+    prior_plan = prior_draft.work_plan
+    prior_plan_path = persist_work_plan(tmp_path, prior_plan)
+    prior_evidence_path, prior_evidence_digest = persist_work_plan_evidence(
+        tmp_path, prior_plan, dict(prior_draft.evidence_binding))
+    apply_failure = "forge_apply_failed"
+    prior_tasks = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+        "failed" if task.kind == "forge_apply" else "success",
+        apply_failure if task.kind == "forge_apply" else None,
+        prior_time, prior_time, 0,
+        ("glow/forge/report.json",) if task.kind == "forge_apply" else (),
+        task.destructive) for task in prior_plan.tasks)
+    prior_journal = WorkPlanExecutionJournal(tmp_path, prior_plan)
+    for task_run in prior_tasks:
+        prior_journal.start(task_run.task_id)
+        prior_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
+    prior_run = WorkPlanRun(schema_version=3,
+        run_id=work_run_id(prior_plan, created_at=prior_time),
+        plan_id=prior_plan.plan_id, created_at=prior_time, status="failed",
+        operating_mode="normal", quarantine_active=False,
+        task_runs=prior_tasks, reason_stack=(apply_failure,),
+        plan_digest=prior_plan.identity_digest(),
+        evidence_digest=prior_evidence_digest)
+    prior_run_path = persist_work_run(tmp_path, prior_run)
+    append_catalog_entry(tmp_path, kind="work_plan", artifact_id=prior_plan.plan_id,
+        relative_path=prior_plan_path, schema_name="work_plan", schema_version=1,
+        links={"work_plan_id": prior_plan.plan_id}, summary={"status": "persisted"})
+    append_catalog_entry(tmp_path, kind="work_plan_evidence",
+        artifact_id=f"evidence_{prior_plan.plan_id}",
+        relative_path=prior_evidence_path, schema_name="work_plan_evidence",
+        schema_version=1, links={"work_plan_id": prior_plan.plan_id},
+        summary={"evidence_digest": prior_evidence_digest,
+            "plan_digest": prior_plan.identity_digest()})
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=prior_run.run_id,
+        relative_path=prior_run_path, schema_name="", schema_version=3,
+        links={"work_run_id": prior_run.run_id, "goal_ids": ["g1"]},
+        summary={"status": "failed", "evidence_digest": prior_evidence_digest},
+        ts=prior_time)
+
+    result = _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+        operating_mode="normal", pressure_level=0, quarantine_active=False,
+        posture="balanced", mutation_allowed=True,
+        prior_epistemic_projection=None, target_model_identity_observer=None,
+        planning_time="2026-10-16T09:00:00Z",
+        catalog_timestamp="2026-10-16T09:00:00Z", context="orchestrator_tick")
+
+    assert result.work_plan is not None
+    assert not any(task.goal_id == "g1" and task.kind == "forge_apply"
+        for task in result.work_plan.tasks)
+    assert ("g1", "forge_apply", "prior_terminal_outcome_requires_review") in {
+        (row.goal_id, row.kind, row.reason) for row in result.work_plan.omissions}
+    evidence = load_work_plan_evidence(tmp_path, result.work_plan)
+    binding = evidence["evidence_binding"]
+    assert isinstance(binding, dict)
+    assert binding["no_replay_goal_outcomes"] == {"g1": ["failed"]}
+    assert binding["prior_run_digest"] is not None
+    assert binding["prior_run_journal_digest"] == prior_journal.head_digest
+
+    journal_bytes = prior_journal.path.read_bytes()
+    assert b'"status":"failed"' in journal_bytes
+    prior_journal.path.write_bytes(
+        journal_bytes.replace(b'"status":"failed"', b'"status":"success"', 1))
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_digest_mismatch"):
+        _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+            operating_mode="normal", pressure_level=0, quarantine_active=False,
+            posture="balanced", mutation_allowed=True,
+            prior_epistemic_projection=None, target_model_identity_observer=None,
+            planning_time="2026-10-16T10:00:00Z",
+            catalog_timestamp="2026-10-16T10:00:00Z", context="orchestrator_tick")
+
+
+def test_legacy_prior_run_is_unknown_instead_of_clean(tmp_path: Path) -> None:
+    run_id = "run_" + "a" * 64
+    relative_path = f"glow/forge/work_runs/{run_id}.json"
+    path = tmp_path / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"schema_version": 2, "run_id": run_id,
+        "plan_id": "legacy-plan"}) + "\n", encoding="utf-8")
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=run_id,
+        relative_path=relative_path, schema_name="", schema_version=2,
+        links={"work_run_id": run_id}, summary={"status": "failed"})
+
+    prior_plan, outcome_unknown, journal_digest = _latest_verified_prior_plan(tmp_path)
+
+    assert prior_plan is None
+    assert outcome_unknown is True
+    assert journal_digest is None
+
+
+def test_clean_journal_backed_review_cycle_reenables_apply_plan(
+    tmp_path: Path,
+) -> None:
+    goal = Goal("g1", "revalidate after a failed apply", 1.0, 1, (),
+        "check_mypy_forge_ok", 2, 1, ("integrity",), True)
+    graph = GoalGraph(schema_version=1, goals=(goal,))
+    budget = RiskBudget(router_k_max=20, router_m_max=20,
+        forge_max_files_changed=10)
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    prior_time = "2026-10-16T08:00:00Z"
+    prior_state = ExecutorState(repo_root=tmp_path, created_at=prior_time,
+        context="orchestrator_tick", operating_mode="normal",
+        quarantine_active=False, allow_mutation=True,
+        goal_graph_hash=goal_graph_hash(graph), allocation_id="prior-allocation",
+        risk_budget=budget)
+    prior_draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        allocation, prior_state, graph)
+    prior_plan = prior_draft.work_plan
+    prior_plan_path = persist_work_plan(tmp_path, prior_plan)
+    prior_evidence_path, prior_evidence_digest = persist_work_plan_evidence(
+        tmp_path, prior_plan, dict(prior_draft.evidence_binding))
+    prior_tasks = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+        "failed" if task.kind == "forge_apply" else "success",
+        "forge_apply_failed" if task.kind == "forge_apply" else None,
+        prior_time, prior_time, 0,
+        ("glow/forge/report.json",) if task.kind == "forge_apply" else (),
+        task.destructive) for task in prior_plan.tasks)
+    prior_journal = WorkPlanExecutionJournal(tmp_path, prior_plan)
+    for task_run in prior_tasks:
+        prior_journal.start(task_run.task_id)
+        prior_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
+    prior_run = WorkPlanRun(schema_version=3,
+        run_id=work_run_id(prior_plan, created_at=prior_time),
+        plan_id=prior_plan.plan_id, created_at=prior_time, status="failed",
+        operating_mode="normal", quarantine_active=False,
+        task_runs=prior_tasks, reason_stack=("forge_apply_failed",),
+        plan_digest=prior_plan.identity_digest(),
+        evidence_digest=prior_evidence_digest)
+    prior_run_path = persist_work_run(tmp_path, prior_run)
+    append_catalog_entry(tmp_path, kind="work_plan", artifact_id=prior_plan.plan_id,
+        relative_path=prior_plan_path, schema_name="work_plan", schema_version=1,
+        links={"work_plan_id": prior_plan.plan_id}, summary={"status": "persisted"})
+    append_catalog_entry(tmp_path, kind="work_plan_evidence",
+        artifact_id=f"evidence_{prior_plan.plan_id}",
+        relative_path=prior_evidence_path, schema_name="work_plan_evidence",
+        schema_version=1, links={"work_plan_id": prior_plan.plan_id},
+        summary={"evidence_digest": prior_evidence_digest,
+            "plan_digest": prior_plan.identity_digest()})
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=prior_run.run_id,
+        relative_path=prior_run_path, schema_name="", schema_version=3,
+        links={"work_run_id": prior_run.run_id, "goal_ids": ["g1"]},
+        summary={"status": "failed", "evidence_digest": prior_evidence_digest},
+        ts=prior_time)
+
+    review = _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+        operating_mode="normal", pressure_level=0, quarantine_active=False,
+        posture="balanced", mutation_allowed=True,
+        prior_epistemic_projection=None, target_model_identity_observer=None,
+        planning_time="2026-10-16T09:00:00Z",
+        catalog_timestamp="2026-10-16T09:00:00Z", context="orchestrator_tick")
+    assert review.work_plan is not None
+    assert not any(task.kind == "forge_apply" for task in review.work_plan.tasks)
+
+    review_plan = review.work_plan
+    review_time = "2026-10-16T09:00:00Z"
+    review_tasks = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+        "success", None, review_time, review_time, 0, (), task.destructive)
+        for task in review_plan.tasks)
+    review_journal = WorkPlanExecutionJournal(tmp_path, review_plan)
+    for task_run in review_tasks:
+        review_journal.start(task_run.task_id)
+        review_journal.finish(task_run.task_id, status=task_run.status,
+            reason=task_run.reason, result=task_run)
+    assert review.work_plan_evidence_digest is not None
+    review_run = WorkPlanRun(schema_version=3,
+        run_id=work_run_id(review_plan, created_at=review_time),
+        plan_id=review_plan.plan_id, created_at=review_time, status="ok",
+        operating_mode="normal", quarantine_active=False,
+        task_runs=review_tasks, reason_stack=(),
+        plan_digest=review_plan.identity_digest(),
+        evidence_digest=review.work_plan_evidence_digest)
+    review_run_path = persist_work_run(tmp_path, review_run)
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=review_run.run_id,
+        relative_path=review_run_path, schema_name="", schema_version=3,
+        links={"work_run_id": review_run.run_id, "goal_ids": ["g1"]},
+        summary={"status": "ok",
+            "evidence_digest": review.work_plan_evidence_digest}, ts=review_time)
+
+    recovered = _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+        operating_mode="normal", pressure_level=0, quarantine_active=False,
+        posture="balanced", mutation_allowed=True,
+        prior_epistemic_projection=None, target_model_identity_observer=None,
+        planning_time="2026-10-16T10:00:00Z",
+        catalog_timestamp="2026-10-16T10:00:00Z", context="orchestrator_tick")
+
+    assert recovered.work_plan is not None
+    assert any(task.kind == "forge_apply" for task in recovered.work_plan.tasks)
+    recovered_evidence = load_work_plan_evidence(tmp_path, recovered.work_plan)
+    recovered_binding = recovered_evidence["evidence_binding"]
+    assert isinstance(recovered_binding, dict)
+    assert recovered_binding["prior_run_journal_digest"] == review_journal.head_digest
+    assert recovered_binding["no_replay_goal_outcomes"] == {}
 def test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -339,6 +639,25 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         for item in evidence["evidence_binding"]["deferred_goals"]} == {
             "g_experienced": "epistemic_review_required",
             "g_omitted": "epistemic_applicability_unresolved"}
+    deferred_evidence = {item["goal_id"]: item["epistemic_positions"]
+        for item in evidence["evidence_binding"]["deferred_goals"]}
+    experienced_position = deferred_evidence["g_experienced"][0]
+    experienced_scope = evidence["evidence_binding"]["review_scopes"][
+        proposition.proposition_id]
+    assert experienced_position["proposition_id"] == proposition.proposition_id
+    assert experienced_position["identity"] == experienced_scope["position_identity"]
+    assert experienced_position["posture"] == "review_required"
+    omitted_position = deferred_evidence["g_omitted"][0]
+    assert omitted_position["proposition_id"] == omitted_proposition.proposition_id
+    assert omitted_position["omitted_state_identity"]["state_id"] == (
+        omitted_state_before_planning.state_id)
+    assert omitted_position["omitted_state_identity"]["state_digest"] == (
+        omitted_state_before_planning.state_digest)
+    allocation_artifact = json.loads((tmp_path /
+        with_history.allocation_artifact_path).read_text(encoding="utf-8"))
+    allocation_deferred = {item["goal_id"]: item["epistemic_positions"]
+        for item in allocation_artifact["deferred_goals"]}
+    assert allocation_deferred == deferred_evidence
     assert observer.calls == 1
     state_after_planning = owner.current_state(proposition.proposition_id)
     assert state_after_planning == state_before_planning
@@ -373,7 +692,9 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     recovered_scope = recovered_binding["review_scopes"][
         omitted_proposition.proposition_id]
     assert {key: value for key, value in recovered_scope.items()
-        if key != "position_identity"} == dict(omitted_proposition.context_scope)
+        if key not in {"position_identity", "position_posture"}} == dict(
+            omitted_proposition.context_scope)
+    assert recovered_scope["position_posture"] == "review_required"
     assert recovered_scope.get("omitted_from_prior_projection") is not True
     recovered_identity = recovered_scope["position_identity"]
     assert recovered_identity["state_id"] == omitted_state_before_planning.state_id

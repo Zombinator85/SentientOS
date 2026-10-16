@@ -116,6 +116,44 @@ def test_cleanup_removes_untracked_generated_directory(monkeypatch: pytest.Monke
     assert result["glow/test runs/weird;name/"] == (True, "removed", "generated_artifact_cleanup")
 
 
+def test_cleanup_preserves_append_only_test_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def record(cmd: list[str]) -> None:
+        calls.append(cmd)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", record)
+    path = "glow/test_runs/provenance/20261016T210115Z_run.json"
+    assert _cleanup_generated([
+        f"?? {path}",
+        " M glow/test_runs/test_run_provenance.json",
+        "?? glow/test_runs/provenance/",
+    ]) == {}
+    assert calls == []
+
+
+def test_explicit_changed_file_declares_untracked_task_artifact() -> None:
+    path = "work/construction/evidence/0286-positive-position-model-applicability.json"
+    finding = _classify([f"?? {path}"], (path,), ())[0]
+    assert finding.classification == "intended_task_change"
+    assert finding.action == "allow_pre_commit"
+
+
+def test_classify_append_only_provenance_requires_explicit_declaration() -> None:
+    paths = [
+        " M glow/test_runs/test_run_provenance.json",
+        "?? glow/test_runs/provenance/run.json",
+    ]
+    findings = _classify(paths, tuple(line[3:] for line in paths), ())
+    assert [item.classification for item in findings] == ["intended_task_change", "intended_task_change"]
+    blocked = _classify(["?? glow/test_runs/provenance/run.json"], (), ())
+    assert blocked[0].classification == "source_change_not_declared"
+    generated = "glow/test_runs/provenance/20261016T210115Z_0123456789ab_0123456789abcdef0123456789abcdef.json"
+    assert _is_safe_untracked_task_file(generated)
+    inferred = _classify([f"?? {generated}"], (), (generated,))
+    assert inferred[0].classification == "intended_task_change"
+
+
 def test_cleanup_restores_runtime_audit(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 

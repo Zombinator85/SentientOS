@@ -261,11 +261,23 @@ def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(t
     assert bounded_allocation.selected == ("independent",)
     assert {item.goal_id: item.reason for item in bounded_allocation.deferred}[
         "history-sensitive"] == "epistemic_applicability_unresolved"
+    bounded_position = next(item for item in bounded_allocation.deferred
+        if item.goal_id == "history-sensitive").epistemic_positions[0]
+    assert bounded_position["proposition_id"] == omitted_proposition.proposition_id
+    assert bounded_position["omitted_state_identity"]["proposition_id"] == (
+        omitted_proposition.proposition_id)
+    assert bounded_position["omitted_state_identity"]["state_id"] == contested.state_id
+    assert bounded_position["omitted_state_identity"]["state_digest"] == contested.state_digest
+    assert bounded_position["omitted_state_identity"]["update_event_id"] == adverse_event.event_id
     assert complete_allocation.selected == ("independent",)
     assert {item.goal_id: item.reason for item in complete_allocation.deferred}[
         "history-sensitive"] == "epistemic_review_required"
     assert complete_allocation.selected_reasons[0]["epistemic_projection_digest"] == (
         complete.projection_digest)
+    complete_position = next(item for item in complete_allocation.deferred
+        if item.goal_id == "history-sensitive").epistemic_positions[0]
+    assert complete_position["identity"] == restored_identity
+    assert complete_position["posture"] == "review_required"
 
 
 def test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage(tmp_path):

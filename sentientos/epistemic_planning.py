@@ -30,12 +30,23 @@ def review_required_applicability(
     review_scopes: dict[str, dict[str, object]] = {}
     for packet in packets:
         state = packet["state"]
-        if (state["stance"] in {"provisionally_supported", "supported"}
-                and not state["dependency_unresolved"]
-                and state["freshness"] == "current"):
-            continue
         proposition_id = packet["proposition"]["proposition_id"]
         scope = dict(packet["proposition"].get("context_scope", {}))
+        positive_current = (
+            state["stance"] in {"provisionally_supported", "supported"}
+            and not state["dependency_unresolved"]
+            and state["freshness"] == "current")
+        # Unscoped positive history does not constrain canonical planning. A
+        # task-family or model-bound positive position must remain visible so
+        # planning can prove it still applies to the observed model identity.
+        if positive_current and not any(
+                key in scope for key in ("task_family_id",
+                    "active_model_identity_digest")):
+            continue
+        # This reserved field is always derived from the verified state; a
+        # proposition's own context cannot mark adverse history as positive.
+        scope["position_posture"] = (
+            "verified_positive_current" if positive_current else "review_required")
         scope["position_identity"] = {
             "schema_version": "sentientos.epistemic_review_position_identity:v1",
             "state_id": state["state_id"],
@@ -97,6 +108,8 @@ def epistemic_review_reason_for_goal(tags: Sequence[str],
                     or not isinstance(target_identity_observed_at, str)
                     or target_identity_observed_at != planning_time):
                 return "epistemic_applicability_unresolved"
+        if scope.get("position_posture") == "verified_positive_current":
+            return None
         return "epistemic_review_required"
     return None
 

@@ -26,6 +26,15 @@ def test_required_quality_gate_runs_and_verifies_real_tests():
     text=(ROOT/".github/workflows/required-quality-gate.yml").read_text()
     assert "python -m scripts.run_tests" in text and "verify_task_acceptance.py" in text
     assert "validation_complete" in text and "--require-validation-complete" in text
+def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    push = workflow.split("  push:", 1)[1].split("  merge_group:", 1)[0]
+    assert "- main" in push
+    assert "- 'codex/construct-sentientos*'" in push
+    assert "sudo -n id -u" in workflow
+    assert '--expected-sha "$GITHUB_SHA"' in workflow
+
+
 def test_required_quality_gate_name_is_unique():
     matches=[]
     for path in (ROOT/".github/workflows").glob("*.y*ml"):
@@ -60,14 +69,14 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 21
-    assert "len(nodes)==21" in workflow
+    assert selection.count("tests/") == 22
+    assert "len(nodes)==22" in workflow
 
 
 def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
     text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
     assert text.index("verify_import_inertness.py") < text.index("verify_pytest_bootstrap.py") < text.index("Execute required call phases")
-    assert text.count("tests/test_") == 21
+    assert text.count("tests/test_") == 22
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -217,6 +226,7 @@ def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
         "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
         "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
         "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed",
+        "sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence",
     ):
         assert node in source_job
 

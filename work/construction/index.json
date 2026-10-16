@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ddc9ebd0a51408ebecba2d7ec56a425fb05cdb6ce2791c312a4b785191c29536",
-    "latest_segment_sequence": 285,
-    "latest_segment_sha256": "0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea",
-    "source_commit": "b633036b50b6cd3a01dd22aa179d685da9496634",
-    "source_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0"
+    "checkpoint_sha256": "afd059c5fa96a773c5b576a05d6703024b9d01e313991f6aabfb2cabda76c88b",
+    "latest_segment_sequence": 297,
+    "latest_segment_sha256": "44c7be06a612554359a23c5ea88726d868be5202ae1ce533417528ef7a26a957",
+    "source_commit": "7cb74e9849e9f236e9ccec7d575cbb68e75b676a",
+    "source_tree": "3db7e4a1981a36716b8f56c988d48ca841b998e5"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 285,
+  "latest_sequence": 297,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3035,6 +3035,162 @@
       "sha256": "0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea",
       "source_commit": "b633036b50b6cd3a01dd22aa179d685da9496634",
       "source_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0"
+    },
+    {
+      "bytes": 3303,
+      "evidence": "work/construction/evidence/0286-positive-position-model-applicability.json",
+      "evidence_bytes": 59757,
+      "evidence_path": "work/construction/evidence/0286-positive-position-model-applicability.json",
+      "evidence_sha256": "e69a9724a99ff23877be7cece6cc8cdc505c31d7d880d470c08947ac698f65a8",
+      "path": "work/construction/segments/0286-positive-position-model-applicability.md",
+      "predecessor": "segment-sha256:0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea",
+      "sequence": 286,
+      "sha256": "376ca13180b68a58619371505c33ca1351c975d0c1c86a72083ff7c65e138444",
+      "source_commit": "d9fbac78dad9187065fcdeaf112bf641cf3508ea",
+      "source_tree": "71d300a7ddd35343b710e3e52b58e4b02962825a"
+    },
+    {
+      "bytes": 2318,
+      "evidence": "work/construction/evidence/0287-allocation-position-identity-binding.json",
+      "evidence_bytes": 6499,
+      "evidence_path": "work/construction/evidence/0287-allocation-position-identity-binding.json",
+      "evidence_sha256": "5a6f81bff7ccd53429db8406688065a936212976deb83d368658928985c6ff5f",
+      "path": "work/construction/segments/0287-allocation-position-identity-binding.md",
+      "predecessor": "segment-sha256:376ca13180b68a58619371505c33ca1351c975d0c1c86a72083ff7c65e138444",
+      "sequence": 287,
+      "sha256": "b0eb0ee931628be08e544aff29af6d3ff4baf0b1928249945ab71c37021e484f",
+      "source_commit": "02ef382b6775f1af030b3bdfc57f75e565006123",
+      "source_tree": "d8bfb797b29602ba486813c96ce9cb8c6a339ba1"
+    },
+    {
+      "bytes": 2120,
+      "evidence": "work/construction/evidence/0288-allocation-artifact-position-lineage.json",
+      "evidence_bytes": 5184,
+      "evidence_path": "work/construction/evidence/0288-allocation-artifact-position-lineage.json",
+      "evidence_sha256": "36d699f1b05575c85d52db24bcfe40f5a9f5d1a0fa01303920e48add09d95adc",
+      "path": "work/construction/segments/0288-allocation-artifact-position-lineage.md",
+      "predecessor": "segment-sha256:b0eb0ee931628be08e544aff29af6d3ff4baf0b1928249945ab71c37021e484f",
+      "sequence": 288,
+      "sha256": "f76e78eafb0413fefe17bbc456dcc003657a1bd98f6823ce1968a525758e6301",
+      "source_commit": "5300ddc79d5aa79849fa004530f5d23a368f3f20",
+      "source_tree": "ac9cfe9c09ab748aba0359dcfab6c6ce8f6b4afe"
+    },
+    {
+      "bytes": 2041,
+      "evidence": "work/construction/evidence/0289-run-evidence-digest-lineage.json",
+      "evidence_bytes": 6723,
+      "evidence_path": "work/construction/evidence/0289-run-evidence-digest-lineage.json",
+      "evidence_sha256": "137ba28a88d3db5f4fd6b107915f70a0d4a55134f94c33ecb97ef753bd20159b",
+      "path": "work/construction/segments/0289-run-evidence-digest-lineage.md",
+      "predecessor": "segment-sha256:f76e78eafb0413fefe17bbc456dcc003657a1bd98f6823ce1968a525758e6301",
+      "sequence": 289,
+      "sha256": "4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6",
+      "source_commit": "e7d874feb9c5aec7015d4c34f127a335336a9bcf",
+      "source_tree": "eb1c60d608b1450cce6a2e7c86453b8dcce85678"
+    },
+    {
+      "bytes": 2606,
+      "evidence": "work/construction/evidence/0290-reconstructed-completion-evidence.json",
+      "evidence_bytes": 5382,
+      "evidence_path": "work/construction/evidence/0290-reconstructed-completion-evidence.json",
+      "evidence_sha256": "543746507b782f010828e55c619f8d74d433947e23d0c83879c5708f243b3ffd",
+      "path": "work/construction/segments/0290-reconstructed-completion-evidence.md",
+      "predecessor": "segment-sha256:4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6",
+      "sequence": 290,
+      "sha256": "b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51",
+      "source_commit": "ab48a787a6ee7d979a068fdfef23a26e37b65cd2",
+      "source_tree": "0bc4b0d650c353988c4e7ded9ea744816f5c6af8"
+    },
+    {
+      "bytes": 2196,
+      "evidence": "work/construction/evidence/0291-completion-driven-allocation.json",
+      "evidence_bytes": 4126,
+      "evidence_path": "work/construction/evidence/0291-completion-driven-allocation.json",
+      "evidence_sha256": "8c0163f4281bf5622fd39cde5174a97fe1d0581822923c760fd0c91bd3243ba8",
+      "path": "work/construction/segments/0291-completion-driven-allocation.md",
+      "predecessor": "segment-sha256:b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51",
+      "sequence": 291,
+      "sha256": "861c842c3b45d74afaa7e1bf92f36c7e09c9ce26d3d7598f5aac8588a181bfe9",
+      "source_commit": "784ff550378f134070b83d7861f856c9fc661bc7",
+      "source_tree": "31e4404caccdf3f94a2c9a64996c6d98378ebd5d"
+    },
+    {
+      "bytes": 2407,
+      "evidence": "work/construction/evidence/0292-bind-completion-proofs-to-artifacts.json",
+      "evidence_bytes": 3676,
+      "evidence_path": "work/construction/evidence/0292-bind-completion-proofs-to-artifacts.json",
+      "evidence_sha256": "d04bc2ac2269aeac9c97ef648566e8011b694417f2f979d41b8621dc3690635e",
+      "path": "work/construction/segments/0292-bind-completion-proofs-to-artifacts.md",
+      "predecessor": "segment-sha256:861c842c3b45d74afaa7e1bf92f36c7e09c9ce26d3d7598f5aac8588a181bfe9",
+      "sequence": 292,
+      "sha256": "96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
+      "source_commit": "9d8dadde3550c9f39cd913610dfd6ba87a5c302c",
+      "source_tree": "4d3609cd3478cccd251d16ea73249e0afd082994"
+    },
+    {
+      "bytes": 2738,
+      "evidence": "work/construction/evidence/0293-reconstruct-adverse-outcomes.json",
+      "evidence_bytes": 3745,
+      "evidence_path": "work/construction/evidence/0293-reconstruct-adverse-outcomes.json",
+      "evidence_sha256": "9e982cf7696bc44efe454583c3b21b0d83100778c9b45b61056820850a9dc002",
+      "path": "work/construction/segments/0293-reconstruct-adverse-outcomes.md",
+      "predecessor": "segment-sha256:96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
+      "sequence": 293,
+      "sha256": "decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9",
+      "source_commit": "32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61",
+      "source_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282"
+    },
+    {
+      "bytes": 1771,
+      "evidence": "work/construction/evidence/0294-journal-backed-review-recovery.json",
+      "evidence_bytes": 2903,
+      "evidence_path": "work/construction/evidence/0294-journal-backed-review-recovery.json",
+      "evidence_sha256": "48034a33bc60ddbecd9d10b5ab6bf00f47251af395fde0d911637fe61c2fdc5d",
+      "path": "work/construction/segments/0294-journal-backed-review-recovery.md",
+      "predecessor": "segment-sha256:decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9",
+      "sequence": 294,
+      "sha256": "d2ae084b417315d49c453c747b72211ad736fa5fe4611c43f4e7ce5f4c7df611",
+      "source_commit": "1b543da87bf4b371cfb37afe6813332f987d92ca",
+      "source_tree": "6dc3eb0a781f3701d746f79b189947d6bbcbb520"
+    },
+    {
+      "bytes": 1441,
+      "evidence": "work/construction/evidence/0295-bounded-journal-io.json",
+      "evidence_bytes": 2886,
+      "evidence_path": "work/construction/evidence/0295-bounded-journal-io.json",
+      "evidence_sha256": "a4bb4c16cda672558fe76ae169292c7a0cbe58585f0a5d8e963bcb8eee95de64",
+      "path": "work/construction/segments/0295-bounded-journal-io.md",
+      "predecessor": "segment-sha256:d2ae084b417315d49c453c747b72211ad736fa5fe4611c43f4e7ce5f4c7df611",
+      "sequence": 295,
+      "sha256": "17ada774f299312f94c789470b9e66c4efdc6f9afcc275910aecfdf11ab238ab",
+      "source_commit": "c0a6bdfa24605b04632bc137cbba4e0ac0b8fc7e",
+      "source_tree": "f2b27d03bf58a4f289a4dbb961f65a9e27f2ffea"
+    },
+    {
+      "bytes": 1877,
+      "evidence": "work/construction/evidence/0296-serialized-journal-writers.json",
+      "evidence_bytes": 3095,
+      "evidence_path": "work/construction/evidence/0296-serialized-journal-writers.json",
+      "evidence_sha256": "1a88166a749d83ba75e2266cc223649c6457245ea4df7c3e2c1c8375ce57591c",
+      "path": "work/construction/segments/0296-serialized-journal-writers.md",
+      "predecessor": "segment-sha256:17ada774f299312f94c789470b9e66c4efdc6f9afcc275910aecfdf11ab238ab",
+      "sequence": 296,
+      "sha256": "31383680be9626c4452bc8a93429e00e091dc44ce0c39baff7434d50dd0e3c5f",
+      "source_commit": "8b89042ef68ef1015c10426f2a5d68b7fbf17db2",
+      "source_tree": "164e1b2dc0df2caf886bc836d5d822b6682d40d0"
+    },
+    {
+      "bytes": 1769,
+      "evidence": "work/construction/evidence/0297-interrupted-journal-tail-rejection.json",
+      "evidence_bytes": 2387,
+      "evidence_path": "work/construction/evidence/0297-interrupted-journal-tail-rejection.json",
+      "evidence_sha256": "89d0f64b4217fd36330daf15d291fa85bdd29d1171f4580509b6e115b00ed213",
+      "path": "work/construction/segments/0297-interrupted-journal-tail-rejection.md",
+      "predecessor": "segment-sha256:31383680be9626c4452bc8a93429e00e091dc44ce0c39baff7434d50dd0e3c5f",
+      "sequence": 297,
+      "sha256": "44c7be06a612554359a23c5ea88726d868be5202ae1ce533417528ef7a26a957",
+      "source_commit": "7cb74e9849e9f236e9ccec7d575cbb68e75b676a",
+      "source_tree": "3db7e4a1981a36716b8f56c988d48ca841b998e5"
     }
   ],
   "source_acquisition": {

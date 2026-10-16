@@ -1,0 +1,13 @@
+# Sequence 293 — Let verified adverse outcomes change canonical plans
+
+Sequence 291 connected verified completion to canonical allocation, and sequence 292 bound all successful completion checks to the bytes they read. The next dependency was feeding adverse outcomes into canonical planning without trusting mutable goal-state summaries or status-only work-run records.
+
+Canonical planning now reconstructs the latest schema-v3 work run only when its catalog identity, unique plan record, canonical plan, evidence sidecar, run evidence digest, and task identities agree. It validates each task result against the append-only, hash-chained execution journal and binds that verified journal head alongside the prior run digest in the new plan evidence. Verified failed or partial outcomes suppress that goal's destructive `forge_apply` task and preserve the review omission; independent goals continue. A legacy or unbound prior outcome is recorded as unknown and gates destructive planning rather than being treated as clean. Planning only changes task proposals and evidence; explicit execution and existing mutation, quarantine, mode, proposal, and apply controls remain in force.
+
+The targeted suites pass 62/62 with no skips or failures. They cover canonical propagation of a reconstructed failure, preservation of successful completion evidence, legacy unknown outcomes, and rejection of a tampered prior journal. Compilation and diff checks pass. Targeted local Mypy still reports one existing `no-any-return` diagnostic in the identity observer; the hosted baseline ratchet passes on the exact source.
+
+Local source commit `32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61` and remote equivalent `06e80aa80dd32a301437b3204fa3ed9a6b06c039` have identical tree `9a66f2e292581dd5298443e66c4d662f88e5a282`; all changed GitHub blobs were independently read back byte-for-byte. CI `38974495577`, Required Quality Gate `38974495592`, and Invariant Tests `38974495608` all passed on that exact SHA. Gate artifact `12078871501` read back with GitHub's matching ZIP digest and records UID 0, verified Administrator authority, exact source/tree, unchanged source, strict audit, and immutability.
+
+Sequence 292's final evidence head `7ee146f1293a00b7706d861711262b7fe65de82a` / tree `20293ce0b184735c1ff42771246949e845cb79d7` also passed CI `38973374924`, Gate `38973374941`, and Invariant Tests `38973374893`; privileged artifact `12077852113` read back with digest `17538a95a44452e82f2e6d95a8192ab0510ba0a91f113d2addc047e87202b0b6`. Sequence 291 and the sequence-290 Mypy repair are fully green as recorded in sequence 292.
+
+The sequence-286 finalizer cleanup still leaves nine known provenance payloads and one unidentified record unrecoverable.

@@ -26,10 +26,12 @@ from sentientos.policy_fingerprint import emit_policy_fingerprint
 from sentientos.goal_graph import GOAL_GRAPH_PATH, GoalGraph, goal_graph_hash, load_goal_graph
 from sentientos.goal_graph import load_goal_state, persist_goal_state
 from sentientos.goal_planner import ExecutorState, GoalPlanner
+from sentientos.goal_completion import CompletionContext, eval_check
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
-from sentientos.artifact_catalog import append_catalog_entry, latest
+from sentientos.artifact_catalog import (append_catalog_entry, latest,
+    load_catalog_artifact, recent)
 from sentientos.artifact_retention import RetentionPolicy, run_retention, should_run_retention
 from sentientos.recovery_tasks import backlog_count
 from sentientos.signed_rollups import maybe_publish_rollup_witness, maybe_sign_catalog_checkpoint, sign_rollups
@@ -42,8 +44,10 @@ from sentientos.work_allocator import AllocationDecision, allocate_goals
 from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
     PersistentEpistemicStateOwner)
 from sentientos.local_model_authority import digest_payload
-from sentientos.work_plan import (WorkPlan, WorkPlanError, persist_work_plan,
+from sentientos.work_plan import (WorkPlan, WorkPlanError, load_work_plan,
+    load_work_plan_evidence, load_work_run, persist_work_plan,
     persist_work_plan_evidence, persist_work_run)
+from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 from sentientos.strategic_adaptation import (
     apply_requires_stable,
     auto_propose_enabled,
@@ -308,9 +312,11 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
         append_catalog_entry(
             root, kind="work_run", artifact_id=run.run_id,
             relative_path=str(run_path), schema_name="work_run", schema_version=1,
-            links={"work_run_id": run.run_id},
+            links={"work_run_id": run.run_id,
+                "goal_ids": list(planning.work_plan.selected_goals)},
             summary={"status": run.status,
-                "goal_ids": list(planning.work_plan.selected_goals)}, ts=now,
+                "goal_ids": list(planning.work_plan.selected_goals),
+                "evidence_digest": run.evidence_digest}, ts=now,
         )
         goal_state = load_goal_state(root)
         updated_state = update_goal_state_from_run(
@@ -1059,10 +1065,25 @@ def _plan_goal_work(
 ) -> GoalPlanningResult:
     """Compose allocation and durable plan artifacts; this helper never executes."""
     graph_digest = goal_graph_hash(graph)
+    verified_completion_evidence: dict[str, dict[str, object]] = {}
+    for goal in graph.goals:
+        completion = eval_check(goal.completion_check_name, CompletionContext(
+            repo_root=root, goal_id=goal.goal_id, operating_mode=operating_mode,
+            pressure_level=pressure_level, posture=posture,
+            quarantine_active=quarantine_active, risk_budget_summary=budget.to_dict(),
+        ))
+        if completion.done:
+            verified_completion_evidence[goal.goal_id] = {
+                "check_name": completion.check_name,
+                "evidence_digest": completion.evidence_digest,
+                "evidence_paths": list(completion.evidence_paths),
+            }
     target_identity_digest = _observe_target_model_identity_digest(
         target_model_identity_observer)
     target_identity_observed_at = (
         planning_time if target_identity_digest is not None else None)
+    prior_plan, prior_outcome_unknown, prior_journal_digest = (
+        _latest_verified_prior_plan(root))
     allocation = allocate_goals(
         graph=graph, budget=budget, operating_mode=operating_mode,
         integrity_pressure_level=pressure_level, quarantine_active=quarantine_active,
@@ -1070,6 +1091,7 @@ def _plan_goal_work(
         target_active_model_identity_digest=target_identity_digest,
         target_identity_observed_at=target_identity_observed_at,
         planning_time=planning_time,
+        verified_completion_evidence=verified_completion_evidence,
     )
     allocation_path = _emit_goal_allocation_artifact(
         root=root, generated_at=planning_time, operating_mode=operating_mode,
@@ -1086,7 +1108,9 @@ def _plan_goal_work(
             after={
                 "selected_goals": list(allocation.selected),
                 "deferred_goals": [{"goal_id": item.goal_id,
-                    "reason": item.reason} for item in allocation.deferred],
+                    "reason": item.reason,
+                    "completion_evidence": item.completion_evidence}
+                    for item in allocation.deferred],
                 "budget_summary": allocation.budget_summary,
                 "target_active_model_identity_digest": target_identity_digest,
                 "target_identity_observed_at": target_identity_observed_at,
@@ -1107,6 +1131,9 @@ def _plan_goal_work(
             prior_epistemic_projection=prior_epistemic_projection,
             target_active_model_identity_digest=target_identity_digest,
             target_identity_observed_at=target_identity_observed_at,
+            prior_plan=prior_plan,
+            prior_run_outcome_unknown=prior_outcome_unknown,
+            prior_run_journal_digest=prior_journal_digest,
         )
         draft = GoalPlanner(repo_root=root).build_plan_with_evidence(
             allocation=allocation, state=executor_state, graph=graph)
@@ -1140,6 +1167,127 @@ def _plan_goal_work(
     )
 
 
+def _latest_verified_prior_plan(
+    root: Path,
+) -> tuple[WorkPlan | None, bool, str | None]:
+    """Return a reconstructed prior plan, or mark unbound history unknown."""
+    run_entry = latest(root, "work_run")
+    if run_entry is None:
+        return None, False, None
+    run_id_hint = run_entry.get("id")
+    if (not isinstance(run_id_hint, str) or len(run_id_hint) != 68
+            or not run_id_hint.startswith("run_")
+            or any(character not in "0123456789abcdef" for character in run_id_hint[4:])):
+        raise WorkPlanError("canonical_prior_work_run_identity_invalid")
+    run_path = f"glow/forge/work_runs/{run_id_hint}.json"
+    if run_entry.get("path") != run_path:
+        raise WorkPlanError("canonical_prior_work_run_path_mismatch")
+    run_file = root / run_path
+    try:
+        run_metadata = run_file.lstat()
+    except OSError as exc:
+        raise WorkPlanError("canonical_prior_work_run_unreadable") from exc
+    if not stat.S_ISREG(run_metadata.st_mode) or run_metadata.st_size > 1_048_576:
+        raise WorkPlanError("canonical_prior_work_run_bounds_invalid")
+    payload = load_catalog_artifact(root, run_entry)
+    if payload is None:
+        raise WorkPlanError("canonical_prior_work_run_unreadable")
+    run_id = payload.get("run_id")
+    plan_id = payload.get("plan_id")
+    version = payload.get("schema_version")
+    if version == 2:
+        # Legacy runs have no canonical evidence digest and cannot influence
+        # planning, but their outcome cannot be treated as clean either. Gate
+        # destructive planning for one verification cycle without replaying it.
+        return None, True, None
+    if (version != 3 or not isinstance(run_id, str) or not run_id
+            or not isinstance(plan_id, str) or not plan_id
+            or run_entry.get("kind") != "work_run"
+            or run_entry.get("id") != run_id):
+        raise WorkPlanError("canonical_prior_work_run_identity_invalid")
+
+    run_links = run_entry.get("links")
+    run_summary = run_entry.get("summary")
+    if (not isinstance(run_links, dict) or run_links.get("work_run_id") != run_id
+            or not isinstance(run_summary, dict)
+            or run_summary.get("status") != payload.get("status")
+            or run_summary.get("evidence_digest") != payload.get("evidence_digest")):
+        raise WorkPlanError("canonical_prior_work_run_catalog_mismatch")
+
+    plan_entries = [row for row in recent(root, "work_plan", limit=1000)
+        if row.get("id") == plan_id]
+    if len(plan_entries) != 1:
+        raise WorkPlanError("canonical_prior_work_plan_catalog_ambiguous")
+    plan_entry = plan_entries[0]
+    plan_path_value = plan_entry.get("path")
+    if (plan_entry.get("kind") != "work_plan"
+            or not isinstance(plan_path_value, str)
+            or not plan_path_value.startswith("glow/forge/work_plans/")):
+        raise WorkPlanError("canonical_prior_work_plan_catalog_invalid")
+    plan_path = root / plan_path_value
+    try:
+        plan_metadata = plan_path.lstat()
+    except OSError as exc:
+        raise WorkPlanError("canonical_prior_work_plan_unreadable") from exc
+    resolved_plan_path = plan_path.resolve()
+    if (not stat.S_ISREG(plan_metadata.st_mode) or plan_metadata.st_size > 1_048_576
+            or not resolved_plan_path.is_relative_to(root.resolve())):
+        raise WorkPlanError("canonical_prior_work_plan_bounds_invalid")
+    plan = load_work_plan(resolved_plan_path)
+    if (plan.plan_id != plan_id
+            or plan_entry.get("path") != (
+                "glow/forge/work_plans/plan_"
+                + plan.created_at.replace(":", "-").replace(".", "-") + ".json")):
+        raise WorkPlanError("canonical_prior_work_plan_identity_mismatch")
+    plan_links = plan_entry.get("links")
+    if not isinstance(plan_links, dict) or plan_links.get("work_plan_id") != plan_id:
+        raise WorkPlanError("canonical_prior_work_plan_catalog_mismatch")
+
+    evidence = load_work_plan_evidence(root, plan)
+    evidence_id = f"evidence_{plan_id}"
+    evidence_entries = [row for row in recent(root, "work_plan_evidence", limit=1000)
+        if row.get("id") == evidence_id]
+    evidence_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_path = (
+        "glow/forge/work_plan_evidence/evidence_" + evidence_key + ".json")
+    if len(evidence_entries) != 1:
+        raise WorkPlanError("canonical_prior_work_plan_evidence_catalog_ambiguous")
+    evidence_entry = evidence_entries[0]
+    evidence_links = evidence_entry.get("links")
+    evidence_summary = evidence_entry.get("summary")
+    if (evidence_entry.get("path") != evidence_path
+            or not isinstance(evidence_links, dict)
+            or evidence_links.get("work_plan_id") != plan_id
+            or not isinstance(evidence_summary, dict)
+            or evidence_summary.get("evidence_digest") != evidence.get("evidence_digest")
+            or evidence_summary.get("plan_digest") != plan.identity_digest()):
+        raise WorkPlanError("canonical_prior_work_plan_evidence_catalog_mismatch")
+
+    run = load_work_run(root, plan, created_at=plan.created_at)
+    if (run is None or run.schema_version != 3 or run.run_id != run_id
+            or run.plan_id != plan_id or run.status != payload.get("status")
+            or run.evidence_digest != payload.get("evidence_digest")
+            or run_path != f"glow/forge/work_runs/{run.run_id}.json"):
+        raise WorkPlanError("canonical_prior_work_run_reconstruction_mismatch")
+    journal = WorkPlanExecutionJournal(root, plan)
+    for task_run in run.task_runs:
+        journal_status = journal.state(task_run.task_id)
+        journal_result = journal.result(task_run.task_id)
+        if task_run.reason == "prior_attempt_outcome_unknown":
+            matched = journal_status == "interrupted" and journal_result is None
+        elif ((task_run.reason or "").startswith("prior_terminal_")
+                and (task_run.reason or "").endswith("_not_replayed")):
+            prior_status = (task_run.reason or "")[len("prior_terminal_"):-len("_not_replayed")]
+            matched = journal_status == prior_status and journal_result is None
+        else:
+            matched = journal_status == task_run.status and journal_result == task_run
+        if not matched:
+            raise WorkPlanError("canonical_prior_work_run_journal_mismatch")
+    if run_links.get("goal_ids") != list(plan.selected_goals):
+        raise WorkPlanError("canonical_prior_work_run_goal_links_mismatch")
+    return plan, False, journal.head_digest
+
+
 def _emit_goal_allocation_artifact(
     *,
     root: Path,
@@ -1161,7 +1309,10 @@ def _emit_goal_allocation_artifact(
         "strategic_posture": posture,
         "goal_graph_hash": goal_graph_hash_value,
         "selected_goals": list(allocation.selected),
-        "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
+        "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason,
+            "epistemic_positions": list(item.epistemic_positions),
+            "completion_evidence": item.completion_evidence}
+            for item in allocation.deferred],
         "selection_reasons": list(allocation.selected_reasons),
         "budget_summary": allocation.budget_summary,
         "target_active_model_identity_digest": target_identity_digest,

@@ -213,6 +213,29 @@ def test_prior_plan_without_recovered_run_blocks_outcome_informed_planning(
         GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
 
 
+def test_unbound_prior_outcome_gates_destructive_plan_for_review(
+        tmp_path: Path) -> None:
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("g1", "prior outcome is unbound", 1.0, 1, (),
+            "check_forge_last_run_ok", 2, 1, ("integrity",), True),))
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    state = ExecutorState(repo_root=tmp_path, created_at="2026-01-02T00:00:00Z",
+        context="followup", operating_mode="normal", quarantine_active=False,
+        allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="next",
+        risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
+            forge_max_files_changed=10), prior_run_outcome_unknown=True)
+
+    draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        allocation, state, graph)
+
+    assert not any(task.kind == "forge_apply" for task in draft.work_plan.tasks)
+    assert ("g1", "forge_apply", "prior_terminal_outcome_requires_review") in {
+        (row.goal_id, row.kind, row.reason) for row in draft.work_plan.omissions}
+    assert draft.evidence_binding["prior_run_outcome_unknown"] is True
+    assert draft.evidence_binding["no_replay_goal_outcomes"] == {"g1": ["unknown"]}
+
+
 def test_non_meaning_bearing_epistemic_projection_cannot_influence_planning(
         tmp_path: Path) -> None:
     from sentientos.persistent_epistemic_state import make_cognitive_projection

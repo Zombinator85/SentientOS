@@ -358,6 +358,10 @@ def _normalize_links(links: dict[str, object]) -> dict[str, object]:
     keep = {
         "incident_id",
         "trace_id",
+        "goal_id",
+        "goal_ids",
+        "work_plan_id",
+        "work_run_id",
         "pack_id",
         "run_id",
         "pr_number",
@@ -382,6 +386,13 @@ def _normalize_links(links: dict[str, object]) -> dict[str, object]:
         if key not in links:
             continue
         value = links.get(key)
+        if (key == "goal_ids" and isinstance(value, list)
+                and len(value) <= 256
+                and all(isinstance(item, str) and item and len(item) <= 256
+                    for item in value)
+                and len(value) == len(set(value))):
+            out[key] = sorted(value)
+            continue
         if isinstance(value, (str, int, bool)) and value != "":
             out[key] = value
     return out

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from sentientos.epistemic_planning import (epistemic_review_reason_for_goal,
@@ -13,6 +14,8 @@ from sentientos.risk_budget import RiskBudget
 class DeferredGoal:
     goal_id: str
     reason: str
+    epistemic_positions: tuple[dict[str, object], ...] = ()
+    completion_evidence: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +43,7 @@ def allocate_goals(
     target_active_model_identity_digest: str | None = None,
     target_identity_observed_at: str | None = None,
     planning_time: str | None = None,
+    verified_completion_evidence: Mapping[str, dict[str, object]] | None = None,
 ) -> AllocationDecision:
     selected: list[str] = []
     selected_reasons: list[dict[str, object]] = []
@@ -47,6 +51,8 @@ def allocate_goals(
     spent_risk = 0
     spent_throughput = 0
     all_goal_ids = {goal.goal_id for goal in graph.goals}
+    completed_evidence = dict(verified_completion_evidence or {})
+    verified_completed_ids = set(completed_evidence)
     projection_digest: str | None = None
     review_scopes: dict[str, dict[str, object]] = {}
     if prior_epistemic_projection is not None:
@@ -54,32 +60,46 @@ def allocate_goals(
             prior_epistemic_projection)
 
     for goal in order_goals_deterministic(graph.goals):
-        if not goal.enabled:
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="disabled"))
+        positions = _epistemic_positions_for_goal(goal, review_scopes)
+        completion_evidence = completed_evidence.get(goal.goal_id)
+        if completion_evidence is not None:
+            deferred.append(DeferredGoal(goal_id=goal.goal_id,
+                reason="verified_completion", epistemic_positions=positions,
+                completion_evidence=dict(completion_evidence)))
             continue
-        if dependency_unmet(goal, set(selected), all_goal_ids):
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="dependency_unmet"))
+        if not goal.enabled:
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="disabled",
+                epistemic_positions=positions))
+            continue
+        if dependency_unmet(goal, set(selected) | verified_completed_ids, all_goal_ids):
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="dependency_unmet",
+                epistemic_positions=positions))
             continue
         if _is_mode_blocked(goal, operating_mode):
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="mode_blocked"))
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="mode_blocked",
+                epistemic_positions=positions))
             continue
         if quarantine_active and _is_quarantine_blocked(goal):
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="quarantine_blocked"))
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="quarantine_blocked",
+                epistemic_positions=positions))
             continue
         epistemic_reason = epistemic_review_reason_for_goal(goal.tags, review_scopes,
             target_active_model_identity_digest=target_active_model_identity_digest,
             target_identity_observed_at=target_identity_observed_at,
             planning_time=planning_time)
         if epistemic_reason is not None:
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason=epistemic_reason))
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason=epistemic_reason,
+                epistemic_positions=positions))
             continue
 
         score = _goal_score(goal, posture=posture, pressure_level=integrity_pressure_level)
         if spent_risk + goal.risk_cost_estimate > budget.router_k_max:
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="budget_exceeded"))
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="budget_exceeded",
+                epistemic_positions=positions))
             continue
         if spent_throughput + goal.throughput_cost_estimate > max(0, budget.router_m_max):
-            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="throughput_exceeded"))
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="throughput_exceeded",
+                epistemic_positions=positions))
             continue
         selected.append(goal.goal_id)
         spent_risk += goal.risk_cost_estimate
@@ -97,6 +117,13 @@ def allocate_goals(
             }
         if projection_digest is not None:
             reason["epistemic_projection_digest"] = projection_digest
+            reason["epistemic_positions"] = list(positions)
+        verified_dependencies = [
+            {"goal_id": dependency, **completed_evidence[dependency]}
+            for dependency in goal.dependencies if dependency in completed_evidence
+        ]
+        if verified_dependencies:
+            reason["verified_completed_dependencies"] = verified_dependencies
         selected_reasons.append(reason)
 
     return AllocationDecision(
@@ -114,6 +141,26 @@ def allocate_goals(
 
 def _goal_score(goal: Goal, *, posture: str, pressure_level: int) -> float:
     return float(goal.weight) * _posture_multiplier(goal, posture) * _pressure_multiplier(goal, pressure_level) + float(goal.priority)
+
+
+def _epistemic_positions_for_goal(
+        goal: Goal, review_scopes: dict[str, dict[str, object]]) -> tuple[dict[str, object], ...]:
+    """Bind each tagged position to this allocation decision deterministically."""
+    tags = set(goal.tags)
+    positions: list[dict[str, object]] = []
+    for proposition_id, scope in sorted(review_scopes.items()):
+        if f"epistemic_proposition:{proposition_id}" not in tags:
+            continue
+        identity = scope.get("position_identity")
+        omitted_identity = scope.get("omitted_state_identity")
+        positions.append({
+            "proposition_id": proposition_id,
+            "posture": scope.get("position_posture", "review_required"),
+            "identity": dict(identity) if isinstance(identity, Mapping) else None,
+            "omitted_state_identity": (dict(omitted_identity)
+                if isinstance(omitted_identity, Mapping) else None),
+        })
+    return tuple(positions)
 
 
 def _is_mode_blocked(goal: Goal, operating_mode: str) -> bool:

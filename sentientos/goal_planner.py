@@ -42,6 +42,8 @@ class ExecutorState:
     prior_epistemic_projection: EpistemicCognitiveProjection | None = None
     target_active_model_identity_digest: str | None = None
     target_identity_observed_at: str | None = None
+    prior_run_outcome_unknown: bool = False
+    prior_run_journal_digest: str | None = None
 
 
 class GoalPlanner:
@@ -77,6 +79,9 @@ class GoalPlanner:
                                 "prior_terminal_") and (task_run.reason or "").endswith(
                                     "_not_replayed")))):
                     prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
+        elif state.prior_run_outcome_unknown:
+            for goal_id in allocation.selected:
+                prior_goal_outcomes[goal_id] = {"unknown"}
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
         epistemic_review_scopes: dict[str, dict[str, object]] = {}
@@ -159,11 +164,15 @@ class GoalPlanner:
                 for goal in graph.goals if any(tag.startswith("epistemic_")
                     for tag in goal.tags)},
             "omissions": [item.to_dict() for item in omissions],
-            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason}
+            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason,
+                "epistemic_positions": list(item.epistemic_positions),
+                "completion_evidence": item.completion_evidence}
                 for item in allocation.deferred],
             "selected_reasons": list(allocation.selected_reasons),
             "prior_run_digest": next((part.split("=", 1)[1] for part in context_parts
                 if part.startswith("prior_work_run_digest=")), None),
+            "prior_run_outcome_unknown": state.prior_run_outcome_unknown,
+            "prior_run_journal_digest": state.prior_run_journal_digest,
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }

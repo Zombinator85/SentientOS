@@ -1,0 +1,112 @@
+{
+  "exploratory_attempts": [
+    {
+      "command": "PYTHONPATH=... pytest ... test_goal_completion_check_integration.py",
+      "exit_code": 4,
+      "reason": "named test path did not exist; no tests executed; not counted as verification"
+    },
+    {
+      "command": "python -m scripts.run_tests ...",
+      "exit_code": 1,
+      "reason": "editable build dependency setuptools>=78.1.1 could not download because sandbox package-index network access is blocked; direct pytest passed"
+    }
+  ],
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "catalog_links": "goal_id, goal_ids, work_plan_id, and work_run_id survive allowlisted normalization",
+    "completion_binding": "schema-v2 completion results carry the verified evidence digest",
+    "legacy_or_unbound_run": "does not satisfy canonical completion check",
+    "reconstruction": "catalogued work plan is shape-validated; persisted work run is loaded through the existing strict loader which revalidates canonical plan evidence",
+    "status_only_rejected": true
+  },
+  "local_verification": {
+    "command": "PYTHONPATH=/workspace/SentientOS-seq290 python -m pytest -q sentientos/tests/test_artifact_catalog.py sentientos/tests/test_goal_completion_checks.py sentientos/tests/test_goal_completion_registry.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_goal_progress_update.py sentientos/tests/test_orchestrator_goal_completion_flow.py sentientos/tests/test_orchestrator_plan_only.py",
+    "compileall": "passed",
+    "construction_custody_before_append": "289 segments verified",
+    "diff_check": "passed",
+    "repo_mypy_baseline": "blocked_toolchain_mismatch; requires mypy==1.20.2, unavailable in sandbox",
+    "targeted_mypy_parent_comparison": {
+      "current_errors": 19,
+      "new_errors": 0,
+      "parent_errors": 21,
+      "status": "no_regression; two existing diagnostics retired"
+    },
+    "tests_collected": 36,
+    "tests_failed": 0,
+    "tests_passed": 36,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Carry validated completion evidence into downstream developmental adaptation and prove persisted completion changes later canonical allocation after reconstruction.",
+  "predecessor_evidence_sha256": "137ba28a88d3db5f4fd6b107915f70a0d4a55134f94c33ecb97ef753bd20159b",
+  "predecessor_segment_sha256": "4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6",
+  "remote_candidate_commit": "28e148899157d445c04b5e55010e0d0a1ee896d7",
+  "remote_commit_mapping": [
+    {
+      "local_commit": "0e6324ef7fbddc14803c5992e09548e6978ee9b2",
+      "remote_commit": "1c6d6eaeb777519c857e183844384b3009167282",
+      "tree": "6271a1380787465087364b7960e36150b3644f1c"
+    },
+    {
+      "local_commit": "2e3b62f8f1356643af8ae35bb25751419494ff21",
+      "remote_commit": "a4d6801359ec840c1474cabc30aa0d1fcd00b2cd",
+      "tree": "7e3403de233bf419bddd7086baf8ac759083e882"
+    },
+    {
+      "local_commit": "0d8fa61ac54aef39eda601b608c77c99a05ce976",
+      "remote_commit": "83a98bf88274cbef73e4ce4646f1091a9a4c4432",
+      "tree": "df6aa37c5026a2c8551fcb62684ebd661e06e37b"
+    },
+    {
+      "local_commit": "ab48a787a6ee7d979a068fdfef23a26e37b65cd2",
+      "remote_commit": "28e148899157d445c04b5e55010e0d0a1ee896d7",
+      "tree": "0bc4b0d650c353988c4e7ded9ea744816f5c6af8"
+    }
+  ],
+  "remote_tree": "0bc4b0d650c353988c4e7ded9ea744816f5c6af8",
+  "segment_path": "work/construction/segments/0290-reconstructed-completion-evidence.md",
+  "segment_sha256": "b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51",
+  "sequence": 290,
+  "sequence_289_hosted_verification": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38970555549,
+    "effective_uid": 0,
+    "gate_artifact_id": 12077505163,
+    "gate_artifact_sha256": "64194467499a17cfa2d0f2ceccb10c4875e07a56d92306226062fea2f54589e9",
+    "immutability_ok": true,
+    "invariant_run_id": 38970555548,
+    "invariants": "success",
+    "remote_commit": "f376907fdb3512c5e92c8de9e8dfa33d13f7c885",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38970555559,
+    "source_unchanged": true,
+    "strict_audit_ok": true,
+    "tree": "e7aa8ca59e241bb8b1905c9d8d7ad84f267e447f"
+  },
+  "sequence_290_hosted_verification": {
+    "administrator_verified": true,
+    "ci_run_id": 38971653239,
+    "ci_status": "in_progress",
+    "effective_uid": 0,
+    "gate_artifact_id": 12076887437,
+    "gate_artifact_readback_sha256": "7e63b58e719ba75c3b3765ca4e91180fda1f7b84c442c44c165f7026854cc94c",
+    "gate_artifact_sha256": "7e63b58e719ba75c3b3765ca4e91180fda1f7b84c442c44c165f7026854cc94c",
+    "immutability_ok": true,
+    "invariant_run_id": 38971653217,
+    "invariant_status": "success",
+    "remote_commit": "28e148899157d445c04b5e55010e0d0a1ee896d7",
+    "required_quality_gate_run_id": 38971653382,
+    "required_quality_gate_status": "success",
+    "source_unchanged": true,
+    "strict_audit_ok": true,
+    "tree": "0bc4b0d650c353988c4e7ded9ea744816f5c6af8"
+  },
+  "source_commit": "ab48a787a6ee7d979a068fdfef23a26e37b65cd2",
+  "source_tree": "0bc4b0d650c353988c4e7ded9ea744816f5c6af8",
+  "title": "Reconstruct goal completion from exact persisted run and plan evidence"
+}

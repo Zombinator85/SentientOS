@@ -1,0 +1,55 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "append_only_integrity": "journal event format and hash-chain semantics preserved",
+    "append_safety": "no-follow regular-file descriptor; lstat/fstat identity checked; current size and append capacity checked before write",
+    "authority_boundary": "journal hardening only; planning and execution authority unchanged",
+    "recovery_safety": "lstat regular-file and byte-bound checks precede open; O_NOFOLLOW and descriptor identity checks; at most MAX_JOURNAL_BYTES plus one byte read"
+  },
+  "local_verification": {
+    "affected_tests_collected": 34,
+    "affected_tests_failed": 0,
+    "affected_tests_passed": 34,
+    "affected_tests_skipped": 0,
+    "compileall": "passed",
+    "construction_custody": "construction_continuation_custody_ready; 294 segments verified",
+    "diff_check": "passed",
+    "mypy_changed_module": "passed"
+  },
+  "next_dependency": "Inspect and test journal writer concurrency so concurrent executors cannot fork the hash chain or exceed the byte cap; retain fail-closed behavior for stale writers.",
+  "predecessor_evidence_sha256": "48034a33bc60ddbecd9d10b5ab6bf00f47251af395fde0d911637fe61c2fdc5d",
+  "predecessor_segment_sha256": "d2ae084b417315d49c453c747b72211ad736fa5fe4611c43f4e7ce5f4c7df611",
+  "remote_blob_readback": "changed source and test blobs independently read back byte-for-byte; remote ref SHA and tree matched candidate",
+  "remote_source_commit": "86272401cbb15d2503a45860634bbb068642ce6f",
+  "remote_tree": "f2b27d03bf58a4f289a4dbb961f65a9e27f2ffea",
+  "segment_path": "work/construction/segments/0295-bounded-journal-io.md",
+  "segment_sha256": "17ada774f299312f94c789470b9e66c4efdc6f9afcc275910aecfdf11ab238ab",
+  "sequence": 295,
+  "sequence_295_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38976182105,
+    "effective_uid": 0,
+    "expected_sha": "86272401cbb15d2503a45860634bbb068642ce6f",
+    "gate_artifact_id": 12078982143,
+    "gate_artifact_readback_sha256": "d0ee25ac7aec7e667db7f4d444cbc905bf6432044e4d720724bb98a0ba33f346",
+    "gate_artifact_sha256": "d0ee25ac7aec7e667db7f4d444cbc905bf6432044e4d720724bb98a0ba33f346",
+    "immutability_ok": true,
+    "invariant_run_id": 38976182245,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38976182254,
+    "source_tree": "f2b27d03bf58a4f289a4dbb961f65a9e27f2ffea",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "source_commit": "c0a6bdfa24605b04632bc137cbba4e0ac0b8fc7e",
+  "source_tree": "f2b27d03bf58a4f289a4dbb961f65a9e27f2ffea",
+  "title": "Bound append-only journal I/O"
+}

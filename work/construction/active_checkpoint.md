@@ -1,12 +1,17 @@
 # Active construction checkpoint
 
-Sequence 285 resolves the projection-to-plan evidence capacity mismatch without dropping omission rows or changing plan identity. Large projection-bound evidence is stored in a bounded immutable sidecar and reconstructed exactly by the canonical loader. The local work-plan, planner, executor, and historical applicability regressions passed. Exact-source hosted verification is pending.
+Sequence 297 preserves and rejects interrupted work-plan journal tails and adds explicit detection of same-size journal drift. The focused journal, executor, and planner suites pass 39/39; compilation, changed-test Mypy, custody, and diff checks pass. The verified local candidate `7cb74e9849e9f236e9ccec7d575cbb68e75b676a` and remote source `0b71e1826bf8cb68269c4ee5930f5c3e7cb608ff` share tree `3db7e4a1981a36716b8f56c988d48ca841b998e5`. CI, Required Quality Gate, and Invariant Tests passed on that exact remote SHA. The downloaded gate artifact confirms UID 0 Administrator, source/tree binding, unchanged source and repository identity, strict audit, and immutability.
 
-Latest verified main: `b633036b50b6cd3a01dd22aa179d685da9496634`
-Latest verified tree: `e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0`
-Latest segment: `work/construction/segments/0285-epistemic-evidence-sidecar.md`
-Latest segment SHA-256: `0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea`
-Evidence: `work/construction/evidence/0285-epistemic-evidence-sidecar.json`
-Sequence: 285
+Next dependency: verify cross-process journal writer exclusion through the kernel lock.
 
-Next: carry exact state, update-event, supporting-binding, and adverse-binding identities through source/model-bound developmental outcomes into canonical daemon allocation after owner reconstruction.
+The sequence-286 historical provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable.
+
+Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
+Latest verified main tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
+Verified local source commit: `7cb74e9849e9f236e9ccec7d575cbb68e75b676a`
+Verified remote source commit: `0b71e1826bf8cb68269c4ee5930f5c3e7cb608ff`
+Verified source tree: `3db7e4a1981a36716b8f56c988d48ca841b998e5`
+Latest segment: `work/construction/segments/0297-interrupted-journal-tail-rejection.md`
+Latest segment SHA-256: `44c7be06a612554359a23c5ea88726d868be5202ae1ce533417528ef7a26a957`
+Latest evidence: `work/construction/evidence/0297-interrupted-journal-tail-rejection.json`
+Sequence: 297

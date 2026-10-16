@@ -1,0 +1,11 @@
+# Sequence 287 — Carry exact historical position identity through allocation and planning
+
+Sequence 286’s exact-source privileged audit, immutability gate, and all required GitHub Actions workflows passed. Its source was `8c10669d7817e710920d29c552e84a831ded708a`, tree `c5cd0a1f0ca0c831982e910444951e5c0d82f25b`. The Required Quality Gate ran as effective UID 0; the independently downloaded artifact matched GitHub’s SHA-256 digest and validated strict audit and immutability. CI and Invariant Tests also passed.
+
+The next dependency review found that canonical plans included full epistemic review scopes, but allocator results did not bind a goal decision to the exact proposition state that informed it. Selected-reason rows had only the overall projection digest, and deferred rows had only a reason string. This made the decision itself harder to audit through later plan outcomes.
+
+Allocation results now attach deterministic, proposition-ID-ordered position identities for every history-tagged goal. Selected rows retain exact state digest, generation, update-event ID, supporting and contradicting binding IDs, and verified posture. Deferred rows retain the same identity or the exact bounded-projection omission row, including its update-event identity. Goal plan evidence carries both selected and deferred bindings forward. Selection, deterministic ordering, risk budgets, execution behavior, and authority are unchanged; historical support does not claim that a planned or unexecuted task succeeded.
+
+The exact committed source is `02ef382b6775f1af030b3bdfc57f75e565006123` with tree `d8bfb797b29602ba486813c96ce9cb8c6a339ba1`. After that commit, the canonical affected suite ran against this exact SHA and passed 22/22 executed tests with 2 existing skips and no failures. Targeted Mypy on the changed implementation modules, compilation, diff checking, and construction custody passed. Two earlier exploratory test records are preserved but are explicitly not used as exact-source proof.
+
+The repository-wide provenance analyzer still reports the known historical chain gap from sequence 286’s accidental cleanup (nine payloads unavailable and one unidentified record). This increment preserves and links its new per-run records; it does not claim that the older incomplete chain was repaired.

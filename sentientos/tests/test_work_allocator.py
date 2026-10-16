@@ -58,3 +58,27 @@ def test_posture_multiplier_promotes_feature_under_velocity() -> None:
     )
     decision = allocate_goals(graph=graph, budget=RiskBudget(router_k_max=1, router_m_max=3), operating_mode="normal", integrity_pressure_level=0, quarantine_active=False, posture="velocity")
     assert decision.selected == ("feature_goal",)
+
+
+def test_verified_completion_changes_allocation_and_satisfies_dependencies() -> None:
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("completed", "done", 1.0, 2, (), "check_forge_last_run_ok",
+            1, 1, ("integrity",), True),
+        Goal("dependent", "next", 1.0, 1, ("completed",), "rule",
+            1, 1, ("integrity",), True),
+    ))
+    proof = {"check_name": "check_forge_last_run_ok",
+        "evidence_digest": "a" * 64, "evidence_paths": ["glow/forge/work_runs/run.json"]}
+
+    decision = allocate_goals(graph=graph, budget=RiskBudget(router_k_max=2,
+        router_m_max=2), operating_mode="normal", integrity_pressure_level=0,
+        quarantine_active=False, posture="balanced",
+        verified_completion_evidence={"completed": proof})
+
+    assert decision.selected == ("dependent",)
+    completed = next(item for item in decision.deferred if item.goal_id == "completed")
+    assert completed.reason == "verified_completion"
+    assert completed.completion_evidence == proof
+    assert decision.selected_reasons[0]["verified_completed_dependencies"] == [
+        {"goal_id": "completed", **proof}
+    ]
