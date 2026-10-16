@@ -220,10 +220,10 @@ jobs:
 
       - name: Audit sanity (blessed module entrypoints)
         run: |
-          mkdir -p glow/audits .ci-runtime/self-check-vow
-          manifest_path=".ci-runtime/self-check-vow/immutable_manifest.json"
-          python -m scripts.generate_immutable_manifest --manifest "$manifest_path"
-          python -m scripts.audit_immutability_verifier --manifest "$manifest_path" || true
+          mkdir -p glow/audits
+          # Manifest generation is bound to the canonical vow path by the mutation router.
+          python -m scripts.generate_immutable_manifest
+          python -m scripts.audit_immutability_verifier || true
           python -m scripts.verify_audits logs/ || true
           python -m scripts.plan_audit_repairs logs/ || true
           python -m scripts.converge_audits logs/ --max-iterations 5 --no-apply || true
@@ -404,11 +404,11 @@ jobs:
 
       - name: Vow manifest preflight
         if: always()
-        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.generate_immutable_manifest || true
 
       - name: Audit immutability preflight
         if: always()
-        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.audit_immutability_verifier || true
 
       - name: Contract drift rollup
         if: always()
@@ -639,11 +639,11 @@ jobs:
 
       - name: Vow manifest preflight
         if: always()
-        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.generate_immutable_manifest || true
 
       - name: Audit immutability preflight
         if: always()
-        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.audit_immutability_verifier || true
 
       - name: Contract drift rollup
         if: always()
