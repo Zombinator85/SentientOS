@@ -110,7 +110,8 @@ class _ForgeLastRunOkCheck:
         raw_summary = entry.get("summary")
         summary: dict[str, object] = raw_summary if isinstance(raw_summary, dict) else {}
         status = str(run_payload.get("status") or summary.get("status") or "unknown")
-        gate_failures = int(summary.get("integrity_gate_failures", 0)) if isinstance(summary.get("integrity_gate_failures"), int) else 0
+        gate_failures_value = summary.get("integrity_gate_failures", 0)
+        gate_failures = gate_failures_value if isinstance(gate_failures_value, int) else 0
         evidence_digest = _validated_run_evidence(ctx, entry, run_payload)
         bound = evidence_digest is not None
         done = status == "ok" and gate_failures == 0 and bound
