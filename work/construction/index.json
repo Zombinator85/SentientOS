@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "20aaa2348d32aa3683e471c9f7e6bae2069fec0ca2f05c5dba534a4bad88d494",
-    "latest_segment_sequence": 292,
-    "latest_segment_sha256": "96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
-    "source_commit": "9d8dadde3550c9f39cd913610dfd6ba87a5c302c",
-    "source_tree": "4d3609cd3478cccd251d16ea73249e0afd082994"
+    "checkpoint_sha256": "bc54ee76bb2e1bbb7a8c1b17806a38dcf5af105396921713aed4e035b9341bac",
+    "latest_segment_sequence": 293,
+    "latest_segment_sha256": "decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9",
+    "source_commit": "32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61",
+    "source_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 292,
+  "latest_sequence": 293,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3126,6 +3126,19 @@
       "sha256": "96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
       "source_commit": "9d8dadde3550c9f39cd913610dfd6ba87a5c302c",
       "source_tree": "4d3609cd3478cccd251d16ea73249e0afd082994"
+    },
+    {
+      "bytes": 2738,
+      "evidence": "work/construction/evidence/0293-reconstruct-adverse-outcomes.json",
+      "evidence_bytes": 3745,
+      "evidence_path": "work/construction/evidence/0293-reconstruct-adverse-outcomes.json",
+      "evidence_sha256": "9e982cf7696bc44efe454583c3b21b0d83100778c9b45b61056820850a9dc002",
+      "path": "work/construction/segments/0293-reconstruct-adverse-outcomes.md",
+      "predecessor": "segment-sha256:96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
+      "sequence": 293,
+      "sha256": "decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9",
+      "source_commit": "32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61",
+      "source_tree": "9a66f2e292581dd5298443e66c4d662f88e5a282"
     }
   ],
   "source_acquisition": {

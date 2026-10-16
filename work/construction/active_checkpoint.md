@@ -1,20 +1,20 @@
 # Active construction checkpoint
 
-Sequence 292 binds every successful non-run completion check to a canonical digest of the exact evidence file bytes; missing, unreadable, or out-of-root evidence fails closed. Sequence-v3 forge-run proof reconstruction remains intact. The affected suites pass 35/35, and hosted CI, the privileged Required Quality Gate, and Invariant Tests pass on remote source `e25210212c0e6d57211a8ec69a50e6b56958622e` / tree `4d3609cd3478cccd251d16ea73249e0afd082994`. Gate artifact `12077563403` was read back with matching SHA-256 and confirms UID 0 Administrator, strict audit, immutability, and unchanged exact source.
+Sequence 293 makes validated adverse work-run outcomes affect canonical task plans. The planner reconstructs the latest schema-v3 run, plan evidence, and append-only task journal, then binds both the prior run digest and journal head into plan evidence. Failed or partial outcomes suppress destructive apply for review; legacy/unbound history is treated as unknown and gates apply. The affected suites pass 62/62. CI, the privileged Administrator gate, and invariant tests pass on remote source `06e80aa80dd32a301437b3204fa3ed9a6b06c039` / tree `9a66f2e292581dd5298443e66c4d662f88e5a282`. Gate artifact `12078871501` was read back with matching digest and confirms UID 0 Administrator, strict audit, immutability, and unchanged exact source.
 
-Sequence 291 is fully green across CI, Required Quality Gate, and Invariant Tests. Sequence 290's Mypy repair also passes full CI.
+Sequence 292 is also fully green through its evidence head.
 
-The historical provenance gap from sequence 286 remains: nine known payloads and one unidentified record are unrecoverable.
+The sequence-286 historical provenance gap remains: nine known payloads and one unidentified record are unrecoverable.
 
 Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
 Latest verified main tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
-Verified local source commit: `9d8dadde3550c9f39cd913610dfd6ba87a5c302c`
-Verified remote source commit: `e25210212c0e6d57211a8ec69a50e6b56958622e`
-Verified source tree: `4d3609cd3478cccd251d16ea73249e0afd082994`
-Latest segment: `work/construction/segments/0292-bind-completion-proofs-to-artifacts.md`
-Latest segment SHA-256: `96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83`
-Evidence: `work/construction/evidence/0292-bind-completion-proofs-to-artifacts.json`
-Evidence SHA-256: `d04bc2ac2269aeac9c97ef648566e8011b694417f2f979d41b8621dc3690635e`
-Sequence: 292
+Verified local source commit: `32ad587ddf6d35dc568a3bb5cb9dfbd25a340f61`
+Verified remote source commit: `06e80aa80dd32a301437b3204fa3ed9a6b06c039`
+Verified source tree: `9a66f2e292581dd5298443e66c4d662f88e5a282`
+Latest segment: `work/construction/segments/0293-reconstruct-adverse-outcomes.md`
+Latest segment SHA-256: `decb52a0ca53502c65f9c83fafd4b1c54a7336cd7d41b044c1841c8b609d46f9`
+Evidence: `work/construction/evidence/0293-reconstruct-adverse-outcomes.json`
+Evidence SHA-256: `9e982cf7696bc44efe454583c3b21b0d83100778c9b45b61056820850a9dc002`
+Sequence: 293
 
-Next: feed strictly reconstructed adverse terminal outcomes into review-sensitive planning without trusting mutable status claims or crossing authority gates.
+Next: prove a clean journal-backed review cycle changes the later plan predictably after adverse history without weakening execution or apply authority.
