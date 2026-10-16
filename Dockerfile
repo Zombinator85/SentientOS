@@ -10,7 +10,8 @@ RUN apt-get update \
 RUN useradd --create-home --uid 1000 --shell /bin/bash sentient
 WORKDIR /workspace
 
-COPY requirements.txt ./
+# requirements.txt delegates to requirements-codex.txt; copy both before install.
+COPY requirements.txt requirements-codex.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
