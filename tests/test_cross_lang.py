@@ -1,15 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
 from __future__ import annotations
+
 
 import os
 import pytest
 
 if os.getenv("CI"):
     pytest.skip("skip cross-lang on CI", allow_module_level=True)
-
-from __future__ import annotations
-
 
 import sys
 import subprocess

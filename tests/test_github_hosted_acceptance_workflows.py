@@ -18,7 +18,9 @@ def test_disabled_accelerator_performs_no_setup():
 def test_release_pr_validation_installs_project_without_publishing():
     text=(ROOT/".github/workflows/release.yml").read_text()
     validate=text.split("  publish:",1)[0]
-    assert "pip install -e" in validate and "import sentientos" in validate and "--noop" in validate
+    assert "pip install -e" in validate
+    assert "verify_import_inertness.py" in validate and "python -m build" in validate
+    assert "publish_release.py --noop" not in validate
     assert "softprops" not in validate and "secrets." not in validate
 def test_required_quality_gate_runs_and_verifies_real_tests():
     text=(ROOT/".github/workflows/required-quality-gate.yml").read_text()

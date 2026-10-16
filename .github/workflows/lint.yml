@@ -7,12 +7,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        mode: [core, bin-lock, src-lock-full]
+        include:
+          - mode: core
+            python-version: '3.11'
+          - mode: bin-lock
+            python-version: '3.14'
+          - mode: src-lock-full
+            python-version: '3.14'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
       - if: matrix.mode == 'src-lock-full'
         uses: actions/setup-node@v3
         with:
