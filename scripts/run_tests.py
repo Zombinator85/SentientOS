@@ -17,6 +17,17 @@ from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 from scripts.validation_completion import classify_validation
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+TEST_RUN_DIR_ENV = "SENTIENTOS_TEST_RUN_DIR"
+
+
+def _test_run_dir(repo_root: Path) -> Path:
+    configured = os.environ.get(TEST_RUN_DIR_ENV)
+    if configured is None:
+        return repo_root / "glow" / "test_runs"
+    path = Path(configured)
+    return path if path.is_absolute() else repo_root / path
+
+
 PRECHECK_MESSAGE = (
     "Not running against a test-capable editable install of this repo. "
     "Run pip install --no-deps -e . and pip install -r requirements-codex.txt, "
@@ -492,7 +503,7 @@ def _write_provenance(
     behavioral_witness_counts_by_node: dict[str, int] | None = None,
     behavioral_witness_reporter_status: str = "legacy",
 ) -> dict[str, object]:
-    run_dir = repo_root / "glow" / "test_runs"
+    run_dir = _test_run_dir(repo_root)
     provenance_dir = run_dir / "provenance"
     run_dir.mkdir(parents=True, exist_ok=True)
     provenance_dir.mkdir(parents=True, exist_ok=True)
@@ -820,7 +831,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
         return 1
-    run_dir = REPO_ROOT / "glow" / "test_runs"
+    run_dir = _test_run_dir(REPO_ROOT)
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
     junitxml_path: Path | None = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"

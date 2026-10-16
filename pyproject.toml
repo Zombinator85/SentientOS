@@ -139,7 +139,7 @@ sentientos-reviewer-proof-bundle = "scripts.build_reviewer_proof_bundle:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["sentientos", "api", "gui", "apps"]
+include = ["sentientos", "api", "gui", "apps", "scripts"]
 
 [tool.setuptools]
 py-modules = ["sentient_api"]

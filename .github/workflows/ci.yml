@@ -195,6 +195,9 @@ jobs:
 
       - name: Pre-commit
         run: pre-commit run --all-files
+        env:
+          SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-precommit-test-runs
+          SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-precommit-audit-runtime
 
       - name: Privilege lint
         run: python -m privilege_lint_cli --read-only --quiet .
