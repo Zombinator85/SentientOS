@@ -47,13 +47,13 @@
   "editable_reason": "direct-url",
   "execution_mode": "execute",
   "full_capability_dependencies_requested": false,
-  "git_sha": "16cadc3ada34c59e008edb11a48820e2c1d97550",
+  "git_sha": "318b74620951aec566bac798f7d191364644b386",
   "hash_algo": "sha256",
   "install_attempted_modes": [],
   "install_fallback_reason": null,
   "install_mode": "none",
   "install_performed": false,
-  "junitxml_path": "/workspace/SentientOS-main-16cadc3/glow/test_runs/pytest_junitxml_a6b0033de98d479db897267e2b61e868.xml",
+  "junitxml_path": "/workspace/SentientOS-main-318b746/glow/test_runs/pytest_junitxml_c451b56dd3fd495ba7e6111f81541ca2.xml",
   "metrics_status": "ok",
   "node_outcomes": [
     {
@@ -173,8 +173,8 @@
     }
   ],
   "non_execution_flags": [],
-  "prev_provenance_hash": "fa2702d8f524273cd183dd797b21c3d1e60c32cea370463873e49478f28f4b9e",
-  "provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+  "prev_provenance_hash": "d12936cb6444d7580198bf5b70c9ecf75dc91a249a2ef3411eb6de22fbefd8bd",
+  "provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
   "pytest_args": [
     "tests/test_persistent_epistemic_state.py",
     "sentientos/tests/test_epistemic_planning.py",
@@ -183,12 +183,12 @@
   ],
   "pytest_exit_code": 0,
   "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
-  "repo_root": "/workspace/SentientOS-main-16cadc3",
+  "repo_root": "/workspace/SentientOS-main-318b746",
   "reporter_error": null,
   "reporter_loaded": true,
   "reporter_ok": true,
   "reporter_status": "complete",
-  "run_id": "ae60ea3241d94209a112902814296288",
+  "run_id": "356a60a2b48c4e0f81212d17bb69fb79",
   "run_intent": "targeted",
   "schema_version": 1,
   "selected_node_ids": [
@@ -231,7 +231,7 @@
   "tests_skipped": 1,
   "tests_xfailed": 0,
   "tests_xpassed": 0,
-  "timestamp": "2026-10-16T20:05:28.246985+00:00",
+  "timestamp": "2026-10-16T20:15:01.106558+00:00",
   "validation_complete": true,
   "validation_status": "validation_complete",
   "xfail_rate": 0.0

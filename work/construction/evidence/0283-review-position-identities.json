@@ -1,0 +1,78 @@
+{
+  "local_regression": {
+    "command": "python -m scripts.run_tests -q tests/test_persistent_epistemic_state.py sentientos/tests/test_epistemic_planning.py sentientos/tests/test_orchestrator_plan_only.py",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "initial_assertion_failure": {
+      "preserved": true,
+      "provenance_hash": "47aa31e1e1c5c24076f06d34d567ba5164440e76f243b8aed17ac58ba030a34b",
+      "provenance_path": "glow/test_runs/provenance/20261016T201443Z_318b74620951_0540033e68d84231b4fd863b8f86e0e4.json"
+    },
+    "prev_provenance_hash": "d12936cb6444d7580198bf5b70c9ecf75dc91a249a2ef3411eb6de22fbefd8bd",
+    "provenance_file_sha256": "3ae7aa78868d3587ab17fb8de672f3b1da2ff4666bf411ba438c8117c8c1589f",
+    "provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
+    "provenance_path": "glow/test_runs/provenance/20261016T201501Z_318b74620951_931cf8e1046048dfab87c759e5b0d640.json",
+    "source_binding": "exploratory_dirty_checkout_based_on_318b74620951aec566bac798f7d191364644b386",
+    "tests_collected": 23,
+    "tests_executed": 22,
+    "tests_failed": 0,
+    "tests_passed": 22,
+    "tests_skipped": 1,
+    "validation_status": "validation_complete"
+  },
+  "next_dependency": "Carry position identity through real source/model-bound developmental episodes to canonical daemon allocation after owner reconstruction.",
+  "position_identity_contract": {
+    "allocator_decisions_unchanged": true,
+    "authority_or_execution_added": false,
+    "embedded_in": "canonical_plan_evidence.evidence_binding.review_scopes",
+    "fields": [
+      "state_id",
+      "state_digest",
+      "generation",
+      "update_event_id",
+      "supporting_binding_ids",
+      "contradicting_binding_ids"
+    ],
+    "omitted_identity_path_preserved": "canonical_plan_evidence.evidence_binding.projection_omission_manifest",
+    "schema": "sentientos.epistemic_review_position_identity:v1"
+  },
+  "predecessor_segment_sha256": "28e5a75073da69bacd18f9d368f0f8429af936b3fa2eb4787736255e313c5f93",
+  "segment_path": "work/construction/segments/0283-review-position-identities.md",
+  "segment_sha256": "6500ef6615d04d407d56efa25e1eaab723c7e8b4ccc93d3db0f258fd1ffc14ba",
+  "sequence": 283,
+  "sequence_282_merge": {
+    "feature_commit": "8318f4fd2a84d247ca5e389f9ac3f08392900b3e",
+    "merge_commit": "318b74620951aec566bac798f7d191364644b386",
+    "merge_tree": "3b7cb7451ace67213491f5d558ef463420472ef0",
+    "preserved_commit_history": true,
+    "pull_request": 2273
+  },
+  "sequence_282_post_merge_privileged_verification": {
+    "artifact_digest_independently_verified": true,
+    "artifact_id": 12073015663,
+    "artifact_sha256": "sha256:4cce1f49d290dbeecd304a0d4a5e1dfea176fd18d608cf2a7b5470104848443f",
+    "effective_uid": 0,
+    "immutability_exit_code": 0,
+    "immutability_ok": true,
+    "job_id": 117174322499,
+    "repository_identity_unchanged": true,
+    "source_commit": "318b74620951aec566bac798f7d191364644b386",
+    "source_tree": "3b7cb7451ace67213491f5d558ef463420472ef0",
+    "source_unchanged": true,
+    "strict_audit_exit_code": 0,
+    "strict_audit_ok": true,
+    "workflow_run_id": 38960579900
+  },
+  "sequence_282_post_merge_workflows": {
+    "ci": "success",
+    "codex_ci": "success",
+    "docker_image": "success",
+    "docs_deploy": "success",
+    "forge_smoke": "skipped_by_workflow_policy",
+    "invariant_tests": "success",
+    "required_quality_gate": "success"
+  },
+  "source_commit": "318b74620951aec566bac798f7d191364644b386",
+  "source_tree": "3b7cb7451ace67213491f5d558ef463420472ef0",
+  "title": "Bind scoped decisions to exact epistemic position identities"
+}

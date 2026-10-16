@@ -372,8 +372,15 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         "projection_digest"]
     recovered_scope = recovered_binding["review_scopes"][
         omitted_proposition.proposition_id]
-    assert recovered_scope == dict(omitted_proposition.context_scope)
+    assert {key: value for key, value in recovered_scope.items()
+        if key != "position_identity"} == dict(omitted_proposition.context_scope)
     assert recovered_scope.get("omitted_from_prior_projection") is not True
+    recovered_identity = recovered_scope["position_identity"]
+    assert recovered_identity["state_id"] == omitted_state_before_planning.state_id
+    assert recovered_identity["state_digest"] == omitted_state_before_planning.state_digest
+    assert recovered_identity["generation"] == omitted_state_before_planning.generation
+    assert recovered_identity["update_event_id"] == (
+        omitted_state_before_planning.last_update_event_id)
     assert recovered_binding["goal_applicability"]["g_omitted"] == (
         "epistemic_review_required")
     assert owner.current_state(omitted_proposition.proposition_id) == (
