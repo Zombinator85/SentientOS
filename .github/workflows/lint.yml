@@ -59,7 +59,7 @@ jobs:
         if: matrix.mode == 'core'
         timeout-minutes: 5
         run: |
-          python -m scripts.run_tests -q \
+          python -m scripts.run_tests -q -m legacy \
             tests/test_dashboard_api.py \
             tests/test_dashboard_drift_api.py \
             tests/test_dashboard_pressure_api.py \

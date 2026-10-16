@@ -1,7 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner(); require_lumos_approval()
 
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -28,4 +27,6 @@ def stream_events(path: Path = LOG_PATH) -> Generator[str, None, None]:
 
 @typed_get("/federation/stream")
 def federation_stream() -> StreamingResponse:
+    require_admin_banner()
+    require_lumos_approval()
     return StreamingResponse(stream_events(), media_type="text/event-stream")
