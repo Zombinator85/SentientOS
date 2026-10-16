@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a95352aa632c008da81f35491efa24d79b5e77e613a55e1e2f8de67fa9ea3006",
-    "latest_segment_sequence": 276,
-    "latest_segment_sha256": "1ac2840dc2c60c56776a4e5477adbf7d10a3246b91325bca55d80ee0a1c38145",
-    "source_commit": "3c9c5e1eccf36511b85cda038f29fab5e562d018",
-    "source_tree": "10543720b7aca3205ee94516f6b848e2297e2969"
+    "checkpoint_sha256": "c75037ca0d603c6e8e6666f177aa936a5e57e1c196c48f0bc68c811c04d84e0d",
+    "latest_segment_sequence": 277,
+    "latest_segment_sha256": "74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
+    "source_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
+    "source_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -2920,6 +2920,19 @@
       "sha256": "1ac2840dc2c60c56776a4e5477adbf7d10a3246b91325bca55d80ee0a1c38145",
       "source_commit": "3c9c5e1eccf36511b85cda038f29fab5e562d018",
       "source_tree": "10543720b7aca3205ee94516f6b848e2297e2969"
+    },
+    {
+      "bytes": 1709,
+      "evidence": "work/construction/evidence/0277-persistent-epistemic-planning-composition.json",
+      "evidence_bytes": 1525,
+      "evidence_path": "work/construction/evidence/0277-persistent-epistemic-planning-composition.json",
+      "evidence_sha256": "f4fb441e17d2548d08d2b373b4bdddb5bad921269927c9e8145eb89cfe2a0d9e",
+      "path": "work/construction/segments/0277-persistent-epistemic-planning-composition.md",
+      "predecessor": "segment-sha256:1ac2840dc2c60c56776a4e5477adbf7d10a3246b91325bca55d80ee0a1c38145",
+      "sequence": 277,
+      "sha256": "74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
+      "source_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
+      "source_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,33 @@
+{
+  "base_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
+  "base_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2",
+  "hosted_candidate_verification": "pending publication; not claimed",
+  "local_verification": {
+    "focused_test": {
+      "failed": 0,
+      "passed": 1,
+      "provenance_path": "glow/test_runs/provenance/20261016T183226Z_d8d7a219221c_abd9c8e59bb64ba0983f57335be71989.json",
+      "status": "passed"
+    },
+    "full_plan_only_module": {
+      "failed": 0,
+      "passed": 5,
+      "provenance_path": "glow/test_runs/provenance/20261016T183233Z_d8d7a219221c_3edf577efb64487b9d1955ed7774d8e6.json",
+      "status": "passed"
+    },
+    "source_identity_limit": "The local workspace Git HEAD is d8d7a219221cd94240accf7991fe353b14f6a84e, not the merged main commit. Local runs are recorded as exploratory evidence and do not establish candidate-SHA verification.",
+    "python_compile": true,
+    "git_diff_check": true
+  },
+  "next_dependency": "F1-F8; continue from fresh exact-source hosted verification of this candidate",
+  "predecessor_segment_sha256": "1ac2840dc2c60c56776a4e5477adbf7d10a3246b91325bca55d80ee0a1c38145",
+  "scope": {
+    "executor_invocation": false,
+    "model_invocation": false,
+    "owner_mutation": false,
+    "verified_owner_projection_changes_plan_selection": true
+  },
+  "segment_path": "work/construction/segments/0277-persistent-epistemic-planning-composition.md",
+  "sequence": 277,
+  "title": "Compose the verified epistemic owner through canonical daemon planning"
+}

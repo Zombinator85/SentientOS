@@ -39,10 +39,11 @@
     "E1-E8 partial: seq269 preserves bounded comparison outcomes and measurement identities in downstream cognition, with source digest binding and same-model/drift gates intact; next connect daemon prior-projection owner to canonical planning.",
     "E1-E8: sequences 270-273 connect the daemon verified prior-projection owner to canonical allocation/planning; source identity, applicability and drift remain enforced, planning feedback stays non-authorizing and execution-free, and the integrated resource-to-cognition lifecycle passes hosted acceptance.",
     "E1-E8 follow-up: canonical planning and task execution are separate modules and daemon surfaces; plan evidence is revalidated before explicit execution, current integrity policy is recomputed, and a hosted 17-node exact acceptance gate binds results to the candidate SHA.",
-    "E1-E8 follow-up: suite-specific acceptance provenance is preserved by validating the resource-to-cognition manifest before the separate canonical-planning suite replaces the test runner summary; ordering is regression-tested."
+    "E1-E8 follow-up: suite-specific acceptance provenance is preserved by validating the resource-to-cognition manifest before the separate canonical-planning suite replaces the test runner summary; ordering is regression-tested.",
+    "X: a real PersistentEpistemicStateOwner is composed through RuntimeMaintenanceSurfaces canonical planning; its verified prior position changes goal selection, owner state remains unchanged, and model/executor execution is forbidden."
   ],
-  "current_source_commit": "3c9c5e1eccf36511b85cda038f29fab5e562d018",
-  "current_source_tree": "10543720b7aca3205ee94516f6b848e2297e2969",
+  "current_source_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
+  "current_source_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -50,12 +51,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 276,
+  "last_checkpoint_sequence": 277,
   "next_executable_nodes": [
     {
       "node": "F1-F8",
       "program": "F",
-      "work": "Advance multi-episode strategy correction, negative transfer, applicability, historical relevance, model-identity separation, and later distinct decisions."
+      "work": "Advance F1-F8 by proving that identity-bound multi-episode outcomes change later strategy or goal allocation under exact owner and applicability bindings; preserve negative outcomes, omissions, and explicit fixture-only limits."
     },
     {
       "node": "B4-B8",
