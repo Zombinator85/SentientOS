@@ -1,0 +1,117 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation": 0,
+    "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar": 0,
+    "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 5,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "b633036b50b6cd3a01dd22aa179d685da9496634",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-main-7f14f2e0/glow/test_runs/pytest_junitxml_2f5d351d786742c6a3ee7754bc44ab11.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "14262adf5ccb175ad8a0ca1f912b586d9be9b542854f8e88703dea4eaaf28a67",
+  "provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
+  "pytest_args": [
+    "-m",
+    "legacy or no_legacy_skip",
+    "-q",
+    "sentientos/tests/test_work_plan_evidence_bounds.py",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-main-7f14f2e0",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "1eb7dbf28c7f45aba1828447207ab021",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
+    "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes"
+  ],
+  "selection_flags": [
+    "-m",
+    "sentientos/tests/test_work_plan_evidence_bounds.py",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 5,
+  "tests_executed": 5,
+  "tests_failed": 0,
+  "tests_passed": 5,
+  "tests_selected": 5,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T20:43:45.338996+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

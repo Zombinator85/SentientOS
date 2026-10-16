@@ -140,6 +140,8 @@ jobs:
             sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity \
             sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy \
             sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor \
+            sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar \
+            sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed \
             sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free \
             tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition \
             tests/test_repository_mutation_custody_regression.py::test_runtime_handoff_emission_external_root_no_state_change_or_repo_dirty \
@@ -165,6 +167,8 @@ jobs:
               "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity",
               "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
               "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+              "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_round_trips_exactly_through_immutable_sidecar",
+              "sentientos/tests/test_work_plan_evidence_bounds.py::test_large_epistemic_evidence_sidecar_tampering_fails_closed",
               "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
               "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition",
               "tests/test_repository_mutation_custody_regression.py::test_runtime_handoff_emission_external_root_no_state_change_or_repo_dirty",

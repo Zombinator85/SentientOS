@@ -1,0 +1,191 @@
+{
+  "capacity_reproduction": {
+    "canonical_evidence_binding_bytes": 647580,
+    "history_owner_reopened": false,
+    "identity_commitment": "each generated epistemic state has a committed state digest and latest update-event identity; scoped positive/adverse outcomes are independently covered by the referenced 79-test suite",
+    "omitted_identity_count": 649,
+    "owner_records": 650,
+    "positive_and_adverse_provenance": false,
+    "projection_manifest_canonical_bytes": 289734,
+    "result_before_fix": "persist_work_plan_evidence raised WorkPlanError(work_plan_evidence_bounds_invalid)",
+    "selected_projection_states": 1,
+    "source": "verified main b633036b50b6cd3a01dd22aa179d685da9496634"
+  },
+  "evidence_path": "work/construction/evidence/0285-epistemic-evidence-sidecar.json",
+  "implementation": {
+    "authority_or_execution_changes": false,
+    "bounds": {
+      "compact_record_bytes": 524288,
+      "inline_evidence_binding_bytes": 262144,
+      "projection_bound_sidecar_bytes": 12582912
+    },
+    "load": "no-follow bounded regular-file read validates sidecar size, SHA-256, canonical encoding, projection identity, plan identity, and original full evidence digest",
+    "omission_binding": "the full omission manifest remains present; omitted scope identities must exactly match its rows before externalization and after load",
+    "returned_evidence": "load_work_plan_evidence reconstructs and returns the exact original schema-1 evidence object to executor callers",
+    "storage": "large canonical evidence_binding is placed in a deterministic immutable sidecar; compact plan evidence contains a digest and byte-count reference"
+  },
+  "local_regression": {
+    "append_only_provenance": [
+      {
+        "file_sha256": "fe713995c5dc199f92ad7ea687db0ed5be154654b61d8ac05c26c3132709f6fc",
+        "path": "glow/test_runs/provenance/20261016T204209Z_b633036b50b6_8885bb3eaf6a4be78f2c1f858a53b53b.json",
+        "previous_provenance_hash": "2c2eeb68606eeddb6dbbb25bf35178526ac5fcd5dcbf5fcd43d40e1588ce4432",
+        "provenance_hash": "0c68831cac08212e06e3bd5b0b458020270654f1486ed45b0aab38da924d4379",
+        "tests_executed": 4,
+        "tests_failed": 0,
+        "tests_passed": 4,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "422494459f5651dec1196b21e8f15f347d37a419eaa21059f7eba38d6dd84e98",
+        "path": "glow/test_runs/provenance/20261016T204318Z_b633036b50b6_41008b53acef4df7a336f5832ddf5df0.json",
+        "previous_provenance_hash": "0c68831cac08212e06e3bd5b0b458020270654f1486ed45b0aab38da924d4379",
+        "provenance_hash": "14262adf5ccb175ad8a0ca1f912b586d9be9b542854f8e88703dea4eaaf28a67",
+        "tests_executed": 4,
+        "tests_failed": 0,
+        "tests_passed": 4,
+        "tests_skipped": 1,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "d5dfec9227218d14bd5eca7fc6110d961d1426ab42a0ff287bcbe60e4e9e3900",
+        "path": "glow/test_runs/provenance/20261016T204345Z_b633036b50b6_2aff5085961a4800ad5ed7977dfcb212.json",
+        "previous_provenance_hash": "14262adf5ccb175ad8a0ca1f912b586d9be9b542854f8e88703dea4eaaf28a67",
+        "provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "814a6cfcc64e6a691a5998de09360cb3843367cfd9c44fbef8f107411150b4c3",
+        "path": "glow/test_runs/provenance/20261016T204407Z_b633036b50b6_4a599f8826f64b009dcecd993f1f5d40.json",
+        "previous_provenance_hash": "d8e9cab5c4332d6689ed93a7d15e81a657c4c745d26e875722b79fa7a5f9da98",
+        "provenance_hash": "6f9dcfcdf517d9ead5bcf554f91f176848465c75fe27031b318ade8f315614e9",
+        "tests_executed": 79,
+        "tests_failed": 0,
+        "tests_passed": 79,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      }
+    ],
+    "command": "PYTHONPATH=/tmp/sentientos-seq284-test/lib/python3.12/site-packages python -m scripts.run_tests -- -m \"legacy or no_legacy_skip\" -q sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_work_plan_cli.py sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_plan_only.py sentientos/tests/test_epistemic_planning.py tests/test_persistent_epistemic_state.py tests/test_github_hosted_acceptance_workflows.py",
+    "compileall": "passed",
+    "construction_custody_segments_verified": 284,
+    "diff_check": "passed",
+    "policy_skip_attempt": "preserved in provenance; one legacy execution test was excluded by the default no-legacy marker, then rerun with the exact CI marker selection and passed",
+    "source_binding": "exploratory_dirty_checkout_based_on_b633036b50b6cd3a01dd22aa179d685da9496634",
+    "targeted_mypy": "passed: mypy --config-file pyproject.toml sentientos/work_plan.py sentientos/tests/test_work_plan_evidence_bounds.py",
+    "tests_executed": 79,
+    "tests_failed": 0,
+    "tests_passed": 79,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Carry exact state/event/support/adverse identities through source/model-bound developmental episode ownership into canonical daemon allocation after owner reconstruction; retain prior positive/adverse history and zero-authority planning.",
+  "predecessor_segment_sha256": "c0548dad759dbc9813e2586510b1037656b20d65db4ea52a2784d01f999d96c5",
+  "segment_path": "work/construction/segments/0285-epistemic-evidence-sidecar.md",
+  "segment_sha256": "0f2b003f549353af7becff997a025913b21bec06c51bab20261d57d3aa85e1ea",
+  "sequence": 285,
+  "sequence_284_merge_closure": {
+    "candidate_commit": "681c7a1ea18501f1ac8e151781dfc6f270c6cb73",
+    "candidate_workflows": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 38962787263
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 38962787314
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 38962787464
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 38962787810
+      },
+      "invariant_tests": {
+        "conclusion": "success",
+        "run_id": 38962787528
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 38962787621
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 38962787684
+      },
+      "required_quality_gate": {
+        "artifact_digest_independently_verified": true,
+        "artifact_id": 12073810913,
+        "artifact_sha256": "a4a3398f30752a5d33d9878813e598b0159b8904656e7921920311bfebdfa9e4",
+        "audit_result_validation_ok": true,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "immutability_ok": true,
+        "repository_identity_unchanged": true,
+        "run_id": 38962787485,
+        "source_sha": "a83fd9bf6c0bbad024ee5f5209d4bb2831743060",
+        "source_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0",
+        "source_unchanged": true,
+        "strict_audit_ok": true
+      }
+    },
+    "history_preserved": true,
+    "merge_commit": "b633036b50b6cd3a01dd22aa179d685da9496634",
+    "merge_parents": [
+      "7f14f2e0cfddbf0edd995d7286c395543da583f0",
+      "681c7a1ea18501f1ac8e151781dfc6f270c6cb73"
+    ],
+    "merge_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0",
+    "post_merge_workflows": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 38963344014
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 38963344019
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 38963344055
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 38963344137
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_workflow_policy",
+        "run_id": 38963344054
+      },
+      "invariant_tests": {
+        "conclusion": "success",
+        "run_id": 38963344127
+      },
+      "required_quality_gate": {
+        "artifact_digest_independently_verified": true,
+        "artifact_id": 12073572595,
+        "artifact_sha256": "99dc86849a8498bc9baf2cf4f6ad0dbc8dcf09a8d8710eb138f9e62110b73a26",
+        "audit_result_validation_ok": true,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "immutability_ok": true,
+        "repository_identity_unchanged": true,
+        "run_id": 38963344076,
+        "source_sha": "b633036b50b6cd3a01dd22aa179d685da9496634",
+        "source_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0",
+        "source_unchanged": true,
+        "strict_audit_ok": true
+      }
+    },
+    "pull_request": 2275
+  },
+  "source_commit": "b633036b50b6cd3a01dd22aa179d685da9496634",
+  "source_tree": "e77a70d2f1057c28d9d76c7c32eb90f3b09cdcd0",
+  "title": "Preserve large epistemic plan evidence without dropping history"
+}
