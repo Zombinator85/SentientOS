@@ -1,0 +1,80 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 1,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-construction-verified/glow/test_runs/pytest_junitxml_6c3f54160067415d8eafb19f3d816fcc.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "1c2da6ac5fff633977b6b152a3506fc91fbbbd6ea88188599acdf1a52faf2ccc",
+  "provenance_hash": "025c7994fdba96384dc2113e7c059f0e242625f5c03e92405e7e0285ab2379fb",
+  "pytest_args": [
+    "-q",
+    "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-construction-verified",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "5cfd31d55a534265afed291f0a16d4e0",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption"
+  ],
+  "selection_flags": [
+    "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 1,
+  "tests_executed": 1,
+  "tests_failed": 0,
+  "tests_passed": 1,
+  "tests_selected": 1,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T18:46:11.609211+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

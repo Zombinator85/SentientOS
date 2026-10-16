@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c75037ca0d603c6e8e6666f177aa936a5e57e1c196c48f0bc68c811c04d84e0d",
-    "latest_segment_sequence": 277,
-    "latest_segment_sha256": "74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
-    "source_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
-    "source_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2"
+    "checkpoint_sha256": "5a5f8138eff85c9bea806325c96012dc9f4a7f850f1ffe0acbed0d17c430f058",
+    "latest_segment_sequence": 278,
+    "latest_segment_sha256": "db17843b5a1972443999c88a41df3e221808bb4fc2f1224ff81e44773fd42b5b",
+    "source_commit": "80ffe95b2a6470063e45781d312b2ff56fc46451",
+    "source_tree": "3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -2933,6 +2933,18 @@
       "sha256": "74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
       "source_commit": "c0ec52ce695d74ad7d8f970081790ff86bad7acf",
       "source_tree": "240bec26d5473acb501de24a9dbdbb93aea80cd2"
+    },
+    {
+      "bytes": 2184,
+      "evidence_bytes": 3272,
+      "evidence_path": "work/construction/evidence/0278-recovered-outcome-to-canonical-planning.json",
+      "evidence_sha256": "0fe5c320aba3b62c19fee9dabe9ef1b64b946c3bf2c1a4283ea9ebcc06d89111",
+      "path": "work/construction/segments/0278-recovered-outcome-to-canonical-planning.md",
+      "predecessor": "segment-sha256:74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
+      "sequence": 278,
+      "sha256": "db17843b5a1972443999c88a41df3e221808bb4fc2f1224ff81e44773fd42b5b",
+      "source_commit": "80ffe95b2a6470063e45781d312b2ff56fc46451",
+      "source_tree": "3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a"
     }
   ],
   "source_acquisition": {

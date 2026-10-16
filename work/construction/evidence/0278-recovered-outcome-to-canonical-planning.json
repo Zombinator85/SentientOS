@@ -1,0 +1,68 @@
+{
+  "base_commit": "80ffe95b2a6470063e45781d312b2ff56fc46451",
+  "base_tree": "3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a",
+  "hosted_candidate_verification": "pending publication; not claimed",
+  "local_verification": {
+    "initial_fixture_attempt": {
+      "failure_cause": "Baseline and history-aware planning runs used the same immutable timestamped allocation artifact path; conflicting content was correctly rejected.",
+      "provenance_path": "glow/test_runs/provenance/20261016T184559Z_d8d7a219221c_4ef27fa9ccf24f9cb43de179731479e8.json",
+      "status": "failed_fixture_identity_collision"
+    },
+    "repaired_focused_test": {
+      "failed": 0,
+      "passed": 1,
+      "provenance_path": "glow/test_runs/provenance/20261016T184611Z_d8d7a219221c_be095331672a4fbfa20fbc33bb5d32d0.json",
+      "status": "passed"
+    },
+    "full_resident_developmental_cognition_module": {
+      "failed": 0,
+      "passed": 93,
+      "provenance_path": "glow/test_runs/provenance/20261016T184827Z_d8d7a219221c_006763da28434cccbc3cd430fccb822b.json",
+      "status": "passed"
+    },
+    "source_identity_limit": "Both local runs identify stale Git HEAD d8d7a219221cd94240accf7991fe353b14f6a84e; they are exploratory and do not establish candidate-SHA verification. The failed attempt is retained and is not described as a source failure.",
+    "git_diff_check": true
+  },
+  "sequence_277_pull_request_verification": {
+    "gradient_run": 38948656312,
+    "gradient_conclusion": "success",
+    "release_run": 38948655905,
+    "release_conclusion": "success",
+    "source_tree": "3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a"
+  },
+  "sequence_277_main_push_verification": {
+    "ci_run": 38949213799,
+    "ci_conclusion": "success",
+    "codex_ci_run": 38949213765,
+    "codex_ci_conclusion": "success",
+    "docker_run": 38949213739,
+    "docker_conclusion": "success",
+    "docs_deploy_run": 38949213712,
+    "docs_deploy_conclusion": "success",
+    "invariants_run": 38949214226,
+    "invariants_conclusion": "success",
+    "quality_gate": {
+      "artifact_id": 12067925356,
+      "artifact_sha256": "a3b58ba3135fd37ede447057dc05d137f13fc259aa5d0e728044f6f229ce93f8",
+      "effective_uid": 0,
+      "run_id": 38949213882,
+      "source_commit": "80ffe95b2a6470063e45781d312b2ff56fc46451",
+      "source_tree": "3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a",
+      "status": "passed"
+    },
+    "required_source_acceptance": "both lifecycle and canonical planning acceptance passed"
+  },
+  "next_dependency": "Continue F1-F8: make identity-bound multi-episode outcomes inform later scoped decisions while preserving adverse outcomes, omission evidence, and explicit fixture-only limits.",
+  "predecessor_segment_sha256": "74d8ca596a5c2d06d4e68dfb95ecd31d0c1955565c479692df5dcd2959b9654d",
+  "scope": {
+    "epistemic_state_mutated_by_planning": false,
+    "executor_invoked": false,
+    "model_invoked": false,
+    "owner_reconstructed_before_planning": true,
+    "recovered_scored_outcome_changes_goal_allocation": true,
+    "review_remains_required_for_unresolved_single_run_evidence": true
+  },
+  "segment_path": "work/construction/segments/0278-recovered-outcome-to-canonical-planning.md",
+  "sequence": 278,
+  "title": "Carry a recovered scored outcome into canonical planning"
+}
