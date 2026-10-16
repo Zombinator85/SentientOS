@@ -381,91 +381,91 @@ class SentientMesh:
                         "sentient_mesh.cycle",
                         paths=[f"job.metadata.{key}"],
                     )
-                target = self._select_node(job)
-                weights_after_selection = {
-                    state.node_id: (float(state.trust), float(state.load))
-                    for state in self._nodes.values()
-                }
-                if not _ALLOW_UNSAFE_GRADIENT and weights_after_selection != weights_before_job:
-                    _log_invariant(
-                        invariant="NO_GRADIENT_INVARIANT",
-                        reason="selection weights mutated by metadata during routing",
-                        job=job,
-                        nodes=self._nodes,
-                        details={
-                            "weights_before": weights_before_job,
-                            "weights_after": weights_after_selection,
-                        },
-                    )
-                    raise RuntimeError(
-                        "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
-                    )
-                if not _ALLOW_UNSAFE_GRADIENT and weights_before_job != weight_snapshot():
-                    _log_invariant(
-                        invariant="NODE_WEIGHT_FREEZE",
-                        reason="weights mutated mid-cycle before dispatch",
-                        job=job,
-                        nodes=self._nodes,
-                        details={
-                            "weights_before_job": weights_before_job,
-                            "weights_current": weight_snapshot(),
-                        },
-                    )
-                    raise RuntimeError(
-                        "NODE_WEIGHT_FREEZE invariant violated: weights mutated mid-cycle before dispatch"
-                    )
-                assignments[job.job_id] = target.node_id if target else None
-                jobs_payload.append(job.describe())
-                session_records: List[Dict[str, object]] = []
-                prompt = job.prompt or str(job.script.get("prompt") or job.script.get("text") or "")
-                transcript_summary: MutableMapping[str, object] = {
-                    "job_id": job.job_id,
-                    "prompt": prompt,
-                    "responses": [],
-                    "critiques": [],
-                }
-                trust = target.trust if target else 1.0
-                for identity, voice in sorted(self._voices.items()):
-                    ask = voice.ask(prompt, trust=trust)
-                    self._append_exchange(job.job_id, ask)
-                    session_records.append(ask.to_dict())
-                    transcript_summary["responses"].append({
-                        "voice": voice.name,
-                        "content": ask.content,
-                        "advisory": voice.advisory,
-                    })
-                    critique = voice.critique(ask.content, trust=trust)
-                    self._append_exchange(job.job_id, critique)
-                    session_records.append(critique.to_dict())
-                    transcript_summary["critiques"].append({
-                        "voice": voice.name,
-                        "content": critique.content,
-                    })
-                vote_payload = {
-                    "job_id": job.job_id,
-                    "responses": transcript_summary["responses"],
-                    "critiques": transcript_summary["critiques"],
-                }
-                trust_shift = 0.0
-                for identity, voice in sorted(self._voices.items()):
-                    vote_exchange = voice.vote(vote_payload, trust=trust)
-                    self._append_exchange(job.job_id, vote_exchange)
-                    session_records.append(vote_exchange.to_dict())
-                    try:
-                        vote_data = json.loads(vote_exchange.content)
-                    except json.JSONDecodeError:
-                        vote_data = vote_exchange.metadata
-                    decision = str(vote_data.get("decision") or "defer").lower()
-                    confidence = float(vote_data.get("confidence") or 0.5)
-                    weight = 0.2 if voice.advisory else 0.4
-                    if decision == "approve":
-                        trust_shift += weight * confidence
-                    elif decision in {"revise", "reject", "fail"}:
-                        trust_shift -= weight * confidence
-                if target:
-                    target.trust = max(-5.0, min(5.0, target.trust + trust_shift))
-                    trust_vector[target.node_id] = target.trust
-                sessions_summary[job.job_id] = session_records[-12:]
+            target = self._select_node(job)
+            weights_after_selection = {
+                state.node_id: (float(state.trust), float(state.load))
+                for state in self._nodes.values()
+            }
+            if not _ALLOW_UNSAFE_GRADIENT and weights_after_selection != weights_before_job:
+                _log_invariant(
+                    invariant="NO_GRADIENT_INVARIANT",
+                    reason="selection weights mutated by metadata during routing",
+                    job=job,
+                    nodes=self._nodes,
+                    details={
+                        "weights_before": weights_before_job,
+                        "weights_after": weights_after_selection,
+                    },
+                )
+                raise RuntimeError(
+                    "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
+                )
+            if not _ALLOW_UNSAFE_GRADIENT and weights_before_job != weight_snapshot():
+                _log_invariant(
+                    invariant="NODE_WEIGHT_FREEZE",
+                    reason="weights mutated mid-cycle before dispatch",
+                    job=job,
+                    nodes=self._nodes,
+                    details={
+                        "weights_before_job": weights_before_job,
+                        "weights_current": weight_snapshot(),
+                    },
+                )
+                raise RuntimeError(
+                    "NODE_WEIGHT_FREEZE invariant violated: weights mutated mid-cycle before dispatch"
+                )
+            assignments[job.job_id] = target.node_id if target else None
+            jobs_payload.append(job.describe())
+            session_records: List[Dict[str, object]] = []
+            prompt = job.prompt or str(job.script.get("prompt") or job.script.get("text") or "")
+            transcript_summary: MutableMapping[str, object] = {
+                "job_id": job.job_id,
+                "prompt": prompt,
+                "responses": [],
+                "critiques": [],
+            }
+            trust = target.trust if target else 1.0
+            for identity, voice in sorted(self._voices.items()):
+                ask = voice.ask(prompt, trust=trust)
+                self._append_exchange(job.job_id, ask)
+                session_records.append(ask.to_dict())
+                transcript_summary["responses"].append({
+                    "voice": voice.name,
+                    "content": ask.content,
+                    "advisory": voice.advisory,
+                })
+                critique = voice.critique(ask.content, trust=trust)
+                self._append_exchange(job.job_id, critique)
+                session_records.append(critique.to_dict())
+                transcript_summary["critiques"].append({
+                    "voice": voice.name,
+                    "content": critique.content,
+                })
+            vote_payload = {
+                "job_id": job.job_id,
+                "responses": transcript_summary["responses"],
+                "critiques": transcript_summary["critiques"],
+            }
+            trust_shift = 0.0
+            for identity, voice in sorted(self._voices.items()):
+                vote_exchange = voice.vote(vote_payload, trust=trust)
+                self._append_exchange(job.job_id, vote_exchange)
+                session_records.append(vote_exchange.to_dict())
+                try:
+                    vote_data = json.loads(vote_exchange.content)
+                except json.JSONDecodeError:
+                    vote_data = vote_exchange.metadata
+                decision = str(vote_data.get("decision") or "defer").lower()
+                confidence = float(vote_data.get("confidence") or 0.5)
+                weight = 0.2 if voice.advisory else 0.4
+                if decision == "approve":
+                    trust_shift += weight * confidence
+                elif decision in {"revise", "reject", "fail"}:
+                    trust_shift -= weight * confidence
+            if target:
+                target.trust = max(-5.0, min(5.0, target.trust + trust_shift))
+                trust_vector[target.node_id] = target.trust
+            sessions_summary[job.job_id] = session_records[-12:]
 
             snapshot = MeshSnapshot(
                 timestamp=timestamp,
