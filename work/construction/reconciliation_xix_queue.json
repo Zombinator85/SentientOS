@@ -3,7 +3,8 @@
     "X: a changed observed serving-model identity changes the canonical projection binding; original history scope remains explicit, the mismatched scoped goal is deferred for review, independent work remains selected, and planning leaves epistemic owner state unchanged.",
     "X: two receipt-verified same-family scoring episodes, positive and adverse, advance to a contested epistemic position that survives owner reconstruction and defers only the matching canonical goal for review while independent work remains planned.",
     "X: sequence 281 binds every bounded-out projection state to its proposition, state, and update event; omitted chronology reaches canonical planning as unresolved scoped evidence and the complete manifest reaches cognition under projection and prompt digest binding.",
-    "F1/F8 partial: reconstructed owner preserves the omitted contested state, exact latest event identity, and identity-bound positive/adverse evidence; the bounded planner decision is unresolved, while a later complete projection restores explicit review applicability and retains zero-authority planning behavior."
+    "F1/F8 partial: reconstructed owner preserves the omitted contested state, exact latest event identity, and identity-bound positive/adverse evidence; the bounded planner decision is unresolved, while a later complete projection restores explicit review applicability and retains zero-authority planning behavior.",
+    "F1/F8 partial: canonical review-scope evidence now binds restored contested positions to exact owner state, update-event, support, and adverse binding identities; unresolved omission transitions to review-required without losing independence or changing authority."
   ],
   "completed_nodes": [
     "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
@@ -48,10 +49,11 @@
     "E1-E8 follow-up: suite-specific acceptance provenance is preserved by validating the resource-to-cognition manifest before the separate canonical-planning suite replaces the test runner summary; ordering is regression-tested.",
     "X: a real PersistentEpistemicStateOwner is composed through RuntimeMaintenanceSurfaces canonical planning; its verified prior position changes goal selection, owner state remains unchanged, and model/executor execution is forbidden.",
     "X: a recovered deterministic task-family score was bound through governed epistemic mutation and fresh owner reconstruction to canonical daemon planning; dependency-unresolved evidence defers only the explicitly scoped goal for review, leaving independent work selected with no model or executor effects.",
-    "F1/F8 partial: persistence, epistemic applicability, and canonical plan-only regressions now cover omission, owner reconstruction, complete-projection recovery, retained positive/adverse outcomes, and review-required rather than unresolved status."
+    "F1/F8 partial: persistence, epistemic applicability, and canonical plan-only regressions now cover omission, owner reconstruction, complete-projection recovery, retained positive/adverse outcomes, and review-required rather than unresolved status.",
+    "F1/F8 partial: exact selected-position identities and positive/adverse binding IDs are emitted in canonical review scopes and plan evidence after owner reconstruction; omitted identities remain separately explicit."
   ],
-  "current_source_commit": "16cadc3ada34c59e008edb11a48820e2c1d97550",
-  "current_source_tree": "48ae62dff32c71b91c263e8693a4b796b1f44955",
+  "current_source_commit": "318b74620951aec566bac798f7d191364644b386",
+  "current_source_tree": "3b7cb7451ace67213491f5d558ef463420472ef0",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -59,12 +61,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 282,
+  "last_checkpoint_sequence": 283,
   "next_executable_nodes": [
     {
       "node": "F1-F8",
       "program": "F",
-      "work": "Continue carrying exact applicability scopes through owner-to-owner developmental outcomes; verify positive/adverse source- and model-bound multi-episode history at actual canonical allocation, with omissions triggering review and a later complete projection restoring applicability without erasing outcomes."
+      "work": "Carry exact position identities through the real source/model-bound developmental episode owner trajectory into canonical daemon allocation after reconstruction; preserve review on adverse/contested outcomes and ensure omitted positions remain unresolved until complete evidence is available."
     },
     {
       "node": "B4-B8",

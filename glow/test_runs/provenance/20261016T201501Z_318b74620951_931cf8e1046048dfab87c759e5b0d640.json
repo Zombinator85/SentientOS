@@ -1,0 +1,238 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwrites": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation": 0,
+    "tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper": 0,
+    "tests/test_persistent_epistemic_state.py::test_authority_and_fabricated_or_missing_evidence_fail_closed": 0,
+    "tests/test_persistent_epistemic_state.py::test_calibration_is_proposition_specific_and_temporally_bound": 0,
+    "tests/test_persistent_epistemic_state.py::test_epistemic_collection_read_and_write_reject_symlinked_directory": 0,
+    "tests/test_persistent_epistemic_state.py::test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions": 0,
+    "tests/test_persistent_epistemic_state.py::test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner": 0,
+    "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[-1]": 0,
+    "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[True]": 0,
+    "tests/test_persistent_epistemic_state.py::test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage": 0,
+    "tests/test_persistent_epistemic_state.py::test_owner_projection_is_verified_latest_bounded_deterministic_and_empty": 0,
+    "tests/test_persistent_epistemic_state.py::test_private_directory_json_inventory_is_bounded": 0,
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes": 0,
+    "tests/test_persistent_epistemic_state.py::test_refinement_preserves_old_evidence_and_temporal_firewall": 0,
+    "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails": 0,
+    "tests/test_persistent_epistemic_state.py::test_semantic_projection_rejects_substituted_meaning_and_bad_join": 0,
+    "tests/test_persistent_epistemic_state.py::test_stale_position_keeps_stale_freshness_in_prior_packet": 0,
+    "tests/test_persistent_epistemic_state.py::test_update_recorded_at_requires_bounded_aware_timestamp": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 22,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "318b74620951aec566bac798f7d191364644b386",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-main-318b746/glow/test_runs/pytest_junitxml_c451b56dd3fd495ba7e6111f81541ca2.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_refinement_preserves_old_evidence_and_temporal_firewall",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_owner_projection_is_verified_latest_bounded_deterministic_and_empty",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_semantic_projection_rejects_substituted_meaning_and_bad_join",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_stale_position_keeps_stale_freshness_in_prior_packet",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_authority_and_fabricated_or_missing_evidence_fail_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_calibration_is_proposition_specific_and_temporally_bound",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[-1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_update_recorded_at_requires_bounded_aware_timestamp",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_epistemic_collection_read_and_write_reject_symlinked_directory",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_private_directory_json_inventory_is_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwrites",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "d12936cb6444d7580198bf5b70c9ecf75dc91a249a2ef3411eb6de22fbefd8bd",
+  "provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
+  "pytest_args": [
+    "tests/test_persistent_epistemic_state.py",
+    "sentientos/tests/test_epistemic_planning.py",
+    "sentientos/tests/test_orchestrator_plan_only.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-main-318b746",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "356a60a2b48c4e0f81212d17bb69fb79",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails",
+    "tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper",
+    "tests/test_persistent_epistemic_state.py::test_refinement_preserves_old_evidence_and_temporal_firewall",
+    "tests/test_persistent_epistemic_state.py::test_owner_projection_is_verified_latest_bounded_deterministic_and_empty",
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+    "tests/test_persistent_epistemic_state.py::test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage",
+    "tests/test_persistent_epistemic_state.py::test_semantic_projection_rejects_substituted_meaning_and_bad_join",
+    "tests/test_persistent_epistemic_state.py::test_stale_position_keeps_stale_freshness_in_prior_packet",
+    "tests/test_persistent_epistemic_state.py::test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner",
+    "tests/test_persistent_epistemic_state.py::test_authority_and_fabricated_or_missing_evidence_fail_closed",
+    "tests/test_persistent_epistemic_state.py::test_calibration_is_proposition_specific_and_temporally_bound",
+    "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[-1]",
+    "tests/test_persistent_epistemic_state.py::test_invalid_update_tick_cannot_publish_poisoned_transaction[True]",
+    "tests/test_persistent_epistemic_state.py::test_update_recorded_at_requires_bounded_aware_timestamp",
+    "tests/test_persistent_epistemic_state.py::test_epistemic_collection_read_and_write_reject_symlinked_directory",
+    "tests/test_persistent_epistemic_state.py::test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions",
+    "tests/test_persistent_epistemic_state.py::test_private_directory_json_inventory_is_bounded",
+    "sentientos/tests/test_epistemic_planning.py::test_task_family_review_requires_exact_model_applicability",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwrites",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation"
+  ],
+  "selection_flags": [
+    "tests/test_persistent_epistemic_state.py",
+    "sentientos/tests/test_epistemic_planning.py",
+    "sentientos/tests/test_orchestrator_plan_only.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.043478260869565216,
+  "tests_collected": 23,
+  "tests_executed": 22,
+  "tests_failed": 0,
+  "tests_passed": 22,
+  "tests_selected": 23,
+  "tests_skipped": 1,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T20:15:01.106558+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

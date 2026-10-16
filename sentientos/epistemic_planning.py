@@ -19,7 +19,7 @@ def review_required_propositions(
 
 def review_required_applicability(
         projection: EpistemicCognitiveProjection) -> tuple[str, dict[str, dict[str, object]]]:
-    """Return review positions with their exact declared applicability scopes."""
+    """Return applicability scopes with exact state, event, and outcome identities."""
     if not isinstance(projection, EpistemicCognitiveProjection):
         raise EpistemicPlanningError("epistemic_planning_projection_invalid")
     try:
@@ -27,13 +27,25 @@ def review_required_applicability(
         packets = semantic_packets_for_projection(projection)
     except EpistemicStateError as exc:
         raise EpistemicPlanningError("epistemic_planning_projection_invalid") from exc
-    review_scopes = {
-        packet["proposition"]["proposition_id"]: dict(packet["proposition"].get(
-            "context_scope", {}))
-        for packet in packets
-        if (packet["state"]["stance"] not in {"provisionally_supported", "supported"}
-            or packet["state"]["dependency_unresolved"]
-            or packet["state"]["freshness"] != "current")}
+    review_scopes: dict[str, dict[str, object]] = {}
+    for packet in packets:
+        state = packet["state"]
+        if (state["stance"] in {"provisionally_supported", "supported"}
+                and not state["dependency_unresolved"]
+                and state["freshness"] == "current"):
+            continue
+        proposition_id = packet["proposition"]["proposition_id"]
+        scope = dict(packet["proposition"].get("context_scope", {}))
+        scope["position_identity"] = {
+            "schema_version": "sentientos.epistemic_review_position_identity:v1",
+            "state_id": state["state_id"],
+            "state_digest": state["state_digest"],
+            "generation": state["generation"],
+            "update_event_id": packet["last_update_event"]["event_id"],
+            "supporting_binding_ids": list(packet["supporting_evidence"]),
+            "contradicting_binding_ids": list(packet["contradicting_evidence"]),
+        }
+        review_scopes[proposition_id] = scope
     omission_manifest = getattr(projection, "omission_manifest", None)
     if omission_manifest is not None:
         for omitted in omission_manifest.get("omitted_state_identities", ()):

@@ -223,11 +223,49 @@ def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(t
         complete.active_evidence_bindings[position]} == {positive.binding_id, adverse.binding_id}
 
     _, complete_review = review_required_applicability(complete)
+    restored_scope = complete_review[omitted_proposition.proposition_id]
+    restored_identity = restored_scope["position_identity"]
+    assert restored_identity["state_id"] == contested.state_id
+    assert restored_identity["state_digest"] == contested.state_digest
+    assert restored_identity["generation"] == contested.generation
+    assert restored_identity["update_event_id"] == adverse_event.event_id
+    assert restored_identity["supporting_binding_ids"] == [positive.binding_id]
+    assert restored_identity["contradicting_binding_ids"] == [adverse.binding_id]
     assert epistemic_review_reason_for_goal(
         goal_tags, complete_review,
         target_active_model_identity_digest=identity_digest,
         target_identity_observed_at="tick-11", planning_time="tick-11",
     ) == "epistemic_review_required"
+
+    from sentientos.goal_graph import Goal, GoalGraph
+    from sentientos.risk_budget import RiskBudget
+    from sentientos.work_allocator import allocate_goals
+    goal_graph = GoalGraph(schema_version=1, goals=(
+        Goal("history-sensitive", "review the measured family", 2.0, 10, (),
+            "rule", 1, 1, goal_tags, True),
+        Goal("independent", "independent work", 1.0, 1, (),
+            "rule", 1, 1, ("integrity",), True),
+    ))
+    budget = RiskBudget(router_k_max=2, router_m_max=2)
+
+    def allocate(projection, planning_tick):
+        return allocate_goals(graph=goal_graph, budget=budget,
+            operating_mode="normal", integrity_pressure_level=0,
+            quarantine_active=False, posture="balanced",
+            prior_epistemic_projection=projection,
+            target_active_model_identity_digest=identity_digest,
+            target_identity_observed_at=planning_tick, planning_time=planning_tick)
+
+    bounded_allocation = allocate(bounded, "tick-10")
+    complete_allocation = allocate(complete, "tick-11")
+    assert bounded_allocation.selected == ("independent",)
+    assert {item.goal_id: item.reason for item in bounded_allocation.deferred}[
+        "history-sensitive"] == "epistemic_applicability_unresolved"
+    assert complete_allocation.selected == ("independent",)
+    assert {item.goal_id: item.reason for item in complete_allocation.deferred}[
+        "history-sensitive"] == "epistemic_review_required"
+    assert complete_allocation.selected_reasons[0]["epistemic_projection_digest"] == (
+        complete.projection_digest)
 
 
 def test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage(tmp_path):

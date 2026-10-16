@@ -1,0 +1,107 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation": 0,
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "tests_failed",
+      "rule": "== 0",
+      "threshold": 0,
+      "value": 1
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 3,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "exit_reason": "pytest-failed",
+  "failure_report_path": "/workspace/SentientOS-main-318b746/glow/test_runs/test_failure_digest.json",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "318b74620951aec566bac798f7d191364644b386",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-main-318b746/glow/test_runs/pytest_junitxml_49b9552b899044afa3373e8beea29a92.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+      "outcome": "failed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+  "provenance_hash": "47aa31e1e1c5c24076f06d34d567ba5164440e76f243b8aed17ac58ba030a34b",
+  "pytest_args": [
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+    "-q"
+  ],
+  "pytest_exit_code": 1,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-main-318b746",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "d9466d3fed6842a0bdcac0c5db77dbe7",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor"
+  ],
+  "selection_flags": [
+    "tests/test_persistent_epistemic_state.py::test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 3,
+  "tests_executed": 3,
+  "tests_failed": 1,
+  "tests_passed": 2,
+  "tests_selected": 3,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T20:14:43.833503+00:00",
+  "validation_complete": false,
+  "validation_status": "validation_failed",
+  "xfail_rate": 0.0
+}
