@@ -1,0 +1,85 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+  "test_provenance_path": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+      "rationale": "planning is imported without loading the task execution module"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+      "rationale": "daemon plan consumes the configured verified owner and cannot execute or invoke a model"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+      "rationale": "retained prior position changes selection and rationale is durably bound"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted",
+      "rationale": "planner remains deterministic and bounded after separation"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal",
+      "rationale": "execution envelope is rejected before task effects"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+      "rationale": "canonical execution verifies its immutable planning evidence before task effects"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields",
+      "rationale": "the established execution tick remains operational"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity",
+      "rationale": "execution journal state is bound to exact plan identity"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
+      "rationale": "canonical plan execution rejects missing rationale before reading execution policy"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+      "rationale": "canonical plan execution passes the verified rationale digest to the executor"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+      "rationale": "daemon plan feedback records the persisted planning outcome without execution or authority"
+    },
+    {
+      "node_id": "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition",
+      "rationale": "maintenance schedules canonical planning after epistemic development and before self-model reconciliation"
+    },
+    {
+      "node_id": "tests/test_repository_mutation_custody_regression.py::test_runtime_handoff_emission_external_root_no_state_change_or_repo_dirty",
+      "rationale": "disabled scheduled planning preserves the maintenance handoff no-local-write guarantee"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks",
+      "rationale": "the verification wrapper refuses to run either required audit without actual root authority"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
+      "rationale": "the required hosted gate runs unchanged strict checks as root and binds them to the checked out commit and tree"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence",
+      "rationale": "the privileged audit decision and source results are retained as hosted verification evidence"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation",
+      "rationale": "manual plan execution uses fresh integrity pressure and integrity admission before allowing mutation"
+    }
+  ],
+  "successful_path_nodes": [
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+    "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
+    "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation"
+  ]
+}

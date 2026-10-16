@@ -25,6 +25,8 @@ from sentientos.control_plane_kernel import (
     ControlPlaneKernel,
     LifecyclePhase,
 )
+from sentientos.federated_governance import FederatedGovernanceController
+from sentientos.trust_ledger import FederationTrustLedger
 from sentientos.runtime_governor import PostureRuleEvaluation, RuntimeGovernor
 from sentientos.runtime_governor import reset_runtime_governor
 from sentientosd import (
@@ -219,8 +221,11 @@ def test_maintenance_tick_invokes_all_runtime_surfaces(tmp_path: Path) -> None:
     assert merge.calls == 1
 
 
-def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(tmp_path: Path) -> None:
+def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(
+    tmp_path: Path, monkeypatch,
+) -> None:
     """The signal sees persisted campaign custody before current-tick world-state closure."""
+    monkeypatch.setenv("SENTIENTOS_CANONICAL_GOAL_PLANNING_ENABLE", "1")
     events: list[tuple[str, str | None]] = []
 
     class OrderedSurfaces(_RuntimeSurfaceSpy):
@@ -263,6 +268,10 @@ def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(tmp_p
             events.append(("epistemic", tick_id))
             return {"authority": False}
 
+        def run_canonical_goal_planning(self, *, tick_id: str):
+            events.append(("canonical_plan", tick_id))
+            return {"authority": False, "execution_performed": False}
+
         def reconcile_longitudinal_self_model(self, *, tick_id: str):
             events.append(("self_model", tick_id))
             return {"authority": False}
@@ -287,7 +296,8 @@ def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(tmp_p
     names = [name for name, _ in events]
     assert names.index("signals") < names.index("resource") < names.index("world_state")
     assert names.index("world_state") < names.index("cognition") < names.index("transition")
-    assert names.index("transition") < names.index("epistemic") < names.index("self_model")
+    assert names.index("transition") < names.index("epistemic")
+    assert names.index("epistemic") < names.index("canonical_plan") < names.index("self_model")
     assert names.index("self_model") < names.index("introspection")
     tick_ids = {tick for _, tick in events if tick is not None}
     assert len(tick_ids) == 1
@@ -301,8 +311,13 @@ def test_runtime_surfaces_close_to_real_callable_paths(tmp_path: Path, monkeypat
         runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
         decisions_path=tmp_path / "decisions.jsonl",
     )
+    monkeypatch.setattr("sentientos.control_plane_kernel._KERNEL", kernel)
     kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="test")
-    surfaces = RuntimeMaintenanceSurfaces(tmp_path)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        host_resource_runtime=sentientosd.HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path),
+    )
 
     expand_decision, expand_result = kernel.admit_and_execute(
         ControlActionRequest(
@@ -622,8 +637,16 @@ def test_maintenance_tick_handoff_plan_failure_degrades_without_new_action(tmp_p
 
 def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse_trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse_trust" / "epoch_state.json"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
     monkeypatch.setenv("SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR", "enforce")
+    monkeypatch.setattr(
+        "sentientos.federated_governance._CONTROLLER",
+        FederatedGovernanceController(),
+    )
+    monkeypatch.setattr("sentientos.trust_ledger._LEDGER", FederationTrustLedger())
 
     def _nominal_eval(self, *, action_class: str, metadata: dict[str, object] | None):
         del self, action_class, metadata

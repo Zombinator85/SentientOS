@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sentientos.goal_executor import ExecutorState, GoalExecutor
+from sentientos.goal_executor import ExecutorState, GoalPlanner
 from sentientos.goal_graph import Goal, GoalGraph
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
@@ -33,10 +33,10 @@ def test_build_plan_is_deterministic_and_budgeted(tmp_path: Path) -> None:
         allocation_id="allocation_1",
         risk_budget=RiskBudget(router_k_max=3, router_m_max=3, forge_max_files_changed=10),
     )
-    executor = GoalExecutor(repo_root=tmp_path)
+    planner = GoalPlanner(repo_root=tmp_path)
 
-    plan_one = executor.build_plan(allocation, state, graph)
-    plan_two = executor.build_plan(allocation, state, graph)
+    plan_one = planner.build_plan(allocation, state, graph)
+    plan_two = planner.build_plan(allocation, state, graph)
 
     assert plan_one.plan_id == plan_two.plan_id
     assert [task.kind for task in plan_one.tasks]
@@ -63,7 +63,7 @@ def test_build_plan_records_risk_budget_omissions(tmp_path: Path) -> None:
         risk_budget=RiskBudget(router_k_max=1, router_m_max=1, forge_max_files_changed=10),
     )
 
-    plan = GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+    plan = GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
     assert len(plan.tasks) <= 1
     assert [(item.goal_id, item.kind, item.reason) for item in plan.omissions
         if item.reason == "risk_budget_exceeded"] == [
@@ -85,7 +85,7 @@ def test_build_plan_records_throughput_budget_omissions(tmp_path: Path) -> None:
         allow_mutation=False, goal_graph_hash="abcd" * 16, allocation_id="allocation_1",
         risk_budget=RiskBudget(router_k_max=8, router_m_max=1, forge_max_files_changed=0))
 
-    plan = GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+    plan = GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
 
     assert [task.kind for task in plan.tasks] == ["diagnostic", "forge_propose"]
     assert [(item.goal_id, item.kind, item.reason) for item in plan.omissions
@@ -107,7 +107,7 @@ def test_plan_records_unimplemented_task_kinds_without_executable_rows(tmp_path:
         risk_budget=RiskBudget(router_k_max=8, router_m_max=8,
             forge_max_files_changed=0))
 
-    plan = GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+    plan = GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
 
     assert {task.kind for task in plan.tasks}.isdisjoint({"fetch", "doc_update"})
     assert [(item.goal_id, item.kind, item.reason) for item in plan.omissions] == [
@@ -130,7 +130,7 @@ def test_forge_apply_plan_declares_validation_and_proposal_dependencies(
         risk_budget=RiskBudget(router_k_max=8, router_m_max=8,
             forge_max_files_changed=10))
 
-    plan = GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+    plan = GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
     apply = next(task for task in plan.tasks if task.kind == "forge_apply")
 
     assert apply.depends_on == ("forge-goal:verify", "forge-goal:forge_propose")
@@ -154,8 +154,8 @@ def test_prior_partial_or_unknown_outcome_informs_later_plan(
         allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="prior",
         risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
             forge_max_files_changed=10))
-    executor = GoalExecutor(repo_root=tmp_path)
-    prior_plan = executor.build_plan(allocation, base_state, graph)
+    planner = GoalPlanner(repo_root=tmp_path)
+    prior_plan = planner.build_plan(allocation, base_state, graph)
     persist_work_plan(tmp_path, prior_plan)
     prior_tasks = tuple(TaskRun(task.task_id, task.goal_id, task.kind,
         terminal_status if task.kind == "forge_apply" and task.goal_id == "g1" else "success",
@@ -175,7 +175,7 @@ def test_prior_partial_or_unknown_outcome_informs_later_plan(
         context="followup", operating_mode="normal", quarantine_active=False,
         allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="next",
         risk_budget=base_state.risk_budget, prior_plan=prior_plan)
-    next_plan = executor.build_plan(allocation, next_state, graph)
+    next_plan = planner.build_plan(allocation, next_state, graph)
 
     expected_run_digest = hashlib.sha256(json.dumps(prior_run.to_dict(),
         sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -201,7 +201,7 @@ def test_prior_plan_without_recovered_run_blocks_outcome_informed_planning(
         allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="next",
         risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
             forge_max_files_changed=10),
-        prior_plan=GoalExecutor(repo_root=tmp_path).build_plan(allocation,
+        prior_plan=GoalPlanner(repo_root=tmp_path).build_plan(allocation,
             ExecutorState(repo_root=tmp_path, created_at="2026-01-01T00:00:00Z",
                 context="prior", operating_mode="normal", quarantine_active=False,
                 allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="prior",
@@ -210,7 +210,7 @@ def test_prior_plan_without_recovered_run_blocks_outcome_informed_planning(
 
     from sentientos.work_plan import WorkPlanError
     with pytest.raises(WorkPlanError, match="prior_work_run_unavailable"):
-        GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+        GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)
 
 
 def test_non_meaning_bearing_epistemic_projection_cannot_influence_planning(
@@ -232,4 +232,4 @@ def test_non_meaning_bearing_epistemic_projection_cannot_influence_planning(
             current_tick=2))
 
     with pytest.raises(WorkPlanError, match="prior_epistemic_projection_invalid"):
-        GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+        GoalPlanner(repo_root=tmp_path).build_plan(allocation, state, graph)

@@ -1,0 +1,287 @@
+{
+  "acceptance_provenance": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+  "behavioral_invariants": [
+    "canonical planning performs no execution or inference",
+    "execution recomputes current integrity pressure and authority gates",
+    "both existing strict audits execute as actual root in the required hosted gate",
+    "audit evidence binds expected commit/tree and unchanged verification sources",
+    "no audit, immutability, or finalizer gate weakened"
+  ],
+  "construction_index_reconciliation": {
+    "baseline_index_sha256": "2b01e92f750979b18c219210bbb0a32b655a316660c21104ae3d74b77ad3bc8f",
+    "changed_rows": [
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 1960,
+            "recorded": 1958
+          }
+        },
+        "path": "work/construction/segments/0150-objective-receipt-cost-posture.md",
+        "sequence": 150
+      },
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 1900,
+            "recorded": 1898
+          }
+        },
+        "path": "work/construction/segments/0152-family-history-model-succession.md",
+        "sequence": 152
+      },
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 2469,
+            "recorded": 2300
+          }
+        },
+        "path": "work/construction/segments/0165-fresh-process-task-family-episode.md",
+        "sequence": 165
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:b374d2fe66487ed12db4913cf2a163eade0e6747ba05df8059cdda92d14a5760",
+            "recorded": "b374d2fe66487ed12db4913cf2a163eade0e6747ba05df8059cdda92d14a5760"
+          }
+        },
+        "path": "work/construction/segments/0175-consequence-backed-strategy-cycle.md",
+        "sequence": 175
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:d404ba175d557721f30dc54ecf4cf31d6848a064773a13a20ed79f8f0cb85e22",
+            "recorded": "d404ba175d557721f30dc54ecf4cf31d6848a064773a13a20ed79f8f0cb85e22"
+          }
+        },
+        "path": "work/construction/segments/0176-operator-codex-transfer-packet.md",
+        "sequence": 176
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:02c3d47bcd4a764f896ab404aa87f0ac64d141c238e0ff6bc76c8f6cc07009c1",
+            "recorded": "02c3d47bcd4a764f896ab404aa87f0ac64d141c238e0ff6bc76c8f6cc07009c1"
+          }
+        },
+        "path": "work/construction/segments/0177-adverse-correction-longitudinal-cycle.md",
+        "sequence": 177
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:8630b962740a22f3d67ea048f9e73ec1ee7618bcd64e310a136243650273d022",
+            "recorded": "8630b962740a22f3d67ea048f9e73ec1ee7618bcd64e310a136243650273d022"
+          }
+        },
+        "path": "work/construction/segments/0178-codex-packet-admission-custody.md",
+        "sequence": 178
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:d7fa5536f3cb251ee38ad2ed99ac288f386807a95922118fb50016ae4a4a6c95",
+            "recorded": "d7fa5536f3cb251ee38ad2ed99ac288f386807a95922118fb50016ae4a4a6c95"
+          }
+        },
+        "path": "work/construction/segments/0179-codex-experiment-integrity.md",
+        "sequence": 179
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:6708fbe7162e19ba4bbbaf3b645cc15d566aee217ef88ddac0aa786dfb88d56d",
+            "recorded": "6708fbe7162e19ba4bbbaf3b645cc15d566aee217ef88ddac0aa786dfb88d56d"
+          }
+        },
+        "path": "work/construction/segments/0180-codex-output-isolation.md",
+        "sequence": 180
+      },
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 1430,
+            "recorded": 1459
+          },
+          "sha256": {
+            "reconciled": "1f8fcc67b79f436303a63c71a27a7973b2fd94b7543c63670ed8209a62ba2d1a",
+            "recorded": "b918cb85bbc19e2a9a6d72d983f38983bd845dd5d78679a8e15226891a904a9e"
+          }
+        },
+        "path": "work/construction/segments/0185-multitrial-journal-resume.md",
+        "sequence": 185
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:1f8fcc67b79f436303a63c71a27a7973b2fd94b7543c63670ed8209a62ba2d1a",
+            "recorded": "segment-sha256:b918cb85bbc19e2a9a6d72d983f38983bd845dd5d78679a8e15226891a904a9e"
+          }
+        },
+        "path": "work/construction/segments/0186-strategy-source-recovery.md",
+        "sequence": 186
+      },
+      {
+        "fields": {
+          "sha256": {
+            "reconciled": "86c5249374aab9b2552175f94f6a91992d9dc84d679e14944ac13c98ee6d9d77",
+            "recorded": "4832366a1b1eb341366df9bbd83f4e9f7bad2402d8493a0055a19bdf3d555b58"
+          }
+        },
+        "path": "work/construction/segments/0196-fresh-process-history-reconstruction.md",
+        "sequence": 196
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:86c5249374aab9b2552175f94f6a91992d9dc84d679e14944ac13c98ee6d9d77",
+            "recorded": "segment-sha256:4832366a1b1eb341366df9bbd83f4e9f7bad2402d8493a0055a19bdf3d555b58"
+          }
+        },
+        "path": "work/construction/segments/0197-seq196-source-digest-correction.md",
+        "sequence": 197
+      },
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 726,
+            "recorded": 724
+          },
+          "sha256": {
+            "reconciled": "64bd61c80143a710130aabc440132feae72be5305d38bdb30c8aa96496be37bf",
+            "recorded": "3f6b82a1d480c45afeb11e2ba3ee16fda669037ec87a5b8a2285e04449735d07"
+          }
+        },
+        "path": "work/construction/segments/0227-legacy-process-run-recovery.md",
+        "sequence": 227
+      },
+      {
+        "fields": {
+          "bytes": {
+            "reconciled": 1271,
+            "recorded": 1269
+          },
+          "predecessor": {
+            "reconciled": "segment-sha256:64bd61c80143a710130aabc440132feae72be5305d38bdb30c8aa96496be37bf",
+            "recorded": "segment-sha256:3f6b82a1d480c45afeb11e2ba3ee16fda669037ec87a5b8a2285e04449735d07"
+          },
+          "sha256": {
+            "reconciled": "5919a8e3724963db8ea816059f5a16c1b873ec796408a5fc7a59da44f7f1ca91",
+            "recorded": "eb4006d1e4b9bcdcb2ace4e78ae78394e83b98074c67124ba1678313ecc7ff6d"
+          }
+        },
+        "path": "work/construction/segments/0228-budget-task-omission-evidence.md",
+        "sequence": 228
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:5919a8e3724963db8ea816059f5a16c1b873ec796408a5fc7a59da44f7f1ca91",
+            "recorded": "segment-sha256:eb4006d1e4b9bcdcb2ace4e78ae78394e83b98074c67124ba1678313ecc7ff6d"
+          }
+        },
+        "path": "work/construction/segments/0229-exact-source-recovery-fallback.md",
+        "sequence": 229
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:68bacb1fc8caaa8a6bf198b7c8a336e4699463f7f3ae2b2b2eda2ad78b78b033",
+            "recorded": "segment-sha256:a8549816ae3c0fab47f98e1d7c50ceccb3ad1111"
+          }
+        },
+        "path": "work/construction/segments/0239-corrective-history-later-candidate.md",
+        "sequence": 239
+      },
+      {
+        "fields": {
+          "predecessor": {
+            "reconciled": "segment-sha256:7dbd5b5faba03788b0493ba2dd6c9ac28097676bb40d0fee5d56d9a0e63508e4",
+            "recorded": "segment-sha256:49ef10f2b8d3a0104412936fb42ec42dd5c7a1bb"
+          }
+        },
+        "path": "work/construction/segments/0240-candidate-scope-uncertainty.md",
+        "sequence": 240
+      }
+    ],
+    "duplicates_removed": [
+      {
+        "path": "work/construction/segments/0258-fail-closed-trace-receipt-joins.md",
+        "rows": 2
+      }
+    ],
+    "method": "recomputed sequence, byte count, content digest, and predecessor from unchanged working-tree artifacts; historical segment/evidence files preserved"
+  },
+  "sequence": 270,
+  "source_blobs": [
+    {
+      "bytes": 5661,
+      "git_blob_sha1": "818bcede8dade83a0b7d527ae9a67ce13c423743",
+      "path": ".github/workflows/required-quality-gate.yml",
+      "sha256": "8cb64b3237e02ddca8f0435d8be3763a3346eeab4b8b76e06369117d8e14db35"
+    },
+    {
+      "bytes": 5775,
+      "git_blob_sha1": "8f253dd88865c32c6799ec46a711d55e9b4790fd",
+      "path": "scripts/run_privileged_audit_verification.py",
+      "sha256": "ac6036b0cf756a1abad1c65710dc8462d6f86f3a6b819ed0ef490c5a962b9eca"
+    },
+    {
+      "bytes": 2967,
+      "git_blob_sha1": "6bf9dba3b3d92deb7aaa06391eef94de8de2cb53",
+      "path": "scripts/work_plan_run.py",
+      "sha256": "f2f5ddf6158c54f375a55cdf8f8631e90cf574a1e1f38f2b46cbbb48bffb6e1e"
+    },
+    {
+      "bytes": 11935,
+      "git_blob_sha1": "0b8a9707f470ac2272dedf3cadb464aeaf8d023b",
+      "path": "sentientos/goal_planner.py",
+      "sha256": "5c03c40c2adaa3510d3eff5260664e2b5af6fcc7eb1dae74eeaa18400ca87b14"
+    },
+    {
+      "bytes": 269619,
+      "git_blob_sha1": "b9735a58e0cffe147a36b4b1ffe4b0a9c5415b76",
+      "path": "sentientosd.py",
+      "sha256": "e4d33f384f5a1fa8d8da192647c779cfd3ca073f966371dba792e554de82d8b1"
+    },
+    {
+      "bytes": 2411,
+      "git_blob_sha1": "0e2dcc0ef6776fe035de22e1629a09c339dbb9cd",
+      "path": "tests/test_privileged_audit_verification.py",
+      "sha256": "eb2b1989c99e6240e7340216aef4e3a6c7672bb5408c86d1b48a92a777652229"
+    },
+    {
+      "bytes": 5998,
+      "git_blob_sha1": "f93b2c5528b7f0e6b040e8be2e536f73a247c1f4",
+      "path": "sentientos/tests/test_work_plan_cli.py",
+      "sha256": "701fbaea6fe1518f4a8e54c278908f8630fdacfbedc57be298fe09a5ee52ba32"
+    },
+    {
+      "bytes": 13072,
+      "git_blob_sha1": "8c4a47300a4118d0532cc6401bdceba6be038002",
+      "path": "sentientos/tests/test_orchestrator_plan_only.py",
+      "sha256": "2a63a95fc5de42f0481d67412a3ac174c3f3e2c07229257ec78402edf0677219"
+    }
+  ],
+  "source_publication": {
+    "commit": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+    "expected_parent": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+    "force": false,
+    "remote_blob_readback_verified": false,
+    "status": "publication identity and remote readback are recorded in the next append-only segment to avoid a self-referential commit digest",
+    "tree": "ca6ba47b4857606b0a368863c695dba45b8eb6f0"
+  },
+  "title": "Privileged hosted audit path and planning safety",
+  "verification": {
+    "acceptance_nodes_failed": 0,
+    "acceptance_nodes_passed": 17,
+    "compileall": true,
+    "hosted_privileged_audit": "pending exact published commit in the required GitHub Actions job",
+    "regression_failed": 0,
+    "regression_passed": 135,
+    "targeted_mypy": true
+  }
+}

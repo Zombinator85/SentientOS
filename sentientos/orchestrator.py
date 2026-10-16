@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 from typing import Any, Mapping
 
 from sentientos.anchor_witness import maybe_publish_anchor_witness
@@ -14,7 +15,7 @@ from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_index import INDEX_PATH, rebuild_index
-from sentientos.governance_trace import start_governance_trace
+from sentientos.governance_trace import GovernanceTraceRecorder, start_governance_trace
 from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emit_integrity_snapshot
@@ -22,9 +23,9 @@ from sentientos.attestation import canonical_json_bytes, write_json
 from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_publish_snapshot_witness, maybe_sign_snapshot, should_emit_snapshot, verify_recent_snapshots
 from sentientos.integrity_controller import IntegrityBudget, IntegrityStatus, evaluate_integrity
 from sentientos.policy_fingerprint import emit_policy_fingerprint
-from sentientos.goal_graph import GOAL_GRAPH_PATH, goal_graph_hash, load_goal_graph
+from sentientos.goal_graph import GOAL_GRAPH_PATH, GoalGraph, goal_graph_hash, load_goal_graph
 from sentientos.goal_graph import load_goal_state, persist_goal_state
-from sentientos.goal_executor import ExecutorState, GoalExecutor, update_goal_state_from_run
+from sentientos.goal_planner import ExecutorState, GoalPlanner
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
@@ -33,14 +34,16 @@ from sentientos.artifact_retention import RetentionPolicy, run_retention, should
 from sentientos.recovery_tasks import backlog_count
 from sentientos.signed_rollups import maybe_publish_rollup_witness, maybe_sign_catalog_checkpoint, sign_rollups
 from sentientos.signed_strategic import latest_sig_hash_short, maybe_publish_strategic_witness, strategic_signing_enabled, verify_recent
-from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
+from sentientos.risk_budget import RiskBudget, compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 from sentientos.work_allocator import AllocationDecision, allocate_goals
-from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
+from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
+    PersistentEpistemicStateOwner)
 from sentientos.local_model_authority import digest_payload
-from sentientos.work_plan import persist_work_plan, persist_work_run
+from sentientos.work_plan import (WorkPlan, WorkPlanError, persist_work_plan,
+    persist_work_plan_evidence, persist_work_run)
 from sentientos.strategic_adaptation import (
     apply_requires_stable,
     auto_propose_enabled,
@@ -85,6 +88,81 @@ class TickResult:
     remediation_status: str
     index_path: str
     tick_report_path: str
+
+
+@dataclass(frozen=True, slots=True)
+class GoalPlanningResult:
+    """Persisted canonical allocation and plan; this value carries no execution result."""
+
+    allocation: AllocationDecision
+    allocation_artifact_path: str
+    goal_graph_hash: str
+    planning_time: str
+    target_active_model_identity_digest: str | None
+    target_identity_observed_at: str | None
+    work_plan: WorkPlan | None
+    work_plan_path: str | None
+    work_plan_evidence_path: str | None
+    work_plan_evidence_digest: str | None
+
+
+def plan_goals(
+    repo_root: Path,
+    *,
+    prior_epistemic_projection_owner: PersistentEpistemicStateOwner | None = None,
+    prior_epistemic_projection_max_states: int | None = None,
+    target_model_identity_observer: object | None = None,
+    planning_time: str | None = None,
+) -> GoalPlanningResult:
+    """Build and persist a governed goal plan without executing any plan tasks.
+
+    This is the planning-only composition boundary for daemon and operator callers.
+    It returns a persisted plan value but does not invoke the executor. Execution
+    remains an explicit operation of ``GoalExecutor`` or the established ``tick``
+    path. The verified epistemic owner, when supplied, is read
+    exactly once at the planning time and is never mutated.
+    """
+    root = repo_root.resolve()
+    current_time = planning_time or _iso_now()
+    try:
+        instant = datetime.fromisoformat(current_time.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise ValueError("planning_time_must_be_timezone_aware") from exc
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("planning_time_must_be_timezone_aware")
+    if (prior_epistemic_projection_owner is None
+            and prior_epistemic_projection_max_states is not None):
+        raise ValueError("epistemic_projection_bound_requires_owner")
+    prior_projection = None
+    if prior_epistemic_projection_owner is not None:
+        if (not isinstance(prior_epistemic_projection_max_states, int)
+                or isinstance(prior_epistemic_projection_max_states, bool)):
+            raise ValueError("epistemic_projection_bound_required")
+        prior_projection = prior_epistemic_projection_owner.cognitive_projection(
+            max_states=prior_epistemic_projection_max_states,
+            current_tick=int(instant.timestamp()))
+
+    now = _iso_now()
+    quarantine = load_quarantine_state(root)
+    pressure = compute_integrity_pressure(root)
+    throughput = derive_throughput_policy(
+        integrity_pressure_level=pressure.level, quarantine=quarantine)
+    posture = resolve_posture()
+    budget = compute_risk_budget(
+        repo_root=root, posture=posture.posture,
+        pressure_level=pressure.level, operating_mode=throughput.mode,
+        quarantine_active=quarantine.active)
+    policy_fingerprint = emit_policy_fingerprint(root, ts=now)
+    integrity_status = evaluate_integrity(root, policy_hash=policy_fingerprint.policy_hash)
+    return _plan_goal_work(
+        root=root, graph=load_goal_graph(root), budget=budget,
+        operating_mode=throughput.mode, pressure_level=pressure.level,
+        quarantine_active=quarantine.active, posture=posture.posture,
+        mutation_allowed=integrity_status.mutation_allowed,
+        prior_epistemic_projection=prior_projection,
+        target_model_identity_observer=target_model_identity_observer,
+        planning_time=current_time, catalog_timestamp=now, context="orchestrator_tick",
+    )
 
 
 def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
@@ -185,121 +263,79 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
     strategic_sig_verify_checked_n = 0
     strategic_sig_verify_last_ok_sig_hash: str | None = None
 
-    goal_graph = load_goal_graph(root)
-    goal_graph_digest = goal_graph_hash(goal_graph)
     planning_time = _iso_now()
-    target_identity_digest = _observe_target_model_identity_digest(
-        target_model_identity_observer)
-    target_identity_observed_at = planning_time if target_identity_digest is not None else None
-    allocation = allocate_goals(
-        graph=goal_graph,
-        budget=budget,
-        operating_mode=throughput.mode,
-        integrity_pressure_level=pressure.level,
-        quarantine_active=quarantine.active,
-        posture=posture.posture,
+    goal_graph = load_goal_graph(root)
+    planning = _plan_goal_work(
+        root=root, graph=goal_graph, budget=budget,
+        operating_mode=throughput.mode, pressure_level=pressure.level,
+        quarantine_active=quarantine.active, posture=posture.posture,
+        mutation_allowed=mutation_allowed,
         prior_epistemic_projection=prior_epistemic_projection,
-        target_active_model_identity_digest=target_identity_digest,
-        target_identity_observed_at=target_identity_observed_at,
-        planning_time=planning_time,
+        target_model_identity_observer=target_model_identity_observer,
+        planning_time=planning_time, catalog_timestamp=now,
+        context="orchestrator_tick", trace=trace,
     )
-    allocation_artifact_path = _emit_goal_allocation_artifact(
-        root=root,
-        generated_at=planning_time,
-        operating_mode=throughput.mode,
-        pressure_level=pressure.level,
-        posture=posture.posture,
-        goal_graph_hash_value=goal_graph_digest,
-        allocation=allocation,
-        target_identity_digest=target_identity_digest,
-        target_identity_observed_at=target_identity_observed_at,
-    )
-    trace.record_clamp(
-        name="goal_allocation",
-        before={"goal_graph_path": str(GOAL_GRAPH_PATH), "goal_graph_hash": goal_graph_digest},
-        after={
-            "selected_goals": list(allocation.selected),
-            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
-            "budget_summary": allocation.budget_summary,
-            "target_active_model_identity_digest": target_identity_digest,
-            "target_identity_observed_at": target_identity_observed_at,
-        },
-        notes="deterministic_goal_allocation",
-    )
+    allocation = planning.allocation
+    allocation_artifact_path = planning.allocation_artifact_path
+    goal_graph_digest = planning.goal_graph_hash
+    work_plan_id = planning.work_plan.plan_id if planning.work_plan is not None else None
 
-    if allocation is not None and allocation.selected:
+    if planning.work_plan is not None:
+        from sentientos.goal_executor import GoalExecutor, update_goal_state_from_run
+
         executor_state = ExecutorState(
-            repo_root=root,
-            created_at=planning_time,
-            context="orchestrator_tick",
-            operating_mode=throughput.mode,
-            quarantine_active=quarantine.active,
-            allow_mutation=mutation_allowed,
+            repo_root=root, created_at=planning_time,
+            context="orchestrator_tick", operating_mode=throughput.mode,
+            quarantine_active=quarantine.active, allow_mutation=mutation_allowed,
             goal_graph_hash=goal_graph_digest or "",
             allocation_id=allocation_artifact_path or "allocation_missing",
-            risk_budget=budget,
-            pressure_level=pressure.level,
-            posture=posture.posture,
+            risk_budget=budget, pressure_level=pressure.level, posture=posture.posture,
             prior_epistemic_projection=prior_epistemic_projection,
-            target_active_model_identity_digest=target_identity_digest,
-            target_identity_observed_at=target_identity_observed_at,
+            target_active_model_identity_digest=(
+                planning.target_active_model_identity_digest),
+            target_identity_observed_at=planning.target_identity_observed_at,
         )
         executor = GoalExecutor(repo_root=root)
-        plan = executor.build_plan(allocation=allocation, state=executor_state, graph=goal_graph)
-        work_plan_id = plan.plan_id
-        plan_path = persist_work_plan(root, plan)
-        append_catalog_entry(
-            root,
-            kind="work_plan",
-            artifact_id=plan.plan_id,
-            relative_path=str(plan_path),
-            schema_name="work_plan",
-            schema_version=1,
-            links={"work_plan_id": plan.plan_id},
-            summary={"goal_count": len(plan.selected_goals), "task_count": len(plan.tasks)},
-            ts=now,
+        if not planning.work_plan_evidence_digest:
+            raise WorkPlanError("canonical_work_plan_evidence_missing")
+        run = executor.execute_plan(
+            planning.work_plan, executor_state,
+            expected_evidence_digest=planning.work_plan_evidence_digest,
         )
-        run = executor.execute_plan(plan, executor_state)
         work_run_id = run.run_id
         work_run_status = run.status
         run_path = persist_work_run(root, run)
         append_catalog_entry(
-            root,
-            kind="work_run",
-            artifact_id=run.run_id,
-            relative_path=str(run_path),
-            schema_name="work_run",
-            schema_version=1,
+            root, kind="work_run", artifact_id=run.run_id,
+            relative_path=str(run_path), schema_name="work_run", schema_version=1,
             links={"work_run_id": run.run_id},
-            summary={"status": run.status, "goal_ids": list(plan.selected_goals)},
-            ts=now,
+            summary={"status": run.status,
+                "goal_ids": list(planning.work_plan.selected_goals)}, ts=now,
         )
         goal_state = load_goal_state(root)
         updated_state = update_goal_state_from_run(
-            goal_graph,
-            goal_state,
-            run,
-            repo_root=root,
-            operating_mode=throughput.mode,
-            pressure_level=pressure.level,
-            posture=posture.posture,
-            quarantine_active=quarantine.active,
+            goal_graph, goal_state, run, repo_root=root,
+            operating_mode=throughput.mode, pressure_level=pressure.level,
+            posture=posture.posture, quarantine_active=quarantine.active,
             risk_budget_summary=budget.to_dict(),
         )
         persist_goal_state(root, updated_state)
         goal_state_summary = _goal_state_summary(updated_state)
         trace.record_clamp(
             name="goal_execution",
-            before={"allocation_id": allocation_artifact_path or "", "selected_goals": list(allocation.selected)},
+            before={"allocation_id": allocation_artifact_path or "",
+                "selected_goals": list(allocation.selected)},
             after={
                 "plan_id": work_plan_id,
-                "plan_path": plan_path,
+                "plan_path": planning.work_plan_path,
+                "plan_evidence_path": planning.work_plan_evidence_path,
+                "plan_evidence_digest": planning.work_plan_evidence_digest,
                 "run_id": work_run_id,
                 "run_path": run_path,
                 "run_status": work_run_status,
                 "task_outcomes": [
-                    {"task_id": item.task_id, "status": item.status, "reason": item.reason}
-                    for item in run.task_runs
+                    {"task_id": item.task_id, "status": item.status,
+                        "reason": item.reason} for item in run.task_runs
                 ],
             },
             notes="deterministic_goal_execution",
@@ -328,14 +364,16 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
     if cfg.sweeps_enabled and throughput.mode in {"cautious", "recovery", "lockdown"}:
         if _should_run_sweep(root, interval_minutes=posture.diagnostics_sweep_interval_minutes):
             sweep_summary = _run_integrity_sweep(root=root, pressure_level=pressure.level, mode=throughput.mode)
+            sweep_detail = sweep_summary.get("summary")
+            sweep_failed = sweep_detail.get("failed", 0) if isinstance(sweep_detail, dict) else 0
             trace.record_gate(
                 name="diagnostics_sweep",
                 mode="warn",
-                result="pass" if int((sweep_summary.get("summary") or {}).get("failed", 0)) == 0 else "hold",
+                result="pass" if _safe_int(sweep_failed) == 0 else "hold",
                 reason="orchestrator_sweep",
                 evidence_paths=[str(sweep_summary.get("artifact_path", ""))],
             )
-            if int((sweep_summary.get("summary") or {}).get("failed", 0)) > 0:
+            if _safe_int(sweep_failed) > 0:
                 reason_stack.append("diagnostics_sweep_failures")
 
     if cfg.auto_remediation_enabled:
@@ -421,9 +459,14 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
         proposal, proposal_path = create_adjustment_proposal(root, window_name="last_24h")
         strategic_last_proposal_id = proposal.proposal_id
         strategic_last_proposal_status = proposal.approval.status
-        strategic_last_proposal_added_goals = [str(item) for item in list(proposal.allocation_diff.get("added_selected") or [])[:6] if isinstance(item, str)]
-        strategic_last_proposal_removed_goals = [str(item) for item in list(proposal.allocation_diff.get("removed_selected") or [])[:6] if isinstance(item, str)]
-        strategic_last_proposal_budget_delta = proposal.allocation_diff.get("budget_delta") if isinstance(proposal.allocation_diff.get("budget_delta"), dict) else {}
+        added_selected = proposal.allocation_diff.get("added_selected")
+        removed_selected = proposal.allocation_diff.get("removed_selected")
+        strategic_last_proposal_added_goals = [item for item in added_selected[:6] if isinstance(item, str)] if isinstance(added_selected, list) else []
+        strategic_last_proposal_removed_goals = [item for item in removed_selected[:6] if isinstance(item, str)] if isinstance(removed_selected, list) else []
+        budget_delta = proposal.allocation_diff.get("budget_delta")
+        strategic_last_proposal_budget_delta = {str(key): value for key, value in budget_delta.items()} if isinstance(budget_delta, dict) else {}
+        reordered = proposal.allocation_diff.get("reordered")
+        top_reorder = reordered[0] if isinstance(reordered, list) and reordered else None
         strategic_cooldown = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         if strategic_signing_enabled():
             last_strategic_sig_hash = latest_sig_hash_short(root)
@@ -437,7 +480,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
                 "strategic_counterfactual_summary": {
                     "added_selected": strategic_last_proposal_added_goals,
                     "removed_selected": strategic_last_proposal_removed_goals,
-                    "top_reorder": ((proposal.allocation_diff.get("reordered") or [None])[0] if isinstance(proposal.allocation_diff.get("reordered"), list) else None),
+                    "top_reorder": top_reorder,
                 },
             },
             notes="deterministic_strategic_proposal",
@@ -458,10 +501,12 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
     if strategic_signing_enabled() and strategic_sign_status == "skipped":
         strategic_sign_status = "ok" if latest_sig_hash_short(root) else "failed"
     verify_outcome = _maybe_verify_strategic_signatures(root)
-    strategic_sig_verify_status = verify_outcome["status"]
-    strategic_sig_verify_reason = verify_outcome["reason"]
-    strategic_sig_verify_checked_n = int(verify_outcome["checked_n"])
-    strategic_sig_verify_last_ok_sig_hash = _optional_str(verify_outcome["last_ok_sig_hash"])
+    outcome_status = verify_outcome.get("status")
+    outcome_reason = verify_outcome.get("reason")
+    strategic_sig_verify_status = outcome_status if isinstance(outcome_status, str) else "skipped"
+    strategic_sig_verify_reason = outcome_reason if isinstance(outcome_reason, str) else None
+    strategic_sig_verify_checked_n = _safe_int(verify_outcome.get("checked_n"))
+    strategic_sig_verify_last_ok_sig_hash = _optional_str(verify_outcome.get("last_ok_sig_hash"))
     if bool(verify_outcome["hard_fail"]):
         mutation_allowed = False
         reason_stack.append("strategic_signature_verify_failed")
@@ -579,6 +624,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
         },
         "goal_execution": {
             "work_plan_id": work_plan_id,
+            "work_plan_evidence_path": planning.work_plan_evidence_path,
+            "work_plan_evidence_digest": planning.work_plan_evidence_digest,
             "work_run_id": work_run_id,
             "work_run_status": work_run_status,
             "goal_state_summary": goal_state_summary or {"active": 0, "blocked": 0, "completed": 0},
@@ -606,8 +653,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
         "integrity_pressure_level": pressure.level,
         "remediation_status": remediation_status,
         "tick_report_path": str(tick_path.relative_to(root)),
-        "retention_archived_items": int((retention_summary or {}).get("archived_items", 0)),
-        "retention_rollup_files": int(len((retention_summary or {}).get("rollup_files", []))) if isinstance((retention_summary or {}).get("rollup_files"), list) else 0,
+        "retention_archived_items": _safe_int((retention_summary or {}).get("archived_items", 0)),
+        "retention_rollup_files": _list_length((retention_summary or {}).get("rollup_files")),
         "rollup_sign_status": rollup_sign_status,
         "signed_rollups_count": signed_rollups_count,
         "catalog_checkpoint_status": catalog_checkpoint_status,
@@ -695,10 +742,13 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
 
 def _latest_eligible_pack(repo_root: Path) -> dict[str, object] | None:
     entry = latest(repo_root, "remediation_pack")
-    if entry is not None:
-        summary = entry.get("summary") if isinstance(entry.get("summary"), dict) else {}
+    if isinstance(entry, dict):
+        summary_value = entry.get("summary")
+        summary = summary_value if isinstance(summary_value, dict) else {}
         if str(summary.get("status") or "") in {"proposed", "queued"}:
-            return {"pack_id": entry.get("id"), "pack_path": entry.get("path"), "incident_id": (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("incident_id"), "status": summary.get("status")}
+            links_value = entry.get("links")
+            links = links_value if isinstance(links_value, dict) else {}
+            return {"pack_id": entry.get("id"), "pack_path": entry.get("path"), "incident_id": links.get("incident_id"), "status": summary.get("status")}
     rows = _read_jsonl(repo_root / PACKS_PULSE_PATH)
     for row in reversed(rows):
         if str(row.get("status", "")) in {"proposed", "queued"}:
@@ -876,7 +926,7 @@ def _persist_integrity_status(repo_root: Path, integrity_status: IntegrityStatus
         artifact_id=str(integrity_status.ts),
         relative_path=str(rel),
         schema_name="integrity_status",
-        schema_version=int(payload.get("schema_version") or 1),
+        schema_version=_safe_int(payload.get("schema_version")) or 1,
         links={
             "policy_hash": payload.get("policy_hash"),
             "integrity_status_hash": integrity_status.canonical_hash(),
@@ -944,13 +994,30 @@ def _emit_attestation_snapshot(
     return snapshot_rel, (sig_hash[:16] if sig_hash else None), snapshot_hash
 
 
-def _goal_state_summary(state: dict[str, object]) -> dict[str, int]:
+def _goal_state_summary(state: Mapping[str, object]) -> dict[str, int]:
     counts = {"active": 0, "blocked": 0, "completed": 0}
     for item in state.values():
         status = getattr(item, "status", "active")
         if status in counts:
             counts[status] += 1
     return counts
+
+
+def _safe_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
+def _list_length(value: object) -> int:
+    return len(value) if isinstance(value, list) else 0
 
 
 def _maybe_verify_strategic_signatures(repo_root: Path) -> dict[str, object]:
@@ -981,6 +1048,98 @@ def _maybe_verify_strategic_signatures(repo_root: Path) -> dict[str, object]:
     }
 
 
+def _plan_goal_work(
+    *, root: Path, graph: GoalGraph, budget: RiskBudget, operating_mode: str,
+    pressure_level: int, quarantine_active: bool, posture: str,
+    mutation_allowed: bool,
+    prior_epistemic_projection: EpistemicCognitiveProjection | None,
+    target_model_identity_observer: object | None, planning_time: str,
+    catalog_timestamp: str, context: str,
+    trace: GovernanceTraceRecorder | None = None,
+) -> GoalPlanningResult:
+    """Compose allocation and durable plan artifacts; this helper never executes."""
+    graph_digest = goal_graph_hash(graph)
+    target_identity_digest = _observe_target_model_identity_digest(
+        target_model_identity_observer)
+    target_identity_observed_at = (
+        planning_time if target_identity_digest is not None else None)
+    allocation = allocate_goals(
+        graph=graph, budget=budget, operating_mode=operating_mode,
+        integrity_pressure_level=pressure_level, quarantine_active=quarantine_active,
+        posture=posture, prior_epistemic_projection=prior_epistemic_projection,
+        target_active_model_identity_digest=target_identity_digest,
+        target_identity_observed_at=target_identity_observed_at,
+        planning_time=planning_time,
+    )
+    allocation_path = _emit_goal_allocation_artifact(
+        root=root, generated_at=planning_time, operating_mode=operating_mode,
+        pressure_level=pressure_level, posture=posture,
+        goal_graph_hash_value=graph_digest, allocation=allocation,
+        target_identity_digest=target_identity_digest,
+        target_identity_observed_at=target_identity_observed_at,
+    )
+    if trace is not None:
+        trace.record_clamp(
+            name="goal_allocation",
+            before={"goal_graph_path": str(GOAL_GRAPH_PATH),
+                "goal_graph_hash": graph_digest},
+            after={
+                "selected_goals": list(allocation.selected),
+                "deferred_goals": [{"goal_id": item.goal_id,
+                    "reason": item.reason} for item in allocation.deferred],
+                "budget_summary": allocation.budget_summary,
+                "target_active_model_identity_digest": target_identity_digest,
+                "target_identity_observed_at": target_identity_observed_at,
+            }, notes="deterministic_goal_allocation",
+        )
+
+    plan: WorkPlan | None = None
+    plan_path: str | None = None
+    evidence_path: str | None = None
+    evidence_digest: str | None = None
+    if allocation.selected:
+        executor_state = ExecutorState(
+            repo_root=root, created_at=planning_time, context=context,
+            operating_mode=operating_mode, quarantine_active=quarantine_active,
+            allow_mutation=mutation_allowed, goal_graph_hash=graph_digest,
+            allocation_id=allocation_path, risk_budget=budget,
+            pressure_level=pressure_level, posture=posture,
+            prior_epistemic_projection=prior_epistemic_projection,
+            target_active_model_identity_digest=target_identity_digest,
+            target_identity_observed_at=target_identity_observed_at,
+        )
+        draft = GoalPlanner(repo_root=root).build_plan_with_evidence(
+            allocation=allocation, state=executor_state, graph=graph)
+        plan = draft.work_plan
+        saved_path = persist_work_plan(root, plan)
+        plan_path = str(saved_path)
+        evidence_path, evidence_digest = persist_work_plan_evidence(
+            root, plan, dict(draft.evidence_binding))
+        append_catalog_entry(
+            root, kind="work_plan_evidence", artifact_id=f"evidence_{plan.plan_id}",
+            relative_path=evidence_path, schema_name="work_plan_evidence",
+            schema_version=1, links={"work_plan_id": plan.plan_id},
+            summary={"evidence_digest": evidence_digest,
+                "plan_digest": plan.identity_digest()}, ts=catalog_timestamp,
+        )
+        append_catalog_entry(
+            root, kind="work_plan", artifact_id=plan.plan_id,
+            relative_path=plan_path, schema_name="work_plan", schema_version=1,
+            links={"work_plan_id": plan.plan_id},
+            summary={"goal_count": len(plan.selected_goals),
+                "task_count": len(plan.tasks)}, ts=catalog_timestamp,
+        )
+    return GoalPlanningResult(
+        allocation=allocation, allocation_artifact_path=allocation_path,
+        goal_graph_hash=graph_digest, planning_time=planning_time,
+        target_active_model_identity_digest=target_identity_digest,
+        target_identity_observed_at=target_identity_observed_at,
+        work_plan=plan, work_plan_path=plan_path,
+        work_plan_evidence_path=evidence_path,
+        work_plan_evidence_digest=evidence_digest,
+    )
+
+
 def _emit_goal_allocation_artifact(
     *,
     root: Path,
@@ -1009,8 +1168,47 @@ def _emit_goal_allocation_artifact(
         "target_identity_observed_at": target_identity_observed_at,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_goal_allocation_once(path, payload)
     return str(path.relative_to(root))
+
+
+def _write_goal_allocation_once(path: Path, payload: dict[str, object]) -> None:
+    """Keep a timestamped allocation artifact immutable across retries."""
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        with path.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+        return
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        raise WorkPlanError("goal_allocation_artifact_write_failed") from exc
+
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode):
+            raise WorkPlanError("goal_allocation_artifact_identity_conflict")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev):
+                raise WorkPlanError("goal_allocation_artifact_changed_during_open")
+            existing = bytearray()
+            while len(existing) <= len(encoded):
+                chunk = os.read(descriptor, min(65_536, len(encoded) + 1 - len(existing)))
+                if not chunk:
+                    break
+                existing.extend(chunk)
+        finally:
+            os.close(descriptor)
+    except WorkPlanError:
+        raise
+    except OSError as exc:
+        raise WorkPlanError("goal_allocation_artifact_unreadable") from exc
+    if bytes(existing) != encoded:
+        raise WorkPlanError("goal_allocation_artifact_identity_conflict")
 
 
 def _observe_target_model_identity_digest(observer: object | None) -> str | None:
