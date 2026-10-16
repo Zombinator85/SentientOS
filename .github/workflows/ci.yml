@@ -6,6 +6,7 @@ on:
 
 env:
   PULSE_TRUST_EPOCH_ROOT: .ci-runtime/pulse-trust-epoch
+  PULSE_TRUST_EPOCH_STATE: .ci-runtime/pulse-trust-epoch/epoch_state.json
 
 jobs:
   source-validation:
