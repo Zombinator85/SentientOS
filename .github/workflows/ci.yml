@@ -307,7 +307,7 @@ jobs:
 
       - name: Wait for service health
         run: |
-          services=(relay bridge1 bridge2 bridge3 ngrok)
+          services=(relay bridge1 bridge2 bridge3)
           deadline=$((SECONDS + 60))
           while (( SECONDS < deadline )); do
             healthy=1
@@ -323,6 +323,16 @@ jobs:
                 break
               fi
             done
+            ngrok_id="$(docker compose --project-name sentientos-ci ps -q ngrok)"
+            if [ -z "$ngrok_id" ]; then
+              healthy=0
+            else
+              ngrok_status="$(docker inspect --format '{{.State.Status}}' "$ngrok_id" 2>/dev/null || true)"
+              ngrok_exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$ngrok_id" 2>/dev/null || true)"
+              if [ "$ngrok_status" != "exited" ] || [ "$ngrok_exit_code" != "0" ]; then
+                healthy=0
+              fi
+            fi
             if [ "$healthy" -eq 1 ]; then
               docker compose --project-name sentientos-ci ps
               exit 0
