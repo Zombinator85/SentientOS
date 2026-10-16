@@ -136,10 +136,17 @@ def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan
 
     matching = allocate("sha256:" + "a" * 64, "tick-2")
     assert matching.selected == (goal.goal_id,)
+    selected_position = matching.selected_reasons[0]["epistemic_positions"][0]
+    assert selected_position["proposition_id"] == proposition.proposition_id
+    assert selected_position["identity"] == identity
+    assert selected_position["posture"] == "verified_positive_current"
     changed_model = allocate("sha256:" + "c" * 64, "tick-2")
     assert changed_model.selected == ()
     assert {row.goal_id: row.reason for row in changed_model.deferred} == {
         goal.goal_id: "epistemic_applicability_unresolved"}
+    deferred_position = changed_model.deferred[0].epistemic_positions[0]
+    assert deferred_position["identity"] == identity
+    assert deferred_position["posture"] == "verified_positive_current"
 
     draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
         matching,
@@ -161,6 +168,8 @@ def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan
     )
     bound_scope = draft.evidence_binding["review_scopes"][proposition.proposition_id]
     assert bound_scope["position_identity"] == identity
+    assert draft.evidence_binding["selected_reasons"][0][
+        "epistemic_positions"][0]["identity"] == identity
     assert draft.evidence_binding["goal_applicability"][goal.goal_id] is None
 
     spoofed = make_proposition(
