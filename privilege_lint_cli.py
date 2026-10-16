@@ -353,12 +353,29 @@ def _contains_cli_hint(fp: Path) -> bool:
     if fp.name.endswith("_cli.py"):
         return True
     try:
-        text = fp.read_text(encoding="utf-8")
+        module = ast.parse(fp.read_text(encoding="utf-8"), filename=str(fp))
     except Exception:
         return False
-    if '__name__ == "__main__"' in text:
-        return True
-    return "argparse" in text
+    for node in module.body:
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+            left = node.test.left
+            if (
+                isinstance(left, ast.Name)
+                and left.id == "__name__"
+                and any(
+                    isinstance(comparator, ast.Constant)
+                    and comparator.value == "__main__"
+                    for comparator in node.test.comparators
+                )
+            ):
+                return True
+        if isinstance(node, ast.Import) and any(
+            alias.name == "argparse" for alias in node.names
+        ):
+            return True
+        if isinstance(node, ast.ImportFrom) and node.module == "argparse":
+            return True
+    return False
 
 
 def validate_admin_call(lines: list[str], path: Path) -> list[str]:

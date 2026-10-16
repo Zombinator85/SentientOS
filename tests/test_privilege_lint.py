@@ -71,6 +71,20 @@ def test_argparse_usage_in_tests_scanned(tmp_path: Path) -> None:
     assert rc == 1
 
 
+def test_argparse_inside_test_function_is_not_a_cli_entrypoint(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    f = tests_dir / "test_fixture.py"
+    f.write_text(
+        "def test_cli_fixture():\n"
+        "    import argparse\n"
+        "    argparse.ArgumentParser()\n",
+        encoding="utf-8",
+    )
+    rc = pl.main([str(tmp_path), "--read-only", "--quiet"])
+    assert rc == 0
+
+
 def test_banner_missing_failure(tmp_path: Path) -> None:
     path = tmp_path / "tool_cli.py"
     path.write_text("\n".join([
