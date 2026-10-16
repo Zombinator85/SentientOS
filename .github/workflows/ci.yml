@@ -598,6 +598,11 @@ jobs:
             glow/contracts/mypy_baseline.json
           if-no-files-found: ignore
 
+      - name: Install FFmpeg for demo export
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+
       - name: Run parliament demo
         run: |
           mkdir -p demos
