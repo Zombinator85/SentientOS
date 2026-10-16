@@ -142,10 +142,6 @@ jobs:
 
   self-check:
     runs-on: ubuntu-latest
-    env:
-      SENTIENTOS_HEADLESS: "1"
-      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
-      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/self-check-federation
     services:
       docker:
         image: docker:dind
@@ -153,6 +149,9 @@ jobs:
         ports:
           - 2375:2375
     env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/self-check-federation
       DOCKER_HOST: tcp://localhost:2375
       DOCKER_TLS_CERTDIR: ""
     steps:
