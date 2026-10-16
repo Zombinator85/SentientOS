@@ -601,7 +601,7 @@ jobs:
       - name: Run parliament demo
         run: |
           mkdir -p demos
-          sudo -E env SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1 "$(command -v python)" scripts/demo_parliament.py
+          sudo -E env SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1 "$(command -v python)" -m scripts.demo_parliament
           ls -t demos/*.mp4 | tail -n +4 | xargs -r rm --
 
       - name: Upload demos

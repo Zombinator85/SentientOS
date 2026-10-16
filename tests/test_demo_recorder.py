@@ -57,3 +57,25 @@ def test_demo_recorder_running_property(tmp_path, monkeypatch):
     assert rec.running
     rec.stop()
     assert not rec.running
+
+
+def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    monkeypatch.chdir(tmp_path)
+    rec = dr_mod.DemoRecorder()
+
+    def no_audio(*args, **kwargs):
+        raise AssertionError("headless recording must not open a microphone")
+
+    monkeypatch.setattr(sd, "InputStream", no_audio)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: None)
+
+    rec.start()
+    rec.stop()
+
+    assert len(rec.frames) == 1
+    assert rec.frames[0].suffix == ".ppm"
+    assert rec.frames[0].read_bytes().startswith(b"P6\n640 360\n255\n")
+    out = rec.export()
+    assert out.name.endswith(".mp4")
+    assert list((tmp_path / f".demo_{out.stem}").glob("frame_*.ppm"))
