@@ -51,6 +51,16 @@ def test_oversized_journal_is_rejected_before_unbounded_read(tmp_path: Path) -> 
         WorkPlanExecutionJournal(tmp_path, _plan())
 
 
+def test_append_refuses_journal_that_grew_past_bound(tmp_path: Path) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    journal.path.write_bytes(b"x" * (MAX_JOURNAL_BYTES + 1))
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
+        journal.start("g1:propose")
+    assert journal.path.stat().st_size == MAX_JOURNAL_BYTES + 1
+
+
 def test_symlinked_journal_is_rejected_without_reading_target(tmp_path: Path) -> None:
     journal = WorkPlanExecutionJournal(tmp_path, _plan())
     target = tmp_path / "external.jsonl"
