@@ -14,7 +14,7 @@ services:
       retries: 5
   bridge1:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:3928 && python -m http.server 9977"]
+    command: ["python", "-m", "http.server", "9977"]
     ports:
       - "9977:9977"
     volumes:
@@ -30,7 +30,7 @@ services:
       retries: 5
   bridge2:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:3928 && python -m http.server 9988"]
+    command: ["python", "-m", "http.server", "9988"]
     ports:
       - "9988:9988"
     volumes:
@@ -46,7 +46,7 @@ services:
       retries: 5
   bridge3:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:3928 && python -m http.server 9966"]
+    command: ["python", "-m", "http.server", "9966"]
     ports:
       - "9966:9966"
     volumes:
