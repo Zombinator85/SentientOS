@@ -480,7 +480,8 @@ def _verified_activation_history(handle: InstallationStateHandle, current_state:
         if len(matches) != 1: raise ProductionActivationError("activation_predecessor_transaction_missing_or_ambiguous")
         tx = matches[0]; intended, intent = tx.get("intended_state"), tx.get("intent")
         approval, admission = tx.get("approval"), tx.get("admission")
-        if not all(isinstance(v, Mapping) for v in (intended, intent, approval, admission)):
+        if (not isinstance(intended, Mapping) or not isinstance(intent, Mapping)
+                or not isinstance(approval, Mapping) or not isinstance(admission, Mapping)):
             raise ProductionActivationError("activation_transaction_lineage_incomplete")
         if (not verify_activation_state(intended) or dict(intended) != state
                 or tx.get("intended_state_digest") != intent.get("intended_state_digest")

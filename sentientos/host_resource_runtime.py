@@ -307,7 +307,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             or any(not isinstance(key, str) or not isinstance(value, str) or not value or len(value) > 512
                    for key, value in selected_source_identity.items())):
         raise ValueError("resource_source_identity_invalid")
-    raw_receipts = tuple(snapshot["receipts"])
+    raw_receipt_rows = snapshot["receipts"]
+    allocation_rows = snapshot["allocations"]
+    attempt_rows = snapshot["attempts"]
+    if (not isinstance(raw_receipt_rows, (list, tuple))
+            or not isinstance(allocation_rows, (list, tuple))
+            or not isinstance(attempt_rows, (list, tuple))):
+        raise ValueError("resource_ledger_snapshot_shape_invalid")
+    raw_receipts = tuple(raw_receipt_rows)
     if len(invocation_receipts) > 256:
         raise ValueError("resource_invocation_receipt_bound_exceeded")
     if len(verified_predecessor_invocation_receipts) > 256:
@@ -357,8 +364,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             raise ValueError("chat_process_generation_attribution_invalid")
         receipt_id, receipt_digest = (attribution.get("invocation_receipt_id"),
                                       attribution.get("invocation_receipt_digest"))
-        invocation = invocation_by_id.get(str(receipt_id))
-        request = invocation.get("request") if isinstance(invocation, Mapping) else None
+        invocation_record = invocation_by_id.get(str(receipt_id))
+        request = invocation_record.get("request") if isinstance(invocation_record, Mapping) else None
         handoff = attribution.get("chat_process_handoff")
         if (not isinstance(receipt_id, str) or not isinstance(receipt_digest, str)
                 or not isinstance(attribution.get("invocation_request_id"), str)
@@ -396,9 +403,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("chat_process_generation_attribution_identity_conflict")
             raise ValueError("chat_process_generation_attribution_duplicate")
         generation_attribution_by_receipt[receipt_id] = attribution
-    allocation_by_digest = {str(item.get("allocation_digest")): item for item in snapshot["allocations"] if isinstance(item, Mapping)}
+    allocation_by_digest = {str(item.get("allocation_digest")): item for item in allocation_rows if isinstance(item, Mapping)}
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
-    attempt_by_id = {str(item.get("attempt_id")): item for item in snapshot["attempts"] if isinstance(item, Mapping)}
+    attempt_by_id = {str(item.get("attempt_id")): item for item in attempt_rows if isinstance(item, Mapping)}
     lineage_findings: list[str] = []
     linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
@@ -477,15 +484,15 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     for item in raw_receipts:
         if not isinstance(item, Mapping) or item.get("state") != "reconciled":
             continue
-        effect_digest = item.get("effect_receipt_digest")
-        if effect_digest is not None and effect_digest not in invocation_by_effect:
-            lineage_findings.append(f"invocation_receipt_missing:{effect_digest}")
+        observed_effect_digest = item.get("effect_receipt_digest")
+        if observed_effect_digest is not None and observed_effect_digest not in invocation_by_effect:
+            lineage_findings.append(f"invocation_receipt_missing:{observed_effect_digest}")
     receipt_states_by_attempt: dict[str, set[str]] = {}
     for item in raw_receipts:
         if isinstance(item, Mapping):
             receipt_states_by_attempt.setdefault(str(item.get("attempt_id")), set()).add(str(item.get("state")))
     incomplete_attempt_ids: list[str] = []
-    for attempt in snapshot["attempts"]:
+    for attempt in attempt_rows:
         if not isinstance(attempt, Mapping):
             continue
         attempt_id = str(attempt.get("attempt_id"))
@@ -1842,7 +1849,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             "experiment_condition", "experiment_protocol_id", "history_record_ids",
             "history_record_digests")}
             if isinstance(request_context, Mapping) else None)
-        join = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            join: dict[str, Any] = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
             "source_id": "strategy-resource-lineage:" + digest({
                 "proposal_id": proposal.get("subject_id"),
                 "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24],
