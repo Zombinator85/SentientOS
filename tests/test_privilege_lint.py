@@ -85,6 +85,22 @@ def test_argparse_inside_test_function_is_not_a_cli_entrypoint(tmp_path: Path) -
     assert rc == 0
 
 
+def test_privilege_lint_plugins_support_modern_entry_points(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from privilege_lint import plugins
+    from privilege_lint.config import LintConfig
+
+    def plugin(_path: Path, _config: LintConfig) -> list[str]:
+        return []
+
+    class ModernEntryPoints:
+        def select(self, *, group: str) -> list[object]:
+            assert group == "privilege_lint.plugins"
+            return [type("EntryPoint", (), {"load": lambda self: plugin})()]
+
+    monkeypatch.setattr(plugins, "entry_points", ModernEntryPoints)
+    assert plugins.load_plugins() == [plugin]
+
+
 def test_banner_missing_failure(tmp_path: Path) -> None:
     path = tmp_path / "tool_cli.py"
     path.write_text("\n".join([
