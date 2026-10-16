@@ -1,0 +1,96 @@
+{
+  "authority_boundaries": {
+    "audit_chain_or_history_rewritten": false,
+    "audit_checks_weakened": false,
+    "hosted_runner_actual_uid0_required": true,
+    "sandbox_admin_privilege_fabricated": false
+  },
+  "changes": [
+    "Privileged verification now rejects any untracked or tracked checkout changes before audit commands execute.",
+    "A zero process exit code is insufficient without the strict audit receipt and immutability receipt both identifying their tool and reporting ok=true.",
+    "Require the nonblocking strict status, all companion contract artifacts, and recompute the status, breakdown, recovery-link, manifest, and final strict digests before reporting success.",
+    "Upload the recovery-link and strict manifest companions with existing privileged quality-gate evidence.",
+    "Run both new receipt-validation regressions as exact required-quality-gate acceptance nodes; acceptance node count is pinned to 21."
+  ],
+  "evidence_path": "work/construction/evidence/0284-privileged-audit-evidence.json",
+  "hosted_privileged_path": {
+    "administrator_step_conclusion": "success",
+    "artifact_digest": "sha256:c15a969394dc8da6b388f8f3a4e744972fb4e7db489fbbf2a2603d488439dcd8",
+    "artifact_digest_independently_verified": true,
+    "artifact_id": 12073066757,
+    "effective_uid": 0,
+    "existing_hosted_sudo_path_verified": true,
+    "expected_sha": "7f14f2e0cfddbf0edd995d7286c395543da583f0",
+    "immutability_exit_code": 0,
+    "immutability_ok": true,
+    "job_conclusion": "success",
+    "job_id": 117178764593,
+    "repository_identity_unchanged": true,
+    "source_sha": "7f14f2e0cfddbf0edd995d7286c395543da583f0",
+    "source_tree": "df81bba33e315d34f90b9910660d59f49a6df1c3",
+    "source_unchanged": true,
+    "strict_audit_exit_code": 0,
+    "strict_audit_ok": true,
+    "workflow_run_id": 38961901794
+  },
+  "local_regression": {
+    "command": "PYTHONPATH=/tmp/sentientos-seq284-test/lib/python3.12/site-packages python -m scripts.run_tests -q tests/test_privileged_audit_verification.py tests/test_github_hosted_acceptance_workflows.py",
+    "compileall": "passed",
+    "first_bootstrap_failure": "preserved in append-only provenance; no tests ran because network-restricted pip could not fetch build requirements; retry used local editable no-build-isolation installation",
+    "git_diff_check": "passed",
+    "mypy_baseline_attempt": {
+      "authoritative_followup": "GitHub-hosted CI required for exact candidate",
+      "command": "python scripts/check_mypy_baseline.py",
+      "expected_version": "1.20.2",
+      "observed_version": "unknown",
+      "reason": "the script disables user site packages for toolchain isolation; the sandbox runtime Python does not have the pinned mypy module outside the user site",
+      "status": "mypy_baseline_toolchain_mismatch"
+    },
+    "provenance": [
+      {
+        "path": "glow/test_runs/provenance/20261016T202723Z_7f14f2e0cfdd_a017681d830e4356b2ebf5e405ed10c1.json",
+        "prev_provenance_hash": "2cf3fc1db476a288562227f69e7bd4444f9f2a48a63f9e96a32ed91604652d1c",
+        "provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+        "sha256": "6bdbe1deafcd67a0921856e6f10b7ccf808642022a637e1733abaa0f569efe10",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "validation_status": "bootstrap_failed"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261016T202731Z_7f14f2e0cfdd_e1fbe345073f4314ad9417c196d3fc96.json",
+        "prev_provenance_hash": "209bad77b93ec08c4d2b568afd511f15c40610dbbbe3510e9ed463b9aaccd665",
+        "provenance_hash": "d2b822030b3fa6dbaf48dde130461ecc56197be559c50e5c0ed535035d3d899f",
+        "sha256": "47e4a83543525b18dc56c904ef9e42920e2e15081183d4feef4526ef0fbdc3c1",
+        "tests_executed": 5,
+        "tests_failed": 0,
+        "tests_passed": 5,
+        "validation_status": "validation_complete"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261016T202814Z_7f14f2e0cfdd_fca0cd9e0ac945619ef4343b32da554d.json",
+        "prev_provenance_hash": "d2b822030b3fa6dbaf48dde130461ecc56197be559c50e5c0ed535035d3d899f",
+        "provenance_hash": "2c2eeb68606eeddb6dbbb25bf35178526ac5fcd5dcbf5fcd43d40e1588ce4432",
+        "sha256": "e7f84b008c201eec95377ef980e1399ff42f3832b857185601d514b05548c4db",
+        "tests_executed": 27,
+        "tests_failed": 0,
+        "tests_passed": 27,
+        "validation_status": "validation_complete"
+      }
+    ],
+    "source_binding": "exploratory_dirty_checkout_based_on_7f14f2e0cfddbf0edd995d7286c395543da583f0",
+    "tests_executed": 27,
+    "tests_failed": 0,
+    "tests_passed": 27,
+    "tests_skipped": 0,
+    "uid": 1000
+  },
+  "next_dependency": "Carry exact scoped position identity through source/model-bound developmental outcomes into canonical daemon allocation after owner reconstruction; separately investigate the discovered 4 MiB projection to 256 KiB plan-evidence capacity mismatch without truncating protocol-bound evidence.",
+  "predecessor_segment_sha256": "6500ef6615d04d407d56efa25e1eaab723c7e8b4ccc93d3db0f258fd1ffc14ba",
+  "segment_path": "work/construction/segments/0284-privileged-audit-evidence.md",
+  "segment_sha256": "be2dbc9da056c4c547d1a885a74c44ec0c4085cdf247945b0f547a1f30b27b59",
+  "sequence": 284,
+  "source_commit": "7f14f2e0cfddbf0edd995d7286c395543da583f0",
+  "source_tree": "df81bba33e315d34f90b9910660d59f49a6df1c3",
+  "title": "Require successful receipts from privileged hosted audits"
+}
