@@ -35,6 +35,21 @@ def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
     assert '--expected-sha "$GITHUB_SHA"' in workflow
 
 
+def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope() -> None:
+    workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
+    triggers = workflow.split("jobs:", 1)[0]
+    assert "schedule:" in triggers and "workflow_dispatch:" in triggers
+    assert "pull_request:" not in triggers and "push:" not in triggers
+    assert "permissions:\n  contents: write" in workflow
+    assert "test \"$(sudo -n id -u)\" = \"0\"" in workflow
+    assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in workflow
+    assert "python federation_health_badge.py" in workflow
+    badge = (ROOT / "federation_health_badge.py").read_text()
+    assert "require_admin_banner()" in badge
+    assert "require_lumos_approval()" in badge
+    assert "add: 'docs/FEDERATION_HEALTH.md'" in workflow
+
+
 def test_required_quality_gate_name_is_unique():
     matches=[]
     for path in (ROOT/".github/workflows").glob("*.y*ml"):
