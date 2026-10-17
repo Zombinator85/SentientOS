@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "22b6ee2fe9cec1ff3d1b4fa41699ffa876de3abdb20c201c3b06c223943baf56",
-    "latest_segment_sequence": 329,
-    "latest_segment_sha256": "ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
-    "source_commit": "8460e836fe59607bd4ea2b0bda6327c648b3e629",
-    "source_tree": "f30fd47021f95b8907eb68b58dc580b7ee445ce1"
+    "checkpoint_sha256": "b78ccf7a72e25ef39e7f50b2fb4b63c0fe2514f0fb2eedf686915a3623e21bc4",
+    "latest_segment_sequence": 330,
+    "latest_segment_sha256": "31e94f1bd5a46d7a31d58ead8463c9ffb180e69187f6c90a1fca769e4148b7f4",
+    "source_commit": "b546146274091e5dcfdad9b903cf74971d0166bb",
+    "source_tree": "913c5759f0a04339c5db4a7a9db5ff7142a982ec"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 329,
+  "latest_sequence": 330,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3607,6 +3607,19 @@
       "evidence_path": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
       "evidence_bytes": 2074,
       "evidence_sha256": "8d10c24ac5070ec8f8f093bdd672b3a599930a64212b4c90397bc5c3b4f85f28"
+    },
+    {
+      "sequence": 330,
+      "path": "work/construction/segments/0330-bind-workflow-continuation-contract.md",
+      "bytes": 1701,
+      "sha256": "31e94f1bd5a46d7a31d58ead8463c9ffb180e69187f6c90a1fca769e4148b7f4",
+      "predecessor": "segment-sha256:ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+      "source_commit": "b546146274091e5dcfdad9b903cf74971d0166bb",
+      "source_tree": "913c5759f0a04339c5db4a7a9db5ff7142a982ec",
+      "evidence": "work/construction/evidence/0330-bind-workflow-continuation-contract.json",
+      "evidence_path": "work/construction/evidence/0330-bind-workflow-continuation-contract.json",
+      "evidence_bytes": 1817,
+      "evidence_sha256": "614197bf2116d54ff00d10d5a0628f45dd17c5a29a5019c9107960f459cbf5b9"
     }
   ],
   "source_acquisition": {
