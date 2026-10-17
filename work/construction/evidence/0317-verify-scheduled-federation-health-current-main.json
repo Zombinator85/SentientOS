@@ -1,0 +1,101 @@
+{
+  "sequence": 317,
+  "title": "Verify scheduled Federation Health on current main",
+  "source": {
+    "branch": "main",
+    "commit": "0e6f7f113ec9ca1536965ad5fd5bf334669beee6",
+    "tree": "f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a"
+  },
+  "predecessor": {
+    "sequence": 316,
+    "segment_path": "work/construction/segments/0316-document-transition-recovery-status.md",
+    "segment_sha256": "edcbbcf7f98073da6dcdee2e30ac284da2fece13ca3c73afa1bcffa794e3577f",
+    "evidence_path": "work/construction/evidence/0316-document-transition-recovery-status.json",
+    "evidence_sha256": "28d90175db0ca33a795a8c0f5d42494f570810aab9d1aaffa4f5b8bd6135020d"
+  },
+  "federation_health_scheduled_run": {
+    "id": 39055103460,
+    "event": "schedule",
+    "workflow": ".github/workflows/federation-health.yml",
+    "workflow_id": 165993285,
+    "run_number": 8655,
+    "attempt": 1,
+    "source_commit": "0e6f7f113ec9ca1536965ad5fd5bf334669beee6",
+    "source_tree": "f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a",
+    "started_at": "2026-10-17T17:44:57Z",
+    "completed_at": "2026-10-17T17:45:21Z",
+    "conclusion": "success",
+    "jobs": {
+      "health": {
+        "id": 117461369580,
+        "conclusion": "success",
+        "administrator_preflight": "success",
+        "privileged_generator": "success"
+      },
+      "publish": {
+        "id": 117461412815,
+        "conclusion": "success",
+        "operation": "none"
+      }
+    },
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "artifact": {
+      "id": 12108823986,
+      "name": "federation-health-39055103460",
+      "size_in_bytes": 223,
+      "digest": "sha256:93f253a96b508d32a65a944e99f8db5fe8cf41c45567a776309487b9e88219d7",
+      "publisher_download_digest_matches": true
+    },
+    "publisher": {
+      "operation": "none",
+      "reason": "generated branch not ahead of main; docs/FEDERATION_HEALTH.md unchanged"
+    },
+    "changed_output_pr_test": "not exercised; publication_fixture input was false"
+  },
+  "post_merge_checks": {
+    "run": 39053833328,
+    "source_validation": "success",
+    "self_check_pytest_with_coverage": "success",
+    "docs_linkcheck": "success",
+    "helm": "success",
+    "quality_gate": {
+      "run": 39053833351,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39053833348,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run": 39053833352,
+      "conclusion": "success"
+    },
+    "cpu_build": {
+      "run": 39053833407,
+      "conclusion": "success"
+    },
+    "deploy": {
+      "run": 39053833329,
+      "conclusion": "success"
+    }
+  },
+  "dispatch_access": {
+    "connector_workflow_dispatch_operation": false,
+    "managed_shell_gh_auth": "invalid GH_TOKEN",
+    "test_fixture_dispatched": false
+  },
+  "limitations": {
+    "production_temporal_a_to_b_to_a": "not executed; requires exact commissioned setup and operator-approved protocol",
+    "sequence_286_payloads": {
+      "known": 9,
+      "unidentified": 1,
+      "resolved": false
+    },
+    "stale_sequence_178_workspace": "untouched"
+  },
+  "next_dependency": "Run the explicitly labeled Federation Health publication fixture through the Actions UI; separately obtain exact commissioning identities, receipts, and operator-approved protocol before production A→B→A."
+}

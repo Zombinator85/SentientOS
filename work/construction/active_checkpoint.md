@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 316 brought the live transition status documentation into agreement with sequence 315’s implementation. The contract lists `reason`, `outstanding_stage`, `replay_forbidden`, and the bounded `semantically_verified_stage_entry_digests` output, and states that status inspection consumes no request and changes neither transition stage nor journal.
+Sequence 317 records a new scheduled Federation Health execution on the current merged main source. Run 39055103460 used commit 0e6f7f113ec9ca1536965ad5fd5bf334669beee6 and tree f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a. Hosted Administrator preflight, health generation, artifact upload/download digest verification, and the no-change publisher path all succeeded. The report was quiet: one node and zero recent events.
 
-Latest source-bearing main commit: ec1244ebc2a559acd3b3acd3bf787237cd481749
-Verified source tree: 740ca242b00a9d17a42b66849c72f70712834a0b
-Latest construction segment: work/construction/segments/0316-document-transition-recovery-status.md
-Sequence: 316
-Latest segment SHA-256: edcbbcf7f98073da6dcdee2e30ac284da2fece13ca3c73afa1bcffa794e3577f
+Latest source-bearing main commit: 0e6f7f113ec9ca1536965ad5fd5bf334669beee6
+Verified source tree: f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a
+Latest construction segment: work/construction/segments/0317-verify-scheduled-federation-health-current-main.md
+Sequence: 317
+Latest segment SHA-256: 00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518
 
-The controlled Federation Health changed-output fixture still requires explicit workflow_dispatch through the Actions UI; this connector exposes no dispatch operation. Production temporal A→B→A remains unexecuted pending exact commissioned setup and an operator-approved protocol. Automatic recovery of an interrupted stage remains unsafe without independent operator evidence.
+The changed-output Federation Health publication fixture remains undispatched. The GitHub connector has no workflow-dispatch operation, and the managed shell's GitHub CLI token is invalid; run the explicitly labeled fixture from the Actions UI with publication_fixture=true. Production temporal A→B→A still requires exact commissioned model identities and receipts plus an operator-approved protocol. Interrupted stages remain quarantined and non-replayable.
 
 Sequence 286’s nine known and one unidentified unrecoverable payloads remain unresolved. The stale sequence-178 workspace remains untouched.
