@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
+    inputs:
+      publication_fixture:
+        description: "Create and automatically close a labeled test PR for the publisher path"
+        required: true
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -16,6 +22,7 @@ permissions:
 
 jobs:
   health:
+    if: ${{ inputs.publication_fixture != true }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,8 +32,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
+        run: python -m pip install --upgrade pip
       - name: Verify hosted Administrator availability
         run: test "$(sudo -n id -u)" = "0"
       - name: Update federation health with Administrator authority
@@ -39,8 +45,32 @@ jobs:
           path: docs/FEDERATION_HEALTH.md
           if-no-files-found: error
 
+  fixture:
+    if: ${{ inputs.publication_fixture == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate an explicitly labeled publication test fixture
+        run: |
+          cat > docs/FEDERATION_HEALTH.md <<EOF
+          # Federation Health
+
+          > TEST FIXTURE — NOT TELEMETRY. This report tests PR publication only and must never be merged.
+
+          - Workflow run: ${GITHUB_RUN_ID}
+          - Status: publication-path-test
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: federation-health-${{ github.run_id }}
+          path: docs/FEDERATION_HEALTH.md
+          if-no-files-found: error
+
   publish:
-    needs: health
+    needs: [health, fixture]
+    if: ${{ always() && (needs.health.result == 'success' || needs.fixture.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,14 +81,153 @@ jobs:
         with:
           name: federation-health-${{ github.run_id }}
           path: docs
-      - uses: peter-evans/create-pull-request@v7
+      - id: create-pr
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ github.token }}
           base: main
-          branch: automation/federation-health
-          delete-branch: true
-          commit-message: 'chore: update federation health'
-          title: 'chore: update federation health'
-          body: 'Automated Federation Health output generated after the hosted Administrator preflight.'
+          branch: ${{ inputs.publication_fixture && format('automation/federation-health-fixture-{0}', github.run_id) || 'automation/federation-health' }}
+          delete-branch: false
+          draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}
+          commit-message: "${{ inputs.publication_fixture && 'test: verify federation health publisher fixture' || 'chore: update federation health' }}"
+          title: "${{ inputs.publication_fixture && '[TEST FIXTURE] verify Federation Health publication path' || 'chore: update federation health' }}"
+          body: "${{ inputs.publication_fixture && 'TEST FIXTURE — NOT TELEMETRY. The workflow independently verifies the exact one-file draft PR, then closes it and deletes its branch without merging.' || 'Automated Federation Health output generated after the hosted Administrator preflight.' }}"
           add-paths: |
             docs/FEDERATION_HEALTH.md
+      - name: Verify the changed-output test PR
+        id: verify-fixture
+        if: ${{ inputs.publication_fixture == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+          FIXTURE_BRANCH: automation/federation-health-fixture-${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          repository = os.environ["GH_REPOSITORY"]
+          number = os.environ["PR_NUMBER"]
+          if not number:
+              raise SystemExit("fixture_publication_pr_not_created")
+          pr = json.loads(subprocess.check_output([
+              "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
+          files = json.loads(subprocess.check_output([
+              "gh", "api", f"repos/{repository}/pulls/{number}/files?per_page=100"], text=True))
+          patch = files[0].get("patch", "") if len(files) == 1 else ""
+          passed = bool(
+              pr.get("state") == "open"
+              and pr.get("draft") is True
+              and pr.get("merged") is False
+              and pr.get("base", {}).get("ref") == "main"
+              and pr.get("head", {}).get("ref") == os.environ["FIXTURE_BRANCH"]
+              and len(files) == 1
+              and files[0].get("filename") == "docs/FEDERATION_HEALTH.md"
+              and "TEST FIXTURE" in patch
+              and "NOT TELEMETRY" in patch)
+          proof = {
+              "schema_version": "sentientos.federation_health_fixture_publication:v1",
+              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              "repository": repository,
+              "pull_request_number": pr["number"],
+              "pull_request_url": pr["html_url"],
+              "pull_request_head_sha": pr["head"]["sha"],
+              "pull_request_base_sha": pr["base"]["sha"],
+              "draft": pr.get("draft"),
+              "changed_paths": [item["filename"] for item in files],
+              "patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
+              "test_fixture_only": True,
+              "publication_scope_verified": passed,
+              "cleanup": {"closed": False, "merged": False, "branch_deleted": False},
+              "verified": False,
+          }
+          path = Path(os.environ["RUNNER_TEMP"]) / "federation-health-fixture-publication.json"
+          path.write_text(json.dumps(proof, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(proof, sort_keys=True))
+          if not passed:
+              raise SystemExit("fixture_publication_pr_scope_or_marker_mismatch")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("verified=true\n")
+          PY
+      - name: Close any fixture PR and remove its branch without merging
+        if: ${{ always() && inputs.publication_fixture == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+          FIXTURE_BRANCH: automation/federation-health-fixture-${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          repository = os.environ["GH_REPOSITORY"]
+          branch = os.environ["FIXTURE_BRANCH"]
+          number = os.environ["PR_NUMBER"]
+          owner = repository.split("/", 1)[0]
+          proof_path = Path(os.environ["RUNNER_TEMP"]) / "federation-health-fixture-publication.json"
+          if proof_path.exists():
+              proof = json.loads(proof_path.read_text(encoding="utf-8"))
+          else:
+              proof = {
+                  "schema_version": "sentientos.federation_health_fixture_publication:v1",
+                  "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+                  "repository": repository,
+                  "test_fixture_only": True,
+                  "publication_scope_verified": False,
+                  "verified": False,
+              }
+          if not number:
+              matches = json.loads(subprocess.check_output([
+                  "gh", "api", f"repos/{repository}/pulls?state=all&head={owner}:{branch}&per_page=100"],
+                  text=True))
+              matching = [item for item in matches if item.get("head", {}).get("ref") == branch]
+              number = str(matching[0]["number"]) if len(matching) == 1 else ""
+          closed = False
+          merged = False
+          if number:
+              pr = json.loads(subprocess.check_output([
+                  "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
+              same_branch = pr.get("head", {}).get("ref") == branch
+              same_repository = pr.get("head", {}).get("repo", {}).get("full_name") == repository
+              if same_branch and same_repository:
+                  subprocess.run(["gh", "api", "--method", "PATCH",
+                                  f"repos/{repository}/pulls/{number}", "-f", "state=closed"],
+                                 check=True, capture_output=True, text=True)
+                  pr = json.loads(subprocess.check_output([
+                      "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
+                  closed = pr.get("state") == "closed"
+                  merged = pr.get("merged") is True or pr.get("merged_at") is not None
+          ref = f"repos/{repository}/git/ref/heads/{branch}"
+          lookup = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
+          if lookup.returncode == 0:
+              subprocess.run(["gh", "api", "--method", "DELETE", ref],
+                             check=True, capture_output=True, text=True)
+              readback = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
+              branch_deleted = (readback.returncode != 0 and
+                                ("HTTP 404" in readback.stderr or
+                                 "Reference does not exist" in readback.stderr))
+          elif "HTTP 404" in lookup.stderr or "Reference does not exist" in lookup.stderr:
+              branch_deleted = True
+          else:
+              raise SystemExit(f"fixture_branch_lookup_failed: {lookup.stderr.strip()}")
+          proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}
+          proof["verified"] = bool(proof.get("publication_scope_verified") and closed and not merged and branch_deleted)
+          proof_path.write_text(json.dumps(proof, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(proof, sort_keys=True))
+          if not proof["verified"]:
+              raise SystemExit("fixture_publication_cleanup_or_scope_unverified")
+          PY
+      - name: Upload changed-output publication proof
+        if: ${{ always() && inputs.publication_fixture == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: federation-health-publication-fixture-${{ github.run_id }}
+          path: ${{ runner.temp }}/federation-health-fixture-publication.json
+          if-no-files-found: error
