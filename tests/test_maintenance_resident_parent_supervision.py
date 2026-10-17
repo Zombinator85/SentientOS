@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +9,20 @@ import pytest
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos.maintenance_resident_parent_supervision import (
     MaintenanceResidentParentSupervisor, ResidentParentLifecycleEvidenceReader,
+    _linux_process_start_ticks,
 )
 from sentientos.runtime.services import HealthResult
 from tests.test_maintenance_resident_runtime_adoption import _fixture, _journal_prefix
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux procfs")
+def test_linux_process_start_ticks_reads_live_procfs_generation() -> None:
+    first = _linux_process_start_ticks(os.getpid())
+    second = _linux_process_start_ticks(os.getpid())
+    assert type(first) is int and first >= 0
+    assert second == first
 
 
 class FakeChild:

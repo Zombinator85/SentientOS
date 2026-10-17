@@ -121,3 +121,4 @@ SentientOS prioritizes operator accountability, auditability, and safe shutdown.
 - Bound the Required Quality Gate shell-continuation contract itself into the acceptance phase and repaired the adverse recovery node's missing continuation; exact node coverage increased from 25 to 26.
 - Reverified scheduled Federation Health run 39028288072 and freshly downloaded artifact digest; recorded the publisher no-op separately from changed-output PR proof.
 - Recorded that the exact 26-node recovery acceptance passed but the privileged finalizer rejected a stale PR title; the title was aligned before the next hosted candidate run.
+- Added real Linux procfs field-22 coverage to the strict recovery acceptance so hosted verification exercises the process-generation observer itself.

@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "9bdda884367a84c5ac890f45e94a58e100df6134fc3b75990f487efe113fe26b",
-    "latest_segment_sequence": 331,
-    "latest_segment_sha256": "27d2f34d1348fb4d040c629e558d3dbe9e2127fccdd763174365f274582c8fe2",
-    "source_commit": "ef3853cde235d653ac4972f4d4b4e12880b00235",
-    "source_tree": "7853ede9322cb13a76cf0b84d86388e2baf7abe6"
+    "checkpoint_sha256": "3f75d111d693f193f11db807b1ee16a9162d856f6b86cccd77a338de6c4f832d",
+    "latest_segment_sequence": 332,
+    "latest_segment_sha256": "532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+    "source_commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
+    "source_tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 331,
+  "latest_sequence": 332,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3633,6 +3633,19 @@
       "evidence_path": "work/construction/evidence/0331-reverify-scheduled-federation-artifact.json",
       "evidence_bytes": 3918,
       "evidence_sha256": "ecf4ea6116f5c8f113dfa2d531410a6d0cc325cb0e2e91b2767d0d41e428f421"
+    },
+    {
+      "sequence": 332,
+      "path": "work/construction/segments/0332-exercise-live-procfs-generation-observer.md",
+      "bytes": 1710,
+      "sha256": "532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+      "predecessor": "segment-sha256:27d2f34d1348fb4d040c629e558d3dbe9e2127fccdd763174365f274582c8fe2",
+      "source_commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
+      "source_tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a",
+      "evidence": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
+      "evidence_path": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
+      "evidence_bytes": 2515,
+      "evidence_sha256": "567d5ab6df153e233caeef74d62f2cf963ac6f3dbbb1c1ea858bfbcd9ad29666"
     }
   ],
   "source_acquisition": {
