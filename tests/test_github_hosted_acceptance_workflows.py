@@ -74,7 +74,11 @@ def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audit
 def test_nightly_self_check_installs_canonical_test_dependencies() -> None:
     workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
     assert "pip install -e .[dev]" in workflow
-    assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in workflow
+    assert "run: |\n          python -m pip install --only-binary=:all: -r requirements-codex.txt" in workflow
+    import yaml
+
+    parsed = yaml.safe_load(workflow)
+    assert "jobs" in parsed
 
 def test_nightly_audit_repair_uses_safe_plan_apply_and_pr_scoped_write_access() -> None:
     workflow = (ROOT / ".github/workflows/audit-nightly.yml").read_text()
