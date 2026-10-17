@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c19cc3b323c7ba75ecb0df1dfd9cebada12b2e4d096a343e141bb7b4a1ccf495",
-    "latest_segment_sequence": 317,
-    "latest_segment_sha256": "00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
-    "source_commit": "0e6f7f113ec9ca1536965ad5fd5bf334669beee6",
-    "source_tree": "f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a"
+    "checkpoint_sha256": "474c11bd7603be313e701817f6403e0ccb5cacc7b06c9210893381e338dfa311",
+    "latest_segment_sequence": 318,
+    "latest_segment_sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+    "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 317,
+  "latest_sequence": 318,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3451,6 +3451,19 @@
       "sha256": "00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
       "source_commit": "0e6f7f113ec9ca1536965ad5fd5bf334669beee6",
       "source_tree": "f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a"
+    },
+    {
+      "sequence": 318,
+      "path": "work/construction/segments/0318-verify-scheduled-federation-health-current-main.md",
+      "sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+      "bytes": 2864,
+      "predecessor": "segment-sha256:00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
+      "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+      "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d",
+      "evidence": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
+      "evidence_path": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
+      "evidence_sha256": "07498e22874a9d30a574510acb216ce92d871ea3d94fabe1e4d8b8e2c76beec3",
+      "evidence_bytes": 4640
     }
   ],
   "source_acquisition": {

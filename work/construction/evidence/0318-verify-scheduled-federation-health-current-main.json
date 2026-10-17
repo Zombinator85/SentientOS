@@ -1,0 +1,113 @@
+{
+  "sequence": 318,
+  "title": "Verify next scheduled Federation Health execution on merged main",
+  "source": {
+    "branch": "main",
+    "commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d"
+  },
+  "predecessor": {
+    "sequence": 317,
+    "segment_path": "work/construction/segments/0317-verify-scheduled-federation-health-current-main.md",
+    "segment_sha256": "00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
+    "evidence_path": "work/construction/evidence/0317-verify-scheduled-federation-health-current-main.json",
+    "evidence_sha256": "794a989b5873875793bbaff5b1733430a4b7783e67142986e78815da5495dada"
+  },
+  "federation_health_scheduled_run": {
+    "id": 39065143484,
+    "event": "schedule",
+    "workflow": ".github/workflows/federation-health.yml",
+    "workflow_id": 165993285,
+    "run_number": 8656,
+    "attempt": 1,
+    "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d",
+    "started_at": "2026-10-17T20:04:08Z",
+    "completed_at": "2026-10-17T20:04:34Z",
+    "conclusion": "success",
+    "jobs": {
+      "health": {
+        "id": 117491093974,
+        "conclusion": "success",
+        "administrator_preflight": "success",
+        "privileged_generator": "success"
+      },
+      "fixture": {
+        "id": 117491094694,
+        "conclusion": "skipped"
+      },
+      "publish": {
+        "id": 117491136753,
+        "conclusion": "success",
+        "operation": "none"
+      }
+    },
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "artifact": {
+      "id": 12112786703,
+      "name": "federation-health-39065143484",
+      "size_in_bytes": 223,
+      "digest": "sha256:ef1dfaa89e2851fbd744611a54c1555bfbb6adf4b6f767195e711e294a0d16fe",
+      "publisher_download_digest_matches": true
+    },
+    "publisher": {
+      "operation": "none",
+      "reason": "generated docs/FEDERATION_HEALTH.md matched main",
+      "base": "main",
+      "allowed_changed_path": "docs/FEDERATION_HEALTH.md"
+    }
+  },
+  "publisher_permissions": {
+    "health": {
+      "contents": "read"
+    },
+    "fixture": {
+      "contents": "read"
+    },
+    "publish": {
+      "contents": "write",
+      "pull-requests": "write"
+    }
+  },
+  "changed_output_fixture": {
+    "workflow_dispatch_present": true,
+    "fixture_input": true,
+    "run_dispatched": false,
+    "reason": "no workflow-dispatch operation is exposed by the connected GitHub tools; managed shell GH_TOKEN fails authentication",
+    "production_telemetry_fabricated": false
+  },
+  "local_validation": {
+    "source_preflight": "correct_remote_and_local_base",
+    "initial_continuation_custody": "failed",
+    "failure": "active_checkpoint_source_identity_contradiction",
+    "repair": "rewrote mutable active checkpoint with exact source commit/tree visibly backticked and rebound checkpoint digest; append-only prior segments unchanged",
+    "final_continuation_custody": "construction_continuation_custody_ready",
+    "segments_verified": 318,
+    "source_preflight_verified_remote_head": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "source_preflight_verified_remote_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d",
+    "superseded_invocation_error": {
+      "command_shape": "construction_source_preflight with --candidate-manifest /dev/null and --observed-blobs /dev/null",
+      "result": "failed while parsing empty JSON input; no repository mutation",
+      "disposition": "superseded; generate the candidate manifest from the tested final tree and rerun the repository-native verifier"
+    }
+  },
+  "architecture_reassessment": {
+    "transition_restart_posture": "process-local quiescence capability is not reconstructed after process death; transition journal recovery remains blocked and replay-forbidden",
+    "next_safe_dependency": "independently attributable owner/process-generation termination and no-inflight proof that can support a separately approved recovery decision; until then unresolved stages remain non-replayable",
+    "production_temporal_a_to_b_to_a": "not executed; exact commissioned model identities, receipts, setup and operator-approved protocol are required"
+  },
+  "limitations": {
+    "sequence_286_payloads": {
+      "known": 9,
+      "unidentified": 1,
+      "resolved": false
+    },
+    "stale_sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0318-verify-scheduled-federation-health-current-main.md",
+  "predecessor_sha256": "00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518"
+}
