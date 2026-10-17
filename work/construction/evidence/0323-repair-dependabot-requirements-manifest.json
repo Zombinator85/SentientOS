@@ -1,0 +1,82 @@
+{
+  "change": {
+    "authority_expansion": false,
+    "dependency_entries_preserved": [
+      "pyesprima>=4",
+      "colorama>=0.4.6",
+      "PyYAML>=6,<7",
+      "requests>=2.31.0"
+    ],
+    "failure": "Dependabot pip parser rejected INI-style [js] section header",
+    "failure_run_id": 39071515030
+  },
+  "intent": "repair Dependabot parsing of requirements-extras.txt",
+  "local_verification": {
+    "compileall": "passed",
+    "dependency_bootstrap": "status=ready",
+    "generated_test_reports_published": false,
+    "git_diff_check": "passed",
+    "provenance_path": "glow/test_runs/provenance/20261017T215144Z_08179763200d_23b41dff1f7e4acbbfe1a8c14c299d70.json",
+    "provenance_sha256": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+    "source_tree_sha1": "55308f97901cb47acb5811b07dc04e2ba91064a5",
+    "task_acceptance": "task_acceptance_ready; required successful-path node reached and passed",
+    "test_command": "python -m scripts.run_tests -q tests/test_dependency_bootstrap_contract.py",
+    "tests_failed": 0,
+    "tests_passed": 9,
+    "tests_skipped": 0,
+    "tracked_test_failure_digest_restored": true
+  },
+  "post_merge_main": {
+    "ci": "in_progress_at_recording",
+    "ci_run": 39072800521,
+    "codex_ci": "success",
+    "codex_ci_run": 39072800571,
+    "docker": "in_progress_at_recording",
+    "docker_run": 39072800448,
+    "docs_deploy": "success",
+    "docs_deploy_run": 39072800501,
+    "federation_health_for_exact_main": "not_yet_observed",
+    "invariant_run": 39072800566,
+    "invariants": "success",
+    "nightly_self_check_for_exact_main": "not_yet_observed",
+    "quality_gate": "success",
+    "quality_gate_run": 39072800462,
+    "sha": "1bb5a004e263e0fa13fd20c1dd8ab5d93fc9cf74",
+    "tree": "fe24d3600ac802bf58d0e784f113ea8570a44661"
+  },
+  "predecessor_sequence": 322,
+  "prior_hosted_attempts": {
+    "failed_gate_runs": [
+      39072311292,
+      39072470951
+    ],
+    "failure_reason": "stale/mismatched PR title captured by event; strict Administrator audit and exact acceptance passed",
+    "sequence_322_pr": 2321,
+    "successful_gate_run": 39072543856
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 323,
+  "source": {
+    "base_commit": "1bb5a004e263e0fa13fd20c1dd8ab5d93fc9cf74",
+    "base_tree": "fe24d3600ac802bf58d0e784f113ea8570a44661",
+    "local_test_checkout_commit": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+    "local_test_checkout_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70",
+    "remote_acquisition": "GitHub API readback; git transport unavailable"
+  },
+  "source_sha256": {
+    "docs/CHANGELOG.md": "5987fad06dd9eda5d46f161547a701aa6526b2de4fdb235f87c8786f711ee14e",
+    "docs/development/dependabot_requirements_extras_task_acceptance.json": "575a3e44b012a006f6e8c914ba829d2dcecacbbde6e33cdbe5e3d6704671acab",
+    "glow/test_runs/provenance/20261017T215144Z_08179763200d_23b41dff1f7e4acbbfe1a8c14c299d70.json": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+    "glow/test_runs/test_run_provenance.json": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+    "requirements-extras.txt": "6b300e754a48ca1dbf76c64635365a2d4a34cba58c81c5c63f864c30fde8fcd9",
+    "tests/test_dependency_bootstrap_contract.py": "7fef0b307ab4fc350e09bcad9d8104beb9d3fc92fa13500ba990e44f350d23b4"
+  },
+  "unresolved": {
+    "federation_changed_output_fixture": "awaits explicit workflow dispatch",
+    "nightly_workflows": "privilege-preserving repair pending",
+    "original_vow_salt_key": "unrecovered; do not replace or rotate silently",
+    "process_generation_termination_no_inflight": "not implemented; fail-closed restart remains",
+    "sequence_178_workspace": "untouched",
+    "sequence_286": "nine known and one unidentified unrecoverable payloads"
+  }
+}

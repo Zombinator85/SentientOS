@@ -43,6 +43,18 @@ def test_legacy_dependencies_are_preserved_in_explicit_groups() -> None:
     assert _report()["legacy_dependencies_preserved"] is True
 
 
+def test_optional_requirements_manifest_uses_valid_pip_syntax() -> None:
+    path = ROOT / "requirements-extras.txt"
+    entries = [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    requirements = [Requirement(item) for item in entries]
+    assert {item.name.lower().replace("_", "-") for item in requirements} == {
+        "pyesprima", "colorama", "pyyaml", "requests"
+    }
+
 def test_windows_dependencies_are_platform_guarded() -> None:
     assert _report()["windows_marker_errors"] == []
 

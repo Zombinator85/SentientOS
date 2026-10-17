@@ -1,13 +1,15 @@
-[js]
+# Optional JavaScript tooling
+# [js]
 pyesprima>=4
 
-[go]
-# uses system go
+# The Go toolchain is installed by the system package manager.
+# [go]
 
-[report]
-# optional reporting tools
+# Optional report tooling is available through the normal capability extras.
+# [report]
 
-[dev]
+# Additional development dependencies
+# [dev]
 colorama>=0.4.6
 PyYAML>=6,<7
 requests>=2.31.0

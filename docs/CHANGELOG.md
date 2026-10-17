@@ -60,7 +60,7 @@
 ## 2028-04 v9.1 Hot-Fix
 - Lazy-import sentinel guards optional dependencies
 - Cross-language rules gated when runtimes missing
-- requirements-extras.txt defines js/go/report/dev groups
+- requirements-extras.txt is a valid pip requirements manifest; its js/go/report/dev section labels are comments, not pip group syntax
 - CI now runs python-only and full jobs
 
 ## 2028-05 v9.2 Green-Suite

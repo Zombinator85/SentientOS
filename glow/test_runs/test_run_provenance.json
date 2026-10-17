@@ -3,24 +3,16 @@
   "allow_nonexecution": false,
   "behavioral_witness_count": 0,
   "behavioral_witness_counts_by_node": {
-    "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree": 0,
-    "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content": 0
+    "tests/test_dependency_bootstrap_contract.py::test_codex_extra_matches_canonical_minimal_requirements": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_default_install_does_not_resolve_full_capabilities": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_dependency_contract_rejects_default_heavy_package": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_legacy_dependencies_are_preserved_in_explicit_groups": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_minimal_bootstrap_excludes_heavy_capabilities": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_optional_requirements_manifest_uses_valid_pip_syntax": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_project_core_dependencies_are_minimal": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_python_314_bootstrap_is_wheel_only": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_root_requirements_delegates_only_to_minimal_bootstrap": 0,
+    "tests/test_dependency_bootstrap_contract.py::test_windows_dependencies_are_platform_guarded": 0
   },
   "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "behavioral_witness_reporter_status": "complete",
@@ -33,7 +25,7 @@
   },
   "budget_violations": [],
   "bypass_env": false,
-  "call_phase_outcome_count": 18,
+  "call_phase_outcome_count": 10,
   "canonical_requirements_path": "requirements-codex.txt",
   "collection_completed": true,
   "collection_error": false,
@@ -48,105 +40,65 @@
   "install_fallback_reason": null,
   "install_mode": "none",
   "install_performed": false,
-  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_12bd73b0bc624ce88f4bf3cc2edaa6fa.xml",
+  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_fc0b4da5f9074e4bb4b48a9e11b71379.xml",
   "metrics_status": "ok",
   "node_outcomes": [
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_root_requirements_delegates_only_to_minimal_bootstrap",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_minimal_bootstrap_excludes_heavy_capabilities",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_project_core_dependencies_are_minimal",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_codex_extra_matches_canonical_minimal_requirements",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_legacy_dependencies_are_preserved_in_explicit_groups",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_optional_requirements_manifest_uses_valid_pip_syntax",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_windows_dependencies_are_platform_guarded",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_default_install_does_not_resolve_full_capabilities",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_python_314_bootstrap_is_wheel_only",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content",
-      "outcome": "passed",
-      "phase": "call"
-    },
-    {
-      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding",
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_dependency_contract_rejects_default_heavy_package",
       "outcome": "passed",
       "phase": "call"
     }
   ],
   "non_execution_flags": [],
-  "prev_provenance_hash": "9ffc765770dd8703d1de1f0e495d36af23343608c507ca2515f29355dc4f15ea",
-  "provenance_hash": "793b2b19874c1600d99bfe02afb6416a87a06768d590f05dfe6a6bbcac4c92a8",
+  "prev_provenance_hash": "793b2b19874c1600d99bfe02afb6416a87a06768d590f05dfe6a6bbcac4c92a8",
+  "provenance_hash": "4f2a8d2798736f88483f5a8c9cd3a747f7ca54020d85b6b63f1a9e1b664497c1",
   "pytest_args": [
-    "tests/test_work_item_review_packet_matrix_resume.py",
+    "tests/test_dependency_bootstrap_contract.py",
     "-q"
   ],
   "pytest_exit_code": 0,
@@ -156,43 +108,35 @@
   "reporter_loaded": true,
   "reporter_ok": true,
   "reporter_status": "complete",
-  "run_id": "0abcfea6019f4a20b07da62a5619e286",
+  "run_id": "87c65ab92b2c455ba34b35a801ddc487",
   "run_intent": "targeted",
   "schema_version": 1,
   "selected_node_ids": [
-    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content",
-    "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding"
+    "tests/test_dependency_bootstrap_contract.py::test_root_requirements_delegates_only_to_minimal_bootstrap",
+    "tests/test_dependency_bootstrap_contract.py::test_minimal_bootstrap_excludes_heavy_capabilities",
+    "tests/test_dependency_bootstrap_contract.py::test_project_core_dependencies_are_minimal",
+    "tests/test_dependency_bootstrap_contract.py::test_codex_extra_matches_canonical_minimal_requirements",
+    "tests/test_dependency_bootstrap_contract.py::test_legacy_dependencies_are_preserved_in_explicit_groups",
+    "tests/test_dependency_bootstrap_contract.py::test_optional_requirements_manifest_uses_valid_pip_syntax",
+    "tests/test_dependency_bootstrap_contract.py::test_windows_dependencies_are_platform_guarded",
+    "tests/test_dependency_bootstrap_contract.py::test_default_install_does_not_resolve_full_capabilities",
+    "tests/test_dependency_bootstrap_contract.py::test_python_314_bootstrap_is_wheel_only",
+    "tests/test_dependency_bootstrap_contract.py::test_dependency_contract_rejects_default_heavy_package"
   ],
   "selection_flags": [
-    "tests/test_work_item_review_packet_matrix_resume.py"
+    "tests/test_dependency_bootstrap_contract.py"
   ],
   "session_finish_reached": true,
   "skip_rate": 0.0,
-  "tests_collected": 18,
-  "tests_executed": 18,
+  "tests_collected": 10,
+  "tests_executed": 10,
   "tests_failed": 0,
-  "tests_passed": 18,
-  "tests_selected": 18,
+  "tests_passed": 10,
+  "tests_selected": 10,
   "tests_skipped": 0,
   "tests_xfailed": 0,
   "tests_xpassed": 0,
-  "timestamp": "2026-10-17T21:41:10.996488+00:00",
+  "timestamp": "2026-10-17T21:51:44.754769+00:00",
   "validation_complete": true,
   "validation_status": "validation_complete",
   "xfail_rate": 0.0
