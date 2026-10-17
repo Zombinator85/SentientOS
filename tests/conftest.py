@@ -181,7 +181,7 @@ def codex_startup():
 
 @pytest.fixture(scope="session", autouse=True)
 def isolate_governor_runtime():
-    """Keep import-time and test-time governor state inside a disposable temp root."""
+    """Own the import-time test root through teardown, then restore process configuration."""
     try:
         yield _TEST_GOVERNOR_ROOT
     finally:
