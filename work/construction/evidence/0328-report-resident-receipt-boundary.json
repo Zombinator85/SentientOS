@@ -1,0 +1,43 @@
+{
+  "diagnostic_change": {
+    "asserts_trailing_newline": true,
+    "mutates_or_repairs_journal": false,
+    "reports_tail_bytes_on_failure": true
+  },
+  "failure": {
+    "failure": "parent_receipt_journal_truncated",
+    "finalizer": "not run",
+    "node": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+    "run_id": 39075726571,
+    "strict_audits": "passed",
+    "workflow": "Required Quality Gate"
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0327-diagnose-resident-process-recovery-latch.json",
+    "evidence_sha256": "e4b2e8c147687d4f483d600ff78f14b17117ff9510faf215ee10cfd629b34eaf",
+    "segment_path": "work/construction/segments/0327-diagnose-resident-process-recovery-latch.md",
+    "segment_sha256": "3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536",
+    "sequence": 327
+  },
+  "restrictions": {
+    "no_journal_repair_bypass": true,
+    "no_test_weakening": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 328,
+  "source": {
+    "acquisition": "fresh GitHub PR head readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "31f0509604b9f058b42c26bd4e8a32a86b36c676",
+    "tree": "4c90ccac8a1103baa7b517eed4c6324fb0267741"
+  },
+  "title": "Report resident receipt journal boundary",
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "hosted_retest": "pending",
+    "root_cause": "receipt bytes not yet captured"
+  }
+}

@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 324 binds maintenance-resident child launches to Linux procfs generation evidence. Recovery may distinguish PID reuse from a live generation only when exact start-time evidence proves the former ended.
+Sequence 324 adds process-generation evidence to maintenance-resident child launch provenance. PID reuse is accepted only when the recorded process generation is shown to have ended.
 
-Sequence 325 added both task-specific recovery tests to the hosted Quality Gate after artifacts showed they were omitted from prior generic checks. Sequence 326 repaired a shell continuation caught by run `39075370096`. The next Quality Gate, run `39075517162`, executed all 25 exact nodes: the adverse same-generation test passed, while positive PID-reuse recovery failed with `panic_latched` after reconstruction. Strict audits passed; acceptance/finalization blocked. Sequence 327 adds read-only validation of the persisted receipt journal and state snapshot before restart to identify the defect. No recovery latch is bypassed or cleared.
+Sequences 325–326 put both behavior-specific tests in the strict hosted Quality Gate and repaired the shell continuation. Run `39075517162` executed the positive and adverse tests; positive recovery failed with `panic_latched`, adverse same-generation blocking passed. Sequence 327 added state/receipt validation before reconstructing. Run `39075726571` then localized the failure to `parent_receipt_journal_truncated` while parsing the stored receipt journal. Sequence 328 captures the trailing byte count and bytes before invoking the canonical parser. The exact receipt defect remains unresolved; no repair or bypass has been applied.
 
-Exact main base for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 327 starts from candidate `d946460b4411961466576d00f0f381adeb4063d5`, tree `e62cf2c66fa798d2daa38784c48032d4260557cc`.
+Base main for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 328 starts from candidate `31f0509604b9f058b42c26bd4e8a32a86b36c676`, tree `4c90ccac8a1103baa7b517eed4c6324fb0267741`.
 
-Fresh hosted acceptance, exact source repair, strict Administrator finalization, and all required checks remain pending. Prior green checks without exact task nodes do not prove process recovery.
+Prior green suite runs omitted these task-specific tests. The current candidate requires a passing exact 25-node Quality Gate, privileged finalizer, and every required CI check after the journal failure is resolved.
 
-Sequence 320 recorded Federation Health scheduled run `39028288072`; sequence 318 records later run `39065143484` on `b91969c1b1a900fefe102fb72697e7295766857b`. Current-main schedule evidence is still absent. The changed-output fixture is manual dispatch; this session has no dispatch tool and an operator request is pending. Nightly workflow source retains read-only audit and repair-scoped write authority; current-main scheduled evidence is unverified.
+Federation scheduled evidence exists for source `f0564c9f...` and `b91969c1...`, not current main. The changed-output fixture still requires workflow dispatch unavailable to this session; operator action request is pending. Nightly current-main scheduled evidence remains unverified. Sequence 286 provenance loss and stale sequence-178 workspace remain preserved; production A→B→A proof awaits the commissioned operator-approved setup.
 
-Sequence 286 provenance loss remains unresolved; stale sequence-178 workspace untouched; production A→B→A remains pending exact approved setup.
-
-Latest construction segment: `work/construction/segments/0327-diagnose-resident-process-recovery-latch.md`
-Sequence: 327
-Segment SHA-256: `3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536`
+Latest construction segment: `work/construction/segments/0328-report-resident-receipt-boundary.md`
+Sequence: 328
+Segment SHA-256: `aae03bd7754e16307b5c88aa64cc136409d3ce3c4ce4b8edd1b6832382d513f5`

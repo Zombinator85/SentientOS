@@ -346,8 +346,10 @@ def test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generatio
 
     state_root = tmp_path / "parent"
     from sentientos import maintenance_resident_parent_supervision as parent
-    rows = parent._parse_parent_receipt_journal(
-        (state_root / "parent-receipts.jsonl").read_bytes(), first._spec_digest)
+    receipt_bytes = (state_root / "parent-receipts.jsonl").read_bytes()
+    assert receipt_bytes.endswith(b"\n"), (
+        len(receipt_bytes), repr(receipt_bytes[-32:]))
+    rows = parent._parse_parent_receipt_journal(receipt_bytes, first._spec_digest)
     parent._validate_parent_state_snapshot(
         (state_root / "parent-state.json").read_bytes(),
         expected_spec_digest=first._spec_digest,
