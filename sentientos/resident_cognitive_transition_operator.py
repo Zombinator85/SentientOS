@@ -202,9 +202,11 @@ class LiveTransitionOperatorRuntime:
     def __init__(self, *, config: LiveTransitionConfig, installation_root: Path, controller: Any,
                  slot: Any, gate: Any,
                  subordinate_verifier: Callable[[str, Sequence[Mapping[str, Any]]], None] | None = None,
-                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> None:
+                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+                 source_lineage_bindings: Mapping[str, Mapping[str, Any]] | None = None) -> None:
         self.config, self.installation_root, self.controller = config, Path(installation_root), controller
         self.slot, self.gate, self.subordinate_verifier, self.clock = slot, gate, subordinate_verifier, clock
+        self.source_lineage_bindings = _plain(source_lineage_bindings or {})
         self._lock = threading.Lock()
         self._latest: dict[str, Any] | None = None
 
@@ -558,6 +560,10 @@ class LiveTransitionOperatorRuntime:
                 "enabled": self.config.enabled, "configured": True,
                 "protocol_id": self.config.protocol_id, "protocol_digest": self.config.protocol_digest,
                 "transition_id": self.controller.protocol.value["transition_id"],
+                "model_source_lineage": _plain(self.source_lineage_bindings),
+                "model_source_lineage_posture": (
+                    "verified_frozen_declarations_not_running_observation"
+                    if self.source_lineage_bindings else "unavailable_or_synthetic"),
                 "current_phase": health["phase"], "current_journal_head": health["journal_head"],
                 "quiesced": self.gate.quiesced,
                 "resident_serving_session_id": session.session_id if session else None,

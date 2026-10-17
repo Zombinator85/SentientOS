@@ -2160,6 +2160,8 @@ class RuntimeMaintenanceSurfaces:
                     model_role=str(reference.get("model_role", "")))
                 if dict(identity.active_model_identity) != dict(expected_identity or {}):
                     raise DevelopmentalModelReplacementError("provenance_subject_active_identity_mismatch")
+                frozen_context = store.load_verified_context(
+                    replacement.causal_context_id, replacement.causal_context_digest)
             except Exception as exc:
                 code = str(exc)
                 posture = ("unavailable_protocol" if code == "preregistered_protocol_unavailable"
@@ -2182,6 +2184,18 @@ class RuntimeMaintenanceSurfaces:
                 "provenance_subject_identity_digest": manifest.subject_identity_digest,
                 "provenance_availability": manifest.availability,
                 "provenance_claim_count": len(manifest.claims),
+                "declared_repository_generation_identity": frozen_context.get(
+                    "repository_generation_identity"),
+                "declared_repository_generation_posture": (
+                    "frozen_context_declaration_not_running_observation"
+                    if frozen_context.get("repository_generation_identity") is not None
+                    else "unknown"),
+                "software_generation_identity": frozen_context.get(
+                    "repository_generation_identity"),
+                "software_generation_posture": (
+                    "frozen_context_declaration_not_running_observation"
+                    if frozen_context.get("repository_generation_identity") is not None
+                    else "unknown"),
             }
         return bindings
 
@@ -3085,6 +3099,53 @@ def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal, 
     return None
 
 
+def _verify_live_resident_transition_source_lineage(protocol: Any,
+        artifact_root: Path | None) -> dict[str, dict[str, Any]]:
+    """Verify exact A/B model protocols and their frozen source declarations."""
+    protocol.verify()
+    references = protocol.value.get("model_replacement_protocol_references")
+    if not isinstance(references, Mapping) or set(references) != {"predecessor_a", "successor_b"}:
+        raise TransitionError("transition_model_source_lineage_references_required")
+    if artifact_root is None:
+        raise TransitionError("transition_model_source_lineage_store_required")
+    from sentientos.developmental_model_replacement_experiment import (
+        DevelopmentalModelReplacementError, ModelReplacementArtifactStore)
+    try:
+        store = ModelReplacementArtifactStore(Path(artifact_root))
+    except (TypeError, ValueError, OSError) as exc:
+        raise TransitionError("transition_model_source_lineage_store_invalid") from exc
+    expected_roles = {"predecessor_a": "model_a", "successor_b": "model_b"}
+    verified: dict[str, dict[str, Any]] = {}
+    for transition_role, model_role in expected_roles.items():
+        reference = references[transition_role]
+        if not isinstance(reference, Mapping) or reference.get("model_role") != model_role:
+            raise TransitionError("transition_model_source_lineage_role_mismatch")
+        try:
+            replacement, identity, _manifest = store.load_verified_protocol_provenance(
+                str(reference.get("protocol_id", "")),
+                str(reference.get("protocol_digest", "")), model_role=model_role)
+            if dict(identity.active_model_identity) != dict(protocol.value[transition_role]):
+                raise DevelopmentalModelReplacementError(
+                    "transition_model_source_lineage_identity_mismatch")
+            context = store.load_verified_context(
+                replacement.causal_context_id, replacement.causal_context_digest)
+        except (DevelopmentalModelReplacementError, OSError, TypeError, ValueError, KeyError) as exc:
+            raise TransitionError("transition_model_source_lineage_artifact_unavailable") from exc
+        generation = context.get("repository_generation_identity")
+        if not isinstance(generation, str) or not generation or len(generation) > 512:
+            raise TransitionError("transition_software_generation_declaration_required")
+        verified[transition_role] = {
+            "model_replacement_protocol_id": replacement.protocol_id,
+            "model_replacement_protocol_digest": replacement.protocol_digest,
+            "model_role": model_role,
+            "causal_context_id": replacement.causal_context_id,
+            "causal_context_digest": replacement.causal_context_digest,
+            "software_generation_identity": generation,
+            "software_generation_posture": "frozen_context_declaration_not_running_observation",
+        }
+    return verified
+
+
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
         kernel: Any, slot: ResidentCognitiveServingSlot, gate: ResidentCognitionQuiescenceGate,
         developmental_owner: ResidentDevelopmentalCognitionOwner | None = None,
@@ -3106,6 +3167,11 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         protocol_id=config.protocol_id, protocol_digest=config.protocol_digest)
     if protocol.value.get("installation_identity") != installation_handle.identity.value:
         raise TransitionError("transition_protocol_installation_identity_mismatch")
+    source_lineage: dict[str, dict[str, Any]] = {}
+    if not allow_synthetic_evidence_for_tests:
+        artifact_root = getattr(getattr(developmental_owner, "config", None),
+            "model_replacement_artifact_root", None)
+        source_lineage = _verify_live_resident_transition_source_lineage(protocol, artifact_root)
     if config.journal_identity != resident_transition_journal_identity(protocol):
         raise TransitionError("transition_journal_custody_identity_mismatch")
     current = verify_current_activation(installation_handle,
@@ -3156,7 +3222,7 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         raise TransitionError("transition_journal_interrupted_or_unreconstructable")
     return LiveTransitionOperatorRuntime(config=config,
         installation_root=installation_handle.root, controller=controller, slot=slot, gate=gate,
-        clock=clock)
+        clock=clock, source_lineage_bindings=source_lineage)
 
 
 def _run_maintenance_tick(

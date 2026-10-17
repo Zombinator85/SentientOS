@@ -69,7 +69,8 @@ jobs:
             tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation \
             tests/test_maintenance_resident_parent_supervision.py::test_linux_process_start_ticks_reads_live_procfs_generation \
             tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live \
-            tests/test_developmental_model_replacement_experiment.py::test_world_state_projection_preserves_declared_software_generation_without_claiming_observation
+            tests/test_developmental_model_replacement_experiment.py::test_world_state_projection_preserves_declared_software_generation_without_claiming_observation \
+            tests/test_sentientosd_resident_cognitive_transition_composition.py::test_production_transition_requires_verified_frozen_model_generation_lineage
       - name: Bind and verify exact acceptance
         run: |
           python - <<'PY'
@@ -80,7 +81,7 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==28
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==29
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
