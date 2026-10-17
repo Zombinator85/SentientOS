@@ -1,0 +1,27 @@
+{
+  "acceptance": "All 29 exact hosted Required Quality Gate nodes passed; the privileged landing finalizer could not complete because the pull-request event exposed stale title metadata.",
+  "candidate_commit": "7034d5c51a6f31b7e511d86ced614baa8611dab6",
+  "execution_commit": "726972c1e43e95da2aef778be87fca77325b8817",
+  "execution_tree": "e41c4fe57c57437023986dc89d426134f48ce8a6",
+  "finalizer": {
+    "artifact_id": "12119095170",
+    "artifact_zip_sha256": "a8d99aa6f2760a6aa60be4248211638e639f9d6a8e1d15e55c4898b749e16410",
+    "outcome": "failed",
+    "reason": "The workflow event environment supplied the previous PR title, so the exact-head intended-title binding failed before a finalizer metadata artifact was emitted. The PR metadata has since been updated; a fresh reopened event is required."
+  },
+  "hosted_run": {
+    "artifact_id": "12118098354",
+    "artifact_zip_sha256": "a93a509e9d2d491baa56bc5e8bd9f9bd224193ea247a5af8f3f293819de26a90",
+    "job_id": "117536396377",
+    "run_id": "39080539092",
+    "strict_administrator_audits": "passed",
+    "strict_immutability": "passed",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "validation_status": "validation_complete"
+  },
+  "recorded_at": "2026-10-17T23:51:04Z",
+  "schema_version": 1
+}

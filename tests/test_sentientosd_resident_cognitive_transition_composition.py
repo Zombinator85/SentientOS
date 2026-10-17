@@ -3,16 +3,21 @@ from __future__ import annotations
 import inspect
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 import sentientosd
+from sentientos.developmental_model_replacement_experiment import (
+    CognitiveModelIdentity, FrozenCausalContext, ModelDevelopmentProvenance,
+    ModelReplacementArtifactStore, ModelReplacementProtocol, _digest,
+)
 from sentientos.resident_cognitive_model_transition_experiment import (
     TransitionError, TransitionJournal, TransitionProtocol,
 )
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 from sentientos.resident_cognitive_transition_operator import (
-    PROTOCOL_CUSTODY, load_verified_protocol, persist_protocol,
+    PROTOCOL_CUSTODY, LiveTransitionOperatorRuntime, load_verified_protocol, persist_protocol,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -146,3 +151,111 @@ def test_transition_quarantine_rejects_unverifiable_journal_custody(tmp_path: Pa
         TransitionJournal(path), transition_runtime_available=False)
     assert reason is not None
     assert reason.startswith("resident_transition_journal_unverified:")
+
+
+def _source_lineage_identity(name: str) -> CognitiveModelIdentity:
+    observed = {"engine": "llama_cpp", "resolved_artifact_path": f"/models/{name}.gguf",
+        "semantic_artifact_identity": f"sha256:{name * 8}", "model_content_sha256": name * 8,
+        "artifact_size_bytes": 8, "sidecar_metadata_digest": None,
+        "configuration_digest": f"config-{name}", "candidate_index": 0,
+        "posture": "production", "fallback": False}
+    return CognitiveModelIdentity.create(model_id=f"model-{name}",
+        semantic_artifact_identity=str(observed["semantic_artifact_identity"]),
+        model_content_sha256=name * 8, artifact_size_bytes=8, sidecar_metadata_digest=None,
+        configuration_digest=f"config-{name}", engine_runtime_family="llama_cpp",
+        candidate_index=0, active_production=True, fallback=False,
+        authority_record_id=f"record-{name}", authority_record_digest=f"digest-{name}",
+        active_model_identity=observed, active_model_identity_digest=_digest(observed))
+
+
+def _source_lineage_context(repository_generation_identity: str | None) -> FrozenCausalContext:
+    current = {"facts": [{"fact_id": "fact-1", "payload": {"value": 1}}],
+        "sources": [{"source_id": "source-1"}], "conflicts": []}
+    prior = {"record_id": "record-1", "record_digest": _digest({"record": 1}),
+        "interpretation": "bounded prior"}
+    instruction = "Use current evidence and bounded history without treating history as truth."
+    return FrozenCausalContext.create(snapshot_id="snapshot-1", snapshot_digest=_digest({"snapshot": 1}),
+        current_projection_id="projection-1", current_projection_digest=_digest({"projection": current}),
+        current_fact_ids=("fact-1",), projected_content_digest=_digest(current),
+        current_projection_payload=current, history_record_ids=("record-1",),
+        history_record_digests=(prior["record_digest"],),
+        history_record_set_digest=_digest({"record_ids": ["record-1"],
+            "record_digests": [prior["record_digest"]]}), history_projection_payload=(prior,),
+        instruction_template=instruction, instruction_template_digest=_digest({"instruction": instruction}),
+        inference_budget={"max_input_chars": 16000, "max_output_chars": 4000,
+            "max_new_tokens": 512, "timeout_seconds": 30, "max_calls_per_correlation": 1},
+        generation_posture={"temperature": 0, "hardware_determinism_claimed": False},
+        repository_generation_identity=repository_generation_identity)
+
+
+def _source_lineage_fixture(root: Path, *, generation_identity: str | None = "source-tree-1"):
+    store = ModelReplacementArtifactStore(root)
+    context = _source_lineage_context(generation_identity)
+    model_a, model_b = _source_lineage_identity("a"), _source_lineage_identity("b")
+    provenance_a = ModelDevelopmentProvenance.create(model_a)
+    provenance_b = ModelDevelopmentProvenance.create(model_b)
+    replacement = ModelReplacementProtocol.create(context, model_a, model_b, provenance_a, provenance_b)
+    store.persist_provenance(provenance_a)
+    store.persist_provenance(provenance_b)
+    store.persist_context(context)
+    store.persist_protocol(replacement)
+    references = {
+        "predecessor_a": {"protocol_id": replacement.protocol_id,
+            "protocol_digest": replacement.protocol_digest, "model_role": "model_a"},
+        "successor_b": {"protocol_id": replacement.protocol_id,
+            "protocol_digest": replacement.protocol_digest, "model_role": "model_b"},
+    }
+    transition = TransitionProtocol.create(installation_identity="installation-1",
+        predecessor=model_a.active_model_identity, successor=model_b.active_model_identity,
+        initial_activation={"state_semantic_digest": "a" * 64, "generation": 1},
+        initial_session={"session_id": "session-a"}, initial_boundary={"boundary_digest": "b" * 64},
+        b_operation_id="serve-b", restored_a_operation_id="serve-restored-a",
+        model_replacement_protocol_references=references)
+    return store, transition
+
+
+def test_production_transition_requires_verified_frozen_model_generation_lineage(tmp_path: Path) -> None:
+    generation_identity = "source-tree-1"
+    store, transition = _source_lineage_fixture(tmp_path, generation_identity=generation_identity)
+    with pytest.raises(TransitionError, match="transition_model_source_lineage_references_required"):
+        sentientosd._verify_live_resident_transition_source_lineage(_protocol(), tmp_path)
+    # The daemon configuration carries the artifact store's state root; the
+    # store derives its developmental_experiments/model_replacement child.
+    bindings = sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)
+    assert bindings["predecessor_a"]["software_generation_identity"] == generation_identity
+    assert bindings["successor_b"]["software_generation_identity"] == generation_identity
+    assert bindings["predecessor_a"]["software_generation_posture"] == (
+        "frozen_context_declaration_not_running_observation")
+
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_developmental_owner = SimpleNamespace(
+        config=SimpleNamespace(model_replacement_artifact_root=tmp_path))
+    surfaces._resident_developmental_configuration_status = "enabled"
+    projected = surfaces._resident_model_provenance_bindings(transition.value)
+    assert projected["predecessor_a"]["software_generation_identity"] == generation_identity
+    assert projected["successor_b"]["software_generation_posture"] == (
+        "frozen_context_declaration_not_running_observation")
+
+    status = LiveTransitionOperatorRuntime(
+        config=SimpleNamespace(enabled=True, protocol_id=transition.value["protocol_id"],
+            protocol_digest=transition.value["protocol_digest"]),
+        installation_root=tmp_path,
+        controller=SimpleNamespace(protocol=transition, health=lambda: {
+            "status": "in_progress", "phase": "predecessor_a_epoch_current",
+            "journal_head": "GENESIS", "replay_forbidden": False}),
+        slot=SimpleNamespace(current_controller=SimpleNamespace(
+            observed_current_session=lambda: None)),
+        gate=SimpleNamespace(quiesced=False), source_lineage_bindings=bindings).status()
+    assert status["model_source_lineage"] == bindings
+    assert status["model_source_lineage_posture"] == (
+        "verified_frozen_declarations_not_running_observation")
+
+    composition = inspect.getsource(sentientosd._compose_live_resident_transition)
+    assert "if not allow_synthetic_evidence_for_tests" in composition
+    assert "_verify_live_resident_transition_source_lineage(protocol, artifact_root)" in composition
+
+
+def test_production_transition_rejects_missing_frozen_generation_declaration(tmp_path: Path) -> None:
+    _store, transition = _source_lineage_fixture(tmp_path, generation_identity=None)
+    with pytest.raises(TransitionError, match="transition_software_generation_declaration_required"):
+        sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)

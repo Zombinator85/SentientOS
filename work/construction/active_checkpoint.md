@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 335 is the latest construction evidence. It independently verifies sequence 334's regular merge and exact post-merge hosted checks on `main` `27c52949c78eab68835400898aad5e6eb1607d27`, tree `1093733765f8c20b3013f4b9d54def156f24be11`. It also independently retrieves scheduled Federation Health run `39028288072`, verifies its source, successful hosted Administrator generation, exact artifact digest and quiet result, and confirms that the publisher correctly made no PR because the report was unchanged.
+Sequence 335 is merged to `main` at `1be514e5d98dc33e643caaa622bc3e7328bf5837`, tree `7ab9965eba3d4961929e9dc8a5cb1877764a6e70`. It records the regular merge of sequence 334, exact post-merge checks for that increment, and independently downloaded evidence for scheduled Federation Health run `39028288072`. Sequence 335's exact candidate QG, strict Administrator audit, immutability audit, finalizer, and full CI passed before merge. Post-merge workflows on `1be514e5…` are running.
 
-The explicitly labeled changed-output workflow-dispatch fixture is structurally present and least-privilege, but no live fixture PR is verified: the GitHub connector exposes no dispatch operation and local `GH_TOKEN` authentication is invalid. Do not infer changed-output publication from the scheduled no-op.
+Sequence 336 adds a bounded production-readiness preflight: non-synthetic resident transition composition requires exact verified A/B model-replacement protocols, provenance manifests, active-identity matches, and frozen causal contexts with bounded repository-generation declarations. These remain declarations, not observations of the running process. Its source, acceptance node, and failure evidence are under construction on `codex/transition-source-lineage-336`; exact hosted candidate verification is pending.
 
-The next developmental dependency is exact production A→B→A evidence. A bounded source-lineage improvement is selected first: production transition composition must require and verify exact A/B model-replacement protocol references and their frozen software-generation declarations. These are declarations, not observations of the running process. No commissioned models, installation, or operator-approved production protocol are available; do not execute a transition campaign.
+The changed-output Federation Health fixture remains undispatched because this session has no GitHub workflow-dispatch operation and local `GH_TOKEN` authentication is invalid. Do not infer changed-output publication from a successful no-op publisher run. A real production A→B→A campaign still requires commissioned model identities, a prepared installation, and an operator-approved protocol.
 
-Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Do not treat synthetic rehearsal or hosted CI as production developmental evidence.
+Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Synthetic rehearsal and CI do not establish production developmental evidence.
 
-Latest construction segment: `work/construction/segments/0335-record-merged-verification-and-scheduled-federation-health.md`
-Latest segment SHA-256: `af00decb4aae272156266cadd92df53144b5947ae47d9b55fb4ba5dd3310d1e3`
-Sequence: 335
+Latest construction segment: `work/construction/segments/0336-require-verified-source-lineage-for-production-transition.md`
+Latest segment SHA-256: `0da2909dae15d17b1aa24e95895a3b8150f3ccb1970310925f911f9421a9d169`
+Sequence: 336

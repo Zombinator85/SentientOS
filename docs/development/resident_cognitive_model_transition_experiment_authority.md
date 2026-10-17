@@ -46,6 +46,16 @@ authority and receipt custody prevents duplicate replay.  The exact packet, conf
 status, and custody contracts are documented in
 `resident_cognitive_transition_live_operator_ingress.md`.
 
+Non-synthetic daemon composition requires both exact predecessor-A and successor-B
+model-replacement protocol references. It verifies each protocol, provenance
+manifest, active model identity binding, and frozen causal context before enabling
+transition ingress, and requires a bounded nonempty repository-generation
+declaration in each context. Read-only live status and model-succession projection
+retain these declarations with posture
+`frozen_context_declaration_not_running_observation`; they do not claim to observe
+the daemon's running source generation. Synthetic rehearsal remains explicitly
+separate.
+
 The remaining bridge is real production temporal evidence using actual hardened
 commissioned models. Recovery after daemon/process death, autonomous cadence, automatic
 switching, and continuity/identity/consciousness/learning conclusions remain deferred.

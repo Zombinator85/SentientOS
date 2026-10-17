@@ -1,0 +1,99 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 336,
+  "title": "Require verified frozen model source lineage before production resident transition composition",
+  "source": {
+    "branch": "main",
+    "commit": "1be514e5d98dc33e643caaa622bc3e7328bf5837",
+    "tree": "7ab9965eba3d4961929e9dc8a5cb1877764a6e70",
+    "acquisition": "fresh GitHub main ref, commit, tree, and unchanged source-blob reconciliation"
+  },
+  "construction": {
+    "gap": "Non-synthetic resident transition composition did not require or load exact A/B model-replacement protocol and frozen software-generation lineage.",
+    "production_composition_requires": [
+      "both predecessor_a and successor_b protocol references",
+      "exact model-replacement protocol and provenance-manifest readback",
+      "active model identity equality with transition A/B identities",
+      "verified causal context and bounded nonempty repository_generation_identity for both roles"
+    ],
+    "failure_postures": [
+      "transition_model_source_lineage_references_required",
+      "transition_model_source_lineage_store_required",
+      "transition_model_source_lineage_role_mismatch",
+      "transition_model_source_lineage_artifact_unavailable",
+      "transition_software_generation_declaration_required"
+    ],
+    "read_only_projection": "operator status and model-succession provenance retain exact protocol/context identities and frozen software declarations",
+    "declaration_posture": "frozen_context_declaration_not_running_observation",
+    "synthetic_rehearsal": "remains separate and explicitly synthetic",
+    "authority_added": false,
+    "production_transition_executed": false
+  },
+  "local_verification": {
+    "py_compile": "passed for changed Python source and tests",
+    "git_diff_check": "passed",
+    "quality_gate_selection": {
+      "exact_node_count": 29,
+      "new_positive_path_node_selected": true,
+      "shell_continuations_valid": true,
+      "status": "passed static contract"
+    },
+    "construction_custody_before_sequence_336_append": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 335
+    },
+    "targeted_mypy": {
+      "status": "repository_baseline_failure",
+      "diagnostics": 793,
+      "files": 120,
+      "changed_helper_or_operator_fields_reported": false,
+      "baseline_weakened": false
+    },
+    "canonical_selected_node_runner": {
+      "status": "blocked_environment",
+      "command": "python -m scripts.run_tests -q tests/test_sentientosd_resident_cognitive_transition_composition.py::test_production_transition_requires_verified_frozen_model_generation_lineage",
+      "reason": "bootstrap could not reach sandbox package proxy to install setuptools>=78.1.1",
+      "provenance_path": "work/construction/evidence/0336-canonical-test-bootstrap-failure.json",
+      "provenance_sha256": "0489d579b250950d948a7c04dc301cacc762a6bab4469e53ec05a703ac43dff2",
+      "selected_nodes": 0,
+      "tests_executed": 0
+    },
+    "direct_pytest": "not run; repository airlock not bypassed",
+    "candidate_hosted_verification": "pending"
+  },
+  "sequence_335_publication_custody": {
+    "pull_request": 2325,
+    "merge_commit": "1be514e5d98dc33e643caaa622bc3e7328bf5837",
+    "tree": "7ab9965eba3d4961929e9dc8a5cb1877764a6e70",
+    "required_quality_gate_run": 39079810302,
+    "quality_gate_artifact_id": 12118401876,
+    "quality_gate_artifact_sha256": "6ec099ee5fe08bbc4d73f0b14dd78f21b31e72470c99d4636bad6c0b84422da5",
+    "finalizer_artifact_id": 12118102554,
+    "finalizer_artifact_sha256": "040d871c1517f40e7372b2d9521abacf5c73fb1f786134937bdbbff6dc7ff52d",
+    "candidate_exact_nodes": {"passed": 28, "failed": 0},
+    "strict_administrator_audit": "passed at effective UID 0",
+    "immutability_audit": "passed",
+    "finalizer": "ready_for_pr_metadata",
+    "full_ci_run": 39079810371,
+    "full_ci_conclusion": "success",
+    "initial_finalizer_failure": {
+      "run_id": 39079072935,
+      "reason": "the original pull-request event retained a title that did not equal the current head commit title; rerun attempt retained the same stale event title",
+      "resolved_by": "refreshing the PR event, then verifying exact title binding and hosted finalizer readiness"
+    }
+  },
+  "remaining_boundaries": {
+    "post_merge_checks_for_sequence_335": "pending",
+    "federation_changed_output_fixture": "not dispatched; this session has no GitHub workflow_dispatch operation and local GH_TOKEN is invalid",
+    "production_a_to_b_to_a": "requires commissioned models, verified deployment artifacts, and operator-approved protocol",
+    "sequence_286_provenance_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "predecessor": {
+    "sequence": 335,
+    "segment_path": "work/construction/segments/0335-record-merged-verification-and-scheduled-federation-health.md",
+    "segment_sha256": "af00decb4aae272156266cadd92df53144b5947ae47d9b55fb4ba5dd3310d1e3",
+    "evidence_path": "work/construction/evidence/0335-record-merged-verification-and-scheduled-federation-health.json",
+    "evidence_sha256": "67c592d53bb362b53aaa16114155447592d6a46588d6d45ce6400b04ebbaea3f"
+  }
+}
