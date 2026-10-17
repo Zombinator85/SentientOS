@@ -1,14 +1,28 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
-  "repository_sha": "9c9fe497ef090510e4bbbd828734e2e7a66fe13a",
+  "repository_sha": "fc2124c325486b4089167c15ca9cd52c8a49644e",
   "task_classification": "behavior_adding",
   "required_nodes": [
-    {"node_id": "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect", "rationale": "One immutable packet advances one stage and duplicate custody cannot replay it."},
-    {"node_id": "tests/test_resident_cognitive_transition_operator.py::test_processing_call_never_advances_second_pending_request", "rationale": "One processing call never drains a second request."},
-    {"node_id": "tests/test_sentientosd_resident_cognitive_serving.py::test_live_transition_surface_is_explicit_and_bounded", "rationale": "The daemon maintenance facade exposes one explicit bounded call."}
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect",
+      "rationale": "One immutable packet advances one stage and duplicate custody cannot replay it."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_processing_call_never_advances_second_pending_request",
+      "rationale": "One processing call never drains a second request."
+    },
+    {
+      "node_id": "tests/test_sentientosd_resident_cognitive_serving.py::test_live_transition_surface_is_explicit_and_bounded",
+      "rationale": "The daemon maintenance facade exposes one explicit bounded call."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only",
+      "rationale": "Read-only live status preserves exact journal recovery reason, blocked stage, replay barrier, and semantically verified entry digests without consuming requests or mutating the journal."
+    }
   ],
   "successful_path_nodes": [
-    "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect"
+    "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect",
+    "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only"
   ],
   "test_provenance_path": "/tmp/resident_cognitive_transition_live_operator_test_provenance.json"
 }

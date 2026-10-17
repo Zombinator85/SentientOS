@@ -150,6 +150,26 @@ def test_interrupted_transition_request_is_rejected_and_status_is_read_only(tmp_
     assert status["read_only"] is True and status["protocol_id"] == "protocol-1"
 
 
+def test_status_exposes_blocked_stage_and_reason_read_only(tmp_path: Path) -> None:
+    controller = _Controller()
+    controller.health = lambda: {
+        "phase": PHASES[1], "journal_head": "journal-head",
+        "status": "interrupted", "reason": "unresolved_attempt",
+        "outstanding_stage": "a_quiesced", "replay_forbidden": True,
+        "semantically_verified_stage_entry_digests": ["verified-entry-digest"],
+    }
+    runtime = _runtime(tmp_path, controller)
+    status = runtime.status()
+    assert status["interrupted"] is True
+    assert status["recovery_reason"] == "unresolved_attempt"
+    assert status["outstanding_stage"] == "a_quiesced"
+    assert status["replay_forbidden"] is True
+    assert status["semantically_verified_stage_entry_digests"] == ["verified-entry-digest"]
+    assert status["read_only"] is True
+    assert controller.calls == 0
+    assert controller.journal.entries() == []
+
+
 def test_config_requires_fixed_installation_relative_custody(tmp_path: Path) -> None:
     config = {"schema_version": CONFIG_SCHEMA, "enabled": True, "installation_identity": "installation-1",
               "protocol_id": "protocol-1", "protocol_digest": "a" * 64,
