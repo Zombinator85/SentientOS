@@ -101,6 +101,12 @@ def test_governor_and_federation_test_roots_are_set_before_project_imports() -> 
     assert "shutil.rmtree(_TEST_FEDERATION_ROOT, ignore_errors=True)" in fixture
     assert 'os.environ.pop(_GOVERNOR_ROOT_ENV, None)' in fixture
     assert 'os.environ.pop(_FEDERATION_ROOT_ENV, None)' in fixture
+    pulse_fixture = conftest.split("def configure_pulse_environment", 1)[1].split(
+        "@pytest.fixture", 1
+    )[0]
+    assert pulse_fixture.index(
+        'monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(federation_runtime_dir))'
+    ) < pulse_fixture.index("federated_governance_module.reset_controller()")
 
 
 def test_nightly_self_check_installs_canonical_test_dependencies() -> None:
