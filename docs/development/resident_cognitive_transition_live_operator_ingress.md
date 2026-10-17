@@ -41,7 +41,11 @@ a resume stage: ordinary cognition can resume only on a later tick.
 
 The read-only live status binds enabled/configured posture, protocol and transition,
 phase and journal head, quiescence, resident session/model identity, latest consumed
-request/result, and interrupted/complete posture.  Status performs no transition.
+request/result, and interrupted/complete posture. For an interrupted transition it also
+exposes the controller's exact `reason`, `outstanding_stage`, and `replay_forbidden`
+values, plus the bounded `semantically_verified_stage_entry_digests` list of entries
+whose subordinate evidence passed semantic verification. Status inspection consumes no
+request and performs no stage transition or journal mutation.
 
 This remains bounded live-runtime composition and synthetic test evidence.  No network
 surface, autonomous cadence, automatic retry, rollback, stage loop, or second-stage
