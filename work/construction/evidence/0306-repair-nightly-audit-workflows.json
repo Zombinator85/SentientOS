@@ -83,7 +83,8 @@
         "run_id": 39005579833,
         "conclusion": "success"
       }
-    }
+    },
+    "merge_candidate_sha": "6446eac11209cab805622d687ae4caabe44b18c3"
   },
   "local_verification": {
     "focused_acceptance_tests": 27,
