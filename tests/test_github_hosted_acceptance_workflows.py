@@ -310,6 +310,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert '--task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json"' in finalizer
     assert "--allow-generated-artifact-cleanup" in finalizer
     assert 'SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs"' in finalizer
+    assert 'PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}' in finalizer
+    assert 'COMMIT_REF="${PR_HEAD_SHA:-HEAD}"' in finalizer
+    assert 'git log -1 --format=%s "$COMMIT_REF"' in finalizer
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
 
     upload = workflow.split(
