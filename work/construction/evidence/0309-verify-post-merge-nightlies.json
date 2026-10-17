@@ -1,0 +1,191 @@
+{
+  "sequence": 309,
+  "title": "Verify post-merge federation and nightly execution",
+  "source": {
+    "branch": "main",
+    "commit": "edbfd0e504adf7d72c2e7360a50cc30c9a0511a6",
+    "tree": "1830631e2a231eaec3ce3d06c9569058fa156c9f",
+    "merge_method": "merge",
+    "merged_pull_request": 2303,
+    "verified_pr_head": "d806a01d4d6a2145d0ab8bb54064b0e589fa68e2",
+    "comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    }
+  },
+  "predecessor": {
+    "sequence": 308,
+    "segment_path": "work/construction/segments/0308-verify-hosted-automation.md",
+    "segment_sha256": "e7a71860e077e255b4d175d4e048d8a6479f745c132b3ac9e059dbd201590e2f",
+    "evidence_path": "work/construction/evidence/0308-verify-hosted-automation.json",
+    "evidence_sha256": "5761c8bb5fa0194dad544b1afb2760d0530aa6543f62a93f35b4f185920ea29d"
+  },
+  "federation_health": {
+    "workflow_change_pr": 2301,
+    "health_permissions": {
+      "contents": "read"
+    },
+    "publisher_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "administrator_preflight_preserved": true,
+    "post_merge_run": {
+      "id": 39016122382,
+      "source_commit": "2eb05283ee7a93e2c7fd9f2374a2caec78ffb798",
+      "event": "push",
+      "conclusion": "success",
+      "health_job": "success",
+      "publisher_job": "success",
+      "generator_output": {
+        "nodes": 1,
+        "recent": 0,
+        "status": "quiet"
+      },
+      "artifact": {
+        "id": 12094408338,
+        "name": "federation-health-39016122382",
+        "size_in_bytes": 223,
+        "digest": "sha256:c053ac35b150ab573083cbb15fc9742b3746726497ad10a33523363d63f37ad3"
+      },
+      "publisher_result": "No report diff; no PR opened.",
+      "main_document_readback": "# Federation Health\\n\\n- Nodes: 1\\n- Recent events: 0\\n- Status: quiet\\n"
+    },
+    "scheduled_execution": "not yet observed",
+    "changed_report_publication": "not exercised; run produced no diff"
+  },
+  "nightly_audit": {
+    "workflow_change_pr": 2298,
+    "post_merge_run_id": 39014286210,
+    "conclusion": "success",
+    "routine_job_permissions": {
+      "contents": "read"
+    },
+    "conditional_repair_job_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "repair_condition": "needs.audit.outputs.status != '0'",
+    "strict_administrator_verification_preserved": true,
+    "repair_required": false
+  },
+  "nightly_self_check": {
+    "first_fix_pr": 2302,
+    "first_fix_merge": "b5efe2490fff962f060f97c67849c96c17460c34",
+    "adverse_run": {
+      "id": 39016499907,
+      "source_commit": "b5efe2490fff962f060f97c67849c96c17460c34",
+      "conclusion": "failure",
+      "pytest": {
+        "passed": 99,
+        "failed": 38,
+        "skipped": 13,
+        "errors": 6
+      },
+      "root_cause": "Import-time FederatedGovernanceController retained /glow/federation after per-test environment patch."
+    },
+    "corrective_pr": 2303,
+    "corrective_head": "d806a01d4d6a2145d0ab8bb54064b0e589fa68e2",
+    "correction": "Set temporary governor and federation roots before project imports; restore environment and remove only fresh temporary roots; reset controller after installing each per-test federation root.",
+    "production_code_changed": false,
+    "test_selection_weakened": false,
+    "post_merge_run": {
+      "id": 39017346014,
+      "source_commit": "edbfd0e504adf7d72c2e7360a50cc30c9a0511a6",
+      "event": "push",
+      "conclusion": "success",
+      "audit_verification": "success",
+      "privilege_lint": "success",
+      "mypy": "success",
+      "pytest_airlock": "success",
+      "pytest": {
+        "passed": 143,
+        "failed": 0,
+        "skipped": 13
+      },
+      "duration": "11.44s"
+    }
+  },
+  "pr_2303_hosted_checks": {
+    "head": "d806a01d4d6a2145d0ab8bb54064b0e589fa68e2",
+    "required_quality_gate": {
+      "run_id": 39016753522,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 39016753540,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run_id": 39016753514,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39016753615,
+      "conclusion": "success"
+    },
+    "lint": {
+      "run_id": 39016753527,
+      "conclusion": "success"
+    },
+    "gradient_null": {
+      "run_id": 39016753535,
+      "conclusion": "success"
+    },
+    "release": {
+      "run_id": 39016753519,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39016753515,
+      "conclusion": "success"
+    }
+  },
+  "main_post_merge_checks": {
+    "required_quality_gate": {
+      "run_id": 39017346016,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 39017346030,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39017346011,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run_id": 39017346021,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 39017346000,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39017346024,
+      "conclusion": "success"
+    },
+    "nightly_self_check": {
+      "run_id": 39017346014,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": 39017346019,
+      "conclusion": "skipped"
+    }
+  },
+  "limitations": {
+    "next_scheduled_federation_health": "not yet observed",
+    "actions_pr_creation_setting": "still relevant if changed output requires publisher PR; this no-diff execution did not exercise publication",
+    "sequence_286_unrecoverable_payloads": {
+      "known": 9,
+      "unidentified": 1,
+      "changed": false
+    }
+  },
+  "segment_path": "work/construction/segments/0309-verify-post-merge-nightlies.md",
+  "predecessor_sha256": "e7a71860e077e255b4d175d4e048d8a6479f745c132b3ac9e059dbd201590e2f",
+  "next_dependency": "Capture the next scheduled Federation Health result; verify authorized least-privilege publication if it produces a real diff; reassess source development from verified main."
+}
