@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
+import os
 from pathlib import Path
 import threading
+from typing import Any
 
 import pytest
 
@@ -17,6 +20,25 @@ from sentientos.work_plan_execution_journal import (
 def _plan() -> WorkPlan:
     return WorkPlan(1, "journal-plan", "2026-01-01T00:00:00Z", "manual", ("g1",), (
         Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
+
+
+def _start_journal_after_process_barrier(
+        root: str, task_id: str, ready: Any, release: Any, outcomes: Any) -> None:
+    plan = WorkPlan(1, "cross-process-journal-plan", "2026-01-01T00:00:00Z", "manual",
+        ("g1",), (
+            Task(1, "g1:one", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+            Task(1, "g1:two", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        ))
+    journal = WorkPlanExecutionJournal(Path(root), plan)
+    ready.set()
+    if not release.wait(timeout=10):
+        outcomes.put("barrier_timeout")
+        return
+    try:
+        journal.start(task_id)
+        outcomes.put("written")
+    except WorkPlanJournalError as exc:
+        outcomes.put(str(exc))
 
 
 def test_journal_binds_task_events_to_exact_plan_identity(tmp_path: Path) -> None:
@@ -169,6 +191,44 @@ def test_stale_writer_detects_same_size_journal_change(tmp_path: Path) -> None:
     with pytest.raises(WorkPlanJournalError, match="work_plan_journal_stale_writer"):
         journal.start("g1:two")
     assert journal.path.read_bytes() == changed
+
+
+@pytest.mark.skipif(os.name != "posix", reason="journal locking uses POSIX flock")
+def test_cross_process_writers_cannot_fork_journal_hash_chain(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("fork")
+    release = context.Event()
+    outcomes = context.Queue()
+    ready = [context.Event(), context.Event()]
+    processes = [
+        context.Process(target=_start_journal_after_process_barrier,
+            args=(str(tmp_path), task_id, signal, release, outcomes))
+        for task_id, signal in zip(("g1:one", "g1:two"), ready)
+    ]
+    try:
+        for process in processes:
+            process.start()
+        assert all(signal.wait(timeout=10) for signal in ready)
+        release.set()
+        results = [outcomes.get(timeout=10) for _ in processes]
+        for process in processes:
+            process.join(timeout=10)
+            assert process.exitcode == 0
+    finally:
+        release.set()
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+
+    assert sorted(results) == ["work_plan_journal_stale_writer", "written"]
+    recovered = WorkPlanExecutionJournal(tmp_path, WorkPlan(1,
+        "cross-process-journal-plan", "2026-01-01T00:00:00Z", "manual", ("g1",), (
+            Task(1, "g1:one", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+            Task(1, "g1:two", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        )))
+    assert sum(recovered.state(task_id) == "interrupted"
+        for task_id in ("g1:one", "g1:two")) == 1
+    assert len(recovered.path.read_text(encoding="utf-8").splitlines()) == 1
 
 
 def test_incomplete_final_record_is_preserved_and_never_repaired(tmp_path: Path) -> None:
