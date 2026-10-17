@@ -115,20 +115,29 @@ def test_transition_restart_failure_blocks_cognition_while_new_gate_is_open(
 def test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate(tmp_path: Path) -> None:
     journal = TransitionJournal(tmp_path / "transition.journal.jsonl")
     journal.append("a_quiesced", {"token": "prior-process-only"})
-    reason = sentientosd._resident_transition_recovery_quarantine_reason(journal)
+    reason = sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=False)
     assert reason == (
         "resident_transition_recovery_required:process_local_quiescence_lost:a_quiesced")
 
     journal.append("b_activation_committed", {"activation": "committed"})
-    assert sentientosd._resident_transition_recovery_quarantine_reason(journal) == reason
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=False) == reason
     journal.append("b_epoch_resumed", {"session": "verified"})
-    assert sentientosd._resident_transition_recovery_quarantine_reason(journal) is None
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=False) == (
+            "resident_transition_recovery_required:runtime_unavailable:b_epoch_resumed")
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=True) is None
+    journal.append("experiment_complete", {"completed": True})
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=False) is None
 
 
 def test_transition_quarantine_rejects_unverifiable_journal_custody(tmp_path: Path) -> None:
     path = tmp_path / "transition.journal.jsonl"
     path.write_bytes(b"{\"truncated\":true}")
     reason = sentientosd._resident_transition_recovery_quarantine_reason(
-        TransitionJournal(path))
+        TransitionJournal(path), transition_runtime_available=False)
     assert reason is not None
     assert reason.startswith("resident_transition_journal_unverified:")

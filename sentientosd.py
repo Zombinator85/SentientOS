@@ -3053,7 +3053,8 @@ def _load_resident_transition_custody(config_path: str, installation_handle: Any
     return protocol, TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
 
 
-def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal) -> str | None:
+def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal, *,
+        transition_runtime_available: bool) -> str | None:
     """Return a read-only startup block when journaled transition custody is unresolved."""
     try:
         entries = journal.entries()
@@ -3075,6 +3076,10 @@ def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal) 
             quiesced_phase = None
     if quiesced_phase is not None:
         return f"resident_transition_recovery_required:process_local_quiescence_lost:{quiesced_phase}"
+    if (entries and not transition_runtime_available
+            and entries[-1].get("phase") != "experiment_complete"):
+        return ("resident_transition_recovery_required:runtime_unavailable:"
+            f"{entries[-1].get('phase')}")
     return None
 
 
@@ -4074,7 +4079,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             recovery_journal = TransitionJournal(
                 resident_transition_installation_handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
         if recovery_journal is not None:
-            recovery_reason = _resident_transition_recovery_quarantine_reason(recovery_journal)
+            recovery_reason = _resident_transition_recovery_quarantine_reason(
+                recovery_journal,
+                transition_runtime_available=runtime_surfaces._resident_transition_runtime is not None)
             if recovery_reason is not None:
                 runtime_surfaces.block_resident_cognition_for_transition_recovery(recovery_reason)
     # Explicit owner injection: World-State reads the already configured
