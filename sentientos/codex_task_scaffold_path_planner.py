@@ -52,7 +52,7 @@ _COORDINATED_PROHIBITION_RE = re.compile(
 # Production roots mirror the package declarations in pyproject.toml.  The
 # workflow/evidence roots are intentionally separate: path admission is not a
 # general permission to target any repository path.
-PACKAGED_SOURCE_ROOTS = frozenset({"sentientos", "api", "gui", "apps"})
+PACKAGED_SOURCE_ROOTS = frozenset({"sentientos", "api", "gui", "apps", "scripts", "privilege_lint"})
 WORKFLOW_ROOTS = frozenset({"scripts", "tests", "docs", "artifacts"})
 ALLOWED_PATH_ROOTS = PACKAGED_SOURCE_ROOTS | WORKFLOW_ROOTS
 MAINTENANCE_TARGETS = {
@@ -70,6 +70,12 @@ MAINTENANCE_TARGETS = {
         "docs/development/codex_bootstrap_invocation_contract.md",
         "docs/development/codex_task_bootstrapper.md",
         "docs/development/codex_validation_and_landing_contract.md",
+    ),
+    "resident_transition_operator_maintenance": (
+        "sentientos/resident_cognitive_transition_operator.py",
+        "tests/test_resident_cognitive_transition_operator.py",
+        "docs/development/codex_validation_and_landing_contract.md",
+        "pyproject.toml",
     ),
 }
 

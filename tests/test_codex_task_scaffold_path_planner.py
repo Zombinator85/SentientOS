@@ -259,6 +259,9 @@ def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
         ("ci_workflow_maintenance", ".github/workflows/ci.yml", "Update the existing .github/workflows/ci.yml source-validation job"),
         ("construction_custody_reconciliation", "work/construction/index.json", "Reconcile the tracked work/construction/index.json custody entry"),
         ("bootstrap_reliability_repair", "sentientos/codex_task_bootstrapper.py", "Repair the narrow task-bootstrap metadata diagnostic"),
+        ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_transition_operator.py", "Serialize bounded resident transition operator request processing across processes"),
+        ("resident_transition_operator_maintenance", "tests/test_resident_cognitive_transition_operator.py", "Prove bounded resident transition operator request processing across processes"),
+        ("resident_transition_operator_maintenance", "pyproject.toml", "Align Poetry package roots with the canonical installed package metadata"),
     ),
 )
 def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, path: str, goal: str) -> None:
@@ -279,6 +282,7 @@ def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, pa
         ("ci_workflow_maintenance", "README.md", "existing_maintenance_target_scope_violation"),
         ("construction_custody_reconciliation", "work/construction/not-tracked.json", "existing_maintenance_target_not_tracked_regular_file"),
         ("bootstrap_reliability_repair", "prompt_assembler.py", "existing_maintenance_target_scope_violation"),
+        ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_model_transition_experiment.py", "existing_maintenance_target_scope_violation"),
     ),
 )
 def test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets(scope: str, path: str, reason: str) -> None:

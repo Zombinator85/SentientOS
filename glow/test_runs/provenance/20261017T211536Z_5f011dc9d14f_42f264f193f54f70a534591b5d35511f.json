@@ -1,0 +1,136 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_network_daemon.py::test_bandwidth_event_emits": 0,
+    "tests/test_network_daemon.py::test_enforcement_mode_toggle_suppresses_ledger": 0,
+    "tests/test_network_daemon.py::test_federation_resync_trigger": 0,
+    "tests/test_network_daemon.py::test_multiple_interfaces_tracked_independently": 0,
+    "tests/test_network_daemon.py::test_multiple_violations_logged_independently": 0,
+    "tests/test_network_daemon.py::test_no_uptime_event_below_threshold": 0,
+    "tests/test_network_daemon.py::test_policy_violation_generates_ledger_entry": 0,
+    "tests/test_network_daemon.py::test_unexpected_port_block": 0,
+    "tests/test_network_daemon.py::test_uptime_event_triggers_once": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 9,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "5f011dc9d14fa872deb0320bb2ed9476c3a9f414",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_cfb6e10a636b4239a0c387475dec6ddb.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_network_daemon.py::test_bandwidth_event_emits",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_unexpected_port_block",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_federation_resync_trigger",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_no_uptime_event_below_threshold",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_uptime_event_triggers_once",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_multiple_interfaces_tracked_independently",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_policy_violation_generates_ledger_entry",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_enforcement_mode_toggle_suppresses_ledger",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_network_daemon.py::test_multiple_violations_logged_independently",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "32719fb25e33f1afc8d641a7e508bfcab4909c972e65bc00f441f8c4cca4e01d",
+  "provenance_hash": "eb0529b1e7e24459d0cadfe24571daef3e2d74bd176a156107b0546806b74497",
+  "pytest_args": [
+    "tests/test_network_daemon.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-transition-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-transition-recovery",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "bd771fc79fbc45aa9cc829663755b657",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_network_daemon.py::test_bandwidth_event_emits",
+    "tests/test_network_daemon.py::test_unexpected_port_block",
+    "tests/test_network_daemon.py::test_federation_resync_trigger",
+    "tests/test_network_daemon.py::test_no_uptime_event_below_threshold",
+    "tests/test_network_daemon.py::test_uptime_event_triggers_once",
+    "tests/test_network_daemon.py::test_multiple_interfaces_tracked_independently",
+    "tests/test_network_daemon.py::test_policy_violation_generates_ledger_entry",
+    "tests/test_network_daemon.py::test_enforcement_mode_toggle_suppresses_ledger",
+    "tests/test_network_daemon.py::test_multiple_violations_logged_independently"
+  ],
+  "selection_flags": [
+    "tests/test_network_daemon.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 9,
+  "tests_executed": 9,
+  "tests_failed": 0,
+  "tests_passed": 9,
+  "tests_selected": 9,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-17T21:15:36.806870+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

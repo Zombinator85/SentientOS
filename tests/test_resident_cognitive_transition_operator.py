@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -55,6 +58,19 @@ class _Controller:
                 "advanced_one_stage": True}
 
 
+class _CrossProcessController(_Controller):
+    def __init__(self, calls: Any) -> None:
+        super().__init__()
+        self.shared_calls = calls
+
+    def advance(self, **kwargs: Any) -> dict[str, Any]:
+        with self.shared_calls.get_lock():
+            self.shared_calls.value += 1
+        # Give a competing process time to observe the same unconsumed packet.
+        time.sleep(0.2)
+        return super().advance(**kwargs)
+
+
 def _approval(stage: str = PHASES[1]) -> dict[str, object]:
     body: dict[str, object] = {"schema_version": "sentientos.resident_cognitive_transition_stage_operator_approval:v1",
                               "requested_stage": stage}
@@ -84,6 +100,12 @@ def _runtime(tmp_path: Path, controller=None, verifier=None):
         subordinate_verifier=verifier, clock=lambda: NOW)
 
 
+def _process_one_transition_request(root: str, calls: Any, start: Any, results: Any) -> None:
+    runtime = _runtime(Path(root), _CrossProcessController(calls))
+    start.wait(timeout=5)
+    results.put(runtime.process_one()["status"])
+
+
 def test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect(tmp_path: Path) -> None:
     controller = _Controller(); runtime = _runtime(tmp_path, controller)
     path = persist_request(tmp_path, _request())
@@ -101,6 +123,28 @@ def test_processing_call_never_advances_second_pending_request(tmp_path: Path) -
     persist_request(tmp_path, _request(correlation_id="correlation-2", operation_id="operation-2"))
     assert runtime.process_one()["status"] == "stage_advanced"
     assert controller.calls == 1
+
+
+def test_duplicate_transition_requests_advance_once_across_processes(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("fork")
+    calls = context.Value("i", 0)
+    start = context.Barrier(2)
+    results = context.Queue()
+    persist_request(tmp_path, _request())
+    workers = [context.Process(target=_process_one_transition_request,
+        args=(str(tmp_path), calls, start, results)) for _ in range(2)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=10)
+    live_workers = [worker for worker in workers if worker.is_alive()]
+    for worker in live_workers:
+        worker.terminate()
+        worker.join(timeout=2)
+    assert not live_workers
+    assert all(worker.exitcode == 0 for worker in workers)
+    assert sorted(results.get(timeout=2) for _ in workers) == ["already_consumed", "stage_advanced"]
+    assert calls.value == 1
 
 
 @pytest.mark.parametrize(("mutation", "reason"), [

@@ -1,0 +1,707 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_task_scaffold_path_planner.py::test_documentation_task_uses_only_declared_docs": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[api/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[apps/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[artifacts/example.json]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[docs/example.md]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[gui/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[scripts/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[sentientos/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[tests/test_example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[bootstrap_reliability_repair-sentientos/codex_task_bootstrapper.py-Repair the narrow task-bootstrap metadata diagnostic]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[ci_workflow_maintenance-.github/workflows/ci.yml-Update the existing .github/workflows/ci.yml source-validation job]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[construction_custody_reconciliation-work/construction/index.json-Reconcile the tracked work/construction/index.json custody entry]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_transition_operator.py-Serialize bounded resident transition operator request processing across processes]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-tests/test_resident_cognitive_transition_operator.py-Prove bounded resident transition operator request processing across processes]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[provider inference is forbidden]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[remove provider fallback]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[REMOVE SHELL INVOCATION]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[disable subprocess-based fallback]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate network egress]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate shell invocation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[harden an existing shell surface by deleting its execution bridge]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[prohibit GitHub publication from this runtime path]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove action-wing invocation from this component]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove provider fallback]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove shell-based execution]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[replace an OpenAI-backed implementation with a local non-provider implementation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[add a network fallback]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable blocking of provider inference]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback but enable network telemetry]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback; enable network telemetry]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate prohibition on network access]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate shell invocation\\nspawn a subprocess]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[enable shell execution with stricter validation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden publication by using GitHub APIs directly]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden the subprocess path and then run it]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[improve reliability by spawning a subprocess]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[migrate to provider inference]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[modify shell handling]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[refactor subprocess support]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove restrictions on shell execution]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution from the actuator, then call OpenAI to validate the result]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution. Then call OpenAI to validate the result]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace local inference with OpenAI]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace one network path by enabling another network path]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace the current runner with shell execution]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[restrict provider inference but allow it for retries]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_bad_paths": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[enable provider inference]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[modify provider handling]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_defaults": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_distinguishes_prohibitions_from_authority_requests": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_maintenance_target_does_not_admit_privileged_effect_or_authority_definition": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_is_clause_local_across_all_request_text_fields": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[legacy_dir]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[missing.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[untracked.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_tracked_root_file_for_ordinary_or_authority_definition_task": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[bootstrap_reliability_repair-prompt_assembler.py-existing_maintenance_target_scope_violation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-../.github/workflows/ci.yml-path_traversal_or_metacharacters]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-README.md-existing_maintenance_target_scope_violation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[construction_custody_reconciliation-work/construction/not-tracked.json-existing_maintenance_target_not_tracked_regular_file]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_model_transition_experiment.py-existing_maintenance_target_scope_violation]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[../api/actuator.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.env]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.github/workflows/change.yml]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[/api/actuator.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api/bad;name.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api_evil/actuator.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[apix/actuator.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[sentientos_backup/example.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[unknown_root/file.py]": 0,
+    "tests/test_codex_task_scaffold_path_planner.py::test_scaffold_request_payload": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation0-operator_request_protocol_mismatch]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation1-operator_request_prior_phase_mismatch]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation2-operator_request_journal_head_mismatch]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation3-operator_request_stage_skipped]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation4-operator_request_expired]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_config_requires_fixed_installation_relative_custody": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_duplicate_transition_requests_advance_once_across_processes": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_interrupted_transition_request_is_rejected_and_status_is_read_only": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_malformed_and_wrong_stage_approval_are_rejected": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_processing_call_never_advances_second_pending_request": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[activation_denied]": 0,
+    "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[serving_failed]": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "tests_failed",
+      "rule": "== 0",
+      "threshold": 0,
+      "value": 1
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 86,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "exit_reason": "pytest-failed",
+  "failure_report_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/test_failure_digest.json",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "5f011dc9d14fa872deb0320bb2ed9476c3a9f414",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_886325f8fc4c44d18b011325a85c931b.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_defaults",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_bad_paths",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[sentientos/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[api/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[gui/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[apps/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[scripts/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[tests/test_example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[docs/example.md]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[artifacts/example.json]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[../api/actuator.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[/api/actuator.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api_evil/actuator.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[apix/actuator.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[sentientos_backup/example.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[unknown_root/file.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.github/workflows/change.yml]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.env]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api/bad;name.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[remove provider fallback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[provider inference is forbidden]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[enable provider inference]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[modify provider handling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[missing.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[untracked.py]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[legacy_dir]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_tracked_root_file_for_ordinary_or_authority_definition_task",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata",
+      "outcome": "failed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_scaffold_request_payload",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_documentation_task_uses_only_declared_docs",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_distinguishes_prohibitions_from_authority_requests",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[ci_workflow_maintenance-.github/workflows/ci.yml-Update the existing .github/workflows/ci.yml source-validation job]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[construction_custody_reconciliation-work/construction/index.json-Reconcile the tracked work/construction/index.json custody entry]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[bootstrap_reliability_repair-sentientos/codex_task_bootstrapper.py-Repair the narrow task-bootstrap metadata diagnostic]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_transition_operator.py-Serialize bounded resident transition operator request processing across processes]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-tests/test_resident_cognitive_transition_operator.py-Prove bounded resident transition operator request processing across processes]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-../.github/workflows/ci.yml-path_traversal_or_metacharacters]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-README.md-existing_maintenance_target_scope_violation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[construction_custody_reconciliation-work/construction/not-tracked.json-existing_maintenance_target_not_tracked_regular_file]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[bootstrap_reliability_repair-prompt_assembler.py-existing_maintenance_target_scope_violation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_model_transition_experiment.py-existing_maintenance_target_scope_violation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_maintenance_target_does_not_admit_privileged_effect_or_authority_definition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove shell-based execution]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate shell invocation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[disable subprocess-based fallback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove provider fallback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate network egress]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[prohibit GitHub publication from this runtime path]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[replace an OpenAI-backed implementation with a local non-provider implementation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove action-wing invocation from this component]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[harden an existing shell surface by deleting its execution bridge]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[REMOVE SHELL INVOCATION]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace local inference with OpenAI]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace the current runner with shell execution]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden publication by using GitHub APIs directly]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[improve reliability by spawning a subprocess]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[migrate to provider inference]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[add a network fallback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[enable shell execution with stricter validation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution from the actuator, then call OpenAI to validate the result]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback but enable network telemetry]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution. Then call OpenAI to validate the result]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback; enable network telemetry]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate shell invocation\\nspawn a subprocess]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove restrictions on shell execution]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable blocking of provider inference]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate prohibition on network access]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[modify shell handling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[refactor subprocess support]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden the subprocess path and then run it]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[restrict provider inference but allow it for retries]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace one network path by enabling another network path]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_is_clause_local_across_all_request_text_fields",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_processing_call_never_advances_second_pending_request",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_duplicate_transition_requests_advance_once_across_processes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation0-operator_request_protocol_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation1-operator_request_prior_phase_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation2-operator_request_journal_head_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation3-operator_request_stage_skipped]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation4-operator_request_expired]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_malformed_and_wrong_stage_approval_are_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[activation_denied]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[serving_failed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_interrupted_transition_request_is_rejected_and_status_is_read_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_config_requires_fixed_installation_relative_custody",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "6375d66c1be02d9295bd446ea392c218e45896679834dac6ca57c1028ae06170",
+  "provenance_hash": "62a153c5a08337f869452306b3230044daf94b14caeecfb5aa5c3882ccc79f8c",
+  "pytest_args": [
+    "tests/test_codex_task_scaffold_path_planner.py",
+    "tests/test_resident_cognitive_transition_operator.py",
+    "-q"
+  ],
+  "pytest_exit_code": 1,
+  "python": "/tmp/sentientos-transition-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-transition-recovery",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "628062113d2748c39bf0cd1978bfd959",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_defaults",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_bad_paths",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[sentientos/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[api/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[gui/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[apps/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[scripts/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[tests/test_example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[docs/example.md]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[artifacts/example.json]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[../api/actuator.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[/api/actuator.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api_evil/actuator.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[apix/actuator.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[sentientos_backup/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[unknown_root/file.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.github/workflows/change.yml]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.env]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api/bad;name.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[remove provider fallback]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[provider inference is forbidden]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[enable provider inference]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[modify provider handling]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[missing.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[untracked.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[legacy_dir]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_tracked_root_file_for_ordinary_or_authority_definition_task",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata",
+    "tests/test_codex_task_scaffold_path_planner.py::test_scaffold_request_payload",
+    "tests/test_codex_task_scaffold_path_planner.py::test_documentation_task_uses_only_declared_docs",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_distinguishes_prohibitions_from_authority_requests",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[ci_workflow_maintenance-.github/workflows/ci.yml-Update the existing .github/workflows/ci.yml source-validation job]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[construction_custody_reconciliation-work/construction/index.json-Reconcile the tracked work/construction/index.json custody entry]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[bootstrap_reliability_repair-sentientos/codex_task_bootstrapper.py-Repair the narrow task-bootstrap metadata diagnostic]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_transition_operator.py-Serialize bounded resident transition operator request processing across processes]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_only_existing_tracked_maintenance_targets[resident_transition_operator_maintenance-tests/test_resident_cognitive_transition_operator.py-Prove bounded resident transition operator request processing across processes]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-../.github/workflows/ci.yml-path_traversal_or_metacharacters]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[ci_workflow_maintenance-README.md-existing_maintenance_target_scope_violation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[construction_custody_reconciliation-work/construction/not-tracked.json-existing_maintenance_target_not_tracked_regular_file]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[bootstrap_reliability_repair-prompt_assembler.py-existing_maintenance_target_scope_violation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets[resident_transition_operator_maintenance-sentientos/resident_cognitive_model_transition_experiment.py-existing_maintenance_target_scope_violation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_maintenance_target_does_not_admit_privileged_effect_or_authority_definition",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove shell-based execution]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate shell invocation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[disable subprocess-based fallback]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove provider fallback]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[eliminate network egress]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[prohibit GitHub publication from this runtime path]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[replace an OpenAI-backed implementation with a local non-provider implementation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[remove action-wing invocation from this component]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[harden an existing shell surface by deleting its execution bridge]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_allows_unambiguous_authority_reduction[REMOVE SHELL INVOCATION]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace local inference with OpenAI]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace the current runner with shell execution]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden publication by using GitHub APIs directly]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[improve reliability by spawning a subprocess]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[migrate to provider inference]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[add a network fallback]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[enable shell execution with stricter validation]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution from the actuator, then call OpenAI to validate the result]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback but enable network telemetry]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove shell execution. Then call OpenAI to validate the result]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable provider fallback; enable network telemetry]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate shell invocation\\nspawn a subprocess]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[remove restrictions on shell execution]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[disable blocking of provider inference]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[eliminate prohibition on network access]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[modify shell handling]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[refactor subprocess support]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[harden the subprocess path and then run it]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[restrict provider inference but allow it for retries]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_ambiguous_expanding_and_mixed_authority_intent[replace one network path by enabling another network path]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_is_clause_local_across_all_request_text_fields",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise",
+    "tests/test_resident_cognitive_transition_operator.py::test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect",
+    "tests/test_resident_cognitive_transition_operator.py::test_processing_call_never_advances_second_pending_request",
+    "tests/test_resident_cognitive_transition_operator.py::test_duplicate_transition_requests_advance_once_across_processes",
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation0-operator_request_protocol_mismatch]",
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation1-operator_request_prior_phase_mismatch]",
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation2-operator_request_journal_head_mismatch]",
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation3-operator_request_stage_skipped]",
+    "tests/test_resident_cognitive_transition_operator.py::test_bound_request_faults_are_consumed_without_effect[mutation4-operator_request_expired]",
+    "tests/test_resident_cognitive_transition_operator.py::test_malformed_and_wrong_stage_approval_are_rejected",
+    "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[activation_denied]",
+    "tests/test_resident_cognitive_transition_operator.py::test_subordinate_denial_prevents_transition_effect[serving_failed]",
+    "tests/test_resident_cognitive_transition_operator.py::test_interrupted_transition_request_is_rejected_and_status_is_read_only",
+    "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only",
+    "tests/test_resident_cognitive_transition_operator.py::test_config_requires_fixed_installation_relative_custody"
+  ],
+  "selection_flags": [
+    "tests/test_codex_task_scaffold_path_planner.py",
+    "tests/test_resident_cognitive_transition_operator.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.033707865168539325,
+  "tests_collected": 89,
+  "tests_executed": 86,
+  "tests_failed": 1,
+  "tests_passed": 85,
+  "tests_selected": 89,
+  "tests_skipped": 3,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-17T21:07:38.795856+00:00",
+  "validation_complete": false,
+  "validation_status": "validation_failed",
+  "xfail_rate": 0.0
+}

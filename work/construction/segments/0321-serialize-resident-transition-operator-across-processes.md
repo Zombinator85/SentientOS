@@ -1,0 +1,19 @@
+# Sequence 321 — Serialize resident transition request consumption across processes
+
+The independently reacquired `main` is `d8a692cb646950df9a4bf64e84dd92c26042fc62` with tree `b152d3f309a28f27c6d398acd991592f0ce8ed70`. The local tested source commit is `08179763200d24c406da2bebb6b5e1ea52f0c65e` with the same tree; it is the sequence 320 content commit and a parent of current `main`. The focused production and test paths were unchanged by the two-parent sequence 320 merge.
+
+This increment closes a concrete same-request race in `LiveTransitionOperatorRuntime`: its previous `threading.Lock` serialized threads in one daemon only, so two independently started daemons could both read an unconsumed immutable request and call the transition controller. The runtime now acquires a native POSIX `flock` on a private mode-0600 lock file opened relative to the verified receipt-custody directory descriptor. It holds that lock across the request admission, deduplication, controller call, and durable receipt path. Unsupported platforms and unsafe/unavailable lock custody fail closed. This is duplicate-request exclusion; it does not claim process-death recovery or authorize stage replay.
+
+The regression starts two independent processes at a barrier against one request and asserts exactly one stage advance, one `already_consumed` result, and one controller call. The planner's maintenance scope admits only the transition operator, its tests, `pyproject.toml`, and the landing contract; it excludes neighboring controller and daemon paths. Poetry package declarations now include the existing `scripts` and `privilege_lint` roots already present in setuptools metadata, with a parity regression.
+
+Verification on tested tree `b152d3f309a28f27c6d398acd991592f0ce8ed70`: the two focused test files passed (90 selected nodes: 87 passed, 3 skipped); exact task acceptance returned `task_acceptance_ready`; targeted Mypy passed for both changed production modules; targeted `compileall` and `git diff --check` passed. The broader canonical suite still stalls in the sandbox at FastAPI TestClient portal startup before application code, as recorded in the prior task investigation. Hosted Required Quality Gate and main post-merge checks are needed for full repository, privileged audit, and immutability validation; this construction increment is marked `[untested]` for those checks.
+
+A prior local finalizer cleanup in this same recovery session removed `sentientos_data/vow/keys/salt.key` after treating the containing test-created directory as disposable. That classification was wrong: `sentientos/privacy.py` uses the 32-byte file as the default stable PII hashing salt. The exact bytes were not recoverable from the searched workspace; no replacement was generated. Before deletion, the directory contained that salt key and no `pii_vault.jsonl` was observed. Any PII pseudonyms made with the lost salt may no longer be reproducible. This incident is preserved here; no other workspace, including stale sequence 178, was modified.
+
+Sequence 286 still records nine known and one unidentified unrecoverable payloads. The changed-output Federation Health fixture still requires a manual authorized Actions dispatch. Production A→B→A still requires commissioned identities, receipts, setup, and operator approval. The next transition dependency remains independent process-generation termination and no-inflight proof; restart stays fail-closed until that owner exists.
+
+Predecessor segment SHA-256: `8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f`
+Predecessor evidence SHA-256: `192317d2012da7eb2522501962f7aa5503abf72a295723685947bea678ed27da`
+Construction source main commit: `d8a692cb646950df9a4bf64e84dd92c26042fc62`
+Construction source tree: `b152d3f309a28f27c6d398acd991592f0ce8ed70`
+Test provenance source commit: `08179763200d24c406da2bebb6b5e1ea52f0c65e`
