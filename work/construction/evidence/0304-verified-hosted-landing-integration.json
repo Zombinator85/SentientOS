@@ -1,0 +1,100 @@
+{
+  "hosted_verification": {
+    "artifacts": {
+      "0304-hosted-main-finalizer-artifact.zip": {
+        "artifact_id": 12086095432,
+        "bytes": 12811,
+        "path": "work/construction/evidence/0304-hosted-main-finalizer-artifact.zip",
+        "run_id": 38992250832,
+        "sha256": "e158ee770691aeb8d78a6febdc252e7542984a7e8c86356e235975dfa3ef68f9"
+      },
+      "0304-hosted-main-required-quality-gate-artifact.zip": {
+        "artifact_id": 12085632557,
+        "bytes": 10580,
+        "path": "work/construction/evidence/0304-hosted-main-required-quality-gate-artifact.zip",
+        "run_id": 38992250832,
+        "sha256": "0e457cac4841493af6f39e98ac885c179c1af2b5f6ccad1fffeffaf0061b18e1"
+      }
+    },
+    "quality_gate": {
+      "acceptance_nodes": 23,
+      "conclusion": "success",
+      "effective_uid": 0,
+      "finalizer_stages": {
+        "audit_immutability": 0,
+        "focused_tests": 0,
+        "mypy_baseline": 0,
+        "prompt_boundary": 0,
+        "strict_audits": 0
+      },
+      "finalizer_status": "ready_for_pr_metadata",
+      "hosted_merge_candidate_sha": "f721ba3b446b73eebc452d6845077f9f4da6e822",
+      "immutability_ok": true,
+      "run_id": 38992250832,
+      "source_tree": "8450d45dd76699b76a4102b4fadda14b5a67a4a1",
+      "strict_audit_ok": true
+    },
+    "workflow_runs": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 38992250762
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 38992250922
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 38992250789
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "run_id": 38992250797
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 38992250779
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "run_id": 38992250759
+      },
+      "Release": {
+        "conclusion": "success",
+        "run_id": 38992250794
+      }
+    }
+  },
+  "next_dependency": "Observe the scheduled federation-health update on main and verify Administrator execution, retained authorization, and docs-only commit scope.",
+  "predecessor_evidence_path": "work/construction/evidence/0303-pr-head-metadata-finalization.json",
+  "predecessor_evidence_sha256": "e3912fc13070603f8e74ffe9a2ecd1ef1235d58b547174dd4b16b692bb135b46",
+  "predecessor_segment_path": "work/construction/segments/0303-pr-head-metadata-finalization.md",
+  "predecessor_segment_sha256": "6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df",
+  "remote_readback": {
+    "changed_source_blobs_verified": true,
+    "construction_custody_status": "construction_continuation_custody_ready",
+    "main_ref": "505c42ce4f80694e8b99b648eb9bdf1e1ba756b2",
+    "segments_verified": 303,
+    "sequence_index_readback": "exact, 180663 characters in bounded chunks",
+    "tree_equivalent_to_verified_pr_head": true
+  },
+  "segment_bytes": 1603,
+  "segment_path": "work/construction/segments/0304-verified-hosted-landing-integration.md",
+  "segment_sha256": "2ccdd4dc82e312d0bbb4fa98282460a1959b7c84eb0f8b67a5026c16730acbfa",
+  "sequence": 304,
+  "source": {
+    "branch": "main",
+    "commit": "505c42ce4f80694e8b99b648eb9bdf1e1ba756b2",
+    "compare": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0,
+      "status": "ahead"
+    },
+    "merge_method": "merge",
+    "merged_pull_request": 2282,
+    "tree": "8450d45dd76699b76a4102b4fadda14b5a67a4a1",
+    "verified_pr_head": "2031cb1421aae9ad35bba67e5aba6c881473ef0d"
+  },
+  "title": "Verify hosted landing integration on main"
+}

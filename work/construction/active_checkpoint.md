@@ -1,14 +1,13 @@
 # Active construction checkpoint
 
-Sequence 303 corrected the hosted PR finalizer so it binds PR metadata to the event-bound candidate commit title while continuing to verify the synthetic merge tree. The previous failure and exact artifacts are retained. Corrected hosted verification for candidate `67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8` passed on merge candidate `75aba17b5e835d1c6f2ddfc0728d70a72050370e`, tree `c7c36e7ccdd78e2cf746d8671426303c1fe31d9b`: all 23 acceptance nodes, strict audit and immutability as UID 0, privileged finalization, full CI, Docker, invariants, and associated checks are green.
+Sequence 304 confirms PR #2282 merged through a standard merge commit. Main is `505c42ce4f80694e8b99b648eb9bdf1e1ba756b2`; GitHub compare shows its tree exactly matches the verified candidate tree `8450d45dd76699b76a4102b4fadda14b5a67a4a1`. The final-tree hosted gate passed all 23 required acceptance nodes, strict audit and immutability as UID 0, and the unchanged privileged finalizer returned `ready_for_pr_metadata`. Full CI, Docker, invariant, and related workflows passed before merge. Exact hosted evidence is retained in sequence 304.
 
-PR #2282 is ready for integration into `main` while preserving commit history. After merge, verify the exact main ref and observe the scheduled federation-health updater, including Administrator authority, retained approval, and health-document-only scope.
+The sequence-286 deleted-payload limitation remains: nine known payloads and one unidentified payload are unrecoverable. No historical payload was reconstructed or omitted.
 
-The sequence-286 provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable. No historical payload was reconstructed or omitted.
+Next dependency: observe the scheduled federation-health updater on `main`, then verify its actual Administrator execution, retained authorization, and documentation-only commit scope.
 
-Verified candidate branch head: `67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8`
-Verified candidate tree: `c7c36e7ccdd78e2cf746d8671426303c1fe31d9b`
-Latest segment: `work/construction/segments/0303-pr-head-metadata-finalization.md`
-Latest evidence: `work/construction/evidence/0303-pr-head-metadata-finalization.json`
-Sequence: 303
-Latest segment SHA-256: `6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df`
+Verified main commit: `505c42ce4f80694e8b99b648eb9bdf1e1ba756b2`
+Verified main tree: `8450d45dd76699b76a4102b4fadda14b5a67a4a1`
+Latest segment: `work/construction/segments/0304-verified-hosted-landing-integration.md`
+Sequence: 304
+Latest segment SHA-256: `2ccdd4dc82e312d0bbb4fa98282460a1959b7c84eb0f8b67a5026c16730acbfa`
