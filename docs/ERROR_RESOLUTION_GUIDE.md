@@ -33,25 +33,17 @@ Every intentional skip or legacy mismatch should be recorded in `PROCEDURE_FAILU
 ## 5. Cathedral Clean PR
 Once these steps are complete you can submit a final "Cathedral Clean" pull request. Document any remaining integrity issues and verify all tests pass. The true measure of trust is the transparency of our history.
 
-## 6. Auto-Repairing Audit Chains
-Run `verify_audits.py` with `--auto-repair --check-only` to heal legacy prev hash mismatches:
-```bash
-LUMOS_AUTO_APPROVE=1 python verify_audits.py logs --auto-repair --check-only
-```
-Sample output before repair:
-```
-logs/support_log.jsonl: 1 issue(s)
-```
-After auto-repair:
-```
-support_log.jsonl: 1 entries, 1 fixed, OK
-```
-CI runs this command so minor integrity issues never block the procedure.
+## 6. Safe Audit Repair
+`verify_audits` reports integrity findings; it does not repair them. Generate and review a deterministic plan, explicitly apply only the plan's safe repairs, then run strict verification:
 
-## Automatic Repair vs Strict Mode
-Automatic repair keeps CI green by fixing mismatched rolling hashes on the fly.
-Production environments set `STRICT=1` to abort if any repair occurs so auditors
-can review the integrity issues first. Run `verify_audits.py --auto-repair` locally to heal
-logs, then rerun with `STRICT=1` to confirm nothing else changes.
+```bash
+LUMOS_AUTO_APPROVE=1 python -m scripts.plan_audit_repairs logs/ --output glow/audits/audit_repair_plan.json
+LUMOS_AUTO_APPROVE=1 python -m scripts.apply_audit_repairs --plan glow/audits/audit_repair_plan.json --apply
+LUMOS_AUTO_APPROVE=1 python -m scripts.verify_audits logs/ --strict --no-input
+```
+
+The planner marks chain rebuilds safe only when every finding has an approved rebuildable code. Other findings remain manual, are preserved in quarantine evidence, and may still make strict verification fail. Keep the repair plan, result, receipt chain, and any quarantined original with the reviewed repair change.
+
+These commands require an environment that actually supplies Administrator authority. `LUMOS_AUTO_APPROVE=1` suppresses interactive prompts; it does not grant privilege.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.

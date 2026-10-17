@@ -20,7 +20,7 @@ jobs:
       - name: Verify audits
         run: |
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
-            python -m scripts.verify_audits logs/
+            python -m scripts.verify_audits logs/ --strict --no-input
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Privilege lint
