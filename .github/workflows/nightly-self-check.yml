@@ -24,7 +24,8 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .[dev]
       - name: Install canonical test dependencies
-        run: python -m pip install --only-binary=:all: -r requirements-codex.txt
+        run: |
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
       - name: Verify audits
         run: |
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
