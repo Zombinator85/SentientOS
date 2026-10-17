@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_resident_cognitive_transition_operator.py::test_duplicate_transition_requests_advance_once_across_processes",
+      "rationale": "Concurrent independent processes consuming the same immutable request advance the stage once."
+    },
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata",
+      "rationale": "Planner package roots match both Poetry and setuptools package metadata."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_cognitive_transition_operator.py::test_duplicate_transition_requests_advance_once_across_processes"
+  ]
+}

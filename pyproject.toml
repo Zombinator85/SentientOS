@@ -13,6 +13,8 @@ packages = [
     {include = "api"},
     {include = "gui"},
     {include = "apps"},
+    {include = "scripts"},
+    {include = "privilege_lint"},
 ]
 
 [project]

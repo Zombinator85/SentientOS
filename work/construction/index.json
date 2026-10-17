@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "9fa5df969729f473af663d7b1e4f51c53a590947d0cab20bb99ccd9c8a36fc70",
-    "latest_segment_sequence": 320,
-    "latest_segment_sha256": "8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
-    "source_commit": "5f011dc9d14fa872deb0320bb2ed9476c3a9f414",
-    "source_tree": "ffe7dd1edd4873d80ea5af8076b607b6b328d272"
+    "checkpoint_sha256": "5ff671ff8d05709e0bdad115069051f29eae66c7109045b4b30170b2597c3a94",
+    "latest_segment_sequence": 321,
+    "latest_segment_sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
+    "source_commit": "d8a692cb646950df9a4bf64e84dd92c26042fc62",
+    "source_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 320,
+  "latest_sequence": 321,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3490,6 +3490,19 @@
       "evidence_path": "work/construction/evidence/0320-record-scheduled-federation-health-execution.json",
       "evidence_sha256": "192317d2012da7eb2522501962f7aa5503abf72a295723685947bea678ed27da",
       "evidence_bytes": 4979
+    },
+    {
+      "sequence": 321,
+      "path": "work/construction/segments/0321-serialize-resident-transition-operator-across-processes.md",
+      "sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
+      "bytes": 3892,
+      "predecessor": "segment-sha256:8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
+      "source_commit": "d8a692cb646950df9a4bf64e84dd92c26042fc62",
+      "source_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70",
+      "evidence": "work/construction/evidence/0321-serialize-resident-transition-operator-across-processes.json",
+      "evidence_path": "work/construction/evidence/0321-serialize-resident-transition-operator-across-processes.json",
+      "evidence_sha256": "4ef131cdc4827a8a028a3368aef6de573375d7a967becc43c8b6671dca025f4c",
+      "evidence_bytes": 4871
     }
   ],
   "source_acquisition": {

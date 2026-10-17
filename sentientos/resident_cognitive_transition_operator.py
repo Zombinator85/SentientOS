@@ -11,15 +11,18 @@ import json
 import os
 import stat
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .resident_cognitive_model_transition_experiment import (
     PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
 )
+from .platform_fcntl import fcntl, require_flock
+from .private_file_custody import PrivateFileCustodyError, open_private_directory
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
@@ -34,6 +37,7 @@ MAX_TRANSITION_RECEIPT_BYTES = 16_777_216
 MAX_TRANSITION_REQUESTS = 4096
 MAX_TRANSITION_REQUEST_BYTES = 262_144
 MAX_TRANSITION_REQUEST_ROOT_BYTES = 67_108_864
+PROCESSING_LOCK = ".operator-processing.lock"
 
 
 def _plain(value: Any) -> Any:
@@ -203,6 +207,49 @@ class LiveTransitionOperatorRuntime:
         self.slot, self.gate, self.subordinate_verifier, self.clock = slot, gate, subordinate_verifier, clock
         self._lock = threading.Lock()
         self._latest: dict[str, Any] | None = None
+
+    @contextmanager
+    def _process_lock(self) -> Iterator[None]:
+        """Serialize request admission across independently started daemons."""
+        if os.name != "posix":
+            raise TransitionError("live_transition_processing_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        locked = False
+        try:
+            require_flock()
+            directory_fd = open_private_directory(self.receipt_path.parent, create=True)
+            descriptor = os.open(PROCESSING_LOCK,
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd)
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o077):
+                raise TransitionError("operator_process_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            locked = True
+        except TransitionError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise TransitionError("operator_process_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                if locked:
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
 
     @property
     def request_root(self) -> Path:
@@ -451,7 +498,7 @@ class LiveTransitionOperatorRuntime:
             return {"status": "disabled", "effect_performed": False}
         if os.name != "posix":
             raise TransitionError("live_transition_processing_unsupported_platform")
-        with self._lock:
+        with self._lock, self._process_lock():
             self.request_root.mkdir(parents=True, exist_ok=True)
             if self.request_root.is_symlink() or not self.request_root.is_dir():
                 raise TransitionError("operator_request_custody_not_regular")
