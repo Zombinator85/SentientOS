@@ -71,8 +71,10 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_pr_scoped_write_access() 
     assert "sudo -n env" in initial and "continue-on-error: true" in initial
     assert "python -m scripts.plan_audit_repairs logs/ --output \"$plan\"" in repair
     assert "python -m scripts.apply_audit_repairs --plan \"$plan\" --output \"$result\" --apply" in repair
+    assert repair.count("sudo -n env") == 2
     assert "GITHUB_RUN_ID" in repair and "if: steps.initial.outputs.status != '0'" in repair
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in after
+    assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in after
     assert "repair_receipts.jsonl" in stage and "quarantine_index.jsonl" in stage
     assert "git diff --cached --quiet -- logs/" in stage
     assert "--auto-repair" not in workflow
