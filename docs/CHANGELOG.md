@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10 Resident child process generation
+- New maintenance-resident launch records bind the child PID to Linux procfs start time when available.
+- Restart recovery distinguishes PID reuse from a still-live prior generation and retains fail-closed behavior when identity is uncertain.
+- Historical PID-only launch records remain readable; no signaling or transition authority was added.
+
 ## 2025-06-12: 4.5-cathedral-immaculate
 
 

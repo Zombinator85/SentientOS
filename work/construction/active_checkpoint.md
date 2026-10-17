@@ -1,13 +1,21 @@
 # Active construction checkpoint
 
-Sequence 323 repairs Dependabot's parser failure on `requirements-extras.txt`: INI-style headings are comments and the active dependency set remains intact. The exact required-node regression passed with 9/9 dependency-bootstrap contract tests; bootstrap summary, task acceptance, compilation, and diff checks passed. Hosted PR and post-merge validation for this increment are pending.
+Sequence 324 adds Linux process start-time identity to maintenance-resident child launch provenance. Recovery distinguishes an old child from a new process that reused its PID only when procfs start time differs. Same-generation, unknown, and legacy-but-present cases remain fail-closed. No signaling, adoption, or transition-replay authority is added.
 
-Source `main` at construction: `1bb5a004e263e0fa13fd20c1dd8ab5d93fc9cf74`, tree `fe24d3600ac802bf58d0e784f113ea8570a44661`. The local test checkout was `08179763200d24c406da2bebb6b5e1ea52f0c65e`, tree `b152d3f309a28f27c6d398acd991592f0ce8ed70`, with the task source staged. Git transport was unavailable; exact current main and file identities were read from GitHub.
+Construction source is verified main `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. The starting blobs for both changed source files were read from that exact tree. The isolated local source projection omitted runtime state and audit data; it is not represented as a full-repository checkout.
 
-The prior sequence 322 is merged as PR #2321. Its first two strict QG attempts failed title binding after strict audit and acceptance passed; corrected QG run `39072543856` passed. On current main, QG, invariants, Codex CI, and docs deploy passed; CI and Docker were still running when this checkpoint was prepared. The hourly Federation Health run for current main and Nightly Audit Integrity remain unobserved.
+Local compilation and diff checks passed. The canonical local test runner stopped before pytest because its airlock found `jinja2` unavailable; dependency installation is blocked by sandbox network policy. No local test pass is claimed. Exact regression nodes are recorded in the acceptance manifest; hosted CI and the strict hosted Quality Gate are pending.
 
-The previous cleanup incident deleted `sentientos_data/vow/keys/salt.key`; original bytes remain unrecovered and no replacement/rotation was created. Production transition restart remains fail-closed pending process-generation termination and no-inflight evidence; stage replay remains forbidden. Changed-output Federation fixture awaits authorized dispatch. Nightly privileged workflows still require repair. Sequence 286 loss remains documented; stale sequence-178 workspace remains untouched.
+Sequence 323 merged as PR #2322, merge commit `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Current-main Quality Gate, CI, Codex CI, invariants, Docker, and Docs Deploy passed (runs 39073711468, 39073711486, 39073711461, 39073711497, 39073711558, and 39073711583). Dependabot Graph Update run 39073716852 remains in progress at checkpoint preparation.
 
-Latest construction segment: `work/construction/segments/0323-repair-dependabot-requirements-manifest.md`
-Sequence: 323
-Segment SHA-256: `75169581e0e55bfe225432172fe7558ceeb0386e4e60f7112a2ffa925dc42a28`
+Federation Health's latest scheduled success is run 39065143484 on source `b91969c1b1a900fefe102fb72697e7295766857b` (sequence 318 evidence): 1 node, 0 recent events, quiet; publisher operation none. No scheduled run on current main `8a2ab13333574d9112442ef826351596077f267a` is observed yet. The latest scheduled execution remains distinct from the changed-output test fixture, which cannot be dispatched through the available GitHub connection.
+
+The nightly workflows currently retain Administrator verification through `sudo`; only the audit repair job holds content and PR write permission. No exact-current-main scheduled execution is observed. No unnecessary workflow permission change was made.
+
+The sequence-323 narrative says 9 local dependency tests, but its retained provenance artifact records 10 passed, 0 failed, and 0 skipped (SHA-256 `3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf`). This discrepancy is corrected in sequence 324 without rewriting prior evidence.
+
+Outstanding limitations: the exact commissioned A-to-B-to-A production campaign remains unexecuted; process-generation identity does not prove detached descendants or inference workers have terminated. Sequence-286 payload loss remains unresolved. The original Vow salt-key bytes remain unrecovered, with no replacement or rotation. The stale sequence-178 workspace remains untouched.
+
+Latest construction segment: `work/construction/segments/0324-bind-resident-child-recovery-to-process-generation.md`
+Sequence: 324
+Segment SHA-256: e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da
