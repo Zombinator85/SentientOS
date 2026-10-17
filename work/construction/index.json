@@ -3299,9 +3299,9 @@
     {
       "bytes": 2102,
       "evidence": "work/construction/evidence/0306-repair-nightly-audit-workflows.json",
-      "evidence_bytes": 4327,
+      "evidence_bytes": 4398,
       "evidence_path": "work/construction/evidence/0306-repair-nightly-audit-workflows.json",
-      "evidence_sha256": "51122f05ed9f97c3b73cbca272cd6ac58fed4d725a3197d63bb681dacfc1b6f7",
+      "evidence_sha256": "693bf7a57e1dc7530ccc974b8559b10184d78a3cbc1f852b14b6f1b098e69aed",
       "path": "work/construction/segments/0306-repair-nightly-audit-workflows.md",
       "predecessor": "segment-sha256:75779a630011c3576fa8644a3ba6e52a0731699f5600e6023f149b58b146dbd3",
       "sequence": 306,
