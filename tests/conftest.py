@@ -13,9 +13,14 @@ from pathlib import Path
 _GOVERNOR_ROOT_ENV = "SENTIENTOS_GOVERNOR_ROOT"
 _PRIOR_GOVERNOR_ROOT = os.environ.get(_GOVERNOR_ROOT_ENV)
 _TEST_GOVERNOR_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-governor-"))
-# Set this before importing project or repository modules: a module-level
-# governor singleton captures its root during collection, before fixtures run.
+_FEDERATION_ROOT_ENV = "SENTIENTOS_FEDERATION_ROOT"
+_PRIOR_FEDERATION_ROOT = os.environ.get(_FEDERATION_ROOT_ENV)
+_TEST_FEDERATION_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-federation-"))
+# Set runtime roots before importing project or repository modules: the
+# governor and federation singletons capture them during collection, before
+# pytest session and per-test fixtures run.
 os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)
+os.environ[_FEDERATION_ROOT_ENV] = str(_TEST_FEDERATION_ROOT)
 
 import types
 
@@ -189,7 +194,12 @@ def isolate_governor_runtime():
             os.environ.pop(_GOVERNOR_ROOT_ENV, None)
         else:
             os.environ[_GOVERNOR_ROOT_ENV] = _PRIOR_GOVERNOR_ROOT
+        if _PRIOR_FEDERATION_ROOT is None:
+            os.environ.pop(_FEDERATION_ROOT_ENV, None)
+        else:
+            os.environ[_FEDERATION_ROOT_ENV] = _PRIOR_FEDERATION_ROOT
         shutil.rmtree(_TEST_GOVERNOR_ROOT, ignore_errors=True)
+        shutil.rmtree(_TEST_FEDERATION_ROOT, ignore_errors=True)
 
 
 
