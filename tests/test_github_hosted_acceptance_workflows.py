@@ -62,7 +62,7 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "actions/upload-artifact@v4" in health
     assert "if-no-files-found: error" in health
     assert "actions/download-artifact@v4" in publisher
-    assert "needs: health" in publisher
+    assert "needs: [health, fixture]" in publisher
     assert "test \"$(sudo -n id -u)\" = \"0\"" in health
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in health
     assert "python federation_health_badge.py" in health
@@ -71,7 +71,8 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "require_lumos_approval()" in badge
     assert "EndBug/add-and-commit@v9" not in workflow
     assert "peter-evans/create-pull-request@v7" in publisher
-    assert "branch: automation/federation-health" in publisher
+    assert "automation/federation-health" in publisher
+    assert "format('automation/federation-health-fixture-{0}', github.run_id)" in publisher
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
 
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
@@ -470,3 +471,25 @@ def test_dev_extra_includes_runtime_dependency_used_by_privilege_lint() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text()
     dev = pyproject.split("dev = [", 1)[1].split("]", 1)[0]
     assert '"PyYAML>=6,<7"' in dev
+
+
+def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
+    workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
+    import yaml
+
+    parsed = yaml.safe_load(workflow)
+    assert parsed["jobs"]["fixture"]["permissions"] == {"contents": "read"}
+    assert parsed["jobs"]["health"]["permissions"] == {"contents": "read"}
+    assert parsed["jobs"]["publish"]["permissions"] == {
+        "contents": "write", "pull-requests": "write"
+    }
+    assert "actions: write" not in workflow
+    assert "TEST FIXTURE — NOT TELEMETRY" in workflow
+    assert "publication_scope_verified" in workflow
+    assert 'proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}' in workflow
+    assert "cleanup_errors" in workflow
+    assert "fixture_publication_cleanup_or_scope_unverified" in workflow
+    assert "delete-branch: false" in workflow
+    assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
+    assert "draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}" in workflow
+
