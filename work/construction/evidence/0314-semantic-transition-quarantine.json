@@ -1,0 +1,111 @@
+{
+  "sequence": 314,
+  "title": "Require semantic verification for nonempty transition history",
+  "source": {
+    "branch": "main",
+    "commit": "7caec8b045e9f218c21ec421f87a9e2d4d71f028",
+    "tree": "e6d9aeed8bce279d570d3d0dba2e2075ae844be4"
+  },
+  "predecessor": {
+    "sequence": 313,
+    "segment_path": "work/construction/segments/0313-quarantine-transition-restart.md",
+    "segment_sha256": "7dafefe6b0be3da2877760d0ce12b9fd79f69fb6abc0a67d1b877952a21b59f4",
+    "evidence_path": "work/construction/evidence/0313-quarantine-transition-restart.json",
+    "evidence_sha256": "7f0ef3d09a708b9ef31946594a2d2dafdfed07c8d606217b8f4804c2875a97f3"
+  },
+  "pull_request": {
+    "number": 2309,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2309",
+    "merge_commit": "7caec8b045e9f218c21ec421f87a9e2d4d71f028",
+    "merge_method": "merge",
+    "candidate": "3e4d67656a8be2a46d62d6c65c64965bcdcfc1fe",
+    "tree": "e6d9aeed8bce279d570d3d0dba2e2075ae844be4"
+  },
+  "behavior": {
+    "empty_journal_without_transition_support": "continues safe startup behavior",
+    "nonempty_journal_without_semantic_verifier": "blocks resident cognition even when terminal_phase_is_experiment_complete",
+    "hash_chain_validity_is_not_semantic_validity": true,
+    "journal_mutation": false,
+    "replay": false,
+    "gate_token_reconstruction": false,
+    "new_authority": false
+  },
+  "acceptance": {
+    "test": "test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate",
+    "malformed_phase_sequence_with_terminal_label": "blocked without verifier",
+    "active_verifier_path": "accepted"
+  },
+  "checks": {
+    "quality_gate": {
+      "run": 39049786852,
+      "conclusion": "success",
+      "administrator_strict_audits": true,
+      "finalizer": true
+    },
+    "ci": {
+      "run": 39049786853,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run": 39049786851,
+      "conclusion": "success"
+    },
+    "lint": {
+      "run": 39049786877,
+      "conclusion": "success"
+    },
+    "gradient": {
+      "run": 39049786840,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39049786878,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39049786949,
+      "conclusion": "success"
+    },
+    "release": {
+      "run": 39049786941,
+      "conclusion": "success"
+    },
+    "post_merge": {
+      "ci": 39050132509,
+      "quality_gate": 39050132497,
+      "docker": 39050132421,
+      "invariants": 39050132501,
+      "codex_ci": 39050132458,
+      "docs_deploy": 39050132518,
+      "conclusion": "success",
+      "source_validation_steps": [
+        "integrated resource-to-cognition lifecycle",
+        "exact resource-to-cognition acceptance nodes",
+        "canonical planning and execution separation"
+      ],
+      "other_steps": [
+        "self-check",
+        "docs",
+        "Helm integration"
+      ]
+    }
+  },
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39050132753,
+    "conclusion": "failure",
+    "cause": "403 Resource not accessible by integration while posting a nonessential PR comment",
+    "required": false,
+    "additional_write_permission_added": false
+  },
+  "limitations": {
+    "local_checkout": "clone blocked by unavailable configured proxy; exact source files compiled and extracted helper smoke passed",
+    "production_temporal_a_to_b_to_a": "not established",
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0314-semantic-transition-quarantine.md",
+  "predecessor_segment_sha256": "7dafefe6b0be3da2877760d0ce12b9fd79f69fb6abc0a67d1b877952a21b59f4"
+}

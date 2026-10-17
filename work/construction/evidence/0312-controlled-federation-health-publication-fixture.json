@@ -1,0 +1,139 @@
+{
+  "sequence": 312,
+  "title": "Add controlled changed-output Federation Health publisher fixture",
+  "source": {
+    "branch": "main",
+    "commit": "ef64fc693ec2c20bda2f0a68a6ad249c8e3db88d",
+    "tree": "e675499dfd9f94c21fffeee1b309b29d8ce2da9a"
+  },
+  "predecessor": {
+    "sequence": 311,
+    "segment_path": "work/construction/segments/0311-bind-resident-transition-receipts.md",
+    "segment_sha256": "56acc2e12b29f1d326172c61080fc69f04b785e9268e5916fb2e48e55218a4b3",
+    "evidence_path": "work/construction/evidence/0311-bind-resident-transition-receipts.json",
+    "evidence_sha256": "22fb87ef6e365ab46d9b6723272a16bc69ac9ea4641e95a659e4277268f58a93"
+  },
+  "pull_request": {
+    "number": 2307,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2307",
+    "merge_commit": "ef64fc693ec2c20bda2f0a68a6ad249c8e3db88d",
+    "merge_method": "merge",
+    "candidate": "951fc71e4082356c23c4a87d5cb2b24bddbbaaa7",
+    "tree": "e675499dfd9f94c21fffeee1b309b29d8ce2da9a"
+  },
+  "fixture_workflow": {
+    "path": ".github/workflows/federation-health.yml",
+    "test_fixture": true,
+    "explicit_nontelemetry_marker": true,
+    "health_generator_permissions": {
+      "contents": "read"
+    },
+    "fixture_permissions": {
+      "contents": "read"
+    },
+    "publisher_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "publisher_paths": [
+      "docs/FEDERATION_HEALTH.md"
+    ],
+    "unique_branch": true,
+    "readback": true,
+    "cleanup_proof_upload": true,
+    "dispatch_executed": false,
+    "dispatch_api_available": false
+  },
+  "post_merge_run": {
+    "id": 39048224084,
+    "event": "push",
+    "workflow_id": 165993285,
+    "source_commit": "ef64fc693ec2c20bda2f0a68a6ad249c8e3db88d",
+    "conclusion": "success",
+    "jobs": {
+      "health": "success",
+      "administrator_preflight": "success",
+      "privileged_generator": "success",
+      "fixture": "skipped",
+      "publish": "success"
+    },
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "artifact": {
+      "id": 12106528170,
+      "name": "federation-health-39048224084",
+      "bytes": 223,
+      "github_sha256": "3d85746d3828bd80bbdae3aa912cdea527218f0098341c7751b104cb82ca1949",
+      "publisher_download_digest_matches": true
+    },
+    "publisher": {
+      "operation": "none",
+      "reason": "docs/FEDERATION_HEALTH.md unchanged"
+    }
+  },
+  "checks": {
+    "required_quality_gate": {
+      "run": 39047656768,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run": 39047656777,
+      "conclusion": "success"
+    },
+    "lint": {
+      "run": 39047656828,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run": 39047656767,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39047656783,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39047656776,
+      "conclusion": "success"
+    },
+    "release": {
+      "run": 39047656812,
+      "conclusion": "success"
+    },
+    "gradient": {
+      "run": 39047656803,
+      "conclusion": "success"
+    },
+    "main_post_merge_quality_gate": {
+      "run": 39048224021,
+      "conclusion": "success"
+    }
+  },
+  "superseded": {
+    "quality_gate_run": 39047495948,
+    "conclusion": "failure",
+    "cause": "finalizer compared commit subject with stale PR title from event snapshot; corrected title-before-push and fresh run passed",
+    "workflow_duplicate_upload": "found and removed before final candidate"
+  },
+  "limitations": {
+    "changed_output_fixture_publication": "not yet demonstrated; explicit GitHub Actions UI dispatch required",
+    "production_telemetry_fabricated": false,
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0312-controlled-federation-health-publication-fixture.md",
+  "predecessor_sha256": "56acc2e12b29f1d326172c61080fc69f04b785e9268e5916fb2e48e55218a4b3",
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39048223891,
+    "conclusion": "failure",
+    "cause": "403 Resource not accessible by integration when posting a nonessential comment",
+    "required": false,
+    "permission_added": false
+  }
+}
