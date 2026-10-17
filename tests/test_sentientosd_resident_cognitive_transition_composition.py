@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 import sentientosd
-from sentientos.resident_cognitive_model_transition_experiment import TransitionError, TransitionProtocol
+from sentientos.resident_cognitive_model_transition_experiment import (
+    TransitionError, TransitionJournal, TransitionProtocol,
+)
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 from sentientos.resident_cognitive_transition_operator import (
     PROTOCOL_CUSTODY, load_verified_protocol, persist_protocol,
@@ -44,6 +46,7 @@ def test_run_loop_regression_closes_previous_daemon_composition_gap() -> None:
     assert "RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV" in source
     assert "_compose_live_resident_transition" in source
     assert "block_resident_cognition_for_transition_recovery" in source
+    assert "_resident_transition_recovery_quarantine_reason" in source
     assert "resident_transition_runtime=resident_transition_runtime" in source
     tail = inspect.getsource(sentientosd._run_resident_cognition_and_transition)
     assert tail.index("run_resident_developmental_cognition") < tail.index(
@@ -106,3 +109,26 @@ def test_transition_restart_failure_blocks_cognition_while_new_gate_is_open(
     assert owner.calls == 0
     assert transition["status"] == "blocked"
     assert transition["interrupted"] is True
+
+
+
+def test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate(tmp_path: Path) -> None:
+    journal = TransitionJournal(tmp_path / "transition.journal.jsonl")
+    journal.append("a_quiesced", {"token": "prior-process-only"})
+    reason = sentientosd._resident_transition_recovery_quarantine_reason(journal)
+    assert reason == (
+        "resident_transition_recovery_required:process_local_quiescence_lost:a_quiesced")
+
+    journal.append("b_activation_committed", {"activation": "committed"})
+    assert sentientosd._resident_transition_recovery_quarantine_reason(journal) == reason
+    journal.append("b_epoch_resumed", {"session": "verified"})
+    assert sentientosd._resident_transition_recovery_quarantine_reason(journal) is None
+
+
+def test_transition_quarantine_rejects_unverifiable_journal_custody(tmp_path: Path) -> None:
+    path = tmp_path / "transition.journal.jsonl"
+    path.write_bytes(b"{\"truncated\":true}")
+    reason = sentientosd._resident_transition_recovery_quarantine_reason(
+        TransitionJournal(path))
+    assert reason is not None
+    assert reason.startswith("resident_transition_journal_unverified:")
