@@ -1,0 +1,96 @@
+{
+  "hosted_verification": {
+    "acceptance_nodes": 23,
+    "artifacts": {
+      "0305-hosted-merge-record-finalizer-artifact.zip": {
+        "artifact_id": 12085683594,
+        "bytes": 12806,
+        "path": "work/construction/evidence/0305-hosted-merge-record-finalizer-artifact.zip",
+        "run_id": 38992845331,
+        "sha256": "e9b0267199bf5d5df1293091440db2576293e1cbb7648a762d87104564dfccd4"
+      },
+      "0305-hosted-merge-record-quality-gate-artifact.zip": {
+        "artifact_id": 12086051636,
+        "bytes": 10568,
+        "path": "work/construction/evidence/0305-hosted-merge-record-quality-gate-artifact.zip",
+        "run_id": 38992845331,
+        "sha256": "6d86cf449c774e3b848b0eefe013caec9b8847a13a0f59c55537983a5f143425"
+      }
+    },
+    "effective_uid": 0,
+    "finalizer_stages": {
+      "audit_immutability": 0,
+      "focused_tests": 0,
+      "mypy_baseline": 0,
+      "prompt_boundary": 0,
+      "strict_audits": 0
+    },
+    "finalizer_status": "ready_for_pr_metadata",
+    "immutability_ok": true,
+    "merge_candidate_sha": "0af3a9b6aa7f8eb2c45261ce2292e7a28bd8541c",
+    "quality_gate": "success",
+    "run_id": 38992845331,
+    "source_tree": "cdafef67603305aae1d0ead03621c9aeadcbe9f7",
+    "strict_audit_ok": true,
+    "workflow_runs": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 38992845337
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 38992845380
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 38992845318
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "run_id": 38992845347
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 38992845358
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "run_id": 38992845338
+      },
+      "Release": {
+        "conclusion": "success",
+        "run_id": 38992845360
+      }
+    }
+  },
+  "next_dependency": "Obtain observable hosted run evidence for the scheduled Federation Health updater and verify its docs-only commit and Administrator preflight.",
+  "predecessor_evidence_path": "work/construction/evidence/0304-verified-hosted-landing-integration.json",
+  "predecessor_evidence_sha256": "e5c001ddeca1ac3f10a66b96671ad647bc3c9d55da5a61ac86cf7fcf16f12b7a",
+  "predecessor_segment_path": "work/construction/segments/0304-verified-hosted-landing-integration.md",
+  "predecessor_segment_sha256": "2ccdd4dc82e312d0bbb4fa98282460a1959b7c84eb0f8b67a5026c16730acbfa",
+  "scheduled_updater_observation": {
+    "expected_cron": "0 * * * *",
+    "main_ref_advanced_after_hour_boundary": false,
+    "observation_time_utc": "2026-10-17T02:04:02Z",
+    "reason": "The connected GitHub workflow-run reader filters to pull-request-triggered runs.",
+    "scheduled_run_logs_available": false
+  },
+  "segment_bytes": 1654,
+  "segment_path": "work/construction/segments/0305-integrate-landing-record-on-main.md",
+  "segment_sha256": "75779a630011c3576fa8644a3ba6e52a0731699f5600e6023f149b58b146dbd3",
+  "sequence": 305,
+  "source": {
+    "branch": "main",
+    "commit": "0db35d58650d78637b356cded1585bccffb120af",
+    "compare": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    },
+    "merge_method": "merge",
+    "merged_pull_request": 2283,
+    "tree": "cdafef67603305aae1d0ead03621c9aeadcbe9f7",
+    "verified_pr_head": "6b2da92818b67a680fb24a228973b59bfd9de110"
+  },
+  "title": "Integrate the post-merge verification record"
+}
