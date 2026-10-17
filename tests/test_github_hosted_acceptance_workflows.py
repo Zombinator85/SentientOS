@@ -93,6 +93,10 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     assert "permissions:\n      contents: read" in audit
     assert "outputs:\n      status: ${{ steps.initial.outputs.status }}" in audit
     assert "permissions:\n      contents: write\n      pull-requests: write" in repair_job
+    import yaml
+    parsed = yaml.safe_load(workflow)
+    assert parsed["jobs"]["audit"]["permissions"] == {"contents": "read"}
+    assert parsed["jobs"]["repair"]["permissions"] == {"contents": "write", "pull-requests": "write"}
     assert "if: needs.audit.outputs.status != '0'" in repair_job
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in initial
     assert "sudo -n env" in initial
@@ -109,7 +113,7 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     assert "--auto-repair" not in workflow
     assert "github.rest.repos.get(context.repo)" in repair_job
     assert "base: repository.default_branch" in repair_job
-    assert "if: always() && steps.final.outputs.status != '0'" in repair_job
+    assert "if: always() && (steps.final.outputs.status != '0'" in repair_job
 
 
 def test_required_quality_gate_name_is_unique():
