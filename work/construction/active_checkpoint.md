@@ -1,17 +1,17 @@
 # Active construction checkpoint
 
-Sequence 324 binds each maintenance-resident child launch to Linux procfs process-generation evidence when available. Recovery after PID reuse requires evidence the prior generation ended; ambiguous or still-live identity remains fail-closed. The mypy issue and an intermediate truncated remote source blob were corrected, and the complete source blob was independently read back.
+Sequence 324 binds maintenance-resident child launch provenance to Linux procfs start-time field 22 where available. PID reuse is recoverable only after evidence that the recorded process generation ended. Historical PID-only records remain readable; ambiguous identity remains fail-closed.
 
-Sequence 325 addresses a hosted verification gap: the strict Quality Gate had not selected the two required sequence 324 recovery tests. The candidate now includes the PID-reuse success case and adverse same-generation case in its exact call-phase selection. Fresh hosted checks for this updated selection are pending.
+Sequence 325 discovered that the strict Quality Gate's generic acceptance selection omitted both sequence 324 task tests. The two recovery nodes and workflow contract assertions were added. Run `39075370096` then caught a shell command-continuation defect: strict audits passed, but the exact-node invocation failed with exit 127 before acceptance or finalization. Sequence 326 repairs command chaining and records that failed attempt. Fresh hosted verification of the 25-node gate remains pending.
 
-Exact main base for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 325 starts from candidate `a29f85842b7fdc4495c9e7f12b7d84d76cfa437a`, tree `a36e6438670c2e2722e14f615349d08fc9104ee5`.
+Base main for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 326 starts from candidate `3ccc031c55c7889d5ad210186faf30d0bbd08057`, tree `7de5d374c1d54861c5959011a32da35f94db2cf7`.
 
-Hosted Quality Gate `39074893248` passed its 23 generic nodes, strict Administrator verification, mypy baseline, strict audits, immutability, and landing finalizer. It did not execute the sequence 324 task nodes. Docker `39074893273` passed pre-commit and 143 tests with 13 skips, but provenance likewise showed those nodes were absent. Earlier failed/truncated attempts remain documented in sequence 325 evidence. The updated 25-node gate has not yet run.
+Prior hosted checks on sequence 324 source passed QG finalization and Docker's 143 tests with 13 skips, but omitted the task-specific nodes. Those runs do not validate this behavior. Sequence 326 requires new exact task-node outcomes, strict Administrator finalization, and all required PR checks.
 
-Sequence 320 recorded scheduled Federation Health run `39028288072` and verified its artifact; sequence 318 records later scheduled run `39065143484` on source `b91969c1b1a900fefe102fb72697e7295766857b`. No scheduled execution on current main `8a2ab13333574d9112442ef826351596077f267a` has been observed. The changed-output fixture remains an explicit `workflow_dispatch`; the available GitHub connection has no dispatch action. Nightly strict-audit source retains read-only audit permission and write authority only for repair publication, but current-main scheduled execution remains unverified.
+Sequence 320 records Federation Health scheduled run `39028288072`; sequence 318 records later run `39065143484` on source `b91969c1b1a900fefe102fb72697e7295766857b`. No scheduled execution on current main has been observed. The changed-output publisher fixture is explicit workflow dispatch; no dispatch tool is available here, and an operator request is pending. Nightly audit workflow authority remains read-only in its audit job and repair-scoped for publication, but current-main scheduled evidence remains unverified.
 
-Sequence 286 provenance loss remains unresolved. The stale sequence-178 workspace remains untouched. Production model commissioning and temporal A→B→A evidence remain pending the exact operator-approved setup.
+Sequence 286 provenance loss remains unresolved. The stale sequence-178 workspace remains untouched. Production model commissioning and A→B→A evidence still require the exact approved setup.
 
-Latest construction segment: `work/construction/segments/0325-execute-resident-recovery-acceptance-in-hosted-gate.md`
-Sequence: 325
-Segment SHA-256: `596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf`
+Latest construction segment: `work/construction/segments/0326-chain-resident-recovery-acceptance-command.md`
+Sequence: 326
+Segment SHA-256: `a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7`

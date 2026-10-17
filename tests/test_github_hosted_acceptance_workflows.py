@@ -190,6 +190,8 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
         "- name: Bind and verify exact acceptance", 1
     )[0]
     assert selection.count("tests/") == 25
+    node_lines = [line for line in selection.splitlines() if "tests/" in line]
+    assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
     assert "len(nodes)==25" in workflow
     assert "test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator" in selection
     assert "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation" in selection

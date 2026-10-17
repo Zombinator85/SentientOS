@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "bcb3a4abf179cefd4cbf5d579c69add9176638bc8965c71a757ab443ef1cc588",
-    "latest_segment_sequence": 325,
-    "latest_segment_sha256": "596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
-    "source_commit": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
-    "source_tree": "a36e6438670c2e2722e14f615349d08fc9104ee5"
+    "checkpoint_sha256": "8aa2f26f30f5d95f4e071dc201309d2291c26d27625fc11a49a978041ffdc62f",
+    "latest_segment_sequence": 326,
+    "latest_segment_sha256": "a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+    "source_commit": "3ccc031c55c7889d5ad210186faf30d0bbd08057",
+    "source_tree": "7de5d374c1d54861c5959011a32da35f94db2cf7"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 325,
+  "latest_sequence": 326,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3555,6 +3555,19 @@
       "evidence_path": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
       "evidence_bytes": 3142,
       "evidence_sha256": "8a365790983f1dba038ee4d4eb74e5d08ecdec5b4f132e23da2eb9d77b9c0ec2"
+    },
+    {
+      "sequence": 326,
+      "path": "work/construction/segments/0326-chain-resident-recovery-acceptance-command.md",
+      "bytes": 1740,
+      "sha256": "a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+      "predecessor": "segment-sha256:596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+      "source_commit": "3ccc031c55c7889d5ad210186faf30d0bbd08057",
+      "source_tree": "7de5d374c1d54861c5959011a32da35f94db2cf7",
+      "evidence": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
+      "evidence_path": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
+      "evidence_bytes": 1818,
+      "evidence_sha256": "a2e4ec29ecbaeb41473a804d483a0003f9ef1b722c3639fb6a5e6db0cee9d7b4"
     }
   ],
   "source_acquisition": {
