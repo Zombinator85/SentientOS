@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 306 records PR #2286 integrated into `main` at `c897cc91f046592655506364f197a0b4d2e258ec`, tree `27ddb031801f1815658f90cea6e5fe4dd46543bd`. GitHub comparison confirms the merge commit is one commit ahead of the verified PR head, zero behind, with zero tree differences. The three-commit PR history is preserved.
+Sequence 307 records PR #2288's correction and verified integration on `main` at `2c8ad92536ed345d715fc323aca59e4b1a7f8315`, tree `f5117b5d67cfcc72376c2b080ebbbcf4573d124a`. The regular merge preserves commit history; compare against the verified PR head is ahead 1, behind 0, changed files 0.
 
-The nightly audit workflows now use explicit, least-privilege paths. The read-only workflow keeps `contents: read`; the repair workflow retains only `contents: write` and `pull-requests: write`. Both require strict verification through noninteractive sudo; repair planning and application use the safe planner/apply tools, preserve run-scoped evidence, and leave unresolved findings as failures. Hosted PR CI and the protected finalizer passed; post-merge CI, quality gate, invariants, Docker, Codex CI, and Docs Deploy passed on the exact main commit.
+The bounded artifact cleanup now runs a name-filtered, single-page GET, protected by an existing CI contract assertion. Hosted PR checks passed, including strict audit and immutability as UID 0. Main post-merge CI, quality gate, Docker, Codex CI, invariants, and Docs Deploy passed. The actual CI log confirms the list request no longer warns or stalls; unavailable stale artifact identifiers returned handled 404 responses.
 
-The Federation Health updater still lacks a post-merge execution record. Its workflow configuration and manual-dispatch capability do not establish that a run occurred. No scheduled or dispatched run was present in the Actions feed at 05:20 UTC. The next hourly cron boundary is 06:00 UTC.
+The hourly Federation Health updater still has no observable post-merge scheduled or manual execution. No success is inferred from configuration. The next step is to obtain a real hosted run, inspect Administrator preflight, and verify that its generated commit changes only `docs/FEDERATION_HEALTH.md`. The next scheduled strict read-only and repair audit runs also need their runtime results inspected.
 
-The sequence-286 deleted-payload limitation remains recorded: nine known payloads and one unidentified payload are unrecoverable. No historical payload was reconstructed or omitted.
+The sequence-286 deleted-payload limitation remains unchanged: nine known payloads and one unidentified payload are unrecoverable. No historical payload was reconstructed or omitted.
 
-Next dependency: obtain a successful post-merge Federation Health run; inspect the Administrator preflight and verify that any generated commit changes only `docs/FEDERATION_HEALTH.md`, then append the execution evidence.
-
-Verified main commit: `c897cc91f046592655506364f197a0b4d2e258ec`
-Verified main tree: `27ddb031801f1815658f90cea6e5fe4dd46543bd`
-Latest segment: `work/construction/segments/0306-repair-nightly-audit-workflows.md`
-Sequence: 306
-Latest segment SHA-256: `9f07204e28e8e5b0f0a6e9004c60ea054a1adebe283330a852f52422d7b3dc79`
+Verified main commit: `2c8ad92536ed345d715fc323aca59e4b1a7f8315`
+Verified main tree: `f5117b5d67cfcc72376c2b080ebbbcf4573d124a`
+Latest segment: `work/construction/segments/0307-verify-bounded-artifact-cleanup.md`
+Sequence: 307
+Latest segment SHA-256: `742a0a185928a2a24a4691742090d385e46c19791f69fc1811cf0419453a04f5`
