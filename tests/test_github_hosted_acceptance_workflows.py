@@ -487,5 +487,6 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "TEST FIXTURE — NOT TELEMETRY" in workflow
     assert "publication_scope_verified" in workflow
     assert 'proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}' in workflow
+    assert "cleanup_errors" in workflow
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
     assert "delete-branch: false" in workflow

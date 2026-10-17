@@ -183,41 +183,65 @@ jobs:
                   "publication_scope_verified": False,
                   "verified": False,
               }
-          if not number:
-              matches = json.loads(subprocess.check_output([
-                  "gh", "api", f"repos/{repository}/pulls?state=all&head={owner}:{branch}&per_page=100"],
-                  text=True))
-              matching = [item for item in matches if item.get("head", {}).get("ref") == branch]
-              number = str(matching[0]["number"]) if len(matching) == 1 else ""
+          errors = []
           closed = False
           merged = False
+          if not number:
+              try:
+                  matches = json.loads(subprocess.check_output([
+                      "gh", "api", f"repos/{repository}/pulls?state=all&head={owner}:{branch}&per_page=100"],
+                      text=True))
+                  matching = [item for item in matches if item.get("head", {}).get("ref") == branch]
+                  if len(matching) == 1:
+                      number = str(matching[0]["number"])
+                  elif len(matching) > 1:
+                      errors.append("fixture_pr_discovery_ambiguous")
+              except Exception as exc:
+                  errors.append(f"fixture_pr_discovery_failed:{type(exc).__name__}:{str(exc)[:300]}")
           if number:
-              pr = json.loads(subprocess.check_output([
-                  "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
-              same_branch = pr.get("head", {}).get("ref") == branch
-              same_repository = pr.get("head", {}).get("repo", {}).get("full_name") == repository
-              if same_branch and same_repository:
-                  subprocess.run(["gh", "api", "--method", "PATCH",
-                                  f"repos/{repository}/pulls/{number}", "-f", "state=closed"],
-                                 check=True, capture_output=True, text=True)
+              try:
                   pr = json.loads(subprocess.check_output([
                       "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
-                  closed = pr.get("state") == "closed"
-                  merged = pr.get("merged") is True or pr.get("merged_at") is not None
+                  same_branch = pr.get("head", {}).get("ref") == branch
+                  same_repository = pr.get("head", {}).get("repo", {}).get("full_name") == repository
+                  if not (same_branch and same_repository):
+                      errors.append("fixture_pr_binding_mismatch")
+                  else:
+                      subprocess.run(["gh", "api", "--method", "PATCH",
+                                      f"repos/{repository}/pulls/{number}", "-f", "state=closed"],
+                                     check=True, capture_output=True, text=True)
+                      pr = json.loads(subprocess.check_output([
+                          "gh", "api", f"repos/{repository}/pulls/{number}"], text=True))
+                      closed = pr.get("state") == "closed"
+                      merged = pr.get("merged") is True or pr.get("merged_at") is not None
+                      if not closed:
+                          errors.append("fixture_pr_close_readback_failed")
+                      if merged:
+                          errors.append("fixture_pr_was_merged")
+              except Exception as exc:
+                  errors.append(f"fixture_pr_close_failed:{type(exc).__name__}:{str(exc)[:300]}")
           ref = f"repos/{repository}/git/ref/heads/{branch}"
-          lookup = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
-          if lookup.returncode == 0:
-              subprocess.run(["gh", "api", "--method", "DELETE", ref],
-                             check=True, capture_output=True, text=True)
-              readback = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
-              branch_deleted = (readback.returncode != 0 and
-                                ("HTTP 404" in readback.stderr or
-                                 "Reference does not exist" in readback.stderr))
-          elif "HTTP 404" in lookup.stderr or "Reference does not exist" in lookup.stderr:
-              branch_deleted = True
-          else:
-              raise SystemExit(f"fixture_branch_lookup_failed: {lookup.stderr.strip()}")
+          try:
+              lookup = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
+              if lookup.returncode == 0:
+                  subprocess.run(["gh", "api", "--method", "DELETE", ref],
+                                 check=True, capture_output=True, text=True)
+                  readback = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
+                  branch_deleted = (readback.returncode != 0 and
+                                    ("HTTP 404" in readback.stderr or
+                                     "Reference does not exist" in readback.stderr))
+              elif "HTTP 404" in lookup.stderr or "Reference does not exist" in lookup.stderr:
+                  branch_deleted = True
+              else:
+                  branch_deleted = False
+                  errors.append(f"fixture_branch_lookup_failed:{lookup.stderr.strip()[:300]}")
+              if not branch_deleted:
+                  errors.append("fixture_branch_removal_readback_failed")
+          except Exception as exc:
+              branch_deleted = False
+              errors.append(f"fixture_branch_cleanup_failed:{type(exc).__name__}:{str(exc)[:300]}")
           proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}
+          proof["cleanup_errors"] = errors
           proof["verified"] = bool(proof.get("publication_scope_verified") and closed and not merged and branch_deleted)
           proof_path.write_text(json.dumps(proof, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(proof, sort_keys=True))
@@ -225,6 +249,12 @@ jobs:
               raise SystemExit("fixture_publication_cleanup_or_scope_unverified")
           PY
       - name: Upload changed-output publication proof
+        if: ${{ always() && inputs.publication_fixture == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: federation-health-publication-fixture-${{ github.run_id }}
+          path: ${{ runner.temp }}/federation-health-fixture-publication.json
+          if-no-files-found: error
         if: ${{ always() && inputs.publication_fixture == true }}
         uses: actions/upload-artifact@v4
         with:
