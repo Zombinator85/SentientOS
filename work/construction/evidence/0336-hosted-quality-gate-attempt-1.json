@@ -1,0 +1,28 @@
+{
+  "acceptance": "The hosted Required Quality Gate failed its exact selected-node phase on the first candidate for sequence 336.",
+  "candidate_commit": "8de961d6b253da31655ca0edec61b6cfe1617fc0",
+  "failure": {
+    "cause": "The positive fixture passed ModelReplacementArtifactStore.root to daemon code that expects the store state root, causing the store path to be nested twice and the preregistered protocol lookup to fail.",
+    "failed_node": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_production_transition_requires_verified_frozen_model_generation_lineage",
+    "result": "transition_model_source_lineage_artifact_unavailable"
+  },
+  "hosted_run": {
+    "artifact_id": "12118358936",
+    "artifact_zip_sha256": "68a150677c10b733992912b477c4ab3e1527aad2a41b668a7095a203655b3eda",
+    "execution_commit": "f54dc0dd84781ec99e1a57b69271f6b00f51f5b5",
+    "execution_tree": "07c1de515f456e64f47807203fcb620cf736cd79",
+    "job_id": "117536009725",
+    "run_id": "39080406014",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 1,
+    "tests_skipped": 0,
+    "strict_administrator_audits": "passed",
+    "strict_immutability": "passed",
+    "selected_node_execution": "failed",
+    "source_commit": "8de961d6b253da31655ca0edec61b6cfe1617fc0"
+  },
+  "recorded_at": "2026-10-17T23:49:01Z",
+  "remediation": "Use the configured artifact store state root consistently in the positive and negative tests. Preserve this failed attempt and obtain a fresh exact-source hosted run.",
+  "schema_version": 1
+}

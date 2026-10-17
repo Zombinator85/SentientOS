@@ -219,7 +219,9 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     store, transition = _source_lineage_fixture(tmp_path, generation_identity=generation_identity)
     with pytest.raises(TransitionError, match="transition_model_source_lineage_references_required"):
         sentientosd._verify_live_resident_transition_source_lineage(_protocol(), tmp_path)
-    bindings = sentientosd._verify_live_resident_transition_source_lineage(transition, store.root)
+    # The daemon configuration carries the artifact store's state root; the
+    # store derives its developmental_experiments/model_replacement child.
+    bindings = sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)
     assert bindings["predecessor_a"]["software_generation_identity"] == generation_identity
     assert bindings["successor_b"]["software_generation_identity"] == generation_identity
     assert bindings["predecessor_a"]["software_generation_posture"] == (
@@ -227,7 +229,7 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
 
     surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
     surfaces._resident_developmental_owner = SimpleNamespace(
-        config=SimpleNamespace(model_replacement_artifact_root=store.root))
+        config=SimpleNamespace(model_replacement_artifact_root=tmp_path))
     surfaces._resident_developmental_configuration_status = "enabled"
     projected = surfaces._resident_model_provenance_bindings(transition.value)
     assert projected["predecessor_a"]["software_generation_identity"] == generation_identity
@@ -254,6 +256,6 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
 
 
 def test_production_transition_rejects_missing_frozen_generation_declaration(tmp_path: Path) -> None:
-    store, transition = _source_lineage_fixture(tmp_path, generation_identity=None)
+    _store, transition = _source_lineage_fixture(tmp_path, generation_identity=None)
     with pytest.raises(TransitionError, match="transition_software_generation_declaration_required"):
-        sentientosd._verify_live_resident_transition_source_lineage(transition, store.root)
+        sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)
