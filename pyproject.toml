@@ -43,7 +43,7 @@ codex = [
     "cryptography>=42,<43",
 ]
 test = ["pytest>=7,<9; python_version < '3.14'", "pytest>=8.4,<9; python_version >= '3.14'", "pytest-cov>=4,<7"]
-dev = ["mypy>=1.5,<2", "types-requests>=2.32", "types-PyYAML", "pip-tools>=7,<8"]
+dev = ["mypy>=1.5,<2", "PyYAML>=6,<7", "types-requests>=2.32", "types-PyYAML", "pip-tools>=7,<8"]
 docs = ["mkdocs>=1.6,<2", "watchdog>=2,<3", "sphinx>=7,<9", "sphinx-autodoc-typehints", "myst-parser", "sphinxawesome-theme", "sphinx-autobuild"]
 web = ["Flask>=2.2,<3", "Flask-SocketIO>=5,<6", "Werkzeug>=2.3,<3", "python-socketio>=5,<6", "python-engineio>=4,<5", "fastapi>=0.110,<1", "uvicorn>=0.23,<1", "streamlit>=1,<2", "python-multipart>=0.0.20"]
 audio = ["pyttsx3>=2,<3", "SpeechRecognition>=3,<4", "sounddevice>=0.4,<1", "pydub>=0.25,<1", "vosk>=0.3,<1", "librosa>=0.10,<1", "playsound>=1,<2", "edge-tts"]
