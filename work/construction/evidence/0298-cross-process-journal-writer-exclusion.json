@@ -1,0 +1,59 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38985300860,
+    "effective_uid": 0,
+    "expected_sha": "1e284215ae8d80262a67e9377c2c5199d5ceac3b",
+    "gate_artifact_id": 12083000749,
+    "gate_artifact_readback_sha256": "9e2422ff2e1fb28aac2dd126cbbc29a983783b852e0b061a288238b99097eccd",
+    "gate_artifact_sha256": "9e2422ff2e1fb28aac2dd126cbbc29a983783b852e0b061a288238b99097eccd",
+    "immutability_ok": true,
+    "invariant_run_id": 38985300827,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38985314172,
+    "source_tree": "9ff2911f599cdcae1988b03f4b628558c449b532",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "local_verification": {
+    "affected_suites": [
+      "sentientos/tests/test_work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_cli.py",
+      "sentientos/tests/test_goal_progress_update.py",
+      "sentientos/tests/test_orchestrator_goal_execution.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_evidence_bounds.py"
+    ],
+    "affected_tests_collected": 57,
+    "affected_tests_failed": 0,
+    "affected_tests_passed": 57,
+    "affected_tests_skipped": 0,
+    "compileall": "passed",
+    "construction_custody": "construction_continuation_custody_ready; 297 segments verified",
+    "diff_check": "passed",
+    "mypy_changed_test_module": "passed"
+  },
+  "next_dependency": "Exercise a process crash inside the real append path after a partial write, proving the kernel releases the lock and recovery preserves and rejects the incomplete bytes without repair.",
+  "predecessor_evidence_sha256": "89d0f64b4217fd36330daf15d291fa85bdd29d1171f4580509b6e115b00ed213",
+  "predecessor_segment_sha256": "44c7be06a612554359a23c5ea88726d868be5202ae1ce533417528ef7a26a957",
+  "remote_blob_readback": "changed test source blob independently read back byte-for-byte; remote branch head, parent, and tree matched the candidate",
+  "remote_branch": "codex/construct-sentientos-298",
+  "remote_source_commit": "1e284215ae8d80262a67e9377c2c5199d5ceac3b",
+  "remote_tree": "9ff2911f599cdcae1988b03f4b628558c449b532",
+  "segment_path": "work/construction/segments/0298-cross-process-journal-writer-exclusion.md",
+  "segment_sha256": "adcb08c7f48961d2c07653deb6e7e325f525790c34eced28791423adadf2633f",
+  "sequence": 298,
+  "source_commit": "06a406ba369710eb5d97d84dfe178608f5a55966",
+  "source_tree": "9ff2911f599cdcae1988b03f4b628558c449b532",
+  "title": "Exclude competing journal writers across processes"
+}
