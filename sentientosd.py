@@ -3055,7 +3055,7 @@ def _load_resident_transition_custody(config_path: str, installation_handle: Any
 
 def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal, *,
         transition_runtime_available: bool) -> str | None:
-    """Return a read-only startup block when journaled transition custody is unresolved."""
+    """Block unreadable, interrupted, or unverifiable transition custody without effects."""
     try:
         entries = journal.entries()
     except Exception as exc:
@@ -3076,8 +3076,10 @@ def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal, 
             quiesced_phase = None
     if quiesced_phase is not None:
         return f"resident_transition_recovery_required:process_local_quiescence_lost:{quiesced_phase}"
-    if (entries and not transition_runtime_available
-            and entries[-1].get("phase") != "experiment_complete"):
+    if entries and not transition_runtime_available:
+        # Journal hashes prove byte-chain integrity, not phase order or subordinate
+        # receipt lineage. Without the configured controller's semantic verifier,
+        # even a terminal phase cannot release cognition from quarantine.
         return ("resident_transition_recovery_required:runtime_unavailable:"
             f"{entries[-1].get('phase')}")
     return None

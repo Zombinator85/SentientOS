@@ -114,6 +114,8 @@ def test_transition_restart_failure_blocks_cognition_while_new_gate_is_open(
 
 def test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate(tmp_path: Path) -> None:
     journal = TransitionJournal(tmp_path / "transition.journal.jsonl")
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=False) is None
     journal.append("a_quiesced", {"token": "prior-process-only"})
     reason = sentientosd._resident_transition_recovery_quarantine_reason(
         journal, transition_runtime_available=False)
@@ -131,7 +133,10 @@ def test_transition_quarantine_reads_canonical_journal_without_reconstructing_ga
         journal, transition_runtime_available=True) is None
     journal.append("experiment_complete", {"completed": True})
     assert sentientosd._resident_transition_recovery_quarantine_reason(
-        journal, transition_runtime_available=False) is None
+        journal, transition_runtime_available=False) == (
+            "resident_transition_recovery_required:runtime_unavailable:experiment_complete")
+    assert sentientosd._resident_transition_recovery_quarantine_reason(
+        journal, transition_runtime_available=True) is None
 
 
 def test_transition_quarantine_rejects_unverifiable_journal_custody(tmp_path: Path) -> None:
