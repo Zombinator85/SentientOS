@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "5ff671ff8d05709e0bdad115069051f29eae66c7109045b4b30170b2597c3a94",
-    "latest_segment_sequence": 321,
-    "latest_segment_sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
-    "source_commit": "d8a692cb646950df9a4bf64e84dd92c26042fc62",
-    "source_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70"
+    "checkpoint_sha256": "695b292b1fd18a3400b642d6466bd560b00a054bbb7e95b782628a92a3539a44",
+    "latest_segment_sequence": 322,
+    "latest_segment_sha256": "d139d1b0aff22e36d2f73559bed78f08a8a8a9f50ff164a3a920cfe4aac68686",
+    "source_commit": "445026af54b83dcc58e8320b0dcb2e1eb4ba2094",
+    "source_tree": "8c4b109fa18838a642ea4514082387edb37698ee"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 321,
+  "latest_sequence": 322,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3453,56 +3453,69 @@
       "source_tree": "f746967996c7a9acbe1c5eeaa9fad96d99dbcf4a"
     },
     {
-      "sequence": 318,
-      "path": "work/construction/segments/0318-verify-scheduled-federation-health-current-main.md",
-      "sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
       "bytes": 2864,
-      "predecessor": "segment-sha256:00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
-      "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
-      "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d",
       "evidence": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
+      "evidence_bytes": 4640,
       "evidence_path": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
       "evidence_sha256": "07498e22874a9d30a574510acb216ce92d871ea3d94fabe1e4d8b8e2c76beec3",
-      "evidence_bytes": 4640
+      "path": "work/construction/segments/0318-verify-scheduled-federation-health-current-main.md",
+      "predecessor": "segment-sha256:00076ce882ac9bc1606cf8ba395ccb8192bbc78af6375bb79b5cbf45919c5518",
+      "sequence": 318,
+      "sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+      "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+      "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d"
     },
     {
-      "sequence": 319,
-      "path": "work/construction/segments/0319-reconcile-architecture-status-and-hosted-docs.md",
-      "sha256": "f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
       "bytes": 4036,
-      "predecessor": "segment-sha256:f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
-      "source_commit": "937f72de75e75b79b630899a2e82d313550946bb",
-      "source_tree": "0449cd43186679ff72806055c849fb6483e94d2a",
       "evidence": "work/construction/evidence/0319-reconcile-architecture-status-and-hosted-docs.json",
+      "evidence_bytes": 6114,
       "evidence_path": "work/construction/evidence/0319-reconcile-architecture-status-and-hosted-docs.json",
       "evidence_sha256": "48683b14972a0ca884ab770f4d32bcb9f5b80e992124d6377d15532555b2d090",
-      "evidence_bytes": 6114
+      "path": "work/construction/segments/0319-reconcile-architecture-status-and-hosted-docs.md",
+      "predecessor": "segment-sha256:f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+      "sequence": 319,
+      "sha256": "f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
+      "source_commit": "937f72de75e75b79b630899a2e82d313550946bb",
+      "source_tree": "0449cd43186679ff72806055c849fb6483e94d2a"
     },
     {
-      "sequence": 320,
-      "path": "work/construction/segments/0320-record-scheduled-federation-health-execution.md",
-      "sha256": "8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
       "bytes": 3271,
-      "predecessor": "segment-sha256:f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
-      "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
-      "source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23",
       "evidence": "work/construction/evidence/0320-record-scheduled-federation-health-execution.json",
+      "evidence_bytes": 4979,
       "evidence_path": "work/construction/evidence/0320-record-scheduled-federation-health-execution.json",
       "evidence_sha256": "192317d2012da7eb2522501962f7aa5503abf72a295723685947bea678ed27da",
-      "evidence_bytes": 4979
+      "path": "work/construction/segments/0320-record-scheduled-federation-health-execution.md",
+      "predecessor": "segment-sha256:f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
+      "sequence": 320,
+      "sha256": "8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
+      "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+      "source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23"
     },
     {
-      "sequence": 321,
-      "path": "work/construction/segments/0321-serialize-resident-transition-operator-across-processes.md",
-      "sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
       "bytes": 3892,
-      "predecessor": "segment-sha256:8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
-      "source_commit": "d8a692cb646950df9a4bf64e84dd92c26042fc62",
-      "source_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70",
       "evidence": "work/construction/evidence/0321-serialize-resident-transition-operator-across-processes.json",
+      "evidence_bytes": 4871,
       "evidence_path": "work/construction/evidence/0321-serialize-resident-transition-operator-across-processes.json",
       "evidence_sha256": "4ef131cdc4827a8a028a3368aef6de573375d7a967becc43c8b6671dca025f4c",
-      "evidence_bytes": 4871
+      "path": "work/construction/segments/0321-serialize-resident-transition-operator-across-processes.md",
+      "predecessor": "segment-sha256:8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
+      "sequence": 321,
+      "sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
+      "source_commit": "d8a692cb646950df9a4bf64e84dd92c26042fc62",
+      "source_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70"
+    },
+    {
+      "bytes": 2590,
+      "evidence": "work/construction/evidence/0322-protect-vow-identity-from-finalizer-cleanup.json",
+      "evidence_bytes": 7340,
+      "evidence_path": "work/construction/evidence/0322-protect-vow-identity-from-finalizer-cleanup.json",
+      "evidence_sha256": "0178d5ad54f0031ea28056c6817e41b3b5e47d71830f68cec89a005808d41c03",
+      "path": "work/construction/segments/0322-protect-vow-identity-from-finalizer-cleanup.md",
+      "predecessor": "segment-sha256:e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
+      "sequence": 322,
+      "sha256": "d139d1b0aff22e36d2f73559bed78f08a8a8a9f50ff164a3a920cfe4aac68686",
+      "source_commit": "445026af54b83dcc58e8320b0dcb2e1eb4ba2094",
+      "source_tree": "8c4b109fa18838a642ea4514082387edb37698ee"
     }
   ],
   "source_acquisition": {

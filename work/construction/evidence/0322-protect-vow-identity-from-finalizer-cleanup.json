@@ -1,0 +1,178 @@
+{
+  "change": {
+    "authority_expansion": false,
+    "finalizer_behavior": "never restores or removes vow content; all vow paths block finalization even if explicitly declared",
+    "identity_recovery": "original salt key remains unrecovered; no replacement or rotation was generated",
+    "matrix_behavior": "includes path and SHA-256 content digest in workspace binding; never copies file content",
+    "production_paths": [
+      "scripts/codex_finalize_landing.py",
+      "scripts/run_work_item_review_packet_matrix.py"
+    ],
+    "protected_prefix": "sentientos_data/vow/**",
+    "source_file_sha256": {
+      "docs/development/vow_cleanup_protection_task_acceptance.json": "4c2b61a1a32fdd22d58cba0138fd028fac402dd61c7e7c7457a30882e9d98722",
+      "scripts/codex_finalize_landing.py": "87df61b9f36fbf324c88fb8c326c38a3b41badcbac107b09501e9a59f43cf85b",
+      "scripts/run_work_item_review_packet_matrix.py": "cec9557d2a4d5482eecd32a1a5e80e6af3c181b669db1f38ef338136191495b8",
+      "tests/test_codex_finalize_landing_script.py": "d1b30b8174f49eb30a80f19dccd8815dbc50c499a4e3d24f125114bbb6618c04",
+      "tests/test_work_item_review_packet_matrix_resume.py": "ffec2c396cfe1c3cccd6b01568b306d8b70e0f02136ccc05db70008136482149"
+    },
+    "task_acceptance_manifest": {
+      "path": "docs/development/vow_cleanup_protection_task_acceptance.json",
+      "sha256": "4c2b61a1a32fdd22d58cba0138fd028fac402dd61c7e7c7457a30882e9d98722",
+      "source_repository_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e"
+    },
+    "test_paths": [
+      "tests/test_codex_finalize_landing_script.py",
+      "tests/test_work_item_review_packet_matrix_resume.py"
+    ]
+  },
+  "local_verification": {
+    "checkout_head": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+    "checkout_tree": "b152d3f309a28f27c6d398acd991592f0ce8ed70",
+    "compileall": "passed for both production scripts and both focused test modules",
+    "focused_acceptance": {
+      "path": "glow/test_runs/provenance/20261017T214057Z_08179763200d_0fa00559d5a7447599c95260973f6389.json",
+      "sha256": "2ce9b4c66c8931aad0715e61f33870b48418811a2ece7c53c9b30accd4a27408",
+      "status": "task_acceptance_ready",
+      "tests_executed": 3,
+      "tests_failed": 0,
+      "tests_passed": 3,
+      "tests_skipped": 0
+    },
+    "git_diff_check": "passed",
+    "targeted_mypy": "passed: scripts/codex_finalize_landing.py, scripts/run_work_item_review_packet_matrix.py",
+    "test_runs": [
+      {
+        "path": "glow/test_runs/provenance/20261017T213831Z_08179763200d_bb8635c815b7404da35857391385db87.json",
+        "sha256": "e1308a042cf39596ed4401bda38e3b5967c1bc84c96c4250a76e0d43ee96e5ea",
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_selected": 58,
+        "tests_skipped": 2,
+        "validation_status": "validation_complete_targeted_nonexecution_rejected"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261017T213844Z_08179763200d_a731711336284bf4aac9cef92d9ff9db.json",
+        "sha256": "e198975d1f008f6677aae55a36e2589b5b1b5ac06f628777f5bb799268958345",
+        "tests_executed": 2,
+        "tests_failed": 0,
+        "tests_passed": 2,
+        "tests_selected": 58,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261017T214013Z_08179763200d_d1abda1804a04e229cf4f01367dfd0f2.json",
+        "sha256": "2247d3f32e22216dec501a4d0266805252de8362f6bae87ac20e9a3b0ece3152",
+        "tests_executed": 2,
+        "tests_failed": 0,
+        "tests_passed": 2,
+        "tests_selected": 58,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261017T214025Z_08179763200d_1f0636dde9e648db830a88ad9aff79b6.json",
+        "sha256": "cd7ae3aa8ecb7aff17b0a671e73095c1dde83726ac3b6770544fef062ea5d7f3",
+        "tests_executed": 40,
+        "tests_failed": 0,
+        "tests_passed": 40,
+        "tests_selected": 58,
+        "tests_skipped": 18,
+        "validation_status": "validation_complete"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261017T214057Z_08179763200d_0fa00559d5a7447599c95260973f6389.json",
+        "sha256": "2ce9b4c66c8931aad0715e61f33870b48418811a2ece7c53c9b30accd4a27408",
+        "tests_executed": 3,
+        "tests_failed": 0,
+        "tests_passed": 3,
+        "tests_selected": 3,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261017T214110Z_08179763200d_a9ebedd9d3d241e0a35bc8929a2a0b3c.json",
+        "sha256": "1e31cec91785e907dd6171bcb79a2040a07096000f7651a3f0700013d698c4a4",
+        "tests_executed": 18,
+        "tests_failed": 0,
+        "tests_passed": 18,
+        "tests_selected": 18,
+        "tests_skipped": 0,
+        "validation_status": "validation_complete"
+      }
+    ],
+    "working_tree_changes_bound_by_sha256": true
+  },
+  "outstanding": {
+    "dependabot_grouped_requirements_file": "repair in next increment without weakening dependency alerts",
+    "federation_changed_output_fixture": "authorized Actions dispatch still required",
+    "identity_key": "original bytes unrecovered; do not silently rotate",
+    "process_generation_termination_no_inflight": "not implemented; restart remains fail-closed",
+    "sequence_178_workspace": "untouched"
+  },
+  "post_merge_main_checks": {
+    "failed_runs": [
+      {
+        "cause": "requirements-extras.txt is custom INI-like groups and invalid as pip requirements; first line [js] rejected",
+        "conclusion": "failure",
+        "id": 39071515030,
+        "name": "Graph Update: pip in /. #1633444890"
+      }
+    ],
+    "scheduled_federation_health_for_this_commit": "not yet observed",
+    "scheduled_nightly_audit_integrity_for_this_commit": "not yet observed",
+    "successful_runs": [
+      {
+        "conclusion": "success",
+        "id": 39071508138,
+        "name": "CI"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508075,
+        "name": "Required Quality Gate"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508052,
+        "name": "Docker Image"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508025,
+        "name": "Invariant Tests"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508056,
+        "name": "Codex CI"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508065,
+        "name": "Docs Deploy"
+      },
+      {
+        "conclusion": "success",
+        "id": 39071508068,
+        "name": "Nightly Self Check"
+      }
+    ]
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0321-serialize-resident-transition-operator-across-processes.json",
+    "segment_path": "work/construction/segments/0321-serialize-resident-transition-operator-across-processes.md",
+    "segment_sha256": "e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab",
+    "sequence": 321
+  },
+  "sequence": 322,
+  "source_main": {
+    "branch": "main",
+    "commit": "445026af54b83dcc58e8320b0dcb2e1eb4ba2094",
+    "tree": "8c4b109fa18838a642ea4514082387edb37698ee",
+    "verified_ref": "refs/heads/main"
+  },
+  "title": "Protect vow identity and user data from finalizer cleanup and omission"
+}

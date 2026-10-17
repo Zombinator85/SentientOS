@@ -165,6 +165,25 @@ def test_resumable_docs_failed_recovery_remains_blocked(
     assert any(item.code == "docs_contract_not_satisfied" for item in verify_lane_contract(report).findings)
 
 
+def test_workspace_binding_tracks_vow_identity_file_content(tmp_path: Path) -> None:
+    from scripts.run_work_item_review_packet_matrix import MatrixCommand, workspace_binding
+    import hashlib
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "source.py").write_text("value = 1\n")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    key = tmp_path / "sentientos_data/vow/keys/salt.key"
+    key.parent.mkdir(parents=True)
+    key.write_bytes(b"preserve-me")
+
+    binding = workspace_binding([MatrixCommand("proof", ("true",))], tmp_path)
+    captured = {item["path"]: item["sha256"] for item in binding["changed_files"]}
+    assert captured["sentientos_data/vow/keys/salt.key"] == hashlib.sha256(b"preserve-me").hexdigest()
+
 def test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding(tmp_path: Path) -> None:
     from scripts.run_work_item_review_packet_matrix import MatrixCommand, workspace_binding
     import subprocess

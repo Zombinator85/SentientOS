@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 321 records cross-process transition request exclusion, local focused verification, and an identity-key cleanup incident. Current main is `d8a692cb646950df9a4bf64e84dd92c26042fc62`, tree `b152d3f309a28f27c6d398acd991592f0ce8ed70`. The tested tree is identical, source commit `08179763200d24c406da2bebb6b5e1ea52f0c65e`. The implementation serializes request admission and receipt across daemon processes without claiming process-death recovery or permitting replay.
+Sequence 322 protects `sentientos_data/vow/**` from automatic finalizer cleanup and includes content digests for those paths in the review-matrix workspace binding. The source main at construction is `445026af54b83dcc58e8320b0dcb2e1eb4ba2094`, tree `8c4b109fa18838a642ea4514082387edb37698ee`. Focused acceptance passed 3/3; the full affected finalizer module passed 40 with 18 legacy-quarantined skips; the full matrix-resume module passed 18/18. Targeted Mypy, compilation, and diff checks passed. Hosted verification of the new PR head is pending.
 
-Sequence 320 records GitHub scheduled Federation Health run 39028288072 on historical main commit `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`, tree `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`. The current main source independently reacquired for this increment is `5f011dc9d14fa872deb0320bb2ed9476c3a9f414`, tree `ffe7dd1edd4873d80ea5af8076b607b6b328d272`. Hosted Administrator preflight and generation passed; the independently downloaded artifact matched GitHub SHA-256 and reported one node, zero recent events, quiet. The least-privilege publisher succeeded and correctly made no PR because output was unchanged. The labeled changed-output fixture remains unexecuted because this session lacks a workflow-dispatch operation and a valid shell GH_TOKEN.
+The earlier incident remains explicit: `sentientos_data/vow/keys/salt.key` was deleted by mistaken cleanup, the original 32 bytes were not recovered, and no replacement key was generated. The new protection prevents future automated cleanup; it does not recover or rotate the key.
 
-Latest verified main at construction: `d8a692cb646950df9a4bf64e84dd92c26042fc62`
-Verified current-main tree: `b152d3f309a28f27c6d398acd991592f0ce8ed70`
-Latest construction segment: `work/construction/segments/0321-serialize-resident-transition-operator-across-processes.md`
-Sequence: 321
-Latest segment SHA-256: `e94062aaed6f4d4774ebb664e5c07419ce7819cccd89f47072402f27a5839fab`
+Post-merge main CI, Required Quality Gate, Docker, invariants, Codex CI, Docs Deploy, and Nightly Self Check succeeded for `445026af54b83dcc58e8320b0dcb2e1eb4ba2094`. Dependabot Graph Update failed on the invalid custom section header `[js]` in `requirements-extras.txt`; this will be addressed separately. A scheduled Federation Health execution for this exact main commit and the next scheduled Nightly Audit Integrity execution remain outstanding.
 
-Identity incident: the exact 32-byte default PII hashing salt at `sentientos_data/vow/keys/salt.key` was deleted by a mistaken finalizer cleanup classification and remains unrecovered; no replacement was generated.
+Latest verified main at construction: `445026af54b83dcc58e8320b0dcb2e1eb4ba2094`
+Verified main tree: `8c4b109fa18838a642ea4514082387edb37698ee`
+Latest construction segment: `work/construction/segments/0322-protect-vow-identity-from-finalizer-cleanup.md`
+Sequence: 322
+Latest segment SHA-256: `d139d1b0aff22e36d2f73559bed78f08a8a8a9f50ff164a3a920cfe4aac68686`
 
-Next architectural dependency: independently attributable process-generation termination and no-inflight evidence for resident transition recovery, preserving fail-closed restart and no stage replay. Production A→B→A still requires exact commissioned identities, receipts, setup, and operator approval. Sequence 286 still has nine known and one unidentified unrecoverable payloads. The stale sequence-178 workspace remains untouched.
+Next architectural dependency: independently attributable process-generation termination and no-inflight proof for resident transition recovery. The Federation Health changed-output fixture still requires an authorized Actions dispatch. Sequence 286 retains nine known and one unidentified unrecoverable payloads. The stale sequence-178 workspace remains untouched.

@@ -1,0 +1,199 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree": 0,
+    "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 18,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_12bd73b0bc624ce88f4bf3cc2edaa6fa.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "9ffc765770dd8703d1de1f0e495d36af23343608c507ca2515f29355dc4f15ea",
+  "provenance_hash": "793b2b19874c1600d99bfe02afb6416a87a06768d590f05dfe6a6bbcac4c92a8",
+  "pytest_args": [
+    "tests/test_work_item_review_packet_matrix_resume.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-transition-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-transition-recovery",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "0abcfea6019f4a20b07da62a5619e286",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stdout-DIRECT_STDOUT_MARKER]",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio[stderr-DIRECT_STDERR_MARKER]",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_true_direct_timeout_retains_partial_output_and_reaps_tree",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_skips_exact_completed_lanes",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_progress_and_checkpoint_name_active_lane",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_completed_passing_matrix_reuses_without_execution",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_failed_required_lane_cannot_be_relabelled_passed",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_present_satisfies_lane_contract",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_bootstrap]",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_resumable_docs_failed_recovery_remains_blocked[docs_check_deps_recheck]",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding"
+  ],
+  "selection_flags": [
+    "tests/test_work_item_review_packet_matrix_resume.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 18,
+  "tests_executed": 18,
+  "tests_failed": 0,
+  "tests_passed": 18,
+  "tests_selected": 18,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-17T21:41:10.996488+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
