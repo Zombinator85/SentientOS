@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "30fdff92937847b35e69fea8141272f8e8566186e7abdb02fcb166d16d0d0fcb",
-    "latest_segment_sequence": 319,
-    "latest_segment_sha256": "f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
-    "source_commit": "937f72de75e75b79b630899a2e82d313550946bb",
-    "source_tree": "0449cd43186679ff72806055c849fb6483e94d2a"
+    "checkpoint_sha256": "9fa5df969729f473af663d7b1e4f51c53a590947d0cab20bb99ccd9c8a36fc70",
+    "latest_segment_sequence": 320,
+    "latest_segment_sha256": "8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
+    "source_commit": "5f011dc9d14fa872deb0320bb2ed9476c3a9f414",
+    "source_tree": "ffe7dd1edd4873d80ea5af8076b607b6b328d272"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 319,
+  "latest_sequence": 320,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3477,6 +3477,19 @@
       "evidence_path": "work/construction/evidence/0319-reconcile-architecture-status-and-hosted-docs.json",
       "evidence_sha256": "48683b14972a0ca884ab770f4d32bcb9f5b80e992124d6377d15532555b2d090",
       "evidence_bytes": 6114
+    },
+    {
+      "sequence": 320,
+      "path": "work/construction/segments/0320-record-scheduled-federation-health-execution.md",
+      "sha256": "8c50e6cc489fb27d7e7183324ca376f017d352a1463924bedaa950c9a205022f",
+      "bytes": 3271,
+      "predecessor": "segment-sha256:f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
+      "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+      "source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23",
+      "evidence": "work/construction/evidence/0320-record-scheduled-federation-health-execution.json",
+      "evidence_path": "work/construction/evidence/0320-record-scheduled-federation-health-execution.json",
+      "evidence_sha256": "192317d2012da7eb2522501962f7aa5503abf72a295723685947bea678ed27da",
+      "evidence_bytes": 4979
     }
   ],
   "source_acquisition": {
