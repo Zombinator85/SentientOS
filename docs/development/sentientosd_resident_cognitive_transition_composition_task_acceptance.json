@@ -19,9 +19,14 @@
     {
       "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token",
       "rationale": "A process restart cannot reconstruct an old process-local live quiescence token."
+    },
+    {
+      "node_id": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate",
+      "rationale": "An empty journal without a transition runtime keeps cognition available, but every non-empty journal remains quarantined unless the configured runtime can semantically verify stage order and subordinate evidence, including a terminal phase."
     }
   ],
   "successful_path_nodes": [
-    "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_actual_daemon_composition_helper_rehearsal_uses_same_live_objects"
+    "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_actual_daemon_composition_helper_rehearsal_uses_same_live_objects",
+    "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate"
   ]
 }
