@@ -80,30 +80,40 @@ def test_nightly_self_check_installs_canonical_test_dependencies() -> None:
     parsed = yaml.safe_load(workflow)
     assert "jobs" in parsed
 
-def test_nightly_audit_repair_uses_safe_plan_apply_and_pr_scoped_write_access() -> None:
+def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access() -> None:
     workflow = (ROOT / ".github/workflows/audit-nightly.yml").read_text()
-    assert "permissions:\n  contents: write\n  pull-requests: write" in workflow
+    assert "permissions:\n  contents: read" in workflow
     assert "issues: write" not in workflow and "actions: write" not in workflow
-    initial = workflow.split("- name: Verify audits before repair", 1)[1].split("- name:", 1)[0]
-    repair = workflow.split("- name: Plan and apply safe audit repairs", 1)[1].split("- name:", 1)[0]
-    after = workflow.split("- name: Verify audits after repair", 1)[1].split("- name:", 1)[0]
-    stage = workflow.split("- name: Stage append-only repair evidence", 1)[1].split("- name:", 1)[0]
+    audit = workflow.split("  audit:", 1)[1].split("\n  repair:", 1)[0]
+    repair_job = workflow.split("  repair:", 1)[1]
+    initial = audit.split("- name: Verify audits before repair", 1)[1].split("- name:", 1)[0]
+    repair = repair_job.split("- name: Plan and apply safe audit repairs", 1)[1].split("- name:", 1)[0]
+    after = repair_job.split("- name: Verify audits after repair", 1)[1].split("- name:", 1)[0]
+    stage = repair_job.split("- name: Stage append-only repair evidence", 1)[1].split("- name:", 1)[0]
+    assert "permissions:\n      contents: read" in audit
+    assert "outputs:\n      status: ${{ steps.initial.outputs.status }}" in audit
+    assert "permissions:\n      contents: write\n      pull-requests: write" in repair_job
+    import yaml
+    parsed = yaml.safe_load(workflow)
+    assert parsed["jobs"]["audit"]["permissions"] == {"contents": "read"}
+    assert parsed["jobs"]["repair"]["permissions"] == {"contents": "write", "pull-requests": "write"}
+    assert "if: needs.audit.outputs.status != '0'" in repair_job
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in initial
-    assert "sudo -n env" in initial and "continue-on-error: true" in initial
+    assert "sudo -n env" in initial
     assert "python -m scripts.plan_audit_repairs logs/ --output \"$plan\"" in repair
     assert "python -m scripts.apply_audit_repairs --plan \"$plan\" --output \"$result\" --apply" in repair
     assert repair.count("sudo -n env") == 2
-    assert "GITHUB_RUN_ID" in repair and "if: steps.initial.outputs.status != '0'" in repair
+    assert "GITHUB_RUN_ID" in repair
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in after
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in after
     assert "repair_receipts.jsonl" in stage and "quarantine_index.jsonl" in stage
     assert "git diff --cached --quiet -- logs/" in stage
-    assert "id: publish" in workflow
-    assert "steps.publish.outcome == 'success'" in workflow
+    assert "id: publish" in repair_job
+    assert "steps.publish.outcome == 'success'" in repair_job
     assert "--auto-repair" not in workflow
-    assert "github.rest.repos.get(context.repo)" in workflow
-    assert "base: repository.default_branch" in workflow
-    assert "if: always() && steps.initial.outputs.status != '0'" in workflow
+    assert "github.rest.repos.get(context.repo)" in repair_job
+    assert "base: repository.default_branch" in repair_job
+    assert "if: always() && (steps.final.outputs.status != '0'" in repair_job
 
 
 def test_required_quality_gate_name_is_unique():
