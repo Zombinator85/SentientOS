@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 309 records the post-merge Federation Health and Nightly Self Check executions on `main` at `edbfd0e504adf7d72c2e7360a50cc30c9a0511a6`, tree `1830631e2a231eaec3ce3d06c9569058fa156c9f`. PR #2303 was merged regularly and preserved the branch history.
+Sequence 310 records the first scheduled Federation Health execution on the verified merged main source. GitHub run `39028288072` completed successfully on event `schedule` at `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`, tree `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`. The hosted Administrator preflight, privileged generator, and dependent publisher all succeeded. The report was one node, zero recent events, quiet. Artifact `12098768757` downloaded independently at 223 bytes; its archive SHA-256 matched `e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475`. Its sole report matched current main byte-for-byte, so no PR operation was needed. This closes actual scheduled execution evidence but does not test a changed-output PR.
 
-Federation Health main push run `39016122382` completed successfully: its read-only Administrator health job reported one node, zero recent events, and quiet status, then uploaded artifact `12094408338` (223 bytes, SHA-256 `c053ac35b150ab573083cbb15fc9742b3746726497ad10a33523363d63f37ad3`). The publisher also completed but found no report diff. This is actual post-merge execution evidence; the next scheduled run remains unobserved, and the no-diff run did not exercise PR publication for changed output.
+The publisher remains least-privilege: the health job is read-only; only the publisher has contents/PR write permission and is path-limited to `docs/FEDERATION_HEALTH.md`. The workflow supports manual dispatch, but this GitHub connection has no dispatch operation. No test telemetry was fabricated.
 
-Nightly Audit main push run `39014286210` passed with strict Administrator verification and conditional write authority for repairs. The corrective Nightly Self Check run `39017346014` passed audit verification, privilege lint, Mypy, pytest airlock, and full pytest: 143 passed, 13 skipped, zero failed. PR #2302 had fixed the governor-root leak but its post-merge run still failed (38 failed, 99 passed, 13 skipped, 6 errors) because the import-time federation controller retained `/glow/federation`. PR #2303 isolated both roots and reset the controller per test without changing production code, test selection, or authority requirements.
+Resident A→B→A machinery is already composed and synthetically rehearsed; production temporal evidence remains absent. A useful implementable dependency is fail-closed process-death quiescence resolution that cannot recreate a gate token or replay an unresolved stage. This requires careful source-level validation.
 
-PR #2303's Required Quality Gate, full CI, invariants, Docker, lint, release, Gradient null regression, and Codex CI all passed. After merge, main Required Quality Gate, CI, invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed. Forge Smoke was skipped by configured conditions.
+Sequence 286's nine known and one unidentified unrecoverable payloads remain unresolved. The stale sequence-178 workspace remains untouched.
 
-The next dependency is to observe the next scheduled Federation Health run and, if it produces a changed report, verify the publisher's authorized least-privilege PR path. The Actions setting for PR creation remains relevant only if the publisher must open a PR. Sequence 286's nine known and one unidentified unrecoverable payloads remain unchanged.
-
-Verified main commit: `edbfd0e504adf7d72c2e7360a50cc30c9a0511a6`
-Verified main tree: `1830631e2a231eaec3ce3d06c9569058fa156c9f`
-Latest segment: `work/construction/segments/0309-verify-post-merge-nightlies.md`
-Sequence: 309
-Latest segment SHA-256: `7afc163d3585ca5e9726f77ac14c3cd7cbf47cdfe533cd4717b483987cd30068`
+Verified source commit: `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`
+Verified source tree: `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`
+Latest segment: `work/construction/segments/0310-verify-scheduled-federation-health.md`
+Sequence: 310
+Latest segment SHA-256: `9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76`
