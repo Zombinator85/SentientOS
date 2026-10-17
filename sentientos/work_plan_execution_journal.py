@@ -256,7 +256,6 @@ class WorkPlanExecutionJournal:
     def _append(self, task_id: str, event: str, status: str | None,
             reason: str | None, task_result: dict[str, Any] | None,
             *, attempt: int | None = None) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         schema_version = 3 if event == "retry_started" else 2
         semantic: dict[str, Any] = {"schema_version": schema_version,
             "sequence": self._sequence + 1, "plan_id": self.plan_id,
