@@ -22,6 +22,12 @@ def _plan() -> WorkPlan:
         Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
 
 
+def _two_task_plan() -> WorkPlan:
+    return WorkPlan(1, "journal-crash-plan", "2026-01-01T00:00:00Z", "manual", ("g1",), (
+        Task(1, "g1:one", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        Task(1, "g1:two", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
+
+
 def _start_journal_after_process_barrier(
         root: str, task_id: str, ready: Any, release: Any, outcomes: Any) -> None:
     plan = WorkPlan(1, "cross-process-journal-plan", "2026-01-01T00:00:00Z", "manual",
@@ -39,6 +45,21 @@ def _start_journal_after_process_barrier(
         outcomes.put("written")
     except WorkPlanJournalError as exc:
         outcomes.put(str(exc))
+
+
+def _crash_during_journal_append(root: str, ready: Any) -> None:
+    journal = WorkPlanExecutionJournal(Path(root), _two_task_plan())
+    write = os.write
+
+    def write_prefix_then_exit(descriptor: int, data: bytes) -> int:
+        written = write(descriptor, data[:max(1, len(data) // 2)])
+        ready.set()
+        os._exit(73)
+        return written
+
+    setattr(os, "write", write_prefix_then_exit)
+    journal.start("g1:two")
+    os._exit(74)
 
 
 def test_journal_binds_task_events_to_exact_plan_identity(tmp_path: Path) -> None:
@@ -229,6 +250,37 @@ def test_cross_process_writers_cannot_fork_journal_hash_chain(tmp_path: Path) ->
     assert sum(recovered.state(task_id) == "interrupted"
         for task_id in ("g1:one", "g1:two")) == 1
     assert len(recovered.path.read_text(encoding="utf-8").splitlines()) == 1
+
+
+@pytest.mark.skipif(os.name != "posix", reason="journal locking uses POSIX flock")
+def test_process_crash_during_append_preserves_partial_record_and_releases_lock(
+        tmp_path: Path) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _two_task_plan())
+    journal.start("g1:one")
+    valid_prefix = journal.path.read_bytes()
+    context = multiprocessing.get_context("fork")
+    partial_write_started = context.Event()
+    process = context.Process(target=_crash_during_journal_append,
+        args=(str(tmp_path), partial_write_started))
+
+    process.start()
+    try:
+        assert partial_write_started.wait(timeout=10)
+        process.join(timeout=10)
+
+        assert process.exitcode == 73
+        interrupted_bytes = journal.path.read_bytes()
+        assert interrupted_bytes.startswith(valid_prefix)
+        assert len(interrupted_bytes) > len(valid_prefix)
+        assert not interrupted_bytes.endswith(b"\n")
+
+        with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
+            WorkPlanExecutionJournal(tmp_path, _two_task_plan())
+        assert journal.path.read_bytes() == interrupted_bytes
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
 
 
 def test_incomplete_final_record_is_preserved_and_never_repaired(tmp_path: Path) -> None:
