@@ -1,0 +1,96 @@
+{
+  "sequence": 311,
+  "title": "Bind resident transition receipts to daemon-owned lineage",
+  "source": {
+    "branch": "main",
+    "commit": "2297e3bf01e9f6e94e8acbdb94f1c3f1114711ff",
+    "tree": "9bf16d52ddc0f30762299b43e6b1fa8eb7244645"
+  },
+  "predecessor": {
+    "sequence": 310,
+    "segment_path": "work/construction/segments/0310-verify-scheduled-federation-health.md",
+    "segment_sha256": "9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
+    "evidence_path": "work/construction/evidence/0310-verify-scheduled-federation-health.json",
+    "evidence_sha256": "d43518b95cdc86586dcc849f7411e565d1e0c95d62aa68469fa7af591fabb3d1"
+  },
+  "pull_request": {
+    "number": 2306,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2306",
+    "merge_commit": "2297e3bf01e9f6e94e8acbdb94f1c3f1114711ff",
+    "merge_method": "merge",
+    "preserved_commits": [
+      "83ceab3db10cb94098fcc934a45031082444d8ac",
+      "f341bd52b39346f185565cd13e825ff480e74ca8",
+      "80c088b12a8407dffdd362b0a6bb860ff8eb2a9b"
+    ]
+  },
+  "capabilities": {
+    "exact_session_and_inference_receipt_linkage": true,
+    "persisted_invocation_receipt_revalidated": true,
+    "synthetic_daemon_owned_a_to_b_to_a": true,
+    "production_transition_performed": false
+  },
+  "checks": {
+    "required_quality_gate": {
+      "run": 39046608810,
+      "conclusion": "success",
+      "administrator_audit": true,
+      "finalizer": true
+    },
+    "ci": {
+      "run": 39046608832,
+      "conclusion": "success"
+    },
+    "lint": {
+      "run": 39046608817,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run": 39046608833,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39046608839,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39046608842,
+      "conclusion": "success"
+    },
+    "release": {
+      "run": 39046608821,
+      "conclusion": "success"
+    },
+    "gradient": {
+      "run": 39046608871,
+      "conclusion": "success"
+    },
+    "post_merge": {
+      "ci": 39046917033,
+      "quality_gate": 39046916996,
+      "docs_deploy": 39046916983,
+      "invariants": 39046916978,
+      "cpu_build": 39046916971,
+      "docker_build": 39046916970,
+      "conclusion": "success"
+    }
+  },
+  "limitations": {
+    "local_broad_pytest": "stalled in sandbox FastAPI/AnyIO; not counted as a pass",
+    "production_a_to_b_to_a": "not established",
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0311-bind-resident-transition-receipts.md",
+  "predecessor_sha256": "9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39046917215,
+    "conclusion": "failure",
+    "cause": "403 Resource not accessible by integration when posting a nonessential comment",
+    "required": false,
+    "permission_added": false
+  }
+}

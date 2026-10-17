@@ -1,0 +1,112 @@
+{
+  "sequence": 313,
+  "title": "Quarantine daemon cognition after unresolved transition recovery",
+  "source": {
+    "branch": "main",
+    "commit": "79641a494f763e10de28f7f3ea67d51b2163fcfc",
+    "tree": "74f9afb946573ab7f240f5a3a2c54f998545ecf1"
+  },
+  "predecessor": {
+    "sequence": 312,
+    "segment_path": "work/construction/segments/0312-controlled-federation-health-publication-fixture.md",
+    "segment_sha256": "e6a061e8e96532f9f907a61aba2af6194e1dfea23a0f1843d38673624e9b497",
+    "evidence_path": "work/construction/evidence/0312-controlled-federation-health-publication-fixture.json",
+    "evidence_sha256": "1abe45a753ac43c0e0cf9007914bbd8aca803fe8365a4831063fa4b81f977b18"
+  },
+  "pull_request": {
+    "number": 2308,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2308",
+    "merge_commit": "79641a494f763e10de28f7f3ea67d51b2163fcfc",
+    "merge_method": "merge",
+    "candidate": "0eb9fad9b60eba5fa67e5c17f133ac05a7da5560",
+    "tree": "74f9afb946573ab7f240f5a3a2c54f998545ecf1"
+  },
+  "behavior": {
+    "restart_has_no_gate_token": true,
+    "reads_canonical_journal": true,
+    "unresolved_composition_or_recovery_blocks_resident_cognition": true,
+    "reconstruct_gate_token": false,
+    "rewrite_journal": false,
+    "replay_stage": false,
+    "grant_effect_authority": false
+  },
+  "acceptance": {
+    "test": "test_transition_quarantine_reads_canonical_journal_without_reconstructing_gate",
+    "local_exact_source_compilation": "passed",
+    "focused_local_tests": "passed"
+  },
+  "checks": {
+    "quality_gate": {
+      "run": 39048736004,
+      "conclusion": "success",
+      "administrator_strict_audits": true,
+      "finalizer": true
+    },
+    "ci": {
+      "run": 39048735988,
+      "conclusion": "success",
+      "attempt": 2
+    },
+    "ci_superseded": {
+      "run": 39048735988,
+      "conclusion": "failure",
+      "attempt": 1,
+      "cause": "chat_process_runtime_handoff_child_not_running in local-model subprocess test"
+    },
+    "same_sha_push_ci": {
+      "run": 39048732778,
+      "source_validation": "success"
+    },
+    "lint": {
+      "run": 39048736001,
+      "conclusion": "success"
+    },
+    "docker": {
+      "run": 39048735965,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39048735966,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39048736040,
+      "conclusion": "success"
+    },
+    "release": {
+      "run": 39048735972,
+      "conclusion": "success"
+    },
+    "gradient": {
+      "run": 39048736011,
+      "conclusion": "success"
+    },
+    "post_merge": {
+      "ci": 39049283701,
+      "quality_gate": 39049283733,
+      "invariants": 39049283750,
+      "docker": 39049283721,
+      "codex_ci": 39049283728,
+      "docs_deploy": 39049283705,
+      "conclusion": "success"
+    }
+  },
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39049283975,
+    "conclusion": "failure",
+    "cause": "403 Resource not accessible by integration while posting a nonessential PR comment",
+    "required": false,
+    "additional_write_permission_added": false
+  },
+  "limitations": {
+    "local_checkout": "clone blocked by unavailable configured proxy; exact source file/module compilation and extracted fail-closed helper smoke passed",
+    "production_temporal_a_to_b_to_a": "not established",
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0313-quarantine-transition-restart.md",
+  "predecessor_segment_sha256": "e6a061e8e96532f9f907a61aba2af6194e1dfea23a0f1843d38673624e9b497"
+}

@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 310 records the first scheduled Federation Health execution on the verified merged main source. GitHub run `39028288072` completed successfully on event `schedule` at `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`, tree `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`. The hosted Administrator preflight, privileged generator, and dependent publisher all succeeded. The report was one node, zero recent events, quiet. Artifact `12098768757` downloaded independently at 223 bytes; its archive SHA-256 matched `e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475`. Its sole report matched current main byte-for-byte, so no PR operation was needed. This closes actual scheduled execution evidence but does not test a changed-output PR.
+Sequences 311–312 record daemon-owned synthetic resident A→B→A receipt lineage and a safe, explicitly nontelemetry Federation Health changed-output publisher fixture. The fixture is implemented and guarded by readback, but has not been dispatched: the connected GitHub interface exposes no workflow-dispatch operation. The actual scheduled run 39028288072 remains the independently verified no-change production report recorded in sequence 310.
 
-The publisher remains least-privilege: the health job is read-only; only the publisher has contents/PR write permission and is path-limited to `docs/FEDERATION_HEALTH.md`. The workflow supports manual dispatch, but this GitHub connection has no dispatch operation. No test telemetry was fabricated.
+Sequences 313–314 harden daemon restart recovery. Unresolved transition composition/recovery now quarantines resident cognition without reconstructing the process-local gate token, mutating the canonical journal, replaying a stage, or granting authority. A nonempty journal also requires semantic verification even if its final hash-valid entry is labeled experiment_complete; syntactic/hash-chain validity alone is insufficient. Sequence 314’s full post-merge hosted CI passed, including the integrated resource-to-cognition lifecycle, exact acceptance nodes, canonical planning/execution separation, self-check, docs, and Helm integration.
 
-Resident A→B→A machinery is already composed and synthetically rehearsed; production temporal evidence remains absent. A useful implementable dependency is fail-closed process-death quiescence resolution that cannot recreate a gate token or replay an unresolved stage. This requires careful source-level validation.
+Verified latest main: 7caec8b045e9f218c21ec421f87a9e2d4d71f028
+Verified source tree: e6d9aeed8bce279d570d3d0dba2e2075ae844be4
+Latest construction segment: work/construction/segments/0314-semantic-transition-quarantine.md
+Sequence: 314
+Latest segment SHA-256: ff695a38055d95382db60306cc36095bf539d6e6154419784877936fdcc9fc28
 
-Sequence 286's nine known and one unidentified unrecoverable payloads remain unresolved. The stale sequence-178 workspace remains untouched.
+Remaining: execute the controlled Federation Health workflow_dispatch fixture through the Actions UI and verify PR scope/readback/cleanup; commission an operator-approved production A→B→A protocol before any production model run. Next engineering dependency: inspect durable transition/gate receipt semantics for safe classification of interrupted stages before defining any reconciliation action. Do not replay or resolve an uncertain stage automatically.
 
-Verified source commit: `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`
-Verified source tree: `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`
-Latest segment: `work/construction/segments/0310-verify-scheduled-federation-health.md`
-Sequence: 310
-Latest segment SHA-256: `9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76`
+Sequence 286’s nine known and one unidentified unrecoverable payloads remain unresolved. The stale sequence-178 workspace remains untouched.

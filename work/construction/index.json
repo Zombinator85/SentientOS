@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7f7584600415d6947968d080893c2509d52d4ea9e7f748519ae5e3e31d8c4919",
-    "latest_segment_sequence": 310,
-    "latest_segment_sha256": "9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
-    "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
-    "source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23"
+    "checkpoint_sha256": "6bfd8dbf8b9a40eb0f7c6f51f267fc6414bd1e1b5da1e9318b41ef74253b40b6",
+    "latest_segment_sequence": 314,
+    "latest_segment_sha256": "ff695a38055d95382db60306cc36095bf539d6e6154419784877936fdcc9fc28",
+    "source_commit": "7caec8b045e9f218c21ec421f87a9e2d4d71f028",
+    "source_tree": "e6d9aeed8bce279d570d3d0dba2e2075ae844be4"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 310,
+  "latest_sequence": 314,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3360,6 +3360,58 @@
       "sha256": "9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
       "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
       "source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23"
+    },
+    {
+      "bytes": 2662,
+      "evidence": "work/construction/evidence/0311-bind-resident-transition-receipts.json",
+      "evidence_bytes": 3017,
+      "evidence_path": "work/construction/evidence/0311-bind-resident-transition-receipts.json",
+      "evidence_sha256": "22fb87ef6e365ab46d9b6723272a16bc69ac9ea4641e95a659e4277268f58a93",
+      "path": "work/construction/segments/0311-bind-resident-transition-receipts.md",
+      "predecessor": "segment-sha256:9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
+      "sequence": 311,
+      "sha256": "56acc2e12b29f1d326172c61080fc69f04b785e9268e5916fb2e48e55218a4b3",
+      "source_commit": "2297e3bf01e9f6e94e8acbdb94f1c3f1114711ff",
+      "source_tree": "9bf16d52ddc0f30762299b43e6b1fa8eb7244645"
+    },
+    {
+      "bytes": 3197,
+      "evidence": "work/construction/evidence/0312-controlled-federation-health-publication-fixture.json",
+      "evidence_bytes": 4294,
+      "evidence_path": "work/construction/evidence/0312-controlled-federation-health-publication-fixture.json",
+      "evidence_sha256": "1abe45a753ac43c0e0cf9007914bbd8aca803fe8365a4831063fa4b81f977b18",
+      "path": "work/construction/segments/0312-controlled-federation-health-publication-fixture.md",
+      "predecessor": "segment-sha256:56acc2e12b29f1d326172c61080fc69f04b785e9268e5916fb2e48e55218a4b3",
+      "sequence": 312,
+      "sha256": "e6a061e8e96532f9f907a61aba2af6194e8d1fea23a0f1843d38673624e9b497",
+      "source_commit": "ef64fc693ec2c20bda2f0a68a6ad249c8e3db88d",
+      "source_tree": "e675499dfd9f94c21fffeee1b309b29d8ce2da9a"
+    },
+    {
+      "bytes": 1411,
+      "evidence": "work/construction/evidence/0313-quarantine-transition-restart.json",
+      "evidence_bytes": 3671,
+      "evidence_path": "work/construction/evidence/0313-quarantine-transition-restart.json",
+      "evidence_sha256": "7f0ef3d09a708b9ef31946594a2d2dafdfed07c8d606217b8f4804c2875a97f3",
+      "path": "work/construction/segments/0313-quarantine-transition-restart.md",
+      "predecessor": "segment-sha256:e6a061e8e96532f9f907a61aba2af6194e8d1fea23a0f1843d38673624e9b497",
+      "sequence": 313,
+      "sha256": "7dafefe6b0be3da2877760d0ce12b9fd79f69fb6abc0a67d1b877952a21b59f4",
+      "source_commit": "79641a494f763e10de28f7f3ea67d51b2163fcfc",
+      "source_tree": "74f9afb946573ab7f240f5a3a2c54f998545ecf1"
+    },
+    {
+      "bytes": 1579,
+      "evidence": "work/construction/evidence/0314-semantic-transition-quarantine.json",
+      "evidence_bytes": 3741,
+      "evidence_path": "work/construction/evidence/0314-semantic-transition-quarantine.json",
+      "evidence_sha256": "f0d77b785e2476797eef490ab37642ce2dca0722ba16f0426dd331aea7384324",
+      "path": "work/construction/segments/0314-semantic-transition-quarantine.md",
+      "predecessor": "segment-sha256:7dafefe6b0be3da2877760d0ce12b9fd79f69fb6abc0a67d1b877952a21b59f4",
+      "sequence": 314,
+      "sha256": "ff695a38055d95382db60306cc36095bf539d6e6154419784877936fdcc9fc28",
+      "source_commit": "7caec8b045e9f218c21ec421f87a9e2d4d71f028",
+      "source_tree": "e6d9aeed8bce279d570d3d0dba2e2075ae844be4"
     }
   ],
   "source_acquisition": {
