@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8a2ab13333574d9112442ef826351596077f267a",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+      "rationale": "Recovery under an occupied PID is allowed only when the observed Linux process start time proves the recorded child generation ended."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live",
+      "rationale": "A matching start-time generation remains blocked even if the independent PID-presence observer reports absence."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation"
+  ]
+}

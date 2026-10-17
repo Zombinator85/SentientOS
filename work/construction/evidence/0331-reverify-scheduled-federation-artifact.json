@@ -1,0 +1,97 @@
+{
+  "artifact": {
+    "artifact_id": 12098768757,
+    "content": {
+      "path": "FEDERATION_HEALTH.md",
+      "bytes": 67,
+      "sha256": "375ec94f40ce69a229b2a500597aebbaee31fa0e2c12056faee33779b215c24c",
+      "text": "# Federation Health\n\n- Nodes: 1\n- Recent events: 0\n- Status: quiet\n"
+    },
+    "downloaded_zip_bytes": 223,
+    "downloaded_zip_sha256": "e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475",
+    "github_sha256": "e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475",
+    "sha256_match": true
+  },
+  "jobs": {
+    "health": {
+      "job_id": 117383520775,
+      "conclusion": "success",
+      "administrator_preflight": "sudo -n id -u succeeded",
+      "generator": "success",
+      "output": {
+        "nodes": 1,
+        "recent": 0,
+        "status": "quiet"
+      }
+    },
+    "publish": {
+      "job_id": 117383560348,
+      "conclusion": "success",
+      "artifact_readback": "exact artifact downloaded",
+      "allowlisted_path": "docs/FEDERATION_HEALTH.md",
+      "pull_request_operation": "none",
+      "reason": "report matched main"
+    }
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0330-bind-workflow-continuation-contract.json",
+    "evidence_sha256": "614197bf2116d54ff00d10d5a0628f45dd17c5a29a5019c9107960f459cbf5b9",
+    "segment_path": "work/construction/segments/0330-bind-workflow-continuation-contract.md",
+    "segment_sha256": "31e94f1bd5a46d7a31d58ead8463c9ffb180e69187f6c90a1fca769e4148b7f4",
+    "sequence": 330
+  },
+  "restrictions": {
+    "changed_output_fixture_dispatched": false,
+    "production_telemetry_fabricated": false,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 331,
+  "source": {
+    "acquisition": "fresh GitHub run, job log, artifact metadata, and artifact download readback",
+    "current_main_commit": "8a2ab13333574d9112442ef826351596077f267a",
+    "current_main_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "ef3853cde235d653ac4972f4d4b4e12880b00235",
+    "tree": "7853ede9322cb13a76cf0b84d86388e2baf7abe6"
+  },
+  "title": "Independently reverify scheduled Federation Health artifact",
+  "verification": {
+    "api_run_event": "schedule",
+    "api_run_conclusion": "success",
+    "api_source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+    "api_source_tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23",
+    "artifact_digest_match": true,
+    "publisher_noop_verified": true,
+    "changed_output_publication_verified": false,
+    "current_main_scheduled_execution_verified": false,
+    "resident_recovery_ready_to_merge": false,
+    "latest_pr_title": "[codex:construction] reverify federation and bind hosted acceptance (331)"
+  },
+  "limitations": {
+    "workflow_dispatch_tool_available": false,
+    "operator_dispatch_request": "pending",
+    "production_a_to_b_to_a": "not executed; requires exact commissioned identities, setup, receipts, and operator-approved protocol"
+  },
+  "resident_recovery_candidate": {
+    "commit": "ef3853cde235d653ac4972f4d4b4e12880b00235",
+    "tree": "7853ede9322cb13a76cf0b84d86388e2baf7abe6",
+    "required_quality_gate_run_id": 39076267699,
+    "strict_administrator_audit": "passed",
+    "exact_26_node_call_phase": "passed",
+    "acceptance_binding": "passed",
+    "landing_finalizer": "failed",
+    "finalizer_reason": "PR event contained stale sequence-328 title, which differed from candidate commit title",
+    "post_failure_pr_title_updated_before_sequence_331_branch_update": true,
+    "checks": {
+      "invariant": "passed",
+      "release": "passed",
+      "codex_ci": "passed",
+      "gradient_null_regression": "passed",
+      "docker": "in_progress",
+      "ci": "in_progress",
+      "lint_benchmark": "in_progress"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "failure": {
+    "call_phase_exit_code": 127,
+    "error": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live: No such file or directory",
+    "finalizer": "skipped",
+    "positive_recovery_result": "not reached due shell command parsing",
+    "run_id": 39076111681,
+    "strict_administrator_audit": "passed",
+    "workflow": "Required Quality Gate"
+  },
+  "repair": {
+    "adverse_test_line_continues_positive_test": true,
+    "exact_node_count_before": 25,
+    "exact_node_count_after": 26,
+    "workflow_continuation_contract_test_added_to_call_phase": true
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
+    "evidence_sha256": "8d10c24ac5070ec8f8f093bdd672b3a599930a64212b4c90397bc5c3b4f85f28",
+    "segment_path": "work/construction/segments/0329-fix-resident-newline-boundaries.md",
+    "segment_sha256": "ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+    "sequence": 329
+  },
+  "restrictions": {
+    "no_coverage_reduction": true,
+    "no_governance_bypass": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 330,
+  "source": {
+    "acquisition": "candidate SHA, workflow job and failure logs verified from GitHub",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "b546146274091e5dcfdad9b903cf74971d0166bb",
+    "tree": "913c5759f0a04339c5db4a7a9db5ff7142a982ec"
+  },
+  "title": "Bind the workflow continuation contract",
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "hosted_retest": "pending",
+    "prior_hosted_failure_counted_as_pass": false
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "prior_hosted_acceptance": {
+    "workflow_run_id": 39076422714,
+    "job_id": 117524405954,
+    "integration_commit": "64d109a392dfe6c0d5e28a19b868fa6876634700",
+    "integration_tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a",
+    "integration_parents": [
+      "8a2ab13333574d9112442ef826351596077f267a",
+      "bcc518c8d45254c47b80e88f1a49396d904fcf09"
+    ],
+    "candidate_commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
+    "selected_nodes": 26,
+    "executed_nodes": 26,
+    "failed_nodes": 0,
+    "pid_reuse_recovery": "passed",
+    "still_live_generation_rejection": "passed",
+    "strict_administrator_audit": "passed",
+    "acceptance_binding": "passed",
+    "hosted_privileged_finalizer": "passed",
+    "finalizer_decision": "ready_for_pr_metadata"
+  },
+  "change": {
+    "new_regression": "tests/test_maintenance_resident_parent_supervision.py::test_linux_process_start_ticks_reads_live_procfs_generation",
+    "uses_real_hosted_procfs": true,
+    "reads_current_process_field_22_twice": true,
+    "requires_stable_nonnegative_integer": true,
+    "exact_required_nodes_before": 26,
+    "exact_required_nodes_after": 27,
+    "coverage_reduced": false
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0331-reverify-scheduled-federation-artifact.json",
+    "evidence_sha256": "ecf4ea6116f5c8f113dfa2d531410a6d0cc325cb0e2e91b2767d0d41e428f421",
+    "segment_path": "work/construction/segments/0331-reverify-scheduled-federation-artifact.md",
+    "segment_sha256": "27d2f34d1348fb4d040c629e558d3dbe9e2127fccdd763174365f274582c8fe2",
+    "sequence": 331
+  },
+  "restrictions": {
+    "no_provider_or_production_invocation": true,
+    "no_governance_bypass": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 332,
+  "source": {
+    "acquisition": "GitHub run, job, finalizer artifact, commit, and merge-tree readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
+    "tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a"
+  },
+  "title": "Exercise live procfs process-generation observer",
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "canonical_local_pytest": "blocked: noncanonical projection and missing nacl dependency",
+    "live_procfs_hosted_test": "pending",
+    "27_node_hosted_acceptance": "pending",
+    "strict_finalizer": "pending"
+  }
+}

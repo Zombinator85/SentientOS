@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a34ef074e0b545bfe62a84d0d81bb68a60094a27e761a7930725082e52c32766",
-    "latest_segment_sequence": 323,
-    "latest_segment_sha256": "75169581e0e55bfe225432172fe7558ceeb0386e4e60f7112a2ffa925dc42a28",
-    "source_commit": "1bb5a004e263e0fa13fd20c1dd8ab5d93fc9cf74",
-    "source_tree": "fe24d3600ac802bf58d0e784f113ea8570a44661"
+    "checkpoint_sha256": "875cc4e50f0b242056589dba31c981a29e4d605deb3053ff6801e2b3ad4e0e4b",
+    "latest_segment_sequence": 333,
+    "latest_segment_sha256": "a280954233bf8706de1e54a628cf483f6eda347c475c126dc17cec06dd306dac",
+    "source_commit": "5be1170bfabc09c711050dbe230a2b203c822fe9",
+    "source_tree": "d3b3b98b88408b71a8de159e24561aef8d07a19f"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 323,
+  "latest_sequence": 333,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3529,6 +3529,136 @@
       "sha256": "75169581e0e55bfe225432172fe7558ceeb0386e4e60f7112a2ffa925dc42a28",
       "source_commit": "1bb5a004e263e0fa13fd20c1dd8ab5d93fc9cf74",
       "source_tree": "fe24d3600ac802bf58d0e784f113ea8570a44661"
+    },
+    {
+      "bytes": 3276,
+      "evidence": "work/construction/evidence/0324-bind-resident-child-recovery-to-process-generation.json",
+      "evidence_bytes": 5737,
+      "evidence_path": "work/construction/evidence/0324-bind-resident-child-recovery-to-process-generation.json",
+      "evidence_sha256": "85f77227828bdd9a70d6b55231a9048691b2d5a7718f487abb46c3fde75c8598",
+      "path": "work/construction/segments/0324-bind-resident-child-recovery-to-process-generation.md",
+      "predecessor": "segment-sha256:75169581e0e55bfe225432172fe7558ceeb0386e4e60f7112a2ffa925dc42a28",
+      "sequence": 324,
+      "sha256": "e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
+      "source_commit": "8a2ab13333574d9112442ef826351596077f267a",
+      "source_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7"
+    },
+    {
+      "sequence": 325,
+      "path": "work/construction/segments/0325-execute-resident-recovery-acceptance-in-hosted-gate.md",
+      "bytes": 2626,
+      "sha256": "596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+      "predecessor": "segment-sha256:e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
+      "source_commit": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+      "source_tree": "a36e6438670c2e2722e14f615349d08fc9104ee5",
+      "evidence": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
+      "evidence_path": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
+      "evidence_bytes": 3142,
+      "evidence_sha256": "8a365790983f1dba038ee4d4eb74e5d08ecdec5b4f132e23da2eb9d77b9c0ec2"
+    },
+    {
+      "sequence": 326,
+      "path": "work/construction/segments/0326-chain-resident-recovery-acceptance-command.md",
+      "bytes": 1740,
+      "sha256": "a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+      "predecessor": "segment-sha256:596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+      "source_commit": "3ccc031c55c7889d5ad210186faf30d0bbd08057",
+      "source_tree": "7de5d374c1d54861c5959011a32da35f94db2cf7",
+      "evidence": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
+      "evidence_path": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
+      "evidence_bytes": 1818,
+      "evidence_sha256": "a2e4ec29ecbaeb41473a804d483a0003f9ef1b722c3639fb6a5e6db0cee9d7b4"
+    },
+    {
+      "sequence": 327,
+      "path": "work/construction/segments/0327-diagnose-resident-process-recovery-latch.md",
+      "bytes": 1646,
+      "sha256": "3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536",
+      "predecessor": "segment-sha256:a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+      "source_commit": "d946460b4411961466576d00f0f381adeb4063d5",
+      "source_tree": "e62cf2c66fa798d2daa38784c48032d4260557cc",
+      "evidence": "work/construction/evidence/0327-diagnose-resident-process-recovery-latch.json",
+      "evidence_path": "work/construction/evidence/0327-diagnose-resident-process-recovery-latch.json",
+      "evidence_bytes": 1821,
+      "evidence_sha256": "e4b2e8c147687d4f483d600ff78f14b17117ff9510faf215ee10cfd629b34eaf"
+    },
+    {
+      "sequence": 328,
+      "path": "work/construction/segments/0328-report-resident-receipt-boundary.md",
+      "bytes": 1278,
+      "sha256": "96eb5f5b48d7162bde0496eaca8257e32346fc38339c0d8f5996a5a1f4c9b4a0",
+      "predecessor": "segment-sha256:3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536",
+      "source_commit": "31f0509604b9f058b42c26bd4e8a32a86b36c676",
+      "evidence": "work/construction/evidence/0328-report-resident-receipt-boundary.json",
+      "evidence_path": "work/construction/evidence/0328-report-resident-receipt-boundary.json",
+      "evidence_bytes": 1644,
+      "evidence_sha256": "c9d827568de3423b6a13c9cfdb971b87aa77fbd55f4773b2e919aeb22951510a",
+      "source_tree": "4c90ccac8a1103baa7b517eed4c6324fb0267741"
+    },
+    {
+      "sequence": 329,
+      "path": "work/construction/segments/0329-fix-resident-newline-boundaries.md",
+      "bytes": 1939,
+      "sha256": "ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+      "predecessor": "segment-sha256:96eb5f5b48d7162bde0496eaca8257e32346fc38339c0d8f5996a5a1f4c9b4a0",
+      "source_commit": "8460e836fe59607bd4ea2b0bda6327c648b3e629",
+      "source_tree": "f30fd47021f95b8907eb68b58dc580b7ee445ce1",
+      "evidence": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
+      "evidence_path": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
+      "evidence_bytes": 2074,
+      "evidence_sha256": "8d10c24ac5070ec8f8f093bdd672b3a599930a64212b4c90397bc5c3b4f85f28"
+    },
+    {
+      "sequence": 330,
+      "path": "work/construction/segments/0330-bind-workflow-continuation-contract.md",
+      "bytes": 1701,
+      "sha256": "31e94f1bd5a46d7a31d58ead8463c9ffb180e69187f6c90a1fca769e4148b7f4",
+      "predecessor": "segment-sha256:ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+      "source_commit": "b546146274091e5dcfdad9b903cf74971d0166bb",
+      "source_tree": "913c5759f0a04339c5db4a7a9db5ff7142a982ec",
+      "evidence": "work/construction/evidence/0330-bind-workflow-continuation-contract.json",
+      "evidence_path": "work/construction/evidence/0330-bind-workflow-continuation-contract.json",
+      "evidence_bytes": 1817,
+      "evidence_sha256": "614197bf2116d54ff00d10d5a0628f45dd17c5a29a5019c9107960f459cbf5b9"
+    },
+    {
+      "sequence": 331,
+      "path": "work/construction/segments/0331-reverify-scheduled-federation-artifact.md",
+      "bytes": 2609,
+      "sha256": "27d2f34d1348fb4d040c629e558d3dbe9e2127fccdd763174365f274582c8fe2",
+      "predecessor": "segment-sha256:31e94f1bd5a46d7a31d58ead8463c9ffb180e69187f6c90a1fca769e4148b7f4",
+      "source_commit": "ef3853cde235d653ac4972f4d4b4e12880b00235",
+      "source_tree": "7853ede9322cb13a76cf0b84d86388e2baf7abe6",
+      "evidence": "work/construction/evidence/0331-reverify-scheduled-federation-artifact.json",
+      "evidence_path": "work/construction/evidence/0331-reverify-scheduled-federation-artifact.json",
+      "evidence_bytes": 3918,
+      "evidence_sha256": "ecf4ea6116f5c8f113dfa2d531410a6d0cc325cb0e2e91b2767d0d41e428f421"
+    },
+    {
+      "sequence": 332,
+      "path": "work/construction/segments/0332-exercise-live-procfs-generation-observer.md",
+      "bytes": 1710,
+      "sha256": "532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+      "predecessor": "segment-sha256:27d2f34d1348fb4d040c629e558d3dbe9e2127fccdd763174365f274582c8fe2",
+      "source_commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
+      "source_tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a",
+      "evidence": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
+      "evidence_path": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
+      "evidence_bytes": 2515,
+      "evidence_sha256": "567d5ab6df153e233caeef74d62f2cf963ac6f3dbbb1c1ea858bfbcd9ad29666"
+    },
+    {
+      "sequence": 333,
+      "path": "work/construction/segments/0333-record-current-main-federation-run.md",
+      "bytes": 1586,
+      "sha256": "a280954233bf8706de1e54a628cf483f6eda347c475c126dc17cec06dd306dac",
+      "predecessor": "segment-sha256:532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+      "source_commit": "5be1170bfabc09c711050dbe230a2b203c822fe9",
+      "source_tree": "d3b3b98b88408b71a8de159e24561aef8d07a19f",
+      "evidence": "work/construction/evidence/0333-record-current-main-federation-run.json",
+      "evidence_path": "work/construction/evidence/0333-record-current-main-federation-run.json",
+      "evidence_bytes": 2802,
+      "evidence_sha256": "fd39562a1ef3d780aad0f13ed188f2b69a242cf1fc638f982287f65aa0d43386"
     }
   ],
   "source_acquisition": {

@@ -42,6 +42,10 @@ MAX_PARENT_PROVENANCE_FILES = 4096
 MAX_PARENT_PROVENANCE_BYTES = 16_777_216
 MAX_PARENT_PROVENANCE_RECORD_BYTES = 262_144
 _PARENT_PROVENANCE_NAME = re.compile(r"[0-9a-f]{64}\.json\Z")
+_LEGACY_LAUNCH_FIELDS = frozenset({"child_spec_digest", "config_digest", "lineage_id",
+    "generation_digest", "pid", "launched_at", "launch_provenance_digest"})
+_PROCESS_GENERATION_LAUNCH_FIELDS = _LEGACY_LAUNCH_FIELDS | frozenset({
+    "child_linux_proc_start_ticks", "child_linux_proc_start_ticks_posture"})
 
 
 
@@ -86,7 +90,7 @@ def _linux_process_start_ticks(process_id: int) -> int | None:
     finally:
         if descriptor is not None:
             os.close(descriptor)
-    if len(raw) > 4096 or not raw.endswith(b"\\n"):
+    if len(raw) > 4096 or not raw.endswith(b"\n"):
         return None
     separator = raw.rfind(b")")
     if separator < 0:
@@ -101,6 +105,20 @@ def _linux_process_start_ticks(process_id: int) -> int | None:
     if observed_pid != process_id or start_ticks < 0:
         return None
     return start_ticks
+
+
+def _valid_launch_process_generation(value: Mapping[str, Any]) -> bool:
+    """Accept legacy PID-only provenance while validating new generation-bound launches."""
+    fields = frozenset(value)
+    if fields == _LEGACY_LAUNCH_FIELDS:
+        return True
+    if fields != _PROCESS_GENERATION_LAUNCH_FIELDS:
+        return False
+    ticks = value.get("child_linux_proc_start_ticks")
+    posture = value.get("child_linux_proc_start_ticks_posture")
+    return ((posture == "linux_procfs_starttime_field_22"
+             and type(ticks) is int and ticks >= 0)
+            or (posture == "unavailable" and ticks is None))
 
 
 def _valid_parent_process_observation(value: object, schema: str) -> bool:
@@ -161,9 +179,9 @@ def _resident_child_spec(config: Mapping[str, Any], environment: Mapping[str, st
 
 
 def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list[dict[str, Any]]:
-    if raw and not raw.endswith(b"\\n"):
+    if raw and not raw.endswith(b"\n"):
         raise ValueError("parent_receipt_journal_truncated")
-    lines = raw.split(b"\\n")[:-1] if raw else []
+    lines = raw.split(b"\n")[:-1] if raw else []
     if len(lines) > MAX_PARENT_RECEIPT_ROWS:
         raise ValueError("parent_receipt_journal_retention_limit_exceeded")
     rows: list[dict[str, Any]] = []
@@ -219,7 +237,7 @@ def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list
 def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
                                     expected_config_digest: str,
                                     rows: list[dict[str, Any]]) -> dict[str, Any]:
-    if not raw.endswith(b"\\n"):
+    if not raw.endswith(b"\n"):
         raise ValueError("parent_state_noncanonical")
     value = json.loads(raw[:-1].decode("utf-8"))
     legacy_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
@@ -227,7 +245,7 @@ def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
         "generation_digest", "launch"}
     current_fields = legacy_fields | {"receipt_head_digest", "state_digest"}
     if (not isinstance(value, dict) or set(value) not in (legacy_fields, current_fields)
-            or _canonical(value) + b"\\n" != raw
+            or _canonical(value) + b"\n" != raw
             or value["schema_version"] != STATE_SCHEMA
             or value["child_spec_digest"] != expected_spec_digest):
         raise ValueError("parent_state_binding_mismatch")
@@ -251,11 +269,9 @@ def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
     if generation_digest is not None and not isinstance(generation_digest, str):
         raise ValueError("parent_generation_identity_invalid")
     if launch is not None:
-        launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
-            "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
         body = {key: item for key, item in launch.items()
             if key != "launch_provenance_digest"} if isinstance(launch, dict) else {}
-        if (not isinstance(launch, dict) or set(launch) != launch_fields
+        if (not isinstance(launch, dict) or not _valid_launch_process_generation(launch)
                 or launch["child_spec_digest"] != expected_spec_digest
                 or launch["config_digest"] != expected_config_digest
                 or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
@@ -334,16 +350,21 @@ class ResidentParentLifecycleEvidenceReader:
         selected = [row for row in rows
             if row["detail"].get("parent_process_instance_id") == parent_instance_id]
         active_launch = state.get("launch")
-        if not isinstance(active_launch, Mapping) or active_launch.get("pid") != expected_child_pid:
+        if (not isinstance(active_launch, Mapping)
+                or not _valid_launch_process_generation(active_launch)
+                or active_launch.get("pid") != expected_child_pid):
             raise ValueError("parent_observation_child_launch_unverified")
-        launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
-            "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
         launch_receipts = [row for row in selected
             if row["event"] == "launch_provenance_verified"
-            and {key: row["detail"].get(key) for key in launch_fields} == dict(active_launch)]
+            and {key: row["detail"].get(key) for key in active_launch} == dict(active_launch)]
         if len(launch_receipts) != 1:
             raise ValueError("parent_observation_launch_receipt_unverified")
         launch_receipt = launch_receipts[0]
+        child_ticks = active_launch.get("child_linux_proc_start_ticks")
+        if type(child_ticks) is int:
+            observed_child_ticks = _linux_process_start_ticks(expected_child_pid)
+            if observed_child_ticks != child_ticks:
+                raise ValueError("parent_observation_child_process_generation_mismatch")
         compact_receipts = []
         for row in selected[-8:]:
             detail = row["detail"]
@@ -457,6 +478,7 @@ class MaintenanceResidentParentSupervisor:
                  sleeper: Callable[[float], None] = time.sleep,
                  adapter_factory: Callable[..., ServiceAdapter] = ChildProcessServiceAdapter,
                  process_presence_observer: Callable[[int], bool | None] | None = None,
+                 process_start_ticks_observer: Callable[[int], int | None] | None = None,
                  commissioned_config_path: Path | None = None) -> None:
         if restart_budget < 0 or rolling_restart_window <= 0 or min_backoff < 0 or max_backoff < min_backoff:
             raise ValueError("invalid_parent_restart_policy")
@@ -494,6 +516,8 @@ class MaintenanceResidentParentSupervisor:
         }
         self._parent_process_instance_id = _digest(self._parent_process_observation)
         self._process_presence_observer = process_presence_observer or self._observe_pid_presence
+        self._process_start_ticks_observer = (
+            process_start_ticks_observer or _linux_process_start_ticks)
         self._budget, self._window = restart_budget, rolling_restart_window
         self._min_backoff, self._max_backoff = min_backoff, max_backoff
         self._commissioned_config_path = (
@@ -689,11 +713,9 @@ class MaintenanceResidentParentSupervisor:
                 raise ValueError("parent_state_shape_invalid")
             launch = value["launch"]
             if launch is not None:
-                launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
-                    "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
                 body = {key: item for key, item in launch.items()
                     if key != "launch_provenance_digest"} if isinstance(launch, dict) else {}
-                if (not isinstance(launch, dict) or set(launch) != launch_fields
+                if (not isinstance(launch, dict) or not _valid_launch_process_generation(launch)
                         or launch["child_spec_digest"] != self._spec_digest
                         or launch["config_digest"] != self.config["config_digest"]
                         or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
@@ -883,9 +905,7 @@ class MaintenanceResidentParentSupervisor:
         """
         self._verified_child_provenance = None
         try:
-            launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
-                "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
-            if not isinstance(launch, Mapping) or set(launch) != launch_fields:
+            if not isinstance(launch, Mapping) or not _valid_launch_process_generation(launch):
                 return False
             launch_body = {key: item for key, item in launch.items()
                 if key != "launch_provenance_digest"}
@@ -1022,7 +1042,11 @@ class MaintenanceResidentParentSupervisor:
                 raise ValueError("exact_child_identity_mismatch")
             launch = {"child_spec_digest": self._spec_digest, "config_digest": self.config["config_digest"],
                 "lineage_id": generation["lineage_id"], "generation_digest": generation["generation_digest"],
-                "pid": identity["pid"], "launched_at": self._clock()}
+                "pid": identity["pid"], "launched_at": self._clock(),
+                "child_linux_proc_start_ticks": self._observe_process_start_ticks(cast(int, identity["pid"])),
+                "child_linux_proc_start_ticks_posture": "linux_procfs_starttime_field_22"}
+            if launch["child_linux_proc_start_ticks"] is None:
+                launch["child_linux_proc_start_ticks_posture"] = "unavailable"
             launch["launch_provenance_digest"] = _digest(launch)
             self._launch = launch; self._generation_digest = str(generation["generation_digest"])
             self._status = "awaiting_resident_readiness"
@@ -1048,6 +1072,13 @@ class MaintenanceResidentParentSupervisor:
         except OSError:
             return None
 
+    def _observe_process_start_ticks(self, pid: int) -> int | None:
+        try:
+            value = self._process_start_ticks_observer(pid)
+        except Exception:
+            return None
+        return value if type(value) is int and value >= 0 else None
+
     def start(self) -> None:
         if self._panic: raise RuntimeError("panic_latched")
         if self._shutdown: raise RuntimeError("shutdown_latched")
@@ -1059,14 +1090,29 @@ class MaintenanceResidentParentSupervisor:
                 self._receipt("prior_child_reconciliation_blocked",
                     {"reason": "prior_launch_pid_invalid"})
                 raise RuntimeError("prior_child_process_unreconciled")
-            try:
-                present = self._process_presence_observer(prior_pid)
-            except Exception:
-                present = None
-            if present is not False:
+            prior_ticks = self._launch.get("child_linux_proc_start_ticks")
+            current_ticks = self._observe_process_start_ticks(prior_pid)
+            termination_evidence: dict[str, Any] | None = None
+            if current_ticks is not None:
+                if type(prior_ticks) is int and current_ticks != prior_ticks:
+                    termination_evidence = {
+                        "posture": "prior_process_generation_terminated_pid_reused",
+                        "prior_start_ticks": prior_ticks,
+                        "observed_start_ticks": current_ticks,
+                    }
+            else:
+                try:
+                    present = self._process_presence_observer(prior_pid)
+                except Exception:
+                    present = None
+                if present is False:
+                    termination_evidence = {"posture": "prior_pid_absent",
+                        "prior_start_ticks": prior_ticks, "observed_start_ticks": None}
+            if termination_evidence is None:
                 self._status = "prior_child_unreconciled"
                 self._receipt("prior_child_reconciliation_blocked", {
-                    "pid": prior_pid, "presence": "present" if present is True else "unknown",
+                    "pid": prior_pid, "prior_start_ticks": prior_ticks,
+                    "observed_start_ticks": current_ticks,
                     "launch_provenance_digest": self._launch["launch_provenance_digest"]})
                 raise RuntimeError("prior_child_process_unreconciled")
             now = self._clock()
@@ -1080,6 +1126,7 @@ class MaintenanceResidentParentSupervisor:
             self._restart_history.append(now)
             self._receipt("orphan_child_absence_reconciled", {
                 "pid": prior_pid,
+                "process_termination_evidence": termination_evidence,
                 "prior_launch_provenance_digest": self._launch["launch_provenance_digest"],
                 "generation_digest": generation["generation_digest"]})
             self._launch_exact(generation, recovery=True)

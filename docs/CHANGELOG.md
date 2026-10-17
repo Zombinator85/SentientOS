@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10 Hosted acceptance for resident recovery
+- Added shell-continuation coverage for the multi-node acceptance command after hosted CI caught a broken command chain.
+- The positive process-generation acceptance now validates durable launch and receipt snapshots before attempting restarted-parent recovery.
+- Added explicit receipt-journal boundary diagnostics after hosted reconstruction validation found a truncated record.
+- The Required Quality Gate now executes the PID-reuse recovery path and same-generation fail-closed regression as exact call-phase tests.
+- Its acceptance result binds both tests to the hosted run provenance and candidate SHA.
+
+## 2026-10 Resident child process generation
+- New maintenance-resident launch records bind the child PID to Linux procfs start time when available.
+- Restart recovery distinguishes PID reuse from a still-live prior generation and retains fail-closed behavior when identity is uncertain.
+- Historical PID-only launch records remain readable; no signaling or transition authority was added.
+
 ## 2025-06-12: 4.5-cathedral-immaculate
 
 
@@ -105,3 +117,9 @@ SentientOS prioritizes operator accountability, auditability, and safe shutdown.
 - Container layout documented for multi-service deployments.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
+- Fixed five double-escaped newline byte literals that rejected valid procfs, receipt-journal, and persisted-state records; added strict complete-versus-truncated journal assertions.
+- Bound the Required Quality Gate shell-continuation contract itself into the acceptance phase and repaired the adverse recovery node's missing continuation; exact node coverage increased from 25 to 26.
+- Reverified scheduled Federation Health run 39028288072 and freshly downloaded artifact digest; recorded the publisher no-op separately from changed-output PR proof.
+- Recorded that the exact 26-node recovery acceptance passed but the privileged finalizer rejected a stale PR title; the title was aligned before the next hosted candidate run.
+- Added real Linux procfs field-22 coverage to the strict recovery acceptance so hosted verification exercises the process-generation observer itself.
+- Recorded successful current-main scheduled Federation Health run 39076757572 and freshly verified its artifact; the changed-output fixture remains unexecuted.

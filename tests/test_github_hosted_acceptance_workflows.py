@@ -189,9 +189,14 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 23
-    assert "len(nodes)==23" in workflow
+    assert selection.count("tests/") == 27
+    node_lines = [line for line in selection.splitlines() if "tests/" in line]
+    assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
+    assert "len(nodes)==27" in workflow
     assert "test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator" in selection
+    assert "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation" in selection
+    assert "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live" in selection
+    assert "tests/test_maintenance_resident_parent_supervision.py::test_linux_process_start_ticks_reads_live_procfs_generation" in selection
 
 
 def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
@@ -200,7 +205,7 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
     selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/test_") == 23
+    assert selection.count("tests/test_") == 27
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:

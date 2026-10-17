@@ -1,0 +1,44 @@
+{
+  "failure": {
+    "acceptance": "not reached",
+    "cause": "new exact-node lines were not continued into the scripts.run_tests command; shell tried to execute a node ID as a command",
+    "exit_code": 127,
+    "finalizer": "skipped",
+    "run_id": 39075370096,
+    "stage": "Execute required call phases",
+    "strict_audits": "passed",
+    "workflow": "Required Quality Gate"
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
+    "evidence_sha256": "8a365790983f1dba038ee4d4eb74e5d08ecdec5b4f132e23da2eb9d77b9c0ec2",
+    "segment_path": "work/construction/segments/0325-execute-resident-recovery-acceptance-in-hosted-gate.md",
+    "segment_sha256": "596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+    "sequence": 325
+  },
+  "repair": {
+    "authority_change": false,
+    "command": "keep both sequence 324 nodes in the scripts.run_tests call-phase invocation",
+    "contract": "workflow test asserts all selected node lines except the last end in a shell continuation"
+  },
+  "restrictions": {
+    "no_production_telemetry_fabrication": true,
+    "no_provider_invocation": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 326,
+  "source": {
+    "acquisition": "fresh GitHub PR head and tree readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "3ccc031c55c7889d5ad210186faf30d0bbd08057",
+    "tree": "7de5d374c1d54861c5959011a32da35f94db2cf7"
+  },
+  "title": "Chain resident recovery acceptance command",
+  "verification": {
+    "compile": "passed for workflow contract test",
+    "diff_check": "passed",
+    "fresh_hosted_acceptance": "pending"
+  }
+}

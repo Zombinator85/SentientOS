@@ -1,0 +1,129 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 324,
+  "title": "Bind resident child recovery to process generation",
+  "predecessor": {
+    "sequence": 323,
+    "segment_path": "work/construction/segments/0323-repair-dependabot-requirements-manifest.md",
+    "segment_sha256": "75169581e0e55bfe225432172fe7558ceeb0386e4e60f7112a2ffa925dc42a28",
+    "evidence_path": "work/construction/evidence/0323-repair-dependabot-requirements-manifest.json",
+    "evidence_sha256": "d9d855d73b2fbccf3874fb840e01fd050ae76749770f847f7a5dade00b4ed0bd"
+  },
+  "source": {
+    "branch": "main",
+    "commit": "8a2ab13333574d9112442ef826351596077f267a",
+    "tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7",
+    "acquisition": "fresh GitHub ref and commit readback; recursive tree readback"
+  },
+  "source_blobs_before_change": {
+    "sentientos/maintenance_resident_parent_supervision.py": "94873dd04b5b972f833a5492765eb5548b6d243e",
+    "tests/test_maintenance_resident_parent_supervision.py": "e14bfceaca8995a61f7f050dafcec0f59d73efe4"
+  },
+  "change": {
+    "prior_child_termination_evidence": "Linux procfs start-time field 22 is bound to new child launch provenance when available.",
+    "pid_reuse": "Recovery is allowed only when a changed start time proves the prior process generation ended.",
+    "fail_closed": "Matching start time, unknown identity, or a legacy identity with a still-present PID remains blocked.",
+    "historical_compatibility": "PID-only launch records remain readable; they do not establish process-generation identity.",
+    "authority_expansion": false,
+    "process_signaling_added": false,
+    "transition_replay_authorized": false
+  },
+  "changed_files": {
+    "sentientos/maintenance_resident_parent_supervision.py": {
+      "git_blob": "e8b1f315a0baac66b27b46d15c52f384618d7727",
+      "sha256": "fd842b3241051a78ca40f0a78eeb63e84402a40779f8386bef7239706deb5655"
+    },
+    "tests/test_maintenance_resident_parent_supervision.py": {
+      "git_blob": "86f59d1a62358cc6acd5721365982319ccf2751e",
+      "sha256": "1f03e773715b466517b12dda0c3e3a1e5aac070b19f26d318fe5ec6beb97c659"
+    }
+  },
+  "local_verification": {
+    "source_projection": "isolated tracked source projection; changed files' starting Git blob IDs match the verified main tree",
+    "compileall": "passed for the changed source and test files",
+    "git_diff_check": "passed",
+    "canonical_test_runner": {
+      "status": "blocked_before_pytest",
+      "command": "python -m scripts.run_tests -q tests/test_maintenance_resident_parent_supervision.py",
+      "reason": "canonical import airlock found jinja2 unavailable; required dependency installation is blocked by sandbox network policy",
+      "tests_executed": 0,
+      "tests_claimed_passed": 0
+    },
+    "generated_test_artifacts_published": false
+  },
+  "task_acceptance": {
+    "path": "docs/development/maintenance_parent_process_generation_task_acceptance.json",
+    "required_nodes": [
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live"
+    ],
+    "hosted_status": "pending"
+  },
+  "current_main_hosted_validation": {
+    "source_commit": "8a2ab13333574d9112442ef826351596077f267a",
+    "source_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7",
+    "checks": {
+      "required_quality_gate": {
+        "run_id": 39073711468,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39073711461,
+        "conclusion": "success"
+      },
+      "ci": {
+        "run_id": 39073711486,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39073711497,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39073711558,
+        "conclusion": "success"
+      },
+      "docs_deploy": {
+        "run_id": 39073711583,
+        "conclusion": "success"
+      },
+      "dependabot_graph_update": {
+        "run_id": 39073716852,
+        "conclusion": "in_progress"
+      }
+    }
+  },
+  "federation": {
+    "latest_scheduled_evidence_sequence": 318,
+    "latest_scheduled_run_id": 39065143484,
+    "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d",
+    "conclusion": "success",
+    "output": "1 node, 0 recent events, quiet",
+    "publisher_operation": "none; output matched main",
+    "exact_current_main_schedule_observed": false,
+    "changed_output_fixture_dispatched": false,
+    "fixture_dispatch_blocker": "connected GitHub tools expose no Actions workflow_dispatch operation"
+  },
+  "nightly_workflows": {
+    "source_review": "current workflows invoke strict audits through sudo; the audit repair job alone receives contents:write and pull-requests:write",
+    "exact_current_main_scheduled_execution_observed": false,
+    "repair_applied": false
+  },
+  "prior_evidence_correction": {
+    "sequence": 323,
+    "preserved_segment_count": "9",
+    "retained_provenance_counts": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    "provenance_sha256": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+    "correction": "recording the machine-readable artifact count as authoritative; prior segment and artifact bytes remain unchanged"
+  },
+  "unresolved": {
+    "sequence_286_payload_loss": "9 identified payloads and 1 unidentified payload remain unrecovered",
+    "vow_salt_key": "original sentientos_data/vow/keys/salt.key bytes remain unrecovered; no replacement or rotation performed",
+    "stale_sequence_178_workspace": "untouched"
+  }
+}

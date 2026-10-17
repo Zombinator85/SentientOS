@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +9,20 @@ import pytest
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos.maintenance_resident_parent_supervision import (
     MaintenanceResidentParentSupervisor, ResidentParentLifecycleEvidenceReader,
+    _linux_process_start_ticks,
 )
 from sentientos.runtime.services import HealthResult
 from tests.test_maintenance_resident_runtime_adoption import _fixture, _journal_prefix
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="requires Linux procfs")
+def test_linux_process_start_ticks_reads_live_procfs_generation() -> None:
+    first = _linux_process_start_ticks(os.getpid())
+    second = _linux_process_start_ticks(os.getpid())
+    assert type(first) is int and first >= 0
+    assert second == first
 
 
 class FakeChild:
@@ -45,16 +55,19 @@ class Factory:
         child = FakeChild(**kwargs, wrong=self.wrong); self.children.append(child); return child
 
 
-def _parent(tmp_path: Path, *, ready: list[bool] | None = None, budget: int = 2,
-            factory: Factory | None = None,
-            process_presence_observer: Any = None) -> tuple[MaintenanceResidentParentSupervisor, FakeChild, dict[str, object]]:
+def _parent(
+    tmp_path: Path, *, ready: list[bool] | None = None, budget: int = 2,
+    factory: Factory | None = None, process_presence_observer: Any = None,
+    process_start_ticks_observer: Any = None,
+) -> tuple[MaintenanceResidentParentSupervisor, FakeChild, dict[str, object]]:
     cfg, _, _, _ = _fixture(tmp_path)
     readiness = ready if ready is not None else [False]
     made = factory or Factory()
     controller = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: readiness[0], restart_budget=budget,
         min_backoff=0, max_backoff=0, adapter_factory=made,
-        process_presence_observer=process_presence_observer)
+        process_presence_observer=process_presence_observer,
+        process_start_ticks_observer=process_start_ticks_observer)
     return controller, made.children[-1], cfg
 
 
@@ -329,6 +342,70 @@ def test_restarted_parent_recovers_only_after_prior_pid_is_absent(tmp_path: Path
         (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
     events = [row["event"] for row in rows]
     assert events.index("orphan_child_absence_reconciled") < events.index("recovery_attempt")
+
+
+def test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation(
+    tmp_path: Path,
+) -> None:
+    first, child, cfg = _parent(tmp_path,
+        process_start_ticks_observer=lambda _pid: 100)
+    first.start()
+    assert first._launch is not None
+    assert first._launch["child_linux_proc_start_ticks"] == 100
+    child.alive = False
+
+    state_root = tmp_path / "parent"
+    from sentientos import maintenance_resident_parent_supervision as parent
+    receipt_bytes = (state_root / "parent-receipts.jsonl").read_bytes()
+    assert receipt_bytes.endswith(b"\n"), (
+        len(receipt_bytes), repr(receipt_bytes[-32:]))
+    rows = parent._parse_parent_receipt_journal(receipt_bytes, first._spec_digest)
+    with pytest.raises(ValueError, match="parent_receipt_journal_truncated"):
+        parent._parse_parent_receipt_journal(receipt_bytes[:-1], first._spec_digest)
+    parent._validate_parent_state_snapshot(
+        (state_root / "parent-state.json").read_bytes(),
+        expected_spec_digest=first._spec_digest,
+        expected_config_digest=str(first.config["config_digest"]), rows=rows)
+    assert first.status()["panic_latched"] is False, first.status()
+
+    _simulate_parent_process_exit(first)
+    made = Factory()
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=state_root,
+        resident_readiness_guard=lambda _: True, adapter_factory=made,
+        process_presence_observer=lambda _pid: True,
+        process_start_ticks_observer=lambda _pid: 200)
+    assert rebuilt.status()["panic_latched"] is False, rebuilt.status()
+    rebuilt.start()
+    assert made.children[0].starts == 1
+    assert rebuilt.status()["restart_count"] == 1
+    rows = [json.loads(line) for line in
+        (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
+    recovered = next(row for row in rows if row["event"] == "orphan_child_absence_reconciled")
+    assert recovered["detail"]["process_termination_evidence"] == {
+        "posture": "prior_process_generation_terminated_pid_reused",
+        "prior_start_ticks": 100,
+        "observed_start_ticks": 200,
+    }
+
+
+def test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live(
+    tmp_path: Path,
+) -> None:
+    first, child, cfg = _parent(tmp_path,
+        process_start_ticks_observer=lambda _pid: 100)
+    first.start()
+    child.alive = False
+
+    _simulate_parent_process_exit(first)
+    made = Factory()
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+        resident_readiness_guard=lambda _: True, adapter_factory=made,
+        process_presence_observer=lambda _pid: False,
+        process_start_ticks_observer=lambda _pid: 100)
+    with pytest.raises(RuntimeError, match="prior_child_process_unreconciled"):
+        rebuilt.start()
+    assert made.children[0].starts == 0
+    assert rebuilt.status()["status"] == "prior_child_unreconciled"
 
 
 
