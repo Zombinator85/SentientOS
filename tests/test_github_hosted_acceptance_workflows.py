@@ -289,6 +289,14 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert "python scripts/verify_task_acceptance.py" in freeze
     assert "$GITHUB_SHA" not in freeze
 
+    cleanup = workflow.split(
+        "- name: Restore generated test-run residue after evidence capture", 1
+    )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
+    assert '["git","restore","--",tracked]' in cleanup
+    assert 'source[:12] not in target.name' in cleanup
+    assert 'code != "??"' in cleanup
+    assert "refusing to remove tracked provenance" in cleanup
+
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
     )[1].split("- name: Upload hosted privileged PR landing finalizer evidence", 1)[0]
@@ -313,3 +321,8 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert "if-no-files-found: error" in upload
     permissions = workflow.split("permissions:", 1)[1].split("jobs:", 1)[0]
     assert "contents: read" in permissions
+    assert workflow.index("Upload quality-gate evidence") < workflow.index(
+        "Freeze exact hosted acceptance"
+    ) < workflow.index("Restore generated test-run residue") < workflow.index(
+        "Complete hosted privileged PR landing finalization"
+    )

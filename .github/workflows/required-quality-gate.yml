@@ -114,6 +114,33 @@ jobs:
             --manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json" \
             --provenance "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \
             --output "$RUNNER_TEMP/sentientos-landing-acceptance/acceptance-result.json"
+      - name: Restore generated test-run residue after evidence capture
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          from pathlib import Path
+          source=os.environ["GITHUB_SHA"]
+          tracked="glow/test_runs/test_run_provenance.json"
+          status=subprocess.run(
+              ["git","status","--porcelain","--untracked-files=all","--",tracked,"glow/test_runs/provenance"],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines()
+          for row in status:
+              code,path=row[:2],row[3:]
+              if path == tracked and code.strip() == "M":
+                  subprocess.run(["git","restore","--",tracked],check=True)
+                  continue
+              if not path.startswith("glow/test_runs/provenance/") or code != "??":
+                  raise SystemExit(f"unexpected test-evidence residue: {row}")
+              target=Path(path)
+              if source[:12] not in target.name or target.is_symlink() or not target.is_file():
+                  raise SystemExit(f"unbound test-provenance residue: {path}")
+              tracked_check=subprocess.run(["git","ls-files","--error-unmatch","--",path],capture_output=True)
+              if tracked_check.returncode == 0:
+                  raise SystemExit(f"refusing to remove tracked provenance: {path}")
+              target.unlink()
+          PY
       - name: Complete hosted privileged PR landing finalization
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
         env:
