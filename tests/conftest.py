@@ -232,6 +232,9 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(pulse_trust_dir))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(pulse_trust_dir / "epoch_state.json"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(federation_runtime_dir))
+    from sentientos import federated_governance as federated_governance_module
+
+    federated_governance_module.reset_controller()
     monkeypatch.delenv("MONITORING_METRICS_PATH", raising=False)
 
     from sentientos import pulse_query as pulse_query_module
