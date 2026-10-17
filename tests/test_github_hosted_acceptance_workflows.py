@@ -39,7 +39,13 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
     triggers = workflow.split("jobs:", 1)[0]
     assert "schedule:" in triggers and "workflow_dispatch:" in triggers
-    assert "pull_request:" not in triggers and "push:" not in triggers
+    assert "pull_request:" not in triggers
+    push = triggers.split("  push:", 1)[1]
+    assert "branches:\n      - main" in push
+    assert (
+        'paths:\n      - ".github/workflows/federation-health.yml"\n'
+        '      - "federation_health_badge.py"'
+    ) in push
     assert "permissions:\n  contents: write" in workflow
     assert "test \"$(sudo -n id -u)\" = \"0\"" in workflow
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in workflow
