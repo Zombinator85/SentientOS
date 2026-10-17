@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "474c11bd7603be313e701817f6403e0ccb5cacc7b06c9210893381e338dfa311",
-    "latest_segment_sequence": 318,
-    "latest_segment_sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
-    "source_commit": "b91969c1b1a900fefe102fb72697e7295766857b",
-    "source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d"
+    "checkpoint_sha256": "30fdff92937847b35e69fea8141272f8e8566186e7abdb02fcb166d16d0d0fcb",
+    "latest_segment_sequence": 319,
+    "latest_segment_sha256": "f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
+    "source_commit": "937f72de75e75b79b630899a2e82d313550946bb",
+    "source_tree": "0449cd43186679ff72806055c849fb6483e94d2a"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 318,
+  "latest_sequence": 319,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3464,6 +3464,19 @@
       "evidence_path": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
       "evidence_sha256": "07498e22874a9d30a574510acb216ce92d871ea3d94fabe1e4d8b8e2c76beec3",
       "evidence_bytes": 4640
+    },
+    {
+      "sequence": 319,
+      "path": "work/construction/segments/0319-reconcile-architecture-status-and-hosted-docs.md",
+      "sha256": "f3a47452d8ba7dec66f793b4ecbaf3887a7b070c7cc6a57d1f9d2aed7abe6b93",
+      "bytes": 4036,
+      "predecessor": "segment-sha256:f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+      "source_commit": "937f72de75e75b79b630899a2e82d313550946bb",
+      "source_tree": "0449cd43186679ff72806055c849fb6483e94d2a",
+      "evidence": "work/construction/evidence/0319-reconcile-architecture-status-and-hosted-docs.json",
+      "evidence_path": "work/construction/evidence/0319-reconcile-architecture-status-and-hosted-docs.json",
+      "evidence_sha256": "48683b14972a0ca884ab770f4d32bcb9f5b80e992124d6377d15532555b2d090",
+      "evidence_bytes": 6114
     }
   ],
   "source_acquisition": {
