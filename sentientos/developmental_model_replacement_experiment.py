@@ -544,6 +544,11 @@ class FrozenCausalContext:
         digest = _digest(payload)
         if self.context_digest != digest or self.context_id != "model-replacement-context-" + digest[7:31]:
             raise DevelopmentalModelReplacementError("causal_context_digest_mismatch")
+        if (self.repository_generation_identity is not None
+                and (not isinstance(self.repository_generation_identity, str)
+                    or not self.repository_generation_identity
+                    or len(self.repository_generation_identity) > 512)):
+            raise DevelopmentalModelReplacementError("repository_generation_identity_invalid")
         if self.projected_content_digest != _digest(dict(self.current_projection_payload)):
             raise DevelopmentalModelReplacementError("current_projection_content_mismatch")
         if (len(self.current_fact_ids) > 64 or len(set(self.current_fact_ids)) != len(self.current_fact_ids)
@@ -1579,8 +1584,13 @@ class ModelReplacementArtifactStore:
                     "frozen_context_declaration_not_running_observation"
                     if projection_context is not None and projection_context.get(
                         "repository_generation_identity") is not None else "unknown"),
-                "software_generation_identity": None,
-                "software_generation_posture": "not_bound_by_selected_protocol",
+                "software_generation_identity": (projection_context.get(
+                    "repository_generation_identity") if projection_context is not None else None),
+                "software_generation_posture": (
+                    "frozen_context_declaration_not_running_observation"
+                    if projection_context is not None and projection_context.get(
+                        "repository_generation_identity") is not None
+                    else "unknown"),
                 "model_a_id": protocol.model_a_identity.model_id,
                 "model_a_identity_digest": protocol.model_a_identity.identity_digest,
                 "model_b_id": protocol.model_b_identity.model_id,
