@@ -255,9 +255,4 @@ jobs:
           name: federation-health-publication-fixture-${{ github.run_id }}
           path: ${{ runner.temp }}/federation-health-fixture-publication.json
           if-no-files-found: error
-        if: ${{ always() && inputs.publication_fixture == true }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: federation-health-publication-fixture-${{ github.run_id }}
-          path: ${{ runner.temp }}/federation-health-fixture-publication.json
-          if-no-files-found: error
+
