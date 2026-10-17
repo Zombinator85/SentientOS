@@ -2,6 +2,7 @@
 
 ## 2026-10 Hosted acceptance for resident recovery
 - Added shell-continuation coverage for the multi-node acceptance command after hosted CI caught a broken command chain.
+- The positive process-generation acceptance now validates durable launch and receipt snapshots before attempting restarted-parent recovery.
 - The Required Quality Gate now executes the PID-reuse recovery path and same-generation fail-closed regression as exact call-phase tests.
 - Its acceptance result binds both tests to the hosted run provenance and candidate SHA.
 

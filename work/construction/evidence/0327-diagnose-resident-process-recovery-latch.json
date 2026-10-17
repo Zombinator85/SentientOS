@@ -1,0 +1,46 @@
+{
+  "diagnostic_change": {
+    "asserts_no_panic_before_and_after_reconstruction": true,
+    "clears_or_bypasses_panic": false,
+    "validates_persisted_state_snapshot_before_restart": true,
+    "validates_receipt_journal_before_restart": true
+  },
+  "failure": {
+    "acceptance": "blocked",
+    "adverse_same_generation_node": "passed",
+    "exception": "RuntimeError: panic_latched",
+    "finalizer": "not run",
+    "node": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+    "outcome": "failed",
+    "run_id": 39075517162,
+    "workflow": "Required Quality Gate"
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
+    "evidence_sha256": "a2e4ec29ecbaeb41473a804d483a0003f9ef1b722c3639fb6a5e6db0cee9d7b4",
+    "segment_path": "work/construction/segments/0326-chain-resident-recovery-acceptance-command.md",
+    "segment_sha256": "a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+    "sequence": 326
+  },
+  "restrictions": {
+    "no_governance_bypass": true,
+    "no_test_weakening": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 327,
+  "source": {
+    "acquisition": "fresh GitHub head, commit, and tree readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "d946460b4411961466576d00f0f381adeb4063d5",
+    "tree": "e62cf2c66fa798d2daa38784c48032d4260557cc"
+  },
+  "title": "Diagnose resident process-generation recovery latch",
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "hosted_retest": "pending",
+    "root_cause": "not yet established"
+  }
+}

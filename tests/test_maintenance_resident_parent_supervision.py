@@ -344,12 +344,23 @@ def test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generatio
     assert first._launch["child_linux_proc_start_ticks"] == 100
     child.alive = False
 
+    state_root = tmp_path / "parent"
+    from sentientos import maintenance_resident_parent_supervision as parent
+    rows = parent._parse_parent_receipt_journal(
+        (state_root / "parent-receipts.jsonl").read_bytes(), first._spec_digest)
+    parent._validate_parent_state_snapshot(
+        (state_root / "parent-state.json").read_bytes(),
+        expected_spec_digest=first._spec_digest,
+        expected_config_digest=str(first.config["config_digest"]), rows=rows)
+    assert first.status()["panic_latched"] is False, first.status()
+
     _simulate_parent_process_exit(first)
     made = Factory()
-    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=state_root,
         resident_readiness_guard=lambda _: True, adapter_factory=made,
         process_presence_observer=lambda _pid: True,
         process_start_ticks_observer=lambda _pid: 200)
+    assert rebuilt.status()["panic_latched"] is False, rebuilt.status()
     rebuilt.start()
     assert made.children[0].starts == 1
     assert rebuilt.status()["restart_count"] == 1

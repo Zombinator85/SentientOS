@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8aa2f26f30f5d95f4e071dc201309d2291c26d27625fc11a49a978041ffdc62f",
-    "latest_segment_sequence": 326,
-    "latest_segment_sha256": "a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
-    "source_commit": "3ccc031c55c7889d5ad210186faf30d0bbd08057",
-    "source_tree": "7de5d374c1d54861c5959011a32da35f94db2cf7"
+    "checkpoint_sha256": "559684a226eb6ead6652cf493a7d05c993dafad15a7573a9e23109413112e298",
+    "latest_segment_sequence": 327,
+    "latest_segment_sha256": "3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536",
+    "source_commit": "d946460b4411961466576d00f0f381adeb4063d5",
+    "source_tree": "e62cf2c66fa798d2daa38784c48032d4260557cc"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 326,
+  "latest_sequence": 327,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3568,6 +3568,19 @@
       "evidence_path": "work/construction/evidence/0326-chain-resident-recovery-acceptance-command.json",
       "evidence_bytes": 1818,
       "evidence_sha256": "a2e4ec29ecbaeb41473a804d483a0003f9ef1b722c3639fb6a5e6db0cee9d7b4"
+    },
+    {
+      "sequence": 327,
+      "path": "work/construction/segments/0327-diagnose-resident-process-recovery-latch.md",
+      "bytes": 1646,
+      "sha256": "3c552ff794d0cf20d8f970788e59f2dc6a2ee5536be8a8dc4e1dc8ab34a80536",
+      "predecessor": "segment-sha256:a87a6b3ab5bb369ba60124756ee318d7b856519594d84d08bcf8d933278949a7",
+      "source_commit": "d946460b4411961466576d00f0f381adeb4063d5",
+      "source_tree": "e62cf2c66fa798d2daa38784c48032d4260557cc",
+      "evidence": "work/construction/evidence/0327-diagnose-resident-process-recovery-latch.json",
+      "evidence_path": "work/construction/evidence/0327-diagnose-resident-process-recovery-latch.json",
+      "evidence_bytes": 1821,
+      "evidence_sha256": "e4b2e8c147687d4f483d600ff78f14b17117ff9510faf215ee10cfd629b34eaf"
     }
   ],
   "source_acquisition": {
