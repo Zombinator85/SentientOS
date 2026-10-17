@@ -148,6 +148,10 @@ def test_real_owner_temporal_rehearsal_retrieves_exact_b_record(tmp_path):
     assert result["initial_restored_identity_equal"] and result["b_identity_differs_from_a"]
     assert result["serving_sessions_distinct"]
     assert result["b_developmental_record_id"] in result["restored_a_retrieved_record_ids"]
+    assert result["b_observation_serving_session_receipt_id"]
+    assert result["b_observation_serving_session_receipt_digest"]
+    assert (result["b_observation_model_serving_admission_ref"]
+            != result["b_observation_inference_admission_decision_ref"])
     index = result["restored_a_retrieved_record_ids"].index(result["b_developmental_record_id"])
     assert result["restored_a_retrieved_record_digests"][index] == result["b_developmental_record_digest"]
 

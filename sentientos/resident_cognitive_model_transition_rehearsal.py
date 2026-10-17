@@ -310,6 +310,15 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         if cognition.verified_cognition_observation(observation_id).get("active_model_identity") == identities[1]), None)
     if b_observation is None:
         raise RuntimeError("b_epoch_authenticated_cognition_observation_missing")
+    b_invocation = cognition.invoker.verify_persisted_invocation_receipt(
+        b_observation["inference_receipt_id"], b_observation["inference_receipt_digest"],
+        expected_request_id=b_observation["request_id"],
+        expected_request_digest=b_observation["request_digest"],
+        expected_session_id=b_observation["serving_session_id"],
+        expected_session_binding=b_observation["serving_session_binding"],
+        expected_active_model_identity=identities[1],
+        expected_session_receipt_id=b_observation["serving_session_receipt_id"],
+        expected_session_receipt_digest=b_observation["serving_session_receipt_digest"])
     advance(evidence={"b_tick_id": "transition-b-epoch",
                       "b_observation_id": b_observation["observation_id"],
                       "b_observation_digest": b_observation["observation_digest"],
@@ -360,6 +369,10 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         "serving_sessions_distinct": bool(restored_session and initial_session.session_id != restored_session.session_id),
         "b_developmental_record_id": b_record.record_id,
         "b_developmental_record_digest": b_record.record_digest,
+        "b_observation_serving_session_receipt_id": b_observation["serving_session_receipt_id"],
+        "b_observation_serving_session_receipt_digest": b_observation["serving_session_receipt_digest"],
+        "b_observation_model_serving_admission_ref": b_observation["serving_session_binding"]["model_serving_admission_ref"],
+        "b_observation_inference_admission_decision_ref": b_invocation["admission_decision_ref"],
         "b_writeback_receipt_id": b_receipt.receipt_id,
         "b_writeback_receipt_digest": b_receipt.receipt_digest,
         "restored_a_cognition_observation_id": restored_observation["observation_id"],
