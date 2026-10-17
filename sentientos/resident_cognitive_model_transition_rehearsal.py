@@ -96,7 +96,7 @@ class _RealTransitionOperations:
         session = matches[0].get("evidence", {}).get("session")
         if not isinstance(session, Mapping):
             raise ValueError("transition_observation_serving_predecessor_missing")
-        self.verify_historical_serving_session(session)
+        serving_receipt = self.verify_historical_serving_session(session)
         b_evidence = None
         if stage == "post_restoration_observed":
             b_matches = [entry for entry in self.journal.entries()
@@ -106,8 +106,10 @@ class _RealTransitionOperations:
             b_evidence = b_matches[0].get("evidence")
         self.developmental_owner.verify_transition_observation(
             stage=stage, evidence=evidence,
-            expected_model_identity=self.protocol.value[model_role]["active_model_identity"],
-            expected_serving_session=session, b_epoch_evidence=b_evidence)
+            expected_model_identity=self.protocol.value[model_role],
+            expected_serving_session=session,
+            expected_serving_session_receipt=serving_receipt,
+            b_epoch_evidence=b_evidence)
 
     def activate_successor(self, context: Any | None = None) -> Mapping[str, Any]:
         current = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)

@@ -295,9 +295,10 @@ def verify_persisted_resident_invocation_receipt(handle: Any, receipt_id: str,
             raise ResidentCognitiveModelServingError("historical_serving_receipt_reference_invalid")
         expected_serving.update({"session_receipt_id": expected_session_receipt_id,
             "session_receipt_semantic_digest": expected_session_receipt_digest})
-    if (not isinstance(serving, Mapping)
-            or dict(serving) != expected_serving
-            or serving.get("model_serving_admission_ref") != payload.get("admission_decision_ref")):
+    # The session reference belongs to model serving; the receipt's
+    # admission_decision_ref belongs to this inference invocation. They are
+    # distinct authority decisions and must not be equated.
+    if not isinstance(serving, Mapping) or dict(serving) != expected_serving:
         raise ResidentCognitiveModelServingError("historical_invocation_serving_session_mismatch")
     if expected_session_receipt_id is not None:
         verify_resident_serving_session_receipt_reference(handle,

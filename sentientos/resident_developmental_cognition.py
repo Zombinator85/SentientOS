@@ -3851,6 +3851,7 @@ class ResidentDevelopmentalCognitionOwner:
     def verify_transition_observation(self, *, stage: str, evidence: Mapping[str, Any],
                                      expected_model_identity: Mapping[str, Any],
                                      expected_serving_session: Mapping[str, Any],
+                                     expected_serving_session_receipt: Mapping[str, Any],
                                      b_epoch_evidence: Mapping[str, Any] | None = None) -> None:
         """Qualify A/B transition observations against durable history and invocation owners."""
         if stage not in {"b_epoch_observed", "post_restoration_observed"}:
@@ -3868,17 +3869,38 @@ class ResidentDevelopmentalCognitionOwner:
         session_binding = expected_serving_session.get("binding")
         session_id = expected_serving_session.get("session_id")
         if (not isinstance(session_binding, Mapping) or not isinstance(session_id, str)
-                or not session_id):
+                or not session_id
+                or not isinstance(session_binding.get("model_serving_admission_ref"), str)
+                or not session_binding.get("model_serving_admission_ref")
+                or not isinstance(session_binding.get("activation_state_semantic_digest"), str)
+                or not session_binding.get("activation_state_semantic_digest")):
             raise ResidentDevelopmentalCognitionError("transition_serving_session_invalid")
+        # Cognition observations intentionally retain the two stable session
+        # binding fields, not the full serving receipt. Compare that exact
+        # projection while the separately verified session receipt below binds
+        # the complete serving record.
+        observation_session_binding = {
+            "model_serving_admission_ref": session_binding["model_serving_admission_ref"],
+            "activation_state_semantic_digest": session_binding["activation_state_semantic_digest"],
+        }
+        if (not isinstance(expected_serving_session_receipt, Mapping)
+                or set(expected_serving_session_receipt) != {"receipt_id", "receipt_semantic_digest"}
+                or any(not isinstance(expected_serving_session_receipt.get(key), str)
+                    or not expected_serving_session_receipt.get(key)
+                    for key in ("receipt_id", "receipt_semantic_digest"))):
+            raise ResidentDevelopmentalCognitionError("transition_serving_receipt_invalid")
         observation_id = evidence.get("b_observation_id") if stage == "b_epoch_observed" else evidence.get("restored_a_observation_id")
         observation_digest = evidence.get("b_observation_digest") if stage == "b_epoch_observed" else evidence.get("restored_a_observation_digest")
         observation = self.verified_cognition_observation(str(observation_id or ""), str(observation_digest or ""))
         tick_id = evidence.get("b_tick_id") if stage == "b_epoch_observed" else evidence.get("restored_a_tick_id")
         if (not isinstance(tick_id, str) or not tick_id or observation.get("tick_id") != tick_id
                 or observation.get("active_model_identity") != dict(expected_model_identity)
-                or (observation.get("serving_session_id") is not None
-                    and (observation.get("serving_session_id") != session_id
-                        or observation.get("serving_session_binding") != dict(session_binding)))):
+                or observation.get("serving_session_id") != session_id
+                or observation.get("serving_session_binding") != observation_session_binding
+                or observation.get("serving_session_receipt_id")
+                    != expected_serving_session_receipt.get("receipt_id")
+                or observation.get("serving_session_receipt_digest")
+                    != expected_serving_session_receipt.get("receipt_semantic_digest")):
             raise ResidentDevelopmentalCognitionError("transition_observation_model_or_tick_mismatch")
         verify_invocation = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
         if not callable(verify_invocation):
@@ -3891,11 +3913,13 @@ class ResidentDevelopmentalCognitionOwner:
                 expected_request_id=str(observation.get("request_id", "")),
                 expected_request_digest=str(observation.get("request_digest", "")),
                 expected_session_id=session_id,
-                expected_session_binding=session_binding,
+                expected_session_binding=observation_session_binding,
                 expected_active_model_identity=expected_model_identity,
                 **({"expected_session_receipt_id": observation["serving_session_receipt_id"],
                     "expected_session_receipt_digest": observation["serving_session_receipt_digest"]}
                     if observation.get("serving_session_receipt_id") is not None else {}))
+            if not isinstance(receipt, Mapping):
+                raise ResidentDevelopmentalCognitionError("transition_invocation_receipt_invalid")
             request = receipt.get("request")
             if (not isinstance(request, Mapping)
                     or receipt.get("status") not in {"admitted_completed", "admitted_simulation"}
@@ -3940,12 +3964,15 @@ class ResidentDevelopmentalCognitionOwner:
                 expected_request_id=str(candidate.get("request_id", "")),
                 expected_request_digest=str(candidate.get("request_digest", "")),
                 expected_session_id=session_id,
-                expected_active_model_identity=expected_model_identity)
+                expected_session_binding=observation_session_binding,
+                expected_active_model_identity=expected_model_identity,
+                expected_session_receipt_id=expected_serving_session_receipt["receipt_id"],
+                expected_session_receipt_digest=expected_serving_session_receipt["receipt_semantic_digest"])
             candidate_request = candidate_receipt.get("request")
             if (not isinstance(candidate_request, Mapping)
                     or candidate_receipt.get("status") not in {"admitted_completed", "admitted_simulation"}
                     or candidate_request.get("purpose") != "resident_developmental_interpretation"
-                    or candidate_request.get("correlation_id") != tick_id + ":resident-developmental_interpretation"
+                    or candidate_request.get("correlation_id") != tick_id + ":resident_developmental_interpretation"
                     or candidate.get("model_id") != candidate_request.get("model_id")
                     or candidate.get("model_artifact_digest") != candidate_request.get("model_artifact_digest")
                     or candidate_receipt.get("output_digest") != candidate.get("output_digest")):
