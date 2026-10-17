@@ -7,7 +7,15 @@ import json
 import os
 import sys
 import shutil
+import tempfile
 from pathlib import Path
+
+_GOVERNOR_ROOT_ENV = "SENTIENTOS_GOVERNOR_ROOT"
+_PRIOR_GOVERNOR_ROOT = os.environ.get(_GOVERNOR_ROOT_ENV)
+_TEST_GOVERNOR_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-governor-"))
+# Set this before importing project modules: some legacy modules construct a
+# process-wide governor during collection, before pytest session fixtures run.
+os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)
 
 import types
 
@@ -172,19 +180,16 @@ def codex_startup():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def isolate_governor_runtime(tmp_path_factory):
-    """Keep tests from writing runtime governance state to the production /glow tree."""
-    root = tmp_path_factory.mktemp("sentientos-runtime") / "glow" / "governor"
-    key = "SENTIENTOS_GOVERNOR_ROOT"
-    prior = os.environ.get(key)
-    os.environ[key] = str(root)
+def isolate_governor_runtime():
+    """Keep import-time and test-time governor state inside a disposable temp root."""
     try:
-        yield root
+        yield _TEST_GOVERNOR_ROOT
     finally:
-        if prior is None:
-            os.environ.pop(key, None)
+        if _PRIOR_GOVERNOR_ROOT is None:
+            os.environ.pop(_GOVERNOR_ROOT_ENV, None)
         else:
-            os.environ[key] = prior
+            os.environ[_GOVERNOR_ROOT_ENV] = _PRIOR_GOVERNOR_ROOT
+        shutil.rmtree(_TEST_GOVERNOR_ROOT, ignore_errors=True)
 
 
 
