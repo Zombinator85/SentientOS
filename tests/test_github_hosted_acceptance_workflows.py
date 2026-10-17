@@ -50,6 +50,31 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "add: 'docs/FEDERATION_HEALTH.md'" in workflow
 
 
+def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
+    workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
+    assert "permissions:\n  contents: read" in workflow
+    audit = workflow.split("- name: Verify audits", 1)[1].split("- name:", 1)[0]
+    assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in audit
+    assert "python -m scripts.verify_audits logs/" in audit
+    assert "contents: write" not in workflow
+
+
+def test_nightly_audit_repair_uses_admin_and_only_requests_pr_scoped_write_access() -> None:
+    workflow = (ROOT / ".github/workflows/audit-nightly.yml").read_text()
+    assert "permissions:\n  contents: write\n  pull-requests: write" in workflow
+    assert "issues: write" not in workflow and "actions: write" not in workflow
+    repair = workflow.split("- name: Verify and auto repair logs", 1)[1].split("- name:", 1)[0]
+    assert "sudo -n env" in repair
+    assert "python -m scripts.verify_audits logs/ --auto-repair --no-input" in repair
+    assert 'tee "$RUNNER_TEMP/audit_output.txt"' in repair
+    assert "status=${PIPESTATUS[0]}" in repair
+    assert "git add -- logs" in repair
+    assert "git diff --cached --quiet -- logs" in repair
+    assert "github.rest.repos.get(context.repo)" in workflow
+    assert "base: repository.default_branch" in workflow
+    assert "if: steps.repair.outputs.status != '0'" in workflow
+
+
 def test_required_quality_gate_name_is_unique():
     matches=[]
     for path in (ROOT/".github/workflows").glob("*.y*ml"):
