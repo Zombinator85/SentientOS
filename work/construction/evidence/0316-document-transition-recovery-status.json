@@ -1,0 +1,135 @@
+{
+  "sequence": 316,
+  "title": "Document verified transition recovery status",
+  "source": {
+    "branch": "main",
+    "commit": "ec1244ebc2a559acd3b3acd3bf787237cd481749",
+    "tree": "740ca242b00a9d17a42b66849c72f70712834a0b"
+  },
+  "predecessor": {
+    "sequence": 315,
+    "segment_path": "work/construction/segments/0315-expose-transition-recovery-status.md",
+    "segment_sha256": "40ff4399de4cabe29f13807466c06c1d476c9cec25253c9c89032a5cf6fc0984",
+    "evidence_path": "work/construction/evidence/0315-expose-transition-recovery-status.json",
+    "evidence_sha256": "512adcb5c10f7148b4be54da8c9a1a9f76656a580d861707ac797835b75b06ef"
+  },
+  "pull_request": {
+    "number": 2313,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2313",
+    "candidate": "f87b566142ab055a1492b80254490c6a4a4fee27",
+    "candidate_tree": "740ca242b00a9d17a42b66849c72f70712834a0b",
+    "merge_commit": "ec1244ebc2a559acd3b3acd3bf787237cd481749",
+    "merge_method": "merge"
+  },
+  "documentation": {
+    "path": "docs/development/resident_cognitive_transition_live_operator_ingress.md",
+    "fields": [
+      "reason",
+      "outstanding_stage",
+      "replay_forbidden",
+      "semantically_verified_stage_entry_digests"
+    ],
+    "status_read_only": true,
+    "consumes_request": false,
+    "stage_transition": false,
+    "journal_mutation": false
+  },
+  "checks": {
+    "pr_quality_gate": {
+      "run": 39052864916,
+      "conclusion": "success",
+      "administrator_strict_audits": true,
+      "finalizer": true
+    },
+    "pr_ci": {
+      "run": 39052864933,
+      "conclusion": "success",
+      "docs_linkcheck": true,
+      "source_validation": true,
+      "self_check": true
+    },
+    "pr_lint": {
+      "run": 39052864910,
+      "conclusion": "success"
+    },
+    "pr_docker": {
+      "run": 39052864936,
+      "conclusion": "success"
+    },
+    "pr_invariants": {
+      "run": 39052864988,
+      "conclusion": "success"
+    },
+    "pr_codex_ci": {
+      "run": 39052864909,
+      "conclusion": "success"
+    },
+    "pr_release": {
+      "run": 39052864920,
+      "conclusion": "success"
+    },
+    "pr_gradient": {
+      "run": 39052864911,
+      "conclusion": "success"
+    },
+    "post_merge_ci": {
+      "run": 39053148990,
+      "conclusion": "success",
+      "source_validation": true,
+      "self_check_pytest_with_coverage": true,
+      "docs_linkcheck": true,
+      "helm": true
+    },
+    "post_merge_quality_gate": {
+      "run": 39053148960,
+      "conclusion": "success"
+    },
+    "post_merge_invariants": {
+      "run": 39053149077,
+      "conclusion": "success"
+    },
+    "post_merge_docker": {
+      "run": 39053149036,
+      "conclusion": "success"
+    },
+    "post_merge_cpu_build": {
+      "run": 39053148983,
+      "conclusion": "success"
+    },
+    "post_merge_deploy": {
+      "run": 39053148959,
+      "conclusion": "success"
+    }
+  },
+  "related_append_pr": {
+    "number": 2312,
+    "merge_commit": "3ab9e29a69892a62d3b30f08ccf909754f4d06ab",
+    "checks_passed": true,
+    "optional_invite": {
+      "run": 39052583469,
+      "conclusion": "failure",
+      "http_status": 403,
+      "required": false
+    }
+  },
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39053149033,
+    "conclusion": "failure",
+    "http_status": 403,
+    "cause": "Resource not accessible by integration while posting a nonessential comment",
+    "required": false,
+    "additional_permission_added": false
+  },
+  "limitations": {
+    "controlled_federation_health_fixture_requires_ui_dispatch": true,
+    "connector_workflow_dispatch_available": false,
+    "production_temporal_a_to_b_to_a": "not established; exact commissioned setup and operator-approved protocol required",
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0316-document-transition-recovery-status.md",
+  "predecessor_segment_sha256": "40ff4399de4cabe29f13807466c06c1d476c9cec25253c9c89032a5cf6fc0984"
+}
