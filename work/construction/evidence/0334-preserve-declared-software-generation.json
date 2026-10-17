@@ -1,0 +1,67 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 334,
+  "title": "Preserve frozen software-generation declaration as non-observational lineage",
+  "source": {
+    "acquisition": "fresh GitHub clone and exact commit/tree readback",
+    "branch": "main",
+    "commit": "00fc37a1349f9e9be63bf919d86eeb5aa804aead",
+    "tree": "a2cc90f137bf0548f5a1829622b1d5357e1cea76"
+  },
+  "change": {
+    "module": "sentientos/developmental_model_replacement_experiment.py",
+    "context_identity_contract": "None or nonempty string of at most 512 characters",
+    "projection": "copies exact frozen repository_generation_identity into software_generation_identity",
+    "posture": "frozen_context_declaration_not_running_observation when present; unknown when absent",
+    "workflow": "Required Quality Gate selects the exact positive-path regression; exact node count 28",
+    "authority_added": false,
+    "runtime_observation_claimed": false
+  },
+  "verification": {
+    "py_compile": "passed for changed source and tests",
+    "git_diff_check": "passed",
+    "direct_behavior_probe": {
+      "status": "completed",
+      "invocations": 4,
+      "positive": 1,
+      "invalid_identity_rejections": 3,
+      "canonical_pytest_claimed": false
+    },
+    "workflow_static_contract": {
+      "expected_exact_nodes": 28,
+      "selected_count": 28,
+      "new_node_present": true,
+      "continuations_valid": true
+    },
+    "canonical_runner": {
+      "status": "blocked_environment",
+      "command": "python -m scripts.run_tests -q tests/test_developmental_model_replacement_experiment.py::test_world_state_projection_preserves_declared_software_generation_without_claiming_observation",
+      "reason": "pip build isolation could not reach package proxy to install setuptools>=78.1.1",
+      "provenance_path": "work/construction/evidence/0334-canonical-test-bootstrap-failure.json",
+      "provenance_bytes": 2359,
+      "provenance_sha256": "6849ca7265baa123b489254bee5f015b9ffd1e6863cf97fbd6b7aa9abbe67a00"
+    },
+    "direct_pytest": "blocked_by_repository_test_airlock; no bypass used",
+    "mypy": {
+      "status": "baseline_failure",
+      "errors": 357,
+      "files": 74,
+      "changed_module_existing_error": "redundant cast at line 305",
+      "baseline_weakened": false
+    },
+    "hosted_exact_candidate_acceptance": "pending"
+  },
+  "remaining_boundaries": {
+    "production_resident_transition": "requires exact commissioned identities, installation, and operator-approved protocol",
+    "federation_changed_output_fixture": "requires workflow_dispatch; no dispatch tool available in this session",
+    "sequence_286_provenance_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "predecessor": {
+    "sequence": 333,
+    "segment_path": "work/construction/segments/0333-record-current-main-federation-run.md",
+    "segment_sha256": "a280954233bf8706de1e54a628cf483f6eda347c475c126dc17cec06dd306dac",
+    "evidence_path": "work/construction/evidence/0333-record-current-main-federation-run.json",
+    "evidence_sha256": "fd39562a1ef3d780aad0f13ed188f2b69a242cf1fc638f982287f65aa0d43386"
+  }
+}

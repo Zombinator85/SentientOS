@@ -176,6 +176,32 @@ def test_recovered_model_replacement_preserves_event_time_without_reconstruction
         "improvement_posture"] == "not_assessed"
 
 
+def test_world_state_projection_preserves_declared_software_generation_without_claiming_observation(
+        tmp_path: Path) -> None:
+    exp, _, _ = experiment(tmp_path)
+    run = exp.run()
+    record = exp.store.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))[0]
+    payload = record["payload"]
+    assert payload["declared_repository_generation_identity"] == "test-sha"
+    assert payload["software_generation_identity"] == "test-sha"
+    assert payload["software_generation_posture"] == (
+        "frozen_context_declaration_not_running_observation")
+
+
+@pytest.mark.parametrize("generation_identity", ["", "x" * 513, {"commit": "abc"}])
+def test_frozen_context_rejects_unbounded_or_nonstring_repository_generation_identity(
+        generation_identity: object) -> None:
+    payload = asdict(context())
+    payload.pop("context_id")
+    payload.pop("context_digest")
+    payload["repository_generation_identity"] = generation_identity
+    malformed = FrozenCausalContext.create(**payload)
+    with pytest.raises(DevelopmentalModelReplacementError,
+                       match="repository_generation_identity_invalid"):
+        malformed.verify()
+
+
 def test_model_replacement_event_time_rejects_unzoned_or_malformed_metadata() -> None:
     with pytest.raises(DevelopmentalModelReplacementError, match="timezone_required"):
         _inference_event_time("2035-01-03T00:00:00")
