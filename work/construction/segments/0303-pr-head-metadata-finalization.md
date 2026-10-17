@@ -1,0 +1,9 @@
+# Sequence 303 — Bind PR finalization to the candidate commit
+
+The first PR check for sequence 302 exposed a difference between push and pull-request execution: GitHub checks out a synthetic merge commit for `pull_request`. The landing workflow compared the PR title with `git log -1` from that synthetic commit, so the metadata guard rejected a correctly titled PR before starting finalization. Strict audit, immutability, and the 23-node acceptance stage had already passed. The failed attempt is retained as an exact artifact and run record.
+
+The workflow now fetches full history and reads the title from the event-bound PR head SHA; push events continue to use `HEAD`. The finalizer still validates the PR title against the candidate commit title, and all source tests continue against the synthetic merge tree. The workflow regression test pins both paths.
+
+On branch candidate `67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8` (tree `c7c36e7ccdd78e2cf746d8671426303c1fe31d9b`), local workflow regressions passed 2/2, compilation passed, YAML parsed, and `git diff --check` passed. The corrected hosted PR merge candidate was `75aba17b5e835d1c6f2ddfc0728d70a72050370e`, with the same tree. Its Required Quality Gate passed all 23 acceptance nodes, strict audit and immutability as UID 0, and hosted finalization returned `ready_for_pr_metadata`; focused tests, Mypy baseline, prompt boundary, strict audits, and immutability each exited 0. Full CI, Docker, invariants, Codex CI, lint benchmark, release, and gradient-null regression checks also passed.
+
+The branch remains in PR #2282 for normal integration into `main`. After integration, the next operational dependency is observing the scheduled federation-health update on `main` and checking its Administrator execution, retained authorization, and documentation-only commit scope.

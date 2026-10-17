@@ -1,15 +1,14 @@
 # Active construction checkpoint
 
-Sequence 302 connects hosted Administrator authority to the landing finalizer. The Required Quality Gate now retains exact acceptance evidence, safely clears only its current test-generated residue, then runs the unchanged PR-metadata finalizer as UID 0. The exact remote candidate `e7f3a0fecea39b7dea8598832f051f4594b7cdac` and tree `868696840add18b0974204e988fb7e28af4f1629` passed the hosted strict audit and immutability checks; hosted finalization returned `ready_for_pr_metadata`. The federation-health scheduled updater separately uses an explicit sudo preflight/run while preserving approval and doc-only commit scope. The 42-test affected local suite and exact-node acceptance passed on a local commit with the identical remote tree. Full hosted CI, invariants, privileged quality gate, and the `ready_for_pr_metadata` finalizer are recorded in the evidence sidecar.
+Sequence 303 corrected the hosted PR finalizer so it binds PR metadata to the event-bound candidate commit title while continuing to verify the synthetic merge tree. The previous failure and exact artifacts are retained. Corrected hosted verification for candidate `67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8` passed on merge candidate `75aba17b5e835d1c6f2ddfc0728d70a72050370e`, tree `c7c36e7ccdd78e2cf746d8671426303c1fe31d9b`: all 23 acceptance nodes, strict audit and immutability as UID 0, privileged finalization, full CI, Docker, invariants, and associated checks are green.
+
+PR #2282 is ready for integration into `main` while preserving commit history. After merge, verify the exact main ref and observe the scheduled federation-health updater, including Administrator authority, retained approval, and health-document-only scope.
 
 The sequence-286 provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable. No historical payload was reconstructed or omitted.
 
-Next dependency: integrate this increment through normal PR checks, then observe the scheduled federation-health update on merged `main`, verifying actual Administrator execution, approval, and health-document-only commit scope.
-
-Verified remote source commit: `e7f3a0fecea39b7dea8598832f051f4594b7cdac`
-Verified source tree: `868696840add18b0974204e988fb7e28af4f1629`
-Latest segment: `work/construction/segments/0302-federation-health-hosted-administrator.md`
-Latest segment SHA-256: `091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93`
-Latest evidence: `work/construction/evidence/0302-federation-health-hosted-administrator.json`
-Latest evidence SHA-256: `75c0c39869d5c53f54340d5d4a0d53b1bbfd23b97370928e9e19b4b6a5f61bac`
-Sequence: 302
+Verified candidate branch head: `67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8`
+Verified candidate tree: `c7c36e7ccdd78e2cf746d8671426303c1fe31d9b`
+Latest segment: `work/construction/segments/0303-pr-head-metadata-finalization.md`
+Latest evidence: `work/construction/evidence/0303-pr-head-metadata-finalization.json`
+Sequence: 303
+Latest segment SHA-256: `6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df`

@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "eb349eb1ab5387db89d5d5c23853f8ebd82ad92f527ab57119eccb1451aa9389",
-    "latest_segment_sequence": 302,
-    "latest_segment_sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
-    "source_commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
-    "source_tree": "868696840add18b0974204e988fb7e28af4f1629"
+    "checkpoint_sha256": "36c5256aef58f8c51c16400c03e616aa71d89f0fb4c42a525cf5c8cce97548f7",
+    "latest_segment_sequence": 303,
+    "latest_segment_sha256": "6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df",
+    "source_commit": "67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8",
+    "source_tree": "c7c36e7ccdd78e2cf746d8671426303c1fe31d9b"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 302,
+  "latest_sequence": 303,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3246,16 +3246,29 @@
     },
     {
       "bytes": 3805,
+      "evidence": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
+      "evidence_bytes": 15219,
+      "evidence_path": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
+      "evidence_sha256": "75c0c39869d5c53f54340d5d4a0d53b1bbfd23b97370928e9e19b4b6a5f61bac",
       "path": "work/construction/segments/0302-federation-health-hosted-administrator.md",
       "predecessor": "segment-sha256:91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
       "sequence": 302,
       "sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
       "source_commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
-      "source_tree": "868696840add18b0974204e988fb7e28af4f1629",
-      "evidence": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
-      "evidence_path": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
-      "evidence_bytes": 15219,
-      "evidence_sha256": "75c0c39869d5c53f54340d5d4a0d53b1bbfd23b97370928e9e19b4b6a5f61bac"
+      "source_tree": "868696840add18b0974204e988fb7e28af4f1629"
+    },
+    {
+      "bytes": 1838,
+      "evidence": "work/construction/evidence/0303-pr-head-metadata-finalization.json",
+      "evidence_bytes": 4868,
+      "evidence_path": "work/construction/evidence/0303-pr-head-metadata-finalization.json",
+      "evidence_sha256": "e3912fc13070603f8e74ffe9a2ecd1ef1235d58b547174dd4b16b692bb135b46",
+      "path": "work/construction/segments/0303-pr-head-metadata-finalization.md",
+      "predecessor": "segment-sha256:091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
+      "sequence": 303,
+      "sha256": "6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df",
+      "source_commit": "67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8",
+      "source_tree": "c7c36e7ccdd78e2cf746d8671426303c1fe31d9b"
     }
   ],
   "source_acquisition": {

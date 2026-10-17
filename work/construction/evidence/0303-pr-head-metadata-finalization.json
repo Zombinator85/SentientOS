@@ -1,0 +1,116 @@
+{
+  "failure_and_repair": {
+    "cause": "the title guard compared PR_TITLE to git log of the synthetic merge commit subject and exited before invoking the finalizer",
+    "failed_artifact": {
+      "artifact_id": 12084932992,
+      "bytes": 4467,
+      "digest": "sha256:4a5487b05016fdac1993354e1c3c1e6b04cc02abac313b7f8a6b62195d487803",
+      "path": "work/construction/evidence/0303-hosted-pr-finalizer-failed-artifact.zip",
+      "run_id": 38991720875,
+      "sha256": "4a5487b05016fdac1993354e1c3c1e6b04cc02abac313b7f8a6b62195d487803"
+    },
+    "failed_head": "f95d64accf8b91985b5266296865aa8dba7770c7",
+    "failed_run_id": 38991720875,
+    "repair": "fetch full history and resolve COMMIT_TITLE from PR_HEAD_SHA for pull_request; retain HEAD for push",
+    "synthetic_merge_sha": "8d16678962664fd9895b7d5987513bb24bedd195"
+  },
+  "hosted_verification": {
+    "artifacts": {
+      "0303-hosted-pr-finalizer-artifact.zip": {
+        "artifact_id": 12085373036,
+        "bytes": 12806,
+        "digest": "sha256:4b47b8bb5787168f02b423adf17e1c4f74f2629e1ae68ff7f8db527d7370ac0b",
+        "path": "work/construction/evidence/0303-hosted-pr-finalizer-artifact.zip",
+        "run_id": 38991870507,
+        "sha256": "4b47b8bb5787168f02b423adf17e1c4f74f2629e1ae68ff7f8db527d7370ac0b"
+      },
+      "0303-hosted-pr-required-quality-gate-artifact.zip": {
+        "artifact_id": 12084529791,
+        "bytes": 10569,
+        "digest": "sha256:8ccc9479abd63c0819e5288f50068161d9e97975ff108c6b2a57a16ab023aa7f",
+        "path": "work/construction/evidence/0303-hosted-pr-required-quality-gate-artifact.zip",
+        "run_id": 38991870507,
+        "sha256": "8ccc9479abd63c0819e5288f50068161d9e97975ff108c6b2a57a16ab023aa7f"
+      }
+    },
+    "merge_candidate_sha": "75aba17b5e835d1c6f2ddfc0728d70a72050370e",
+    "merge_candidate_tree": "c7c36e7ccdd78e2cf746d8671426303c1fe31d9b",
+    "required_quality_gate": {
+      "conclusion": "success",
+      "effective_uid": 0,
+      "finalizer_command_exit_codes": {
+        "audit_immutability": 0,
+        "focused_tests": 0,
+        "mypy_baseline": 0,
+        "prompt_boundary": 0,
+        "strict_audits": 0
+      },
+      "finalizer_status": "ready_for_pr_metadata",
+      "immutability_ok": true,
+      "run_id": 38991870507,
+      "selected_acceptance_nodes": 23,
+      "strict_audit_ok": true
+    },
+    "workflow_runs": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 38991870415
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 38991870388
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 38991870392
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "run_id": 38991870434
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 38991870462
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "run_id": 38991870422
+      },
+      "Release": {
+        "conclusion": "success",
+        "run_id": 38991870619
+      }
+    }
+  },
+  "local_verification": {
+    "compileall": "passed",
+    "focused_tests": {
+      "command": "/tmp/sentientos-seq300-venv/bin/python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests",
+      "failed": 0,
+      "passed": 2
+    },
+    "git_diff_check": "passed",
+    "workflow_yaml": "parsed"
+  },
+  "next_dependency": "Merge PR #2282 with preserved history, verify main, then observe the scheduled federation-health updater on main.",
+  "predecessor_evidence_path": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
+  "predecessor_evidence_sha256": "75c0c39869d5c53f54340d5d4a0d53b1bbfd23b97370928e9e19b4b6a5f61bac",
+  "predecessor_segment_path": "work/construction/segments/0302-federation-health-hosted-administrator.md",
+  "predecessor_segment_sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
+  "segment_bytes": 1838,
+  "segment_path": "work/construction/segments/0303-pr-head-metadata-finalization.md",
+  "segment_sha256": "6552de14e887d207dc06d1988a7dca9d0f1bad20052efd8b2e518a51e5b275df",
+  "sequence": 303,
+  "source": {
+    "base_main": "adf6b6f7e68562575e73c4f512d5c61e945abc7f",
+    "branch": "codex/construct-sentientos-302",
+    "commit": "67c2469bbb175f0d6b043919d26d8ba2d7f9ebf8",
+    "pull_request": 2282,
+    "tree": "c7c36e7ccdd78e2cf746d8671426303c1fe31d9b"
+  },
+  "source_blobs": {
+    ".github/workflows/required-quality-gate.yml": "3664f9e281fe00aa95ab7b2ebb5af7194e852a6f",
+    "tests/test_github_hosted_acceptance_workflows.py": "5b6968d4240d978082ddb4177749975140dd0bcb"
+  },
+  "title": "Bind PR finalization to the candidate commit"
+}
