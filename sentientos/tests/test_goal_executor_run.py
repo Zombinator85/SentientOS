@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 import hashlib
 import json
+import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -15,7 +17,8 @@ from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_plan import (Task, WorkPlan, persist_work_plan_evidence,
     load_work_run, persist_work_run, work_plan_id_from_evidence)
-from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
+from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
+    WorkPlanJournalError)
 
 
 def _plan() -> WorkPlan:
@@ -102,6 +105,61 @@ def test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal(
     assert calls == []
     assert not (tmp_path / "glow/forge/work_plan_journals").exists()
     assert not (tmp_path / "glow/forge/work_runs").exists()
+
+
+def test_first_journal_append_syncs_new_directory_entries(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = _single_task_plan(Task(1, "t1", "g1", "diagnostic", (), None,
+        0, 0, {}, (), False))
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    assert not journal.path.parent.exists()
+
+    sync_targets: list[str] = []
+    fsync = os.fsync
+
+    def record_sync_target(descriptor: int) -> None:
+        sync_targets.append("directory" if stat.S_ISDIR(os.fstat(descriptor).st_mode)
+            else "file")
+        fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", record_sync_target)
+    journal.start("t1")
+
+    assert sync_targets == ["directory", "directory", "directory", "file", "directory"]
+
+
+def test_executor_stops_before_task_effect_when_journal_directory_sync_fails(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = _single_task_plan(Task(1, "t1", "g1", "diagnostic", (), None,
+        0, 0, {}, (), False))
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    executor = GoalExecutor(repo_root=tmp_path)
+    effects: list[str] = []
+
+    def record_effect(task: Task) -> tuple[str, str | None, tuple[str, ...]]:
+        effects.append(task.task_id)
+        return "success", None, ()
+
+    monkeypatch.setattr(executor, "_execute_task", record_effect)
+    fsync = os.fsync
+
+    def fail_directory_sync(descriptor: int) -> None:
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("simulated journal directory sync failure")
+        fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_directory_sync)
+    with pytest.raises(WorkPlanJournalError,
+            match="work_plan_journal_write_failed"):
+        executor.execute_plan(plan, _state(tmp_path))
+
+    assert effects == []
+    assert not (tmp_path / "glow/forge/work_runs").exists()
+    interrupted_bytes = journal.path.read_bytes()
+    recovered = WorkPlanExecutionJournal(tmp_path, plan)
+    assert recovered.state("t1") == "interrupted"
+    assert journal.path.read_bytes() == interrupted_bytes
 
 
 def test_execute_rejects_changed_canonical_evidence_before_task_effect(

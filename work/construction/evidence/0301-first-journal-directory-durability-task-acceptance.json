@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "92ec10a9cf2b22aa640cc702877642731723cb06",
+  "test_provenance_path": "work/construction/evidence/0301-first-journal-directory-durability-test-provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_first_journal_append_syncs_new_directory_entries",
+      "rationale": "Every newly created journal parent entry is synced before the file and final journal-directory sync."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_executor_stops_before_task_effect_when_journal_directory_sync_fails",
+      "rationale": "Directory-sync failure blocks task effects and work-run persistence while retaining exact interrupted journal bytes."
+    }
+  ],
+  "successful_path_nodes": [
+    "sentientos/tests/test_goal_executor_run.py::test_first_journal_append_syncs_new_directory_entries"
+  ]
+}
