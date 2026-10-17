@@ -2697,6 +2697,13 @@ class RuntimeMaintenanceSurfaces:
         self._refresh_feedback()
         return feedback
 
+    def block_resident_cognition_for_transition_recovery(self, reason: str) -> None:
+        """Keep developmental inference disabled while a transition needs operator recovery."""
+        self._resident_transition_configuration_error = reason
+        if self._resident_developmental_configuration_error is None:
+            self._resident_developmental_configuration_error = (
+                f"resident_transition_recovery_required:{reason}")
+
     def run_resident_developmental_cognition(self, *, tick_id: str) -> dict[str, Any]:
         """Run one configured cycle after the same-tick World-State snapshot exists."""
         if self._resident_developmental_configuration_error is not None:
@@ -3044,6 +3051,36 @@ def _load_resident_transition_custody(config_path: str, installation_handle: Any
             or config.journal_identity != resident_transition_journal_identity(protocol)):
         raise TransitionError("transition_recovery_configuration_binding_mismatch")
     return protocol, TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+
+
+def _resident_transition_recovery_quarantine_reason(journal: TransitionJournal, *,
+        transition_runtime_available: bool) -> str | None:
+    """Return a read-only startup block when journaled transition custody is unresolved."""
+    try:
+        entries = journal.entries()
+    except Exception as exc:
+        return f"resident_transition_journal_unverified:{type(exc).__name__}:{exc}"
+    unresolved = next((entry for entry in reversed(entries)
+        if entry.get("status") in {"attempted", "effected", "failed", "interrupted"}), None)
+    if unresolved is not None:
+        return ("resident_transition_journal_unresolved:"
+            f"{unresolved.get('status')}:{unresolved.get('phase')}:{unresolved.get('entry_digest')}")
+    quiesced_phase = None
+    for entry in entries:
+        if entry.get("status") != "completed":
+            continue
+        phase = entry.get("phase")
+        if phase in {"a_quiesced", "b_quiesced"}:
+            quiesced_phase = phase
+        elif phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
+            quiesced_phase = None
+    if quiesced_phase is not None:
+        return f"resident_transition_recovery_required:process_local_quiescence_lost:{quiesced_phase}"
+    if (entries and not transition_runtime_available
+            and entries[-1].get("phase") != "experiment_complete"):
+        return ("resident_transition_recovery_required:runtime_unavailable:"
+            f"{entries[-1].get('phase')}")
+    return None
 
 
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
@@ -3832,6 +3869,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     resident_serving_controller = None
     resident_serving_slot = None
     resident_serving_config = None
+    resident_transition_installation_handle = None
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
     resident_transition_live_path = os.environ.get(RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV)
@@ -3925,6 +3963,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             assert resident_serving_config.installation_identity is not None
             handle = InstallationStateRegistry.system().open(
                 InstallationIdentity.parse(resident_serving_config.installation_identity))
+            resident_transition_installation_handle = handle
             resident_serving_controller = ResidentCognitiveModelServingController(handle, kernel, config_digest=resident_serving_config.config_digest)
             resident_serving_controller.establish(
                 operation_id=str(resident_serving_config.serving_operation_id),
@@ -4028,6 +4067,23 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         runtime_surfaces._resident_transition_configuration_error = (
             runtime_surfaces._resident_transition_configuration_error
             or "hardened_resident_serving_required")
+    if runtime_surfaces._resident_transition_configuration_error is not None:
+        runtime_surfaces.block_resident_cognition_for_transition_recovery(
+            runtime_surfaces._resident_transition_configuration_error)
+    else:
+        recovery_journal = None
+        custody = runtime_surfaces._resident_transition_custody
+        if custody is not None:
+            recovery_journal = custody[1]
+        elif resident_transition_installation_handle is not None:
+            recovery_journal = TransitionJournal(
+                resident_transition_installation_handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+        if recovery_journal is not None:
+            recovery_reason = _resident_transition_recovery_quarantine_reason(
+                recovery_journal,
+                transition_runtime_available=runtime_surfaces._resident_transition_runtime is not None)
+            if recovery_reason is not None:
+                runtime_surfaces.block_resident_cognition_for_transition_recovery(recovery_reason)
     # Explicit owner injection: World-State reads the already configured
     # software-transition journal and the startup provenance captured by this
     # controller. It does not discover generation custody from the filesystem.
