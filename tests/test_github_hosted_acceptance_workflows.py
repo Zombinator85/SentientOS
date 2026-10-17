@@ -491,4 +491,5 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
     assert "delete-branch: false" in workflow
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
+    assert "draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}" in workflow
 
