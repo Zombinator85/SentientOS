@@ -26,7 +26,7 @@ from sentientos.task_acceptance import verify as verify_task_acceptance
 from sentientos.bounded_subprocess import DEFAULT_HEARTBEAT_SECONDS, DEFAULT_TAIL_LINES, run_supervised
 from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, seal_validation_plan, verify_validation_plan
 
-GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime", "sentientos_data/conversations/")
+GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/runtime", "sentientos_data/conversations/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
 MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wav", ".mp3")
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
@@ -558,7 +558,12 @@ def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_
     for line in status_lines:
         is_untracked = line.startswith("??")
         path = line[3:] if len(line) > 3 else line
-        if path == "glow/test_runs/test_run_provenance.json" or path.rstrip("/") == "glow/test_runs/provenance" or path.startswith("glow/test_runs/provenance/"):
+        if path == "sentientos_data/vow" or path.startswith("sentientos_data/vow/"):
+            # Vow storage can contain persistent privacy identity material and user data.
+            # It is never a disposable finalizer artifact or a task source binding.
+            cls = "unknown_dirty_file"
+            action = "block"
+        elif path == "glow/test_runs/test_run_provenance.json" or path.rstrip("/") == "glow/test_runs/provenance" or path.startswith("glow/test_runs/provenance/"):
             if path in changed_file_set or path in set(inferred_untracked_task_files):
                 cls = "intended_task_change"
                 action = "allow_pre_commit"
@@ -626,6 +631,10 @@ def _cleanup_generated(status_lines: list[str]) -> dict[str, tuple[bool, str, st
     for line in status_lines:
         git_status = line[:2]
         path = line[3:] if len(line) > 3 else line
+        # Vow storage can contain persistent identity material and user data.
+        # It is protected even when nested names resemble generated caches.
+        if path == "sentientos_data/vow" or path.startswith("sentientos_data/vow/"):
+            continue
         # Per-run provenance is append-only evidence. It may be produced by
         # validation, but automatic cleanup must never restore or remove it.
         if (path == "glow/test_runs/test_run_provenance.json"
@@ -1158,7 +1167,7 @@ def main(argv: list[str] | None = None) -> int:
     binding_errors = []
     binding_obj = None
     try:
-        semantic_status_paths = tuple((line[3:] if len(line) > 3 else line) for line in status_after_refresh if not (line[3:] if len(line) > 3 else line).startswith(("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")))
+        semantic_status_paths = tuple((line[3:] if len(line) > 3 else line) for line in status_after_refresh if not (line[3:] if len(line) > 3 else line).startswith(("glow/", "pulse/", "artifacts/codex/", "sentientos_data/runtime")))
         task_paths = tuple(p for p in (tuple(a.changed_file) + inferred_changed_files + inferred_untracked_task_files) if not p.startswith(("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")))
         if not semantic_status_paths and not a.changed_file:
             task_paths = ()

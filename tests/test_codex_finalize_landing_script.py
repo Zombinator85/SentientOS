@@ -970,6 +970,25 @@ def test_finalizer_blocks_unsatisfied_task_acceptance(monkeypatch: pytest.Monkey
     assert payload["task_acceptance"]["status"] == "task_acceptance_blocked"
 
 
+
+@pytest.mark.no_legacy_skip
+def test_vow_identity_and_user_data_are_never_cleanup_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", lambda cmd: calls.append(cmd))
+    key_path = "sentientos_data/vow/keys/salt.key"
+    cache_path = "sentientos_data/vow/__pycache__/cache.pyc"
+    assert _cleanup_generated([f"?? {key_path}", f" M {cache_path}"]) == {}
+    assert calls == []
+
+
+@pytest.mark.no_legacy_skip
+def test_vow_identity_and_user_data_are_blocked_even_if_declared() -> None:
+    key_path = "sentientos_data/vow/keys/salt.key"
+    for changed in ((), (key_path,)):
+        finding = _classify([f"?? {key_path}"], changed, ())[0]
+        assert finding.classification == "unknown_dirty_file"
+        assert finding.action == "block"
+
 def test_cleanup_generated_removes_conversation_runtime(monkeypatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", lambda argv: calls.append(argv) or type("R", (), {"returncode": 0})())

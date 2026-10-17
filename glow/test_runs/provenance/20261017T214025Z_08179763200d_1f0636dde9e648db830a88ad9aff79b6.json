@@ -1,0 +1,486 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_finalize_landing_script.py::test_acceptance_custody_uses_private_exclusive_files": 0,
+    "tests/test_codex_finalize_landing_script.py::test_acceptance_evidence_is_captured_before_any_child_stage": 0,
+    "tests/test_codex_finalize_landing_script.py::test_caller_owned_requested_sandbox_mode_is_preserved": 0,
+    "tests/test_codex_finalize_landing_script.py::test_captured_acceptance_tampering_blocks_final_decision": 0,
+    "tests/test_codex_finalize_landing_script.py::test_child_stage_overwrite_of_original_provenance_does_not_change_captured_acceptance": 0,
+    "tests/test_codex_finalize_landing_script.py::test_child_stages_receive_only_their_invocation_runtime_environment": 0,
+    "tests/test_codex_finalize_landing_script.py::test_classify_allows_current_capability_fixture_root_but_blocks_other_root": 0,
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration": 0,
+    "tests/test_codex_finalize_landing_script.py::test_classify_untracked_task_file_inferred": 0,
+    "tests/test_codex_finalize_landing_script.py::test_classify_untracked_unknown_root_and_media_blocked": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_failed_restore_remains_visible": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_generated_removes_conversation_runtime": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_leaves_source_paths_untouched": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_runtime_audit": 0,
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file": 0,
+    "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_preserve_distinct_acceptance_custody": 0,
+    "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots": 0,
+    "tests/test_codex_finalize_landing_script.py::test_dirty_diagnostics_include_exact_path_and_recommended_action": 0,
+    "tests/test_codex_finalize_landing_script.py::test_dirty_source_blocks_after_cleanup_and_refresh": 0,
+    "tests/test_codex_finalize_landing_script.py::test_exact_prevalidated_matrix_reaches_ready_without_matrix_execution": 0,
+    "tests/test_codex_finalize_landing_script.py::test_existing_finalizer_owned_invocations_directory_requires_private_mode": 0,
+    "tests/test_codex_finalize_landing_script.py::test_existing_invocation_directory_is_never_reused_or_overwritten": 0,
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalize_writes_output_and_decision_line": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_binds_invocation_runtime_and_acceptance_identity": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_acceptance_and_timeout_custody": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_initial_and_terminal_directory_mode_custody": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_blocks_unsatisfied_task_acceptance": 0,
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_does_not_mutate_process_environment": 0,
+    "tests/test_codex_finalize_landing_script.py::test_fixture_root_inferred_only_for_matching_task_slug": 0,
+    "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_allowed_refresh_terminal_ready": 0,
+    "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready": 0,
+    "tests/test_codex_finalize_landing_script.py::test_invalid_acceptance_blocks_before_matrix_execution": 0,
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_task_files": 0,
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_tracked_changes": 0,
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_output_timeouts_and_progress_flags": 0,
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_phase_and_changed_file": 0,
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_stale_evidence_refresh_flags": 0,
+    "tests/test_codex_finalize_landing_script.py::test_post_commit_exact_reuse_performs_zero_matrix_stages": 0,
+    "tests/test_codex_finalize_landing_script.py::test_pre_commit_uses_single_matrix_stage_with_summary_and_output": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_command_count_changed]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_completion_incomplete]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_contract_changed]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_required_failures_nonzero]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_schema_invalid]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed0]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed1]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-workspace_binding_changed]": 0,
+    "tests/test_codex_finalize_landing_script.py::test_primary_matrix_uses_independent_matrix_timeout": 0,
+    "tests/test_codex_finalize_landing_script.py::test_refresh_failure_is_terminal_without_rerun_suggestion": 0,
+    "tests/test_codex_finalize_landing_script.py::test_runtime_directory_mode_tampering_blocks_terminal_decision": 0,
+    "tests/test_codex_finalize_landing_script.py::test_stale_refresh_matrix_uses_independent_matrix_timeout": 0,
+    "tests/test_codex_finalize_landing_script.py::test_stale_refresh_required_only_when_not_allowed": 0,
+    "tests/test_codex_finalize_landing_script.py::test_symlinked_runtime_custody_ancestor_is_rejected_before_write": 0,
+    "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_blocked_even_if_declared": 0,
+    "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_never_cleanup_candidates": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "skip_rate",
+      "rule": "<= 0.2",
+      "threshold": 0.2,
+      "value": 0.3103448275862069
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 40,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-transition-recovery/glow/test_runs/pytest_junitxml_347dbed7736c48a9b5c90b655a426f9e.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_parser_has_phase_and_changed_file",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_tracked_changes",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_task_files",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_parser_has_stale_evidence_refresh_flags",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_untracked_task_file_inferred",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_untracked_unknown_root_and_media_blocked",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_dirty_diagnostics_include_exact_path_and_recommended_action",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_runtime_audit",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_leaves_source_paths_untouched",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_failed_restore_remains_visible",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_parser_has_output_timeouts_and_progress_flags",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_exact_prevalidated_matrix_reaches_ready_without_matrix_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_completion_incomplete]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_required_failures_nonzero]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_schema_invalid]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_contract_changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_command_count_changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-workspace_binding_changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalize_writes_output_and_decision_line",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_fixture_root_inferred_only_for_matching_task_slug",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_allows_current_capability_fixture_root_but_blocks_other_root",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_acceptance_evidence_is_captured_before_any_child_stage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_invalid_acceptance_blocks_before_matrix_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_child_stage_overwrite_of_original_provenance_does_not_change_captured_acceptance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_captured_acceptance_tampering_blocks_final_decision",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_primary_matrix_uses_independent_matrix_timeout",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_stale_refresh_matrix_uses_independent_matrix_timeout",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_acceptance_and_timeout_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalizer_does_not_mutate_process_environment",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_child_stages_receive_only_their_invocation_runtime_environment",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_preserve_distinct_acceptance_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_symlinked_runtime_custody_ancestor_is_rejected_before_write",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_existing_finalizer_owned_invocations_directory_requires_private_mode",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_caller_owned_requested_sandbox_mode_is_preserved",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_runtime_directory_mode_tampering_blocks_terminal_decision",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_initial_and_terminal_directory_mode_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_existing_invocation_directory_is_never_reused_or_overwritten",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_acceptance_custody_uses_private_exclusive_files",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_binds_invocation_runtime_and_acceptance_identity",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_allowed_refresh_terminal_ready",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_stale_refresh_required_only_when_not_allowed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_refresh_failure_is_terminal_without_rerun_suggestion",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_dirty_source_blocks_after_cleanup_and_refresh",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_pre_commit_uses_single_matrix_stage_with_summary_and_output",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_post_commit_exact_reuse_performs_zero_matrix_stages",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_finalizer_blocks_unsatisfied_task_acceptance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_never_cleanup_candidates",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_blocked_even_if_declared",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_cleanup_generated_removes_conversation_runtime",
+      "outcome": "skipped",
+      "phase": "setup"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "30861cf0010ccf702e572bb9259eb513b5860635f3f1bdb4aa2c9d6087c698d4",
+  "provenance_hash": "3c5560fbc1f98eba73df6954af64a82ba90daf9a0f0b1de3768f12b7e1669438",
+  "pytest_args": [
+    "tests/test_codex_finalize_landing_script.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-transition-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-transition-recovery",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "e6bd8834f4e74ecfa9ad2908fcd62950",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_phase_and_changed_file",
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_tracked_changes",
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_allow_current_task_files",
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_stale_evidence_refresh_flags",
+    "tests/test_codex_finalize_landing_script.py::test_classify_untracked_task_file_inferred",
+    "tests/test_codex_finalize_landing_script.py::test_classify_untracked_unknown_root_and_media_blocked",
+    "tests/test_codex_finalize_landing_script.py::test_dirty_diagnostics_include_exact_path_and_recommended_action",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_tracked_generated_file",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_removes_untracked_generated_directory",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_preserves_append_only_test_provenance",
+    "tests/test_codex_finalize_landing_script.py::test_explicit_changed_file_declares_untracked_task_artifact",
+    "tests/test_codex_finalize_landing_script.py::test_classify_append_only_provenance_requires_explicit_declaration",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_restores_runtime_audit",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_leaves_source_paths_untouched",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_failed_restore_remains_visible",
+    "tests/test_codex_finalize_landing_script.py::test_parser_has_output_timeouts_and_progress_flags",
+    "tests/test_codex_finalize_landing_script.py::test_exact_prevalidated_matrix_reaches_ready_without_matrix_execution",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed0]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_status_not_passed1]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_completion_incomplete]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_required_failures_nonzero]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_schema_invalid]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_contract_changed]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-matrix_command_count_changed]",
+    "tests/test_codex_finalize_landing_script.py::test_prevalidated_matrix_rejection_is_fail_closed[<lambda>-workspace_binding_changed]",
+    "tests/test_codex_finalize_landing_script.py::test_finalize_writes_output_and_decision_line",
+    "tests/test_codex_finalize_landing_script.py::test_fixture_root_inferred_only_for_matching_task_slug",
+    "tests/test_codex_finalize_landing_script.py::test_classify_allows_current_capability_fixture_root_but_blocks_other_root",
+    "tests/test_codex_finalize_landing_script.py::test_acceptance_evidence_is_captured_before_any_child_stage",
+    "tests/test_codex_finalize_landing_script.py::test_invalid_acceptance_blocks_before_matrix_execution",
+    "tests/test_codex_finalize_landing_script.py::test_child_stage_overwrite_of_original_provenance_does_not_change_captured_acceptance",
+    "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready",
+    "tests/test_codex_finalize_landing_script.py::test_captured_acceptance_tampering_blocks_final_decision",
+    "tests/test_codex_finalize_landing_script.py::test_primary_matrix_uses_independent_matrix_timeout",
+    "tests/test_codex_finalize_landing_script.py::test_stale_refresh_matrix_uses_independent_matrix_timeout",
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_acceptance_and_timeout_custody",
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_does_not_mutate_process_environment",
+    "tests/test_codex_finalize_landing_script.py::test_child_stages_receive_only_their_invocation_runtime_environment",
+    "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots",
+    "tests/test_codex_finalize_landing_script.py::test_concurrent_same_sandbox_finalizers_preserve_distinct_acceptance_custody",
+    "tests/test_codex_finalize_landing_script.py::test_symlinked_runtime_custody_ancestor_is_rejected_before_write",
+    "tests/test_codex_finalize_landing_script.py::test_existing_finalizer_owned_invocations_directory_requires_private_mode",
+    "tests/test_codex_finalize_landing_script.py::test_caller_owned_requested_sandbox_mode_is_preserved",
+    "tests/test_codex_finalize_landing_script.py::test_runtime_directory_mode_tampering_blocks_terminal_decision",
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_records_initial_and_terminal_directory_mode_custody",
+    "tests/test_codex_finalize_landing_script.py::test_existing_invocation_directory_is_never_reused_or_overwritten",
+    "tests/test_codex_finalize_landing_script.py::test_acceptance_custody_uses_private_exclusive_files",
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_artifact_binds_invocation_runtime_and_acceptance_identity",
+    "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_allowed_refresh_terminal_ready",
+    "tests/test_codex_finalize_landing_script.py::test_stale_refresh_required_only_when_not_allowed",
+    "tests/test_codex_finalize_landing_script.py::test_refresh_failure_is_terminal_without_rerun_suggestion",
+    "tests/test_codex_finalize_landing_script.py::test_dirty_source_blocks_after_cleanup_and_refresh",
+    "tests/test_codex_finalize_landing_script.py::test_pre_commit_uses_single_matrix_stage_with_summary_and_output",
+    "tests/test_codex_finalize_landing_script.py::test_post_commit_exact_reuse_performs_zero_matrix_stages",
+    "tests/test_codex_finalize_landing_script.py::test_finalizer_blocks_unsatisfied_task_acceptance",
+    "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_never_cleanup_candidates",
+    "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_blocked_even_if_declared",
+    "tests/test_codex_finalize_landing_script.py::test_cleanup_generated_removes_conversation_runtime"
+  ],
+  "selection_flags": [
+    "tests/test_codex_finalize_landing_script.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.3103448275862069,
+  "tests_collected": 58,
+  "tests_executed": 40,
+  "tests_failed": 0,
+  "tests_passed": 40,
+  "tests_selected": 58,
+  "tests_skipped": 18,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-17T21:40:25.426103+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

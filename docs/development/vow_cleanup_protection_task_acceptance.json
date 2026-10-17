@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_never_cleanup_candidates",
+      "rationale": "Vow identity and user data must never invoke automatic cleanup, including nested cache-like names."
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_blocked_even_if_declared",
+      "rationale": "Persistent identity storage cannot be admitted as task source even when explicitly declared."
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content",
+      "rationale": "Construction matrix binding includes vow identity changes by content digest so they cannot disappear as generated runtime state."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_finalize_landing_script.py::test_vow_identity_and_user_data_are_blocked_even_if_declared",
+    "tests/test_work_item_review_packet_matrix_resume.py::test_workspace_binding_tracks_vow_identity_file_content"
+  ]
+}
