@@ -1,0 +1,241 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts": 0,
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 24,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "398651d526b2789581fdea69f7effbaec03bb881",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-seq302-remote-exact/pytest_junitxml_a79ec31cac8f4204bf0bcb6b761b6987.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "aac5e6eb12e4170db377596c90032a95ebd52bcd68a5dcde2ec427847a157a87",
+  "pytest_args": [
+    "tests/test_github_hosted_acceptance_workflows.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-seq300-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-federation",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "b0b48ed4e32641a9a8a316ea5f40f0c3",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv",
+    "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup",
+    "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes",
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence",
+    "tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock",
+    "tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation",
+    "tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate",
+    "tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet",
+    "tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks",
+    "tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in",
+    "tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence",
+    "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts",
+    "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes",
+    "tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance",
+    "tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode"
+  ],
+  "selection_flags": [
+    "tests/test_github_hosted_acceptance_workflows.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 24,
+  "tests_executed": 24,
+  "tests_failed": 0,
+  "tests_passed": 24,
+  "tests_selected": 24,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-17T01:16:26.372772+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

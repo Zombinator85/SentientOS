@@ -1,0 +1,102 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+  "test_provenance_path": "/home/runner/work/_temp/sentientos-landing-acceptance/provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_scripts_lock_import_is_inert"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_scripts_lock_check_is_unprivileged"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_scripts_lock_effects_authorize_before_mutation"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_actuator_import_has_no_privilege_or_runtime_effects"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_actuator_protected_effects_authorize_before_execution"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_external_plugins_are_rejected_without_execution"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_bootstrap_failure_is_insufficient_evidence"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_collection_failure_is_insufficient_evidence"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_zero_collected_tests_is_insufficient_evidence"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_missing_metrics_is_insufficient_evidence"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_zero_call_phase_outcomes_is_insufficient_evidence"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_complete_execution_is_validation_complete"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_trend_analysis_rejects_zero_run_window"
+    },
+    {
+      "node_id": "tests/test_ci_acceptance_fail_closed.py::test_integrity_ok_does_not_override_insufficient_validation"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique"
+    },
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts"
+    },
+    {
+      "node_id": "tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest"
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_import_privilege_boundaries.py::test_scripts_lock_import_is_inert",
+    "tests/test_import_privilege_boundaries.py::test_scripts_lock_check_is_unprivileged",
+    "tests/test_import_privilege_boundaries.py::test_scripts_lock_effects_authorize_before_mutation",
+    "tests/test_import_privilege_boundaries.py::test_actuator_import_has_no_privilege_or_runtime_effects",
+    "tests/test_import_privilege_boundaries.py::test_actuator_protected_effects_authorize_before_execution",
+    "tests/test_import_privilege_boundaries.py::test_external_plugins_are_rejected_without_execution",
+    "tests/test_ci_acceptance_fail_closed.py::test_bootstrap_failure_is_insufficient_evidence",
+    "tests/test_ci_acceptance_fail_closed.py::test_collection_failure_is_insufficient_evidence",
+    "tests/test_ci_acceptance_fail_closed.py::test_zero_collected_tests_is_insufficient_evidence",
+    "tests/test_ci_acceptance_fail_closed.py::test_missing_metrics_is_insufficient_evidence",
+    "tests/test_ci_acceptance_fail_closed.py::test_zero_call_phase_outcomes_is_insufficient_evidence",
+    "tests/test_ci_acceptance_fail_closed.py::test_complete_execution_is_validation_complete",
+    "tests/test_ci_acceptance_fail_closed.py::test_trend_analysis_rejects_zero_run_window",
+    "tests/test_ci_acceptance_fail_closed.py::test_integrity_ok_does_not_override_insufficient_validation",
+    "tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv",
+    "tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup",
+    "tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes",
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts",
+    "tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest"
+  ]
+}

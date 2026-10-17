@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -58,6 +60,7 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup \
             tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests \
+            tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes \
             tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts \
@@ -72,7 +75,7 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==22
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==23
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
@@ -95,3 +98,84 @@ jobs:
             glow/contracts/strict_audit_breakdown.json
             glow/contracts/strict_audit_recovery_links.json
             glow/contracts/strict_audit_manifest.json
+      - name: Freeze exact hosted acceptance for PR landing finalization
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        run: |
+          mkdir -p "$RUNNER_TEMP/sentientos-landing-acceptance"
+          cp glow/test_runs/test_run_provenance.json \
+            "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"sentientos-landing-acceptance"
+          manifest=json.loads(Path("glow/test_runs/quality_gate_acceptance.json").read_text())
+          manifest["test_provenance_path"]=str(root/"provenance.json")
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+          python scripts/verify_task_acceptance.py \
+            --manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json" \
+            --provenance "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \
+            --output "$RUNNER_TEMP/sentientos-landing-acceptance/acceptance-result.json"
+      - name: Restore generated test-run residue after evidence capture
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          from pathlib import Path
+          source=os.environ["GITHUB_SHA"]
+          tracked="glow/test_runs/test_run_provenance.json"
+          status=subprocess.run(
+              ["git","status","--porcelain","--untracked-files=all","--",tracked,"glow/test_runs/provenance"],
+              check=True,capture_output=True,text=True,
+          ).stdout.splitlines()
+          for row in status:
+              code,path=row[:2],row[3:]
+              if path == tracked and code.strip() == "M":
+                  subprocess.run(["git","restore","--",tracked],check=True)
+                  continue
+              if not path.startswith("glow/test_runs/provenance/") or code != "??":
+                  raise SystemExit(f"unexpected test-evidence residue: {row}")
+              target=Path(path)
+              if source[:12] not in target.name or target.is_symlink() or not target.is_file():
+                  raise SystemExit(f"unbound test-provenance residue: {path}")
+              tracked_check=subprocess.run(["git","ls-files","--error-unmatch","--",path],capture_output=True)
+              if tracked_check.returncode == 0:
+                  raise SystemExit(f"refusing to remove tracked provenance: {path}")
+              target.unlink()
+          PY
+      - name: Complete hosted privileged PR landing finalization
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          test "$(sudo -n id -u)" = "0"
+          COMMIT_REF="${PR_HEAD_SHA:-HEAD}"
+          COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
+          PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
+          test "$PR_TITLE" = "$COMMIT_TITLE"
+          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
+            SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs" \
+            python scripts/codex_finalize_landing.py finalize \
+              --phase pr-metadata \
+              --validation-profile solo \
+              --title "$PR_TITLE" \
+              --intended-commit-title "$COMMIT_TITLE" \
+              --task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json" \
+              --focused-test-command "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests" \
+              --allow-generated-artifact-cleanup \
+              --output "$RUNNER_TEMP/codex-finalizer-pr-metadata.json" \
+              --stage-timeout-seconds 1200 \
+              --overall-timeout-seconds 5400 \
+              --summary
+      - name: Upload hosted privileged PR landing finalizer evidence
+        if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-privileged-pr-landing-finalizer
+          path: |
+            ${{ runner.temp }}/codex-finalizer-pr-metadata.json
+            ${{ runner.temp }}/sentientos-landing-acceptance/manifest.json
+            ${{ runner.temp }}/sentientos-landing-acceptance/provenance.json
+            ${{ runner.temp }}/sentientos-landing-acceptance/acceptance-result.json
+          if-no-files-found: error

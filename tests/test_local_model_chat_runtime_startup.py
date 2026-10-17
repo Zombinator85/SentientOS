@@ -216,7 +216,8 @@ handoff = verify_current_chat_process_handoff(handle=handle, handoff_id=args['--
 if handoff['software_generation_digest'] != args['--expected-software-generation-digest']:
     raise SystemExit('source_generation_expectation_mismatch')
 Path(os.environ['TEST_CHILD_RESULT']).write_text(json.dumps(handoff, sort_keys=True))
-deadline = time.monotonic() + 10
+# Keep the fixture child alive until the parent completes procfs observation.
+deadline = time.monotonic() + 60
 while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() < deadline:
     time.sleep(.01)
 """, encoding="utf-8")

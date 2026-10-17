@@ -1,0 +1,336 @@
+{
+  "sequence": 302,
+  "title": "Run landing finalization with hosted Administrator authority",
+  "segment_path": "work/construction/segments/0302-federation-health-hosted-administrator.md",
+  "segment_sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
+  "segment_bytes": 3805,
+  "source": {
+    "branch": "codex/construct-sentientos-302",
+    "commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+    "tree": "868696840add18b0974204e988fb7e28af4f1629",
+    "parent_source_commit": "72962032aa53de2f272f59d45bf61681cfcdc586",
+    "base_main_commit": "adf6b6f7e68562575e73c4f512d5c61e945abc7f",
+    "base_main_tree": "00a39f0bd56bbbfb5b3f60a32902429d2da8589c"
+  },
+  "local_tree_equivalence": {
+    "local_commit": "271e1f00cebac48cb6e5e124987245c85f5cab74",
+    "local_tree": "868696840add18b0974204e988fb7e28af4f1629",
+    "remote_commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+    "remote_tree": "868696840add18b0974204e988fb7e28af4f1629",
+    "tree_identical": true
+  },
+  "source_blobs": {
+    ".github/workflows/federation-health.yml": "afa17389693b63d5331e5041a1a6e9f64ca09d14",
+    ".github/workflows/required-quality-gate.yml": "490f4e34948487144551bcdb8640adf9cbc7f245",
+    "tests/test_github_hosted_acceptance_workflows.py": "d24c0730339665085f2a1f1e77f3ceffbc327512",
+    "tests/test_local_model_chat_runtime_startup.py": "789df738171b0833cf383ee2632642a5919892e5"
+  },
+  "local_verification": {
+    "canonical_runner": "scripts.run_tests",
+    "tests_collected": 42,
+    "tests_executed": 42,
+    "tests_passed": 42,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "suites": [
+      "tests/test_local_model_chat_runtime_startup.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "test_provenance": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-test-provenance.json",
+      "sha256": "d2caa7a9104cd38862399c40ec33097e11bdb376935053422991ce195f3b6347",
+      "bytes": 20912
+    },
+    "task_acceptance_manifest": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-task-acceptance.json",
+      "sha256": "7ee3e3f04638fb1df4e859e472989dc656e446147b5232713bf2b5664864dbba",
+      "bytes": 943
+    },
+    "task_acceptance_result": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-acceptance-result.json",
+      "sha256": "ec6381cbca69e0ed2fac7f6e8997dcc2577dddcf7b880efea330f8594de8944d",
+      "bytes": 2337
+    },
+    "acceptance_status": "task_acceptance_ready",
+    "compileall": "passed",
+    "yaml_parse": "passed",
+    "diff_check": "passed",
+    "live_child_regression_repeats": {
+      "passed": 5,
+      "failed": 0,
+      "runner": "scripts.run_tests",
+      "fixture_release_bound_seconds": 60,
+      "observation_assertion": "unchanged"
+    }
+  },
+  "initial_attempt": {
+    "source_commit": "398651d526b2789581fdea69f7effbaec03bb881",
+    "source_tree": "6a354f73e3c9cad59e713c1663c5b6b56a1ab74e",
+    "ci_run_id": 38990097889,
+    "ci": "success",
+    "invariants_run_id": 38990097918,
+    "invariants": "success",
+    "required_quality_gate_run_id": 38990097888,
+    "required_quality_gate": "success",
+    "required_quality_gate_artifact_id": 12084292737,
+    "required_quality_gate_artifact_sha256": "a47a253d70cf05d0d37ab4b04e9e36b04c5a8adb60ad20501483f80879e8520c",
+    "local_test_provenance": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-test-provenance.json",
+      "sha256": "3689868b401444c077d3252fc7ffe80d02c8c4aa64d556b54f3bbb346744b878",
+      "bytes": 12640
+    },
+    "task_acceptance_manifest": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-task-acceptance.json",
+      "sha256": "7d185b50fe38078018a4e2132fb3db479216fd9842d525b2edb19212229f70c4",
+      "bytes": 833
+    },
+    "task_acceptance_result": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-acceptance-result.json",
+      "sha256": "c5482127f3aa15bd6f9c16e5e8adf502826291117717ab8bd6ad5a5875719b49",
+      "bytes": 1551
+    },
+    "tests_passed": 24,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "hosted_verification": {
+    "ci_run_id": 38991062864,
+    "ci": "success",
+    "invariants_run_id": 38991063004,
+    "invariants": "success",
+    "required_quality_gate_run_id": 38991062998,
+    "required_quality_gate": "success",
+    "required_quality_gate_artifact_id": 12085111448,
+    "required_quality_gate_artifact_sha256": "3556d944565174e02d41976d9380df5ca8bc2798f4b5f7d3a774e794ad9d8b27",
+    "privileged_audit": {
+      "effective_uid": 0,
+      "status": "passed",
+      "source_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+      "source_tree": "868696840add18b0974204e988fb7e28af4f1629"
+    },
+    "strict_audit": "passed",
+    "audit_immutability": "passed",
+    "task_acceptance": "task_acceptance_ready",
+    "hosted_finalizer": {
+      "status": "ready_for_pr_metadata",
+      "artifact_id": 12085540731,
+      "artifact_sha256": "babfb3856ee36c3998bc8893fbadc352954d8276cff9de60c045709b8846fa67"
+    },
+    "recursive_source_tree": {
+      "entries": 7511,
+      "truncated": false
+    },
+    "ci_jobs": {
+      "self-check": "success",
+      "docs": "success",
+      "source_validation": "success",
+      "helm_k8s_test": "success"
+    },
+    "ci_artifact": {
+      "id": 12085635701,
+      "name": "source-validation-e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+      "sha256": "e8aed9aa5db696a74814f740742ce81f87c8e81f19c23adb76668e07dd800308",
+      "bytes": 409259
+    },
+    "ci_workflow_run_id": 38991062864,
+    "required_quality_gate_artifact_archive_path": "work/construction/evidence/0302-hosted-required-quality-gate-artifact.zip",
+    "required_quality_gate_artifact_archive_sha256": "3556d944565174e02d41976d9380df5ca8bc2798f4b5f7d3a774e794ad9d8b27"
+  },
+  "superseded_hosted_attempts": [
+    {
+      "source_commit": "72962032aa53de2f272f59d45bf61681cfcdc586",
+      "source_tree": "b3610c31d9efe49a751165bfd3d1a694b017466f",
+      "required_quality_gate_run_id": 38990873168,
+      "required_quality_gate": "failure",
+      "hosted_finalizer_artifact_id": 12084758757,
+      "hosted_finalizer_status": "repair_required_task_caused",
+      "reason": "Exact acceptance had been uploaded, but generated QG provenance remained dirty; strict audit and immutability passed as UID 0. Follow-up restores only the tracked generated report and deletes only untracked current-SHA provenance after preserving evidence."
+    }
+  ],
+  "test_race_repair": {
+    "original_failure_run_id": 38989942782,
+    "failure": "supervised child ended before delayed procfs observation",
+    "repair": "bounded fixture deadline 10s to 60s",
+    "assertion_weakened": false
+  },
+  "evidence_sidecars": {
+    "0302-federation-health-hosted-administrator-initial-test-provenance.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-test-provenance.json",
+      "sha256": "3689868b401444c077d3252fc7ffe80d02c8c4aa64d556b54f3bbb346744b878",
+      "bytes": 12640
+    },
+    "0302-federation-health-hosted-administrator-initial-task-acceptance.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-task-acceptance.json",
+      "sha256": "7d185b50fe38078018a4e2132fb3db479216fd9842d525b2edb19212229f70c4",
+      "bytes": 833
+    },
+    "0302-federation-health-hosted-administrator-initial-acceptance-result.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-initial-acceptance-result.json",
+      "sha256": "c5482127f3aa15bd6f9c16e5e8adf502826291117717ab8bd6ad5a5875719b49",
+      "bytes": 1551
+    },
+    "0302-federation-health-hosted-administrator-test-provenance.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-test-provenance.json",
+      "sha256": "d2caa7a9104cd38862399c40ec33097e11bdb376935053422991ce195f3b6347",
+      "bytes": 20912
+    },
+    "0302-federation-health-hosted-administrator-task-acceptance.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-task-acceptance.json",
+      "sha256": "7ee3e3f04638fb1df4e859e472989dc656e446147b5232713bf2b5664864dbba",
+      "bytes": 943
+    },
+    "0302-federation-health-hosted-administrator-acceptance-result.json": {
+      "path": "work/construction/evidence/0302-federation-health-hosted-administrator-acceptance-result.json",
+      "sha256": "ec6381cbca69e0ed2fac7f6e8997dcc2577dddcf7b880efea330f8594de8944d",
+      "bytes": 2337
+    }
+  },
+  "predecessor_segment_path": "work/construction/segments/0301-first-journal-directory-durability.md",
+  "predecessor_segment_sha256": "91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
+  "predecessor_evidence_path": "work/construction/evidence/0301-first-journal-directory-durability.json",
+  "predecessor_evidence_sha256": "63b196fcbf39bd578281cdb8a1c3b07262f7488ec299191e64e07318e631c7a3",
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "unidentified_deleted_payloads": 1,
+    "repaired": false,
+    "no_reconstruction_or_omission": true
+  },
+  "next_dependency": "After integration, verify that scheduled federation-health publishing succeeds on main under actual Administrator authority and retains its authorization and doc-only commit boundaries.",
+  "hosted_evidence_sidecars": {
+    "0302-hosted-pr-metadata-acceptance-manifest.json": {
+      "path": "work/construction/evidence/0302-hosted-pr-metadata-acceptance-manifest.json",
+      "sha256": "092d6e4a1dee46c0e8ede503c3532d5f3877130b908b6570a15393529bbf41de",
+      "bytes": 5721
+    },
+    "0302-hosted-pr-metadata-acceptance-provenance.json": {
+      "path": "work/construction/evidence/0302-hosted-pr-metadata-acceptance-provenance.json",
+      "sha256": "e77625341ad5da2606ee644acf04834203e0b5c7dda88d37f7b65b1b2a5fed7e",
+      "bytes": 16133
+    },
+    "0302-hosted-pr-metadata-acceptance-result.json": {
+      "path": "work/construction/evidence/0302-hosted-pr-metadata-acceptance-result.json",
+      "sha256": "51f939aaf7df4e447c28734ffbe67c4d47dde39686cb1ce41a40d542519cbcab",
+      "bytes": 11476
+    },
+    "0302-hosted-pr-metadata-artifact.zip": {
+      "path": "work/construction/evidence/0302-hosted-pr-metadata-artifact.zip",
+      "sha256": "babfb3856ee36c3998bc8893fbadc352954d8276cff9de60c045709b8846fa67",
+      "bytes": 12812
+    },
+    "0302-hosted-qg-acceptance_result.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-acceptance_result.json",
+      "sha256": "035bfdaaaf1944ca73bdd4c91691d9c649969f28b2bf80def601eca3d2185e10",
+      "bytes": 11422
+    },
+    "0302-hosted-qg-audit_immutability_result.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-audit_immutability_result.json",
+      "sha256": "9011c8fd7effbf0fafbf39df6f5541d8b57d3211439cf56143cdcb307c4ca6b3",
+      "bytes": 164
+    },
+    "0302-hosted-qg-final_strict_audit_digest.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-final_strict_audit_digest.json",
+      "sha256": "509cc6cad6cfe904665866af196065356801faba151cc4e003489493f274294c",
+      "bytes": 574
+    },
+    "0302-hosted-qg-import_smoke.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-import_smoke.json",
+      "sha256": "41488377b87748e09c2edd32869253ac3b50b0271d965f846f131eb23f817322",
+      "bytes": 11257
+    },
+    "0302-hosted-qg-privileged_audit_verification.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-privileged_audit_verification.json",
+      "sha256": "89ed6f4e41845fb49fee5ec1996d8a44389f90e441a8862318374df605f8aca0",
+      "bytes": 3024
+    },
+    "0302-hosted-qg-provenance.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-provenance.json",
+      "sha256": "e77625341ad5da2606ee644acf04834203e0b5c7dda88d37f7b65b1b2a5fed7e",
+      "bytes": 16133
+    },
+    "0302-hosted-qg-pytest_bootstrap.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-pytest_bootstrap.json",
+      "sha256": "d0bc99dc482b29cc91a9912f63db1067cc8cd9f6eab4f41a27775f75c4cdacb1",
+      "bytes": 1343
+    },
+    "0302-hosted-qg-strict_audit_breakdown.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-strict_audit_breakdown.json",
+      "sha256": "7a0a7cf6794273280d5c64bb37b4c5ef4175d4dfb284e82929162f0429a9e999",
+      "bytes": 1332
+    },
+    "0302-hosted-qg-strict_audit_manifest.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-strict_audit_manifest.json",
+      "sha256": "a79f821b0bb42f3479a12d295fab11c90165dcb0d531a2eddedd7b4dec8ab052",
+      "bytes": 1020
+    },
+    "0302-hosted-qg-strict_audit_recovery_links.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-strict_audit_recovery_links.json",
+      "sha256": "0f0fe86377b9052b2b73aa6e30d1189cae234727ffd3dfc81cf5be4dbda8d2fc",
+      "bytes": 944
+    },
+    "0302-hosted-qg-strict_audit_status.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-strict_audit_status.json",
+      "sha256": "8a6beba140a5e9f191a32059fffef85b7303e16f7ae228501a92c708fffb4667",
+      "bytes": 370
+    },
+    "0302-hosted-qg-test_trend_report.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-test_trend_report.json",
+      "sha256": "94b9713a2b1b0ce241507535e3e3592a2c49d999fafcafae25a744276d25621f",
+      "bytes": 1558
+    },
+    "0302-hosted-qg-verify_audits_result.json": {
+      "path": "work/construction/evidence/0302-hosted-qg-verify_audits_result.json",
+      "sha256": "7bf372db1e444657a26b32d1126f516f1c76305e21f04352552ca8be702a40bd",
+      "bytes": 177
+    },
+    "0302-hosted-required-quality-gate-artifact.zip": {
+      "path": "work/construction/evidence/0302-hosted-required-quality-gate-artifact.zip",
+      "sha256": "3556d944565174e02d41976d9380df5ca8bc2798f4b5f7d3a774e794ad9d8b27",
+      "bytes": 10576
+    }
+  },
+  "hosted_finalizer_result": {
+    "artifact_id": 12085540731,
+    "artifact_sha256": "babfb3856ee36c3998bc8893fbadc352954d8276cff9de60c045709b8846fa67",
+    "decision": {
+      "status": "ready_for_pr_metadata",
+      "reasons": []
+    },
+    "repository_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+    "task_acceptance_status": "task_acceptance_ready",
+    "commands": [
+      {
+        "stage": "preflight_hygiene",
+        "exit_code": 0,
+        "required": true
+      },
+      {
+        "stage": "focused_tests",
+        "exit_code": 0,
+        "required": true
+      },
+      {
+        "stage": "mypy_baseline",
+        "exit_code": 0,
+        "required": true
+      },
+      {
+        "stage": "prompt_boundary",
+        "exit_code": 0,
+        "required": true
+      },
+      {
+        "stage": "strict_audits",
+        "exit_code": 0,
+        "required": true
+      },
+      {
+        "stage": "audit_immutability",
+        "exit_code": 0,
+        "required": true
+      }
+    ],
+    "post_cleanup_dirty_paths": [],
+    "artifact_archive_path": "work/construction/evidence/0302-hosted-pr-metadata-artifact.zip",
+    "artifact_archive_sha256": "babfb3856ee36c3998bc8893fbadc352954d8276cff9de60c045709b8846fa67"
+  }
+}

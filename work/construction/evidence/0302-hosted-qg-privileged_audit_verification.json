@@ -1,0 +1,62 @@
+{
+  "administrator_verified": true,
+  "audit_result_validation": {
+    "errors": [],
+    "immutability_ok": true,
+    "strict_audit_nonblocking": true,
+    "strict_audit_ok": true,
+    "valid": true
+  },
+  "commands": [
+    {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
+        "verify_audits.py",
+        "--strict"
+      ],
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 1429,
+      "stdout_sha256": "68f6ed86f9c83fca7965981492c8e179be2836128a279f89c1f34fd616b415cb"
+    },
+    {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
+        "scripts/audit_immutability_verifier.py"
+      ],
+      "exit_code": 0,
+      "stderr_bytes": 610,
+      "stderr_sha256": "05b1f661d76eb0e16f0102ffb65572361496df39b8b7a1373f0e8e4a577ae71a",
+      "stdout_bytes": 200,
+      "stdout_sha256": "d10ab823880fb031d156443a246c5dd3213d7fbd70a3e2f96f750834acee2097"
+    }
+  ],
+  "effective_uid": 0,
+  "expected_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+  "repository_identity_unchanged": true,
+  "result_artifact_sha256": {
+    "glow/audits/audit_immutability_result.json": "9011c8fd7effbf0fafbf39df6f5541d8b57d3211439cf56143cdcb307c4ca6b3",
+    "glow/audits/verify_audits_result.json": "7bf372db1e444657a26b32d1126f516f1c76305e21f04352552ca8be702a40bd",
+    "glow/contracts/final_strict_audit_digest.json": "509cc6cad6cfe904665866af196065356801faba151cc4e003489493f274294c",
+    "glow/contracts/strict_audit_breakdown.json": "7a0a7cf6794273280d5c64bb37b4c5ef4175d4dfb284e82929162f0429a9e999",
+    "glow/contracts/strict_audit_manifest.json": "a79f821b0bb42f3479a12d295fab11c90165dcb0d531a2eddedd7b4dec8ab052",
+    "glow/contracts/strict_audit_recovery_links.json": "0f0fe86377b9052b2b73aa6e30d1189cae234727ffd3dfc81cf5be4dbda8d2fc",
+    "glow/contracts/strict_audit_status.json": "8a6beba140a5e9f191a32059fffef85b7303e16f7ae228501a92c708fffb4667"
+  },
+  "schema_version": 1,
+  "source_files_sha256": {
+    "scripts/audit_immutability_verifier.py": "18b5e985a7a1923e47e67ab77fc0575f7a8bbd7a1d702636eb976550930751dd",
+    "scripts/run_privileged_audit_verification.py": "dab7c0c3c6fd70bebc7d83dff5fb23baa1897a627eba6ebaaba9e3a9d6bd3fd5",
+    "scripts/verify_audits.py": "0f1ffbee3d985610d2bc4cde8f3344a228e17c0220bd74dbba131e356ae4456d",
+    "sentientos/admin_utils.py": "43d1d9871784149d29bd04ac17cd14c1922c67d8bdd15d6e8992601ef21c890b",
+    "sentientos/privilege/__init__.py": "c035e2b202273c0b64a9059e2013e09f7da743be9d29bf8bc9ca00667d32d1ad",
+    "verify_audits.py": "c564b586b69740e7a5509589615bb3034ea8796d110d1e1300310af7a65dc1ff",
+    "vow/immutable_manifest.json": "7bc2a433ae9a4bc73a1bc6e84476288669edaef632572b29d143e69656034e88"
+  },
+  "source_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+  "source_tree": "868696840add18b0974204e988fb7e28af4f1629",
+  "source_unchanged": true,
+  "status": "passed",
+  "tool": "privileged_audit_verification"
+}

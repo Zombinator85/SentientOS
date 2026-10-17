@@ -1,0 +1,9 @@
+{
+  "error": null,
+  "issues": [],
+  "ok": true,
+  "schema_version": "1.0",
+  "structured_issues": [],
+  "timestamp": "2026-10-17T01:29:33.105933Z",
+  "tool": "verify_audits"
+}

@@ -1,0 +1,25 @@
+{
+  "artifacts": {
+    "final_strict_audit_digest": "glow/contracts/final_strict_audit_digest.json",
+    "strict_audit_breakdown": "glow/contracts/strict_audit_breakdown.json",
+    "strict_audit_manifest": "glow/contracts/strict_audit_manifest.json",
+    "strict_audit_recovery_links": "glow/contracts/strict_audit_recovery_links.json",
+    "strict_audit_status": "glow/contracts/strict_audit_status.json"
+  },
+  "bucket": "healthy_strict",
+  "generated_at": "2026-10-17T01:29:33Z",
+  "inputs": {
+    "audit_chain_report": "glow/forge/audit_reports/latest.json",
+    "baseline_log": "/home/runner/work/SentientOS/SentientOS/logs/privileged_audit.jsonl",
+    "runtime_log": "/home/runner/work/SentientOS/SentientOS/pulse/audit/privileged_audit.runtime.jsonl",
+    "verify_audits_result": "glow/audits/verify_audits_result.json"
+  },
+  "readiness_class": "acceptable",
+  "schema_version": 1,
+  "suite": "strict_audit_status_model",
+  "verify_result": {
+    "exit_code": 0,
+    "reason": null,
+    "status": "passed"
+  }
+}

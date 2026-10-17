@@ -1,0 +1,41 @@
+{
+  "audit_chain": {
+    "affected_ranges": [],
+    "break_count": 0,
+    "checked_files": 4,
+    "created_at": "2026-10-17T01:29:33.084181Z",
+    "first_break": null,
+    "recovery_state": {
+      "checkpoint_id": null,
+      "continuation_descends_from_anchor": null,
+      "degraded_audit_trust": false,
+      "history_state": "intact_trusted",
+      "trust_boundary_explicit": true
+    },
+    "schema_version": 2,
+    "status": "ok",
+    "suggested_actions": [
+      "python scripts/verify_audits.py --strict",
+      "python scripts/audit_chain_doctor.py --repair-index-only"
+    ],
+    "trusted_history_head_hash": "aacac86927ad658e6f77c1b69e5b1846924010bba154ed57693284006024aca9"
+  },
+  "bucket": "healthy_strict",
+  "classification_reasons": [
+    "audit_chain_ok"
+  ],
+  "generated_at": "2026-10-17T01:29:33Z",
+  "schema_version": 1,
+  "strict_probe": {
+    "baseline_error_count": 0,
+    "baseline_path": "/home/runner/work/SentientOS/SentientOS/logs/privileged_audit.jsonl",
+    "baseline_status": "ok",
+    "environment_issues": [],
+    "runtime_error_count": 0,
+    "runtime_error_examples": [],
+    "runtime_error_kind": "unknown",
+    "runtime_path": "/home/runner/work/SentientOS/SentientOS/pulse/audit/privileged_audit.runtime.jsonl",
+    "runtime_status": "ok",
+    "suggested_fix": "run: make audit-repair"
+  }
+}

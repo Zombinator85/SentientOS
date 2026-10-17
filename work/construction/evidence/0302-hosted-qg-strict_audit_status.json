@@ -1,0 +1,13 @@
+{
+  "acceptable_under_preserved_history": true,
+  "blocking": false,
+  "bucket": "healthy_strict",
+  "checkpoint_present": false,
+  "continuation_descends_from_anchor": null,
+  "degraded": false,
+  "generated_at": "2026-10-17T01:29:33Z",
+  "preserved_history_visible": false,
+  "readiness_class": "acceptable",
+  "schema_version": 1,
+  "status_hint": "audit_chain_ok"
+}
