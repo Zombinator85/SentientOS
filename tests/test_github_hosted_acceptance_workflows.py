@@ -46,14 +46,19 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
         'paths:\n      - ".github/workflows/federation-health.yml"\n'
         '      - "federation_health_badge.py"'
     ) in push
-    assert "permissions:\n  contents: write" in workflow
+    assert "permissions:\n  contents: write\n  pull-requests: write" in workflow
+    assert "actions: write" not in workflow
     assert "test \"$(sudo -n id -u)\" = \"0\"" in workflow
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in workflow
     assert "python federation_health_badge.py" in workflow
     badge = (ROOT / "federation_health_badge.py").read_text()
     assert "require_admin_banner()" in badge
     assert "require_lumos_approval()" in badge
-    assert "add: 'docs/FEDERATION_HEALTH.md'" in workflow
+    assert "EndBug/add-and-commit@v9" not in workflow
+    assert "peter-evans/create-pull-request@v7" in workflow
+    publisher = workflow.split("peter-evans/create-pull-request@v7", 1)[1]
+    assert "branch: automation/federation-health" in publisher
+    assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
 
 
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
