@@ -1,0 +1,41 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:d4181eb5b254dad81bfea791fb2cd2dc7790c5ee53cc5d9c89e118d7e44035fc",
+  "manifest_path": "work/construction/evidence/0301-first-journal-directory-durability-task-acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_first_journal_append_syncs_new_directory_entries",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_executor_stops_before_task_effect_when_journal_directory_sync_fails",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:bfc71da7f8d722aa0ba361b00a7c8ff9f790b5f78a5e46e294d0b9f8b5e6815c",
+  "provenance_path": "work/construction/evidence/0301-first-journal-directory-durability-test-provenance.json",
+  "reasons": [],
+  "repository_sha": "92ec10a9cf2b22aa640cc702877642731723cb06",
+  "required_node_ids": [
+    "sentientos/tests/test_goal_executor_run.py::test_first_journal_append_syncs_new_directory_entries",
+    "sentientos/tests/test_goal_executor_run.py::test_executor_stops_before_task_effect_when_journal_directory_sync_fails"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "sentientos/tests/test_goal_executor_run.py::test_first_journal_append_syncs_new_directory_entries"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

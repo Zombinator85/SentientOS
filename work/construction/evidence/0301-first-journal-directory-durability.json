@@ -1,0 +1,76 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "hosted_source": {
+    "administrator_verified": true,
+    "ci_run_id": 38988809604,
+    "docs_linkcheck": "success",
+    "effective_uid": 0,
+    "helm_k8s_test": "success",
+    "immutability_ok": true,
+    "invariants": "success",
+    "invariants_run_id": 38988809607,
+    "required_quality_gate": "success",
+    "required_quality_gate_artifact_id": 12084137198,
+    "required_quality_gate_artifact_sha256": "9cdfa2495bf73331ba8b67e7e4fcba622e72d161c8015deb680955322ac5405a",
+    "required_quality_gate_run_id": 38988809626,
+    "self_check": "success",
+    "source_validation": "success",
+    "source_validation_acceptance": "task_acceptance_ready",
+    "source_validation_artifact_id": 12084312168,
+    "source_validation_artifact_sha256": "1958f70b1b671510df2531c2ebb6167e41a1e9cd7040258beba36a4e5f5b2671",
+    "source_validation_test_count": 20,
+    "source_validation_test_failures": 0,
+    "source_validation_test_skips": 0,
+    "strict_audit_ok": true
+  },
+  "local_verification": {
+    "acceptance_manifest_path": "work/construction/evidence/0301-first-journal-directory-durability-task-acceptance.json",
+    "acceptance_manifest_sha256": "d4181eb5b254dad81bfea791fb2cd2dc7790c5ee53cc5d9c89e118d7e44035fc",
+    "acceptance_result_path": "work/construction/evidence/0301-first-journal-directory-durability-acceptance-result.json",
+    "acceptance_result_sha256": "f8a22cb75d36982bbc13b1127e43c5f7cd9ac0b164f718969d520dc2ce0ca816",
+    "acceptance_status": "task_acceptance_ready",
+    "affected_suites": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "canonical_runner": "scripts.run_tests",
+    "compileall": "passed",
+    "custody_before_append": "construction_continuation_custody_ready; 300 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "passed: sentientos/work_plan_execution_journal.py",
+    "test_run_provenance_git_sha": "92ec10a9cf2b22aa640cc702877642731723cb06",
+    "test_run_provenance_path": "work/construction/evidence/0301-first-journal-directory-durability-test-provenance.json",
+    "test_run_provenance_sha256": "bfc71da7f8d722aa0ba361b00a7c8ff9f790b5f78a5e46e294d0b9f8b5e6815c",
+    "tests_collected": 36,
+    "tests_executed": 36,
+    "tests_failed": 0,
+    "tests_passed": 36,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Grant the scheduled federation-health workflow legitimate actual Administrator authority for protected-state reads without changing script approval requirements; fail closed when unavailable.",
+  "predecessor_evidence_path": "work/construction/evidence/0300-work-plan-journal-directory-durability.json",
+  "predecessor_evidence_sha256": "573b9040e377d680a901cd596fb8b12d54afc1fed17198ac2d6fbe4384e8d80a",
+  "predecessor_segment_path": "work/construction/segments/0300-work-plan-journal-directory-durability.md",
+  "predecessor_segment_sha256": "cebe42b8cbea90e5ea43d02587dc72379be1c1da9083c7fb3be778c41144e756",
+  "remote_readback": {
+    "changed_source_blobs": "both exact local bytes and Git identities",
+    "recursive_source_tree_entries": 7506,
+    "recursive_tree_truncated": false
+  },
+  "segment_path": "work/construction/segments/0301-first-journal-directory-durability.md",
+  "segment_sha256": "91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
+  "sequence": 301,
+  "source": {
+    "branch": "codex/construct-sentientos-301",
+    "commit": "92ec10a9cf2b22aa640cc702877642731723cb06",
+    "main_tree": "88e0919446d749d62d126c735de7d49a4ebbce60",
+    "parent_main": "5b1da6021b6de3a4791b6e6de8cd575366a5425b",
+    "tree": "e1635bdc4f6beb62362991d19f140066bb6501e3"
+  },
+  "title": "Make first work-plan journal creation directory-durable"
+}
