@@ -650,4 +650,4 @@ def test_pytest_harness_isolates_default_governor_storage() -> None:
     root = Path(os.environ["SENTIENTOS_GOVERNOR_ROOT"]).resolve()
 
     assert root != Path("/glow/governor")
-    assert Path(tempfile.gettempdir()).resolve() in root.parents
+    assert root.is_relative_to(Path(tempfile.gettempdir()).resolve())
