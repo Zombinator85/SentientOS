@@ -1,0 +1,149 @@
+{
+  "sequence": 319,
+  "title": "Reconcile current architecture status and verify hosted documentation checks",
+  "source": {
+    "branch": "main",
+    "commit": "937f72de75e75b79b630899a2e82d313550946bb",
+    "tree": "0449cd43186679ff72806055c849fb6483e94d2a"
+  },
+  "predecessor": {
+    "sequence": 318,
+    "segment_path": "work/construction/segments/0318-verify-scheduled-federation-health-current-main.md",
+    "segment_sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28",
+    "evidence_path": "work/construction/evidence/0318-verify-scheduled-federation-health-current-main.json",
+    "evidence_sha256": "07498e22874a9d30a574510acb216ce92d871ea3d94fabe1e4d8b8e2c76beec3"
+  },
+  "documentation_change": {
+    "pull_request": 2317,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2317",
+    "candidate": "95d64e83ca1417f8691e9008bcbfef827ed40174",
+    "candidate_tree": "0449cd43186679ff72806055c849fb6483e94d2a",
+    "merge_commit": "937f72de75e75b79b630899a2e82d313550946bb",
+    "merge_method": "merge",
+    "changed_paths": [
+      "README.md",
+      "docs/architecture/public_technical_overview.md",
+      "docs/architecture/sentientos_project_thesis.md"
+    ],
+    "claims_corrected": [
+      "stale main commit/tree references",
+      "historical atlas identified as the census of its bound old source",
+      "resource-to-cognition integration tests distinguished from production evidence",
+      "scheduled Federation Health distinguished from cognitive development"
+    ],
+    "runtime_or_authority_change": false
+  },
+  "pre_merge_source": {
+    "commit": "27fc18a63c67c63860c84a20c976c4076132c8a6",
+    "tree": "a7d1f7d876f332d6a081b5729a0d6f14738c61a3",
+    "runtime_source_baseline": "b91969c1b1a900fefe102fb72697e7295766857b",
+    "runtime_source_tree": "1b5acb99ab8d7f1935c1493009ba39154eca618d"
+  },
+  "pr_checks": {
+    "quality_gate": {
+      "run": 39068128514,
+      "conclusion": "success",
+      "administrator_strict_audits": true,
+      "privileged_finalizer": true
+    },
+    "ci": {
+      "run": 39068128612,
+      "conclusion": "success",
+      "self_check_pytest_with_coverage": true,
+      "mypy_baseline": true,
+      "documentation_build_and_linkcheck": true,
+      "integrated_resource_to_cognition_lifecycle": true,
+      "exact_resource_to_cognition_acceptance_nodes": true,
+      "canonical_planning_execution_separation": true,
+      "helm": true
+    },
+    "docker": {
+      "run": 39068128672,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39068128547,
+      "conclusion": "success"
+    },
+    "lint": {
+      "run": 39068128632,
+      "conclusion": "success"
+    },
+    "release": {
+      "run": 39068128740,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39068128580,
+      "conclusion": "success"
+    },
+    "gradient": {
+      "run": 39068128574,
+      "conclusion": "success"
+    }
+  },
+  "post_merge_checks": {
+    "quality_gate": {
+      "run": 39068405636,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run": 39068405640,
+      "conclusion": "success",
+      "self_check_pytest": true,
+      "documentation_linkcheck": true,
+      "integrated_resource_to_cognition_lifecycle": true,
+      "canonical_planning_execution_separation": true,
+      "helm": true
+    },
+    "docker": {
+      "run": 39068405686,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run": 39068405617,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run": 39068405628,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run": 39068405563,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run": 39068405676,
+      "conclusion": "skipped"
+    }
+  },
+  "local_validation": {
+    "clean_current_source_preflight": "correct_remote_and_local_base",
+    "construction_custody_before_change": "construction_continuation_custody_ready; 318 segments",
+    "git_diff_check": "success",
+    "candidate_integrity": "candidate_integrity_ready_for_blob_upload",
+    "docs_build": "failed because mkdocs and watchdog are not installed in the managed shell",
+    "minimal_docs_bootstrap": "denied by Administrator gate; no privilege bypass",
+    "codex_task_scaffold": "blocked with path_outside_allowed_roots for existing docs; generated new-capability plan was diagnostic only and not used",
+    "construction_exception": "user-authorized bounded docs increment marked [untested]; hosted Required Quality Gate and CI then passed",
+    "test_generated_pulse_row": "one build_docs row was created by the local docs build attempt and restored after verifying the clean base and exact command/timestamp"
+  },
+  "architecture_reassessment": {
+    "resource_to_cognition": "configured opt-in source path is integrated in main and hosted integration lifecycle/exact acceptance nodes pass; no production consumption or developmental benefit demonstrated",
+    "selected_atlas": "84c5687c snapshot remains immutable and historical; no full census of current main was generated",
+    "resident_transition_restart": "journal evidence does not reconstruct the gate process-local quiescence capability; restart remains blocked and replay-forbidden",
+    "production_temporal_a_to_b_to_a": "not executed; exact commissioned models/receipts/setup and operator-approved protocol required",
+    "next_safe_technical_dependency": "independent process-generation termination and no-inflight evidence owner, without token recreation or stage replay"
+  },
+  "limitations": {
+    "federation_health_changed_output_fixture": "not dispatched; explicit Actions UI dispatch with publication_fixture=true remains required because connected tools expose no workflow_dispatch operation and managed shell authentication is invalid",
+    "sequence_286_payloads": {
+      "known": 9,
+      "unidentified": 1,
+      "resolved": false
+    },
+    "stale_sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0319-reconcile-architecture-status-and-hosted-docs.md",
+  "predecessor_sha256": "f5bdf5ad5f65c3afc049c6936188834d3514e5ef36bf9e34c3218a083f1d6f28"
+}
