@@ -1,0 +1,11 @@
+# Sequence 307 — Verify bounded artifact cleanup on main
+
+PR #2287 merged sequence 306 and the bounded demo-artifact query, then hosted CI exposed a real defect: GitHub CLI treated the query's `-f` fields as a POST and returned 404. The step exited successfully while skipping cleanup, so that result was not accepted as verification.
+
+PR #2288 added explicit `--method GET` and an existing-workflow assertion requiring GET, a name filter, one bounded page, and no pagination. It preserved the job's existing `actions: write` plus `contents: read` permissions. Hosted PR CI, Required Quality Gate, Docker, Codex CI, invariants, Gradient null regression, lint benchmark, and Release passed. The protected QG finalizer ran strict audit and immutability checks as UID 0 and reported `ready_for_pr_metadata` with no reasons.
+
+PR #2288 was merged with a regular merge commit, preserving commit history. Main is `2c8ad92536ed345d715fc323aca59e4b1a7f8315`, tree `f5117b5d67cfcc72376c2b080ebbbcf4573d124a`. GitHub compare reports the merge commit one commit ahead of the PR head, zero behind, and zero changed files. On the merged source, CI, Required Quality Gate, Docker, Codex CI, invariant tests, and Docs Deploy all passed. The self-check log confirms the bounded GET list completed without the former list warning. Deletion attempts for three stale artifact identifiers returned 404 because those artifacts were unavailable; the existing cleanup handled those responses without failing the job.
+
+Federation Health still has no scheduled or manual run visible after the merge. Its hourly schedule and dispatch configuration are not execution evidence. No health-update success is inferred. Obtain a hosted run, inspect its Administrator preflight, and verify the generated commit changes only `docs/FEDERATION_HEALTH.md`.
+
+Next dependency: secure actual post-merge Federation Health execution evidence, then verify the next scheduled strict read-only audit and safe repair nightly runs under their required Administrator gates.

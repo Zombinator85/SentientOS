@@ -1,0 +1,122 @@
+{
+  "sequence": 307,
+  "title": "Verify bounded artifact cleanup on main",
+  "source": {
+    "branch": "main",
+    "commit": "2c8ad92536ed345d715fc323aca59e4b1a7f8315",
+    "tree": "f5117b5d67cfcc72376c2b080ebbbcf4573d124a",
+    "merge_method": "merge",
+    "merged_pull_request": 2288,
+    "verified_pr_head": "34a11f065d7034ee8073bbecc11c37ece11f75ad",
+    "comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    }
+  },
+  "predecessor": {
+    "sequence": 306,
+    "segment_path": "work/construction/segments/0306-repair-nightly-audit-workflows.md",
+    "segment_sha256": "9f07204e28e8e5b0f0a6e9004c60ea054a1adebe283330a852f52422d7b3dc79",
+    "evidence_path": "work/construction/evidence/0306-repair-nightly-audit-workflows.json",
+    "evidence_sha256": "693bf7a57e1dc7530ccc974b8559b10184d78a3cbc1f852b14b6f1b098e69aed"
+  },
+  "correction": {
+    "initial_attempt": "The bounded name-filtered query defaulted to POST; hosted CI returned 404 and skipped listing.",
+    "fix": "Use explicit --method GET; existing workflow test requires GET, -f name=demo, -F per_page=100, and forbids --paginate.",
+    "permissions": {
+      "actions": "write",
+      "contents": "read",
+      "changed": false
+    }
+  },
+  "hosted_pr_checks": {
+    "CI": {
+      "run_id": 39007837455,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "run_id": 39007837510,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "run_id": 39007837494,
+      "conclusion": "success"
+    },
+    "Codex_CI": {
+      "run_id": 39007837515,
+      "conclusion": "success"
+    },
+    "Invariant_Tests": {
+      "run_id": 39007837417,
+      "conclusion": "success"
+    },
+    "Gradient_null_regression": {
+      "run_id": 39007837631,
+      "conclusion": "success"
+    },
+    "Lint_Benchmark": {
+      "run_id": 39007837528,
+      "conclusion": "success"
+    },
+    "Release": {
+      "run_id": 39007837435,
+      "conclusion": "success"
+    }
+  },
+  "privileged_finalizer": {
+    "workflow_run_id": 39007837510,
+    "effective_uid": 0,
+    "strict_audit_ok": true,
+    "immutability_ok": true,
+    "source_tree": "f5117b5d67cfcc72376c2b080ebbbcf4573d124a",
+    "finalizer_status": "ready_for_pr_metadata",
+    "reasons": []
+  },
+  "main_post_merge_checks": {
+    "CI": {
+      "run_id": 39008112516,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "run_id": 39008112475,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "run_id": 39008112525,
+      "conclusion": "success"
+    },
+    "Codex_CI": {
+      "run_id": 39008112437,
+      "conclusion": "success"
+    },
+    "Invariant_Tests": {
+      "run_id": 39008112489,
+      "conclusion": "success"
+    },
+    "Docs_Deploy": {
+      "run_id": 39008112442,
+      "conclusion": "success"
+    }
+  },
+  "runtime_cleanup_observation": {
+    "ci_run_id": 39007837455,
+    "step": "Remove old demo artifacts",
+    "list_method": "GET",
+    "list_warning_absent": true,
+    "old_artifact_deletion_attempts": 3,
+    "old_artifact_deletions": "404 unavailable; handled as nonfatal stale identifiers"
+  },
+  "health_execution": {
+    "workflow": "Federation Health Update",
+    "expected_cron": "0 * * * *",
+    "post_merge_scheduled_runs_observed": 0,
+    "post_merge_manual_runs_observed": 0,
+    "as_of": "2026-10-17T06:04:01Z",
+    "status": "pending; no success claimed"
+  },
+  "segment_path": "work/construction/segments/0307-verify-bounded-artifact-cleanup.md",
+  "segment_sha256": "742a0a185928a2a24a4691742090d385e46c19791f69fc1811cf0419453a04f5",
+  "segment_bytes": 2026,
+  "next_dependency": "Obtain actual post-merge Federation Health run; inspect Administrator preflight and verify only docs/FEDERATION_HEALTH.md changed; then inspect the next scheduled nightly audit runs."
+}
