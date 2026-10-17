@@ -44,15 +44,15 @@ Governance, provenance, experiments, and custody serve the developmental objecti
 
 ## Where the current evidence stands
 
-This checkout keeps four different reference points visible:
+This source snapshot was checked on 2026-10-17. The evidence index is append-only; this status summary is updated when its claims become stale.
 
-- **Published `main`:** `197e2a4ceeb13ab59a88fd531283355e15e1fd7d` at the time of this review.
-- **Frozen construction source:** `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`; the new atlas is bound to this exact source tree.
-- **Resource-observation construction source:** `1770ab54e2c87a4a2c83ddd4d4c34afd6f6027db`, tree `f312a788965b48f5c40c4b7a08df276531938f9f`; it adds an opt-in read-only installation-custody bridge and keeps retrieval timestamps outside semantic evidence identity. It remains unverified for production.
-- **Selected atlas snapshot:** `84c5687c841e83187d8017c4b84fd6b038937432`, an immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). “Current” in that index means selected snapshot, not a mutable census.
-- **Production evidence:** a separate predicate requiring qualifying real executions or observations. Source, synthetic fixtures, and a composed operator path do not by themselves establish production events or outcomes.
+- **Published `main`:** merge commit `27fc18a63c67c63860c84a20c976c4076132c8a6`, tree `a7d1f7d876f332d6a081b5729a0d6f14738c61a3`. Its latest source-bearing baseline for construction evidence is `b91969c1b1a900fefe102fb72697e7295766857b`, tree `1b5acb99ab8d7f1935c1493009ba39154eca618d`; sequence 318 adds evidence without changing runtime source.
+- **Resource observation:** implementation from `1770ab54e2c87a4a2c83ddd4d4c34afd6f6027db` is in main's history. When both explicit selectors are supplied, it projects verified installation ledger and invocation receipt identities into World-State before cognition. Main's hosted CI has passed the integrated resource-to-cognition lifecycle and its exact acceptance nodes. This establishes tested composition, not a production consumption event or developmental benefit.
+- **Selected atlas snapshot:** `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`, remains the immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). It describes that older source tree, not the current main tree; it must not be silently relabeled as a current census.
+- **Scheduled Federation Health:** run `39065143484` executed on the exact source-bearing main commit `b91969c1b1a900fefe102fb72697e7295766857b`. Hosted Administrator preflight and generation passed; one node and zero recent events produced a quiet report, and the publisher correctly made no PR because the document was unchanged. This operational check says nothing about cognitive development.
+- **Production developmental evidence:** a separate predicate requiring qualifying real executions or observations. Synthetic transition rehearsals, source composition, scheduled health checks, and CI do not establish production A→B→A, learning, or improvement. Production transition work still requires exact commissioned identities, receipts, setup, and an operator-approved protocol.
 
-The frozen atlas source's resource-ledger-to-daemon gap is now addressed in the later construction source: when both resource-observation selectors are explicitly set, the daemon validates a bounded read-only view of the selected installation's resource ledger and invocation receipts and places their historical identities in World-State before cognition. The immutable [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) still describes its exact earlier tree. This code has compilation checks only; no production event or benefit follows from it.
+The frozen atlas source's resource-ledger-to-daemon gap is addressed in current main when the explicit observation selectors are configured. The immutable [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) still describes its exact earlier tree. The current main integration tests verify the configured owner-to-owner path; no production event or benefit follows from that test result.
 
 ## Read next
 
@@ -61,7 +61,7 @@ The frozen atlas source's resource-ledger-to-daemon gap is now addressed in the 
 3. [Technical overview](docs/architecture/public_technical_overview.md) — runtime owners and present composition.
 4. [Project thesis](docs/architecture/sentientos_project_thesis.md) — philosophical and architectural depth.
 5. [Whole-system maturity report](docs/architecture/whole_system_maturity_report.md) — lifecycle maturity and remaining gaps at the selected source.
-6. [Source-bound system atlas](docs/architecture/repository_system_atlas_84c5687c.md) — exact source/tree census, owner paths, configuration, temporal ordering, and unknowns.
+6. [Selected historical source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) — exact census of its bound source tree, owner paths, configuration, temporal ordering, and unknowns.
 7. [Trajectory and missing causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md) — research and implementation frontier.
 8. [Capability registry](sentientos/capability_registry.py) and [runtime composition](sentientosd.py) — inspect machine-readable declarations and actual wiring.
 
