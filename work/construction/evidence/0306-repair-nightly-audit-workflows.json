@@ -1,0 +1,127 @@
+{
+  "hosted_verification": {
+    "effective_uid": 0,
+    "finalizer_status": "ready_for_pr_metadata",
+    "finalizer_reasons": [],
+    "strict_audit_ok": true,
+    "immutability_ok": true,
+    "acceptance_suite": "passed",
+    "hosted_qg_run_id": 39005241259,
+    "source_tree": "27ddb031801f1815658f90cea6e5fe4dd46543bd",
+    "artifacts": {
+      "hosted-privileged-pr-landing-finalizer.zip": {
+        "artifact_id": 12090732184,
+        "bytes": 12828,
+        "path": "GitHub Actions artifact",
+        "run_id": 39005241259,
+        "sha256": "cc728129bfda20b03b739ab88b7798a12673dd2061edeea6f58a9f7edeb1691b"
+      },
+      "required-quality-gate-evidence.zip": {
+        "artifact_id": 12090732139,
+        "bytes": 10577,
+        "path": "GitHub Actions artifact",
+        "run_id": 39005241259,
+        "sha256": "01f360754d12becde6b3125b9ad60383ce05269bc7ad6bcfbd55d3c05b18ec40"
+      }
+    },
+    "pr_workflow_runs": {
+      "CI": {
+        "run_id": 39005241232,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 39005241259,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "run_id": 39005241204,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "run_id": 39005241190,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 39005241229,
+        "conclusion": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 39005241215,
+        "conclusion": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 39005241207,
+        "conclusion": "success"
+      },
+      "Release": {
+        "run_id": 39005241167,
+        "conclusion": "success"
+      }
+    },
+    "post_merge_workflow_runs": {
+      "CI": {
+        "run_id": 39005579823,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 39005579832,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "run_id": 39005579820,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "run_id": 39005579882,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 39005579802,
+        "conclusion": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 39005579833,
+        "conclusion": "success"
+      }
+    },
+    "merge_candidate_sha": "6446eac11209cab805622d687ae4caabe44b18c3"
+  },
+  "local_verification": {
+    "focused_acceptance_tests": 27,
+    "result": "passed",
+    "workflow_yaml_parse": "passed",
+    "embedded_shell_syntax": "passed",
+    "git_diff_check": "passed",
+    "note": "Tests ran against the isolated source snapshot; hosted CI and the protected UID 0 QG are the authoritative source-bound evidence."
+  },
+  "next_dependency": "Obtain a successful post-merge Federation Health Update run. Inspect the run's Administrator preflight and verify that any generated commit changes only docs/FEDERATION_HEALTH.md before recording execution evidence.",
+  "predecessor_evidence_path": "work/construction/evidence/0305-integrate-landing-record-on-main.json",
+  "predecessor_evidence_sha256": "70934227abdfacfa52fe4d6f769a348872c1b9d8a246c42c5883fcdc48731c5c",
+  "predecessor_segment_path": "work/construction/segments/0305-integrate-landing-record-on-main.md",
+  "predecessor_segment_sha256": "75779a630011c3576fa8644a3ba6e52a0731699f5600e6023f149b58b146dbd3",
+  "scheduled_updater_observation": {
+    "expected_cron": "0 * * * *",
+    "observation_time_utc": "2026-10-17T05:20:06Z",
+    "post_merge_scheduled_runs": 0,
+    "post_merge_manual_runs": 0,
+    "interpretation": "No run evidence is available yet. The next top-of-hour cron boundary is 06:00 UTC; configuration alone is not execution evidence."
+  },
+  "segment_bytes": 2102,
+  "segment_path": "work/construction/segments/0306-repair-nightly-audit-workflows.md",
+  "segment_sha256": "9f07204e28e8e5b0f0a6e9004c60ea054a1adebe283330a852f52422d7b3dc79",
+  "sequence": 306,
+  "source": {
+    "branch": "main",
+    "commit": "c897cc91f046592655506364f197a0b4d2e258ec",
+    "compare": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    },
+    "merge_method": "merge",
+    "merged_pull_request": 2286,
+    "tree": "27ddb031801f1815658f90cea6e5fe4dd46543bd",
+    "verified_pr_head": "1e4374bb578a461b99907a131df60e3cba7f348f"
+  },
+  "title": "Repair and integrate the nightly audit workflows"
+}
