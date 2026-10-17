@@ -1,15 +1,19 @@
 # Active construction checkpoint
 
-Sequence 307 records PR #2288's correction and verified integration on `main` at `2c8ad92536ed345d715fc323aca59e4b1a7f8315`, tree `f5117b5d67cfcc72376c2b080ebbbcf4573d124a`. The regular merge preserves commit history; compare against the verified PR head is ahead 1, behind 0, changed files 0.
+Sequence 308 records PR #2298's verified integration on `main` at `69ac1afcab987c92de252f94793fafb2b66474be`, tree `1ad128e83fda57fe1288b59004f1a044040c959d`. The regular merge preserves history; comparison with the verified PR head is ahead 1, behind 0, with no changed files.
 
-The bounded artifact cleanup now runs a name-filtered, single-page GET, protected by an existing CI contract assertion. Hosted PR checks passed, including strict audit and immutability as UID 0. Main post-merge CI, quality gate, Docker, Codex CI, invariants, and Docs Deploy passed. The actual CI log confirms the list request no longer warns or stalls; unavailable stale artifact identifiers returned handled 404 responses.
+The Federation Health hosted job `39010139696` ran its Administrator preflight and generator successfully. The generator reported one node, zero recent events, and quiet status. The automatic publisher was denied by the repository Actions setting that blocks PR creation via `GITHUB_TOKEN`; PR #2292 was opened through the connected GitHub integration and merged with only `docs/FEDERATION_HEALTH.md` changed. Main readback matches the generated content.
 
-The hourly Federation Health updater still has no observable post-merge scheduled or manual execution. No success is inferred from configuration. The next step is to obtain a real hosted run, inspect Administrator preflight, and verify that its generated commit changes only `docs/FEDERATION_HEALTH.md`. The next scheduled strict read-only and repair audit runs also need their runtime results inspected.
+Nightly Audit run `39011220239` passed strict audit verification under noninteractive sudo with a healthy strict bucket and acceptable readiness. PR #2297 fixed the Self Check test root that previously wrote to `/glow/governor`: full hosted pytest passed with 143 passed, 13 skipped. PR #2298 then scoped audit repair write permissions to a conditional job; routine verification has read-only token authority and retains the Administrator gate.
 
-The sequence-286 deleted-payload limitation remains unchanged: nine known payloads and one unidentified payload are unrecoverable. No historical payload was reconstructed or omitted.
+PR #2297 and #2298 passed their hosted quality gates and full CI on source trees identical to their merged main trees. The protected QG finalizer ran as UID 0. The current GitHub connector exposes PR-triggered workflow runs but not main push-run listings; no post-merge Self Check or split-audit status is claimed from that missing view.
 
-Verified main commit: `2c8ad92536ed345d715fc323aca59e4b1a7f8315`
-Verified main tree: `f5117b5d67cfcc72376c2b080ebbbcf4573d124a`
-Latest segment: `work/construction/segments/0307-verify-bounded-artifact-cleanup.md`
-Sequence: 307
-Latest segment SHA-256: `742a0a185928a2a24a4691742090d385e46c19791f69fc1811cf0419453a04f5`
+The repository Actions setting that permits GITHUB_TOKEN to create PRs, or a narrowly scoped repository token with Contents and Pull requests write access, remains necessary for unattended Health and repair PR publication. The sequence-286 deleted-payload limitation remains unchanged: nine known payloads and one unidentified payload are unrecoverable.
+
+Next dependency: make the main push-run statuses observable, resolve the repository PR-creation setting or provide an approved scoped token, then reassess source development from this verified main.
+
+Verified main commit: `69ac1afcab987c92de252f94793fafb2b66474be`
+Verified main tree: `1ad128e83fda57fe1288b59004f1a044040c959d`
+Latest segment: `work/construction/segments/0308-verify-hosted-automation.md`
+Sequence: 308
+Latest segment SHA-256: `e7a71860e077e255b4d175d4e048d8a6479f745c132b3ac9e059dbd201590e2f`
