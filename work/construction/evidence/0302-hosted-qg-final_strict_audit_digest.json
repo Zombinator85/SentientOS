@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-10-17T01:29:33Z",
+  "schema_version": 1,
+  "strict_audit_breakdown_digest": "fbb9d5524caa7c5dc04daa431ab73d25790e327d55afd19358f9bcba1c6c5f47",
+  "strict_audit_digest": "867b2e635f4b8be3386583b1d9916f0ec19e6c7649f9c0f1d07ef8a0dc7c4b96",
+  "strict_audit_manifest_digest": "261df2bf59074f334bbc73989fb2b7689aa07954ba70f032deb181cdc0fa966a",
+  "strict_audit_recovery_links_digest": "5565c4164058dfffd95f9dcf66a819508a77e5b8cf5e9600fbb4e2299954c4fd",
+  "strict_audit_status_digest": "ac2b4df745151ba5a1ab4dc40e884b8673855ced1afc0e9ec469f0b581f20dd6"
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.pytest_bootstrap:v1",
+  "repository_sha": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+  "python_version": "3.11.17 (main, Oct  1 2026, 14:32:31) [GCC 13.3.0]",
+  "selected_node": "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness",
+  "child_command": [
+    "/opt/hostedtoolcache/Python/3.11.17/x64/bin/python",
+    "-m",
+    "scripts.run_tests",
+    "-q",
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness"
+  ],
+  "child_return_code": 0,
+  "stdout": ".                                                                        [100%]\n- generated xml file: /home/runner/work/SentientOS/SentientOS/glow/test_runs/pytest_junitxml_750b49b342ee4c5b97e03536950de4e1.xml -\nrun_tests: python=/opt/hostedtoolcache/Python/3.11.17/x64/bin/python install_performed=False editable_ok=true install_mode=none canonical_requirements_path=requirements-codex.txt full_capability_dependencies_requested=false repo_root=/home/runner/work/SentientOS/SentientOS pytest_args=tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness -q\n",
+  "stderr": "",
+  "reporter_created": true,
+  "collection_completed": true,
+  "collected_count": 1,
+  "call_phase_outcome_count": 1,
+  "privilege_sentinel_status": "not_invoked",
+  "status": "pytest_bootstrap_ready"
+}

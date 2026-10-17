@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "398651d526b2789581fdea69f7effbaec03bb881",
+  "test_provenance_path": "work/construction/evidence/0302-federation-health-hosted-administrator-test-provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+      "rationale": "The scheduled updater requires actual hosted Administrator authority, preserves both authorization guards, avoids pull-request code, and retains doc-only commit scope."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
+  ]
+}

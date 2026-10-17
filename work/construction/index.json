@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e6968be3bbe14cccefabdbc5308d78bdde720a84c7cdcf82d262038d52745fe1",
-    "latest_segment_sequence": 301,
-    "latest_segment_sha256": "91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
-    "source_commit": "92ec10a9cf2b22aa640cc702877642731723cb06",
-    "source_tree": "e1635bdc4f6beb62362991d19f140066bb6501e3"
+    "checkpoint_sha256": "eb349eb1ab5387db89d5d5c23853f8ebd82ad92f527ab57119eccb1451aa9389",
+    "latest_segment_sequence": 302,
+    "latest_segment_sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
+    "source_commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+    "source_tree": "868696840add18b0974204e988fb7e28af4f1629"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 301,
+  "latest_sequence": 302,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3243,6 +3243,19 @@
       "sha256": "91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
       "source_commit": "92ec10a9cf2b22aa640cc702877642731723cb06",
       "source_tree": "e1635bdc4f6beb62362991d19f140066bb6501e3"
+    },
+    {
+      "bytes": 3805,
+      "path": "work/construction/segments/0302-federation-health-hosted-administrator.md",
+      "predecessor": "segment-sha256:91989f7a22ab71829a97894c3be287a5b155dba04f297358e3c56bdb63a9a600",
+      "sequence": 302,
+      "sha256": "091a05faf197f07857384ff71dcf534bfded4303d7690103d00de961dd276b93",
+      "source_commit": "e7f3a0fecea39b7dea8598832f051f4594b7cdac",
+      "source_tree": "868696840add18b0974204e988fb7e28af4f1629",
+      "evidence": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
+      "evidence_path": "work/construction/evidence/0302-federation-health-hosted-administrator.json",
+      "evidence_bytes": 15219,
+      "evidence_sha256": "75c0c39869d5c53f54340d5d4a0d53b1bbfd23b97370928e9e19b4b6a5f61bac"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-10-17T01:29:33Z",
+  "links": {
+    "audit_chain_checkpoint_ledger": "glow/forge/audit_reports/audit_recovery_checkpoints.jsonl",
+    "audit_chain_report": "glow/forge/audit_reports/latest.json",
+    "baseline_log": "/home/runner/work/SentientOS/SentientOS/logs/privileged_audit.jsonl",
+    "runtime_log": "/home/runner/work/SentientOS/SentientOS/pulse/audit/privileged_audit.runtime.jsonl",
+    "strict_breakdown": "glow/contracts/strict_audit_breakdown.json",
+    "strict_manifest": "glow/contracts/strict_audit_manifest.json",
+    "strict_status": "glow/contracts/strict_audit_status.json",
+    "verify_audits_result": "glow/audits/verify_audits_result.json"
+  },
+  "next_artifact_to_inspect": "glow/contracts/strict_audit_status.json",
+  "responsible_chain_state": {
+    "audit_chain_status": "ok",
+    "break_count": 0,
+    "checkpoint_id": null,
+    "history_state": "intact_trusted"
+  },
+  "schema_version": 1
+}

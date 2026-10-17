@@ -1,0 +1,8 @@
+{
+  "error": null,
+  "issues": [],
+  "ok": true,
+  "schema_version": "1.0",
+  "timestamp": "2026-10-17T01:29:33.448868Z",
+  "tool": "audit_immutability_verifier"
+}

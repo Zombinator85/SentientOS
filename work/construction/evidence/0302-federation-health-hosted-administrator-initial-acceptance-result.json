@@ -1,0 +1,32 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:7d185b50fe38078018a4e2132fb3db479216fd9842d525b2edb19212229f70c4",
+  "manifest_path": "work/construction/evidence/0302-federation-health-hosted-administrator-task-acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:3689868b401444c077d3252fc7ffe80d02c8c4aa64d556b54f3bbb346744b878",
+  "provenance_path": "work/construction/evidence/0302-federation-health-hosted-administrator-test-provenance.json",
+  "reasons": [],
+  "repository_sha": "398651d526b2789581fdea69f7effbaec03bb881",
+  "required_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

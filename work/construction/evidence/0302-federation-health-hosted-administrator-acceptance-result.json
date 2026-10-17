@@ -1,0 +1,50 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:7ee3e3f04638fb1df4e859e472989dc656e446147b5232713bf2b5664864dbba",
+  "manifest_path": "work/construction/evidence/0302-federation-health-hosted-administrator-task-acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_local_model_chat_runtime_startup.py::test_actual_adapter_handoff_binds_live_child_and_source_generation",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:d2caa7a9104cd38862399c40ec33097e11bdb376935053422991ce195f3b6347",
+  "provenance_path": "work/construction/evidence/0302-federation-health-hosted-administrator-test-provenance.json",
+  "reasons": [],
+  "repository_sha": "271e1f00cebac48cb6e5e124987245c85f5cab74",
+  "required_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+    "tests/test_local_model_chat_runtime_startup.py::test_actual_adapter_handoff_binds_live_child_and_source_generation"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}
