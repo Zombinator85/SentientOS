@@ -84,14 +84,18 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 22
-    assert "len(nodes)==22" in workflow
+    assert selection.count("tests/") == 23
+    assert "len(nodes)==23" in workflow
+    assert "test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator" in selection
 
 
 def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
     text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
     assert text.index("verify_import_inertness.py") < text.index("verify_pytest_bootstrap.py") < text.index("Execute required call phases")
-    assert text.count("tests/test_") == 22
+    selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
+        "- name: Bind and verify exact acceptance", 1
+    )[0]
+    assert selection.count("tests/test_") == 23
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -271,3 +275,41 @@ def test_privilege_lint_workflows_use_read_only_mode() -> None:
         workflow = (ROOT / path).read_text()
         assert "python -m privilege_lint_cli --read-only --quiet ." in workflow
         assert "run: python privilege_lint.py" not in workflow
+
+
+def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    freeze = workflow.split(
+        "- name: Freeze exact hosted acceptance for PR landing finalization", 1
+    )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
+    assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in freeze
+    assert "cp glow/test_runs/test_run_provenance.json" in freeze
+    assert 'manifest["test_provenance_path"]' in freeze
+    assert 'str(root/"provenance.json")' in freeze
+    assert "python scripts/verify_task_acceptance.py" in freeze
+    assert "$GITHUB_SHA" not in freeze
+
+    finalizer = workflow.split(
+        "- name: Complete hosted privileged PR landing finalization", 1
+    )[1].split("- name: Upload hosted privileged PR landing finalizer evidence", 1)[0]
+    assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
+    assert 'test "$(sudo -n id -u)" = "0"' in finalizer
+    assert '"HOME=$HOME"' in finalizer
+    assert '"PYTHONPATH=$GITHUB_WORKSPACE"' in finalizer
+    assert "scripts/codex_finalize_landing.py finalize" in finalizer
+    assert "--phase pr-metadata" in finalizer
+    assert "--validation-profile solo" in finalizer
+    assert '--task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json"' in finalizer
+    assert "--allow-generated-artifact-cleanup" in finalizer
+    assert 'SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs"' in finalizer
+    assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
+
+    upload = workflow.split(
+        "- name: Upload hosted privileged PR landing finalizer evidence", 1
+    )[1]
+    assert "if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))" in upload
+    assert "codex-finalizer-pr-metadata.json" in upload
+    assert "acceptance-result.json" in upload
+    assert "if-no-files-found: error" in upload
+    permissions = workflow.split("permissions:", 1)[1].split("jobs:", 1)[0]
+    assert "contents: read" in permissions
