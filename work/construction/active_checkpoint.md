@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-Sequence 329 corrected five double-escaped newline byte literals that rejected valid procfs, receipt-journal, and state-snapshot records. The positive recovery test now checks both valid journal parsing and fail-closed handling of a genuinely truncated journal.
+Sequence 329 fixed five double-escaped newline byte literals in the resident supervisor. Sequence 330 repaired the missing shell continuation and adds the workflow continuation contract to the 26-node Required Quality Gate. Candidate commit `ef3853cde235d653ac4972f4d4b4e12880b00235`, tree `7853ede9322cb13a76cf0b84d86388e2baf7abe6`, is awaiting exact hosted verification; prior runs are recorded as failures, not passes.
 
-Sequence 330 records Required Quality Gate run `39076111681`: strict Administrator audit passed, then shell parsing failed with exit 127 because the adverse recovery test line lacked a continuation. The fix adds the continuation and binds the existing workflow-line contract test into the 26-node acceptance phase. This preserves and expands coverage. The next exact hosted run must pass positive recovery, adverse same-generation behavior, the command contract, strict audit/finalizer, and every required check.
+Sequence 331 freshly reverified scheduled Federation Health run `39028288072` and downloaded its artifact: the run and both jobs succeeded, hosted Administrator preflight passed, the report is quiet, the ZIP hash matches GitHub, and the publisher correctly performed a no-op because output matched main. The run is sourced from historical main `f0564c9f780e1f86a53e84348ec4a4a9534c0e48`, not current main `8a2ab13333574d9112442ef826351596077f267a`. Changed-output fixture dispatch remains an operator blocker because this session has no workflow-dispatch tool; no telemetry was fabricated.
 
-Base main: `8a2ab13333574d9112442ef826351596077f267a`. Candidate at sequence 330 start: `b546146274091e5dcfdad9b903cf74971d0166bb`, tree `913c5759f0a04339c5db4a7a9db5ff7142a982ec`.
+Sequence 286 provenance loss and the untouched stale sequence-178 workspace remain preserved. Production A→B→A evidence still requires the exact commissioned setup, identities, receipts, and operator-approved protocol.
 
-Federation scheduled evidence remains bound to an earlier source commit, not current main. The changed-output fixture still needs a manual workflow dispatch unavailable to this session; current-main nightly execution evidence remains unverified. Sequence 286 provenance loss and stale sequence-178 workspace remain preserved.
+Latest construction segment: `work/construction/segments/0331-reverify-scheduled-federation-artifact.md`
+Sequence: 331
 
-Latest construction segment: `work/construction/segments/0330-bind-workflow-continuation-contract.md`
-Sequence: 330
+The sequence-330 Quality Gate executed the exact 26 nodes and acceptance binding successfully, but the privileged finalizer failed because its workflow event still carried the stale sequence-328 PR title. The title is now aligned to the intended sequence-331 commit title before the next branch update. This candidate remains unmergeable until a fresh run passes finalization and all checks.
