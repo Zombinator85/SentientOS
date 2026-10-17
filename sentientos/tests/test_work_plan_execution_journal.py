@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 import os
 from pathlib import Path
+import stat
 import threading
 from typing import Any
 
@@ -104,6 +105,45 @@ def test_append_refuses_journal_that_grew_past_bound(tmp_path: Path) -> None:
     with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
         journal.start("g1:propose")
     assert journal.path.stat().st_size == MAX_JOURNAL_BYTES + 1
+
+
+def test_start_append_syncs_file_before_journal_directory(tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    sync_targets: list[bool] = []
+    fsync = os.fsync
+
+    def record_sync_target(descriptor: int) -> None:
+        sync_targets.append(stat.S_ISDIR(os.fstat(descriptor).st_mode))
+        fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", record_sync_target)
+    journal.start("g1:propose")
+
+    assert sync_targets == [False, True]
+
+
+def test_directory_sync_failure_is_not_reported_as_durable_append(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    fsync = os.fsync
+
+    def fail_directory_sync(descriptor: int) -> None:
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("simulated directory sync failure")
+        fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_directory_sync)
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_write_failed"):
+        journal.start("g1:propose")
+
+    assert journal.state("g1:propose") is None
+    interrupted_bytes = journal.path.read_bytes()
+    recovered = WorkPlanExecutionJournal(tmp_path, _plan())
+    assert recovered.state("g1:propose") == "interrupted"
+    assert journal.path.read_bytes() == interrupted_bytes
 
 
 def test_symlinked_journal_is_rejected_without_reading_target(tmp_path: Path) -> None:

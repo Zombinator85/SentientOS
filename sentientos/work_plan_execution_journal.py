@@ -10,6 +10,7 @@ import threading
 from typing import Any
 
 from sentientos.platform_fcntl import fcntl as posix_fcntl, require_flock
+from sentientos.private_file_custody import PrivateFileCustodyError, open_private_directory
 from sentientos.work_plan import TaskRun, WorkPlan
 
 
@@ -269,16 +270,25 @@ class WorkPlanExecutionJournal:
         row = {**semantic, "digest": hashlib.sha256(_canonical(semantic)).hexdigest()}
         encoded = _canonical(row) + b"\n"
         flags = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        directory_fd = -1
+        descriptor = -1
         try:
-            descriptor = os.open(self.path, flags, 0o600)
+            try:
+                require_flock()
+            except OSError as exc:
+                raise WorkPlanJournalError("work_plan_journal_lock_unavailable") from exc
+            try:
+                directory_fd = open_private_directory(self.path.parent, create=True)
+            except PrivateFileCustodyError as exc:
+                raise WorkPlanJournalError("work_plan_journal_directory_unavailable") from exc
+            descriptor = os.open(self.path.name, flags, 0o600, dir_fd=directory_fd)
             try:
                 try:
-                    require_flock()
                     posix_fcntl.flock(descriptor, posix_fcntl.LOCK_EX)
                 except OSError as exc:
                     raise WorkPlanJournalError("work_plan_journal_lock_unavailable") from exc
                 metadata = os.fstat(descriptor)
-                path_metadata = self.path.lstat()
+                path_metadata = os.stat(self.path.name, dir_fd=directory_fd, follow_symlinks=False)
                 if (not stat.S_ISREG(metadata.st_mode) or not stat.S_ISREG(path_metadata.st_mode)
                         or metadata.st_dev != path_metadata.st_dev
                         or metadata.st_ino != path_metadata.st_ino):
@@ -297,12 +307,23 @@ class WorkPlanExecutionJournal:
                         raise OSError("journal append made no progress")
                     view = view[written:]
                 os.fsync(descriptor)
+                os.fsync(directory_fd)
             finally:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                finally:
+                    descriptor = -1
         except WorkPlanJournalError:
             raise
         except OSError as exc:
             raise WorkPlanJournalError("work_plan_journal_write_failed") from exc
+        finally:
+            try:
+                if descriptor >= 0:
+                    os.close(descriptor)
+            finally:
+                if directory_fd >= 0:
+                    os.close(directory_fd)
         self._sequence += 1
         self._head = row["digest"]
         self._file_size += len(encoded)

@@ -1,17 +1,16 @@
 # Active construction checkpoint
 
-Sequence 299 proves that a child process can exit after a partial production journal append, releases its kernel lock, and leaves incomplete bytes intact for fail-closed rejection. Seven affected suites passed 58/58 with canonical `scripts.run_tests` on local source commit `d8ecf0a4805b10c396e44288ebe3b50a5c1d7966`; targeted Mypy, compilation, diff checks, and custody passed. Remote source `14513d80af2437f4603e838959577758658eb904` has the same tree `c1249b9cc0df24727d7fe02e7ef0b37dd3191826`; its full CI, invariants, and actual-Administrator quality gate passed.
+Sequence 300 makes work-plan journal appends directory-durable: the record is fsynced before its containing directory while the writer lock remains held, and a directory-sync failure leaves the journal recoverable as interrupted without claiming success. The canonical runner completed seven affected suites 60/60 on local source `c90f244b5637c1bb67eb230cbadef7860e10af30`; exact-node acceptance, targeted Mypy, compilation, diff checks, and custody passed. Remote source `b49176f299120b1edc95be207eb0865e4e82193d` has the same tree `252d8ce632446ea7771934ffcdfbe36b2ebf399d`, parented by verified main `7743ea61b14e6f23d01485c1fa679db5cc2036ce`. Its actual-Administrator gate, invariants, and source validation passed; the gate artifact confirms UID 0, strict audit, immutability, and unchanged source/repository identity.
 
-Latest verified main: `24fb96724b44f544ecf5fdadad0da8b0b31b9fa5`, tree `f174b6936415e06c671e42f0de809fb128bb9578`. Its full CI, Required Quality Gate, invariants, Docker, Codex CI, and Docs Deploy passed.
+The sequence-286 provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable. No historical payload was reconstructed or omitted.
 
-Next dependency: fsync the execution-journal directory after writing and syncing a new start record, and fail closed if directory durability cannot be confirmed.
+Next dependency: test at the executor boundary that journal directory-sync failure blocks task effects, and prove fresh journal-directory creation syncs every parent entry.
 
-The sequence-286 provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable.
-
-Verified local source commit: `d8ecf0a4805b10c396e44288ebe3b50a5c1d7966`
-Verified remote source commit: `14513d80af2437f4603e838959577758658eb904`
-Verified source tree: `c1249b9cc0df24727d7fe02e7ef0b37dd3191826`
-Latest segment: `work/construction/segments/0299-partial-append-process-crash.md`
-Latest segment SHA-256: `19b4fa6b7535e10287b5a9619422055cb8d24f99ce2ebb20411abc2e16ecb6bd`
-Latest evidence: `work/construction/evidence/0299-partial-append-process-crash.json`
-Sequence: 299
+Verified local source commit: `c90f244b5637c1bb67eb230cbadef7860e10af30`
+Verified remote source commit: `b49176f299120b1edc95be207eb0865e4e82193d`
+Verified source tree: `252d8ce632446ea7771934ffcdfbe36b2ebf399d`
+Latest segment: `work/construction/segments/0300-work-plan-journal-directory-durability.md`
+Latest segment SHA-256: `cebe42b8cbea90e5ea43d02587dc72379be1c1da9083c7fb3be778c41144e756`
+Latest evidence: `work/construction/evidence/0300-work-plan-journal-directory-durability.json`
+Latest evidence SHA-256: `327f136eed9a1b84ca7aac79c90e10536b0b83d9e274fa083f2f56225f95a70d`
+Sequence: 300

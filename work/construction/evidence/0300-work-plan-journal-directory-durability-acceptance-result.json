@@ -1,0 +1,41 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:cf6d9dab9f150a48bde8b89f05c1a69c63bae4559564325d0ccaa5aff4823a76",
+  "manifest_path": "/tmp/sentientos-seq300-validation/task_acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_start_append_syncs_file_before_journal_directory",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_directory_sync_failure_is_not_reported_as_durable_append",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:c76d2d40c10cf61c8bbdbc5c25f481f2601f82c145b2e9daf517bdc5003d3850",
+  "provenance_path": "/tmp/sentientos-seq300-validation/test_run_provenance.json",
+  "reasons": [],
+  "repository_sha": "c90f244b5637c1bb67eb230cbadef7860e10af30",
+  "required_node_ids": [
+    "sentientos/tests/test_work_plan_execution_journal.py::test_start_append_syncs_file_before_journal_directory",
+    "sentientos/tests/test_work_plan_execution_journal.py::test_directory_sync_failure_is_not_reported_as_durable_append"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "sentientos/tests/test_work_plan_execution_journal.py::test_start_append_syncs_file_before_journal_directory"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}
