@@ -41,9 +41,9 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "schedule:" in triggers and "workflow_dispatch:" in triggers
     assert "pull_request:" not in triggers
     push = triggers.split("  push:", 1)[1]
-    assert "branches:\\n      - main" in push
+    assert "branches:\n      - main" in push
     assert (
-        'paths:\\n      - ".github/workflows/federation-health.yml"\\n'
+        'paths:\n      - ".github/workflows/federation-health.yml"\n'
         '      - "federation_health_badge.py"'
     ) in push
     assert "permissions:\n  contents: write" in workflow
