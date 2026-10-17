@@ -1,0 +1,88 @@
+{
+  "sequence": 310,
+  "title": "Verify scheduled Federation Health execution",
+  "source": {
+    "branch": "main",
+    "commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+    "tree": "62d9b93b038f92a5df1b25d6cb7cc70847a86f23"
+  },
+  "predecessor": {
+    "sequence": 309,
+    "segment_path": "work/construction/segments/0309-verify-post-merge-nightlies.md",
+    "segment_sha256": "7afc163d3585ca5e9726f77ac14c3cd7cbf47cdfe533cd4717b483987cd30068",
+    "evidence_path": "work/construction/evidence/0309-verify-post-merge-nightlies.json",
+    "evidence_sha256": "697c4bc3c05eaebb93ddf901454b8cf094e6a81e744335e84b28d0a75eacb225"
+  },
+  "federation_health_scheduled_run": {
+    "id": 39028288072,
+    "event": "schedule",
+    "workflow": ".github/workflows/federation-health.yml",
+    "workflow_id": 165993285,
+    "run_number": 8651,
+    "attempt": 1,
+    "source_commit": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+    "started_at": "2026-10-17T11:19:59Z",
+    "completed_at": "2026-10-17T11:20:20Z",
+    "conclusion": "success",
+    "jobs": {
+      "health": {
+        "id": 117383520775,
+        "conclusion": "success",
+        "administrator_preflight": "success",
+        "privileged_generator": "success"
+      },
+      "publish": {
+        "id": 117383560348,
+        "conclusion": "success",
+        "operation": "no_change_no_pr"
+      }
+    },
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet",
+      "current_main_file_matches": true,
+      "report_bytes": 67,
+      "report_sha256": "375ec94f40ce69a229b2a500597aebbaee31fa0e2c12056faee33779b215c24c"
+    },
+    "artifact": {
+      "id": 12098768757,
+      "name": "federation-health-39028288072",
+      "size_in_bytes": 223,
+      "digest": "sha256:e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475",
+      "independently_downloaded": true,
+      "downloaded_archive_sha256": "e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475",
+      "contains_only": "FEDERATION_HEALTH.md"
+    }
+  },
+  "publisher_review": {
+    "health_permissions": {
+      "contents": "read"
+    },
+    "publisher_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "publication_path": "peter-evans/create-pull-request@v7; base main; add-paths docs/FEDERATION_HEALTH.md",
+    "workflow_dispatch_present": true,
+    "dispatch_api_available": false,
+    "changed_output_pr_test": "not exercised; report matched main"
+  },
+  "architecture_reassessment": {
+    "production_temporal_a_to_b_to_a_evidence": "not established; only synthetic rehearsal is present",
+    "next_safe_dependency": "prepare process-death quiescence recovery without recreating a live gate capability or enabling replay",
+    "production_activation_performed": false
+  },
+  "limitations": {
+    "sequence_286_payloads": {
+      "known": 9,
+      "unidentified": 1,
+      "resolved": false
+    },
+    "stale_sequence_178_workspace": "untouched"
+  },
+  "segment_path": "work/construction/segments/0310-verify-scheduled-federation-health.md",
+  "segment_sha256": "9fd9dbb6cc786ba2e3d5a6b8e33987d6160a4027dad9f2899fc0c1945aa99a76",
+  "predecessor_sha256": "7afc163d3585ca5e9726f77ac14c3cd7cbf47cdfe533cd4717b483987cd30068",
+  "next_dependency": "Assess a fail-closed, independently attributable process-death quiescence resolution mechanism; separately obtain a supported hosted fixture dispatch path to test changed-output PR creation."
+}
