@@ -310,7 +310,10 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         if cognition.verified_cognition_observation(observation_id).get("active_model_identity") == identities[1]), None)
     if b_observation is None:
         raise RuntimeError("b_epoch_authenticated_cognition_observation_missing")
-    b_invocation = cognition.invoker.verify_persisted_invocation_receipt(
+    verify_b_invocation = getattr(cognition.invoker, "verify_persisted_invocation_receipt", None)
+    if not callable(verify_b_invocation):
+        raise RuntimeError("b_epoch_invocation_verifier_missing")
+    b_invocation = verify_b_invocation(
         b_observation["inference_receipt_id"], b_observation["inference_receipt_digest"],
         expected_request_id=b_observation["request_id"],
         expected_request_digest=b_observation["request_digest"],
