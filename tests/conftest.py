@@ -171,6 +171,24 @@ def codex_startup():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def isolate_governor_runtime(tmp_path_factory):
+    """Keep tests from writing runtime governance state to the production /glow tree."""
+    root = tmp_path_factory.mktemp("sentientos-runtime") / "glow" / "governor"
+    key = "SENTIENTOS_GOVERNOR_ROOT"
+    prior = os.environ.get(key)
+    os.environ[key] = str(root)
+    try:
+        yield root
+    finally:
+        if prior is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = prior
+
+
+
+
 @pytest.fixture(autouse=True)
 def configure_pulse_environment(tmp_path, monkeypatch):
     history_dir = tmp_path / "pulse_history"

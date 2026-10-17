@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
+from pathlib import Path
+import tempfile
+
+import pytest
 
 from sentientos.runtime_governor import get_runtime_governor, reset_runtime_governor
 
@@ -640,3 +645,12 @@ def test_pressure_and_fairness_deterministic_outcome(monkeypatch, tmp_path) -> N
     assert first.allowed is False
     assert second.allowed is False
     assert first.reason == second.reason
+
+
+
+@pytest.mark.no_legacy_skip
+def test_pytest_harness_isolates_default_governor_storage() -> None:
+    root = Path(os.environ["SENTIENTOS_GOVERNOR_ROOT"]).resolve()
+
+    assert root != Path("/glow/governor")
+    assert root.is_relative_to(Path(tempfile.gettempdir()).resolve())

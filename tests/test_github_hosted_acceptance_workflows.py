@@ -414,7 +414,7 @@ def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
         }
         expected_paths = {path}
         if path == ".github/workflows/nightly-self-check.yml":
-            expected_paths.add("pyproject.toml")
+            expected_paths.update({"pyproject.toml", "tests/conftest.py", "tests/test_runtime_governor.py"})
         assert actual_paths == expected_paths
 
 
