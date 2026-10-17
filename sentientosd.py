@@ -2697,6 +2697,13 @@ class RuntimeMaintenanceSurfaces:
         self._refresh_feedback()
         return feedback
 
+    def block_resident_cognition_for_transition_recovery(self, reason: str) -> None:
+        """Keep developmental inference disabled while a transition needs operator recovery."""
+        self._resident_transition_configuration_error = reason
+        if self._resident_developmental_configuration_error is None:
+            self._resident_developmental_configuration_error = (
+                f"resident_transition_recovery_required:{reason}")
+
     def run_resident_developmental_cognition(self, *, tick_id: str) -> dict[str, Any]:
         """Run one configured cycle after the same-tick World-State snapshot exists."""
         if self._resident_developmental_configuration_error is not None:
@@ -3956,6 +3963,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                         runtime_surfaces=candidate_surfaces)
                 except Exception as exc:
                     resident_transition_error = f"{type(exc).__name__}:{exc}"
+                    candidate_surfaces.block_resident_cognition_for_transition_recovery(
+                        resident_transition_error)
                     try:
                         candidate_surfaces._resident_transition_custody = _load_resident_transition_custody(
                             resident_transition_live_path, handle)

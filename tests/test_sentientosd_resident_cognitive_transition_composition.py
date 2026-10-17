@@ -43,6 +43,7 @@ def test_run_loop_regression_closes_previous_daemon_composition_gap() -> None:
     source = inspect.getsource(sentientosd.run_loop)
     assert "RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV" in source
     assert "_compose_live_resident_transition" in source
+    assert "block_resident_cognition_for_transition_recovery" in source
     assert "resident_transition_runtime=resident_transition_runtime" in source
     tail = inspect.getsource(sentientosd._run_resident_cognition_and_transition)
     assert tail.index("run_resident_developmental_cognition") < tail.index(
@@ -64,3 +65,44 @@ def test_actual_daemon_composition_helper_rehearsal_uses_same_live_objects(tmp_p
     assert result["resume_inference_deltas"] == [0, 0]
     summary = json.loads((tmp_path / "actual-daemon" / "transition.summary.json").read_text())
     assert summary == result
+
+
+class _CognitionResult:
+    def __init__(self, status: str):
+        self.status = status
+
+
+def test_transition_restart_failure_blocks_cognition_while_new_gate_is_open(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class Owner:
+        def __init__(self):
+            self.calls = 0
+
+        def run_tick(self, **kwargs):
+            self.calls += 1
+            return _CognitionResult("unexpectedly_ran")
+
+    owner = Owner()
+    gate = sentientosd.ResidentCognitionQuiescenceGate()
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    surfaces = sentientosd.RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-state",
+        resident_developmental_owner=owner, resident_cognition_gate=gate)
+    surfaces._world_state_snapshot = object()
+    surfaces._world_state_snapshot_built_for_tick = "restart-tick"
+
+    assert gate.quiesced is False
+    surfaces.block_resident_cognition_for_transition_recovery(
+        "live_quiescence_custody_mismatch")
+    cognition = surfaces.run_resident_developmental_cognition(tick_id="restart-tick")
+    transition = surfaces.process_resident_cognitive_transition_request(
+        tick_id="restart-tick")
+
+    assert cognition["status"] == "degraded"
+    assert cognition["reason"] == (
+        "resident_transition_recovery_required:live_quiescence_custody_mismatch")
+    assert cognition["write_performed"] is False
+    assert owner.calls == 0
+    assert transition["status"] == "blocked"
+    assert transition["interrupted"] is True
