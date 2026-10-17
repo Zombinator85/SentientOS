@@ -84,18 +84,23 @@ def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audit
 
 
 
-def test_governor_test_root_is_set_before_project_imports() -> None:
+def test_governor_and_federation_test_roots_are_set_before_project_imports() -> None:
     conftest = (ROOT / "tests/conftest.py").read_text()
     setup = conftest.split("def _module_available", 1)[0]
     assert "tempfile.mkdtemp(prefix=\"sentientos-test-governor-\")" in setup
-    assert setup.index('os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)') < setup.index(
+    assert "tempfile.mkdtemp(prefix=\"sentientos-test-federation-\")" in setup
+    import_boundary = setup.index(
         "from scripts.editable_install import editable_install_from_repo_root"
     )
+    assert setup.index('os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)') < import_boundary
+    assert setup.index('os.environ[_FEDERATION_ROOT_ENV] = str(_TEST_FEDERATION_ROOT)') < import_boundary
     fixture = conftest.split("def isolate_governor_runtime", 1)[1].split(
         "@pytest.fixture", 1
     )[0]
     assert "shutil.rmtree(_TEST_GOVERNOR_ROOT, ignore_errors=True)" in fixture
+    assert "shutil.rmtree(_TEST_FEDERATION_ROOT, ignore_errors=True)" in fixture
     assert 'os.environ.pop(_GOVERNOR_ROOT_ENV, None)' in fixture
+    assert 'os.environ.pop(_FEDERATION_ROOT_ENV, None)' in fixture
 
 
 def test_nightly_self_check_installs_canonical_test_dependencies() -> None:
