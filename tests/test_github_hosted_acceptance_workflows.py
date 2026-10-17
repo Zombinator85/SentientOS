@@ -394,6 +394,21 @@ def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
         workflow = (ROOT / path).read_text()
         triggers = workflow.split("jobs:", 1)[0]
         assert "schedule:" in triggers and "workflow_dispatch:" in triggers
-        push = triggers.split("  push:", 1)[1]
+        push = triggers.split("  push:", 1)[1].split("  schedule:", 1)[0]
         assert "branches:\n      - main" in push
-        assert f'paths:\n      - "{path}"' in push
+        path_lines = push.split("    paths:\n", 1)[1].splitlines()
+        actual_paths = {
+            line.strip()[2:].strip().strip('"')
+            for line in path_lines
+            if line.strip().startswith("- ")
+        }
+        expected_paths = {path}
+        if path == ".github/workflows/nightly-self-check.yml":
+            expected_paths.add("pyproject.toml")
+        assert actual_paths == expected_paths
+
+
+def test_dev_extra_includes_runtime_dependency_used_by_privilege_lint() -> None:
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    dev = pyproject.split("dev = [", 1)[1].split("]", 1)[0]
+    assert '"PyYAML>=6,<7"' in dev
