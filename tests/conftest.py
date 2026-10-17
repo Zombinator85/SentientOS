@@ -13,8 +13,8 @@ from pathlib import Path
 _GOVERNOR_ROOT_ENV = "SENTIENTOS_GOVERNOR_ROOT"
 _PRIOR_GOVERNOR_ROOT = os.environ.get(_GOVERNOR_ROOT_ENV)
 _TEST_GOVERNOR_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-governor-"))
-# Set this before importing project modules: some legacy modules construct a
-# process-wide governor during collection, before pytest session fixtures run.
+# Set this before importing project or repository modules: a module-level
+# governor singleton captures its root during collection, before fixtures run.
 os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)
 
 import types
