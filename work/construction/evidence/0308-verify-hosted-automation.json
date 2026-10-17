@@ -1,0 +1,189 @@
+{
+  "sequence": 308,
+  "title": "Verify hosted automation and narrow repair authority",
+  "source": {
+    "branch": "main",
+    "commit": "69ac1afcab987c92de252f94793fafb2b66474be",
+    "tree": "1ad128e83fda57fe1288b59004f1a044040c959d",
+    "merge_method": "merge",
+    "merged_pull_request": 2298,
+    "verified_pr_head": "b98fca93930d9b9ac2c5238643aed6db6d0dbd44",
+    "comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    }
+  },
+  "predecessor": {
+    "sequence": 307,
+    "segment_path": "work/construction/segments/0307-verify-bounded-artifact-cleanup.md",
+    "segment_sha256": "742a0a185928a2a24a4691742090d385e46c19791f69fc1811cf0419453a04f5",
+    "evidence_path": "work/construction/evidence/0307-verify-bounded-artifact-cleanup.json",
+    "evidence_sha256": "9c37b7278fd609bc944a7ed84ccda0e748584e216f1b9c41a075e66e2e848baa"
+  },
+  "federation_health_execution": {
+    "workflow_run_id": 39010139696,
+    "effective_uid": 0,
+    "administrator_preflight": "passed",
+    "generator_status": "success",
+    "generator_output": {
+      "nodes": 1,
+      "recent": 0,
+      "status": "quiet"
+    },
+    "automatic_pr_publisher": "failed",
+    "publisher_error": "GitHub Actions is not permitted to create or approve pull requests.",
+    "manual_pr": {
+      "number": 2292,
+      "merge_commit": "7d80e976fdfe2c2b37fbc2598c294983ad1b2228",
+      "changed_files": [
+        "docs/FEDERATION_HEALTH.md"
+      ],
+      "merged": true
+    },
+    "main_document_readback": "# Federation Health\n\n- Nodes: 1\n- Recent events: 0\n- Status: quiet\n"
+  },
+  "nightly_audit_execution": {
+    "workflow_run_id": 39011220239,
+    "conclusion": "success",
+    "strict_verifier": "sudo -n",
+    "audit_chain_status": "ok",
+    "strict_bucket": "healthy_strict",
+    "strict_readiness_class": "acceptable",
+    "repair_required": false
+  },
+  "nightly_self_check": {
+    "initial_failure_run_id": 39012721276,
+    "root_cause": "Unprivileged tests wrote runtime governance data to production-default /glow/governor.",
+    "fix_pr": 2297,
+    "fix_merge_commit": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14",
+    "full_pytest": {
+      "passed": 143,
+      "skipped": 13,
+      "failed": 0
+    },
+    "workflow_path_filters": [
+      ".github/workflows/nightly-self-check.yml",
+      "pyproject.toml",
+      "tests/conftest.py",
+      "tests/test_runtime_governor.py"
+    ],
+    "post_merge_push_run": "not observable through the available connector"
+  },
+  "audit_write_scope": {
+    "pr": 2298,
+    "merge_commit": "69ac1afcab987c92de252f94793fafb2b66474be",
+    "healthy_job_permissions": {
+      "contents": "read"
+    },
+    "conditional_repair_job_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "repair_condition": "needs.audit.outputs.status != '0'",
+    "strict_administrator_verification_preserved": true
+  },
+  "hosted_pr_checks": {
+    "PR_2297": {
+      "head": "beecd7cfe8d6b1de5d64c6c8b24a594372a2d2d7",
+      "required_quality_gate": {
+        "run_id": 39013222898,
+        "conclusion": "success"
+      },
+      "ci": {
+        "run_id": 39013223110,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39013222947,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39013222897,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39013222936,
+        "conclusion": "success"
+      },
+      "gradient_null": {
+        "run_id": 39013223014,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39013222894,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39013222976,
+        "conclusion": "success"
+      }
+    },
+    "PR_2298": {
+      "head": "b98fca93930d9b9ac2c5238643aed6db6d0dbd44",
+      "required_quality_gate": {
+        "run_id": 39013961071,
+        "conclusion": "success"
+      },
+      "ci": {
+        "run_id": 39013961033,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39013961110,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39013961052,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39013961032,
+        "conclusion": "success"
+      },
+      "gradient_null": {
+        "run_id": 39013961066,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39013961112,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39013961161,
+        "conclusion": "success"
+      }
+    }
+  },
+  "strict_source_attestation": {
+    "workflow_run_id": 39013961071,
+    "effective_uid": 0,
+    "source_sha": "f7491e17e4367d96f217ba838c1cdd2fe797b6d6",
+    "source_tree": "1ad128e83fda57fe1288b59004f1a044040c959d",
+    "compare_against_main": {
+      "main_commit": "69ac1afcab987c92de252f94793fafb2b66474be",
+      "changed_files": 0
+    }
+  },
+  "post_merge_observability": {
+    "self_check_run_visible": false,
+    "audit_run_visible": false,
+    "reason": "The available commit-workflow-run endpoint returns PR-triggered runs only; the commit status endpoint contains no Actions runs. Push path triggers are configured, but no result is claimed."
+  },
+  "external_blocker": {
+    "setting": "Allow GitHub Actions to create and approve pull requests",
+    "required_alternative": "narrowly scoped repository token with contents and pull-requests write",
+    "current_status": "not enabled / not provided"
+  },
+  "unresolved_payloads": {
+    "sequence": 286,
+    "known_missing": 9,
+    "unidentified_missing": 1,
+    "changed": false
+  },
+  "segment_path": "work/construction/segments/0308-verify-hosted-automation.md",
+  "predecessor_sha256": "742a0a185928a2a24a4691742090d385e46c19791f69fc1811cf0419453a04f5",
+  "next_dependency": "Obtain access to new main push-run results, resolve the repository PR-creation setting or provide an approved scoped token, then resume source development from verified main.",
+  "segment_sha256": "e7a71860e077e255b4d175d4e048d8a6479f745c132b3ac9e059dbd201590e2f",
+  "segment_bytes": 3482
+}
