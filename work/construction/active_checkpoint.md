@@ -1,10 +1,10 @@
 # Active construction checkpoint
 
-Sequences 329–330 repaired five double-escaped newline boundaries and expanded the Required Quality Gate to execute both recovery outcomes and its command-continuation contract. Sequence 331 independently reverified Federation Health scheduled run `39028288072`, including the freshly downloaded artifact digest and publisher no-op; current main remains `8a2ab13333574d9112442ef826351596077f267a`, so the scheduled run is historical. Changed-output publication still requires manual workflow dispatch unavailable to this session.
+Sequences 329–330 fixed newline parsing and the Required Quality Gate command continuation. Sequence 331 reverified historical Federation Health run 39028288072 and documented the sequence-330 stale-title finalizer failure. Sequence 332 adds a real hosted Linux procfs field-22 regression, increasing exact recovery acceptance from 26 to 27; its hosted verification is pending.
 
-Required Quality Gate run `39076422714` passed the exact 26-node call phase, acceptance binding, strict audit, and hosted privileged finalizer against the integration tree matching candidate `bcc518c8d45254c47b80e88f1a49396d904fcf09`. The positive PID-reuse and adverse still-live cases both passed. Sequence 332 adds a real Linux `/proc/<pid>/stat` field-22 observer regression because prior tests injected the observer. The exact node count is now 27. Compilation and diff checks pass; the live-procfs acceptance, strict finalizer, and all required checks must rerun on sequence 332 before merge.
+Sequence 333 records scheduled Federation Health run `39076757572` on current main `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. The Administrator preflight and generator passed; fresh artifact download matched GitHub's SHA-256; report was quiet and publisher correctly made no PR. Current-main scheduled execution is now verified. The changed-output fixture was skipped and still requires an external workflow dispatch; no telemetry was fabricated.
 
-Sequence 286 provenance loss and the untouched stale sequence-178 workspace remain preserved. Production A→B→A evidence still requires the exact commissioned setup, identities, receipts, and operator-approved protocol.
+Candidate branch `codex/resident-process-generation-324` is at sequence-332 candidate `5be1170bfabc09c711050dbe230a2b203c822fe9`, tree `d3b3b98b88408b71a8de159e24561aef8d07a19f`. Its exact 27-node gate and all other required checks must pass on the final candidate before regular merge. Sequence 286 provenance loss and the untouched stale sequence-178 workspace remain preserved. Production A→B→A still requires commissioned identities, setup, receipts, and an operator-approved protocol.
 
-Latest construction segment: `work/construction/segments/0332-exercise-live-procfs-generation-observer.md`
-Sequence: 332
+Latest construction segment: `work/construction/segments/0333-record-current-main-federation-run.md`
+Sequence: 333

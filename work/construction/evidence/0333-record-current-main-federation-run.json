@@ -1,0 +1,72 @@
+{
+  "artifact": {
+    "artifact_id": 12116678493,
+    "content": {
+      "path": "FEDERATION_HEALTH.md",
+      "bytes": 67,
+      "sha256": "375ec94f40ce69a229b2a500597aebbaee31fa0e2c12056faee33779b215c24c",
+      "text": "# Federation Health\n\n- Nodes: 1\n- Recent events: 0\n- Status: quiet\n"
+    },
+    "downloaded_zip_bytes": 223,
+    "downloaded_zip_sha256": "177177de7da6be3dacfeaa50ae52b63d4b0f4dde2ff8f9eba8e47be96b13e2ef",
+    "github_sha256": "177177de7da6be3dacfeaa50ae52b63d4b0f4dde2ff8f9eba8e47be96b13e2ef",
+    "sha256_match": true
+  },
+  "jobs": {
+    "health": {
+      "job_id": 117525394390,
+      "conclusion": "success",
+      "administrator_preflight": "sudo -n id -u succeeded",
+      "generator": "success",
+      "output": {"nodes": 1, "recent": 0, "status": "quiet"}
+    },
+    "fixture": {
+      "job_id": 117525395221,
+      "conclusion": "skipped",
+      "changed_output_publication_verified": false
+    },
+    "publish": {
+      "job_id": 117525435387,
+      "conclusion": "success",
+      "downloaded_exact_artifact": true,
+      "allowlisted_path": "docs/FEDERATION_HEALTH.md",
+      "pull_request_operation": "none",
+      "reason": "report matched main",
+      "head_sha": "8a2ab13333574d9112442ef826351596077f267a"
+    }
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
+    "evidence_sha256": "567d5ab6df153e233caeef74d62f2cf963ac6f3dbbb1c1ea858bfbcd9ad29666",
+    "segment_path": "work/construction/segments/0332-exercise-live-procfs-generation-observer.md",
+    "segment_sha256": "532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+    "sequence": 332
+  },
+  "restrictions": {
+    "changed_output_fixture_dispatched": false,
+    "production_telemetry_fabricated": false,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 333,
+  "source": {
+    "acquisition": "fresh GitHub scheduled run, jobs, job logs, artifact metadata, and ZIP readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "5be1170bfabc09c711050dbe230a2b203c822fe9",
+    "tree": "d3b3b98b88408b71a8de159e24561aef8d07a19f",
+    "main_commit": "8a2ab13333574d9112442ef826351596077f267a",
+    "main_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7"
+  },
+  "title": "Record current-main Federation Health run",
+  "verification": {
+    "run_event": "schedule",
+    "run_conclusion": "success",
+    "current_main_source_match": true,
+    "administrator_execution_verified": true,
+    "artifact_integrity_verified": true,
+    "unchanged_output_noop_verified": true,
+    "changed_output_pr_publication_verified": false,
+    "workflow_dispatch_tool_available": false
+  }
+}

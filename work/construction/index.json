@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3f75d111d693f193f11db807b1ee16a9162d856f6b86cccd77a338de6c4f832d",
-    "latest_segment_sequence": 332,
-    "latest_segment_sha256": "532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
-    "source_commit": "bcc518c8d45254c47b80e88f1a49396d904fcf09",
-    "source_tree": "9f312d9c5554698ad8307fa8bea3fa163df5678a"
+    "checkpoint_sha256": "875cc4e50f0b242056589dba31c981a29e4d605deb3053ff6801e2b3ad4e0e4b",
+    "latest_segment_sequence": 333,
+    "latest_segment_sha256": "a280954233bf8706de1e54a628cf483f6eda347c475c126dc17cec06dd306dac",
+    "source_commit": "5be1170bfabc09c711050dbe230a2b203c822fe9",
+    "source_tree": "d3b3b98b88408b71a8de159e24561aef8d07a19f"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 332,
+  "latest_sequence": 333,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3646,6 +3646,19 @@
       "evidence_path": "work/construction/evidence/0332-exercise-live-procfs-generation-observer.json",
       "evidence_bytes": 2515,
       "evidence_sha256": "567d5ab6df153e233caeef74d62f2cf963ac6f3dbbb1c1ea858bfbcd9ad29666"
+    },
+    {
+      "sequence": 333,
+      "path": "work/construction/segments/0333-record-current-main-federation-run.md",
+      "bytes": 1586,
+      "sha256": "a280954233bf8706de1e54a628cf483f6eda347c475c126dc17cec06dd306dac",
+      "predecessor": "segment-sha256:532082ae977ef52c78e0faec66c8101d8b5d1ce9bb2f6a134ac17f3cea9f7c57",
+      "source_commit": "5be1170bfabc09c711050dbe230a2b203c822fe9",
+      "source_tree": "d3b3b98b88408b71a8de159e24561aef8d07a19f",
+      "evidence": "work/construction/evidence/0333-record-current-main-federation-run.json",
+      "evidence_path": "work/construction/evidence/0333-record-current-main-federation-run.json",
+      "evidence_bytes": 2802,
+      "evidence_sha256": "fd39562a1ef3d780aad0f13ed188f2b69a242cf1fc638f982287f65aa0d43386"
     }
   ],
   "source_acquisition": {
