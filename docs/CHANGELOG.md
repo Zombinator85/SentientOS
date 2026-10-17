@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10 Hosted acceptance for resident recovery
+- The Required Quality Gate now executes the PID-reuse recovery path and same-generation fail-closed regression as exact call-phase tests.
+- Its acceptance result binds both tests to the hosted run provenance and candidate SHA.
+
 ## 2026-10 Resident child process generation
 - New maintenance-resident launch records bind the child PID to Linux procfs start time when available.
 - Restart recovery distinguishes PID reuse from a still-live prior generation and retains fail-closed behavior when identity is uncertain.

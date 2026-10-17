@@ -1,0 +1,76 @@
+{
+  "change": {
+    "expected_call_phase_node_count": 25,
+    "required_gate_nodes": [
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live"
+    ],
+    "verification": "fresh run provenance and exact candidate SHA; no authority added"
+  },
+  "finding": {
+    "required_acceptance_nodes_were_not_selected_by_existing_hosted_quality_gate": [
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+      "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live"
+    ]
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0324-bind-resident-child-recovery-to-process-generation.json",
+    "evidence_sha256": "85f77227828bdd9a70d6b55231a9048691b2d5a7718f487abb46c3fde75c8598",
+    "segment_path": "work/construction/segments/0324-bind-resident-child-recovery-to-process-generation.md",
+    "segment_sha256": "e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
+    "sequence": 324
+  },
+  "prior_attempts": [
+    {
+      "cause": "new arg-type error from PID mapping lookup typed as object",
+      "result": "quality_gate_failed_mypy_baseline",
+      "run_id": 39074573697
+    },
+    {
+      "cause": "connector-truncated source blob caused syntax error",
+      "result": "quality_gate_failed_mypy_baseline",
+      "run_id": 39074775155
+    },
+    {
+      "cause": "same truncated-source syntax error",
+      "result": "docker_failed_pre_commit",
+      "run_id": 39074775107
+    },
+    {
+      "candidate": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+      "passed": true,
+      "result": "quality_gate_passed_but_task_nodes_not_selected",
+      "run_id": 39074893248
+    },
+    {
+      "candidate": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+      "result": "docker_passed_default_tests_but_task_nodes_not_selected",
+      "run_id": 39074893273,
+      "tests_failed": 0,
+      "tests_passed": 143,
+      "tests_skipped": 13
+    }
+  ],
+  "restrictions": {
+    "no_federation_telemetry_fabrication": true,
+    "no_production_transition_claim": true,
+    "no_provider_invocation": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 325,
+  "source": {
+    "acquisition": "fresh GitHub PR head and recursive tree readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+    "tree": "a36e6438670c2e2722e14f615349d08fc9104ee5"
+  },
+  "title": "Execute resident recovery acceptance in hosted Quality Gate",
+  "verification": {
+    "compile": "passed for sequence 324 source",
+    "diff_check": "passed for sequence 324 source",
+    "hosted_sequence_325_tests": "pending",
+    "targeted_mypy": "passed for sequence 324 source"
+  }
+}

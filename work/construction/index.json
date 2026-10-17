@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "71d028f68bb3a04637d5e2c0dcd29d4678efd0100c958d164feb61876aa36c4b",
-    "latest_segment_sequence": 324,
-    "latest_segment_sha256": "e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
-    "source_commit": "8a2ab13333574d9112442ef826351596077f267a",
-    "source_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7"
+    "checkpoint_sha256": "bcb3a4abf179cefd4cbf5d579c69add9176638bc8965c71a757ab443ef1cc588",
+    "latest_segment_sequence": 325,
+    "latest_segment_sha256": "596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+    "source_commit": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+    "source_tree": "a36e6438670c2e2722e14f615349d08fc9104ee5"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 324,
+  "latest_sequence": 325,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3542,6 +3542,19 @@
       "sha256": "e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
       "source_commit": "8a2ab13333574d9112442ef826351596077f267a",
       "source_tree": "3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7"
+    },
+    {
+      "sequence": 325,
+      "path": "work/construction/segments/0325-execute-resident-recovery-acceptance-in-hosted-gate.md",
+      "bytes": 2626,
+      "sha256": "596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf",
+      "predecessor": "segment-sha256:e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da",
+      "source_commit": "a29f85842b7fdc4495c9e7f12b7d84d76cfa437a",
+      "source_tree": "a36e6438670c2e2722e14f615349d08fc9104ee5",
+      "evidence": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
+      "evidence_path": "work/construction/evidence/0325-execute-resident-recovery-acceptance-in-hosted-gate.json",
+      "evidence_bytes": 3142,
+      "evidence_sha256": "8a365790983f1dba038ee4d4eb74e5d08ecdec5b4f132e23da2eb9d77b9c0ec2"
     }
   ],
   "source_acquisition": {

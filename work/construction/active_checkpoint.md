@@ -1,21 +1,17 @@
 # Active construction checkpoint
 
-Sequence 324 adds Linux process start-time identity to maintenance-resident child launch provenance. Recovery distinguishes an old child from a new process that reused its PID only when procfs start time differs. Same-generation, unknown, and legacy-but-present cases remain fail-closed. No signaling, adoption, or transition-replay authority is added.
+Sequence 324 binds each maintenance-resident child launch to Linux procfs process-generation evidence when available. Recovery after PID reuse requires evidence the prior generation ended; ambiguous or still-live identity remains fail-closed. The mypy issue and an intermediate truncated remote source blob were corrected, and the complete source blob was independently read back.
 
-Construction source is verified main `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. The starting blobs for both changed source files were read from that exact tree. The isolated local source projection omitted runtime state and audit data; it is not represented as a full-repository checkout.
+Sequence 325 addresses a hosted verification gap: the strict Quality Gate had not selected the two required sequence 324 recovery tests. The candidate now includes the PID-reuse success case and adverse same-generation case in its exact call-phase selection. Fresh hosted checks for this updated selection are pending.
 
-Local compilation and diff checks passed. The canonical local test runner stopped before pytest because its airlock found `jinja2` unavailable; dependency installation is blocked by sandbox network policy. No local test pass is claimed. Exact regression nodes are recorded in the acceptance manifest; hosted CI and the strict hosted Quality Gate are pending.
+Exact main base for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 325 starts from candidate `a29f85842b7fdc4495c9e7f12b7d84d76cfa437a`, tree `a36e6438670c2e2722e14f615349d08fc9104ee5`.
 
-Sequence 323 merged as PR #2322, merge commit `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Current-main Quality Gate, CI, Codex CI, invariants, Docker, and Docs Deploy passed (runs 39073711468, 39073711486, 39073711461, 39073711497, 39073711558, and 39073711583). Dependabot Graph Update run 39073716852 remains in progress at checkpoint preparation.
+Hosted Quality Gate `39074893248` passed its 23 generic nodes, strict Administrator verification, mypy baseline, strict audits, immutability, and landing finalizer. It did not execute the sequence 324 task nodes. Docker `39074893273` passed pre-commit and 143 tests with 13 skips, but provenance likewise showed those nodes were absent. Earlier failed/truncated attempts remain documented in sequence 325 evidence. The updated 25-node gate has not yet run.
 
-Federation Health's latest scheduled success is run 39065143484 on source `b91969c1b1a900fefe102fb72697e7295766857b` (sequence 318 evidence): 1 node, 0 recent events, quiet; publisher operation none. No scheduled run on current main `8a2ab13333574d9112442ef826351596077f267a` is observed yet. The latest scheduled execution remains distinct from the changed-output test fixture, which cannot be dispatched through the available GitHub connection.
+Sequence 320 recorded scheduled Federation Health run `39028288072` and verified its artifact; sequence 318 records later scheduled run `39065143484` on source `b91969c1b1a900fefe102fb72697e7295766857b`. No scheduled execution on current main `8a2ab13333574d9112442ef826351596077f267a` has been observed. The changed-output fixture remains an explicit `workflow_dispatch`; the available GitHub connection has no dispatch action. Nightly strict-audit source retains read-only audit permission and write authority only for repair publication, but current-main scheduled execution remains unverified.
 
-The nightly workflows currently retain Administrator verification through `sudo`; only the audit repair job holds content and PR write permission. No exact-current-main scheduled execution is observed. No unnecessary workflow permission change was made.
+Sequence 286 provenance loss remains unresolved. The stale sequence-178 workspace remains untouched. Production model commissioning and temporal A→B→A evidence remain pending the exact operator-approved setup.
 
-The sequence-323 narrative says 9 local dependency tests, but its retained provenance artifact records 10 passed, 0 failed, and 0 skipped (SHA-256 `3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf`). This discrepancy is corrected in sequence 324 without rewriting prior evidence.
-
-Outstanding limitations: the exact commissioned A-to-B-to-A production campaign remains unexecuted; process-generation identity does not prove detached descendants or inference workers have terminated. Sequence-286 payload loss remains unresolved. The original Vow salt-key bytes remain unrecovered, with no replacement or rotation. The stale sequence-178 workspace remains untouched.
-
-Latest construction segment: `work/construction/segments/0324-bind-resident-child-recovery-to-process-generation.md`
-Sequence: 324
-Segment SHA-256: e44d6f808a6826ec8ee1392e4ad7c416855eee42262e4556622e65f81ef008da
+Latest construction segment: `work/construction/segments/0325-execute-resident-recovery-acceptance-in-hosted-gate.md`
+Sequence: 325
+Segment SHA-256: `596b3c5ab6246172d51c4574a9eeaa2ec4e41f2bea3c010a8f4fe19b569ddbcf`

@@ -65,6 +65,8 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes \
             tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts \
             tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest
+            tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation
+            tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live
       - name: Bind and verify exact acceptance
         run: |
           python - <<'PY'
@@ -75,7 +77,7 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==23
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==25
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
@@ -179,3 +181,4 @@ jobs:
             ${{ runner.temp }}/sentientos-landing-acceptance/provenance.json
             ${{ runner.temp }}/sentientos-landing-acceptance/acceptance-result.json
           if-no-files-found: error
+
