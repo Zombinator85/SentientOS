@@ -70,6 +70,12 @@ def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audit
     assert "contents: write" not in workflow
 
 
+
+def test_nightly_self_check_installs_canonical_test_dependencies() -> None:
+    workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
+    assert "pip install -e .[dev]" in workflow
+    assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in workflow
+
 def test_nightly_audit_repair_uses_safe_plan_apply_and_pr_scoped_write_access() -> None:
     workflow = (ROOT / ".github/workflows/audit-nightly.yml").read_text()
     assert "permissions:\n  contents: write\n  pull-requests: write" in workflow
