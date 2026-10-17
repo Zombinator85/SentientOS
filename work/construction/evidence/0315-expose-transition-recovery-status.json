@@ -1,0 +1,151 @@
+{
+  "sequence": 315,
+  "title": "Expose verified transition recovery status",
+  "source": {
+    "branch": "main",
+    "commit": "4d5c8347a1687f7faeedabdf3006df8140ba146a",
+    "tree": "b7eca92c69ba32f05fc3d3b2c4cc4ecbb9ddc459"
+  },
+  "predecessor": {
+    "sequence": 314,
+    "segment_path": "work/construction/segments/0314-semantic-transition-quarantine.md",
+    "segment_sha256": "ff695a38055d95382db60306cc36095bf539d6e6154419784877936fdcc9fc28",
+    "evidence_path": "work/construction/evidence/0314-semantic-transition-quarantine.json",
+    "evidence_sha256": "f0d77b785e2476797eef490ab37642ce2dca0722ba16f0426dd331aea7384324"
+  },
+  "pull_request": {
+    "number": 2311,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2311",
+    "candidate": "a11faf5eaf76c348e78add3aba3dac20b77564d2",
+    "tree": "b7eca92c69ba32f05fc3d3b2c4cc4ecbb9ddc459",
+    "merge_commit": "4d5c8347a1687f7faeedabdf3006df8140ba146a",
+    "merge_method": "merge"
+  },
+  "behavior": {
+    "status_fields": [
+      "recovery_reason",
+      "outstanding_stage",
+      "replay_forbidden",
+      "semantically_verified_stage_entry_digests"
+    ],
+    "source": "canonical transition controller health",
+    "read_only": true,
+    "request_consumed": false,
+    "journal_mutated": false,
+    "stage_advanced": false,
+    "automatic_retry": false,
+    "automatic_reconciliation": false,
+    "token_reconstruction": false,
+    "new_authority": false
+  },
+  "acceptance": {
+    "node": "tests/test_resident_cognitive_transition_operator.py::test_status_exposes_blocked_stage_and_reason_read_only",
+    "result": "success",
+    "full_pytest_with_coverage": "success",
+    "local_py_compile": "success",
+    "manifest_updated": true
+  },
+  "checks": {
+    "pr_quality_gate": {
+      "run": 39051418985,
+      "conclusion": "success",
+      "administrator_strict_audits": true,
+      "finalizer": true
+    },
+    "pr_source_validation": {
+      "run": 39051418994,
+      "conclusion": "success",
+      "exact_acceptance_nodes": true,
+      "integrated_resource_to_cognition_lifecycle": true,
+      "canonical_planning_execution_separation": true
+    },
+    "pr_self_check": {
+      "run": 39051418994,
+      "conclusion": "success",
+      "pytest_with_coverage": true
+    },
+    "pr_lint": {
+      "run": 39051419017,
+      "conclusion": "success"
+    },
+    "pr_docker": {
+      "run": 39051418992,
+      "conclusion": "success"
+    },
+    "pr_invariants": {
+      "run": 39051419016,
+      "conclusion": "success"
+    },
+    "pr_gradient": {
+      "run": 39051419048,
+      "conclusion": "success"
+    },
+    "pr_cpu_build": {
+      "run": 39051418950,
+      "conclusion": "success"
+    },
+    "pr_validate_release": {
+      "run": 39051418952,
+      "conclusion": "success"
+    },
+    "post_merge_ci": {
+      "run": 39051817827,
+      "conclusion": "success",
+      "lifecycle": true,
+      "acceptance_nodes": true,
+      "planning_execution_separation": true,
+      "pytest_with_coverage": true,
+      "docs": true,
+      "helm": true
+    },
+    "post_merge_quality_gate": {
+      "run": 39051817973,
+      "conclusion": "success"
+    },
+    "post_merge_docker": {
+      "run": 39051817923,
+      "conclusion": "success"
+    },
+    "post_merge_invariants": {
+      "run": 39051817838,
+      "conclusion": "success"
+    },
+    "post_merge_codex_ci": {
+      "run": 39051817872,
+      "conclusion": "success"
+    },
+    "post_merge_docs_deploy": {
+      "run": 39051817867,
+      "conclusion": "success"
+    }
+  },
+  "superseded_evidence_pr_attempt": {
+    "pull_request": 2310,
+    "failed_quality_gate_run": 39050641499,
+    "cause": "opened-event PR title did not equal candidate commit subject",
+    "correction": "matched title and metadata-only commit e6e456df1c84cf31a1cc30c9deb9734b0a490c28",
+    "fresh_quality_gate_run": 39050767329,
+    "fresh_quality_gate_conclusion": "success",
+    "regular_merge_commit": "fc2124c325486b4089167c15ca9cd52c8a49644e"
+  },
+  "optional_workflow_failure": {
+    "name": "invite",
+    "run": 39051818069,
+    "conclusion": "failure",
+    "http_status": 403,
+    "cause": "Resource not accessible by integration while posting a nonessential comment",
+    "required": false,
+    "additional_permission_added": false
+  },
+  "limitations": {
+    "production_temporal_a_to_b_to_a": "not established; requires exact commissioned setup and operator-approved protocol",
+    "changed_output_health_fixture": "implementation is present but requires explicit GitHub Actions UI workflow_dispatch; no dispatch operation is exposed to this connection",
+    "sequence_286_known_missing": 9,
+    "sequence_286_unidentified_missing": 1,
+    "sequence_286_resolved": false,
+    "sequence_178_workspace": "untouched"
+  },
+  "next_dependency": "operator-run controlled changed-output Federation Health fixture and, separately, commissioned production temporal A→B→A; no automatic interrupted-stage reconciliation is safe without independent operator evidence",
+  "segment_path": "work/construction/segments/0315-expose-transition-recovery-status.md",
+  "predecessor_segment_sha256": "ff695a38055d95382db60306cc36095bf539d6e6154419784877936fdcc9fc28"
+}
