@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/nightly-self-check.yml"
       - "pyproject.toml"
+      - "tests/conftest.py"
+      - "tests/test_runtime_governor.py"
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
