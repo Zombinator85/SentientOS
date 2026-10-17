@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "08179763200d24c406da2bebb6b5e1ea52f0c65e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_dependency_bootstrap_contract.py::test_optional_requirements_manifest_uses_valid_pip_syntax",
+      "rationale": "Every active entry in the optional requirements manifest parses as a valid pip requirement and the prior dependency set remains represented."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_dependency_bootstrap_contract.py::test_optional_requirements_manifest_uses_valid_pip_syntax"
+  ]
+}
