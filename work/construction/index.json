@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "11283831f729a0628c2468c2292d23d934cce634132193aa90cdaacc80da1a68",
-    "latest_segment_sequence": 328,
-    "latest_segment_sha256": "96eb5f5b48d7162bde0496eaca8257e32346fc38339c0d8f5996a5a1f4c9b4a0",
-    "source_commit": "31f0509604b9f058b42c26bd4e8a32a86b36c676",
-    "source_tree": "4c90ccac8a1103baa7b517eed4c6324fb0267741"
+    "checkpoint_sha256": "22b6ee2fe9cec1ff3d1b4fa41699ffa876de3abdb20c201c3b06c223943baf56",
+    "latest_segment_sequence": 329,
+    "latest_segment_sha256": "ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+    "source_commit": "8460e836fe59607bd4ea2b0bda6327c648b3e629",
+    "source_tree": "f30fd47021f95b8907eb68b58dc580b7ee445ce1"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 328,
+  "latest_sequence": 329,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3594,6 +3594,19 @@
       "evidence_bytes": 1644,
       "evidence_sha256": "c9d827568de3423b6a13c9cfdb971b87aa77fbd55f4773b2e919aeb22951510a",
       "source_tree": "4c90ccac8a1103baa7b517eed4c6324fb0267741"
+    },
+    {
+      "sequence": 329,
+      "path": "work/construction/segments/0329-fix-resident-newline-boundaries.md",
+      "bytes": 1939,
+      "sha256": "ea7bcf2dfffc3ceb92a38d57efd84455c7f26feafc753f8d909ca25aece6345a",
+      "predecessor": "segment-sha256:96eb5f5b48d7162bde0496eaca8257e32346fc38339c0d8f5996a5a1f4c9b4a0",
+      "source_commit": "8460e836fe59607bd4ea2b0bda6327c648b3e629",
+      "source_tree": "f30fd47021f95b8907eb68b58dc580b7ee445ce1",
+      "evidence": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
+      "evidence_path": "work/construction/evidence/0329-fix-resident-newline-boundaries.json",
+      "evidence_bytes": 2074,
+      "evidence_sha256": "8d10c24ac5070ec8f8f093bdd672b3a599930a64212b4c90397bc5c3b4f85f28"
     }
   ],
   "source_acquisition": {

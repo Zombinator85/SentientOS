@@ -90,7 +90,7 @@ def _linux_process_start_ticks(process_id: int) -> int | None:
     finally:
         if descriptor is not None:
             os.close(descriptor)
-    if len(raw) > 4096 or not raw.endswith(b"\\n"):
+    if len(raw) > 4096 or not raw.endswith(b"\n"):
         return None
     separator = raw.rfind(b")")
     if separator < 0:
@@ -179,9 +179,9 @@ def _resident_child_spec(config: Mapping[str, Any], environment: Mapping[str, st
 
 
 def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list[dict[str, Any]]:
-    if raw and not raw.endswith(b"\\n"):
+    if raw and not raw.endswith(b"\n"):
         raise ValueError("parent_receipt_journal_truncated")
-    lines = raw.split(b"\\n")[:-1] if raw else []
+    lines = raw.split(b"\n")[:-1] if raw else []
     if len(lines) > MAX_PARENT_RECEIPT_ROWS:
         raise ValueError("parent_receipt_journal_retention_limit_exceeded")
     rows: list[dict[str, Any]] = []
@@ -237,7 +237,7 @@ def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list
 def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
                                     expected_config_digest: str,
                                     rows: list[dict[str, Any]]) -> dict[str, Any]:
-    if not raw.endswith(b"\\n"):
+    if not raw.endswith(b"\n"):
         raise ValueError("parent_state_noncanonical")
     value = json.loads(raw[:-1].decode("utf-8"))
     legacy_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
@@ -245,7 +245,7 @@ def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
         "generation_digest", "launch"}
     current_fields = legacy_fields | {"receipt_head_digest", "state_digest"}
     if (not isinstance(value, dict) or set(value) not in (legacy_fields, current_fields)
-            or _canonical(value) + b"\\n" != raw
+            or _canonical(value) + b"\n" != raw
             or value["schema_version"] != STATE_SCHEMA
             or value["child_spec_digest"] != expected_spec_digest):
         raise ValueError("parent_state_binding_mismatch")

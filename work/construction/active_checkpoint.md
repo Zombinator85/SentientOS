@@ -1,15 +1,12 @@
 # Active construction checkpoint
 
-Sequence 324 adds process-generation evidence to maintenance-resident child launch provenance. PID reuse is accepted only when the recorded process generation is shown to have ended.
+Sequences 324–326 added Linux process-generation evidence for resident child recovery and exact hosted acceptance coverage. The first hosted positive recovery case exposed a latched recovery path; sequences 327–328 diagnosed it without clearing panic or repairing persisted evidence.
 
-Sequences 325–326 put both behavior-specific tests in the strict hosted Quality Gate and repaired the shell continuation. Run `39075517162` executed the positive and adverse tests; positive recovery failed with `panic_latched`, adverse same-generation blocking passed. Sequence 327 added state/receipt validation before reconstructing. Run `39075726571` then localized the failure to `parent_receipt_journal_truncated` while parsing the stored receipt journal. Sequence 328 captures the trailing byte count and bytes before invoking the canonical parser. The exact receipt defect remains unresolved; no repair or bypass has been applied.
+Sequence 329 identified and fixed five double-escaped newline byte literals in procfs, receipt-journal, and state-snapshot boundaries. The positive case now asserts valid journal acceptance and genuine truncation rejection. Compilation and diff checks pass; exact hosted recovery, adverse same-generation behavior, strict Administrator finalization, and all required CI checks remain pending. The PR is not ready to land.
 
-Base main for sequence 324: `8a2ab13333574d9112442ef826351596077f267a`, tree `3c0470660da9fd2daeb2a7ffe8b9d83cf82d38c7`. Sequence 328 starts from candidate `31f0509604b9f058b42c26bd4e8a32a86b36c676`, tree `4c90ccac8a1103baa7b517eed4c6324fb0267741`.
+Base main: `8a2ab13333574d9112442ef826351596077f267a`. Candidate before sequence 329: `8460e836fe59607bd4ea2b0bda6327c648b3e629`, tree `f30fd47021f95b8907eb68b58dc580b7ee445ce1`.
 
-Prior green suite runs omitted these task-specific tests. The current candidate requires a passing exact 25-node Quality Gate, privileged finalizer, and every required CI check after the journal failure is resolved.
+Federation scheduled evidence remains bound to earlier source commits, not current main. The changed-output fixture still needs a manual workflow dispatch unavailable to this session; current-main nightly execution evidence remains unverified. Sequence 286 provenance loss and stale sequence-178 workspace remain preserved.
 
-Federation scheduled evidence exists for source `f0564c9f...` and `b91969c1...`, not current main. The changed-output fixture still requires workflow dispatch unavailable to this session; operator action request is pending. Nightly current-main scheduled evidence remains unverified. Sequence 286 provenance loss and stale sequence-178 workspace remain preserved; production A→B→A proof awaits the commissioned operator-approved setup.
-
-Latest construction segment: `work/construction/segments/0328-report-resident-receipt-boundary.md`
-Sequence: 328
-Segment SHA-256: `aae03bd7754e16307b5c88aa64cc136409d3ce3c4ce4b8edd1b6832382d513f5`
+Latest construction segment: `work/construction/segments/0329-fix-resident-newline-boundaries.md`
+Sequence: 329

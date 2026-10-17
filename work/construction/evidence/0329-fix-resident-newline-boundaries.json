@@ -1,0 +1,52 @@
+{
+  "diagnosis": {
+    "double_escaped_byte_literals": 5,
+    "affected_contracts": [
+      "linux_procfs_stat_record_terminator",
+      "parent_receipt_journal_terminator",
+      "parent_receipt_journal_record_separator",
+      "parent_state_snapshot_terminator",
+      "parent_state_snapshot_canonical_comparison"
+    ],
+    "runtime_expected": "newline_byte",
+    "source_encoded": "backslash_and_letter_n"
+  },
+  "failure": {
+    "node": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation",
+    "run_id": 39075887413,
+    "exception": "ValueError: parent_receipt_journal_truncated",
+    "raw_journal_had_trailing_newline": true,
+    "workflow": "Required Quality Gate"
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0328-report-resident-receipt-boundary.json",
+    "evidence_sha256": "c9d827568de3423b6a13c9cfdb971b87aa77fbd55f4773b2e919aeb22951510a",
+    "segment_path": "work/construction/segments/0328-report-resident-receipt-boundary.md",
+    "segment_sha256": "96eb5f5b48d7162bde0496eaca8257e32346fc38339c0d8f5996a5a1f4c9b4a0",
+    "sequence": 328
+  },
+  "restrictions": {
+    "no_journal_repair_or_reset": true,
+    "no_recovery_bypass": true,
+    "no_test_weakening": true,
+    "sequence_286_loss_preserved": true,
+    "stale_sequence_178_workspace_untouched": true
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 329,
+  "source": {
+    "acquisition": "fresh PR head and candidate source readback",
+    "branch": "codex/resident-process-generation-324",
+    "commit": "8460e836fe59607bd4ea2b0bda6327c648b3e629",
+    "tree": "f30fd47021f95b8907eb68b58dc580b7ee445ce1"
+  },
+  "title": "Fix resident newline boundaries",
+  "verification": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "exact_hosted_retest": "pending",
+    "local_pytest": "blocked: isolated projection rejected by canonical minimal-install bootstrap",
+    "source_boundary_repair": "implemented",
+    "positive_recovery": "not yet verified"
+  }
+}

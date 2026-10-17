@@ -117,3 +117,4 @@ SentientOS prioritizes operator accountability, auditability, and safe shutdown.
 - Container layout documented for multi-service deployments.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
+- Fixed five double-escaped newline byte literals that rejected valid procfs, receipt-journal, and persisted-state records; added strict complete-versus-truncated journal assertions.
