@@ -524,5 +524,10 @@ class LiveTransitionOperatorRuntime:
                 "activation_history_digest": session.binding.get("activation_history_digest") if session else None,
                 "latest_consumed_request_id": self._latest.get("request_id") if self._latest else None,
                 "latest_stage_result": self._latest.get("result") if self._latest else None,
-                "interrupted": health["status"] == "interrupted", "complete": health["status"] == "complete",
-                "read_only": True}
+                "interrupted": health["status"] == "interrupted",
+                "recovery_reason": health.get("reason"),
+                "outstanding_stage": health.get("outstanding_stage"),
+                "replay_forbidden": health.get("replay_forbidden", False),
+                "semantically_verified_stage_entry_digests": list(
+                    health.get("semantically_verified_stage_entry_digests", [])),
+                "complete": health["status"] == "complete", "read_only": True}
