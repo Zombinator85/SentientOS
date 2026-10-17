@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import tempfile
 
+import pytest
+
 from sentientos.runtime_governor import get_runtime_governor, reset_runtime_governor
 
 
@@ -646,6 +648,7 @@ def test_pressure_and_fairness_deterministic_outcome(monkeypatch, tmp_path) -> N
 
 
 
+@pytest.mark.no_legacy_skip
 def test_pytest_harness_isolates_default_governor_storage() -> None:
     root = Path(os.environ["SENTIENTOS_GOVERNOR_ROOT"]).resolve()
 
