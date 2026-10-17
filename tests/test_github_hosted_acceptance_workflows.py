@@ -175,6 +175,7 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     # traversing every historical artifact in the repository.
     assert "permissions:\n      actions: write\n      contents: read" in self_check
     demo_cleanup = self_check.split("      - name: Remove old demo artifacts", 1)[1]
+    assert "--method GET" in demo_cleanup
     assert "-f name=demo" in demo_cleanup
     assert "-F per_page=100" in demo_cleanup
     assert "--paginate" not in demo_cleanup
