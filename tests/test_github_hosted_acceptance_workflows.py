@@ -77,6 +77,8 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_pr_scoped_write_access() 
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in after
     assert "repair_receipts.jsonl" in stage and "quarantine_index.jsonl" in stage
     assert "git diff --cached --quiet -- logs/" in stage
+    assert "id: publish" in workflow
+    assert "steps.publish.outcome == 'success'" in workflow
     assert "--auto-repair" not in workflow
     assert "github.rest.repos.get(context.repo)" in workflow
     assert "base: repository.default_branch" in workflow
