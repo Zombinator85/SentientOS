@@ -13,9 +13,14 @@ from pathlib import Path
 _GOVERNOR_ROOT_ENV = "SENTIENTOS_GOVERNOR_ROOT"
 _PRIOR_GOVERNOR_ROOT = os.environ.get(_GOVERNOR_ROOT_ENV)
 _TEST_GOVERNOR_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-governor-"))
-# Set this before importing project or repository modules: a module-level
-# governor singleton captures its root during collection, before fixtures run.
+_FEDERATION_ROOT_ENV = "SENTIENTOS_FEDERATION_ROOT"
+_PRIOR_FEDERATION_ROOT = os.environ.get(_FEDERATION_ROOT_ENV)
+_TEST_FEDERATION_ROOT = Path(tempfile.mkdtemp(prefix="sentientos-test-federation-"))
+# Set runtime roots before importing project or repository modules: the
+# governor and federation singletons capture them during collection, before
+# pytest session and per-test fixtures run.
 os.environ[_GOVERNOR_ROOT_ENV] = str(_TEST_GOVERNOR_ROOT)
+os.environ[_FEDERATION_ROOT_ENV] = str(_TEST_FEDERATION_ROOT)
 
 import types
 
@@ -189,13 +194,19 @@ def isolate_governor_runtime():
             os.environ.pop(_GOVERNOR_ROOT_ENV, None)
         else:
             os.environ[_GOVERNOR_ROOT_ENV] = _PRIOR_GOVERNOR_ROOT
+        if _PRIOR_FEDERATION_ROOT is None:
+            os.environ.pop(_FEDERATION_ROOT_ENV, None)
+        else:
+            os.environ[_FEDERATION_ROOT_ENV] = _PRIOR_FEDERATION_ROOT
         shutil.rmtree(_TEST_GOVERNOR_ROOT, ignore_errors=True)
+        shutil.rmtree(_TEST_FEDERATION_ROOT, ignore_errors=True)
 
 
 
 
 @pytest.fixture(autouse=True)
 def configure_pulse_environment(tmp_path, monkeypatch):
+    """Give pulse and federation components paths isolated to the current test."""
     history_dir = tmp_path / "pulse_history"
     history_dir.mkdir(parents=True, exist_ok=True)
     key_dir = tmp_path / "pulse_keys"
@@ -222,6 +233,9 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(pulse_trust_dir))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(pulse_trust_dir / "epoch_state.json"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(federation_runtime_dir))
+    from sentientos import federated_governance as federated_governance_module
+
+    federated_governance_module.reset_controller()
     monkeypatch.delenv("MONITORING_METRICS_PATH", raising=False)
 
     from sentientos import pulse_query as pulse_query_module
