@@ -11,12 +11,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      status: ${{ steps.initial.outputs.status }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,9 +37,23 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
         env:
           LUMOS_AUTO_APPROVE: '1'
-        continue-on-error: true
+
+  repair:
+    needs: audit
+    if: needs.audit.outputs.status != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e .[dev]
       - name: Plan and apply safe audit repairs
-        if: steps.initial.outputs.status != '0'
         env:
           LUMOS_AUTO_APPROVE: '1'
         run: |
@@ -51,7 +68,6 @@ jobs:
             python -m scripts.apply_audit_repairs --plan "$plan" --output "$result" --apply
       - name: Verify audits after repair
         id: final
-        if: steps.initial.outputs.status != '0'
         env:
           LUMOS_AUTO_APPROVE: '1'
         run: |
@@ -64,7 +80,7 @@ jobs:
         continue-on-error: true
       - name: Stage append-only repair evidence
         id: stage
-        if: always() && steps.initial.outputs.status != '0'
+        if: always()
         run: |
           set -euo pipefail
           repair_dir="glow/audits/repair_runs/${GITHUB_RUN_ID}"
@@ -102,7 +118,7 @@ jobs:
               body: 'Contains the safe-repair plan, result, append-only receipts, quarantine evidence, and any repaired logs. Strict verification is rerun after applying safe repairs; unresolved findings keep the workflow failed.',
             });
       - name: Fail if audit verification remains unsuccessful
-        if: always() && steps.initial.outputs.status != '0' && (steps.final.outputs.status != '0' || steps.final.outcome != 'success')
+        if: always() && (steps.final.outputs.status != '0' || steps.final.outcome != 'success')
         run: |
           echo "Strict audit verification remains unsuccessful after safe repairs" >&2
           exit 1
