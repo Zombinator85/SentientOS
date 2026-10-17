@@ -1,6 +1,11 @@
 name: Nightly Audit Integrity
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/audit-nightly.yml"
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:

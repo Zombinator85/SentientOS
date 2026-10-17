@@ -383,3 +383,17 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     ) < workflow.index("Restore generated test-run residue") < workflow.index(
         "Complete hosted privileged PR landing finalization"
     )
+
+
+def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
+    workflows = {
+        ".github/workflows/nightly-self-check.yml",
+        ".github/workflows/audit-nightly.yml",
+    }
+    for path in workflows:
+        workflow = (ROOT / path).read_text()
+        triggers = workflow.split("jobs:", 1)[0]
+        assert "schedule:" in triggers and "workflow_dispatch:" in triggers
+        push = triggers.split("  push:", 1)[1]
+        assert "branches:\n      - main" in push
+        assert f'paths:\n      - "{path}"' in push

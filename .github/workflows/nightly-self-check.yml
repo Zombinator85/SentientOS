@@ -1,6 +1,11 @@
 name: Nightly Self Check
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/nightly-self-check.yml"
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
