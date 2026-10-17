@@ -206,6 +206,7 @@ def isolate_governor_runtime():
 
 @pytest.fixture(autouse=True)
 def configure_pulse_environment(tmp_path, monkeypatch):
+    """Give pulse and federation components paths isolated to the current test."""
     history_dir = tmp_path / "pulse_history"
     history_dir.mkdir(parents=True, exist_ok=True)
     key_dir = tmp_path / "pulse_keys"
