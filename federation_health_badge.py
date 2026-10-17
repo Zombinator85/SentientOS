@@ -3,7 +3,7 @@ from logging_config import get_log_path
 
 import argparse
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict
 
@@ -20,7 +20,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str]:
     """Return basic federation health stats."""
     if not LOG_PATH.exists():
         return {"nodes": 0, "recent": 0, "status": "no log"}
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     nodes = set()
     recent = 0
     for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
@@ -28,12 +28,19 @@ def compute_health(hours: int = 24) -> Dict[str, int | str]:
             entry = json.loads(line)
         except Exception:
             continue
-        peer = entry.get("peer", "unknown")
+        payload = entry.get("data", entry)
+        if not isinstance(payload, dict):
+            continue
+        peer = payload.get("peer", "unknown")
         nodes.add(peer)
         ts = entry.get("timestamp")
         try:
-            if ts and datetime.fromisoformat(ts) > cutoff:
-                recent += 1
+            if ts:
+                parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                if parsed > cutoff:
+                    recent += 1
         except Exception:
             continue
     status = "healthy" if recent > 0 else "quiet"
@@ -48,14 +55,6 @@ def main() -> None:  # pragma: no cover - CLI
     stats = compute_health(args.hours)
     content = f"# Federation Health\n\n- Nodes: {stats['nodes']}\n- Recent events: {stats['recent']}\n- Status: {stats['status']}\n"
     args.output.write_text(content, encoding="utf-8")
-
-    readme = Path("README.md")
-    if readme.exists():
-        lines = readme.read_text(encoding="utf-8").splitlines()
-        for idx, line in enumerate(lines):
-            if line.startswith("Federated instances:"):
-                lines[idx] = f"Federated instances: **{stats['nodes']}**"
-        readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(json.dumps(stats))
 
