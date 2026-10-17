@@ -171,6 +171,13 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in self_check
     assert "python -m scripts.lock check" in self_check
     assert "scripts/ci_self_check.py" not in self_check
+    # Artifact retention must query one bounded, name-filtered page rather than
+    # traversing every historical artifact in the repository.
+    assert "permissions:\n      actions: write\n      contents: read" in self_check
+    demo_cleanup = self_check.split("      - name: Remove old demo artifacts", 1)[1]
+    assert "-f name=demo" in demo_cleanup
+    assert "-F per_page=100" in demo_cleanup
+    assert "--paginate" not in demo_cleanup
 
 
 def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> None:
