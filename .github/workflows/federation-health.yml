@@ -12,12 +12,13 @@ on:
       - "federation_health_badge.py"
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   health:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,6 +33,24 @@ jobs:
         run: |
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
             python federation_health_badge.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: federation-health-${{ github.run_id }}
+          path: docs/FEDERATION_HEALTH.md
+          if-no-files-found: error
+
+  publish:
+    needs: health
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: federation-health-${{ github.run_id }}
+          path: docs
       - uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ github.token }}
