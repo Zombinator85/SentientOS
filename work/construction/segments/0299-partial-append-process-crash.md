@@ -1,0 +1,13 @@
+# Sequence 299 — Preserve and reject a journal record cut short by process exit
+
+Sequence 299 exercises interruption inside the production append path. A child process first recovers a valid journal prefix, then calls `start` for another task while a test-local `os.write` wrapper writes only half of the encoded record and terminates the process with `os._exit` while the exclusive `flock` is held. The next reader acquires the shared lock, rejects the incomplete final record as `work_plan_journal_bounds_invalid`, and confirms the exact bytes remain unchanged. This verifies kernel lock release and fail-closed recovery after a real process exit; no repair or truncation is attempted.
+
+The canonical repository runner completed seven affected journal, executor, CLI, progression, orchestrator, load, and evidence-bound suites (58/58) on local source commit `d8ecf0a4805b10c396e44288ebe3b50a5c1d7966`. Its provenance is `validation_complete`, binds that exact SHA, and reports zero failures and skips. Changed-test Mypy, compilation, diff checks, and continuation custody passed with 298 predecessor segments.
+
+GitHub published the same source tree, `c1249b9cc0df24727d7fe02e7ef0b37dd3191826`, as commit `14513d80af2437f4603e838959577758658eb904`, directly parented by verified main `24fb96724b44f544ecf5fdadad0da8b0b31b9fa5`. The changed test blob and complete remote tree were independently read back. CI `38986359371`, Invariant Tests `38986359354`, and Required Quality Gate `38986359388` passed on the exact remote source SHA. Gate artifact `12083033248` was downloaded independently and matched SHA-256 `cbbec71503909f010a7b802a0760a9cf91149bf641e63c32cb17545aab9758cd`; its report records effective UID 0, Administrator verification, exact SHA/tree binding, unchanged source and repository identity, strict audit success, and immutability success.
+
+Predecessor sequence 298 is integrated into main at `24fb96724b44f544ecf5fdadad0da8b0b31b9fa5`, tree `f174b6936415e06c671e42f0de809fb128bb9578`. Its main CI, invariant, Administrator gate, Docker, Codex CI, and Docs Deploy checks passed. The main gate artifact independently confirms actual UID 0, strict audit, and immutability on that exact merge commit.
+
+The sequence-286 provenance limitation remains: nine known deleted payloads and one unidentified deleted payload are unrecoverable. No historical payload was reconstructed or silently omitted.
+
+Next dependency: make a newly created execution-journal directory entry durable alongside its fsynced first record, so a system restart cannot lose the task-start name and permit replay; verify directory-sync failure is reported without claiming a successful append.
