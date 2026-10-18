@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "sequence": 359,
+  "title": "Verify sequence 358 merge, exact-main gates, and nightly workflow corrections",
+  "source": {
+    "branch": "main",
+    "commit": "5de59c31961fb05c2200ffad7469f8080d82b2b8",
+    "tree": "c6c54dce7925b2b0216861d1885a623b5124fe40"
+  },
+  "predecessor": {
+    "sequence": 358,
+    "segment_sha256": "4a06436c558625fa74caf0ce6c5a8a42e8f88e8aec5c0d1c389c1f9d6b9297c0",
+    "evidence_sha256": "400a18ffab6336a38691510ec6166434fc3eb956767aa9f400a469df0257b045"
+  },
+  "candidate": {
+    "pr_number": 2349,
+    "commit": "89b540176a8a230793e786009292733f3ab8b272",
+    "tree": "c6c54dce7925b2b0216861d1885a623b5124fe40",
+    "checks": {
+      "qg": {
+        "run_id": "39104899045",
+        "conclusion": "success",
+        "artifact_id": "12127709261",
+        "artifact_bytes": 11208,
+        "artifact_sha256": "2abf8f9bcbe7f97f7b7f1a7223bb0df2c2ecee397f7b1a3d622cadd381fb8468",
+        "download_sha256_verified": true,
+        "acceptance_status": "task_acceptance_ready"
+      },
+      "ci": {
+        "run_id": "39104899084",
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": "39104899060",
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": "39104899037",
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": "39104899040",
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": "39104899058",
+        "conclusion": "success"
+      },
+      "gradient_null_regression": {
+        "run_id": "39104899122",
+        "conclusion": "success"
+      },
+      "lint_benchmark": {
+        "run_id": "39104899083",
+        "conclusion": "success"
+      }
+    },
+    "finalizer": {
+      "artifact_id": "12128240705",
+      "artifact_bytes": 14177,
+      "artifact_sha256": "3f19504e8fe333e5487b50f56194a738e2f24d7b37b309bc317445d98d2d7e52",
+      "download_sha256_verified": true,
+      "status": "ready_for_pr_metadata",
+      "reasons": [],
+      "title_matches_commit_subject": true
+    },
+    "merge": {
+      "pr_number": 2349,
+      "method": "merge",
+      "expected_head_sha": "89b540176a8a230793e786009292733f3ab8b272",
+      "commit": "5de59c31961fb05c2200ffad7469f8080d82b2b8",
+      "tree": "c6c54dce7925b2b0216861d1885a623b5124fe40",
+      "parents": [
+        "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+        "89b540176a8a230793e786009292733f3ab8b272"
+      ],
+      "signature_verified": true
+    },
+    "post_merge_checks": {
+      "qg": {
+        "run_id": "39105152560",
+        "conclusion": "success",
+        "artifact_id": "12128690043",
+        "artifact_bytes": 11220,
+        "artifact_sha256": "03ab136d83c4b951be3dfde172896bb526cbaeb75d4ac33a6517203b05febca6",
+        "download_sha256_verified": true,
+        "acceptance_repository_sha": "5de59c31961fb05c2200ffad7469f8080d82b2b8",
+        "acceptance_status": "task_acceptance_ready",
+        "tests_collected": 29,
+        "tests_executed": 29,
+        "tests_failed": 0,
+        "administrator_verified": true,
+        "effective_uid": 0,
+        "strict_audit_ok": true,
+        "audit_immutability_ok": true,
+        "source_tree": "c6c54dce7925b2b0216861d1885a623b5124fe40"
+      },
+      "ci": {
+        "run_id": "39105152602",
+        "conclusion": "success",
+        "pytest_with_coverage": "success",
+        "resource_to_cognition_lifecycle": "success",
+        "planning_execution_separation": "success",
+        "helm_kubernetes": "success",
+        "docs_build": "success",
+        "sphinx_linkcheck": "success"
+      },
+      "docker": {
+        "run_id": "39105152540",
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": "39105152573",
+        "conclusion": "success"
+      },
+      "docs_deploy": {
+        "run_id": "39105152623",
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": "39105152619",
+        "conclusion": "success"
+      },
+      "forge_smoke": {
+        "run_id": "39105152547",
+        "conclusion": "skipped_configured"
+      }
+    }
+  },
+  "nightly_workflows": {
+    "source_main": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "current_main_workflow_blobs_match": true,
+    "audit_integrity": {
+      "workflow_path": ".github/workflows/audit-nightly.yml",
+      "workflow_blob_sha": "70ee1ad16e6dd2a7189d736d48459ec7f5516081",
+      "run_id": "39100678248",
+      "event": "push",
+      "conclusion": "success",
+      "audit_job": "success",
+      "repair_job": "skipped",
+      "repair_write_occurred": false
+    },
+    "self_check": {
+      "workflow_path": ".github/workflows/nightly-self-check.yml",
+      "workflow_blob_sha": "0e551c5f6d07a9569519aa30a061feb066a3fb8f",
+      "run_id": "39100678294",
+      "event": "push",
+      "conclusion": "success",
+      "strict_audit_with_sudo": "passed",
+      "mypy_baseline": "passed",
+      "pytest": "passed"
+    },
+    "historical_failure": {
+      "run_id": "38876666946",
+      "source": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "failed_step": "Verify audits",
+      "cause": "old workflow invoked strict verifier without sudo; log says Access denied"
+    },
+    "privilege_boundary": "strict Administrator checks preserved; read-only audit job remains contents:read; audit repair remains conditional in separate job with scoped write permissions"
+  },
+  "federation_health": {
+    "workflow": ".github/workflows/federation-health.yml",
+    "schedule": "17 * * * *",
+    "observed_as_of": "2026-10-18T06:50:15Z",
+    "next_expected_recurrence": "2026-10-18T07:17:00Z",
+    "current_main_scheduled_run": "not_observed",
+    "latest_scheduled_run_id": "39083395122",
+    "latest_scheduled_run_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "telemetry_latest_timestamp": "2025-06-05T16:25:13.805813",
+    "live_traffic_claim": false,
+    "changed_output_fixture": "awaiting_operator_dispatch_publication_fixture_true"
+  },
+  "architecture": {
+    "next_claim_bearing_bridge": "real_production_temporal_resident_A_to_B_to_A_evidence",
+    "production_transition_executed": false,
+    "requires": [
+      "exact hardened commissioned A/B identities and receipts",
+      "distinct external serving approvals",
+      "operator-approved preregistration"
+    ],
+    "synthetic_rehearsal_is_production_evidence": false
+  },
+  "preservation": {
+    "source_code_changed": false,
+    "authority_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "segment_path": "work/construction/segments/0359-verify-sequence358-merge-main-and-nightly-workflows.md",
+  "segment_sha256": "d34aa0b0889371884a34d44d72e3ba72490b37da1a4613a8772931763c652601"
+}
