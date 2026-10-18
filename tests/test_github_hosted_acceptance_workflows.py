@@ -500,3 +500,14 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
     assert "draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}" in workflow
 
+
+
+def test_post_merge_feedback_uses_only_issue_comment_authority() -> None:
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/post_merge_feedback.yml").read_text())
+    assert workflow["jobs"]["invite"]["permissions"] == {"issues": "write"}
+    assert workflow["jobs"]["invite"]["if"] == "github.event.pull_request.merged == true"
+    steps = workflow["jobs"]["invite"]["steps"]
+    assert len(steps) == 1
+    assert steps[0]["uses"] == "actions/github-script@v7"
