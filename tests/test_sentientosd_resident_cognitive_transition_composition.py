@@ -278,12 +278,16 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     composition = inspect.getsource(sentientosd._compose_live_resident_transition)
     assert "if not allow_synthetic_evidence_for_tests" in composition
     assert "_verify_live_resident_transition_source_lineage(protocol, artifact_root)" in composition
+    _assert_transition_protocol_pair_and_boundary_integrity(
+        tmp_path / "lineage_integrity")
 
     selected_record = dict(_source_lineage_context(generation_identity).history_projection_payload[0])
     invalid_boundaries = [
         ("absent", [], "transition_model_source_lineage_history_record_absent"),
         ("substituted", [{**selected_record, "record_digest": _digest({"record": "substituted"})}],
             "transition_model_source_lineage_history_record_digest_mismatch"),
+        ("duplicate", [selected_record, selected_record],
+            "transition_model_source_lineage_history_boundary_invalid"),
     ]
     for name, records, error in invalid_boundaries:
         _store, invalid_transition = _source_lineage_fixture(
@@ -294,9 +298,57 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     _store, mismatched_context_transition = _source_lineage_fixture(
         tmp_path / "mismatched-context", generation_identity=generation_identity,
         successor_context_generation_identity="different-frozen-context")
-    with pytest.raises(TransitionError, match="transition_model_source_lineage_context_mismatch"):
+    with pytest.raises(TransitionError,
+            match="transition_model_source_lineage_protocol_reference_mismatch"):
         sentientosd._verify_live_resident_transition_source_lineage(
             mismatched_context_transition, tmp_path / "mismatched-context")
+
+
+def _assert_transition_protocol_pair_and_boundary_integrity(tmp_path: Path) -> None:
+    generation_identity = "source-tree-1"
+    store, transition = _source_lineage_fixture(tmp_path)
+    value = transition.value
+    references = dict(value["model_replacement_protocol_references"])
+    references["successor_b"] = {**references["successor_b"],
+        "protocol_id": "model-replacement-protocol-distinct",
+        "protocol_digest": "sha256:" + "f" * 64}
+    split_pair = TransitionProtocol.create(installation_identity=value["installation_identity"],
+        predecessor=value["predecessor_a"], successor=value["successor_b"],
+        initial_activation=value["initial_activation"],
+        initial_session=value["initial_resident_session"],
+        initial_boundary=value["initial_history_boundary"],
+        b_operation_id=value["b_serving_operation_id"],
+        restored_a_operation_id=value["restored_a_serving_operation_id"],
+        model_replacement_protocol_references=references)
+    with pytest.raises(TransitionError,
+            match="transition_model_source_lineage_protocol_reference_mismatch"):
+        sentientosd._verify_live_resident_transition_source_lineage(split_pair, tmp_path)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_developmental_owner = SimpleNamespace(
+        config=SimpleNamespace(model_replacement_artifact_root=tmp_path))
+    surfaces._resident_developmental_configuration_status = "enabled"
+    projected = surfaces._resident_model_provenance_bindings(split_pair.value)
+    assert projected["predecessor_a"]["finding"] == (
+        "transition_model_source_lineage_protocol_reference_mismatch")
+    assert projected["successor_b"]["finding"] == (
+        "transition_model_source_lineage_protocol_reference_mismatch")
+
+    context = _source_lineage_context("source-tree-1")
+    original = dict(value["initial_history_boundary"])
+    for key, replacement in (
+            ("record_ids", ["substituted-record"]),
+            ("record_digests", ["sha256:" + "0" * 64, original["record_digests"][1]]),
+            ("record_set_digest", "0" * 64),
+            ("boundary_digest", "0" * 64)):
+        tampered = {**original, key: replacement}
+        with pytest.raises(TransitionError,
+                match="transition_model_source_lineage_history_boundary_invalid"):
+            sentientosd._verify_transition_context_history_binding(context.__dict__, tampered)
+
+
+def test_transition_lineage_requires_one_model_pair_protocol_and_integral_boundary(tmp_path: Path) -> None:
+    _assert_transition_protocol_pair_and_boundary_integrity(tmp_path)
+
 
 
 def test_production_transition_rejects_missing_frozen_generation_declaration(tmp_path: Path) -> None:
