@@ -1,0 +1,227 @@
+{
+  "candidate_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39113519374
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39113519348
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39113519330
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39113519365
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39113519329
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": 39113519352
+    },
+    "qg": {
+      "artifact_bytes": 11204,
+      "artifact_id": 12131975403,
+      "conclusion": "success",
+      "finalizer": "ready_for_pr_metadata",
+      "finalizer_artifact_bytes": 14185,
+      "finalizer_artifact_id": 12131072422,
+      "finalizer_artifact_sha256": "c88cc8c6803423781218402a76f64c13e9f6fa5fc9dc33c194525b7b01584a35",
+      "github_sha256": "cfcad7a77231ff3263a0f35a8b7799e9eaf84239e83dfe51f08b86029bea5c4c",
+      "run_id": 39113519411
+    },
+    "release": {
+      "conclusion": "success",
+      "run_id": 39113519396
+    }
+  },
+  "federation_health": {
+    "dispatch_requires_operator_interface": true,
+    "exact_main_run": "not_visible_as_of_2026-10-18T09:12:00Z",
+    "latest_scheduled_run_id": 39083395122,
+    "latest_scheduled_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "next_cron": "2026-10-18T09:17:00Z",
+    "publication_fixture": "not_dispatched",
+    "schedule": "17 * * * *"
+  },
+  "local_validation": {
+    "continuation_custody_after_append": "construction_continuation_custody_ready",
+    "custody_before_append": "construction_continuation_custody_ready",
+    "focused_tests": {
+      "attempt_records": [
+        {
+          "bytes": 2355,
+          "call_phase_outcome_count": 0,
+          "exit_reason": "install-failed",
+          "path": "glow/test_runs/provenance/20261018T091547Z_046f3f7e79e0_898ac6fe8ac84ff18083652b9f5afa91.json",
+          "sha256": "9687249061c0ed6501e7b39eb026ba6b00adda048a108c913b9c22fe399ad04b",
+          "tests_collected": null,
+          "tests_executed": 0,
+          "tests_failed": 0,
+          "tests_passed": 0,
+          "tests_skipped": 0,
+          "timestamp": "2026-10-18T09:15:47.012468+00:00",
+          "validation_status": "bootstrap_failed"
+        },
+        {
+          "bytes": 2283,
+          "call_phase_outcome_count": 0,
+          "exit_reason": "airlock-failed",
+          "path": "glow/test_runs/provenance/20261018T091626Z_046f3f7e79e0_f53dbcb8edf247b1a96e067297c840de.json",
+          "sha256": "c3c64c91c737d214509ae4e7d4410d1873a3ccf38bb559f145b135cbfca07bdd",
+          "tests_collected": null,
+          "tests_executed": 0,
+          "tests_failed": 0,
+          "tests_passed": 0,
+          "tests_skipped": 0,
+          "timestamp": "2026-10-18T09:16:26.616711+00:00",
+          "validation_status": "bootstrap_failed"
+        },
+        {
+          "bytes": 2332,
+          "call_phase_outcome_count": 0,
+          "exit_reason": "install-failed",
+          "path": "glow/test_runs/provenance/20261018T091646Z_046f3f7e79e0_f70f20f66dab40239a7e50c109e3e30a.json",
+          "sha256": "5fd13577b8f9b377936454688fa7b871f6e47d297b667ce8c2d96d273a5a9e09",
+          "tests_collected": null,
+          "tests_executed": 0,
+          "tests_failed": 0,
+          "tests_passed": 0,
+          "tests_skipped": 0,
+          "timestamp": "2026-10-18T09:16:46.827548+00:00",
+          "validation_status": "bootstrap_failed"
+        }
+      ],
+      "canonical_command": "python -m scripts.run_tests -q tests/test_construction_continuation_custody.py tests/test_architecture_docs_freshness.py tests/test_forward_facing_architecture_docs.py",
+      "not_claimed_as_success": true,
+      "outcome": "blocked_before_collection",
+      "reason": "editable bootstrap attempted to resolve setuptools>=78.1.1 through the sandbox package proxy, which denied network access; direct pytest was rejected by tests/conftest.py because no canonical minimal editable install was active",
+      "tests_collected": 0,
+      "tests_executed": 0,
+      "tests_failed": 0,
+      "tests_passed": 0
+    },
+    "git_diff_check": "passed_after_test_residue_cleanup",
+    "predecessor_segments_verified": 363,
+    "segments_verified_after_append": 364,
+    "sequence_bindings": "valid",
+    "test_residue": {
+      "classification": "disposable test-run state only",
+      "failed_bootstrap_records_preserved_in_sequence_evidence": true,
+      "no_identity_or_canonical_user_data": true,
+      "tracked_provenance_restored": true
+    }
+  },
+  "merge": {
+    "candidate_head": "8d7ccdb65ad48f56b9eba56d90cf3e1fd48a11b3",
+    "candidate_tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552",
+    "commit": "046f3f7e79e019024af30842d0d4ee82b733637b",
+    "live_main_verified_by": "git ls-remote and fresh fetch",
+    "method": "merge",
+    "parents": [
+      "7288a4b9f617cbf26c26ff619316c3fc7eeefb99",
+      "8d7ccdb65ad48f56b9eba56d90cf3e1fd48a11b3"
+    ],
+    "pr_number": 2354,
+    "signature_present": true,
+    "signature_verification": "good signature using GitHub web-flow.gpg public key",
+    "tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552"
+  },
+  "nightly_workflows": {
+    "administrator_requirements_weakened": false,
+    "push_validation_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "scheduled_current_main_runs": "pending_2026-10-19T03:41Z_and_04:37Z"
+  },
+  "post_merge_checks": {
+    "ci": {
+      "conclusion": "success",
+      "docs_build": "success",
+      "helm_k8s_test": "success",
+      "run_id": 39114131039,
+      "self_check": "success",
+      "self_check_provenance_artifact": {
+        "bytes": 385410,
+        "id": 12132130695,
+        "local_hash_matches_github": true,
+        "sha256": "cbcce895d71909429d07074fc13f61f4ab112880375b5591efb74d34f590f187"
+      },
+      "self_check_tests_failed": 0,
+      "self_check_tests_passed": 143,
+      "self_check_tests_skipped": 13,
+      "source_acceptance_failed": 0,
+      "source_acceptance_passed": 20,
+      "source_validation": "success",
+      "source_validation_artifact": {
+        "bytes": 472286,
+        "id": 12132006666,
+        "local_hash_matches_github": true,
+        "sha256": "71bbd5c40f969e11d1312caf1fe45995df69c4fbe338a2c18a49ffda9c2b5072"
+      },
+      "strict_linkcheck": "success"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39114131035
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39114131008
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39114131005
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_configured",
+      "run_id": 39114131006
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39114130995
+    },
+    "qg": {
+      "administrator_uid": 0,
+      "artifact_bytes": 11210,
+      "artifact_id": 12131408407,
+      "audit_immutability_ok": true,
+      "conclusion": "success",
+      "local_hash_matches_github": true,
+      "privileged_verification": "passed",
+      "run_id": 39114130990,
+      "sha256": "54277b520e0d6ee3f216f37ba49322560118eaea3cb4783228c9c9dd6815517e",
+      "source_sha": "046f3f7e79e019024af30842d0d4ee82b733637b",
+      "source_tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552",
+      "strict_audit_ok": true,
+      "tests_failed": 0,
+      "tests_passed": 29,
+      "tests_skipped": 0
+    }
+  },
+  "preservation": {
+    "authority_changed": false,
+    "production_inference": "not_invoked",
+    "runtime_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 4309,
+  "segment_path": "work/construction/segments/0364-verify-sequence363-merge-and-postmerge-gates.md",
+  "segment_sha256": "5b1a73a39deefd6ba5c8f4eda65fae25d3c66af4c925a957105cde469fff3bcf",
+  "sequence": 364,
+  "source": {
+    "branch": "main",
+    "commit": "046f3f7e79e019024af30842d0d4ee82b733637b",
+    "latest_runtime_source_commit": "007000a28e1759d7b700cccfaa63f110dd0a6c41",
+    "latest_runtime_source_tree": "24c506d8a7977486ead5edb3a11b615f513c04ab",
+    "live_ref_matches": true,
+    "tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552",
+    "verified_at": "2026-10-18T09:12:00Z"
+  },
+  "title": "Verify sequence 363 merge and exact-main post-merge gates"
+}
