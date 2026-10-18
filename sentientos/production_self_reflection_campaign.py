@@ -315,6 +315,7 @@ class ProductionSelfReflectionCampaign:
 
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
         state = self.state()
+        self._verify_progress(state)
         if readiness.get("status") != "production_trial_ready": raise ProductionSelfReflectionError("production_trial_not_ready")
         if state["validity"] != "valid_incomplete" or state["in_progress_trial_id"] or not state["next_trial_id"]:
             raise ProductionSelfReflectionError("campaign_not_runnable")
@@ -333,6 +334,7 @@ class ProductionSelfReflectionCampaign:
 
     def report(self) -> Mapping[str, Any]:
         state = self.state()
+        self._verify_progress(state)
         if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
         receipts = [verify_trial_receipt(json.loads((self.root / "receipts" / f"{x['trial_id']}.json").read_text())) for x in state["completed_trials"]]
         scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}

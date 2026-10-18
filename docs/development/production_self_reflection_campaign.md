@@ -67,3 +67,8 @@ protocol, the digest-bound state, ordered completed-trial identities, and every
 referenced receipt before returning the existing campaign. It preserves partial
 and completed progress. Missing or mismatched protocol/state/receipt custody
 fails closed; an in-progress trial is marked interrupted and cannot be retried.
+Before a later trial starts or a completed report is emitted, the campaign
+rechecks the full ordered completion prefix and every referenced receipt. A
+missing, replaced, reordered, or tampered earlier receipt therefore blocks both
+continued execution and reporting; the executor is not called and no report is
+written when that lineage fails verification.
