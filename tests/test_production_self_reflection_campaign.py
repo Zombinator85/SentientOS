@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from sentientos import production_self_reflection_campaign as campaign_module
 from sentientos.local_model_authority import digest_payload
 from sentientos.production_self_reflection_campaign import (
     COMPONENTS, ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
@@ -136,6 +137,46 @@ def test_run_one_requires_digest_valid_protocol_bound_readiness(
 
     assert executor_calls == []
     assert campaign.state()["completed_trials"] == []
+
+
+def test_run_one_rejects_mutated_nested_protocol_before_executor(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    protocol.model_a["cognitive_identity"] = "cognitive-substituted"
+    executor_calls = []
+
+    with pytest.raises(ProductionSelfReflectionError, match="protocol_tampered"):
+        campaign.run_one(readiness, lambda *args: executor_calls.append(args) or _evidence())
+
+    assert executor_calls == []
+    raw_state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    assert raw_state["completed_trials"] == []
+    assert raw_state["in_progress_trial_id"] is None
+
+
+def test_run_one_uses_private_protocol_snapshot_across_preflight_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, _protocol())
+    readiness = verify_production_readiness(campaign.protocol, _observed())
+    original_verify = campaign_module._verify_readiness_binding
+
+    def verify_then_mutate(protocol, receipt):
+        original_verify(protocol, receipt)
+        campaign.protocol.model_a["cognitive_identity"] = "concurrent-substitution"
+
+    monkeypatch.setattr(campaign_module, "_verify_readiness_binding", verify_then_mutate)
+    executor_identities = []
+
+    campaign.run_one(
+        readiness,
+        lambda _trial, protocol: executor_identities.append(protocol.model_a["cognitive_identity"]) or _evidence(),
+    )
+
+    assert executor_identities == ["cognitive-a"]
+    raw_state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    assert raw_state["completed_trials"][0]["trial_id"] == "trial-1"
 
 
 @pytest.mark.parametrize("trial_count", [1, 2])

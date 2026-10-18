@@ -244,3 +244,17 @@ Sequence 399 repairs the exact PR-event finalizer failure from run 39163615834: 
 Latest construction segment: `work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md`
 Latest segment SHA-256: `2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8`
 Sequence: 399 (local checks passed; hosted verification pending)
+
+
+Sequence 400 closes the mutable nested campaign-protocol gap before execution. Exact campaign tests passed 30/30; compilation, focused mypy and diff checks passed. The local mypy baseline wrapper remains blocked by its isolated-venv import environment. The verified parent main `ae55461e13be358c2754c7686b381ae2d72daa63` has successful Required Quality Gate, CI, Docker, Invariants, Docs Deploy and Codex CI runs. A Federation Health schedule on this main SHA is still pending.
+
+Latest construction segment: `work/construction/segments/0400-revalidate-mutable-campaign-protocol.md`
+Latest segment SHA-256: `dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9`
+Sequence: 400 (hosted candidate checks pending)
+
+
+Sequence 401 isolates execution from caller mutation through a verified campaign protocol snapshot and serializes concurrent immutable publication without weakening first-writer custody. Campaign tests passed 31/31; the collision regression passed ten repeats; all seven selected dependent owner suites completed successfully. Compilation, focused mypy, and diff checks passed; repository baseline mypy wrapper remains blocked by the isolated environment. Sequence-400 exact PR Required Quality Gate passed (#39164845405); sequence-401 hosted verification is pending. Parent candidate `6cbdea630933d7e3247da5711f4df898a040d011`, tree `c2d9e42a8ac50bbcd75c8b407f8284f8a9621381`.
+
+Latest construction segment: `work/construction/segments/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.md`
+Latest segment SHA-256: `212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4`
+Sequence: 401 (hosted verification pending)

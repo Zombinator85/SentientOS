@@ -9,6 +9,8 @@ import os
 import stat
 from pathlib import Path
 
+from .platform_fcntl import fcntl, require_flock
+
 
 class PrivateFileCustodyError(ValueError):
     """A path, file, or publication did not satisfy the private custody contract."""
@@ -163,6 +165,14 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
     if not isinstance(data, bytes) or len(data) > max_bytes:
         raise PrivateFileCustodyError("payload_size_limit_exceeded")
     directory_fd = open_private_directory(path.parent, create=True)
+    directory_locked = False
+    try:
+        require_flock()
+        fcntl.flock(directory_fd, fcntl.LOCK_EX)
+        directory_locked = True
+    except OSError as exc:
+        os.close(directory_fd)
+        raise PrivateFileCustodyError("publication_lock_unavailable") from exc
     temporary_name = ".pending-" + os.urandom(16).hex()
     descriptor: int | None = None
     created = False
@@ -217,6 +227,11 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                 os.unlink(temporary_name, dir_fd=directory_fd)
             except OSError:
                 pass
+        if directory_locked:
+            try:
+                fcntl.flock(directory_fd, fcntl.LOCK_UN)
+            except OSError as exc:
+                raise PrivateFileCustodyError("publication_lock_release_failed") from exc
         try:
             os.close(directory_fd)
         except OSError as exc:

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "25291cdfa937dde1860af325bf47c72d8da204b22aa2cee5855a1601d50e94ac",
-    "latest_segment_sequence": 399,
-    "latest_segment_sha256": "2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
-    "source_commit": "320ab95e9073eb043eab5fd8169ea3865b368d67",
-    "source_tree": "7de4093d83f76a2d88ee79edbc20320f15639038"
+    "checkpoint_sha256": "1d185f0e4f4ccbb6fd280a315a0307b8d9926a6ebfd736a4b1ce13ff0593edf1",
+    "latest_segment_sequence": 401,
+    "latest_segment_sha256": "212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4",
+    "source_commit": "6cbdea630933d7e3247da5711f4df898a040d011",
+    "source_tree": "c2d9e42a8ac50bbcd75c8b407f8284f8a9621381"
   },
-  "checkpoint_sha256": "25291cdfa937dde1860af325bf47c72d8da204b22aa2cee5855a1601d50e94ac",
+  "checkpoint_sha256": "1d185f0e4f4ccbb6fd280a315a0307b8d9926a6ebfd736a4b1ce13ff0593edf1",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 399,
+  "latest_sequence": 401,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3544,6 +3544,32 @@
       "sha256": "2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
       "source_commit": "320ab95e9073eb043eab5fd8169ea3865b368d67",
       "source_tree": "7de4093d83f76a2d88ee79edbc20320f15639038"
+    },
+    {
+      "bytes": 1567,
+      "evidence": "work/construction/evidence/0400-revalidate-mutable-campaign-protocol.json",
+      "evidence_bytes": 2611,
+      "evidence_path": "work/construction/evidence/0400-revalidate-mutable-campaign-protocol.json",
+      "evidence_sha256": "04e60a08d56bf9cbe12642204a15e7aa6f137ec1eed9eb9249710d24b4f05da3",
+      "path": "work/construction/segments/0400-revalidate-mutable-campaign-protocol.md",
+      "predecessor": "segment-sha256:2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
+      "sequence": 400,
+      "sha256": "dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9",
+      "source_commit": "ae55461e13be358c2754c7686b381ae2d72daa63",
+      "source_tree": "43736a4f450483cb16a6df0c73c16d7c10a68ee6"
+    },
+    {
+      "bytes": 2057,
+      "evidence": "work/construction/evidence/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.json",
+      "evidence_bytes": 2643,
+      "evidence_path": "work/construction/evidence/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.json",
+      "evidence_sha256": "1a4b0da25039c9b6d0ec35ae278ddfb7f6d775b941942897ee6574a06dbcb7aa",
+      "path": "work/construction/segments/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.md",
+      "predecessor": "segment-sha256:dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9",
+      "sequence": 401,
+      "sha256": "212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4",
+      "source_commit": "6cbdea630933d7e3247da5711f4df898a040d011",
+      "source_tree": "c2d9e42a8ac50bbcd75c8b407f8284f8a9621381"
     }
   ],
   "source_acquisition": {

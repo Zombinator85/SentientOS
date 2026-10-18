@@ -1,0 +1,74 @@
+{
+  "append_only": true,
+  "change": {
+    "authority_added": false,
+    "failure_mode": "A mutable nested protocol mapping could diverge from protocol_digest after readiness was created and before run_one invoked the executor.",
+    "repair": "Reverify the protocol digest on campaign state reads and progress verification; reject tampering before trial execution.",
+    "success_criteria_changed": false
+  },
+  "local_verification": {
+    "campaign_tests": {
+      "failed": 0,
+      "passed": 30,
+      "skipped": 0
+    },
+    "focused_mypy": {
+      "command": "mypy --follow-imports=silent sentientos/production_self_reflection_campaign.py",
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "mypy_baseline_wrapper": {
+      "reason": "isolated venv Python could not import the installed mypy module; no baseline pass is claimed",
+      "status": "blocked_environment"
+    },
+    "py_compile": "passed"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1567,
+  "segment_path": "work/construction/segments/0400-revalidate-mutable-campaign-protocol.md",
+  "segment_sha256": "dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9",
+  "sequence": 400,
+  "source": {
+    "branch": "main",
+    "latest_verified_main": "ae55461e13be358c2754c7686b381ae2d72daa63",
+    "latest_verified_main_tree": "43736a4f450483cb16a6df0c73c16d7c10a68ee6",
+    "parent_commit": "ae55461e13be358c2754c7686b381ae2d72daa63",
+    "parent_tree": "43736a4f450483cb16a6df0c73c16d7c10a68ee6",
+    "source_sha256": {
+      "sentientos/production_self_reflection_campaign.py": "7ed54cebfed6dc8b2253fb41c209fba481e86f4ce3ac28ca9ecb39f7b4c2647a",
+      "tests/test_production_self_reflection_campaign.py": "68d097070c7c615bc5429ce0ed134ca9b96ade98796add856282611934e111ea"
+    }
+  },
+  "verification": {
+    "hosted_checks": "pending",
+    "status": "local_regression_verified_hosted_pending"
+  },
+  "verified_parent_main_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39164357037
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39164357083
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39164357018
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39164357117
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39164357031
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": 39164357101
+    },
+    "source_commit": "ae55461e13be358c2754c7686b381ae2d72daa63",
+    "source_tree": "43736a4f450483cb16a6df0c73c16d7c10a68ee6"
+  }
+}

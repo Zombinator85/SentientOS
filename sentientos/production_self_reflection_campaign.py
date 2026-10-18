@@ -253,7 +253,11 @@ def _verify_readiness_binding(protocol: ProductionSelfReflectionProtocol, readin
 class ProductionSelfReflectionCampaign:
     """Immutable protocol plus mutable digest-bound progress; interruption is terminal."""
     def __init__(self, root: Path, protocol: ProductionSelfReflectionProtocol):
+        protocol.verify()
         self.root, self.protocol = Path(root), protocol
+        # Keep an independently verified deep copy so caller mutation cannot
+        # race a state check and alter the protocol used by the executor.
+        self._protocol_snapshot = reconstruct_protocol(asdict(protocol))
         self.protocol_path = self.root / "protocol.json"; self.state_path = self.root / "state.json"
 
     @contextmanager
@@ -302,6 +306,7 @@ class ProductionSelfReflectionCampaign:
     @classmethod
     def create(cls, root: Path, protocol: ProductionSelfReflectionProtocol) -> "ProductionSelfReflectionCampaign":
         protocol.verify(); campaign = cls(root, protocol)
+        protocol = campaign._protocol_snapshot
         with campaign._campaign_lock():
             protocol_exists = campaign.protocol_path.exists()
             state_exists = campaign.state_path.exists()
@@ -340,25 +345,31 @@ class ProductionSelfReflectionCampaign:
             return campaign
 
     def _write(self, value: Mapping[str, Any]) -> Mapping[str, Any]:
-        body = {"schema_version": CAMPAIGN_SCHEMA, "protocol_id": self.protocol.protocol_id,
-                "protocol_digest": self.protocol.protocol_digest, **dict(value)}
+        body = {"schema_version": CAMPAIGN_SCHEMA, "protocol_id": self._protocol_snapshot.protocol_id,
+                "protocol_digest": self._protocol_snapshot.protocol_digest, **dict(value)}
         body.pop("state_digest", None); body["state_digest"] = _digest(body)
         self.state_path.parent.mkdir(parents=True, exist_ok=True); atomic_write_json(self.state_path, body); return body
 
     def state(self) -> Mapping[str, Any]:
+        # frozen dataclasses do not freeze nested mappings; re-bind every
+        # observed progress snapshot to the protocol before trusting it.
+        self.protocol.verify()
+        self._protocol_snapshot.verify()
         try: value = json.loads(self.state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
         if not isinstance(value, dict):
             raise ProductionSelfReflectionError("campaign_state_tampered")
         claimed = value.pop("state_digest", None)
         if (claimed != _digest(value) or value.get("schema_version") != CAMPAIGN_SCHEMA
-                or value.get("protocol_id") != self.protocol.protocol_id
-                or value.get("protocol_digest") != self.protocol.protocol_digest):
+                or value.get("protocol_id") != self._protocol_snapshot.protocol_id
+                or value.get("protocol_digest") != self._protocol_snapshot.protocol_digest):
             raise ProductionSelfReflectionError("campaign_state_tampered")
         return MappingProxyType({**value, "state_digest": claimed})
 
     def _verify_progress(self, state: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-        trial_ids = tuple(self.protocol.campaign_policy["trial_ids"])
+        self.protocol.verify()
+        self._protocol_snapshot.verify()
+        trial_ids = tuple(self._protocol_snapshot.campaign_policy["trial_ids"])
         completed = state.get("completed_trials")
         if not isinstance(completed, list) or len(completed) > len(trial_ids):
             raise ProductionSelfReflectionError("campaign_state_tampered")
@@ -378,8 +389,8 @@ class ProductionSelfReflectionCampaign:
             if (row.get("receipt_id") != receipt.get("receipt_id")
                     or row.get("receipt_digest") != receipt.get("receipt_digest")
                     or receipt.get("trial_id") != trial_ids[index]
-                    or receipt.get("protocol_id") != self.protocol.protocol_id
-                    or receipt.get("protocol_digest") != self.protocol.protocol_digest):
+                    or receipt.get("protocol_id") != self._protocol_snapshot.protocol_id
+                    or receipt.get("protocol_digest") != self._protocol_snapshot.protocol_digest):
                 raise ProductionSelfReflectionError("campaign_receipt_mismatch")
             verified_receipts.append(receipt)
 
@@ -408,17 +419,22 @@ class ProductionSelfReflectionCampaign:
         with self._campaign_lock():
             state = self.state()
             self._verify_progress(state)
-            _verify_readiness_binding(self.protocol, readiness)
+            _verify_readiness_binding(self._protocol_snapshot, readiness)
             if state["validity"] != "valid_incomplete" or state["in_progress_trial_id"] or not state["next_trial_id"]:
                 raise ProductionSelfReflectionError("campaign_not_runnable")
             trial_id = str(state["next_trial_id"]); self._write({**state, "in_progress_trial_id": trial_id})
-            try: evidence = dict(executor(trial_id, self.protocol)); receipt = make_trial_receipt(self.protocol, trial_id, evidence)
+            try:
+                self._protocol_snapshot.verify()
+                execution_protocol = reconstruct_protocol(asdict(self._protocol_snapshot))
+                evidence = dict(executor(trial_id, execution_protocol))
+                execution_protocol.verify()
+                receipt = make_trial_receipt(self._protocol_snapshot, trial_id, evidence)
             except Exception:
                 self._write({**self.state(), "validity": "invalid_interrupted", "failure_reason": "trial_interrupted_no_retry"})
                 raise
             _immutable(self.root / "receipts" / f"{trial_id}.json", receipt)
             completed = list(state["completed_trials"]) + [{"trial_id": trial_id, "receipt_id": receipt["receipt_id"], "receipt_digest": receipt["receipt_digest"]}]
-            ids = list(self.protocol.campaign_policy["trial_ids"]); index = len(completed)
+            ids = list(self._protocol_snapshot.campaign_policy["trial_ids"]); index = len(completed)
             self._write({"completed_trials": completed, "next_trial_id": ids[index] if index < len(ids) else None,
                          "in_progress_trial_id": None, "validity": "valid_complete" if index == len(ids) else "valid_incomplete",
                          "failure_reason": None})
@@ -430,7 +446,7 @@ class ProductionSelfReflectionCampaign:
             receipts = self._verify_progress(state)
             if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
             scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}
-            body: dict[str, Any] = {"schema_version": REPORT_SCHEMA, "protocol_id": self.protocol.protocol_id,
+            body: dict[str, Any] = {"schema_version": REPORT_SCHEMA, "protocol_id": self._protocol_snapshot.protocol_id,
                 "planned_trial_count": len(receipts), "valid_completed_trials": len(receipts), "interrupted_trials": 0,
                 "condition_scores": scores, "restoration_results": [r["restoration_result"] for r in receipts],
                 "descriptive_only": True, "negative_null_unstable_retained": True,
