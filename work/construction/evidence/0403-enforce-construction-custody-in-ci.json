@@ -1,0 +1,73 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 403,
+  "title": "Add append-only construction custody verification to unprivileged CI",
+  "append_only": true,
+  "source": {
+    "parent_commit": "aa9235ca50057ab508e077892cbd2f2f37b54415",
+    "parent_tree": "c6299ce5f39dbf8da3376d3ef27b7766e0c507bd",
+    "local_source_tree": "c6299ce5f39dbf8da3376d3ef27b7766e0c507bd",
+    "bootstrap_status": "ready",
+    "bootstrap_task_slug": "ci_construction_custody_verifier",
+    "commit_title": "[codex:ci] enforce construction index custody"
+  },
+  "change": {
+    "workflow_path": ".github/workflows/ci.yml",
+    "workflow_step": "Verify append-only construction custody",
+    "command": "python scripts/verify_construction_continuation_custody.py --repo-root . --summary",
+    "job": "source-validation (unprivileged)",
+    "order": "before canonical test-airlock install",
+    "regression_test": "tests/test_github_hosted_acceptance_workflows.py::test_ci_source_validation_verifies_append_only_construction_custody",
+    "runtime_behavior_changed": false,
+    "authority_expanded": false
+  },
+  "local_verification": {
+    "construction_custody": "passed: 402 records, zero failures",
+    "workflow_contract_assertions": "passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed",
+    "canonical_test_runner": {
+      "command": "python -m scripts.run_tests -q tests/test_construction_continuation_custody.py tests/test_construction_candidate_publication.py",
+      "status": "bootstrap_failed",
+      "reason": "package-index network access denied while installing editable project build dependency setuptools>=78.1.1",
+      "tests_collected": 0,
+      "tests_executed": 0,
+      "provenance_sha256": "96ad2542b9c32e5152fa2ab327bd018a0186ee72884077b0cc885fd2d73ade3b",
+      "provenance_run_id": "1293d2a9a2b84c14b1eb9d93aad27b17",
+      "provenance_raw_json": "{\n  \"allow_no_tests\": false,\n  \"allow_nonexecution\": false,\n  \"behavioral_witness_count\": 0,\n  \"behavioral_witness_counts_by_node\": {},\n  \"behavioral_witness_digest\": null,\n  \"behavioral_witness_reporter_status\": \"legacy\",\n  \"behavioral_witnesses\": [],\n  \"bypass_env\": false,\n  \"call_phase_outcome_count\": 0,\n  \"canonical_requirements_path\": \"requirements-codex.txt\",\n  \"collection_completed\": false,\n  \"collection_error\": false,\n  \"collection_started\": false,\n  \"editable_ok\": false,\n  \"editable_reason\": \"direct-url-mismatch\",\n  \"execution_mode\": \"execute\",\n  \"exit_reason\": \"install-failed\",\n  \"full_capability_dependencies_requested\": false,\n  \"git_sha\": \"d974e45179fe284ad50fa60bab8b2c97b4595c95\",\n  \"hash_algo\": \"sha256\",\n  \"install_attempted_modes\": [\n    \"test_airlock_minimal\"\n  ],\n  \"install_fallback_reason\": \"minimal-test-airlock-install-failed\",\n  \"install_mode\": \"none\",\n  \"install_performed\": true,\n  \"metrics_status\": \"unavailable\",\n  \"node_outcomes\": [],\n  \"non_execution_flags\": [],\n  \"prev_provenance_hash\": \"84c0f6f4a4f6aee5f27798c2c0fc54be912029878cd9f55da3eb4e477ef9ee55\",\n  \"provenance_hash\": \"9e4dc7383e1eb8da16f7c1225c8175a79313b3e991dfb639ca850da260709bee\",\n  \"pytest_args\": [\n    \"tests/test_construction_continuation_custody.py\",\n    \"tests/test_construction_candidate_publication.py\",\n    \"-q\"\n  ],\n  \"python\": \"/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python\",\n  \"repo_root\": \"/workspace/SentientOS-main-verified-128a\",\n  \"reporter_error\": {\n    \"message\": \"pytest reporter was not executed.\",\n    \"type\": \"ReporterNotRun\"\n  },\n  \"reporter_loaded\": false,\n  \"reporter_ok\": false,\n  \"reporter_status\": \"incomplete\",\n  \"run_id\": \"1293d2a9a2b84c14b1eb9d93aad27b17\",\n  \"run_intent\": \"targeted\",\n  \"schema_version\": 1,\n  \"selected_node_ids\": [],\n  \"selection_flags\": [\n    \"tests/test_construction_continuation_custody.py\",\n    \"tests/test_construction_candidate_publication.py\"\n  ],\n  \"session_finish_reached\": false,\n  \"skip_rate\": 0.0,\n  \"tests_executed\": 0,\n  \"tests_failed\": 0,\n  \"tests_passed\": 0,\n  \"tests_skipped\": 0,\n  \"tests_xfailed\": 0,\n  \"tests_xpassed\": 0,\n  \"timestamp\": \"2026-10-18T21:10:31.930624+00:00\",\n  \"validation_complete\": false,\n  \"validation_status\": \"bootstrap_failed\",\n  \"xfail_rate\": 0.0\n}\n"
+    },
+    "direct_pytest": {
+      "status": "rejected_by_repository_conftest",
+      "reason": "canonical minimal editable install absent; no bypass used",
+      "tests_executed": 0
+    }
+  },
+  "post_merge_main_observation": {
+    "commit": "aa9235ca50057ab508e077892cbd2f2f37b54415",
+    "tree": "c6299ce5f39dbf8da3376d3ef27b7766e0c507bd",
+    "merged_pr": 2374,
+    "preserved_candidate_commit": "951882f000333c7f57ecd8e053faf9d078f17965",
+    "merge_method": "merge",
+    "checks_at_cutoff": {
+      "required_quality_gate": "success",
+      "invariants": "success",
+      "docs_deploy": "success",
+      "codex_ci": "success",
+      "docker_image": "success",
+      "ci": "in_progress: source validation, self-check, and helm-k8s success; docs link-check in progress",
+      "forge_smoke": "skipped by configured condition"
+    },
+    "federation_health_schedule": "pending for this main SHA"
+  },
+  "verification": {
+    "status": "local_verification_passed_hosted_candidate_checks_pending",
+    "hosted_candidate": "pending"
+  },
+  "segment_path": "work/construction/segments/0403-enforce-construction-custody-in-ci.md",
+  "segment_bytes": 2618,
+  "segment_sha256": "33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb",
+  "source_sha256": {
+    "workflow": "4cd6b2d6346251ddc68126a4f87ff1f5b53ae91b132160595bb750e20c2def98",
+    "workflow_contract_test": "a0969eae1c8e0af407cbd695aa4334da7950524450aee12066b0f1073b71ec4c"
+  }
+}

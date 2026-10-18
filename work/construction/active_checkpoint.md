@@ -265,3 +265,10 @@ Sequence 402 records exact-main post-merge verification for the sequence-401 mer
 Latest construction segment: `work/construction/segments/0402-verify-sequence401-postmerge-main.md`
 Latest segment SHA-256: `d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae`
 Sequence: 402 (post-merge checks and construction custody verified; scheduled production-workflow observations pending)
+
+
+Sequence 403 records PR #2374's regular merge as current main `aa9235ca50057ab508e077892cbd2f2f37b54415`, tree `c6299ce5f39dbf8da3376d3ef27b7766e0c507bd`, and adds an unprivileged CI check that verifies the append-only construction chain before dependency installation. The workflow contract regression and source checks pass. The canonical local test runner did not reach collection because sandbox network restrictions prevented editable-build dependency installation; exact runner provenance is retained in sequence-403 evidence. This is not counted as a test pass. The required main checks, invariants, Docker, Docs Deploy, and Codex CI passed; CI source validation, self-check, and Helm/Kubernetes passed while docs link-check remained in progress. The scheduled Federation Health run on this main SHA is pending at this cutoff.
+
+Latest construction segment: `work/construction/segments/0403-enforce-construction-custody-in-ci.md`
+Latest segment SHA-256: `33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb`
+Sequence: 403 (local custody checks passed; hosted CI pending)

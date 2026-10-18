@@ -1,0 +1,13 @@
+# Sequence 403: make construction custody part of unprivileged CI
+
+PR #2374 merged with a regular merge commit: `aa9235ca50057ab508e077892cbd2f2f37b54415`, tree `c6299ce5f39dbf8da3376d3ef27b7766e0c507bd`, preserving candidate commit `951882f000333c7f57ecd8e053faf9d078f17965` as its second parent. Its exact-candidate Required Quality Gate, CI, invariant, Docker, lint, release, Codex CI, and metadata-guard checks passed before merge. On the merge SHA, Required Quality Gate, invariants, Docker, Docs Deploy, and Codex CI have succeeded; CI source validation, self-check, and Helm/Kubernetes jobs have succeeded, while the documentation link-check is still running. Forge Smoke was skipped under its configured condition. The current-main scheduled Federation Health workflow has not yet produced a run on this SHA; no manual dispatch or previous-head run is substituted.
+
+Sequence 402 repaired a real custody failure: the committed index had omitted sequence records 189–265 and misbound sequence 266 evidence. Because the existing strict verifier was not invoked by any GitHub workflow, this failure could merge despite a verifier and regression tests already existing. This increment adds that verifier as the first source-validation check in unprivileged CI, before test dependency installation, and adds a workflow contract regression test. The verifier is read-only and requires no elevated authority. It checks the append-only sequence chain and exact checkpoint/evidence identities; it does not grant repository or runtime mutation authority.
+
+The local strict verifier passed with 402 segments and no failures; workflow contract assertions, Python compilation, and `git diff --check` passed. The canonical local runner could not install the editable project because network access to the package index is denied by this sandbox; it exited during bootstrap before collecting or executing tests. Direct pytest was rejected by repository conftest because the canonical minimal test install is absent. Neither result is counted as a test pass; exact-candidate hosted CI will verify this increment. The failed runner's exact provenance bytes are embedded in this evidence record.
+
+No prior segment or evidence bytes were modified. No production inference, provider invocation, privilege, or external effect was added.
+
+Latest construction segment: `work/construction/segments/0403-enforce-construction-custody-in-ci.md`
+Latest segment SHA-256: `031029b6c42e3585a2f48789d341a9e584ad72b8b9081d39b1e2e83372618daa`
+Sequence: 403 (local custody and workflow contract verified; candidate hosted verification pending)

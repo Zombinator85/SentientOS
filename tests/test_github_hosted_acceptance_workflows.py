@@ -327,6 +327,14 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "--paginate" not in demo_cleanup
 
 
+def test_ci_source_validation_verifies_append_only_construction_custody() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    source = ci.split("  source-validation:", 1)[1].split("  self-check:", 1)[0]
+    assert "Verify append-only construction custody" in source
+    assert "python scripts/verify_construction_continuation_custody.py --repo-root . --summary" in source
+    assert source.index("Verify append-only construction custody") < source.index("Install canonical test airlock")
+
+
 def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> None:
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
     docs = ci.split("  docs:", 1)[1].split("  helm-k8s-test:", 1)[0]
