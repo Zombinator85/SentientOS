@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-Latest verified main after sequence 409: regular merge PR #2380, `915cf098c15eed3157dd908763d06c54911390fe`, tree `105f71b68b1ec08b6e31b66aa90a6ed67efc1e49`. Exact-main Required Quality Gate, Docs Deploy, Docker Image, Invariant Tests, and Codex CI succeeded; CI's docs link-check is still in progress. QG artifact #12153599644 matched SHA-256 `76dae317892620a5379e9c26616c864f2f1f1b75bd13282989fc0491a44a73c2` and binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance to this source. CI source-validation artifact #12153948284 matched SHA-256 `a2252b1366a190ebbf35ece7ffd4ca1134efcbe05e807cf25afb3cebc937f3af` and reports source-validation 11/11, canonical planning 20/20, and World-State contracts 3/3. Scheduled Federation Health run #39175640282 succeeded on this exact main; its independently downloaded artifact reports 1 node, 0 recent events, quiet. Nightly scheduled runs on this exact main remain pending. Sequence-286 provenance loss and the separate changed-output fixture publication-setting blocker remain unresolved. No production A→B→A inference was started; the next developmental evidence still requires commissioned model identities, separate serving approvals, and an operator-approved preregistered trial.
+Latest verified main after sequence 410: regular merge PR #2381, `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`. The regular merge preserves candidate `888722d8717b6ef777e1490a958d5d1de6a0e040` as its second parent. Exact-main Required Quality Gate, CI, Docker Image, Invariant Tests, Docs Deploy, and Codex CI all passed; Forge Smoke was skipped by its configured condition. Exact-main QG artifact #12153654912 independently matched SHA-256 `b07c55496bfc76ddeb6aa514896f8033311f54f0a02a8457772571717e91b3fc` and binds UID 0, strict audit, immutability, and 29/29 acceptance. CI source-validation artifact #12154727773 independently matched SHA-256 `0921b6bdad3becee6e6d06eaf73b80e193efeb31feac278532af0e0341ea9ad6`; its canonical planning and integrated resource-to-cognition acceptance passed 20/20 with zero skips. The latest scheduled Federation Health report is on the prior exact main `915cf098c15eed3157dd908763d06c54911390fe`; scheduled execution on the new main remains pending. Current-main nightly schedules remain pending. Provenance integrity remains unanchored, including the preserved sequence-286 gap. No production A→B→A inference was started.
 
 Historical scheduled Federation Health evidence was later independently verified for source `f0564c9f780e1f86a53e84348ec4a4a9534c0e48` (tree `62d9b93b038f92a5df1b25d6cb7cc70847a86f23`): run #39028288072 succeeded, Administrator preflight and generator passed, artifact #12098768757 reports 1 node/0 recent/quiet, and publisher created no PR because output matched main. This closes the scheduled-execution gap for that historical merged source; it does not substitute for a scheduled execution on current main `1737cc7`. This is not changed-output fixture proof.
 
@@ -36,53 +36,53 @@ The relevant resource/introspection/runtime regression set passed 82/82 with zer
 The next developmental evidence dependency remains a real, longitudinal resident A→B→A trial with exact commissioned hardened model identities and separate operator approvals. No production inference was started. The Federation Health changed-output fixture still needs the repository Actions PR-creation setting enabled; sequence-286 provenance loss remains unresolved. The stale sequence-178 and sequence-368 workspaces remain untouched.
 
 Latest construction segment: `work/construction/segments/0373-bind-resource-read-failure-to-tick.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `a4c3b484d94aa5db159ea1a00ed8ce04a8e2406dbfc7147bbd7d3e3d30edea37`
 Sequence: 373
 
 
 Sequence 374 records the completed sequence-373 hosted candidate verification and regular merge. The targeted resource/introspection/runtime suite passed 82 tests with zero skips; py_compile, diff check, custody, and mypy baseline checks passed. No production inference or runtime authority was added. The next developmental evidence dependency remains a real resident A→B→A trial with exact commissioned A/B identities and separate operator approvals. The Federation Health changed-output fixture still requires the repository Actions PR-creation setting; sequence-286 provenance loss remains preserved. The stale sequence-178 and sequence-368 workspaces remain untouched.
 
 Latest construction segment: `work/construction/segments/0374-verify-sequence373-merge-and-hosted-checks.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83`
 Sequence: 374
 
 
 Sequence 375 records independently verified exact-main post-merge execution evidence for sequence 374. Local resource/introspection/runtime regression tests passed 82/82 with zero skips; mypy, py_compile, diff check, and continuation custody passed. The Federation Health workflow remains read-only for health and retains the hourly schedule, but its 12:17 execution on this exact main SHA was not observed by 12:19 UTC. The changed-output fixture still requires the repository Actions PR-creation setting; corrected nightly scheduled executions remain pending their next scheduled window. No production inference or runtime authority was added. The A→B→A trial still requires exact commissioned models and separate operator approvals. Sequence-286 provenance loss and stale sequence-178/368 workspaces remain preserved.
 
 Latest construction segment: `work/construction/segments/0375-verify-exact-main-post-merge-gates.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c`
 Sequence: 375
 
 
 Sequence 376 verifies exact-main post-merge checks for sequence 375. The runtime regression suite and mypy/compile/custody results were verified on the exact parent source tree; this evidence-only merge did not change runtime sources or authority. Federation Health remains read-only in its health job with hourly schedule. At the recorded cutoff, the 12:17 event had not appeared on c09d569…, nor had a scheduled run appeared on bed8ec6…. The changed-output fixture still requires the repository Actions PR-creation setting; exact-main nightly scheduled executions remain pending. No production inference was started; the real A→B→A trial still requires commissioned model identities and separate operator approvals. Sequence-286 provenance loss and stale sequence-178/368 workspaces remain preserved.
 
 Latest construction segment: `work/construction/segments/0376-verify-sequence375-postmerge-main.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `3c9954d5c07d393112aff711b280849455b51f406b438c66ee33f2338fb2e2c5`
 Sequence: 376
 
 
 Sequence 377 verifies exact-main post-merge gates for sequence 376. Runtime regression and mypy/compile/custody results were verified on its exact parent source; this evidence-only merge changes no runtime source or authority. Federation Health retains its hourly schedule and read-only health permission, but no run on current main was visible at 12:45 UTC. The changed-output fixture still requires the repository Actions PR-creation setting; the next scheduled opportunity is 13:17 UTC. Current-main nightly scheduled evidence remains pending. No production inference was started. The real resident A→B→A trial still requires commissioned model identities and separate operator approvals. Sequence-286 provenance loss and stale sequence-178/368 workspaces remain preserved.
 
 Latest construction segment: `work/construction/segments/0377-verify-sequence376-postmerge-main.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `9d1c1b974cddd06bc414305e7895f5c8b03f0c031a482ed9c6ebdc8dcfaf3d29`
 Sequence: 377
 
 
 Sequence 378 verifies exact-main post-merge gates for sequence 377. The local runtime regression suite and mypy/compile/custody results were verified on the exact parent runtime tree; this evidence-only merge changes no runtime source or authority. Federation Health retains its hourly schedule and read-only health permission, but no run on current main was visible at 12:56 UTC. The changed-output fixture still requires the repository Actions PR-creation setting; the next scheduled opportunity is 13:17 UTC. Current-main nightly scheduled evidence remains pending. No production inference was started; the real resident A→B→A trial still requires commissioned model identities and separate operator approvals. Sequence-286 provenance loss and stale sequence-178/368 workspaces remain preserved.
 
 Latest construction segment: `work/construction/segments/0378-verify-sequence377-postmerge-main.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `d0cb622af871ca3220e408e9fc77213e9dd9b55d836ff535427247d90f8a8d19`
 Sequence: 378
 
 
 Sequence 379 independently verifies the exact-main post-merge evidence for sequence 378, the historical scheduled Federation Health execution on f0564c9, and the changed-output fixture's repository-setting blocker. It registers a narrow maintenance scope for production self-reflection custody; no runtime source or authority changed. The current-main scheduled run remains pending. The campaign's next source dependency is exact protocol binding and preservation of partial/completed no-retry progress.
 
 Latest construction segment: `work/construction/segments/0379-verify-scheduled-federation-health-and-open-transition-scope.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `398b33f3987bec651b68671ac1677d8c118b5f20e00a5757eeeb3e01533939b4`
 Sequence: 379
 Local sequence-379 pre-commit finalizer returned `repair_required_task_caused`: focused tests, mypy, baseline, prompt-boundary and compile/diff passed; docs dependencies were unavailable offline, and strict audits plus immutability correctly denied non-Administrator access. The finalizer's two append-only runtime audit rows were preserved; only identified generated glow test artifacts were restored/removed. Hosted validation must verify the exact candidate before landing.
 Latest construction segment: `work/construction/segments/0379-verify-scheduled-federation-health-and-open-transition-scope.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `398b33f3987bec651b68671ac1677d8c118b5f20e00a5757eeeb3e01533939b4`
 Sequence: 379
 
 
@@ -90,7 +90,7 @@ Sequence 380 verifies PR #2369's merge and all exact-main push gates on `d70d63b
 
 Latest verified main: `d70d63b31416f21bcc50b4c2a4708c6c822ff5e6`; tree `c2d41c644daec56a285bae564cb482831570652a`.
 Latest construction segment: `work/construction/segments/0380-preserve-self-reflection-campaign-progress.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `12919099c8a5b386209f021bbd72df1f0240b08e7dcd252739c14148e91c4fdc`
 Sequence: 380
 
 Local sequence-380 pre-commit finalization failed closed on the offline docs toolchain and Administrator-only strict audit stages; focused tests, targeted mypy, baseline, and prompt-boundary checks passed. Its two runtime audit rows are preserved append-only. Hosted verification of the exact campaign change is required before landing.
@@ -105,14 +105,14 @@ Sequence 381 records campaign receipt-lineage revalidation in `run_one()` and `r
 
 Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
 Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80`
 Sequence: 381
 
 
 Post-merge evidence is now complete for sequence 380. Exact-main QG artifact #12139099532 matched its published SHA-256 and confirms Administrator UID 0, strict audit, immutability, and 29/29 acceptance. CI/source-validation artifacts #12140375527 and self-check #12139658216 matched their published digests; source validation passed 34/34 across its three groups, and self-check reported 143 passed, 13 setup-phase skips, zero failures. Scheduled Federation Health run #39136688867 on `5da046b5a990a15dbc240053351f74e87393d3a6` succeeded with Administrator verification and reported 1 node, 0 recent events, quiet. Its artifact #12139992259 matched its published SHA-256; publication created no PR because the output was unchanged.
 
 Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80`
 Sequence: 381
 
 
@@ -122,7 +122,7 @@ The report race was reproduced: after full receipt validation, replacing a recei
 
 Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
 Latest construction segment: `work/construction/segments/0382-score-only-the-verified-campaign-receipt-snapshot.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `f6aebe00e4978c623108e36e42a0880ded87869d5572b0c13209c855c2bd1704`
 Sequence: 382 (unpublished local increment)
 
 
@@ -163,7 +163,7 @@ Sequence 387 verifies the regular merge of PR #2371 into `main` at `8a2b6807e786
 
 Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 Latest construction segment: `work/construction/segments/0387-reconcile-pr2371-merge-and-preserve-campaign-work.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688`
 Sequence: 387
 
 
@@ -171,7 +171,7 @@ Sequence 388 repairs the exact configured ASCII privilege banner missing from th
 
 Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 Latest construction segment: `work/construction/segments/0388-fix-campaign-cli-test-privilege-banner.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d`
 Sequence: 388
 
 Hosted source-candidate parent at the sequence-388 follow-up: `abd33e735064a068d00a4f344893ce30fb82cf14`; tree `acc822896c4b5e9f532c277c00799e350301c0c4`.
@@ -180,7 +180,7 @@ Hosted source-candidate parent at the sequence-388 follow-up: `abd33e735064a068d
 Sequence 389 adds the missing hosted pre-publication PR metadata verification path to Required Quality Gate. Locally, the exact workflow contract test passed; the related workflow/finalizer/metadata-guard test selection passed without failures (environment-dependent finalizer cases were skipped locally); YAML parsing, compilation, and diff checks passed. Construction custody passed through sequence 388 before this append. GitHub CI, actual Administrator precommit finalization, and the metadata guard for this new candidate remain pending and are not claimed. The exact candidate is based on verified construction head `ef8609ceb96dc207432c2070bee6f0dcf0ba420a`, tree `b070bf198e4d8d3b72b1fdd9a2018243feaedacb`; latest verified main is `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 
 Latest construction segment: `work/construction/segments/0389-hosted-prepublication-guard-in-required-quality-gate.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8`
 Sequence: 389 (hosted verification pending)
 
 
@@ -194,83 +194,83 @@ Sequence: 390 (hosted verification pending)
 Sequence 391 fixes a second source-caused failure in the hosted precommit workflow: it now reads the runner's canonical `git_sha` provenance field and compares it to the exact reconstructed parent. The failure from QG run `39158544727` remains recorded as a failed hosted check. The corrected workflow contract test passed 1/1 with zero skips; its task acceptance is ready. The fix awaits its exact-candidate hosted run. Candidate parent is `e3259f8dd59108842aa287a83e31bbba3358fdc0`, tree `6eb37dd027479c3da0b9caa7de7e669372402909`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 
 Latest construction segment: `work/construction/segments/0391-bind-precommit-provenance-to-canonical-git-sha.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432`
 Sequence: 391 (hosted verification pending)
 
 Sequence 392 repairs the hosted precommit finalizer's missing documentation dependencies using the repository's guarded minimal bootstrap with actual hosted Administrator authority. The local hosted-workflow contract test passed 1/1 with zero skips and acceptance is ready. Hosted rerun is pending; run `39158737729` remains a failed result, and no finalizer/guard success is claimed. The source candidate is `bfbb1abd21200a1ffc8e0be5ede5de5c307724bd`, tree `6b0dd48681b209223147dca6fd752759894ecb47`.
 
 Latest construction segment: `work/construction/segments/0392-bootstrap-docs-for-precommit-finalizer.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc`
 Sequence: 392 (hosted verification pending)
 
 Sequence 393 binds the PR finalizer and metadata guard to a detached checkout of the exact PR head, with a fresh 29-node candidate-bound acceptance run. The local workflow and evidence-binding regressions passed 2/2 with zero skips; hosted validation remains pending. This prevents GitHub's synthetic merge checkout from being associated with PR-head precommit evidence. Source candidate: `5f87e1b36bd93a07983ada6f6735ce3e893dba48`, tree `8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569`.
 
 Latest construction segment: `work/construction/segments/0393-bind-pr-finalization-to-exact-candidate.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d`
 Sequence: 393 (hosted verification pending)
 
 Sequence 394 hardens immutable campaign evidence publication with descriptor-bound private custody, atomic first-writer semantics, symlink rejection, collision detection, and a 16 MiB bound. The full campaign module passed 29/29, exact acceptance passed 2/2 with zero skips, changed-module mypy, compilation, privilege lint, and custody checks passed. Hosted verification remains pending. No inference or runtime authority was added. Source candidate: `9d77f455557b4f408eb1f77cefe528c3b780297d`, tree `a9bd6b476303e421b4d547837fda0c1932af031c`.
 
 Latest construction segment: `work/construction/segments/0394-preserve-immutable-readiness-evidence.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35`
 Sequence: 394 (hosted verification pending)
 
 Source candidate parent: `1bbd4abd0bb6d33870b9a79b90248f079a06ddba`, tree `297983b58b80346ab7fc8157754d3ca9ba783293`.
 Latest construction segment: `work/construction/segments/0395-audit-before-hosted-bootstrap.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `295ecc09d5e5df05caf20210a84d80f54e3052065a587cf8c3f7073c5fb81063`
 
 Sequence 396 repairs the hosted QG cleanup failure. Run `39162183378` passed strict audit, immutability, and reached `ready_to_commit`, then failed because the runner lacked permission to remove the root-owned detached precommit worktree. Precommit and exact PR candidate cleanup now require exact `$RUNNER_TEMP` paths and use `sudo -n git worktree remove` with Git trust scoped to the main workspace. Overall QG remains failed pending rerun; no finalizer/guard completion is claimed. Source parent: `2222fe85292b36f8277465b99cf42ed99b3fd041`, tree `396547271a26186a8ffb749e94831679efc99328`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 
 Latest construction segment: `work/construction/segments/0396-remove-finalizer-worktrees-with-scoped-admin-custody.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150`
 Sequence: 396 (untested; hosted verification pending)
 
 Sequence 397 improves hosted failure observability for the exact PR metadata guard. Sequence-396 run `39162397893` passed strict audit, immutability, all 29 required nodes, and both finalizer phases, but the guard failed and its redirected JSON reasons were not emitted before `set -e` stopped the job. The workflow now captures the status and emits exact guard reasons while preserving fail-closed behavior and unchanged criteria. Hosted rerun remains pending; no guard success is claimed. Source parent: `b935c6ec34007111df491801ce277f865f434a34`, tree `0fd3cbc04c170217675f09b3776818f33101ad24`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 
 Latest construction segment: `work/construction/segments/0397-surface-metadata-guard-failure-reasons.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04`
 Sequence: 397 (untested; hosted verification pending)
 
 
 Sequence 398 resolves the acceptance lineage mismatch diagnosed by the sequence-397 hosted gate. The exact transition verifier now accepts a manifest/provenance digest change only across the verified workspace-parent to exact-candidate SHA boundary and only when readiness, classification, exact required and successful node IDs, call-phase outcomes, and passing witness summaries match. Targeted metadata guard tests passed 29/29 non-legacy cases (14 legacy cases remain skipped under the repository marker policy); hosted workflow contract test passed; changed-module mypy, compilation, and diff checks passed. Documentation build succeeded at 614 pages. Sequence-397 CI and invariants passed; its required gate remains recorded as failed for the diagnosed transition mismatch. Sequence-398 hosted verification is pending. Parent: `efc6ac6c906601445b8b1fc88597101bcfd6180e`, tree `be7bb0fe2d65cd44f006e4cf151fd2143d0b7390`; verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
 
 Latest construction segment: `work/construction/segments/0398-allow-exact-task-acceptance-source-rollforward.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e`
 Sequence: 398 (local checks passed; hosted verification pending)
 
 
 Sequence 399 repairs the exact PR-event finalizer failure from run 39163615834: task acceptance was reverified from the synthetic merge checkout after being bound to the detached PR-head worktree. The verifier now runs from that exact worktree; a workflow contract test binds the cwd to the candidate. Malformed acceptance reports also return explicit blocked decisions instead of raising. Focused landing/workflow tests passed 150 with 16 legacy skips; targeted mypy, compilation, and diff checks passed. Sequence-398 push QG passed; sequence-399 hosted checks are pending. Parent `320ab95e9073eb043eab5fd8169ea3865b368d67`, tree `7de4093d83f76a2d88ee79edbc20320f15639038`; main `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`.
 
 Latest construction segment: `work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8`
 Sequence: 399 (local checks passed; hosted verification pending)
 
 
 Sequence 400 closes the mutable nested campaign-protocol gap before execution. Exact campaign tests passed 30/30; compilation, focused mypy and diff checks passed. The local mypy baseline wrapper remains blocked by its isolated-venv import environment. The verified parent main `ae55461e13be358c2754c7686b381ae2d72daa63` has successful Required Quality Gate, CI, Docker, Invariants, Docs Deploy and Codex CI runs. A Federation Health schedule on this main SHA is still pending.
 
 Latest construction segment: `work/construction/segments/0400-revalidate-mutable-campaign-protocol.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9`
 Sequence: 400 (hosted candidate checks pending)
 
 
 Sequence 401 isolates execution from caller mutation through a verified campaign protocol snapshot and serializes concurrent immutable publication without weakening first-writer custody. Campaign tests passed 31/31; the collision regression passed ten repeats; all seven selected dependent owner suites completed successfully. Compilation, focused mypy, and diff checks passed; repository baseline mypy wrapper remains blocked by the isolated environment. Sequence-400 exact PR Required Quality Gate passed (#39164845405); sequence-401 hosted verification is pending. Parent candidate `6cbdea630933d7e3247da5711f4df898a040d011`, tree `c2d9e42a8ac50bbcd75c8b407f8284f8a9621381`.
 
 Latest construction segment: `work/construction/segments/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4`
 Sequence: 401 (hosted verification pending)
 
 
 Sequence 402 records exact-main post-merge verification for the sequence-401 merge and restores the 77 missing construction-index bindings for sequences 189–265 from the last complete committed index. The sequence-266 evidence pointer was also restored from that index. All retained pairs were verified against bytes; the only preexisting row digest error was sequence 196, whose corrected retained-byte hash is supported by sequence 197 evidence. The complete 1–402 predecessor chain now passes strict custody with zero failures. No prior source or evidence bytes changed. The Required Quality Gate and every configured post-merge push check succeeded except configured Forge Smoke skip. Canonical planning and execution separation passed, including the verified prior-epistemic-owner allocation test and the planning-without-execution proof. Current-main Federation Health and the next scheduled nightly executions remain pending; historical scheduled or push events are not substituted for those events.
 
 Latest construction segment: `work/construction/segments/0402-verify-sequence401-postmerge-main.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae`
 Sequence: 402 (post-merge checks and construction custody verified; scheduled production-workflow observations pending)
 
 
 Sequence 403 records PR #2374's regular merge as current main `aa9235ca50057ab508e077892cbd2f2f37b54415`, tree `c6299ce5f39dbf8da3376d3ef27b7766e0c507bd`, and adds an unprivileged CI check that verifies the append-only construction chain before dependency installation. The workflow contract regression and source checks pass. The canonical local test runner did not reach collection because sandbox network restrictions prevented editable-build dependency installation; exact runner provenance is retained in sequence-403 evidence. This is not counted as a test pass. The required main checks, invariants, Docker, Docs Deploy, and Codex CI passed; CI source validation, self-check, and Helm/Kubernetes passed while docs link-check remained in progress. The scheduled Federation Health run on this main SHA is pending at this cutoff.
 
 Latest construction segment: `work/construction/segments/0403-enforce-construction-custody-in-ci.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb`
 Sequence: 403 (local custody checks passed; hosted CI pending)
 
 
@@ -284,20 +284,20 @@ Sequence: 404 (local source validation passed; hosted exact-candidate verificati
 Sequence 405 hardens sequence-404 artifact staging against a pre-created symlink at its output-directory root. The helper rejects both symlink and non-directory roots before artifact creation; a regression confirms a symlink target remains untouched. The canonical affected runner passed 45/45 with zero skips, focused mypy, compilation, diff checks, and pre-append custody passed. Exact-main commit `5a97f4395f32f59febc51ad1eba589729ea13122` / tree `4cb880075654f30b5664a525a668f5ef44e98761` post-merge QG (including privileged strict audit, immutability, and 29/29 acceptance), CI, Docker, invariants, Docs Deploy, and Codex CI are green; Forge Smoke was skipped by configured opt-in. Exact-main scheduled Federation Health and nightly runs remain pending. Hosted candidate verification is pending.
 
 Latest construction segment: `work/construction/segments/0405-reject-symlink-artifact-output-root.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0`
 Sequence: 405 (local verification passed; hosted candidate verification pending)
 
 
 Sequence 406 verifies PR #2377 and exact-main validation on `fe5eea358254e4e968d4ab751b532c2a825f0705` / tree `36e23f790646aec5e69399f4272da5ae5f129a1c`. The regular merge preserved candidate history. Required Quality Gate, CI, Docker, invariants, Docs Deploy, and Codex CI passed on that exact main; Forge Smoke was skipped by configured opt-in. Independently downloaded QG evidence matched GitHub SHA-256 `d520c756800dd661bf947f2621a7efa39a9ded536c9ab020ca77de12a4a34b29` and binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance. The source-validation artifact matched `9076a719f8df677852300950428770cf35bbdb05abfca825f727eccbef004b43` and binds 20/20 exact-main call-phase tests, including resource-to-cognition and planning/execution separation. Scheduled Federation Health on this SHA and both nightly workflows remain pending at this cutoff.
 
 Latest construction segment: `work/construction/segments/0406-verify-sequence405-merge-main.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7`
 Sequence: 406 (exact-main post-merge checks passed; current-main scheduled observations pending)
 
 
 Sequence 407 repairs the canonical PR-body builder’s task-acceptance roll-forward handoff. The builder now supplies precommit and PR-metadata acceptance reports to the unchanged exact-source transition verifier. Against the sequence-406 candidate source tree, the focused body-builder and metadata-guard suites passed 46 tests with 14 legacy skips and zero failures; the task-specific successful path was independently accepted. Targeted mypy, compilation, diff checks, and pre-append custody for all 406 segments passed. The first canonical-runner attempt failed before collection when sandbox networking blocked a setuptools fetch and is not counted. Exact updated-candidate hosted verification remains pending.
 Latest construction segment: `work/construction/segments/0407-pass-acceptance-lineage-to-pr-body-builder.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687`
 Sequence: 407 (focused local verification passed; updated-candidate hosted verification pending)
 Source parent commit `3c3c445eaf630da08abfa9529ae534d84ce4f3a6`, tree `c42c51d36382bf94a138e700f28cd0a67845d716`.
 
@@ -305,7 +305,7 @@ Source parent commit `3c3c445eaf630da08abfa9529ae534d84ce4f3a6`, tree `c42c51d36
 Sequence 408 isolates two federation test-contract defects found by hosted verification of sequence 407. The replay regression now counts only peer-alpha's heartbeat; the restart fixture signs the protocol identity required by the receiver. The affected repository-native suite passed 12/12 with zero skips, and both changed behavioral paths were independently accepted. The original exact PR candidate's Docker check failure is retained; replacement-candidate hosted checks remain pending.
 
 Latest construction segment: `work/construction/segments/0408-isolate-federation-regression-fixtures.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a`
 Sequence: 408 (affected local tests passed; replacement-candidate hosted verification pending)
 Source parent commit `39a7d18061699ca79132ea242de7af10814c9a42`, tree `8556f61004d967ab75a1b9f575d8f5def8d365e2`.
 
@@ -317,7 +317,7 @@ Verified main at sequence start: `e00f920b099c7f6b87d76b0a5e256c4bd152d15f`, tre
 The QG trend diagnostic and committed provenance history still report unanchored predecessor gaps; the separate sequence-409 code change corrects partial-window labeling without clearing integrity status. Sequence-286 provenance loss and all other gaps are preserved. Sequence-409 local regression, mypy, compilation, baseline, and custody checks passed. Its hosted candidate checks remain pending. The post-merge Federation Health schedule on this main and the current-main nightly schedules remain pending; prior-source runs are not substituted.
 
 Latest construction segment: `work/construction/segments/0409-clarify-unanchored-provenance-windows.md`
-Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
+Latest segment SHA-256: `3f2ad1de7acda02a17b5d309a95ebce704bb98334efff8e8844f1a2fb6a6bd18`
 Sequence: 409 (local source validation passed; hosted candidate verification pending)
 
 ## Sequence 410 checkpoint
@@ -329,3 +329,32 @@ Scheduled Federation Health run #39175640282 succeeded on this exact main. Its a
 Latest construction segment: `work/construction/segments/0410-record-sequence409-main-and-federation-health.md`
 Latest segment SHA-256: `8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385`
 Sequence: 410 (exact-main post-merge CI and scheduled Federation Health verified)
+
+
+## Sequence 411 checkpoint
+
+Sequence 410 merged by PR #2381 to main `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`. The regular merge preserves candidate `888722d8717b6ef777e1490a958d5d1de6a0e040` as its second parent. GitHub reports a valid commit signature. Exact-main Required Quality Gate, CI, Docker, invariants, Docs Deploy, and Codex CI passed; Forge Smoke was skipped by its configured condition. QG artifact #12153654912 independently matched its GitHub SHA-256 and binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance. CI source-validation artifact #12154727773 independently matched its GitHub SHA-256 and records 20/20 canonical-planning/resource-to-cognition acceptance with no skips.
+
+Review of the merged sequence-410 active checkpoint found 33 historical segment-hash pointer lines repeating sequence 410's digest. Canonical segment and evidence files and their index bindings remained unchanged. Each affected summary pointer is restored from its own path-to-digest entry in the append-only index. The custody verifier now checks every `Latest ... segment` reference against that index and rejects unknown segment paths. The affected custody test file passed 10/10 through the canonical runner in a temporary network-free editable environment; both changed Python files compiled and targeted mypy passed. No historical segment or evidence record was rewritten or discarded.
+
+The latest scheduled Federation Health run is still bound to prior main `915cf098c15eed3157dd908763d06c54911390fe`; current-main scheduled Federation Health and Nightly Audit/Self Check executions remain pending. The provenance trend remains `INTEGRITY_BROKEN` with `unanchored-start`; sequence-286 loss remains preserved. No production inference, runtime authority, or verification exception was introduced.
+
+Latest verified main: `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`.
+Latest segment: `work/construction/segments/0411-bind-checkpoint-segment-pointers-to-custody-index.md`
+Latest segment SHA-256: `1afd6e3f78ffa1f29c62d8823deecb6bb9f222b62b4ec5df134233fdb3ca81cd`
+Sequence: 411 (exact-main source and hosted checks verified; pointer repair candidate pending hosted checks)
+
+
+## Sequence 412 checkpoint
+
+Sequence 411 candidate `1a32691b6705d94e7e2178d3e4b90f9d576bd7f9`, tree `b378429a420a046015dd0fa866dfc0869010ba5f`, was pushed as a direct child of exact main `5054ad41f600280ef5836c60a0964b38601b04b9`. Its hosted Required Quality Gate #39177525904 passed, including exact-source Administrator UID 0, strict audit, immutability, and 29/29 acceptance. Hosted pre-commit finalization returned `ready_to_commit`; hosted PR-metadata finalization returned `ready_for_pr_metadata`; the pre-publication metadata guard returned `pr_metadata_guard_ready`. CI source validation and invariants passed; at this checkpoint the docs link-check job remained in progress.
+
+Before creating a PR, local exact-body publication-handoff sealing exposed that `create_pr_publication_handoff` validated pre/post validation plans without supplying their task-acceptance reports. When the source SHA changes from the validated base to the candidate commit, their acceptance manifest/provenance digests must roll forward through the exact-node verifier. The body builder already supplies these reports, but the final publication handoff did not, so a valid sequence-411 payload was blocked with `task_acceptance_rollforward_evidence_missing` and digest-transition mismatches. No PR was created from that blocked handoff.
+
+Sequence 412 passes the reports into the same unchanged transition verifier and adds a regression covering valid source roll-forward plus rejection of a failed required node. The canonical landing-evidence binding suite passed 60/60 with zero skips; body-builder and CLI handoff suites passed 20/20 with zero skips. Targeted mypy on the changed source passed; both changed Python modules compiled; `git diff --check` passed. Repository-wide mypy of the legacy test module reports pre-existing untyped-test errors and was not used as source proof. Exact-candidate hosted validation for sequence 412 remains pending.
+
+Latest verified main remains `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`. Sequence 411 is an unmerged candidate in the construction branch history. Current-main scheduled Federation Health and Nightly Audit/Self Check executions remain pending; provenance remains `INTEGRITY_BROKEN` at an unanchored start, including the preserved sequence-286 loss. No production inference or authority expansion occurred.
+
+Latest construction segment: `work/construction/segments/0412-forward-task-acceptance-through-publication-handoff.md`
+Latest segment SHA-256: 20690405cf1b334532e20c78852efa6aec044bf64f2b3ac9fc1bb0633dc4b10d
+Sequence: 412 (local regression verification passed; exact hosted candidate verification pending)

@@ -72,6 +72,56 @@ def test_frozen_journal_and_compact_segment_chain_verify(tmp_path: Path) -> None
     assert result["segments_verified"] == 1
 
 
+def test_checkpoint_segment_reference_must_match_the_indexed_path_digest(
+    tmp_path: Path,
+) -> None:
+    index_path, _, _, checkpoint = _write_fixture(tmp_path)
+    checkpoint.write_text(
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        "Latest segment: work/construction/segments/0001-note.md "
+        f"{ 'f' * 64 }\n",
+        encoding="utf-8",
+    )
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["active_checkpoint_binding"]["checkpoint_sha256"] = hashlib.sha256(
+        checkpoint.read_bytes()
+    ).hexdigest()
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert (
+        "active_checkpoint_segment_reference_digest_mismatch:"
+        "work/construction/segments/0001-note.md"
+    ) in result["failures"]
+
+
+def test_checkpoint_segment_reference_must_exist_in_the_index(
+    tmp_path: Path,
+) -> None:
+    index_path, _, _, checkpoint = _write_fixture(tmp_path)
+    checkpoint.write_text(
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        "Latest segment: work/construction/segments/0002-missing.md "
+        f"{ 'f' * 64 }\n",
+        encoding="utf-8",
+    )
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["active_checkpoint_binding"]["checkpoint_sha256"] = hashlib.sha256(
+        checkpoint.read_bytes()
+    ).hexdigest()
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert (
+        "active_checkpoint_segment_reference_unknown:"
+        "work/construction/segments/0002-missing.md"
+    ) in result["failures"]
+
+
 @pytest.mark.parametrize(
     ("target", "mutation", "expected_failure"),
     [

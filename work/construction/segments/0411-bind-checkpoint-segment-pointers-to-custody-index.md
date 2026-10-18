@@ -1,0 +1,9 @@
+# Sequence 411: bind checkpoint segment pointers to custody index
+
+After sequence 410 merged, review of `work/construction/active_checkpoint.md` found 33 historical `Latest ... segment` digest pointers repeating sequence 410's segment digest. The canonical segment files, their individual SHA-256 values, and the append-only continuation index entries were intact. The incorrect values were summary references, not changes to the historical segment or evidence records.
+
+Each affected checkpoint pointer is restored from the indexed digest for its own segment path. The custody verifier now binds each explicit latest-segment path to its digest and rejects unknown segment paths. Regression tests cover both a known path with a wrong digest and an unindexed path. The complete custody test module passed 10/10 with zero skips through `scripts.run_tests` in a temporary editable environment using the already-installed toolchain; changed Python files compiled, targeted mypy passed, and `git diff --check` passed.
+
+Sequence 410's regular merge is `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`, preserving candidate `888722d8717b6ef777e1490a958d5d1de6a0e040`. Exact-main Required Quality Gate, CI, Docker, invariants, Docs Deploy, and Codex CI passed; CI's source validation reports 20/20 canonical-planning and integrated resource-to-cognition acceptance nodes passed. Exact-main scheduled Federation Health and nightly audit/self-check evidence remain pending on this new merge SHA. No segment or evidence history was rewritten or discarded.
+
+No production inference, new runtime authority, or verification relaxation was introduced. The provenance history remains integrity-broken at its unanchored start and preserved sequence-286 gap.

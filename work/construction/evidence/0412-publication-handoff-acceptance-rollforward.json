@@ -1,0 +1,113 @@
+{
+  "append_only": true,
+  "candidate_sequence": {
+    "parent_commit": "1a32691b6705d94e7e2178d3e4b90f9d576bd7f9",
+    "parent_tree": "b378429a420a046015dd0fa866dfc0869010ba5f",
+    "parent_is_unmerged_sequence_411_candidate": true,
+    "verified_main_at_sequence_411_start": "5054ad41f600280ef5836c60a0964b38601b04b9",
+    "verified_main_tree_at_sequence_411_start": "3d64aa36cd666a2fe856f0976819e2f0b1331419"
+  },
+  "change": {
+    "acceptance_source_rollforward_is_still_verified_by": "verify_validation_plan_transition",
+    "handoff_builder_passes_pre_commit_task_acceptance": true,
+    "handoff_builder_passes_pr_metadata_task_acceptance": true,
+    "verification_requirements_weakened": false,
+    "network_or_publication_authority_added": false,
+    "production_inference": false
+  },
+  "discovery": {
+    "exact_failure": "publication_handoff_contradiction:task_acceptance_rollforward_evidence_missing,validation_lineage_field_mismatch:task_acceptance_manifest_digest,validation_lineage_field_mismatch:task_acceptance_provenance_digest",
+    "sequence_411_pull_request_created": false,
+    "sequence_411_candidate_sha": "1a32691b6705d94e7e2178d3e4b90f9d576bd7f9",
+    "sequence_411_candidate_tree": "b378429a420a046015dd0fa866dfc0869010ba5f"
+  },
+  "hosted_sequence_411_evidence": {
+    "required_quality_gate": {
+      "run_id": 39177525904,
+      "conclusion": "success",
+      "artifact_id": 12154454850,
+      "artifact_sha256": "c5e7bdde84ec193e05b10503a2e5b0dc61410104d40aa1ee8a95d8d41c5c70f2",
+      "artifact_download_sha256": "c5e7bdde84ec193e05b10503a2e5b0dc61410104d40aa1ee8a95d8d41c5c70f2",
+      "source_sha": "1a32691b6705d94e7e2178d3e4b90f9d576bd7f9",
+      "source_tree": "b378429a420a046015dd0fa866dfc0869010ba5f",
+      "administrator_uid": 0,
+      "strict_audit": "passed",
+      "immutability": "passed",
+      "acceptance_passed": 29,
+      "acceptance_failed": 0,
+      "acceptance_skipped": 0
+    },
+    "hosted_landing_finalizer": {
+      "artifact_id": 12155475129,
+      "artifact_sha256": "34486b93218b722aa270d35ae1736f60cb930c194a9027ae682bab682cd2d6f3",
+      "artifact_download_sha256": "34486b93218b722aa270d35ae1736f60cb930c194a9027ae682bab682cd2d6f3",
+      "pre_commit": "ready_to_commit",
+      "pr_metadata": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "metadata_guard_precedes_pr_creation": true
+    },
+    "invariant_tests": {
+      "run_id": 39177525866,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 39177525839,
+      "source_validation_job": "success",
+      "source_validation_artifact_id": 12154837830,
+      "source_validation_artifact_sha256": "6518b34dea87e61a5b47048625e3f2c828c90758143ba2c943fee4e20b02eaaf",
+      "source_validation_download_sha256": "6518b34dea87e61a5b47048625e3f2c828c90758143ba2c943fee4e20b02eaaf",
+      "source_validation_sha": "1a32691b6705d94e7e2178d3e4b90f9d576bd7f9",
+      "integrated_resource_to_cognition_acceptance": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "canonical_planning_acceptance": {
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      "world_state_contract_acceptance": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      "helm_k8s_job": "success",
+      "self_check_job": "success",
+      "docs_link_check_at_cutoff": "in_progress"
+    }
+  },
+  "local_verification": {
+    "affected_binding_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_codex_landing_evidence_binding.py",
+      "passed": 60,
+      "failed": 0,
+      "skipped": 0,
+      "status": "validation_complete"
+    },
+    "body_builder_and_cli_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_build_codex_landing_evidence_body_script.py tests/test_verify_codex_landing_evidence_binding_script.py",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "status": "validation_complete"
+    },
+    "targeted_mypy": {
+      "files": ["sentientos/codex_landing_evidence_binding.py"],
+      "status": "passed",
+      "errors": 0
+    },
+    "compile": "passed",
+    "diff_check": "passed",
+    "mypy_over_legacy_test_module": "not used as proof; existing untyped-test annotations produce baseline errors"
+  },
+  "remaining": {
+    "sequence_412_hosted_candidate_checks": "pending",
+    "sequence_411_docs_link_check_at_cutoff": "in_progress",
+    "current_main_scheduled_federation_health": "pending",
+    "current_main_scheduled_nightly_audit_integrity": "pending",
+    "current_main_scheduled_nightly_self_check": "pending",
+    "provenance_chain": "integrity_broken_unanchored_start_and_sequence_286_loss_preserved",
+    "production_temporal_cognitive_trial": "not_run_requires_commissioned_models_and_separate_operator_approvals"
+  }
+}

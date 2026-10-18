@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import stat
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
@@ -138,6 +139,40 @@ def verify_continuation_reader(read: Callable[[str, int], bytes]) -> dict[str, A
                 latest_sha = str(segments[-1].get("sha256", ""))
                 if latest_path not in text or latest_sha not in text:
                     failures.append("active_checkpoint_latest_segment_contradiction")
+            segment_hashes = {
+                str(entry.get("path")): str(entry.get("sha256"))
+                for entry in segments
+                if isinstance(entry, dict)
+                and isinstance(entry.get("path"), str)
+                and isinstance(entry.get("sha256"), str)
+            }
+            checkpoint_lines = text.splitlines()
+            for line_index, line in enumerate(checkpoint_lines):
+                marker = re.match(
+                    r"^Latest (?:local |construction )?segment:\s*(?:`([^`]+)`|(\S+))",
+                    line,
+                )
+                if marker is None:
+                    continue
+                path = marker.group(1) or marker.group(2)
+                expected_sha = segment_hashes.get(path)
+                if expected_sha is None:
+                    if path.startswith("work/construction/segments/"):
+                        failures.append(
+                            f"active_checkpoint_segment_reference_unknown:{path}"
+                        )
+                    continue
+                inline_sha = re.search(r"\b([0-9a-f]{64})\b", line)
+                if inline_sha is None and line_index + 1 < len(checkpoint_lines):
+                    next_line = checkpoint_lines[line_index + 1]
+                    if next_line.startswith("Latest ") and "segment SHA-256:" in next_line:
+                        inline_sha = re.search(
+                            r"\b([0-9a-f]{64})\b", next_line
+                        )
+                if inline_sha is None or inline_sha.group(1) != expected_sha:
+                    failures.append(
+                        f"active_checkpoint_segment_reference_digest_mismatch:{path}"
+                    )
         except (OSError, ValueError, UnicodeDecodeError) as exc:
             failures.append(f"active_checkpoint_unreadable:{type(exc).__name__}:{exc}")
 
