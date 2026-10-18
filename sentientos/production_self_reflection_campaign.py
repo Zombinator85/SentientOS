@@ -346,6 +346,9 @@ class ProductionSelfReflectionCampaign:
         self.state_path.parent.mkdir(parents=True, exist_ok=True); atomic_write_json(self.state_path, body); return body
 
     def state(self) -> Mapping[str, Any]:
+        # frozen dataclasses do not freeze nested mappings; re-bind every
+        # observed progress snapshot to the protocol before trusting it.
+        self.protocol.verify()
         try: value = json.loads(self.state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
         if not isinstance(value, dict):
@@ -358,6 +361,7 @@ class ProductionSelfReflectionCampaign:
         return MappingProxyType({**value, "state_digest": claimed})
 
     def _verify_progress(self, state: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+        self.protocol.verify()
         trial_ids = tuple(self.protocol.campaign_policy["trial_ids"])
         completed = state.get("completed_trials")
         if not isinstance(completed, list) or len(completed) > len(trial_ids):

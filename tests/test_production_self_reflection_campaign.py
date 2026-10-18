@@ -138,6 +138,22 @@ def test_run_one_requires_digest_valid_protocol_bound_readiness(
     assert campaign.state()["completed_trials"] == []
 
 
+def test_run_one_rejects_mutated_nested_protocol_before_executor(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    protocol.model_a["cognitive_identity"] = "cognitive-substituted"
+    executor_calls = []
+
+    with pytest.raises(ProductionSelfReflectionError, match="protocol_tampered"):
+        campaign.run_one(readiness, lambda *args: executor_calls.append(args) or _evidence())
+
+    assert executor_calls == []
+    raw_state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    assert raw_state["completed_trials"] == []
+    assert raw_state["in_progress_trial_id"] is None
+
+
 @pytest.mark.parametrize("trial_count", [1, 2])
 def test_campaign_reentry_preserves_partial_and_completed_progress(tmp_path: Path, trial_count: int) -> None:
     protocol = _protocol()
