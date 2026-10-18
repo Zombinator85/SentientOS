@@ -279,3 +279,10 @@ Sequence 404 records the CI artifact-staging fix: uploaded JUnit and failure-dig
 Latest construction segment: `work/construction/segments/0404-bind-ci-test-artifacts-to-current-provenance.md`
 Latest segment SHA-256: 59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b
 Sequence: 404 (local source validation passed; hosted exact-candidate verification pending)
+
+
+Sequence 405 hardens sequence-404 artifact staging against a pre-created symlink at its output-directory root. The helper rejects both symlink and non-directory roots before artifact creation; a regression confirms a symlink target remains untouched. The canonical affected runner passed 45/45 with zero skips, focused mypy, compilation, diff checks, and pre-append custody passed. Exact-main commit `5a97f4395f32f59febc51ad1eba589729ea13122` / tree `4cb880075654f30b5664a525a668f5ef44e98761` post-merge QG (including privileged strict audit, immutability, and 29/29 acceptance), CI, Docker, invariants, Docs Deploy, and Codex CI are green; Forge Smoke was skipped by configured opt-in. Exact-main scheduled Federation Health and nightly runs remain pending. Hosted candidate verification is pending.
+
+Latest construction segment: `work/construction/segments/0405-reject-symlink-artifact-output-root.md`
+Latest segment SHA-256: `5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0`
+Sequence: 405 (local verification passed; hosted candidate verification pending)

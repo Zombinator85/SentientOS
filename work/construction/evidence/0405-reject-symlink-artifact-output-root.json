@@ -1,0 +1,95 @@
+{
+  "append_only": true,
+  "change": {
+    "failure_mode": "reject symlink or non-directory at the caller-supplied artifact output root before creating or copying outputs",
+    "files": [
+      "scripts/stage_current_test_artifacts.py",
+      "tests/test_stage_current_test_artifacts.py"
+    ],
+    "production_inference": false,
+    "provider_invoked": false,
+    "repository_write_authority_added": false,
+    "runtime_authority_added": false
+  },
+  "exact_main_post_merge": {
+    "all_configured_checks_passed": true,
+    "checks": {
+      "ci": 39169733526,
+      "codex_ci": 39169733541,
+      "docker": 39169733602,
+      "docs_deploy": 39169733530,
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "configured opt-in condition",
+        "run_id": 39169733527
+      },
+      "invariants": 39169733529,
+      "required_quality_gate": 39169733531
+    },
+    "commit": "5a97f4395f32f59febc51ad1eba589729ea13122",
+    "quality_gate_artifact": {
+      "acceptance_nodes_failed": 0,
+      "acceptance_nodes_passed": 29,
+      "acceptance_nodes_skipped": 0,
+      "administrator_verified": true,
+      "artifact_id": 12151389076,
+      "effective_uid": 0,
+      "expected_sha": "5a97f4395f32f59febc51ad1eba589729ea13122",
+      "immutability_ok": true,
+      "sha256": "64cfe9094023fa52a08281b3a96784ac4f4511d3b40034bf8a5d126ee0511531",
+      "strict_audit_ok": true
+    },
+    "tree": "4cb880075654f30b5664a525a668f5ef44e98761"
+  },
+  "hosted_verification": {
+    "exact_candidate_required": true,
+    "status": "pending"
+  },
+  "local_verification": {
+    "canonical_test_run": {
+      "command": "python -m scripts.run_tests -q tests/test_stage_current_test_artifacts.py tests/test_github_hosted_acceptance_workflows.py",
+      "git_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+      "junitxml_sha256": "3be16b6fe21157424d37ff18e03ffabbeb28e724955f568339f6843ebf18fbcd",
+      "provenance_sha256": "37c479f06a3807f40df305c33b0e9643f6805eefcec39b346f9c984c08faedac",
+      "run_id": "466ee669cd724633b7bd74129b1a9eee",
+      "source_tree": "4cb880075654f30b5664a525a668f5ef44e98761",
+      "tests_collected": 45,
+      "tests_failed": 0,
+      "tests_passed": 45,
+      "tests_skipped": 0,
+      "tests_xfailed": 0,
+      "tests_xpassed": 0,
+      "validation_status": "validation_complete"
+    },
+    "construction_custody": {
+      "failures": [],
+      "pre_append_segments_verified": 404,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_mypy": {
+      "command": "python -m mypy --config-file pyproject.toml --python-version 3.11 --no-incremental scripts/stage_current_test_artifacts.py",
+      "new_errors": 0,
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "python_compile": "passed"
+  },
+  "scheduled_observations": {
+    "federation_health_exact_main": "pending",
+    "nightly_audit_integrity_exact_main": "pending",
+    "nightly_self_check_exact_main": "pending"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2283,
+  "segment_path": "work/construction/segments/0405-reject-symlink-artifact-output-root.md",
+  "segment_sha256": "5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0",
+  "sequence": 405,
+  "source": {
+    "commit_title": "[codex:ci] reject symlinked artifact output roots",
+    "local_verification_commit": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+    "local_verification_tree": "4cb880075654f30b5664a525a668f5ef44e98761",
+    "parent_commit": "5a97f4395f32f59febc51ad1eba589729ea13122",
+    "parent_tree": "4cb880075654f30b5664a525a668f5ef44e98761"
+  },
+  "title": "Reject symlinked CI artifact staging output roots"
+}

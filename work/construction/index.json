@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "24b32e5b185a3cb4c1d232617c7db204cc247ac099e18034d0595c06b3631841",
-    "latest_segment_sequence": 404,
-    "latest_segment_sha256": "59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b",
+    "checkpoint_sha256": "60438e1e9a29a0986e7db9026776ed671979a42bbd05d4fedb37e182d4f5dfb6",
+    "latest_segment_sequence": 405,
+    "latest_segment_sha256": "5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0",
     "latest_sequence": null,
-    "source_commit": "e53c3219c431c9c11de6bf40a764d3913fba1f57",
-    "source_tree": "30075ab4c789356cb647dcc528845af06db4c030"
+    "source_commit": "5a97f4395f32f59febc51ad1eba589729ea13122",
+    "source_tree": "4cb880075654f30b5664a525a668f5ef44e98761"
   },
-  "checkpoint_sha256": "24b32e5b185a3cb4c1d232617c7db204cc247ac099e18034d0595c06b3631841",
+  "checkpoint_sha256": "60438e1e9a29a0986e7db9026776ed671979a42bbd05d4fedb37e182d4f5dfb6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 404,
+  "latest_sequence": 405,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4532,6 +4532,18 @@
       "sha256": "59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b",
       "source_commit": "e53c3219c431c9c11de6bf40a764d3913fba1f57",
       "source_tree": "30075ab4c789356cb647dcc528845af06db4c030"
+    },
+    {
+      "bytes": 2283,
+      "evidence_bytes": 3678,
+      "evidence_path": "work/construction/evidence/0405-reject-symlink-artifact-output-root.json",
+      "evidence_sha256": "eccc50138a2610e8249a45780f98bc9439406a9c87f58805bc60fc69e67a7c81",
+      "path": "work/construction/segments/0405-reject-symlink-artifact-output-root.md",
+      "predecessor": "segment-sha256:59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b",
+      "sequence": 405,
+      "sha256": "5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0",
+      "source_commit": "5a97f4395f32f59febc51ad1eba589729ea13122",
+      "source_tree": "4cb880075654f30b5664a525a668f5ef44e98761"
     }
   ],
   "source_acquisition": {

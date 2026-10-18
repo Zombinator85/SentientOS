@@ -76,6 +76,10 @@ def stage_current_test_artifacts(
             if provenance_mtime_ns <= cutoff_ns:
                 provenance_status = "stale_provenance"
 
+    if output_dir.is_symlink():
+        raise ValueError("artifact output directory must not be a symlink")
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError("artifact output directory must be a directory")
     output_dir.mkdir(parents=True, exist_ok=True)
     for _, (_, _, output_name) in ALLOWED_NAMES.items():
         (output_dir / output_name).unlink(missing_ok=True)
