@@ -1,0 +1,62 @@
+{
+  "candidate_checks": {
+    "ci": "success",
+    "ci_run_id": "39096570563",
+    "codex_ci_run_id": "39096570551",
+    "docker_run_id": "39096570599",
+    "finalizer_artifact_id": "12124267804",
+    "finalizer_artifact_sha256": "9a4b3392d3eaccbc9c9f639546b92adba5dc980ddbc63bf3e7ea1203279567f2",
+    "gradient_run_id": "39096570486",
+    "invariants_run_id": "39096570461",
+    "lint_run_id": "39096570648",
+    "qg": "success",
+    "qg_artifact_id": "12124033234",
+    "qg_artifact_sha256": "3689bc72707c062c1f2ed10183f18a86d8436cb2c9fe9caa61091d7fd60162c8",
+    "qg_run_id": "39096570615",
+    "release_run_id": "39096570529"
+  },
+  "candidate_pr": 2340,
+  "continuation": {
+    "predecessor_segment_sha256": "6e9d73d2885f4c4132ae89971a9ae4a86b49ca39ea98ed67aa3c5e308128b29e",
+    "segment_path": "work/construction/segments/0350-merge-and-verify-handoff-fixture-repair.md",
+    "segment_sha256": "e4628361c101cc099a39b96c9450c58dbdb03bb659954b6381b85e60751cd785",
+    "sequence": 350,
+    "source_commit": "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9"
+  },
+  "main_commit": "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9",
+  "main_tree": "0b698550ca6bfb9786f55e4d3c0515cafec8f3c1",
+  "operational_status": {
+    "as_of_utc": "2026-10-18T04:26:45Z",
+    "changed_output_fixture": "not_dispatched",
+    "current_main_scheduled_runs": [],
+    "federation_latest_run_id": "39083395122",
+    "nightly_audit_latest_run_id": "39014123936",
+    "nightly_self_check_latest_run_id": "38876666946",
+    "workflow_dispatch_available": false
+  },
+  "post_merge": {
+    "ci": "success",
+    "ci_run_id": "39096860813",
+    "codex_ci_run_id": "39096860917",
+    "docker_run_id": "39096860848",
+    "docs_deploy_run_id": "39096860860",
+    "effective_uid": 0,
+    "forge_smoke": "skipped_by_workflow_conditions",
+    "forge_smoke_run_id": "39096860866",
+    "immutability_audit": "passed",
+    "invariants_run_id": "39096860887",
+    "passed_nodes": 29,
+    "post_merge_feedback": "success",
+    "post_merge_feedback_run_id": "39096861173",
+    "qg": "success",
+    "qg_artifact_id": "12125335451",
+    "qg_artifact_sha256": "6be2fcd26968eba2b08966bcb093f53b5b05c20d79c0b7a1220c4d0cea051cb1",
+    "qg_run_id": "39096860870",
+    "required_nodes": 29,
+    "source_unchanged": true,
+    "strict_audit": "passed"
+  },
+  "schema_version": 1,
+  "source_candidate_commit": "9b96dfd2f2869f62393926fdb25248aed0889366",
+  "source_candidate_tree": "0b698550ca6bfb9786f55e4d3c0515cafec8f3c1"
+}
