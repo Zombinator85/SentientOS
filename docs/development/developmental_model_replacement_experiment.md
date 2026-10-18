@@ -8,6 +8,8 @@ This explicitly invoked instrument asks what digest-level observations change wh
 
 When a caller already has an exact task/source selection, `FrozenCausalContext.create_from_admitted_history(writeback=..., history_record_ids=...)` rechecks the writeback owner's completed records and receipts, then freezes their IDs, digests, and bounded record content for both endpoints. Task-family score lineage remains inside its admitted source fact. This factory does not decide task relevance or create a history admission.
 
+For non-synthetic resident transition ingress, the predecessor and successor references must resolve to the same frozen context. Its selected history IDs and digests are checked against the matching records in the transition protocol's complete initial resident history boundary. The binding retains the selected IDs/digests and the complete boundary digest/count, so an experimental subset stays distinct from the resident's full history. Missing records, repeated resident record identities, digest substitution, or different A/B contexts fail closed before ingress. This verifies frozen evidence correspondence; it does not observe the daemon's running source generation or authorize history access.
+
 Each `CognitiveModelIdentity` binds model ID, semantic artifact identity, content SHA-256, known size and sidecar digest, configuration digest, engine/runtime family, candidate index, production/fallback posture, exact authority-record custody, and the exact active-model identity structure. A and B must differ in semantic artifact/content/configuration identity. Identity is not inferred from a display name. Model identity is neither system identity, runtime identity, nor configuration identity.
 
 ## Provenance is evidence, not authority

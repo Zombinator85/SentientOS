@@ -13,7 +13,7 @@ from sentientos.developmental_model_replacement_experiment import (
     ModelReplacementArtifactStore, ModelReplacementProtocol, _digest,
 )
 from sentientos.resident_cognitive_model_transition_experiment import (
-    TransitionError, TransitionJournal, TransitionProtocol,
+    TransitionError, TransitionJournal, TransitionProtocol, history_boundary,
 )
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 from sentientos.resident_cognitive_transition_operator import (
@@ -188,13 +188,26 @@ def _source_lineage_context(repository_generation_identity: str | None) -> Froze
         repository_generation_identity=repository_generation_identity)
 
 
-def _source_lineage_fixture(root: Path, *, generation_identity: str | None = "source-tree-1"):
+def _source_lineage_fixture(root: Path, *, generation_identity: str | None = "source-tree-1",
+        boundary_records: list[dict[str, object]] | None = None,
+        successor_context_generation_identity: str | None = None):
     store = ModelReplacementArtifactStore(root)
     context = _source_lineage_context(generation_identity)
     model_a, model_b = _source_lineage_identity("a"), _source_lineage_identity("b")
     provenance_a = ModelDevelopmentProvenance.create(model_a)
     provenance_b = ModelDevelopmentProvenance.create(model_b)
     replacement = ModelReplacementProtocol.create(context, model_a, model_b, provenance_a, provenance_b)
+    successor_replacement = replacement
+    if successor_context_generation_identity is not None:
+        successor_context = _source_lineage_context(successor_context_generation_identity)
+        successor_replacement = ModelReplacementProtocol.create(
+            successor_context, model_a, model_b, provenance_a, provenance_b)
+        store.persist_context(successor_context)
+        store.persist_protocol(successor_replacement)
+    selected_record = dict(context.history_projection_payload[0])
+    if boundary_records is None:
+        boundary_records = [selected_record, {"record_id": "record-2",
+            "record_digest": _digest({"record": 2}), "interpretation": "unselected resident history"}]
     store.persist_provenance(provenance_a)
     store.persist_provenance(provenance_b)
     store.persist_context(context)
@@ -205,10 +218,13 @@ def _source_lineage_fixture(root: Path, *, generation_identity: str | None = "so
         "successor_b": {"protocol_id": replacement.protocol_id,
             "protocol_digest": replacement.protocol_digest, "model_role": "model_b"},
     }
+    references["successor_b"] = {"protocol_id": successor_replacement.protocol_id,
+        "protocol_digest": successor_replacement.protocol_digest, "model_role": "model_b"}
     transition = TransitionProtocol.create(installation_identity="installation-1",
         predecessor=model_a.active_model_identity, successor=model_b.active_model_identity,
         initial_activation={"state_semantic_digest": "a" * 64, "generation": 1},
-        initial_session={"session_id": "session-a"}, initial_boundary={"boundary_digest": "b" * 64},
+        initial_session={"session_id": "session-a"},
+        initial_boundary=history_boundary(boundary_records),
         b_operation_id="serve-b", restored_a_operation_id="serve-restored-a",
         model_replacement_protocol_references=references)
     return store, transition
@@ -224,6 +240,13 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     bindings = sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)
     assert bindings["predecessor_a"]["software_generation_identity"] == generation_identity
     assert bindings["successor_b"]["software_generation_identity"] == generation_identity
+    assert bindings["predecessor_a"]["selected_history_record_ids"] == ["record-1"]
+    assert bindings["predecessor_a"]["selected_history_record_count"] == 1
+    assert bindings["predecessor_a"]["resident_initial_history_record_count"] == 2
+    assert bindings["predecessor_a"]["resident_initial_history_boundary_digest"] == (
+        transition.value["initial_history_boundary"]["boundary_digest"])
+    assert bindings["predecessor_a"]["history_binding_posture"] == (
+        "verified_bounded_selection_within_complete_resident_boundary")
     assert bindings["predecessor_a"]["software_generation_posture"] == (
         "frozen_context_declaration_not_running_observation")
 
@@ -233,6 +256,8 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     surfaces._resident_developmental_configuration_status = "enabled"
     projected = surfaces._resident_model_provenance_bindings(transition.value)
     assert projected["predecessor_a"]["software_generation_identity"] == generation_identity
+    assert projected["predecessor_a"]["selected_history_record_ids"] == ["record-1"]
+    assert projected["successor_b"]["resident_initial_history_record_count"] == 2
     assert projected["successor_b"]["software_generation_posture"] == (
         "frozen_context_declaration_not_running_observation")
 
@@ -253,6 +278,25 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     composition = inspect.getsource(sentientosd._compose_live_resident_transition)
     assert "if not allow_synthetic_evidence_for_tests" in composition
     assert "_verify_live_resident_transition_source_lineage(protocol, artifact_root)" in composition
+
+    selected_record = dict(_source_lineage_context(generation_identity).history_projection_payload[0])
+    invalid_boundaries = [
+        ("absent", [], "transition_model_source_lineage_history_record_absent"),
+        ("substituted", [{**selected_record, "record_digest": _digest({"record": "substituted"})}],
+            "transition_model_source_lineage_history_record_digest_mismatch"),
+    ]
+    for name, records, error in invalid_boundaries:
+        _store, invalid_transition = _source_lineage_fixture(
+            tmp_path / name, generation_identity=generation_identity, boundary_records=records)
+        with pytest.raises(TransitionError, match=error):
+            sentientosd._verify_live_resident_transition_source_lineage(invalid_transition, tmp_path / name)
+
+    _store, mismatched_context_transition = _source_lineage_fixture(
+        tmp_path / "mismatched-context", generation_identity=generation_identity,
+        successor_context_generation_identity="different-frozen-context")
+    with pytest.raises(TransitionError, match="transition_model_source_lineage_context_mismatch"):
+        sentientosd._verify_live_resident_transition_source_lineage(
+            mismatched_context_transition, tmp_path / "mismatched-context")
 
 
 def test_production_transition_rejects_missing_frozen_generation_declaration(tmp_path: Path) -> None:
