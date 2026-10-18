@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "950b5329cea3b0952b6078b8f50006898b268f263d104a192ee150858c7080a1",
-    "latest_segment_sequence": 409,
-    "latest_segment_sha256": "3f2ad1de7acda02a17b5d309a95ebce704bb98334efff8e8844f1a2fb6a6bd18",
-    "latest_sequence": 409,
-    "source_commit": "e00f920b099c7f6b87d76b0a5e256c4bd152d15f",
-    "source_tree": "0cb82a29c44ab21dabf8570ab3f0f112e3d2e21b"
+    "checkpoint_sha256": "9d6fabb041a4d85a655bd4fd38e30d76684d1c513e3f54c328e25196d7315f10",
+    "latest_segment_sequence": 410,
+    "latest_segment_sha256": "8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385",
+    "latest_sequence": 410,
+    "source_commit": "915cf098c15eed3157dd908763d06c54911390fe",
+    "source_tree": "105f71b68b1ec08b6e31b66aa90a6ed67efc1e49"
   },
-  "checkpoint_sha256": "950b5329cea3b0952b6078b8f50006898b268f263d104a192ee150858c7080a1",
+  "checkpoint_sha256": "9d6fabb041a4d85a655bd4fd38e30d76684d1c513e3f54c328e25196d7315f10",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 409,
+  "latest_sequence": 410,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4592,6 +4592,18 @@
       "sha256": "3f2ad1de7acda02a17b5d309a95ebce704bb98334efff8e8844f1a2fb6a6bd18",
       "source_commit": "e00f920b099c7f6b87d76b0a5e256c4bd152d15f",
       "source_tree": "0cb82a29c44ab21dabf8570ab3f0f112e3d2e21b"
+    },
+    {
+      "bytes": 3137,
+      "evidence_bytes": 4354,
+      "evidence_path": "work/construction/evidence/0410-record-sequence409-main-and-federation-health.json",
+      "evidence_sha256": "caf9399018a3107ad65c3e94dc0ec0d232e7ebc367b335199f938ca1575ba797",
+      "path": "work/construction/segments/0410-record-sequence409-main-and-federation-health.md",
+      "predecessor": "segment-sha256:3f2ad1de7acda02a17b5d309a95ebce704bb98334efff8e8844f1a2fb6a6bd18",
+      "sequence": 410,
+      "sha256": "8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385",
+      "source_commit": "915cf098c15eed3157dd908763d06c54911390fe",
+      "source_tree": "105f71b68b1ec08b6e31b66aa90a6ed67efc1e49"
     }
   ],
   "source_acquisition": {
