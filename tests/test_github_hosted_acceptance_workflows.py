@@ -506,6 +506,9 @@ def test_post_merge_feedback_uses_only_issue_comment_authority() -> None:
     import yaml
 
     workflow = yaml.safe_load((ROOT / ".github/workflows/post_merge_feedback.yml").read_text())
+    trigger = workflow.get("on", workflow.get(True, {}))
+    assert trigger == {"pull_request_target": {"types": ["closed"]}}
+    assert "permissions" not in workflow
     assert workflow["jobs"]["invite"]["permissions"] == {"issues": "write"}
     assert workflow["jobs"]["invite"]["if"] == "github.event.pull_request.merged == true"
     steps = workflow["jobs"]["invite"]["steps"]
