@@ -27,6 +27,10 @@ def main() -> int:
     parser.add_argument("--evidence-bundle", type=Path)
     parser.add_argument("--readiness-output", type=Path)
     args = parser.parse_args()
+    if args.command == "run-one":
+        parser.error(
+            "run-one requires an in-process live transition owner; a JSON evidence bundle cannot prove receipt custody"
+        )
     if args.command == "create":
         if args.config is None: parser.error("create requires --config")
         value = _read(args.config)
@@ -42,11 +46,7 @@ def main() -> int:
             if args.observed is None: parser.error(f"{args.command} requires --observed")
             readiness = verify_production_readiness(campaign.protocol, _read(args.observed), artifact_path=args.readiness_output)
             if args.command == "readiness": result = dict(readiness)
-            else:
-                if args.evidence_bundle is None: parser.error("run-one requires --evidence-bundle from the live sentientosd transition composition")
-                evidence = _read(args.evidence_bundle)
-                receipt = campaign.run_one(readiness, lambda trial_id, protocol: evidence)
-                result = {"status": "completed_one_trial", "receipt": dict(receipt)}
+            else: raise AssertionError("unreachable command")
     print(json.dumps(result, sort_keys=True))
     return 0
 

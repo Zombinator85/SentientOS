@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T175607Z_045dc196c641_285038875c414c07b93e7a2a17d9fe43.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign_cli.py::test_cli_run_one_rejects_unverified_json_before_campaign_access",
+      "rationale": "The standalone CLI rejects caller-supplied JSON before loading observations or mutating campaign custody."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a",
+      "rationale": "The trusted in-process campaign primitive retains the exact positive transition/scoring path."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+  ]
+}

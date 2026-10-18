@@ -41,11 +41,6 @@ PYTHONPATH=. python scripts/run_production_self_reflection_campaign.py readiness
   --observed /operator/custody/current-production-observations.json \
   --readiness-output "$SENTIENTOS_DATA_ROOT/experiments/production-self-reflection/CAMPAIGN/readiness/READINESS.json"
 
-PYTHONPATH=. python scripts/run_production_self_reflection_campaign.py run-one \
-  --campaign-root "$SENTIENTOS_DATA_ROOT/experiments/production-self-reflection/CAMPAIGN" \
-  --observed /operator/custody/current-production-observations.json \
-  --evidence-bundle /operator/custody/live-sentientosd-one-trial-evidence.json
-
 PYTHONPATH=. python scripts/run_production_self_reflection_campaign.py status \
   --campaign-root "$SENTIENTOS_DATA_ROOT/experiments/production-self-reflection/CAMPAIGN"
 
@@ -53,11 +48,15 @@ PYTHONPATH=. python scripts/run_production_self_reflection_campaign.py report \
   --campaign-root "$SENTIENTOS_DATA_ROOT/experiments/production-self-reflection/CAMPAIGN"
 ```
 
-The evidence bundle must be emitted by the real live `sentientosd` transition
-composition after its exact operator requests and subordinate approvals; it is
-not an approval and cannot cause an unauthorized stage. Immutable protocols,
-readiness artifacts, receipts, failures, and the final report live below the
-campaign root. Expected fail-closed states include specific missing A/B,
+The standalone CLI deliberately has no `run-one` path. A JSON bundle can carry
+digests and identifiers but cannot establish that canonical transition,
+activation, serving, inference, or developmental-history owners issued them.
+Passing a caller-constructed bundle to the campaign executor would therefore
+mistake integrity for provenance. A future live campaign composition must
+invoke the existing in-process owner verifiers and pass their verified results
+to the campaign; it must preserve the exact operator and subordinate approval
+rails. Immutable protocols, readiness artifacts, receipts, failures, and the
+final report live below the campaign root. Expected fail-closed states include specific missing A/B,
 commissioning, approval, transition, self-model/history, backend, interrupted,
 canonical-conflict, and synthetic-component classifications. An in-progress
 trial discovered after process death is terminal and is never silently retried.
@@ -72,3 +71,19 @@ rechecks the full ordered completion prefix and every referenced receipt. A
 missing, replaced, reordered, or tampered earlier receipt therefore blocks both
 continued execution and reporting; the executor is not called and no report is
 written when that lineage fails verification.
+Report scoring consumes the receipt mappings returned by that verification
+pass. It does not reopen receipt paths after custody validation, so a later
+on-disk replacement cannot change the outcomes summarized by that report.
+The durable campaign owner uses a private POSIX interprocess lock while it
+claims and executes a trial, updates progress, reconstructs interrupted state,
+and emits a report. Concurrent owners therefore cannot execute the same trial
+or misclassify a live in-progress trial as a process interruption. Platforms
+without the repository's native `flock` custody fail closed for these campaign
+operations.
+Before executing, `run_one` also verifies the readiness receipt schema, digest,
+and exact protocol identity against the campaign. A ready receipt must show all
+readiness checks true, production evidence posture, no synthetic components,
+and no authority or effect claim. A not-ready receipt remains a blocked result.
+This digest is an integrity binding, not a signature or independent proof of
+the observations supplied to the readiness verifier; live operation remains
+subject to the existing executor and approval rails.

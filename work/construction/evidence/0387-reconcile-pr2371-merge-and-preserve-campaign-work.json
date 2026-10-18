@@ -1,0 +1,63 @@
+{
+  "change": {
+    "authority_added": false,
+    "kind": "merge_and_validation_reconciliation",
+    "prior_sequences_modified": false,
+    "production_inference_started": false
+  },
+  "publication": {
+    "exhaustive_matrix": "not_requested_for_solo_profile",
+    "merge_commit": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+    "merge_method": "merge",
+    "post_merge_required_workflows": "passed",
+    "pr": 2371,
+    "state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2394,
+  "segment_path": "work/construction/segments/0387-reconcile-pr2371-merge-and-preserve-campaign-work.md",
+  "segment_sha256": "6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688",
+  "sequence": 387,
+  "source": {
+    "branch": "codex/seq386-postmerge-revalidation",
+    "publication_of_382_386_source_changes": "not_performed",
+    "tested_worktree_base": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "tested_worktree_base_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+    "verified_main_commit": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+    "verified_main_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846"
+  },
+  "task_acceptance_manifest": "docs/development/production_self_reflection_campaign_postmerge_revalidation_task_acceptance.json",
+  "task_acceptance_provenance": "glow/test_runs/provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json",
+  "tested_source_sha256": {
+    "docs/development/production_self_reflection_campaign.md": "5581f616412ffcbe2fa4f5ec5a7b3c5576ea35b6ec9928e29f2560558a953442",
+    "scripts/run_production_self_reflection_campaign.py": "3ba8f3d2842c029efa352bef2751e0934c939de577ad73539d87ff9c411a91c9",
+    "sentientos/production_self_reflection_campaign.py": "75e165c4b15da587456da47e971527a67742ba4ea9ac8c3cca29bba037629dfc",
+    "tests/test_production_self_reflection_campaign.py": "2bf3984facae43aae36cdc6a8ac35d899732557b6202c78c0c9a430c248fadbb",
+    "tests/test_production_self_reflection_campaign_cli.py": "743572d9c6b74a4429ed36ab298e79fd59ecea467937d443eb8e691588c5d023"
+  },
+  "title": "Reconcile PR #2371 merge and preserve campaign work",
+  "verification": {
+    "affected_regression": {
+      "failed": 0,
+      "passed": 151,
+      "provenance_path": "glow/test_runs/provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json",
+      "provenance_sha256": "003e3081a1544cc454649b8e3f13c3c43d6d34f211231ca707bc3eb857a67dbc",
+      "selected": 151,
+      "skipped": 0,
+      "status": "passed"
+    },
+    "compileall": "passed",
+    "construction_custody_before_append": "construction_continuation_custody_ready; 386 segments",
+    "git_diff_check": "passed",
+    "targeted_mypy": "passed: sentientos/production_self_reflection_campaign.py scripts/run_production_self_reflection_campaign.py",
+    "task_acceptance": {
+      "manifest_path": "docs/development/production_self_reflection_campaign_postmerge_revalidation_task_acceptance.json",
+      "passed_nodes": 5,
+      "required_nodes": 5,
+      "status": "task_acceptance_ready",
+      "successful_path_nodes": [
+        "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+      ]
+    }
+  }
+}

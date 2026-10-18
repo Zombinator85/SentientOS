@@ -114,3 +114,54 @@ Post-merge evidence is now complete for sequence 380. Exact-main QG artifact #12
 Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
 Latest segment SHA-256: `fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80`
 Sequence: 381
+
+
+Sequence 382 records an isolated campaign-report custody repair. PR #2371 exact candidate 045dc196c641cecbb3b9cf2313ed05187fd73d4c passed its hosted checks and remains open as a draft. The local Git object stores do not contain that candidate, its parent 5da046b5a990a15dbc240053351f74e87393d3a6, or its tree, so exact-source metadata guard validation and merge were not possible. A public clone attempt failed at the configured proxy. The original dirty and protected workspaces remain unchanged.
+
+The report race was reproduced: after full receipt validation, replacing a receipt with a different valid receipt before report scoring changed the old implementation's output. The isolated source now scores the verifier-returned receipt mappings directly. Campaign tests passed 21/21; exact acceptance passed 1/1; module-targeted mypy, py_compile, pip check, and diff check passed. This increment is local and unpublished; it is based on local commit `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d` tree `c2d41c644daec56a285bae564cb482831570652a`, not a verified descendant commit of PR #2371.
+
+Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
+Latest construction segment: `work/construction/segments/0382-score-only-the-verified-campaign-receipt-snapshot.md`
+Latest segment SHA-256: `f6aebe00e4978c623108e36e42a0880ded87869d5572b0c13209c855c2bd1704`
+Sequence: 382 (unpublished local increment)
+
+
+Sequence 383 serializes campaign trial execution, campaign creation/re-entry, recovery, and report publication under the native private interprocess lock. An active executor can no longer be mistaken for a dead process by concurrent reconstruction. The campaign/transition/capability/rehearsal regression set passed 149/149; both exact serialization acceptance nodes passed 2/2. The repository mypy baseline reported zero new errors and 40 retired records; targeted mypy, compilation, and diff check passed. This increment remains unpublished and is based on local commit `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d`, tree `c2d41c644daec56a285bae564cb482831570652a`.
+
+The protected PR #2371 remains a draft at candidate `045dc196c641cecbb3b9cf2313ed05187fd73d4c`, parent `5da046b5a990a15dbc240053351f74e87393d3a6`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`. GitHub confirms the candidate is exactly one commit ahead of main, and its listed hosted checks passed. The candidate, parent, and main tree objects are absent from all available local stores; the exact-source metadata guard remains unrun. No finalizer was substituted, no PR metadata was changed, and no merge occurred.
+
+Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
+Latest local segment: `work/construction/segments/0383-serialize-campaign-execution-and-recovery.md`
+Latest local segment SHA-256: `fe23c11e6972043d93a05c7865f279170fc45c850c12bf43edc2004623b33f95`
+Sequence: 383 (unpublished local increment)
+
+
+Sequence 384 binds `run_one()` to a digest-valid readiness receipt for the exact campaign protocol. Tampered, cross-protocol, status-only, and valid not-ready receipts cannot invoke the executor; the valid exact-transition path remains accepted. The combined campaign/transition/capability/rehearsal set passed 153/153; exact acceptance passed 5/5. The full mypy baseline reported zero new errors and 40 retired records; compilation and diff checks passed. Sequence 384 has its own acceptance manifest; sequence 383's manifest and evidence are preserved byte-for-byte.
+
+This remains unpublished local work on local base `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d` / tree `c2d41c644daec56a285bae564cb482831570652a`. GitHub confirms PR #2371 is still open, draft, and one commit ahead of main at `045dc196c641cecbb3b9cf2313ed05187fd73d4c`; its candidate object and required full tree are absent locally. The exact-source metadata guard is not run; no source or PR metadata was published and no merge was attempted.
+
+Latest local segment: `work/construction/segments/0384-bind-readiness-receipts-to-campaign-protocol.md`
+Latest local segment SHA-256: `49b917d1a2bf1c89839960761e6feef1393bf36c125e5cfbb8cb6a00840cf7aa`
+Sequence: 384 (unpublished local increment)
+
+
+Sequence 385 reconstructs PR #2371 candidate `045dc196c641cecbb3b9cf2313ed05187fd73d4c` / tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846` into a clean detached checkout using existing local objects and GitHub Git-object reads. Sequences 382–384 are revalidated in a separate candidate-based worktree. The campaign/transition/capability/rehearsal selection passed 150/150; exact candidate-bound acceptance passed 5/5; full mypy baseline had zero new and 40 retired errors; targeted mypy, compilation, diff check, and pre-append custody passed. The separate metadata guard is still blocked because its finalizer/matrix JSON inputs cannot be read from the returned File Service reference. PR #2371 remains draft; no publication or merge occurred.
+
+Latest local segment: `work/construction/segments/0385-recover-and-revalidate-pr2371-exact-candidate.md`
+Latest local segment SHA-256: `aa7c2de1e3f7e7305f10c35b22803f80a348282dc1e06c26125d7f640db9418b`
+Sequence: 385 (unpublished local increment)
+
+
+Sequence 386 blocks standalone JSON-backed campaign trials because a digest does not prove canonical owner provenance. The CLI exits before campaign or bundle access; a subprocess regression covers this guard and the positive in-process campaign path remains required. The canonical affected set passed 151/151 with zero skips; exact acceptance passed 2/2; the mypy baseline has 0 new and 40 retired errors; targeted mypy, compileall, diff check, and pre-append custody passed. This is unpublished work atop the exact PR #2371 candidate. The metadata guard remains blocked on unreadable finalizer/matrix artifact inputs; PR #2371 remains a draft.
+
+Latest local segment: `work/construction/segments/0386-block-unverified-campaign-cli-trials.md`
+Latest local segment SHA-256: `c18b1d33c4bd96cf603e8fe99a64b6d5fb0fdfee248232c30b7514a8f6c4b891`
+Sequence: 386 (unpublished local increment)
+
+
+Sequence 387 verifies the regular merge of PR #2371 into `main` at `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`. The exact candidate’s eight PR checks passed; exact-main CI, Required Quality Gate, Codex CI, Docs Deploy, Invariant Tests, and Docker Image passed, while Forge Smoke was skipped by workflow conditions. The contract places the metadata guard before PR publication, not before merging; solo profile was configured and exhaustive matrix was not requested. The preserved sequence-382–386 source changes passed the fresh affected 151-test suite, exact post-merge acceptance, targeted mypy, compilation, diff, and continuation custody checks on a clean isolated worktree with the same source tree. Those source changes remain unpublished and are not claimed as part of PR #2371.
+
+Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+Latest construction segment: `work/construction/segments/0387-reconcile-pr2371-merge-and-preserve-campaign-work.md`
+Latest segment SHA-256: `6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688`
+Sequence: 387

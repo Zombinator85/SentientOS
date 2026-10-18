@@ -1,0 +1,1138 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_activation_change_invalidates_without_successor_or_fallback": 0,
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_cli_happy_uses_real_serving_bridge_and_cognition_owner": 0,
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_production_chat_and_resident_custody_are_independent": 0,
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_synthetic_posture_cannot_serialize_as_production": 0,
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_does_not_reinitialize_missing_progress": 0,
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[1]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_rejects_non_object_state_without_reinitializing": 0,
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_revalidates_completed_receipt_custody": 0,
+    "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation": 0,
+    "tests/test_production_self_reflection_campaign.py::test_interrupted_campaign_is_no_retry": 0,
+    "tests/test_production_self_reflection_campaign.py::test_missing_real_models_writes_precise_not_ready_artifact": 0,
+    "tests/test_production_self_reflection_campaign.py::test_negative_and_null_scores_are_valid_evidence": 0,
+    "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a": 0,
+    "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry": 0,
+    "tests/test_production_self_reflection_campaign.py::test_production_readiness_success_and_synthetic_failure": 0,
+    "tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction": 0,
+    "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption": 0,
+    "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[missing-campaign_receipt_unavailable]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[tampered-trial_receipt_tampered]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_preserve_interrupted_trial_no_retry": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[duplicate]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[next_trial]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[reordered]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[missing-campaign_receipt_unavailable]": 0,
+    "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[tampered-trial_receipt_tampered]": 0,
+    "tests/test_production_self_reflection_campaign_cli.py::test_cli_run_one_rejects_unverified_json_before_campaign_access": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_completed_stage_reconstructs": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_preserves_verified_empty_history": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_requires_verified_record_receipt_pairs": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_failed_effectful_stage_is_not_replayable_after_reconstruction": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_journal_protocol_and_stage_approval_tamper": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_operator_request_provenance_does_not_replace_the_quiescence_capability": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_quiescence_timeout_and_inference_denied_while_quiesced": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_real_owner_temporal_rehearsal_retrieves_exact_b_record": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_serving_stage_rejects_malformed_quiescence_request_linkage": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_binding_grants_no_authority_and_binds_activation_predecessor": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_skip_is_rejected": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_activation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_serving]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_activation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_serving]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_synthetic_approval_rejected_in_production": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_tail": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_slot_rejects_bind_without_quiescence": 0,
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_unresolved_attempt_is_not_replayable": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_digest_bound_registration_succeeds_and_grants_nothing": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[duplicate]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[extra]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[missing]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation admission issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation approval issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation authority]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[admission issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary activation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary filesystem]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model artifact]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model path]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model selection]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary runtime]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[authority widening]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic activation following]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic resident rebind]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous cadence]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous inference]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model acquisition]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model selection]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background inference]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background transition]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[bypass activation compare and swap]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical production serving mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical user memory mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[catalog mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[consciousness conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[continuity conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[credential management]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[current model alias]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[default model alias]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[developmental history mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[direct model load authority]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic activation mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic model serving]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[grant issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[host actuation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[hot model switching]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[identity conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit predecessor selection]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit successor selection]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference authority]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference during transition quiescence]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[latest model alias]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[learning conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[loop transition stages]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model acquisition]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model commissioning]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[network authority]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic restoration]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic retry]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic rollback]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[policy creation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[production chat replacement]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[provider invocation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repeat transition until success]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[replay failed transition stage]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repository mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resource allocation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resume before exact successor serving]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[reuse stale startup serving configuration]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[rewrite startup activation binding]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[self grant]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[selfhood conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[sentience conclusion]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving admission issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving approval issuance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip cognition quiescence]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip expected prior activation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[startup resident serving config mutation]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[tool authority]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[wildcard model]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[bounded resident cognition quiescence]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical activation ownership preserved]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical production chat serving preserved]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[developmental history boundary snapshot]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[durable resident cognitive transition journal and receipt]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact current resident cognitive serving identity]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact operator approval]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact predecessor restoration]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact successor resident cognitive identity]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[explicit one stage transition advance]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[no automatic retry or rollback]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[preregistered resident cognitive transition protocol]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate local model inference admission]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate model activation admission]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate resident model serving admission]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[transition stage resident serving binding]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_exact_definition_shape_and_future_request_is_eligible": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_existing_authorities_runtime_and_startup_binding_are_unchanged": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[definition]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[duplicate]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[evidence_digest]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[operator]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[task]": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_has_no_runtime_transition_surface": 0,
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_wrong_subsystem_and_principal_fail": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 151,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-postmerge-seq386/glow/test_runs/pytest_junitxml_5685f85c2f5540ef83700c5371e4f42c.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_production_readiness_success_and_synthetic_failure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_does_not_reinitialize_missing_progress",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_rejects_non_object_state_without_reinitializing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_revalidates_completed_receipt_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[missing-campaign_receipt_unavailable]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[tampered-trial_receipt_tampered]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[missing-campaign_receipt_unavailable]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[tampered-trial_receipt_tampered]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[reordered]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[duplicate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[next_trial]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_preserve_interrupted_trial_no_retry",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_interrupted_campaign_is_no_retry",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_missing_real_models_writes_precise_not_ready_artifact",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_negative_and_null_scores_are_valid_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign_cli.py::test_cli_run_one_rejects_unverified_json_before_campaign_access",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_real_owner_temporal_rehearsal_retrieves_exact_b_record",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_requires_verified_record_receipt_pairs",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_preserves_verified_empty_history",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_completed_stage_reconstructs",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_tail",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_operator_request_provenance_does_not_replace_the_quiescence_capability",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_serving_stage_rejects_malformed_quiescence_request_linkage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_failed_effectful_stage_is_not_replayable_after_reconstruction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_unresolved_attempt_is_not_replayable",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_journal_protocol_and_stage_approval_tamper",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiescence_timeout_and_inference_denied_while_quiesced",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_activation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_serving]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_activation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_serving]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_skip_is_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_slot_rejects_bind_without_quiescence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_synthetic_approval_rejected_in_production",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_binding_grants_no_authority_and_binds_activation_predecessor",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_exact_definition_shape_and_future_request_is_eligible",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[missing]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[extra]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[duplicate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_wrong_subsystem_and_principal_fail",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[preregistered resident cognitive transition protocol]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact operator approval]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact current resident cognitive serving identity]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[developmental history boundary snapshot]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[bounded resident cognition quiescence]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate model activation admission]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[transition stage resident serving binding]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate resident model serving admission]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate local model inference admission]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact successor resident cognitive identity]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact predecessor restoration]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[explicit one stage transition advance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical activation ownership preserved]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical production chat serving preserved]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[no automatic retry or rollback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[durable resident cognitive transition journal and receipt]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary activation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model selection]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model path]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model artifact]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary runtime]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary filesystem]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit successor selection]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit predecessor selection]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[current model alias]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[latest model alias]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[default model alias]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[wildcard model]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model selection]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model acquisition]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model acquisition]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model commissioning]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[catalog mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation authority]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation approval issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation admission issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic activation mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[bypass activation compare and swap]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip expected prior activation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[direct model load authority]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic model serving]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving approval issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving admission issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference authority]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background inference]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous inference]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[developmental history mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical user memory mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[startup resident serving config mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[rewrite startup activation binding]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[reuse stale startup serving configuration]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic activation following]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic resident rebind]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[hot model switching]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip cognition quiescence]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference during transition quiescence]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resume before exact successor serving]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic rollback]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic restoration]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic retry]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[replay failed transition stage]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repeat transition until success]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[loop transition stages]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous cadence]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background transition]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[production chat replacement]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical production serving mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[provider invocation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[network authority]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[credential management]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[tool authority]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[host actuation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repository mutation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resource allocation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[policy creation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[authority widening]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[grant issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[admission issuance]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[self grant]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[identity conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[continuity conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[selfhood conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[sentience conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[consciousness conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[learning conclusion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_digest_bound_registration_succeeds_and_grants_nothing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[definition]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[operator]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[task]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[evidence_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[duplicate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_existing_authorities_runtime_and_startup_binding_are_unchanged",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_has_no_runtime_transition_surface",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_cli_happy_uses_real_serving_bridge_and_cognition_owner",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_activation_change_invalidates_without_successor_or_fallback",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_production_chat_and_resident_custody_are_independent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_synthetic_posture_cannot_serialize_as_production",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "b8cc30c72d029b92704e936d146a54d859c7d7e50afe0495d1b16bf70b1cbb3e",
+  "provenance_hash": "d35c98120aad915d12807e2557d6e8c9f1c77c995c94f3dbc773d3a4f1deaad1",
+  "pytest_args": [
+    "tests/test_production_self_reflection_campaign.py",
+    "tests/test_production_self_reflection_campaign_cli.py",
+    "tests/test_resident_cognitive_model_transition_experiment.py",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-postmerge-seq386/bin/python",
+  "repo_root": "/workspace/SentientOS-postmerge-seq386",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "cff366b3cb724e72922ea8f8d94e29c9",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_production_self_reflection_campaign.py::test_production_readiness_success_and_synthetic_failure",
+    "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]",
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[1]",
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]",
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_does_not_reinitialize_missing_progress",
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_rejects_non_object_state_without_reinitializing",
+    "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_revalidates_completed_receipt_custody",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[missing-campaign_receipt_unavailable]",
+    "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[tampered-trial_receipt_tampered]",
+    "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[missing-campaign_receipt_unavailable]",
+    "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[tampered-trial_receipt_tampered]",
+    "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot",
+    "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption",
+    "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry",
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[reordered]",
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[duplicate]",
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[next_trial]",
+    "tests/test_production_self_reflection_campaign.py::test_run_and_report_preserve_interrupted_trial_no_retry",
+    "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation",
+    "tests/test_production_self_reflection_campaign.py::test_interrupted_campaign_is_no_retry",
+    "tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction",
+    "tests/test_production_self_reflection_campaign.py::test_missing_real_models_writes_precise_not_ready_artifact",
+    "tests/test_production_self_reflection_campaign.py::test_negative_and_null_scores_are_valid_evidence",
+    "tests/test_production_self_reflection_campaign_cli.py::test_cli_run_one_rejects_unverified_json_before_campaign_access",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_real_owner_temporal_rehearsal_retrieves_exact_b_record",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_requires_verified_record_receipt_pairs",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_developmental_boundary_preserves_verified_empty_history",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_completed_stage_reconstructs",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_tail",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_operator_request_provenance_does_not_replace_the_quiescence_capability",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_serving_stage_rejects_malformed_quiescence_request_linkage",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_failed_effectful_stage_is_not_replayable_after_reconstruction",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_unresolved_attempt_is_not_replayable",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_journal_protocol_and_stage_approval_tamper",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_quiescence_timeout_and_inference_denied_while_quiesced",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_activation]",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[b_serving]",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_activation]",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_subordinate_denial_or_failure_interrupts_without_retry_or_rollback[a_serving]",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_skip_is_rejected",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_slot_rejects_bind_without_quiescence",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_synthetic_approval_rejected_in_production",
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_binding_grants_no_authority_and_binds_activation_predecessor",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_exact_definition_shape_and_future_request_is_eligible",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[missing]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[extra]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_effect_surface_is_exact_and_duplicate_free[duplicate]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_wrong_subsystem_and_principal_fail",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[preregistered resident cognitive transition protocol]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact operator approval]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact current resident cognitive serving identity]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[developmental history boundary snapshot]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[bounded resident cognition quiescence]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate model activation admission]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[transition stage resident serving binding]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate resident model serving admission]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[separate local model inference admission]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact successor resident cognitive identity]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[exact predecessor restoration]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[explicit one stage transition advance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical activation ownership preserved]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[canonical production chat serving preserved]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[no automatic retry or rollback]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_required_affirmative_phrase_is_mandatory[durable resident cognitive transition journal and receipt]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary activation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model selection]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model path]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary model artifact]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary runtime]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[arbitrary filesystem]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit successor selection]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[implicit predecessor selection]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[current model alias]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[latest model alias]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[default model alias]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[wildcard model]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model selection]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous model acquisition]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model acquisition]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[model commissioning]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[catalog mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation authority]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation approval issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[activation admission issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic activation mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[bypass activation compare and swap]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip expected prior activation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[direct model load authority]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[generic model serving]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving approval issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[serving admission issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference authority]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background inference]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous inference]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[developmental history mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical user memory mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[startup resident serving config mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[rewrite startup activation binding]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[reuse stale startup serving configuration]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic activation following]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[automatic resident rebind]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[hot model switching]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[skip cognition quiescence]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[inference during transition quiescence]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resume before exact successor serving]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic rollback]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic restoration]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[permit automatic retry]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[replay failed transition stage]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repeat transition until success]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[loop transition stages]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[autonomous cadence]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[background transition]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[production chat replacement]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[canonical production serving mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[provider invocation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[network authority]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[credential management]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[tool authority]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[host actuation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[repository mutation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[resource allocation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[policy creation]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[authority widening]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[grant issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[admission issuance]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[self grant]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[identity conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[continuity conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[selfhood conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[sentience conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[consciousness conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_every_forbidden_scope_blocks[learning conclusion]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_digest_bound_registration_succeeds_and_grants_nothing",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[definition]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[operator]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[task]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[evidence_digest]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_binding_mutations_fail[duplicate]",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_existing_authorities_runtime_and_startup_binding_are_unchanged",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_registration_has_no_runtime_transition_surface",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_cli_happy_uses_real_serving_bridge_and_cognition_owner",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_activation_change_invalidates_without_successor_or_fallback",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_production_chat_and_resident_custody_are_independent",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_synthetic_posture_cannot_serialize_as_production"
+  ],
+  "selection_flags": [
+    "tests/test_production_self_reflection_campaign.py",
+    "tests/test_production_self_reflection_campaign_cli.py",
+    "tests/test_resident_cognitive_model_transition_experiment.py",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 151,
+  "tests_executed": 151,
+  "tests_failed": 0,
+  "tests_passed": 151,
+  "tests_selected": 151,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-18T18:56:55.556275+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
