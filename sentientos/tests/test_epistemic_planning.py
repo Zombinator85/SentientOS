@@ -231,3 +231,45 @@ def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan
         target_identity_observed_at="tick-2",
         planning_time="tick-2",
     ) == "epistemic_review_required"
+
+    # A positive position must not short-circuit review of a second tagged
+    # position. The result is independent of the bounded projection's order.
+    positive_scope = scopes[proposition.proposition_id]
+    mixed_positive_first = {
+        proposition.proposition_id: positive_scope,
+        spoofed.proposition_id: adverse_scopes[spoofed.proposition_id],
+    }
+    mixed_adverse_first = dict(reversed(tuple(mixed_positive_first.items())))
+    mixed_tags = (
+        f"epistemic_proposition:{proposition.proposition_id}",
+        f"epistemic_proposition:{spoofed.proposition_id}",
+        "epistemic_task_family:integer_affine_prediction",
+    )
+    review_kwargs = {
+        "target_active_model_identity_digest": "sha256:" + "a" * 64,
+        "target_identity_observed_at": "tick-2",
+        "planning_time": "tick-2",
+    }
+    assert epistemic_review_reason_for_goal(
+        mixed_tags, mixed_positive_first, **review_kwargs
+    ) == "epistemic_review_required"
+    assert epistemic_review_reason_for_goal(
+        mixed_tags, mixed_adverse_first, **review_kwargs
+    ) == "epistemic_review_required"
+
+    omitted = {
+        "p-omitted": {
+            "omitted_from_prior_projection": True,
+            "omitted_state_identity": {"proposition_id": "p-omitted"},
+        },
+        proposition.proposition_id: positive_scope,
+    }
+    assert epistemic_review_reason_for_goal(
+        (
+            f"epistemic_proposition:{proposition.proposition_id}",
+            "epistemic_proposition:p-omitted",
+            "epistemic_task_family:integer_affine_prediction",
+        ),
+        omitted,
+        **review_kwargs,
+    ) == "epistemic_applicability_unresolved"

@@ -79,27 +79,34 @@ def epistemic_review_reason_for_goal(tags: Sequence[str],
         planning_time: str | None = None) -> str | None:
     """Require explicit family/model applicability before a goal can consume a reviewed position."""
     tag_set = set(tags)
+    unresolved = False
+    review_required = False
     for proposition_id, scope in review_scopes.items():
         if f"epistemic_proposition:{proposition_id}" not in tag_set:
             continue
         if scope.get("omitted_from_prior_projection") is True:
-            return "epistemic_applicability_unresolved"
+            unresolved = True
+            continue
         family_id = scope.get("task_family_id")
         identity_digest = scope.get("active_model_identity_digest")
         if family_id is not None:
             if not isinstance(family_id, str) or not family_id:
-                return "epistemic_applicability_unresolved"
+                unresolved = True
+                continue
             if f"epistemic_task_family:{family_id}" not in tag_set:
-                return "epistemic_applicability_unresolved"
+                unresolved = True
+                continue
             if (not isinstance(identity_digest, str) or len(identity_digest) != 71
                     or not identity_digest.startswith("sha256:")
                     or any(character not in "0123456789abcdef" for character in identity_digest[7:])):
-                return "epistemic_applicability_unresolved"
+                unresolved = True
+                continue
             if (not isinstance(target_active_model_identity_digest, str)
                     or target_active_model_identity_digest != identity_digest
                     or not isinstance(target_identity_observed_at, str)
                     or target_identity_observed_at != planning_time):
-                return "epistemic_applicability_unresolved"
+                unresolved = True
+                continue
         if identity_digest is not None:
             if (not isinstance(identity_digest, str) or len(identity_digest) != 71
                     or not identity_digest.startswith("sha256:")
@@ -107,9 +114,13 @@ def epistemic_review_reason_for_goal(tags: Sequence[str],
                     or target_active_model_identity_digest != identity_digest
                     or not isinstance(target_identity_observed_at, str)
                     or target_identity_observed_at != planning_time):
-                return "epistemic_applicability_unresolved"
-        if scope.get("position_posture") == "verified_positive_current":
-            return None
+                unresolved = True
+                continue
+        if scope.get("position_posture") != "verified_positive_current":
+            review_required = True
+    if unresolved:
+        return "epistemic_applicability_unresolved"
+    if review_required:
         return "epistemic_review_required"
     return None
 
