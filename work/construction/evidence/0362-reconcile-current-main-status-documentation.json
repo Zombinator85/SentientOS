@@ -1,0 +1,88 @@
+{
+  "documentation": {
+    "changed_paths": [
+      "README.md",
+      "docs/architecture/sentientos_project_thesis.md"
+    ],
+    "current_source_commit_bound": "fff5b64b2808b4e69b930aa602dd93b779b695a0",
+    "current_tree_bound": "10b18933aca56ddabeed146a20274adae0aa6de9",
+    "developmental_claims_distinguish_composition_from_production_evidence": true,
+    "historical_atlas_identity_preserved": true,
+    "stale_main_and_runtime_references_corrected": true
+  },
+  "exact_main_verification": {
+    "accepted_nodes": 29,
+    "accepted_nodes_failed": 0,
+    "accepted_nodes_passed": 29,
+    "administrator_uid": 0,
+    "audit_immutability_ok": true,
+    "ci": "success",
+    "ci_run_id": 39111951733,
+    "codex_ci": "success",
+    "codex_ci_run_id": 39111951757,
+    "docker": "success",
+    "docker_run_id": 39111951714,
+    "docs_deploy": "success",
+    "docs_deploy_run_id": 39111951763,
+    "forge_smoke": "skipped_configured",
+    "forge_smoke_run_id": 39111951724,
+    "invariants": "success",
+    "invariants_run_id": 39111951730,
+    "qg_artifact_bytes": 11211,
+    "qg_artifact_id": 12130598763,
+    "qg_artifact_sha256": "86f12cfd68d7d2646c42139cd879dacd319be54bf1dcd3719ddd27c984c7cc37",
+    "qg_run_id": 39111951735,
+    "strict_audit_ok": true
+  },
+  "federation_and_nightly_status": {
+    "current_main_scheduled_run": "not_observed_as_of_2026-10-18T08:38:42Z",
+    "federation_workflow_blob": "0c61426532cd1a99f1c58565a6d8fb7fd52b0617",
+    "fixture_publication": "not_executed",
+    "latest_scheduled_run_id": 39083395122,
+    "latest_scheduled_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "nightly_push_verification_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "scheduled_nightly_current_main": "pending"
+  },
+  "local_custody_before_append": {
+    "segments_verified": 361,
+    "status": "construction_continuation_custody_ready"
+  },
+  "local_validation": {
+    "canonical_command": "python -m scripts.run_tests -q tests/test_architecture_docs_freshness.py",
+    "canonical_result": "dependency_bootstrap_failed_before_collection",
+    "cause": "sandbox package proxy network denied; setuptools>=78.1.1 unavailable",
+    "git_diff_check": "passed",
+    "hosted_candidate_validation": "pending",
+    "source_failure": false,
+    "sphinx_version_check": "failed: Sphinx is not installed",
+    "tests_collected": 0,
+    "tests_executed": 0
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0361-verify-sequence360-merge-and-postmerge-gates.json",
+    "evidence_sha256": "17fc47a5a7e2ff8218e4e5b1e63f4551824297e2255d3e3a4fe2cfc252235203",
+    "segment_path": "work/construction/segments/0361-verify-sequence360-merge-and-postmerge-gates.md",
+    "segment_sha256": "2b33e72eb7cc73ba0a88628b899e629ce13476818fe135d6828f273e59bdcddc",
+    "sequence": 361
+  },
+  "preservation": {
+    "authority_changed": false,
+    "runtime_source_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2804,
+  "segment_path": "work/construction/segments/0362-reconcile-current-main-status-documentation.md",
+  "segment_sha256": "44ccc5f73964d14660a3efcc8dd31037b19857cb0334f71466e69c5748388169",
+  "sequence": 362,
+  "source": {
+    "branch": "main",
+    "commit": "fff5b64b2808b4e69b930aa602dd93b779b695a0",
+    "latest_runtime_source_commit": "007000a28e1759d7b700cccfaa63f110dd0a6c41",
+    "latest_runtime_source_tree": "24c506d8a7977486ead5edb3a11b615f513c04ab",
+    "tree": "10b18933aca56ddabeed146a20274adae0aa6de9",
+    "verified_at": "2026-10-18T08:38:42Z"
+  },
+  "title": "Reconcile README and project thesis to current main evidence"
+}
