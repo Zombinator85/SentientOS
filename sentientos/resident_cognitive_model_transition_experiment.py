@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
+from .resident_developmental_writeback import DevelopmentalWritebackError
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from .local_runtime_provisioning import semantic_digest
 
@@ -82,23 +83,39 @@ def digest(value: Mapping[str, Any]) -> str:
                                       separators=(",", ":")) + "\n").encode()).hexdigest()
 
 
-def history_boundary(records: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
-    """Compatibility helper for tests; runtime composition uses the durable store helper."""
+def history_boundary(records: Sequence[Mapping[str, Any]],
+        writeback_receipts: Sequence[Mapping[str, Any]] | None = None) -> Mapping[str, Any]:
+    """Build a deterministic boundary; omitted receipts are test-only fixtures."""
     exact = [_plain(x) for x in records]
-    body = {"schema_version": "sentientos.developmental_history_boundary:v2", "records": exact,
+    if writeback_receipts is None:
+        receipts = [{"receipt_id": "test-writeback-" + str(record.get("record_id", "unknown")),
+            "receipt_digest": "sha256:" + digest({"test_receipt_for": record.get("record_id"),
+                "record_digest": record.get("record_digest")}),
+            "record_id": record.get("record_id"),
+            "record_digest": record.get("record_digest")} for record in exact]
+    else:
+        receipts = [_plain(x) for x in writeback_receipts]
+    body = {"schema_version": "sentientos.developmental_history_boundary:v3", "records": exact,
             "record_ids": [x.get("record_id") for x in exact],
             "record_digests": [x.get("record_digest") for x in exact],
-            "writeback_receipt_ids": [], "writeback_receipt_digests": []}
+            "writeback_receipt_ids": [x.get("receipt_id") for x in receipts],
+            "writeback_receipt_digests": [x.get("receipt_digest") for x in receipts],
+            "writeback_receipt_record_ids": [x.get("record_id") for x in receipts],
+            "writeback_receipt_record_digests": [x.get("record_digest") for x in receipts]}
     body["record_set_digest"] = digest({"record_ids": body["record_ids"],
                                          "record_digests": body["record_digests"]})
     return MappingProxyType({**body, "boundary_digest": digest(body)})
 
 
-def developmental_history_boundary(*, store: Any, composition_state_path: Path,
+def developmental_history_boundary(*, writeback: Any, composition_state_path: Path,
                                    activation: Mapping[str, Any], session: Any) -> Mapping[str, Any]:
     """Verify and bind the complete durable developmental history boundary."""
-    records = [asdict(record) for record in store.records()]
-    receipts = [asdict(receipt) for receipt in store.receipts()]
+    try:
+        completed_pairs = writeback.inspect_completed_records()
+    except (DevelopmentalWritebackError, OSError, TypeError, ValueError) as exc:
+        raise TransitionError("developmental_history_writeback_pair_verification_failed") from exc
+    records = [asdict(record) for record, _receipt in completed_pairs]
+    receipts = [asdict(receipt) for _record, receipt in completed_pairs]
     try:
         state_bytes = read_explicit_file(composition_state_path, max_bytes=16_777_216)
     except WindowsHandleCustodyError as exc:
@@ -117,7 +134,7 @@ def developmental_history_boundary(*, store: Any, composition_state_path: Path,
             raise TransitionError("composition_state_tamper")
     else:
         state = {"schema": "absent", "completed_ticks": [], "state_digest": digest({"state": "absent"})}
-    boundary = dict(history_boundary(records))
+    boundary = dict(history_boundary(records, receipts))
     body = {**boundary,
             "writeback_receipt_ids": [x["receipt_id"] for x in receipts],
             "writeback_receipt_digests": [x["receipt_digest"] for x in receipts],

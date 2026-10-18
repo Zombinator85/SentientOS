@@ -3204,14 +3204,22 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     receipt_ids = boundary.get("writeback_receipt_ids")
     receipt_digests = boundary.get("writeback_receipt_digests")
-    if (boundary.get("schema_version") != "sentientos.developmental_history_boundary:v2"
+    receipt_record_ids = boundary.get("writeback_receipt_record_ids")
+    receipt_record_digests = boundary.get("writeback_receipt_record_digests")
+    if (boundary.get("schema_version") != "sentientos.developmental_history_boundary:v3"
             or not isinstance(receipt_ids, (list, tuple))
             or not isinstance(receipt_digests, (list, tuple))
+            or not isinstance(receipt_record_ids, (list, tuple))
+            or not isinstance(receipt_record_digests, (list, tuple))
             or len(receipt_ids) != len(receipt_digests)
+            or len(receipt_ids) != len(receipt_record_ids)
+            or len(receipt_ids) != len(receipt_record_digests)
             or any(not isinstance(item, str) or not item for item in receipt_ids)
             or len(set(receipt_ids)) != len(receipt_ids)
             or any(not isinstance(item, str) or not item.startswith("sha256:")
-                for item in receipt_digests)):
+                for item in receipt_digests)
+            or receipt_record_ids != boundary.get("record_ids")
+            or receipt_record_digests != boundary.get("record_digests")):
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     resident_records: dict[str, str] = {}
     actual_record_ids: list[str] = []
@@ -3336,7 +3344,7 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
             "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"],
             "activation_history_digest": semantic_digest({"activation_history": list(activation_history)}),
             "commissioning_active_model_identity": dict(verified["commissioning_active_model_identity"])}
-        return cast(Mapping[str, Any], developmental_history_boundary(store=developmental_owner.writeback.store,
+        return cast(Mapping[str, Any], developmental_history_boundary(writeback=developmental_owner.writeback,
             composition_state_path=developmental_owner.state_path,
             activation=activation, session=current_session.to_dict() if current_session is not None else None))
 

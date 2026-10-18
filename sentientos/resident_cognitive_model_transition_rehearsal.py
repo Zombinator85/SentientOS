@@ -177,7 +177,7 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         activation_value = _activation(verified,
             activation_history_digest=semantic_digest({"activation_history": list(verified["activation_history"])}),
             commissioning_active_model_identity=verified["commissioning_active_model_identity"])
-        return developmental_history_boundary(store=cognition.writeback.store,
+        return developmental_history_boundary(writeback=cognition.writeback,
             composition_state_path=cognition.state_path,
             activation=activation_value, session=session.to_dict() if session is not None else None)
 

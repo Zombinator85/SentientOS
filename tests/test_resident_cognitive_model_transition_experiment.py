@@ -14,6 +14,9 @@ from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.resident_cognitive_model_transition_experiment import *
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
+from sentientos.resident_developmental_writeback import (
+    DevelopmentalRecord, DevelopmentalWritebackError, WritebackReceipt,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 24, 12, tzinfo=timezone.utc)
@@ -154,6 +157,45 @@ def test_real_owner_temporal_rehearsal_retrieves_exact_b_record(tmp_path):
             != result["b_observation_inference_admission_decision_ref"])
     index = result["restored_a_retrieved_record_ids"].index(result["b_developmental_record_id"])
     assert result["restored_a_retrieved_record_digests"][index] == result["b_developmental_record_digest"]
+
+
+def test_developmental_boundary_requires_verified_record_receipt_pairs(tmp_path):
+    record = DevelopmentalRecord(record_id="devrec-1", record_digest="sha256:" + "a" * 64,
+        candidate={"candidate_id": "devcand-1", "candidate_digest": "sha256:" + "b" * 64},
+        admission_id="admission-1", admission_binding_digest="sha256:" + "c" * 64,
+        principal="resident-cognition", operation_id="operation-1",
+        correlation_id="correlation-1", created_at="2026-10-18T00:00:00+00:00")
+    receipt = WritebackReceipt(receipt_id="devreceipt-1", receipt_digest="sha256:" + "d" * 64,
+        record_id=record.record_id, record_digest=record.record_digest,
+        candidate_id="devcand-1", candidate_digest="sha256:" + "b" * 64,
+        admission_id="admission-1", admission_binding_digest="sha256:" + "c" * 64,
+        principal="resident-cognition", operation_id="operation-1", storage_verified=True)
+
+    class Writeback:
+        def __init__(self):
+            self.inspections = 0
+
+        def inspect_completed_records(self):
+            self.inspections += 1
+            return ((record, receipt),)
+
+    writeback = Writeback()
+    boundary = developmental_history_boundary(writeback=writeback,
+        composition_state_path=tmp_path / "composition.json", activation={}, session={})
+    assert writeback.inspections == 1
+    assert boundary["schema_version"] == "sentientos.developmental_history_boundary:v3"
+    assert boundary["record_ids"] == [record.record_id]
+    assert boundary["writeback_receipt_record_ids"] == [record.record_id]
+    assert boundary["writeback_receipt_record_digests"] == [record.record_digest]
+
+    class IncompleteWriteback:
+        def inspect_completed_records(self):
+            raise DevelopmentalWritebackError("durable_writeback_receipt_missing")
+
+    with pytest.raises(TransitionError,
+            match="developmental_history_writeback_pair_verification_failed"):
+        developmental_history_boundary(writeback=IncompleteWriteback(),
+            composition_state_path=tmp_path / "composition.json", activation={}, session={})
 
 
 def test_completed_stage_reconstructs(tmp_path):
