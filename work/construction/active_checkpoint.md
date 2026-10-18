@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-Latest verified main before sequence 372: signed regular merge `a205fdeb280e5488ff6216ab54d7d1800dc0bee8`, tree `a378b176cff01d46697c351944051d5c01af71d0`, sequences 369–371 merged through PR #2361. Candidate and post-merge CI, QG, Docker, Invariants, Docs Deploy, and Codex CI passed on that main. The historical sequence-368 base was `0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91` (tree `75f898f777ed66d6c0306d3b3215f0773b341184`).
+Latest verified main after sequence 372: signed regular merge `fa8a934ed34bb50b0988aeb0fd829a8806d132f8`, tree `a67c9c115990317c79e98f6edb5ae619e2d6cb25`, PR #2362. Required Quality Gate, CI, Docker, invariants, Gradient, Codex CI, lint, and Release passed on candidate `09417da4c869233587c3640f24a9378376b6a294`; all six changed blobs were independently read back from main with the expected Git blob IDs. The available GitHub connector does not return push-triggered post-merge workflow runs, so post-merge check conclusions remain unobserved.
 
 The scheduled Federation Health evidence gap is now closed for this exact main source. Run #39122005777 (`schedule`, source `0e2a7bff…`) passed the Administrator preflight, privileged generator, and publisher; fixture was skipped as designed. Independently verified artifact #12134432857, SHA-256 `293290a30e85dd3cf3e80e2c7c09948827f3f08a8b85958fbd9d3278d84d2a2d`, reports 1 node, 0 recent events, `quiet`. Publisher output was `pull-request-operation = none` because report bytes matched main. This is not changed-output fixture proof.
 
@@ -27,6 +27,14 @@ Canonical targeted tests passed: 40 passed, 0 skipped across resource observatio
 
 The changed-output Federation Health fixture still requires repository setting `Allow GitHub Actions to create and approve pull requests`; do not represent the prior denied run as publication proof. Sequence-286 provenance loss remains unresolved. The stale sequence-178 and sequence-368 workspaces remain untouched.
 
-Latest construction segment: `work/construction/segments/0372-restore-construction-index-and-bind-resource-observations.md`
-Latest segment SHA-256: `eb93ff0ed9d9d31cc4556ab814ecb380d5d3362cf003d81bbf500fdd966d476c`
-Sequence: 372
+Sequence 373 starts from exact merged main `fa8a934ed34bb50b0988aeb0fd829a8806d132f8`, tree `a67c9c115990317c79e98f6edb5ae619e2d6cb25`. PR #2362 candidate `09417da4c869233587c3640f24a9378376b6a294` passed the hosted Required Quality Gate (including Administrator strict audit, exact call-phase acceptance, and hosted landing finalizer), CI, Docker, invariants, Gradient, Codex CI, lint, and Release. GitHub main readback returned the exact six candidate blob IDs. The connector's commit-run endpoint filters to PR-triggered runs and returned none for the merge commit; its combined status endpoint returned no simple statuses. A direct read-only GitHub REST request was blocked by the sandbox proxy. Post-merge workflow conclusions are therefore unknown, not successful by implication.
+
+Sequence 373 adds an adversarial failure-path regression for the resource observation snapshot cache. A transient first owner read fails World-State and same-tick causal introspection consistently with one owner call; the next tick retries exactly once and both projections recover from the same successful snapshot. This adds no runtime behavior or authority.
+
+The relevant resource/introspection/runtime regression set passed 82/82 with zero skips on the exact merged source tree. The repository mypy baseline reported zero new errors and 40 retired error records; py_compile, diff check, and continuation custody verification passed.
+
+The next developmental evidence dependency remains a real, longitudinal resident A→B→A trial with exact commissioned hardened model identities and separate operator approvals. No production inference was started. The Federation Health changed-output fixture still needs the repository Actions PR-creation setting enabled; sequence-286 provenance loss remains unresolved. The stale sequence-178 and sequence-368 workspaces remain untouched.
+
+Latest construction segment: `work/construction/segments/0373-bind-resource-read-failure-to-tick.md`
+Latest segment SHA-256: `a4c3b484d94aa5db159ea1a00ed8ce04a8e2406dbfc7147bbd7d3e3d30edea37`
+Sequence: 373

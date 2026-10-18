@@ -1,0 +1,91 @@
+{
+  "sequence": 373,
+  "title": "Bind resource-owner read failure and recovery to tick boundaries",
+  "source": {
+    "commit": "fa8a934ed34bb50b0988aeb0fd829a8806d132f8",
+    "tree": "a67c9c115990317c79e98f6edb5ae619e2d6cb25",
+    "relation": "exact merged main after sequence 372"
+  },
+  "merged_candidate": {
+    "pull_request": 2362,
+    "candidate_commit": "09417da4c869233587c3640f24a9378376b6a294",
+    "merge_commit": "fa8a934ed34bb50b0988aeb0fd829a8806d132f8",
+    "merge_method": "merge",
+    "candidate_tree": "a67c9c115990317c79e98f6edb5ae619e2d6cb25",
+    "candidate_checks": {
+      "required_quality_gate": {
+        "run_id": 39124647562,
+        "conclusion": "success",
+        "hosted_administrator_strict_audit": true,
+        "hosted_finalizer": true,
+        "acceptance_nodes": "passed"
+      },
+      "ci": {
+        "run_id": 39124647582,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39124647574,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39124647587,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "run_id": 39124647602,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39124647596,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39124647601,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39124647647,
+        "conclusion": "success"
+      }
+    },
+    "main_blob_readback": {
+      "sentientosd.py": "e5edeef6f6065da203c0904e4f10ed3de908b21f",
+      "sentientos/tests/test_resource_observation_world_state_integration.py": "28b3adc46f419228ab959f41cc02f2d3e592b25f",
+      "work/construction/active_checkpoint.md": "3c2739786d590522593b919f44fccbf31128a3f0",
+      "work/construction/index.json": "7020cff2a94bdb81f2af96667f580559c998732b",
+      "work/construction/segments/0372-restore-construction-index-and-bind-resource-observations.md": "afdc40ebf59921942ac06f12ea0287d09d3c8bf9",
+      "work/construction/evidence/0372-restore-construction-index-and-bind-resource-observations.json": "7469194f02b4f063ab5da318d2af07bd13552f39"
+    },
+    "post_merge_workflow_observability": {
+      "conclusion": "unknown",
+      "reason": "available GitHub connector filters commit workflow runs to pull_request events; merge commit returned no runs and combined simple-status endpoint returned none; sandbox proxy denied direct GitHub REST read"
+    }
+  },
+  "failure_path_regression": {
+    "test_node": "sentientos/tests/test_resource_observation_world_state_integration.py::test_resource_owner_failure_is_cached_until_next_tick",
+    "same_tick": "one failing owner read is shared across World-State and causal introspection; both fail closed without retry",
+    "next_tick": "one fresh owner read succeeds and both projections use the same identity and manifest digest",
+    "authority_added": false,
+    "runtime_behavior_changed": false
+  },
+  "verification": {
+    "targeted_command": "python -m scripts.run_tests -q sentientos/tests/test_resource_observation_world_state_integration.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py tests/test_host_resource_runtime.py tests/test_production_chat_resource_observation_recovery.py tests/test_causal_introspection.py",
+    "tests_passed": 82,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "mypy_baseline_status": "mypy_baseline_improved",
+    "mypy_new_errors": 0,
+    "mypy_retired_error_records": 40,
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "construction_continuation_custody": "passed"
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "unresolved_and_preserved",
+    "sequence_368_workspace": "untouched",
+    "prior_segments": "append-only"
+  },
+  "outcome": "the transient owner-read failure is consistent across same-tick projections and retries only on the next tick; main merge verified by exact commit and source blob readback, while push-triggered post-merge job conclusions remain unobserved."
+}
