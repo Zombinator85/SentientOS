@@ -1,0 +1,277 @@
+{
+  "architecture": {
+    "implemented_and_composed": "daemon resident cognition, developmental writeback and retrieval, exact A/B protocol/provenance/history boundary checks, staged model replacement, live operator ingress, process-local quiescence, and synthetic temporal A\u2192B\u2192A rehearsal",
+    "next_required_evidence": "real longitudinal resident A\u2192B\u2192A using exact commissioned hardened A/B model identities and receipts, exact installation/runtime/environment/software lineage, and separately operator-approved activation, serving, and trial protocol",
+    "no claim": "storage, retrieval, synthetic output change, or scheduled health telemetry does not prove developmental learning or improvement",
+    "process_death_quiescence_recovery": "deferred; journal cannot recreate process-local token",
+    "production_inference_started": false,
+    "runtime_or_cognition_change": "none"
+  },
+  "base": {
+    "commit": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+    "tree": "75f898f777ed66d6c0306d3b3215f0773b341184"
+  },
+  "federation_health": {
+    "changed_output_fixture": {
+      "failed_prior_run": 39119356695,
+      "failure": "repository setting disallows GitHub Actions token to create pull requests",
+      "next_safe_action": "After setting is enabled, manually dispatch Federation Health Update with publication_fixture=true; workflow verifies a one-file draft PR and closes it without merging.",
+      "required_setting": "Allow GitHub Actions to create and approve pull requests",
+      "status": "unproven",
+      "workflow_write_permissions": "contents:write and pull-requests:write only on publish job; health generator remains contents:read"
+    },
+    "post_merge_push_run": {
+      "artifact_id": 12133609391,
+      "artifact_sha256": "1e3de743c4c74bc3b82181a5b00b9ff89e3e2d12afc369be5537489ee1558bdf",
+      "conclusion": "success",
+      "event": "push",
+      "publisher_operation": "none",
+      "report": {
+        "nodes": 1,
+        "recent_events": 0,
+        "status": "quiet"
+      },
+      "run_id": 39120414947,
+      "source_commit": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91"
+    },
+    "scheduled_run": {
+      "administrator_preflight": "success",
+      "artifact_id": 12134432857,
+      "artifact_independently_downloaded_and_verified": true,
+      "artifact_sha256": "293290a30e85dd3cf3e80e2c7c09948827f3f08a8b85958fbd9d3278d84d2a2d",
+      "conclusion": "success",
+      "created_at": "2026-10-18T11:08:02Z",
+      "event": "schedule",
+      "jobs": {
+        "fixture": "skipped_as_designed",
+        "health": "success",
+        "publish": "success"
+      },
+      "privileged_generator": "success",
+      "publisher": {
+        "head_sha": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+        "pull_request_operation": "none",
+        "reason": "generated report matched main"
+      },
+      "report": {
+        "nodes": 1,
+        "recent_events": 0,
+        "status": "quiet"
+      },
+      "run_id": 39122005777,
+      "source_commit": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+      "status": "completed"
+    }
+  },
+  "local_verification": {
+    "construction_custody_before_append": {
+      "failures": [],
+      "segments_verified": 368,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs": {
+      "command": "python scripts/build_docs.py --check-deps && python scripts/build_docs.py",
+      "dependencies": "available",
+      "pages_generated": 614,
+      "result": "success"
+    },
+    "git_diff_check": "passed",
+    "relevant_test_nodes_passed": [
+      "test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+      "test_federation_health_schedule_avoids_top_of_hour_load_spike",
+      "test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits",
+      "test_nightly_self_check_installs_canonical_test_dependencies",
+      "test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access",
+      "test_nightly_workflows_have_path_scoped_main_push_triggers",
+      "test_federation_health_fixture_keeps_generator_read_only_and_cleans_up",
+      "test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed"
+    ],
+    "source_commit": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+    "source_tree": "75f898f777ed66d6c0306d3b3215f0773b341184",
+    "superseded_environment_attempts": [
+      {
+        "cause": "sandbox network disabled while pip needed setuptools>=78.1.1",
+        "outcome": "bootstrap_failed",
+        "run_id": "5c8b956a8c564a38a27d23a524fb825f"
+      },
+      {
+        "cause": "default interpreter attempted to replace entrypoints under read-only /home/agent/.local/bin",
+        "outcome": "bootstrap_failed",
+        "run_id": "f54c8ab9d50a400b940ec26debbe409f"
+      }
+    ],
+    "superseded_validation_attempts": [
+      {
+        "cause": "a transcribed source-tree ID in the active index binding and new segment did not match the independently fetched GitHub commit tree and local Git tree",
+        "failure": "active_checkpoint_source_identity_contradiction",
+        "first_result": "invalid",
+        "post_correction_failures": [],
+        "post_correction_result": "construction_continuation_custody_ready",
+        "post_correction_verified_segments": 369,
+        "resolution": "corrected the index binding and segment to the exact tree 75f898f777ed66d6c0306d3b3215f0773b341184; the checkpoint and public status docs already contained the correct tree",
+        "tool": "scripts.verify_construction_continuation_custody"
+      }
+    ],
+    "test_artifact_capture": {
+      "artifacts": {
+        "20261018T105113Z_0e2a7bffde23_4ccf38a1721440d088b074a527828512.json": "e85d5c93903edecdcd609461aea2ae23449db33ebae6c75bfa730b5b55e0adcd",
+        "20261018T105138Z_0e2a7bffde23_8e7026f9ceda498da519d1174aef6410.json": "aa3fa0feefc70869f516111118a1dbd314cd43e2e018e1b059bc33abed40cbff",
+        "20261018T105201Z_0e2a7bffde23_a4d79110c99041a5a223dd3a6fbca86b.json": "9f7bda51894754979298f4d2586cde021c3016e03f6904f4f6e3f2738851294b",
+        "preexisting-test_failure_digest.json": "90b5d81e3df93635e9c6465b8396678bfc9dd0d3182bf0348950eb9cbe28a5f8",
+        "preexisting-test_run_provenance.json": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+        "pytest_junitxml_88aa4f3d19d24cfe89562bf2285dd8b7.xml": "21be6c4bfd9cbb794c725856a762aa2ac4f40ec5d0b4fb7459107a316e7c6bcd",
+        "pytest_report_65b8e156d652492588a6883fb370c477.json": "a5d7d93770703b419fc2a3f3e86335c4db493b954395a48fc0d8b3ee7c7cd59b",
+        "test_run_provenance.json": "9f7bda51894754979298f4d2586cde021c3016e03f6904f4f6e3f2738851294b"
+      },
+      "capture_manifest_sha256": "013f734fc39b637b7b9bf1162a4cfc2fbb272f5bcb01c1d994857c12cd651c8c",
+      "cleanup": "five exact newly generated transient artifacts removed only after byte capture and hashing; tracked test_failure_digest.json and test_run_provenance.json restored from exact HEAD; fresh checkout returned clean before documentation edits"
+    },
+    "workflow_contract_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py",
+      "failed": 0,
+      "git_sha": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+      "passed": 36,
+      "run_id": "7f58a90897b74791b39ac764526c8eb1",
+      "skipped": 0,
+      "timestamp": "2026-10-18T10:52:01.000224+00:00"
+    }
+  },
+  "main_merge": {
+    "candidate": "f78a538547c4c41a1d396e8ad6108f55ac164276",
+    "candidate_checks": {
+      "ci": 39120110823,
+      "codex_ci": 39120110755,
+      "docker": 39120110869,
+      "gradient": 39120110972,
+      "invariants": 39120110778,
+      "lint": 39120110825,
+      "release": 39120110863,
+      "required_quality_gate": 39120110852
+    },
+    "merge_commit": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+    "parents": [
+      "ef0b3fb8c4ee83d5532582fb4035d1c177f4e404",
+      "f78a538547c4c41a1d396e8ad6108f55ac164276"
+    ],
+    "post_merge_checks": {
+      "ci": 39120414891,
+      "codex_ci": 39120414803,
+      "docker": 39120414825,
+      "docs_deploy": 39120414875,
+      "federation_health_push": 39120414947,
+      "forge_smoke": {
+        "conclusion": "skipped_by_configured_condition",
+        "run_id": 39120414862
+      },
+      "invariants": 39120414830,
+      "required_quality_gate": 39120414844
+    },
+    "quality_gate_artifact": {
+      "acceptance_nodes": {
+        "failed": 0,
+        "passed": 29,
+        "skipped": 0
+      },
+      "artifact_id": 12133469964,
+      "audit_immutability": {
+        "issues": 0,
+        "ok": true
+      },
+      "independently_downloaded_and_verified": true,
+      "repository_sha": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+      "run_id": 39120414844,
+      "sha256": "c1ee049eddf57fda217b354ac02d46f48b54223f0abf4f9fc01ae895d87161be",
+      "strict_audit": {
+        "issues": 0,
+        "ok": true
+      }
+    },
+    "sequence_368_pr": 2359,
+    "signature": "valid",
+    "tree": "75f898f777ed66d6c0306d3b3215f0773b341184"
+  },
+  "nightly_workflows": {
+    "audit_integrity": {
+      "audit_job": "success",
+      "audit_job_token_permissions": "contents:read",
+      "conclusion": "success",
+      "event": "push",
+      "repair_job": "skipped_after_clean_audit",
+      "run_id": 39100678248,
+      "status": "completed",
+      "strict_audit_step": "success"
+    },
+    "current_main_workflow_and_dependency_blobs_match_source_run": true,
+    "event_distinction": "Both workflow runs were push-triggered. Current scheduled workflow executions remain future evidence; these successful runs are reported as push validation only.",
+    "identical_blob_ids": {
+      ".github/workflows/audit-nightly.yml": "70ee1ad16e6dd2a7189d736d48459ec7f5516081",
+      ".github/workflows/nightly-self-check.yml": "0e551c5f6d07a9569519aa30a061feb066a3fb8f",
+      "requirements-codex.txt": "712fdb64a46efe41e22bc3e368a167e3a5724321",
+      "scripts/apply_audit_repairs.py": "1b4a9f50dda0b4a4295b41bf3987f494a44b3102",
+      "scripts/plan_audit_repairs.py": "4d7be95a2a143ba3130adb0f9f2b55f56a4f711d",
+      "scripts/verify_audits.py": "bdfec8e08cdb271d2ee1898bfa00fcdb318052e2"
+    },
+    "self_check": {
+      "artifact_id": 12126526167,
+      "artifact_independently_downloaded_and_verified": true,
+      "artifact_sha256": "7b5b1fa6d80d6e18728b37069e5288ed0061ee12f13feb53f71b076a1b69cf0b",
+      "conclusion": "success",
+      "event": "push",
+      "provenance_git_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+      "run_id": 39100678294,
+      "status": "completed",
+      "successful_steps": [
+        "strict audit",
+        "privilege lint",
+        "mypy",
+        "pytest airlock guard",
+        "pytest"
+      ],
+      "tests": {
+        "collected": 156,
+        "executed": 143,
+        "failed": 0,
+        "passed": 143,
+        "skipped": 13
+      }
+    },
+    "source_run_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c"
+  },
+  "preservation": {
+    "authority_boundaries": "unchanged",
+    "old_fixture_branches": "preserved; no force-update or deletion performed",
+    "preexisting_sequence_368_workspace": "untouched",
+    "remote_codex_construct_sentientos": "untouched",
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved as unresolved historical limitation"
+  },
+  "remaining_limitations": [
+    "Changed-output publisher proof awaits repository Actions PR-creation setting and a manual publication_fixture=true dispatch.",
+    "No schedule-triggered nightly run on the post-368 source has yet occurred; the successful nightly evidence above is source-blob matched push evidence.",
+    "Production temporal resident A\u2192B\u2192A remains blocked on exact commissioned artifacts, receipts, and operator-approved protocol."
+  ],
+  "scope": {
+    "changes": [
+      "README.md",
+      "docs/architecture/sentientos_project_thesis.md",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/segments/0369-reconcile-postmerge-scheduled-workflow-evidence.md",
+      "work/construction/evidence/0369-reconcile-postmerge-scheduled-workflow-evidence.json"
+    ],
+    "runtime_or_authority_changed": false,
+    "source_code_changed": false,
+    "summary": "Reconciles stale public status against exact current main, records independent scheduled Federation Health execution evidence, and records hosted post-fix nightly workflow runs."
+  },
+  "sequence": 369,
+  "source_sha256": {
+    ".github/workflows/audit-nightly.yml": "f565b1a4aa8fc7ebf3d6ee7fc680b6bb48141226ac3ae4f6ea0687762c215d1c",
+    ".github/workflows/federation-health.yml": "ac7eadf1faf4b28ca0adabd4206e3eb99640bf62d2ec212b9ed2b0052ee2d552",
+    ".github/workflows/nightly-self-check.yml": "13353b2aa212b7504a96b6260b061c38a94dc1ae0577a0ae3b6aa244f107074f",
+    "README.md": "a0bb9ddf10f0399da6dddf8c33c62a574e6b443df24add1e00fb83c6bdccb137",
+    "docs/architecture/sentientos_project_thesis.md": "b1529a7d33123db94d86b1b5c4a43797fc55cb52b3fa7907ddac339cd3ac5e83",
+    "sentientos/resident_cognitive_model_transition_experiment.py": "c6e9d100f12a50b44b3639f53ac022ff1927513ef1564bb42547f71ea3882542",
+    "tests/test_github_hosted_acceptance_workflows.py": "70b9f159dc57f0733a3d36dd1e35b5fe9454d6bc87675dc8c0ea9cefdf013230"
+  },
+  "title": "Reconcile post-merge scheduled health and nightly verification evidence"
+}
