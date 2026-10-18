@@ -1,0 +1,160 @@
+{
+  "architecture": {
+    "authority_changed": false,
+    "production_temporal_A_to_B_to_A": "not_executed",
+    "requires": [
+      "commissioned A/B identities and receipts",
+      "distinct external serving approvals",
+      "operator-approved preregistration"
+    ],
+    "resident_temporal_transition_composition": "implemented"
+  },
+  "candidate": {
+    "base": "cd245f623e82cad39265f3c7506d28ca8a88cc4c",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39110669547
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39110669538
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39110669526
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39110669558
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39110669542
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39110669601
+      },
+      "qg": {
+        "acceptance_merge_ref": "34a440f701cc77fe543b54954bece47522d57431",
+        "acceptance_tree": "c7d1944d22088f64c4700a7600b1e3c9705f27c8",
+        "administrator_verified": true,
+        "artifact_bytes": 11202,
+        "artifact_id": 12129919215,
+        "artifact_sha256": "24b81e9fd5e10c14658687642abed42b3affb0d04a910ada6b5a850dbd2de8c9",
+        "audit_immutability_ok": true,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "run_id": 39110669539,
+        "strict_audit_ok": true,
+        "tests_collected": 29,
+        "tests_executed": 29,
+        "tests_failed": 0,
+        "tests_passed": 29
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39110669645
+      }
+    },
+    "finalizer": {
+      "artifact_id": 12130337292,
+      "bytes": 14249,
+      "reasons": [],
+      "sha256": "8fce3e449f3cf5790f597fb76afe387cd8010fa1b42d2dbcf3897fccd8625912",
+      "status": "ready_for_pr_metadata"
+    },
+    "head": "bb4157f5941abc8cb555168c6dd6f1745b937842",
+    "merge": {
+      "commit": "7a9c3ded26cf64b775d7441c72e8442a2ad613c2",
+      "method": "merge",
+      "parents": [
+        "cd245f623e82cad39265f3c7506d28ca8a88cc4c",
+        "bb4157f5941abc8cb555168c6dd6f1745b937842"
+      ],
+      "signature_verified": true,
+      "tree": "c7d1944d22088f64c4700a7600b1e3c9705f27c8"
+    },
+    "pr_number": 2351,
+    "tree": "c7d1944d22088f64c4700a7600b1e3c9705f27c8"
+  },
+  "federation_health": {
+    "08_17_recurrence_preceded_merge": true,
+    "exact_main_run": "not_observed_as_of_2026-10-18T08:27:03Z",
+    "fixture_dispatch": "not_executed_no_dispatch_operation_and_invalid_local_GH_TOKEN",
+    "latest_visible_run_id": 39083395122,
+    "latest_visible_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "next_recurrence": "2026-10-18T09:17:00Z",
+    "operator_action_requested": true,
+    "workflow_schedule": "17 * * * *"
+  },
+  "post_merge_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39111284825
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39111284803
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39111284812
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39111284860
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_configured",
+      "run_id": 39111284867
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39111284788
+    },
+    "qg": {
+      "administrator_verified": true,
+      "artifact_bytes": 11207,
+      "artifact_id": 12130776628,
+      "artifact_sha256": "131fdbc3fce6b85b7c5f54eafaf66271adf3fdcaccbffa12b40e6bd0a999b17f",
+      "audit_immutability_ok": true,
+      "conclusion": "success",
+      "effective_uid": 0,
+      "run_id": 39111284845,
+      "source_sha": "7a9c3ded26cf64b775d7441c72e8442a2ad613c2",
+      "source_tree": "c7d1944d22088f64c4700a7600b1e3c9705f27c8",
+      "strict_audit_ok": true,
+      "tests_collected": 29,
+      "tests_executed": 29,
+      "tests_failed": 0,
+      "tests_passed": 29
+    }
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0360-verify-current-main-federation-schedule-and-publication-path.json",
+    "evidence_sha256": "ce83d3ecfbd4dedf412c0afb8c168cb7c36d654386b31991b024b28d7c580048",
+    "segment_path": "work/construction/segments/0360-verify-current-main-federation-schedule-and-publication-path.md",
+    "segment_sha256": "acd5b8cfd636c0d77abafd4c2ce4185aba06afe56365230a4399a0e59b8b634e",
+    "sequence": 360
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "source_code_changed": false
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 3736,
+  "segment_path": "work/construction/segments/0361-verify-sequence360-merge-and-postmerge-gates.md",
+  "segment_sha256": "2b33e72eb7cc73ba0a88628b899e629ce13476818fe135d6828f273e59bdcddc",
+  "sequence": 361,
+  "source": {
+    "branch": "main",
+    "commit": "7a9c3ded26cf64b775d7441c72e8442a2ad613c2",
+    "live_ref_matches": true,
+    "tree": "c7d1944d22088f64c4700a7600b1e3c9705f27c8",
+    "verified_at": "2026-10-18T08:27:03Z"
+  },
+  "title": "Verify sequence 360 merge and post-merge exact-main gates"
+}
