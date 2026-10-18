@@ -1,10 +1,11 @@
 {
   "defect_and_correction": {
     "authority_changed": false,
-    "correction": "Remove the sentinel from main and make the static workflow contract require its absence. The fixture branch will add the exact sentinel as its only changed path; exact content, current-main parent, and least-privilege checks remain unchanged.",
+    "correction": "Remove the sentinel from main and make the static workflow contract require its absence. The fixture branch will add the exact sentinel as its only changed path; exact content, current-main parent, and least-privilege checks remain unchanged. Extend the proof-artifact upload condition to the exact push-triggered fixture branch and pin it in the contract test.",
     "defect": "Sequence 366 committed the exact fixture sentinel on main while requiring the request commit to change only that path and contain those exact same bytes; a child commit from current main could not satisfy both constraints.",
     "fixture_execution_claimed": false,
     "production_telemetry_fabricated": false,
+    "secondary_defect": "The changed-output proof artifact upload was conditioned only on manual workflow_dispatch input, so the new push-triggered fixture route would not upload independently retrievable cleanup evidence.",
     "source_cause": "work/federation_health_publication_fixture_request.txt was present in the published main tree."
   },
   "developmental_status": {
@@ -41,6 +42,22 @@
     "scheduled_main_run_due": "2026-10-18T10:17:00Z"
   },
   "local_validation": {
+    "after_artifact_upload_fix": {
+      "junit_sha256": "121e68eda5b248802655e2ee7c8f36f7c56257b23314781d149809500599bc6c",
+      "provenance_chain_hash": "dc9f476069610488230c475eb2b556499d1c667347a194bb1827f3f315595624",
+      "provenance_path": "glow/test_runs/provenance/20261018T101034Z_66e066a89d95_45b459496376457b8795112f12d38b86.json",
+      "provenance_sha256": "bf76e65eb943702f05dcc40ba9dba2721e7e0f159c1443efaad7b73e97d41e64",
+      "pytest_report_sha256": "26913fa6741129394924677366f0a8286f7b3e63816b1b01e9c61ddd9723196f",
+      "run_id": "d5d33438b8994a10bcc03a0107aab8c9",
+      "source_commit": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "source_tree": "e902657d660116b6159ff5868970fa5b323582b7",
+      "tests_collected": 35,
+      "tests_executed": 35,
+      "tests_failed": 0,
+      "tests_passed": 35,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    },
     "canonical_runner": "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py",
     "construction_custody_after_append": "construction_continuation_custody_ready; 367 indexed segments and active checkpoint hashes verified",
     "environment_recovery": "reused installed build backend with pip install --no-deps --no-build-isolation -e .; canonical scripts.run_tests retained",
@@ -74,6 +91,18 @@
         {
           "path": "glow/test_runs/pytest_report_9f57efbb45934ce69ec3220532c003f9.json",
           "sha256": "26913fa6741129394924677366f0a8286f7b3e63816b1b01e9c61ddd9723196f"
+        },
+        {
+          "path": "glow/test_runs/provenance/20261018T101034Z_66e066a89d95_45b459496376457b8795112f12d38b86.json",
+          "sha256": "bf76e65eb943702f05dcc40ba9dba2721e7e0f159c1443efaad7b73e97d41e64"
+        },
+        {
+          "path": "glow/test_runs/pytest_junitxml_dbdc813903464eccb6a6d31d8c765bcc.xml",
+          "sha256": "121e68eda5b248802655e2ee7c8f36f7c56257b23314781d149809500599bc6c"
+        },
+        {
+          "path": "glow/test_runs/pytest_report_073c027287ef4b308b2e319748f81e45.json",
+          "sha256": "26913fa6741129394924677366f0a8286f7b3e63816b1b01e9c61ddd9723196f"
         }
       ],
       "tracked_test_summaries_restored": true
@@ -99,6 +128,19 @@
   },
   "schema_version": "sentientos.construction_evidence:v1",
   "sequence": 367,
+  "sequence_366_main_post_merge_checks": {
+    "all_required_post_merge_runs_succeeded": true,
+    "ci_run": 39117521327,
+    "codex_ci_run": 39117521290,
+    "docker_run": 39117521261,
+    "docs_deploy_run": 39117521307,
+    "federation_health_run": 39117521303,
+    "forge_smoke_conclusion": "skipped_by_configured_condition",
+    "forge_smoke_run": 39117521277,
+    "invariants_run": 39117521294,
+    "qg_run": 39117521339,
+    "source_commit": "c4d9538ce4caee49e77f58364d568b47aa5c03cd"
+  },
   "sequence_366_merge": {
     "candidate_checks": {
       "all_required_candidate_runs_succeeded": true,

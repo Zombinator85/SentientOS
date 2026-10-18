@@ -568,6 +568,8 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
     assert "delete-branch: false" in workflow
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
+    proof_upload = workflow.split("- name: Upload changed-output publication proof", 1)[1]
+    assert "always() && (inputs.publication_fixture == true || (github.event_name == 'push'" in proof_upload
     assert "&& 'always-true' || 'false' }}" in workflow
 
 

@@ -323,7 +323,7 @@ jobs:
               raise SystemExit("fixture_publication_cleanup_or_scope_unverified")
           PY
       - name: Upload changed-output publication proof
-        if: ${{ always() && inputs.publication_fixture == true }}
+        if: ${{ always() && (inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture')) }}
         uses: actions/upload-artifact@v4
         with:
           name: federation-health-publication-fixture-${{ github.run_id }}

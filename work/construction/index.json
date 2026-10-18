@@ -1,9 +1,9 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ed7ae92f4abf65f05aeb6e3b5cf5546b475892985c585f56c16f23d5a7754112",
+    "checkpoint_sha256": "9a6987d481808e6d04c3eb1d3a439a5ce7116c5b5f6e6816e2caff5c7f070edb",
     "latest_segment_sequence": 367,
-    "latest_segment_sha256": "6544c30ad96afd0f417da41480d116e31cd941baf4e6e9f5b6a55c6d5b720eba",
+    "latest_segment_sha256": "fd476e38bc3feca7db19d7271949c25ad0372eb29fba9f6c1b7ffbfce0ebbaa8",
     "source_commit": "c4d9538ce4caee49e77f58364d568b47aa5c03cd",
     "source_tree": "e902657d660116b6159ff5868970fa5b323582b7"
   },
@@ -4040,15 +4040,15 @@
       "source_tree": "9fdb58f779fe2e0b119b0ec0db8f00ebf7b807f9"
     },
     {
-      "bytes": 1622,
+      "bytes": 1880,
       "evidence": "work/construction/evidence/0367-make-federation-fixture-trigger-observable.json",
-      "evidence_bytes": 7120,
+      "evidence_bytes": 9489,
       "evidence_path": "work/construction/evidence/0367-make-federation-fixture-trigger-observable.json",
-      "evidence_sha256": "a20657ddf932ce4b19a0146296ca08a32098e0106012486ca430eabb8ef747e6",
+      "evidence_sha256": "ea5ec4b39ac53aaad1e50b70628bfbbea7ed06fde7785da2380708881424aa44",
       "path": "work/construction/segments/0367-make-federation-fixture-trigger-observable.md",
       "predecessor": "segment-sha256:c96302fe11f5d8398c71196083d6c84240fc02081c92ec7be0e7da27f6cdfc5b",
       "sequence": 367,
-      "sha256": "6544c30ad96afd0f417da41480d116e31cd941baf4e6e9f5b6a55c6d5b720eba",
+      "sha256": "fd476e38bc3feca7db19d7271949c25ad0372eb29fba9f6c1b7ffbfce0ebbaa8",
       "source_commit": "c4d9538ce4caee49e77f58364d568b47aa5c03cd",
       "source_tree": "e902657d660116b6159ff5868970fa5b323582b7"
     }
