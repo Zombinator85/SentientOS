@@ -1,0 +1,144 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 376,
+  "title": "Verify sequence 375 post-merge checks on main",
+  "segment_path": "work/construction/segments/0376-verify-sequence375-postmerge-main.md",
+  "segment_bytes": 2966,
+  "segment_sha256": "3c9954d5c07d393112aff711b280849455b51f406b438c66ee33f2338fb2e2c5",
+  "source": {
+    "branch": "main",
+    "commit": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+    "tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b",
+    "live_ref_matches": true,
+    "verified_at": "2026-10-18T12:29:32Z",
+    "latest_runtime_source_commit": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+    "latest_runtime_source_tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b"
+  },
+  "prior_increment": {
+    "sequence": 375,
+    "pull_request": 2365,
+    "candidate_commit": "85783af754dde15652ae6d16813b3994258f8cca",
+    "merge_commit": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+    "merge_method": "merge",
+    "tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b",
+    "parents": [
+      "c09d569f25daaf15304d19f9b7da3e56ec9ec1b7",
+      "85783af754dde15652ae6d16813b3994258f8cca"
+    ]
+  },
+  "post_merge_checks": {
+    "required_quality_gate": {
+      "run_id": 39127185598,
+      "conclusion": "success",
+      "artifact_id": 12136468263,
+      "artifact_bytes": 11206,
+      "artifact_sha256": "18938dae3c2f4351404ae2f41a1e6c31bed6edbe81f86285d82a8ee878a39e5a",
+      "source_sha": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+      "source_tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b",
+      "effective_uid": 0,
+      "administrator_verified": true,
+      "source_unchanged": true,
+      "strict_audit": "passed",
+      "audit_immutability": "passed",
+      "acceptance_passed": 29,
+      "acceptance_failed": 0,
+      "acceptance_skipped": 0
+    },
+    "ci": {
+      "run_id": 39127185600,
+      "conclusion": "success",
+      "source_validation_artifact_id": 12136716765,
+      "source_validation_artifact_bytes": 472342,
+      "source_validation_artifact_sha256": "27ed18c08a7313ad60d45723c8d1b0165ecad0af3285dfb80c80354f69e256ea",
+      "canonical_planning_acceptance": "task_acceptance_ready",
+      "world_state_resource_acceptance": "task_acceptance_ready",
+      "resource_to_cognition_acceptance": "task_acceptance_ready",
+      "test_groups": [
+        {
+          "passed": 371,
+          "failed": 0,
+          "skipped": 17
+        },
+        {
+          "passed": 20,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "docker": {
+      "run_id": 39127185597,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39127185588,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 39127185604,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39127185567,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": 39127185587,
+      "conclusion": "skipped_configured"
+    }
+  },
+  "artifact_readback": {
+    "quality_gate_sha256_matches_github_digest": true,
+    "source_validation_sha256_matches_github_digest": true
+  },
+  "local_parent_tree_validation": {
+    "source_tree": "77da3e1c510089b0ac3b28a6df3ad840e3e7d652",
+    "targeted_tests_passed": 82,
+    "targeted_tests_failed": 0,
+    "targeted_tests_skipped": 0,
+    "mypy_new_errors": 0,
+    "mypy_retired_error_records": 40,
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "custody_segments_verified": 375,
+    "runtime_sources_unchanged_in_evidence_merge": true
+  },
+  "federation_health": {
+    "workflow": "Federation Health Update",
+    "workflow_id": 165993285,
+    "cron": "17 * * * *",
+    "health_permission": "contents:read",
+    "observation_cutoff": "2026-10-18T12:29:32Z",
+    "current_main_sha": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+    "current_main_scheduled_run": "not_observed",
+    "prior_expected_run_2026_10_18T12_17": "not_observed_on_c09d569_main",
+    "latest_visible_run_id": 39122005777,
+    "latest_visible_run_sha": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+    "latest_visible_run_conclusion": "success",
+    "next_scheduled_opportunity": "2026-10-18T13:17:00Z",
+    "changed_output_fixture": "requires_repository_setting_allow_actions_to_create_and_approve_pull_requests"
+  },
+  "nightly_workflows": {
+    "exact_current_main_scheduled_runs": "pending_next_scheduled_window",
+    "administrator_requirements_weakened": false,
+    "write_authority_expanded": false
+  },
+  "developmental_dependency": {
+    "resident_A_to_B_to_A": "requires exact commissioned hardened A/B identities and receipts, installation/runtime/software lineage, and separate operator approvals for activation, serving, and preregistered trial protocol",
+    "production_inference": "not_invoked"
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_368_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "prior_segments": "append-only",
+    "runtime_behavior_changed": false,
+    "authority_changed": false
+  },
+  "outcome": "exact-main post-merge checks and artifacts were verified for bed8ec6; no Federation Health schedule run yet references this current main as of the recorded cutoff."
+}
