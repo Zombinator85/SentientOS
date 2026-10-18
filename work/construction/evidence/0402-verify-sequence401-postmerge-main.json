@@ -1,0 +1,155 @@
+{
+  "append_only": true,
+  "federation_health": {
+    "administrator_execution": "verified on prior scheduled run",
+    "current_main_scheduled_execution": "pending",
+    "health_job_repository_permission": "contents:read",
+    "latest_completed_scheduled_conclusion": "success",
+    "latest_completed_scheduled_head_sha": "ae55461e13be358c2754c7686b381ae2d72daa63",
+    "latest_completed_scheduled_run_id": 39164710891,
+    "production_publication_claimed": false,
+    "schedule": "17 * * * *"
+  },
+  "hosted_parent_observation": {
+    "main_commit": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+    "main_tree": "5075600c1029318d8881aa6e5f0f09b80093591c",
+    "merge_method": "merge",
+    "merge_pull_request": 2373,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 39165741248
+  },
+  "local_verification": {
+    "construction_custody": "passed: 402 contiguous records; no failures",
+    "git_diff_check": "passed",
+    "preserved_workspaces": "all pre-existing workspaces untouched",
+    "prior_sequence_records_modified": false,
+    "workspace_initial_state": "fresh clean checkout at exact main SHA before task changes"
+  },
+  "nightly_workflows": {
+    "current_main_blob_identity_matches": {
+      ".github/workflows/audit-nightly.yml": "70ee1ad16e6dd2a7189d736d48459ec7f5516081",
+      ".github/workflows/nightly-self-check.yml": "0e551c5f6d07a9569519aa30a061feb066a3fb8f",
+      "pyproject.toml": "69aeef3a8100e50ff6d2a6142097915f48a5fb1d",
+      "requirements-codex.txt": "712fdb64a46efe41e22bc3e368a167e3a5724321",
+      "scripts/check_mypy_baseline.py": "38059ffb9b07708ecb2f421c8a41e8bfbccef75a",
+      "scripts/pytest_airlock_guard.py": "7440021717150a9e9c73db0b5fa64b5259834f2d",
+      "scripts/run_tests.py": "6669ca8b922341e377acf4bd9f504a81a9db5dd8",
+      "scripts/verify_audits.py": "bdfec8e08cdb271d2ee1898bfa00fcdb318052e2"
+    },
+    "scheduled_main_execution": "pending",
+    "source_identity_comparison": "all eight current-main blob SHAs equal the successful push-run source",
+    "successful_push_runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+        "run_id": 39100678248,
+        "workflow": "Nightly Audit Integrity"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+        "run_id": 39100678294,
+        "workflow": "Nightly Self Check"
+      }
+    ]
+  },
+  "post_merge_checks": [
+    {
+      "artifact_id": 12150139535,
+      "artifact_sha256": "11cba4ae2996426c33f912e2c563d7001c4dd6c052c70fe977be4c0f9a94b5de",
+      "conclusion": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "run_id": 39165741248,
+      "workflow": "Required Quality Gate"
+    },
+    {
+      "conclusion": "success",
+      "docs_job": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "helm_k8s_job": "success",
+      "run_id": 39165741381,
+      "self_check_job": "success",
+      "source_validation_artifact_id": 12150881409,
+      "source_validation_artifact_sha256": "2f678641e2400bed21d0875585cabf5caf0462343045acaa15d64dbde73220ab",
+      "source_validation_job": "success",
+      "workflow": "CI"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "run_id": 39165741327,
+      "workflow": "Docker Image"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "run_id": 39165741432,
+      "workflow": "Invariant Tests"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "run_id": 39165741398,
+      "workflow": "Docs Deploy"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "run_id": 39165741290,
+      "workflow": "Codex CI"
+    },
+    {
+      "conclusion": "skipped",
+      "head_sha": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+      "reason": "configured workflow condition",
+      "run_id": 39165741322,
+      "workflow": "Forge Smoke"
+    }
+  ],
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 3171,
+  "segment_path": "work/construction/segments/0402-verify-sequence401-postmerge-main.md",
+  "segment_sha256": "d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae",
+  "sequence": 402,
+  "source": {
+    "branch": "codex/construct-sentientos-seq402",
+    "latest_verified_main": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+    "latest_verified_main_tree": "5075600c1029318d8881aa6e5f0f09b80093591c",
+    "parent_commit": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
+    "parent_tree": "5075600c1029318d8881aa6e5f0f09b80093591c",
+    "source_sha256": {}
+  },
+  "verification": {
+    "hosted_checks": "exact post-merge main runs all succeeded except configured Forge Smoke skip",
+    "status": "postmerge_checks_verified_index_custody_repaired_scheduled_observations_pending"
+  },
+  "construction_index_recovery": {
+    "authoritative_historical_index": {
+      "commit": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+      "tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+      "git_blob": "53ef83aef1c633f72eae5051f9da9903e35d288f"
+    },
+    "recovered_sequence_range": [
+      189,
+      265
+    ],
+    "recovered_entry_count": 77,
+    "recovered_pairs_byte_count_and_sha256": "all 77 recovered segment/evidence pairs match current retained bytes; the sequence-196 evidence checksum entry was corrected to its retained-byte digest, with sequence-197 correction evidence",
+    "sequence_196": {
+      "prior_index_sha256": "d834030a2481fd0c129eb21b378a2e0dd2f9aa259f89ac4e8f6da128b8d8799a",
+      "retained_evidence_sha256": "0e76ec5d1efa5c8b1eb030daabcdc6aca6a36f0f98f7c6839d7db06d767aaa86",
+      "retained_evidence_bytes": 1823,
+      "correction_evidence_sequence": 197,
+      "source_evidence_bytes_modified": false
+    },
+    "sequence_266_pointer": "restored from the same historical index; verified against exact current sequence-266 evidence bytes",
+    "predecessor_chain": "continuous from sequence 1 through 402",
+    "strict_custody_verifier": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 402,
+      "failures": []
+    }
+  }
+}
