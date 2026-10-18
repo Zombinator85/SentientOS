@@ -1,0 +1,187 @@
+{
+  "candidate": {
+    "base": "fff5b64b2808b4e69b930aa602dd93b779b695a0",
+    "head": "9eaea8614f891b80fb0f3e4864fe48088fbd95de",
+    "tree": "a8d89c6255b784ad369cdf57641e2cba01232279",
+    "pr_number": 2353,
+    "checks": {
+      "qg": {
+        "conclusion": "success",
+        "run_id": 39112390513,
+        "artifact_id": 12131021100,
+        "artifact_bytes": 11207,
+        "artifact_sha256": "7e1200e6d3bf14e3b808557a9819044c25a356c8385a3c1141a13f192b6fe499",
+        "acceptance_merge_ref": "8d542c13a692cc54e9f9e0da7ef6061484fd531b",
+        "acceptance_tree": "a8d89c6255b784ad369cdf57641e2cba01232279",
+        "tests_passed": 29,
+        "tests_failed": 0,
+        "administrator_verified": true
+      },
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39112390555,
+        "artifact_id": 12131131459,
+        "artifact_bytes": 385404,
+        "artifact_sha256": "0965454542a52c43ac4923a85774a5a6469b410a3ec32af1490bc9d459d3a068",
+        "tests_passed": 143,
+        "tests_skipped": 13,
+        "tests_failed": 0,
+        "docs_build": "success",
+        "strict_linkcheck": "success"
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39112390498
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39112390483
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39112390561
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39112390509
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39112390536
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39112390578
+      }
+    },
+    "finalizer": {
+      "status": "ready_for_pr_metadata",
+      "reasons": [],
+      "artifact_id": 12130664055,
+      "artifact_bytes": 14169,
+      "artifact_sha256": "99cc44d9f311cfb882febbe98a7215ff6d07df99a63dab61d271bc31421dfe5d"
+    },
+    "merge": {
+      "commit": "7288a4b9f617cbf26c26ff619316c3fc7eeefb99",
+      "tree": "a8d89c6255b784ad369cdf57641e2cba01232279",
+      "parents": [
+        "fff5b64b2808b4e69b930aa602dd93b779b695a0",
+        "9eaea8614f891b80fb0f3e4864fe48088fbd95de"
+      ],
+      "method": "merge",
+      "signature_verified": true
+    }
+  },
+  "post_merge_checks": {
+    "qg": {
+      "conclusion": "success",
+      "run_id": 39112772214,
+      "artifact_id": 12131226518,
+      "artifact_bytes": 11205,
+      "github_artifact_sha256": "2795cdebb438d87746e862aa1cccdc39c801f8ab1961503809b7c6987933825b",
+      "artifact_upload_log_digest_matches": true,
+      "local_archive_sha256_recomputed": false,
+      "local_archive_readback_blocker": "sandbox proxy returned HTTP 403 for connector temporary download URL",
+      "source_sha": "7288a4b9f617cbf26c26ff619316c3fc7eeefb99",
+      "source_tree": "a8d89c6255b784ad369cdf57641e2cba01232279",
+      "administrator_uid": 0,
+      "privileged_verification": "passed",
+      "tests_passed": 29,
+      "tests_failed": 0,
+      "strict_audit_step": "success",
+      "audit_immutability_step": "success"
+    },
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39112772238,
+      "source_validation": "success",
+      "self_check": "success",
+      "helm_k8s_test": "success",
+      "docs_build": "success",
+      "strict_linkcheck": "success"
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39112772328
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39112772311
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39112772326
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39112772341
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_configured",
+      "run_id": 39112772265
+    }
+  },
+  "federation_health": {
+    "workflow_schedule": "17 * * * *",
+    "latest_visible_run_id": 39083395122,
+    "latest_visible_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "exact_main_schedule": "not_observed_as_of_2026-10-18T08:53:12Z",
+    "next_cron": "2026-10-18T09:17:00Z",
+    "artifact_is_historical_quiet_report": true,
+    "telemetry_through": "2025-06-05",
+    "publication_fixture": "not_dispatched",
+    "dispatch_operation_available": false,
+    "local_gh_auth": "invalid"
+  },
+  "nightly_workflows": {
+    "push_validation_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "current_main_scheduled_executions": "pending_for_2026-10-19T03:41Z_and_04:37Z",
+    "administrator_requirements_weakened": false
+  },
+  "documentation": {
+    "changed_paths": [
+      "README.md",
+      "docs/architecture/sentientos_project_thesis.md"
+    ],
+    "current_source_commit_bound": "7288a4b9f617cbf26c26ff619316c3fc7eeefb99",
+    "current_tree_bound": "a8d89c6255b784ad369cdf57641e2cba01232279",
+    "runtime_source_changed": false,
+    "historical_atlas_identity_preserved": true
+  },
+  "local_validation": {
+    "git_diff_check": "passed",
+    "continuation_custody_before_append": "construction_continuation_custody_ready",
+    "predecessor_segments_verified": 362,
+    "focused_docs_test": "not_repeated; sequence 362 records bootstrap failure before collection; exact-tree hosted docs/full CI passed",
+    "continuation_custody_after_append": "construction_continuation_custody_ready",
+    "segments_verified_after_append": 363
+  },
+  "predecessor": {
+    "sequence": 362,
+    "segment_path": "work/construction/segments/0362-reconcile-current-main-status-documentation.md",
+    "segment_sha256": "44ccc5f73964d14660a3efcc8dd31037b19857cb0334f71466e69c5748388169",
+    "evidence_path": "work/construction/evidence/0362-reconcile-current-main-status-documentation.json",
+    "evidence_sha256": "cb11aad2491a037247c29a7e5dc2dc9f3e87cf26a214243b0f11679284f3645f"
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "authority_changed": false,
+    "production_inference": "not_invoked"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_path": "work/construction/segments/0363-verify-sequence362-merge-and-postmerge-gates.md",
+  "segment_bytes": 4629,
+  "segment_sha256": "df7cc3fbde5e97abe6a2b7089ee231189b41a72677f6e29ff306c4c341e8df85",
+  "sequence": 363,
+  "source": {
+    "branch": "main",
+    "commit": "7288a4b9f617cbf26c26ff619316c3fc7eeefb99",
+    "tree": "a8d89c6255b784ad369cdf57641e2cba01232279",
+    "live_ref_matches": true,
+    "verified_at": "2026-10-18T08:53:12Z",
+    "latest_runtime_source_commit": "007000a28e1759d7b700cccfaa63f110dd0a6c41",
+    "latest_runtime_source_tree": "24c506d8a7977486ead5edb3a11b615f513c04ab"
+  },
+  "title": "Verify sequence 362 merge and exact-main post-merge gates"
+}
