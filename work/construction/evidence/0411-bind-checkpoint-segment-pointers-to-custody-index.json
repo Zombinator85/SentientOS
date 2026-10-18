@@ -1,0 +1,165 @@
+{
+  "append_only": true,
+  "change": {
+    "canonical_segment_and_evidence_records_modified": false,
+    "correction_source": "work/construction/index.json path-to-sha256 entries",
+    "files": [
+      "README.md",
+      "scripts/verify_construction_continuation_custody.py",
+      "tests/test_construction_continuation_custody.py",
+      "work/construction/active_checkpoint.md"
+    ],
+    "history_repaired_or_discarded": false,
+    "incorrect_checkpoint_pointer_lines": 33,
+    "incorrect_digest_repeated": "8f5e63ad40253c7df609aac2614fb686839b4015dbbc9b0a7e08194f486e0385",
+    "production_inference": false,
+    "runtime_authority_added": false,
+    "verification_requirements_weakened": false
+  },
+  "custody_verifier_change": {
+    "checks": [
+      "every explicit latest-segment path is indexed",
+      "the digest adjacent to each indexed path matches that path's indexed digest"
+    ],
+    "unknown_segment_paths_rejected": true,
+    "wrong_digest_rejected": true
+  },
+  "local_verification": {
+    "compile": "passed for changed Python source and test modules",
+    "diff_check": "passed",
+    "previous_failed_bootstrap": "blocked before collection when sandbox proxy denied setuptools>=78.1.1; not counted as test result",
+    "targeted_mypy": "passed: scripts/verify_construction_continuation_custody.py and tests/test_construction_continuation_custody.py; no issues",
+    "temporary_environment": "system-site-packages venv with no-dependency editable install and preinstalled build toolchain; no network or repository dependency changes",
+    "test_command": "/tmp/sentientos-seq411-venv/bin/python -m scripts.run_tests -q tests/test_construction_continuation_custody.py",
+    "test_result": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0,
+      "status": "validation_complete"
+    }
+  },
+  "post_merge_main_verification": {
+    "CI": {
+      "conclusion": "success",
+      "docs_link_check": "passed",
+      "helm_kubernetes_job": "passed",
+      "run_id": 39176896178,
+      "self_check_job": "passed",
+      "source_validation_artifact": {
+        "api_sha256": "0921b6bdad3becee6e6d06eaf73b80e193efeb31feac278532af0e0341ea9ad6",
+        "artifact_id": 12154727773,
+        "canonical_planning_and_resource_to_cognition_nodes": {
+          "failed": 0,
+          "passed": 20,
+          "skipped": 0,
+          "validation_complete": true
+        },
+        "downloaded_sha256": "0921b6bdad3becee6e6d06eaf73b80e193efeb31feac278532af0e0341ea9ad6",
+        "source_sha": "5054ad41f600280ef5836c60a0964b38601b04b9"
+      },
+      "source_validation_job": "passed"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39176896273
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39176896252
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39176896242
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_configured_condition",
+      "run_id": 39176896179
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39176896188
+    },
+    "main_sha": "5054ad41f600280ef5836c60a0964b38601b04b9",
+    "quality_gate": {
+      "acceptance": {
+        "failed": 0,
+        "passed": 29,
+        "required": 29,
+        "skipped": 0
+      },
+      "administrator_uid": 0,
+      "api_sha256": "b07c55496bfc76ddeb6aa514896f8033311f54f0a02a8457772571717e91b3fc",
+      "artifact_id": 12153654912,
+      "conclusion": "success",
+      "downloaded_sha256": "b07c55496bfc76ddeb6aa514896f8033311f54f0a02a8457772571717e91b3fc",
+      "immutability": "passed",
+      "provenance_integrity": "INTEGRITY_BROKEN",
+      "provenance_issue": "unanchored-start",
+      "run_id": 39176896185,
+      "strict_audit": "passed"
+    },
+    "tree": "3d64aa36cd666a2fe856f0976819e2f0b1331419"
+  },
+  "remaining": {
+    "production_temporal_cognitive_trial": "not_run_requires_commissioned_models_and_separate_operator_approvals",
+    "scheduled_federation_health_on_5054": "pending",
+    "scheduled_nightly_audit_integrity_on_5054": "pending",
+    "scheduled_nightly_self_check_on_5054": "pending",
+    "sequence_286_provenance_loss": "preserved_unresolved"
+  },
+  "sequence_410_landing": {
+    "candidate_checks": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 39176600357
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 39176600260
+      },
+      "Docker": {
+        "conclusion": "success",
+        "run_id": 39176600290
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "run_id": 39176600288
+      },
+      "gradient": {
+        "conclusion": "success",
+        "run_id": 39176600311
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39176600289
+      },
+      "lint": {
+        "conclusion": "success",
+        "run_id": 39176600375
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39176600288
+      },
+      "required_quality_gate": {
+        "artifact_sha256": "8c4d0496ab98bb6f9284e9f8f2298428c33b6353bed6accfaf8b3d5ff3301a22",
+        "conclusion": "success",
+        "finalizer_artifact_id": 12154712058,
+        "pr_metadata_guard": "pr_metadata_guard_ready",
+        "run_id": 39176600253
+      }
+    },
+    "candidate_commit": "888722d8717b6ef777e1490a958d5d1de6a0e040",
+    "candidate_tree": "3d64aa36cd666a2fe856f0976819e2f0b1331419",
+    "corrected_pr_body_sha256": "85c37ed265626fe12b54b5b0b3bdad3b74b5b2741934adaa55bbc08bd80c315d",
+    "github_signature_verified": true,
+    "merge_commit": "5054ad41f600280ef5836c60a0964b38601b04b9",
+    "merge_method": "regular_merge_preserving_history",
+    "merge_tree": "3d64aa36cd666a2fe856f0976819e2f0b1331419",
+    "parents": [
+      "915cf098c15eed3157dd908763d06c54911390fe",
+      "888722d8717b6ef777e1490a958d5d1de6a0e040"
+    ],
+    "pr": 2381
+  }
+}
