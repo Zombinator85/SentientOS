@@ -278,7 +278,7 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
     composition = inspect.getsource(sentientosd._compose_live_resident_transition)
     assert "if not allow_synthetic_evidence_for_tests" in composition
     assert "_verify_live_resident_transition_source_lineage(protocol, artifact_root)" in composition
-    test_transition_lineage_requires_one_model_pair_protocol_and_integral_boundary(
+    _assert_transition_protocol_pair_and_boundary_integrity(
         tmp_path / "lineage_integrity")
 
     selected_record = dict(_source_lineage_context(generation_identity).history_projection_payload[0])
@@ -304,7 +304,7 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
             mismatched_context_transition, tmp_path / "mismatched-context")
 
 
-def test_transition_lineage_requires_one_model_pair_protocol_and_integral_boundary(tmp_path: Path) -> None:
+def _assert_transition_protocol_pair_and_boundary_integrity(tmp_path: Path) -> None:
     generation_identity = "source-tree-1"
     store, transition = _source_lineage_fixture(tmp_path)
     value = transition.value
@@ -344,6 +344,10 @@ def test_transition_lineage_requires_one_model_pair_protocol_and_integral_bounda
         with pytest.raises(TransitionError,
                 match="transition_model_source_lineage_history_boundary_invalid"):
             sentientosd._verify_transition_context_history_binding(context.__dict__, tampered)
+
+
+def test_transition_lineage_requires_one_model_pair_protocol_and_integral_boundary(tmp_path: Path) -> None:
+    _assert_transition_protocol_pair_and_boundary_integrity(tmp_path)
 
 
 
