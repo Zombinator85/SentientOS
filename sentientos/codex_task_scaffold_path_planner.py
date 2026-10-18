@@ -77,6 +77,13 @@ MAINTENANCE_TARGETS = {
         "docs/development/codex_validation_and_landing_contract.md",
         "pyproject.toml",
     ),
+    "production_self_reflection_custody_maintenance": (
+        "sentientos/production_self_reflection_campaign.py",
+        "scripts/run_production_self_reflection_campaign.py",
+        "tests/test_production_self_reflection_campaign.py",
+        "docs/development/production_self_reflection_campaign.md",
+        "docs/development/codex_validation_and_landing_contract.md",
+    ),
 }
 
 

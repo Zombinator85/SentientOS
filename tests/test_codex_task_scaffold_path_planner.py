@@ -262,6 +262,10 @@ def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
         ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_transition_operator.py", "Serialize bounded resident transition operator request processing across processes"),
         ("resident_transition_operator_maintenance", "tests/test_resident_cognitive_transition_operator.py", "Prove bounded resident transition operator request processing across processes"),
         ("resident_transition_operator_maintenance", "pyproject.toml", "Align Poetry package roots with the canonical installed package metadata"),
+        ("production_self_reflection_custody_maintenance", "sentientos/production_self_reflection_campaign.py", "Bind production self-reflection evidence to its exact preregistered protocol"),
+        ("production_self_reflection_custody_maintenance", "scripts/run_production_self_reflection_campaign.py", "Route one production trial through verified owner evidence"),
+        ("production_self_reflection_custody_maintenance", "tests/test_production_self_reflection_campaign.py", "Prove production evidence identity and custody bindings"),
+        ("production_self_reflection_custody_maintenance", "docs/development/production_self_reflection_campaign.md", "Document exact production evidence identity requirements"),
     ),
 )
 def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, path: str, goal: str) -> None:
@@ -283,6 +287,7 @@ def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, pa
         ("construction_custody_reconciliation", "work/construction/not-tracked.json", "existing_maintenance_target_not_tracked_regular_file"),
         ("bootstrap_reliability_repair", "prompt_assembler.py", "existing_maintenance_target_scope_violation"),
         ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_model_transition_experiment.py", "existing_maintenance_target_scope_violation"),
+        ("production_self_reflection_custody_maintenance", "sentientosd.py", "existing_maintenance_target_scope_violation"),
     ),
 )
 def test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets(scope: str, path: str, reason: str) -> None:
