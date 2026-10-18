@@ -1,0 +1,7 @@
+# Sequence 392: provision the documentation toolchain before precommit finalization
+
+The exact-candidate hosted Required Quality Gate run `39158737729` passed the reconstructed test run, exact acceptance, and actual-Administrator precommit audits, then correctly failed its `docs_check_deps` and `docs_build` stages because the reconstructed environment lacked `mkdocs` and `watchdog`. The runner logs identify both missing imports and recommend the repository's documented minimal bootstrap.
+
+Required Quality Gate now runs `scripts/build_docs.py --bootstrap-docs` before reconstructing the precommit workspace, under the hosted Administrator context and the existing headless covenant auto-alignment settings. This uses the repository's existing guarded bootstrap and minimal dependency set; it does not skip documentation checks or alter their verdicts. A local workflow-contract test now asserts the real Administrator check, guarded bootstrap command, approval context, and ordering ahead of reconstruction. That test passed 1/1 with zero skips, and task acceptance is ready.
+
+The hosted docs-bootstrap repair remains pending an exact-candidate hosted run. Run `39158737729` remains recorded as failed; no finalizer or metadata-guard success is claimed. Sequences 382–391 remain intact. This continuation is based on construction candidate `bfbb1abd21200a1ffc8e0be5ede5de5c307724bd`, tree `6b0dd48681b209223147dca6fd752759894ecb47`; latest verified `main` is `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.

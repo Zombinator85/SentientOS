@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4980461b5063eb3bd922a5a12847f785dd73bebc657f018d08d6f7b7c747a139",
-    "latest_segment_sequence": 391,
-    "latest_segment_sha256": "103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432",
-    "source_commit": "e3259f8dd59108842aa287a83e31bbba3358fdc0",
-    "source_tree": "6eb37dd027479c3da0b9caa7de7e669372402909"
+    "checkpoint_sha256": "46a307dc372f64e9fe3b3c5316363d409f04e784da5a2c2fef6952e25003c680",
+    "latest_segment_sequence": 392,
+    "latest_segment_sha256": "514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc",
+    "source_commit": "bfbb1abd21200a1ffc8e0be5ede5de5c307724bd",
+    "source_tree": "6b0dd48681b209223147dca6fd752759894ecb47"
   },
-  "checkpoint_sha256": "4980461b5063eb3bd922a5a12847f785dd73bebc657f018d08d6f7b7c747a139",
+  "checkpoint_sha256": "46a307dc372f64e9fe3b3c5316363d409f04e784da5a2c2fef6952e25003c680",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 391,
+  "latest_sequence": 392,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4364,6 +4364,19 @@
       "sha256": "103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432",
       "source_commit": "e3259f8dd59108842aa287a83e31bbba3358fdc0",
       "source_tree": "6eb37dd027479c3da0b9caa7de7e669372402909"
+    },
+    {
+      "bytes": 1559,
+      "evidence": "work/construction/evidence/0392-bootstrap-docs-for-precommit-finalizer.json",
+      "evidence_bytes": 2907,
+      "evidence_path": "work/construction/evidence/0392-bootstrap-docs-for-precommit-finalizer.json",
+      "evidence_sha256": "6fd7f0aecb5dce4af087413351cdbd0135776e0629ce779fbcba4295f6ec9e4e",
+      "path": "work/construction/segments/0392-bootstrap-docs-for-precommit-finalizer.md",
+      "predecessor": "segment-sha256:103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432",
+      "sequence": 392,
+      "sha256": "514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc",
+      "source_commit": "bfbb1abd21200a1ffc8e0be5ede5de5c307724bd",
+      "source_tree": "6b0dd48681b209223147dca6fd752759894ecb47"
     }
   ],
   "source_acquisition": {

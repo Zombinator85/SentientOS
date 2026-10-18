@@ -468,6 +468,16 @@ def test_privilege_lint_workflows_use_read_only_mode() -> None:
 
 def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> None:
     workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    bootstrap = workflow.split(
+        "- name: Bootstrap minimal documentation tooling with hosted Administrator authority", 1
+    )[1].split("- name:", 1)[0]
+    assert 'test "$(sudo -n id -u)" = "0"' in bootstrap
+    assert "scripts/build_docs.py --bootstrap-docs" in bootstrap
+    assert "SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1" in bootstrap
+    assert workflow.index("Bootstrap minimal documentation tooling") < workflow.index(
+        "Reconstruct and verify exact hosted pre-commit state"
+    )
+
     freeze = workflow.split(
         "- name: Freeze exact hosted acceptance for PR landing finalization", 1
     )[1].split("- name: Restore generated test-run residue after evidence capture", 1)[0]

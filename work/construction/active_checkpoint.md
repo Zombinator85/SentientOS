@@ -196,3 +196,9 @@ Sequence 391 fixes a second source-caused failure in the hosted precommit workfl
 Latest construction segment: `work/construction/segments/0391-bind-precommit-provenance-to-canonical-git-sha.md`
 Latest segment SHA-256: `103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432`
 Sequence: 391 (hosted verification pending)
+
+Sequence 392 repairs the hosted precommit finalizer's missing documentation dependencies using the repository's guarded minimal bootstrap with actual hosted Administrator authority. The local hosted-workflow contract test passed 1/1 with zero skips and acceptance is ready. Hosted rerun is pending; run `39158737729` remains a failed result, and no finalizer/guard success is claimed. The source candidate is `bfbb1abd21200a1ffc8e0be5ede5de5c307724bd`, tree `6b0dd48681b209223147dca6fd752759894ecb47`.
+
+Latest construction segment: `work/construction/segments/0392-bootstrap-docs-for-precommit-finalizer.md`
+Latest segment SHA-256: `514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc`
+Sequence: 392 (hosted verification pending)
