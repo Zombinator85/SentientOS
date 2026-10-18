@@ -160,12 +160,13 @@ class TransitionProtocol:
             raise TransitionError("model_provenance_protocol_reference_invalid")
         references = _plain(model_replacement_protocol_references or {})
         if references:
-            if not isinstance(references, dict) or set(references) - {"predecessor_a", "successor_b"}:
+            expected_roles = {"predecessor_a": "model_a", "successor_b": "model_b"}
+            if not isinstance(references, dict) or set(references) != set(expected_roles):
                 raise TransitionError("model_provenance_protocol_reference_invalid")
-            for reference in references.values():
+            for transition_role, reference in references.items():
                 if (not isinstance(reference, dict)
                         or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
-                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or reference.get("model_role") != expected_roles[transition_role]
                         or not isinstance(reference.get("protocol_id"), str)
                         or not reference["protocol_id"].startswith("model-replacement-protocol-")
                         or not isinstance(reference.get("protocol_digest"), str)
@@ -197,9 +198,10 @@ class TransitionProtocol:
         transition_id = value.pop("transition_id", None)
         schema = value.get("schema_version")
         references = value.get("model_replacement_protocol_references")
+        expected_roles = {"predecessor_a": "model_a", "successor_b": "model_b"}
         if ((schema == SCHEMA and references is not None)
-                or (schema == SCHEMA_V2 and (not isinstance(references, Mapping) or not references
-                    or set(references) - {"predecessor_a", "successor_b"}))
+                or (schema == SCHEMA_V2 and (not isinstance(references, Mapping)
+                    or set(references) != set(expected_roles)))
                 or schema not in {SCHEMA, SCHEMA_V2}
                 or value.get("phase_order") != list(PHASES)
                 or digest(value) != claimed or protocol_id != "resident-transition-protocol-" + str(claimed)[:24]
@@ -208,10 +210,10 @@ class TransitionProtocol:
         if schema == SCHEMA_V2:
             if not isinstance(references, Mapping):
                 raise TransitionError("protocol_tamper")
-            for reference in references.values():
+            for transition_role, reference in references.items():
                 if (not isinstance(reference, Mapping)
                         or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
-                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or reference.get("model_role") != expected_roles[transition_role]
                         or not isinstance(reference.get("protocol_id"), str)
                         or not reference["protocol_id"].startswith("model-replacement-protocol-")
                         or not isinstance(reference.get("protocol_digest"), str)
