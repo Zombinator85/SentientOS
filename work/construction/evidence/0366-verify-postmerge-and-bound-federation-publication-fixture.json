@@ -1,0 +1,216 @@
+{
+  "architecture": {
+    "production_inference_invoked": false,
+    "resident_temporal_a_to_b_to_a": {
+      "runtime_composition": "implemented",
+      "production_execution": false,
+      "remaining_external_inputs": [
+        "commissioned A/B identities and receipts",
+        "separate serving approvals",
+        "operator-approved preregistration"
+      ]
+    },
+    "federation_publication_fixture": {
+      "fixture_execution": false,
+      "new_trigger": "one-shot exact sentinel branch push",
+      "production_telemetry_fabricated": false
+    }
+  },
+  "evidence_path": "work/construction/evidence/0366-verify-postmerge-and-bound-federation-publication-fixture.json",
+  "federation_health": {
+    "current_main_scheduled_run": {
+      "visible": false,
+      "observed_at": "2026-10-18T09:50:08Z",
+      "next_cron": "2026-10-18T10:17:00Z",
+      "schedule": "17 * * * *",
+      "current_main": "fee10c58ce86ce5b726c8dfee9a76a72586fab46"
+    },
+    "fixture_publication_path": {
+      "manual_dispatch_input_preserved": "publication_fixture=true",
+      "connector_workflow_dispatch_available": false,
+      "local_github_token": "invalid",
+      "alternative_trigger_branch": "automation/federation-health-publication-fixture",
+      "trigger_path": "work/federation_health_publication_fixture_request.txt",
+      "request_constraints": [
+        "exact branch and sole sentinel path trigger",
+        "sentinel content must match explicit fixture marker",
+        "request commit parent must equal live main",
+        "health generator and fixture jobs remain contents:read",
+        "publisher alone retains contents:write and pull-requests:write",
+        "publisher checks out main and allows only docs/FEDERATION_HEALTH.md",
+        "draft PR is verified, closed without merge, and both transient branches are deleted with readback"
+      ],
+      "run_observed": false,
+      "write_authority_changed": false
+    }
+  },
+  "local_validation": {
+    "predecessor_segments_verified": 365,
+    "continuation_custody_before_append": "construction_continuation_custody_ready",
+    "workflow_yaml_parse": "passed",
+    "embedded_workflow_python_compile": "passed",
+    "git_diff_check": "passed",
+    "canonical_runner": {
+      "first_attempt": {
+        "status": "bootstrap_failed",
+        "timestamp": "2026-10-18T09:47:49.543415+00:00",
+        "tests_collected": 0,
+        "tests_executed": 0,
+        "provenance_path": "glow/test_runs/provenance/20261018T094749Z_67d642f5a77e_db7148a800194763b8d0d6699a9de455.json",
+        "provenance_sha256": "15299d8b1dc61fbf05543219c23f6eff74cf486e9d60351430405f1d5c99dcc3",
+        "reason": "sandbox package proxy blocked setuptools build-isolation download"
+      },
+      "environment_recovery": "existing workspace virtualenv; editable install used installed setuptools with --no-build-isolation; canonical scripts.run_tests airlock retained",
+      "focused_contract_node": {
+        "passed": 1,
+        "failed": 0,
+        "provenance_path": "glow/test_runs/provenance/20261018T094819Z_67d642f5a77e_a7f30adf879a4e6ca1a9bc1f3148c63b.json",
+        "provenance_sha256": "5e5ccebe1e56fc406eec29b9d654bca8b1d77221c554cc8aa6d253b66f9d8227"
+      },
+      "first_full_contract_file_run": {
+        "passed": 34,
+        "failed": 1,
+        "status": "validation_failed",
+        "failure": "existing static assertion expected the prior three-field cleanup object after the fixture cleanup evidence was strengthened",
+        "provenance_path": "glow/test_runs/provenance/20261018T094826Z_67d642f5a77e_bc27d95fc95b4634996c9389ee0304c5.json",
+        "provenance_sha256": "2ec344dab022b8073445892b28b0ab70ce6902ca900572e65608f28e4427cbbb"
+      },
+      "final_full_contract_file_run": {
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "status": "validation_complete",
+        "timestamp": "2026-10-18T09:50:03.970625+00:00",
+        "provenance_path": "glow/test_runs/provenance/20261018T095003Z_67d642f5a77e_62507ae241d446daaabc87b4e0759b63.json",
+        "provenance_sha256": "5311c10488ed2cc1cbe5a874c00af0c0a85b2e1aca9740a751ad04fe05e417aa"
+      }
+    },
+    "local_test_provenance_binds": "base HEAD 67d642f5a77e5bc7ed9a4cd6f6bc104b27bb4f20; dirty-worktree local runs are not claimed as exact-candidate verification",
+    "generated_test_residue": {
+      "tracked_runner_summary_and_failure_digest": "restore_to_exact_base_bytes_after_hash-recording-local-attempts",
+      "generated_provenance_attempts": 5,
+      "generated_junit_xml_reports": 4,
+      "generated_pytest_report_json_files": 4,
+      "cleanup": "only exact test-run generated files in this isolated worktree; local attempt hashes and outcomes retained above"
+    }
+  },
+  "merge": {
+    "pr_number": 2356,
+    "candidate_head": "67d642f5a77e5bc7ed9a4cd6f6bc104b27bb4f20",
+    "candidate_tree": "9fdb58f779fe2e0b119b0ec0db8f00ebf7b807f9",
+    "parent_main": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+    "commit": "fee10c58ce86ce5b726c8dfee9a76a72586fab46",
+    "tree": "9fdb58f779fe2e0b119b0ec0db8f00ebf7b807f9",
+    "parents": [
+      "099e20f048743f0ae6fd7e1cec93073842d504f3",
+      "67d642f5a77e5bc7ed9a4cd6f6bc104b27bb4f20"
+    ],
+    "signature": "GitHub verification.valid=true",
+    "remote_main_readback": "fee10c58ce86ce5b726c8dfee9a76a72586fab46",
+    "local_git_fetch": "blocked by sandbox proxy; GitHub API ref/commit readback succeeded"
+  },
+  "nightly_workflows": {
+    "audit_integrity_schedule": "2026-10-19T03:41:00Z",
+    "self_check_schedule": "2026-10-19T04:37:00Z",
+    "administrator_requirements_weakened": false,
+    "audit_repair_write_performed": false
+  },
+  "post_merge_checks": {
+    "qg": {
+      "run_id": 39116506867,
+      "artifact_id": 12133060342,
+      "artifact_bytes": 11208,
+      "artifact_sha256": "32ca0c7476e562e5119130197df0550c0ad0481196796b22dc9eb5e42c756ed4",
+      "github_digest_match": true,
+      "source_sha": "fee10c58ce86ce5b726c8dfee9a76a72586fab46",
+      "source_tree": "9fdb58f779fe2e0b119b0ec0db8f00ebf7b807f9",
+      "administrator_uid": 0,
+      "strict_audit_ok": true,
+      "audit_immutability_ok": true,
+      "acceptance_status": "task_acceptance_ready"
+    },
+    "ci": {
+      "run_id": 39116506913,
+      "source_validation_artifact_id": 12132183919,
+      "source_validation_bytes": 472222,
+      "source_validation_sha256": "b5efe0b5db50c4b6e682e157ff7f75a98dcf1ed5ddf5fde725d3ccb061005266",
+      "source_validation_github_digest_match": true,
+      "canonical_planning_nodes_passed": 20,
+      "canonical_planning_nodes_total": 20,
+      "self_check_artifact_id": 12132697013,
+      "self_check_bytes": 385395,
+      "self_check_sha256": "56515395b13073ac384aedc26d7331d62e9bba7de6b73d86ad135b4cc5f07576",
+      "self_check_github_digest_match": true,
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "helm": "passed",
+      "documentation_build": "passed",
+      "strict_linkcheck": "passed"
+    },
+    "docker": {
+      "run_id": 39116506919,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39116506961,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 39116506971,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39116506950,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": 39116506966,
+      "conclusion": "skipped_by_configured_condition"
+    }
+  },
+  "predecessor": {
+    "sequence": 365,
+    "segment_path": "work/construction/segments/0365-reconcile-exact-main-and-postmerge-gates.md",
+    "segment_sha256": "df1a156fbdad53cf403db37c9bde4d192c02a726f39024b417fb0db69650a361",
+    "evidence_path": "work/construction/evidence/0365-reconcile-exact-main-and-postmerge-gates.json",
+    "evidence_sha256": "1dc9302b6697cb80ac2f1e227fedae16537a61e1173982fe3cbb081657844ceb"
+  },
+  "preservation": {
+    "runtime_source_changed": false,
+    "authority_changed": false,
+    "production_configuration_changed": false,
+    "stale_sequence_178_workspace": "untouched",
+    "remote_codex_construct_sentientos_branch": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "sequence": 366,
+  "source_main": {
+    "sha": "fee10c58ce86ce5b726c8dfee9a76a72586fab46",
+    "tree": "9fdb58f779fe2e0b119b0ec0db8f00ebf7b807f9",
+    "candidate_source_worktree_head": "67d642f5a77e5bc7ed9a4cd6f6bc104b27bb4f20"
+  },
+  "workflow_change": {
+    "health_job_permissions": {
+      "contents": "read"
+    },
+    "fixture_job_permissions": {
+      "contents": "read"
+    },
+    "publisher_job_permissions": {
+      "contents": "write",
+      "pull-requests": "write"
+    },
+    "publication_scope": [
+      "docs/FEDERATION_HEALTH.md"
+    ],
+    "direct_main_mutation": false,
+    "fixture_label": "TEST FIXTURE ONLY — NOT TELEMETRY",
+    "pr_cleanup_requires": [
+      "closed",
+      "not merged",
+      "output branch deleted",
+      "trigger branch deleted"
+    ]
+  }
+}
