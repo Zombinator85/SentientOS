@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "candidate": {
+    "base_commit": "50470e09fcd7014d3e3b09ce23d20e9a9b80909c",
+    "head": "c160273582ef5592148b4176d532e4992738f277",
+    "merge_method": "merge",
+    "pr_number": 2336,
+    "tree": "52d055c609a6a4fdf917c40e9c95318969f27450"
+  },
+  "candidate_hosted_verification": {
+    "qg_run_id": "39093828540",
+    "qg_status": "success",
+    "qg_artifact_id": "12124180418",
+    "qg_artifact_sha256": "ef77b1e28adbda492c068ab7363ee2f328baa4cd51bc18451d635669dbcc3082",
+    "finalizer_artifact_id": "12124235358",
+    "finalizer_artifact_sha256": "0b3395790d48e72a66bf67845427d52f912566428ef7d6c8b0ec1c5b4a273cec",
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "strict_audit": "passed",
+    "immutability_audit": "passed",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0
+  },
+  "local_verification": {
+    "source_commit": "7cb20b7b79863dc5682d6e48da6918ef8deea36a",
+    "source_tree": "52d055c609a6a4fdf917c40e9c95318969f27450",
+    "focused_regression": "passed_invoked_directly",
+    "compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "main": {
+    "commit": "e5a19f3a7bb6184395499857acdb4d136e7e8e82",
+    "tree": "52d055c609a6a4fdf917c40e9c95318969f27450",
+    "pr_number": 2336,
+    "parents": [
+      "50470e09fcd7014d3e3b09ce23d20e9a9b80909c"
+    ],
+    "feedback_run_id": "39094096527",
+    "feedback_status": "failure",
+    "observed_token_permission": "issues:write",
+    "http_status": 403,
+    "error": "Resource not accessible by integration",
+    "next_increment": "347 changes scope to pull-requests:write"
+  },
+  "continuation": {
+    "sequence": 346,
+    "segment_path": "work/construction/segments/0346-scope-feedback-comment-authority.md",
+    "evidence_path": "work/construction/evidence/0346-scope-feedback-comment-authority.json",
+    "predecessor_segment_sha256": "42321b4311a18e8b669a84d53610c8892f0210d5ff45899d8bf088244061f6fa",
+    "segment_bytes": 2141,
+    "segment_sha256": "cce5c6e54b08f6c1c8322bf3909efdfe154e1df2add8bb84e96cc000238a628a",
+    "source_commit": "e5a19f3a7bb6184395499857acdb4d136e7e8e82",
+    "source_tree": "52d055c609a6a4fdf917c40e9c95318969f27450"
+  }
+}

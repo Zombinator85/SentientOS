@@ -1,15 +1,11 @@
 # Active construction checkpoint
 
-Latest verified `main`: `7f026f6ec41190cf3d24c1586f318b8abbebe8a4`, tree `156ee1d99b06d81c21cb40a0a166e59f15a3d9b4`. Sequence 341 merged normally by PR #2331 with both parents preserved. Candidate CI, lint/Mypy, Docker, invariants, Release, Gradient, Codex CI, and strict Administrator QG passed. Post-merge CI, QG (29/29 exact tests, UID 0 strict/immutability clean), Docker, invariants, Codex CI, and Docs Deploy passed; Forge Smoke was skipped by configured conditions.
+Latest verified `main`: `06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda`, tree `9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e`. Sequence 347 merged normally by PR #2337 with both parents preserved. Candidate CI, privileged QG, Docker, invariants, Codex CI, lint, Release, and Gradient passed. Post-merge QG passed with Administrator UID 0, exact 29-node acceptance, and strict/immutability checks. The post-merge feedback job successfully used only `pull-requests: write` and posted comment 6245285899. Post-merge CI, Docker, invariants, Codex CI, and Docs Deploy passed; Forge Smoke is skipped by configured conditions.
 
-Sequence 341 binds the deterministic count and digest of the exact omitted complement of selected history within the complete resident boundary. It keeps the frozen A/B protocol identity shared and preserves positive and adverse outcomes. No protocol-bound history is silently discarded, and no production transition authority is implied.
+Sequence 346's initial `issues: write` permission did not authorize the comment endpoint despite appearing in the token log. Sequence 347 corrected it to PR-specific `pull-requests: write` and verified the actual operation. Sequences 344 and 345 also make epistemic planning evaluate every tagged history position and bind transition protocol references to their matching A/B model roles. No execution authority or production developmental result is claimed.
 
-The latest scheduled Federation Health execution, recorded in sequence 340, succeeded on then-current main and published a report matching the checked-in documentation. Changed-output publication was not exercised. Nightly Audit and Nightly Self Check await their next scheduled runs on the new main; their privilege and least-write scopes remain unchanged.
+Current operational evidence remains outstanding: the latest scheduled Federation Health success is run `39083395122` on older source `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`; the changed-output fixture has not been dispatched. Nightly Audit last succeeded on older source in run `39014123936`. Nightly Self Check last failed on older source in run `38876666946` because audit verification lacked Administrator authority; current main uses strict `sudo` and tests that requirement. Fresh scheduled executions on this main are pending. This connector has no workflow-dispatch operation and local `gh` authentication is unavailable. Preserve their privilege and least-write boundaries, sequence-286 provenance-loss evidence, and stale sequence-178 workspace.
 
-Sequence 342 uses the writeback owner’s read-only record/receipt integrity inspection as the canonical history boundary source. Missing or contradictory receipt pairs fail closed; this creates no repair path or new authority. Draft PR #2332 is open against this exact main; 230 integrated tests passed locally, with hosted checks pending.
-
-Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Fixture and hosted CI evidence do not establish production developmental evidence.
-
-Latest construction segment: `work/construction/segments/0341-bind-omitted-history-complement.md`
-Latest segment SHA-256: `fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2`
-Sequence: 341
+Latest construction segment: `work/construction/segments/0347-grant-pr-comment-authority.md`
+Latest segment SHA-256: `f0ea54409e41668643cc061227d9bd76589872c2fec31270d0a7a7c3151c6fb3`
+Sequence: 347

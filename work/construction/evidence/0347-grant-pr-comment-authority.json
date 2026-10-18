@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "candidate": {
+    "base_commit": "e5a19f3a7bb6184395499857acdb4d136e7e8e82",
+    "head": "bbf041e2b70767a0fdaf038240f87804c8fec295",
+    "merge_method": "merge",
+    "pr_number": 2337,
+    "tree": "9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e"
+  },
+  "candidate_hosted_verification": {
+    "qg_run_id": "39094185586",
+    "qg_status": "success",
+    "qg_artifact_id": "12123917441",
+    "qg_artifact_sha256": "fe107c0abe54a31667755902dee3b650d465d7b12b8f610aa78927101cd32b7d",
+    "finalizer_artifact_id": "12123897565",
+    "finalizer_artifact_sha256": "3dd2b279ecf75cd1af84aacb6caef80b66587b9afeb5857fca4ad1da81acbaf7",
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "strict_audit": "passed",
+    "immutability_audit": "passed",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0
+  },
+  "local_verification": {
+    "source_commit": "0754a8ec59249ad2233e3a10e207bc62ed91701c",
+    "source_tree": "9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e",
+    "focused_regression": "passed_invoked_directly",
+    "compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "main": {
+    "commit": "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda",
+    "tree": "9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e",
+    "pr_number": 2337,
+    "parents": [
+      "e5a19f3a7bb6184395499857acdb4d136e7e8e82",
+      "bbf041e2b70767a0fdaf038240f87804c8fec295"
+    ],
+    "feedback_run_id": "39094459614",
+    "feedback_status": "success",
+    "bot_comment_id": "6245285899",
+    "post_merge_qg_run_id": "39094459865",
+    "post_merge_qg_artifact_id": "12124520186",
+    "post_merge_qg_artifact_sha256": "876dd2a3f4f32b6ac4be68171b6f2e813ea22cd9e1aa6d1ee51b6137c331faea",
+    "post_merge_ci_run_id": "39094459892",
+    "post_merge_ci_status": "success",
+    "post_merge_docker_run_id": "39094459866",
+    "post_merge_docker_status": "success",
+    "post_merge_invariants_run_id": "39094459900",
+    "post_merge_invariants_status": "success",
+    "post_merge_codex_ci_run_id": "39094459896",
+    "post_merge_codex_ci_status": "success",
+    "post_merge_docs_deploy_run_id": "39094459885",
+    "post_merge_docs_deploy_status": "success",
+    "post_merge_forge_smoke_run_id": "39094459870",
+    "post_merge_forge_smoke_status": "skipped_by_workflow_conditions"
+  },
+  "continuation": {
+    "sequence": 347,
+    "segment_path": "work/construction/segments/0347-grant-pr-comment-authority.md",
+    "evidence_path": "work/construction/evidence/0347-grant-pr-comment-authority.json",
+    "predecessor_segment_sha256": "cce5c6e54b08f6c1c8322bf3909efdfe154e1df2add8bb84e96cc000238a628a",
+    "segment_bytes": 3196,
+    "segment_sha256": "f0ea54409e41668643cc061227d9bd76589872c2fec31270d0a7a7c3151c6fb3",
+    "source_commit": "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda",
+    "source_tree": "9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e"
+  }
+}

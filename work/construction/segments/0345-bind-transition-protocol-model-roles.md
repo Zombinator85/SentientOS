@@ -1,0 +1,21 @@
+# Sequence 345: bind frozen transition protocol references to A/B model roles
+
+## Source change and integration
+
+When a resident transition protocol includes model-replacement provenance, it must bind both `predecessor_a` and `successor_b`, with the corresponding `model_a` and `model_b` roles. Protocol creation and persisted protocol verification reject partial and role-swapped references. Legacy protocols without provenance references remain representable; the existing production gate continues to require a complete pair before composition. No activation, serving, inference, writeback, or other effect authority is added.
+
+Remote candidate `007000a28e1759d7b700cccfaa63f110dd0a6c41`, tree `24c506d8a7977486ead5edb3a11b615f513c04ab`, was merged normally through PR #2335 as main `50470e09fcd7014d3e3b09ce23d20e9a9b80909c`, tree `24c506d8a7977486ead5edb3a11b615f513c04ab`. Local exact source commit `65a3459abc907c9d4d99752b8d66608afdc328be` has the same tree and parent main `520c02fa09366c14ceb1b4c741c7821fa802a3b8`. Independent GitHub readback verified source blob `6f1f855263bac27665178c3ee2c483fdd70d1ee7` and test blob `db327758cb62b44eb6ba6319f0d404bcc7244eea` against the exact files.
+
+## Verification
+
+The canonical local runner passed 201/201 affected transition, replacement, and rehearsal tests with no skips on the exact committed tree (`run_id=13a92125502e48a1a674cb1692e3465c`). Compileall and diff checks passed. Mypy reported 0 new diagnostics, 1,050 existing matches, 40 retired. A broader local run was interrupted without a complete metrics payload and is recorded as incomplete, not passed; its test-generated identity material and pulse state remain untouched in the separate contaminated checkout.
+
+Candidate CI runs `39093090474` and `39093067268` passed, including full self-check, integrated resource-to-cognition validation, canonical planning/execution separation, docs, and Helm. Candidate checks also passed: Required Quality Gate `39093090494`, Docker `39093090453`, invariants `39093090420`, Codex CI `39093090452`, Lint Benchmark `39093090433`, Release `39093090425`, and Gradient `39093090432`. QG verified Administrator UID 0, strict audit and immutability checks, exact 29-node acceptance, and finalizer readiness. QG artifact `12123625926` has SHA-256 `f27922334f050576ba91de06c31abed739dd206e9871f650e2dc8b09cc72fdfb`; finalizer artifact `12122774159` has SHA-256 `51c1b8d3a4115dba36bee4400bc7d2fb3a45d919d147d68782dc91be1ec9592e`.
+
+Post-merge main CI `39093338659`, Required Quality Gate `39093338729`, Docker `39093338692`, invariants `39093338686`, Codex CI `39093338684`, and Docs Deploy `39093338696` passed on exact main `50470e09fcd7014d3e3b09ce23d20e9a9b80909c` and tree `24c506d8a7977486ead5edb3a11b615f513c04ab`. Forge Smoke `39093338678` was skipped by its configured workflow condition. The post-merge QG ran with actual Administrator authority: its log bound `source_sha=50470e09fcd7014d3e3b09ce23d20e9a9b80909c`, `source_tree=24c506d8a7977486ead5edb3a11b615f513c04ab`, and `effective_uid=0`; exact 29-node acceptance and strict/immutability gates passed. QG artifact `12124001625` has GitHub SHA-256 `2891134a57b68bff7bc2f0640806b9e70855c4f434e7e8fc0fe5300b888b157e`.
+
+The post-merge feedback invitation workflow failed after PR #2334 (`39092230858`) and again after PR #2335 (`39093338485`): its fixed comment call lacked issue-comment permission. Sequence 346 addresses this workflow defect with only `issues: write` for that merged-PR-only job and a least-authority regression.
+
+## Next dependencies and limits
+
+The latest observed scheduled Federation Health success remains run `39083395122` on older source `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`; no scheduled execution on sequence-345 main had appeared at this check. It did not exercise changed-output publication. The `publication_fixture=true` workflow-dispatch fixture remains undispatched because no dispatch capability or valid local GitHub CLI login is available. The latest Nightly Audit run `39014123936` and Nightly Self Check run `38876666946` also predate this main; their next scheduled execution remains needed to establish current-source results. No production A→B→A event, model improvement, or developmental benefit is claimed. Preserve sequence-286 provenance-loss evidence and the stale sequence-178 workspace.

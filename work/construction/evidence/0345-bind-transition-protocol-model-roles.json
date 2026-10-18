@@ -1,0 +1,21 @@
+{
+  "candidate": {
+    "head": "007000a28e1759d7b700cccfaa63f110dd0a6c41",
+    "tree": "24c506d8a7977486ead5edb3a11b615f513c04ab",
+    "pr_number": 2335,
+    "merge_method": "merge"
+  },
+  "continuation": {
+    "sequence": 345,
+    "segment_path": "work/construction/segments/0345-bind-transition-protocol-model-roles.md",
+    "evidence_path": "work/construction/evidence/0345-bind-transition-protocol-model-roles.json",
+    "segment_bytes": 4354,
+    "segment_sha256": "42321b4311a18e8b669a84d53610c8892f0210d5ff45899d8bf088244061f6fa",
+    "predecessor_segment_sha256": "778e618d924849f23fba2b1d66b13bcd3f8d86fdfdc657812c77f69b2fa8da94"
+  },
+  "source": {
+    "main_commit": "50470e09fcd7014d3e3b09ce23d20e9a9b80909c",
+    "main_tree": "24c506d8a7977486ead5edb3a11b615f513c04ab"
+  },
+  "schema_version": 1
+}
