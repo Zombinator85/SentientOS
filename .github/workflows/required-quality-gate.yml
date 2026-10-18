@@ -344,6 +344,7 @@ jobs:
           PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
           test "$PR_TITLE" = "$COMMIT_TITLE"
           cd "$METADATA_WORKSPACE"
+          set +e
           PYTHONPATH="$METADATA_WORKSPACE" python scripts/codex_pr_metadata_guard.py verify \
             --title "$PR_TITLE" \
             --intended-commit-title "$COMMIT_TITLE" \
@@ -352,11 +353,16 @@ jobs:
             --matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json" \
             --workspace-root "$METADATA_WORKSPACE" \
             > "$RUNNER_TEMP/codex-pr-metadata-guard.json"
-          python - "$RUNNER_TEMP/codex-pr-metadata-guard.json" <<'PY'
+          guard_exit=$?
+          set -e
+          python - "$RUNNER_TEMP/codex-pr-metadata-guard.json" "$guard_exit" <<'PY'
           import json, sys
           payload=json.load(open(sys.argv[1]))
           if payload.get("status") != "pr_metadata_guard_ready":
-              raise SystemExit(f"pre-publication metadata guard blocked: {payload.get('status')} {payload.get('reasons')}")
+              print(json.dumps({"status": payload.get("status"), "reasons": payload.get("reasons")}, sort_keys=True), file=sys.stderr)
+              raise SystemExit(f"pre-publication metadata guard blocked (exit {sys.argv[2]}): {payload.get('status')}")
+          if int(sys.argv[2]) != 0:
+              raise SystemExit(f"pre-publication metadata guard exited {sys.argv[2]} after reporting ready")
           print(f"Codex PR metadata guard decision: {payload['status']}")
           PY
       - name: Remove exact PR candidate workspace

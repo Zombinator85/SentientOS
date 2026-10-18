@@ -1,23 +1,23 @@
-Warning: truncated output (original token count: 62734)
-Total output lines: 4455
+Warning: truncated output (original token count: 62931)
+Total output lines: 4468
 
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "f332d0afb0d44619e7312d7efa7582994a4c9bd598900f7e8de88cef974b8872",
-    "latest_segment_sequence": 396,
-    "latest_segment_sha256": "9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150",
-    "source_commit": "2222fe85292b36f8277465b99cf42ed99b3fd041",
-    "source_tree": "396547271a26186a8ffb749e94831679efc99328"
+    "checkpoint_sha256": "90b9844097673b08d7e493aa7d55afd9b61c7ab90e8729664ff7bd123094dde3",
+    "latest_segment_sequence": 397,
+    "latest_segment_sha256": "c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04",
+    "source_commit": "b935c6ec34007111df491801ce277f865f434a34",
+    "source_tree": "0fd3cbc04c170217675f09b3776818f33101ad24"
   },
-  "checkpoint_sha256": "f332d0afb0d44619e7312d7efa7582994a4c9bd598900f7e8de88cef974b8872",
+  "checkpoint_sha256": "90b9844097673b08d7e493aa7d55afd9b61c7ab90e8729664ff7bd123094dde3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 396,
+  "latest_sequence": 397,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -1878,24 +1878,7 @@ Total output lines: 4455
       "path": "work/construction/segments/0189-multi-event-strategy-packets.md",
       "predecessor": "segment-sha256:c452514d8286567d768aaf657259aa6b8941db3a4ad89779ef3f59926a6d4d39",
       "sequence": 189,
-      "sha256": "3c42c422baeeabf6b19a92e3ffb1c0ba4462c5a6a87f32060…12734 tokens truncated…5ec096be4ab37111cc0"
-    },
-    {
-      "bytes": 1517,
-      "evidence_bytes": 2084,
-      "evidence_path": "work/construction/evidence/0265-model-bound-task-guidance.json",
-      "evidence_sha256": "571ab0203457f05f4ff7e122ec4af0732fb24f13b6ac1e6614d7e8fc9a192ebb",
-      "path": "work/construction/segments/0265-model-bound-task-guidance.md",
-      "predecessor": "segment-sha256:dfe803c0b8bf436ae76bda4e25aea39c7bc85d19137d1cff91d14286fa505b73",
-      "sequence": 265,
-      "sha256": "005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
-      "source_commit": "2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733",
-      "source_tree": "19bf03d00ec338e58b139a08f5939f18120765cf"
-    },
-    {
-      "bytes": 1222,
-      "evidence_bytes": 1743,
-      "evidence_path": "work/construction/evidence/0266-fresh-process-cross-model-guidance-gate.json",
+      "sha256": "3c42c422baeeabf6b19a92e3ffb1c0ba4462c5a6a87f32060…12931 tokens truncated…ion/evidence/0266-fresh-process-cross-model-guidance-gate.json",
       "evidence_sha256": "b25ce8c81a5626d1e302f033679ed9ddf73eb375e7c771212c2b1fd76f19c9f5",
       "path": "work/construction/segments/0266-fresh-process-cross-model-guidance-gate.md",
       "predecessor": "segment-sha256:005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
@@ -3530,6 +3513,19 @@ Total output lines: 4455
       "sha256": "9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150",
       "source_commit": "2222fe85292b36f8277465b99cf42ed99b3fd041",
       "source_tree": "396547271a26186a8ffb749e94831679efc99328"
+    },
+    {
+      "bytes": 1289,
+      "evidence": "work/construction/evidence/0397-surface-metadata-guard-failure-reasons.json",
+      "evidence_bytes": 1620,
+      "evidence_path": "work/construction/evidence/0397-surface-metadata-guard-failure-reasons.json",
+      "evidence_sha256": "546317df40d945a99cebf2a76c2832a94550442ddc580cf9f4efa89309437617",
+      "path": "work/construction/segments/0397-surface-metadata-guard-failure-reasons.md",
+      "predecessor": "segment-sha256:9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150",
+      "sequence": 397,
+      "sha256": "c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04",
+      "source_commit": "b935c6ec34007111df491801ce277f865f434a34",
+      "source_tree": "0fd3cbc04c170217675f09b3776818f33101ad24"
     }
   ],
   "source_acquisition": {

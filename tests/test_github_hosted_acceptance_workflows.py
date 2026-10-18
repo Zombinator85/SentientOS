@@ -545,6 +545,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
         "- name: Verify pre-publication PR metadata guard", 1
     )[1].split("- name: Upload hosted privileged PR landing finalizer evidence", 1)[0]
     assert "scripts/codex_pr_metadata_guard.py verify" in guard
+    assert "guard_exit=$?" in guard
+    assert '"reasons": payload.get("reasons")' in guard
+    assert "pre-publication metadata guard blocked (exit" in guard
     assert '--pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json"' in guard
     assert '--pr-metadata-finalizer-json "$RUNNER_TEMP/codex-finalizer-pr-metadata.json"' in guard
     assert '--matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json"' in guard

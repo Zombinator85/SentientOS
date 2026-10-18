@@ -224,3 +224,9 @@ Sequence 396 repairs the hosted QG cleanup failure. Run `39162183378` passed str
 Latest construction segment: `work/construction/segments/0396-remove-finalizer-worktrees-with-scoped-admin-custody.md`
 Latest segment SHA-256: `9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150`
 Sequence: 396 (untested; hosted verification pending)
+
+Sequence 397 improves hosted failure observability for the exact PR metadata guard. Sequence-396 run `39162397893` passed strict audit, immutability, all 29 required nodes, and both finalizer phases, but the guard failed and its redirected JSON reasons were not emitted before `set -e` stopped the job. The workflow now captures the status and emits exact guard reasons while preserving fail-closed behavior and unchanged criteria. Hosted rerun remains pending; no guard success is claimed. Source parent: `b935c6ec34007111df491801ce277f865f434a34`, tree `0fd3cbc04c170217675f09b3776818f33101ad24`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0397-surface-metadata-guard-failure-reasons.md`
+Latest segment SHA-256: `c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04`
+Sequence: 397 (untested; hosted verification pending)
