@@ -179,6 +179,8 @@ def build_body(
     if isinstance(pre_plan, Mapping):
         valid_transition, transition_reasons, _transition_proof = verify_validation_plan_transition(
             pre_plan, post_plan, pre_payload.get("workspace_binding", {}), commit_binding,
+            pre_acceptance=pre_payload.get("task_acceptance"),
+            post_acceptance=post_payload.get("task_acceptance"),
         )
         if not valid_transition:
             raise ValueError("invalid landing validation plan transition: " + ", ".join(transition_reasons))

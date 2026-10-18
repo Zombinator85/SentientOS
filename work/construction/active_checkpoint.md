@@ -293,3 +293,10 @@ Sequence 406 verifies PR #2377 and exact-main validation on `fe5eea358254e4e968d
 Latest construction segment: `work/construction/segments/0406-verify-sequence405-merge-main.md`
 Latest segment SHA-256: `922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7`
 Sequence: 406 (exact-main post-merge checks passed; current-main scheduled observations pending)
+
+
+Sequence 407 repairs the canonical PR-body builder’s task-acceptance roll-forward handoff. The builder now supplies precommit and PR-metadata acceptance reports to the unchanged exact-source transition verifier. Against the sequence-406 candidate source tree, the focused body-builder and metadata-guard suites passed 46 tests with 14 legacy skips and zero failures; the task-specific successful path was independently accepted. Targeted mypy, compilation, diff checks, and pre-append custody for all 406 segments passed. The first canonical-runner attempt failed before collection when sandbox networking blocked a setuptools fetch and is not counted. Exact updated-candidate hosted verification remains pending.
+Latest construction segment: `work/construction/segments/0407-pass-acceptance-lineage-to-pr-body-builder.md`
+Latest segment SHA-256: `93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687`
+Sequence: 407 (focused local verification passed; updated-candidate hosted verification pending)
+Source parent commit `3c3c445eaf630da08abfa9529ae534d84ce4f3a6`, tree `c42c51d36382bf94a138e700f28cd0a67845d716`.

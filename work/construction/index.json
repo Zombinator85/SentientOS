@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4fd778eab3da807b41b5b0f4b83cd6f838717e854317e8de711dd838540e4017",
-    "latest_segment_sequence": 406,
-    "latest_segment_sha256": "922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7",
-    "latest_sequence": 406,
-    "source_commit": "fe5eea358254e4e968d4ab751b532c2a825f0705",
-    "source_tree": "36e23f790646aec5e69399f4272da5ae5f129a1c"
+    "checkpoint_sha256": "98bc023178645d9870d262eaf194842576ab19e1bb3d2149c9c600aa82ffd76e",
+    "latest_segment_sequence": 407,
+    "latest_segment_sha256": "93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
+    "latest_sequence": 407,
+    "source_commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+    "source_tree": "c42c51d36382bf94a138e700f28cd0a67845d716"
   },
-  "checkpoint_sha256": "4fd778eab3da807b41b5b0f4b83cd6f838717e854317e8de711dd838540e4017",
+  "checkpoint_sha256": "98bc023178645d9870d262eaf194842576ab19e1bb3d2149c9c600aa82ffd76e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 406,
+  "latest_sequence": 407,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4556,6 +4556,18 @@
       "sha256": "922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7",
       "source_commit": "fe5eea358254e4e968d4ab751b532c2a825f0705",
       "source_tree": "36e23f790646aec5e69399f4272da5ae5f129a1c"
+    },
+    {
+      "bytes": 2525,
+      "evidence_bytes": 6677,
+      "evidence_path": "work/construction/evidence/0407-pass-acceptance-lineage-to-pr-body-builder.json",
+      "evidence_sha256": "91e5e8adeb44e6a27924950da7ffe25f6960e6705ce9b78ffc1bc060b45fd4c8",
+      "path": "work/construction/segments/0407-pass-acceptance-lineage-to-pr-body-builder.md",
+      "predecessor": "segment-sha256:922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7",
+      "sequence": 407,
+      "sha256": "93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
+      "source_commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+      "source_tree": "c42c51d36382bf94a138e700f28cd0a67845d716"
     }
   ],
   "source_acquisition": {

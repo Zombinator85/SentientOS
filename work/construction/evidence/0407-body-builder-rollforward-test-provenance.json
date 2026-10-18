@@ -1,0 +1,502 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_contradictory_stale_and_ready_markers_fail": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_exhaustive_without_matrix_fails_closed": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_every_pr_metadata_guard_required_marker": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_matrix_output_path": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_unresolved_risks": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_passes_landing_gate_without_matrix_output_reference_missing": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_pr_evidence_includes_bound_acceptance_result": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_json_fails": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_path_marker_fails": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_script_is_deterministic": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_solo_generation_without_matrix_is_truthful_and_binds": 0,
+    "tests/test_build_codex_landing_evidence_body_script.py::test_solo_rejects_supplied_exhaustive_matrix": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_changed_acceptance_digests_without_source_bound_rollforward_block": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_dirty_tree_evidence_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_exact_task_acceptance_rolls_forward_from_parent_to_candidate_sha": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_exhaustive_matrix_lineage_mismatch_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_exhaustive_transition_remains_ready": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_failed_matrix_artifact_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_json_output_is_deterministic": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-False]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-True]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-False]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-True]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_missing_pr_metadata_artifact_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_missing_pre_commit_artifact_blocks_normal_task": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_pr_metadata_not_ready_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_pre_commit_not_ready_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_ready_pre_commit_and_pr_metadata_artifacts_are_ready": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-changed_path_manifest_digest-9999999999999999999999999999999999999999999999999999999999999999-workspace_manifest_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-commit_subject-changed-commit_title_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-parent_sha-9999999999999999999999999999999999999999-commit_parent_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-artifact_digest-sha256:bad-pr_metadata_validation_plan_invalid:validation_plan_digest_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-overall_status-ready_to_commit-pr_metadata_validation_status_invalid]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-phase-pre-commit-pr_metadata_validation_phase_invalid]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-repository_sha-9999999999999999999999999999999999999999-pr_metadata_validation_repository_sha_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-artifact_digest-sha256:bad-pre_commit_validation_plan_invalid:validation_plan_digest_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-overall_status-ready_for_pr_metadata-pre_commit_validation_status_invalid]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-phase-pr-metadata-pre_commit_validation_phase_invalid]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-repository_sha-9999999999999999999999999999999999999999-pre_commit_validation_repository_sha_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_phase_local_plan_transition_is_ready_and_inspectable": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_profile_metadata_preserves_validation_profile": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[effective_profile-exhaustive]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[focused_test_command_contract-value6]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[intended_commit_title-changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[requested_profile-exhaustive]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[targeted_mypy_command_contract-value7]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_manifest_digest-changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_provenance_digest-changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[title-changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_stale_evidence_refresh_required_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_nodes-task_acceptance_required_nodes_changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_witness-task_acceptance_witness_contracts_changed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[failed_node-pr_metadata_task_acceptance_node_not_passed]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[inconsistent_witness_count-pr_metadata_task_acceptance_witnesses_not_ready]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_digest-pr_metadata_task_acceptance_manifest_digest_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_sha-pr_metadata_task_acceptance_source_sha_mismatch]": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_title_mismatch_blocks": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_validation_only_allows_no_pre_commit_when_clean": 0,
+    "tests/test_codex_pr_metadata_guard.py::test_validation_only_blocks_when_source_doc_test_changes_present": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "skip_rate",
+      "rule": "<= 0.2",
+      "threshold": 0.2,
+      "value": 0.23333333333333334
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 46,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/SentientOS-main-5a97/glow/test_runs/pytest_junitxml_92b8282ddfff4700a16912694ee27b0b.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_matrix_output_path",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_unresolved_risks",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_every_pr_metadata_guard_required_marker",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_json_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_path_marker_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_passes_landing_gate_without_matrix_output_reference_missing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_script_is_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_contradictory_stale_and_ready_markers_fail",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_generated_pr_evidence_includes_bound_acceptance_result",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_solo_generation_without_matrix_is_truthful_and_binds",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_solo_rejects_supplied_exhaustive_matrix",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_exhaustive_without_matrix_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_profile_metadata_preserves_validation_profile",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_ready_pre_commit_and_pr_metadata_artifacts_are_ready",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_phase_local_plan_transition_is_ready_and_inspectable",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_exact_task_acceptance_rolls_forward_from_parent_to_candidate_sha",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_changed_acceptance_digests_without_source_bound_rollforward_block",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-False]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-False]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_sha-pr_metadata_task_acceptance_source_sha_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_nodes-task_acceptance_required_nodes_changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[failed_node-pr_metadata_task_acceptance_node_not_passed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_digest-pr_metadata_task_acceptance_manifest_digest_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_witness-task_acceptance_witness_contracts_changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[inconsistent_witness_count-pr_metadata_task_acceptance_witnesses_not_ready]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[requested_profile-exhaustive]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[effective_profile-exhaustive]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[title-changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[intended_commit_title-changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_manifest_digest-changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_provenance_digest-changed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[focused_test_command_contract-value6]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[targeted_mypy_command_contract-value7]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-artifact_digest-sha256:bad-pre_commit_validation_plan_invalid:validation_plan_digest_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-artifact_digest-sha256:bad-pr_metadata_validation_plan_invalid:validation_plan_digest_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-phase-pr-metadata-pre_commit_validation_phase_invalid]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-phase-pre-commit-pr_metadata_validation_phase_invalid]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-overall_status-ready_for_pr_metadata-pre_commit_validation_status_invalid]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-overall_status-ready_to_commit-pr_metadata_validation_status_invalid]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-repository_sha-9999999999999999999999999999999999999999-pre_commit_validation_repository_sha_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-repository_sha-9999999999999999999999999999999999999999-pr_metadata_validation_repository_sha_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-parent_sha-9999999999999999999999999999999999999999-commit_parent_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-changed_path_manifest_digest-9999999999999999999999999999999999999999999999999999999999999999-workspace_manifest_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-commit_subject-changed-commit_title_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_exhaustive_transition_remains_ready",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_exhaustive_matrix_lineage_mismatch_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_missing_pre_commit_artifact_blocks_normal_task",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_missing_pr_metadata_artifact_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_pre_commit_not_ready_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_pr_metadata_not_ready_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_title_mismatch_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_stale_evidence_refresh_required_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_failed_matrix_artifact_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_dirty_tree_evidence_blocks",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_validation_only_allows_no_pre_commit_when_clean",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_validation_only_blocks_when_source_doc_test_changes_present",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_codex_pr_metadata_guard.py::test_json_output_is_deterministic",
+      "outcome": "skipped",
+      "phase": "setup"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "a21497971da6217db5f54b6d3cf360196e76055a984563d3db26102ec6cb2b6a",
+  "provenance_hash": "fc4b1cdebd7b82dcb4b59de4ffed497b7580ceabacf2ed5ee0446495d038bed5",
+  "pytest_args": [
+    "tests/test_build_codex_landing_evidence_body_script.py",
+    "tests/test_codex_pr_metadata_guard.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-main-5a97-venv/bin/python",
+  "repo_root": "/tmp/SentientOS-main-5a97",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "cedd225aa7a24461b4ae2950b40568e0",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_matrix_output_path",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_unresolved_risks",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_includes_every_pr_metadata_guard_required_marker",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_json_fails",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_missing_matrix_path_marker_fails",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_body_passes_landing_gate_without_matrix_output_reference_missing",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_script_is_deterministic",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_contradictory_stale_and_ready_markers_fail",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_generated_pr_evidence_includes_bound_acceptance_result",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_solo_generation_without_matrix_is_truthful_and_binds",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_solo_rejects_supplied_exhaustive_matrix",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_exhaustive_without_matrix_fails_closed",
+    "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_profile_metadata_preserves_validation_profile",
+    "tests/test_codex_pr_metadata_guard.py::test_ready_pre_commit_and_pr_metadata_artifacts_are_ready",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_phase_local_plan_transition_is_ready_and_inspectable",
+    "tests/test_codex_pr_metadata_guard.py::test_exact_task_acceptance_rolls_forward_from_parent_to_candidate_sha",
+    "tests/test_codex_pr_metadata_guard.py::test_changed_acceptance_digests_without_source_bound_rollforward_block",
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-False]",
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[pre-True]",
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-False]",
+    "tests/test_codex_pr_metadata_guard.py::test_malformed_task_acceptance_report_blocks_without_crashing[post-True]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_sha-pr_metadata_task_acceptance_source_sha_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_nodes-task_acceptance_required_nodes_changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[failed_node-pr_metadata_task_acceptance_node_not_passed]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[wrong_digest-pr_metadata_task_acceptance_manifest_digest_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[changed_witness-task_acceptance_witness_contracts_changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence[inconsistent_witness_count-pr_metadata_task_acceptance_witnesses_not_ready]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[requested_profile-exhaustive]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[effective_profile-exhaustive]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[title-changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[intended_commit_title-changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_manifest_digest-changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[task_acceptance_provenance_digest-changed]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[focused_test_command_contract-value6]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_stable_lineage_mutation_blocks[targeted_mypy_command_contract-value7]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-artifact_digest-sha256:bad-pre_commit_validation_plan_invalid:validation_plan_digest_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-artifact_digest-sha256:bad-pr_metadata_validation_plan_invalid:validation_plan_digest_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-phase-pr-metadata-pre_commit_validation_phase_invalid]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-phase-pre-commit-pr_metadata_validation_phase_invalid]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-overall_status-ready_for_pr_metadata-pre_commit_validation_status_invalid]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-overall_status-ready_to_commit-pr_metadata_validation_status_invalid]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[pre-repository_sha-9999999999999999999999999999999999999999-pre_commit_validation_repository_sha_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_invalid_plan_transition_blocks[post-repository_sha-9999999999999999999999999999999999999999-pr_metadata_validation_repository_sha_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-parent_sha-9999999999999999999999999999999999999999-commit_parent_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-changed_path_manifest_digest-9999999999999999999999999999999999999999999999999999999999999999-workspace_manifest_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_solo_commit_workspace_lineage_mutation_blocks[post-commit_subject-changed-commit_title_mismatch]",
+    "tests/test_codex_pr_metadata_guard.py::test_exhaustive_transition_remains_ready",
+    "tests/test_codex_pr_metadata_guard.py::test_exhaustive_matrix_lineage_mismatch_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_missing_pre_commit_artifact_blocks_normal_task",
+    "tests/test_codex_pr_metadata_guard.py::test_missing_pr_metadata_artifact_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_pre_commit_not_ready_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_pr_metadata_not_ready_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_title_mismatch_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_stale_evidence_refresh_required_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_failed_matrix_artifact_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_dirty_tree_evidence_blocks",
+    "tests/test_codex_pr_metadata_guard.py::test_validation_only_allows_no_pre_commit_when_clean",
+    "tests/test_codex_pr_metadata_guard.py::test_validation_only_blocks_when_source_doc_test_changes_present",
+    "tests/test_codex_pr_metadata_guard.py::test_json_output_is_deterministic"
+  ],
+  "selection_flags": [
+    "tests/test_build_codex_landing_evidence_body_script.py",
+    "tests/test_codex_pr_metadata_guard.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.23333333333333334,
+  "tests_collected": 60,
+  "tests_executed": 46,
+  "tests_failed": 0,
+  "tests_passed": 46,
+  "tests_selected": 60,
+  "tests_skipped": 14,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-18T22:20:28.091252+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

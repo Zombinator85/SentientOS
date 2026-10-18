@@ -1,0 +1,14 @@
+{
+  "artifact_digests": {
+    "pr_metadata_finalizer": "9c522ad7fcd176bbda7e462f28ae33d522fa401a87564e7e52bf2be557caad23",
+    "pr_metadata_guard": "5b14a65986990fbc6b5c164d16f7d6fd85f85cc0e5a9b61bacb942eb8d18a7c3",
+    "pre_commit_finalizer": "8e98f9ffba9b239a0a8185409e3f4de96d50faecb75e034b365d671d3217f547"
+  },
+  "body_byte_length": 15427,
+  "body_sha256": "a5eefff27e3c5fe4e840a0c6ec3a9d62a76705818d50c22c694553243b258b2f",
+  "commit_sha": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+  "matrix_digest": "",
+  "schema_version": "codex_landing_evidence_binding.v1",
+  "title": "[codex:construction] verify sequence 405 merge on main",
+  "tree_sha": "c42c51d36382bf94a138e700f28cd0a67845d716"
+}

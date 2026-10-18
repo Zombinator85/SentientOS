@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -231,3 +232,94 @@ def test_exhaustive_without_matrix_fails_closed(tmp_path: Path) -> None:
     ])
     assert code == 1
     assert not output.exists()
+
+
+def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_path: Path) -> None:
+    base_sha = "1" * 40
+    head_sha = "2" * 40
+    node_id = "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward"
+    common = {
+        "requested_profile": "solo",
+        "effective_profile": "solo",
+        "title": TITLE,
+        "intended_commit_title": TITLE,
+        "focused_test_command_contract": ["python -m scripts.run_tests -q tests/test_build_codex_landing_evidence_body_script.py"],
+        "targeted_mypy_command_contract": ["python -m mypy scripts/build_codex_landing_evidence_body.py"],
+        "exhaustive_matrix_status": "not_requested_for_solo_profile",
+        "required_stage_ids": [],
+        "stage_results": {},
+    }
+
+    def acceptance(repository_sha: str, manifest_digest: str, provenance_digest: str) -> dict[str, object]:
+        return {
+            "status": "task_acceptance_ready",
+            "task_classification": "behavior_adding",
+            "repository_sha": repository_sha,
+            "manifest_digest": manifest_digest,
+            "provenance_digest": provenance_digest,
+            "required_node_ids": [node_id],
+            "successful_path_node_ids": [node_id],
+            "node_outcomes": [{"node_id": node_id, "exists": True, "selected": True, "phase": "call", "outcome": "passed", "passed": True}],
+            "witness_status": "ready",
+            "required_witness_contract_count": 0,
+            "passed_witness_contract_count": 0,
+            "witness_contract_results": [],
+        }
+
+    pre_acceptance = acceptance(base_sha, "sha256:pre-manifest", "sha256:pre-provenance")
+    post_acceptance = acceptance(head_sha, "sha256:post-manifest", "sha256:post-provenance")
+    pre_plan = seal_validation_plan({
+        **common, "repository_sha": base_sha, "phase": "pre-commit",
+        "overall_status": "ready_to_commit",
+        "task_acceptance_manifest_digest": pre_acceptance["manifest_digest"],
+        "task_acceptance_provenance_digest": pre_acceptance["provenance_digest"],
+    })
+    post_plan = seal_validation_plan({
+        **common, "repository_sha": head_sha, "phase": "pr-metadata",
+        "overall_status": "ready_for_pr_metadata",
+        "task_acceptance_manifest_digest": post_acceptance["manifest_digest"],
+        "task_acceptance_provenance_digest": post_acceptance["provenance_digest"],
+    })
+    changed_manifest_digest = "sha256:changed-paths"
+    pre_path = tmp_path / "pre.json"
+    pre_path.write_text(json.dumps({
+        "decision": {"status": "ready_to_commit"},
+        "landing_validation_plan": pre_plan,
+        "workspace_binding": {
+            "base_head_sha": base_sha, "intended_commit_title": TITLE,
+            "changed_path_manifest_digest": changed_manifest_digest, "matrix_digest": "",
+        },
+        "task_acceptance": pre_acceptance,
+    }), encoding="utf-8")
+    post_path = tmp_path / "post.json"
+    post_path.write_text(json.dumps({
+        "decision": {"status": "ready_for_pr_metadata"},
+        "landing_validation_plan": post_plan,
+        "commit_binding": {
+            "parent_sha": base_sha, "head_sha": head_sha, "commit_subject": TITLE,
+            "changed_path_manifest_digest": changed_manifest_digest, "matrix_digest": "",
+            "tree_sha": "3" * 40,
+        },
+        "task_acceptance": post_acceptance,
+    }), encoding="utf-8")
+    guard_path = tmp_path / "guard.json"
+    guard_path.write_text(json.dumps({"status": "pr_metadata_guard_ready"}), encoding="utf-8")
+    output = tmp_path / "body.md"
+    sidecar = tmp_path / "binding.json"
+
+    code = main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--landing-supervisor-json-path", "", "--output", str(output),
+        "--pre-commit-finalizer-json-path", str(pre_path),
+        "--pr-metadata-finalizer-json-path", str(post_path),
+        "--pr-metadata-guard-json-path", str(guard_path),
+        "--sidecar-output", str(sidecar), "--verify-body-binding",
+    ])
+
+    assert code == 0
+    body = output.read_text(encoding="utf-8")
+    assert "task_acceptance_ready" in body
+    assert "sha256:post-manifest" in body
+    binding = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert binding["body_sha256"] == hashlib.sha256(body.encode("utf-8")).hexdigest()
+    assert binding["body_byte_length"] == len(body.encode("utf-8"))
