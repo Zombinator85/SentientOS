@@ -106,6 +106,7 @@ from sentientos.host_resource_runtime import (HostResourceRuntimeCoordinator,
     resource_consumption_world_state_records, resource_invocation_proposal_lineage_records)
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.production_chat_resource_observation import (
+    ProductionChatResourceObservation,
     ProductionChatResourceObservationError,
     ProductionChatResourceObservationOwner,
 )
@@ -957,6 +958,10 @@ class RuntimeMaintenanceSurfaces:
         self._governed_local_invoker = governed_local_invoker
         self._governed_resource_ledger = governed_resource_ledger
         self._resource_observation_owner = resource_observation_owner
+        self._resource_observation_tick_id: str | None = None
+        self._resource_observation_snapshot: ProductionChatResourceObservation | None = None
+        self._resource_observation_error: Exception | None = None
+        self._causal_introspection_tick_id: str | None = None
         self._resource_observation_health: dict[str, Any] = dict(resource_observation_configuration_status or {
             "status": "verified" if resource_observation_owner is not None else "disabled",
             "read_only": True, "effect_authority": False,
@@ -1762,7 +1767,8 @@ class RuntimeMaintenanceSurfaces:
                 observed_at=tick_key))
         if self._resource_observation_owner is not None:
             try:
-                observation = self._resource_observation_owner.observe()
+                observation = self._observe_resource_owner_for_tick(tick_key)
+                assert observation is not None
                 resource_records = resource_consumption_world_state_records(
                     ledger=observation.ledger,
                     invocation_receipts=observation.invocation_receipts,
@@ -2107,6 +2113,27 @@ class RuntimeMaintenanceSurfaces:
         self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)
         self._world_state_snapshot_built_for_tick = tick_key
         return feedback
+
+    def _observe_resource_owner_for_tick(
+            self, tick_id: str) -> ProductionChatResourceObservation | None:
+        """Return one verified resource-owner snapshot for every projection in a tick."""
+        if self._resource_observation_owner is None:
+            return None
+        if self._resource_observation_tick_id != tick_id:
+            self._resource_observation_tick_id = tick_id
+            self._resource_observation_snapshot = None
+            self._resource_observation_error = None
+            try:
+                self._resource_observation_snapshot = self._resource_observation_owner.observe()
+            except Exception as exc:
+                # Preserve the same fail-closed read result for downstream same-tick
+                # projections instead of retrying a source that already failed.
+                self._resource_observation_error = exc
+        if self._resource_observation_error is not None:
+            raise self._resource_observation_error
+        if self._resource_observation_snapshot is None:
+            raise ValueError("resource_observation_snapshot_missing")
+        return self._resource_observation_snapshot
 
     def _resident_model_provenance_bindings(self, protocol_value: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         references = protocol_value.get("model_replacement_protocol_references")
@@ -2616,6 +2643,7 @@ class RuntimeMaintenanceSurfaces:
         """Capture after all same-tick owner closures; never invoke a model or owner mutation."""
         if self._causal_introspection_runtime is None:
             return {"status": "disabled", "authority": False, "current_truth": False}
+        self._causal_introspection_tick_id = tick_id
         snapshot = self._causal_introspection_runtime.capture(CaptureContext(
             tick_id=tick_id, capture_posture="unknown"))
         feedback = {"status": "degraded" if snapshot.completion_posture == "partial" else "ok",
@@ -3705,7 +3733,13 @@ def _compose_causal_introspection(
     resource_observer = runtime_surfaces._resource_observation_owner
     if "causal_resources" in enabled and resource_observer is not None:
         def inspect_causal_resources() -> dict[str, Any]:
-            observation = resource_observer.observe()
+            tick_id = (runtime_surfaces._causal_introspection_tick_id
+                or runtime_surfaces._world_state_snapshot_built_for_tick)
+            if not isinstance(tick_id, str) or not tick_id:
+                raise ValueError("resource_observation_tick_binding_missing")
+            observation = runtime_surfaces._observe_resource_owner_for_tick(tick_id)
+            if observation is None:
+                raise ValueError("resource_observation_owner_unavailable")
             ledger_snapshot = observation.ledger.observation_snapshot()
             records = resource_consumption_world_state_records(
                 ledger=observation.ledger,
@@ -3786,6 +3820,8 @@ def _compose_causal_introspection(
                     "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
                     "lineage_finding_count": "count", "lineage_posture": "lineage",
                     "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
+                    "chat_process_generation_posture": "lifecycle",
+                    "verified_chat_process_generation_attribution_count": "count",
                     "identity_retention_posture": "lifecycle",
                     "read_only": "currentness", "effect_authority": "authority_evidence"})))
     longitudinal_owner = runtime_surfaces._longitudinal_self_model_owner
@@ -4276,8 +4312,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 runtime_surfaces._resident_transition_custody = candidate_surfaces._resident_transition_custody
                 runtime_surfaces._resident_transition_custody_error = candidate_surfaces._resident_transition_custody_error
     if (resident_transition_live_path
-            and runtime_surfaces._resident_transition_custody is None
-            and runtime_surfaces._resident_transition_custody_error is None):
+            and getattr(runtime_surfaces, "_resident_transition_custody", None) is None
+            and getattr(runtime_surfaces, "_resident_transition_custody_error", None) is None):
         try:
             runtime_surfaces._resident_transition_custody = _load_resident_transition_custody(
                 resident_transition_live_path)
@@ -4289,12 +4325,12 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         runtime_surfaces._resident_transition_configuration_error = (
             runtime_surfaces._resident_transition_configuration_error
             or "hardened_resident_serving_required")
-    if runtime_surfaces._resident_transition_configuration_error is not None:
+    if getattr(runtime_surfaces, "_resident_transition_configuration_error", None) is not None:
         runtime_surfaces.block_resident_cognition_for_transition_recovery(
             runtime_surfaces._resident_transition_configuration_error)
     else:
         recovery_journal = None
-        custody = runtime_surfaces._resident_transition_custody
+        custody = getattr(runtime_surfaces, "_resident_transition_custody", None)
         if custody is not None:
             recovery_journal = custody[1]
         elif resident_transition_installation_handle is not None:
@@ -4303,7 +4339,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         if recovery_journal is not None:
             recovery_reason = _resident_transition_recovery_quarantine_reason(
                 recovery_journal,
-                transition_runtime_available=runtime_surfaces._resident_transition_runtime is not None)
+                transition_runtime_available=getattr(runtime_surfaces, "_resident_transition_runtime", None) is not None)
             if recovery_reason is not None:
                 runtime_surfaces.block_resident_cognition_for_transition_recovery(recovery_reason)
     # Explicit owner injection: World-State reads the already configured

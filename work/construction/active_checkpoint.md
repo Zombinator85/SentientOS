@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-Latest verified main at this checkpoint: signed regular merge `0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91`, tree `75f898f777ed66d6c0306d3b3215f0773b341184`, sequence 368 through PR #2359. It preserved parents `ef0b3fb8c4ee83d5532582fb4035d1c177f4e404` and `f78a538547c4c41a1d396e8ad6108f55ac164276`. Candidate checks and exact-main post-merge CI, QG, Docker, invariants, docs, Codex CI, and Federation Health push all passed. Post-merge QG #39120414844 binds to this SHA: 29/29 acceptance nodes passed, zero failures/skips, strict audit and immutability receipts true with no issues. Forge Smoke was skipped by its configured condition.
+Latest verified main before sequence 372: signed regular merge `a205fdeb280e5488ff6216ab54d7d1800dc0bee8`, tree `a378b176cff01d46697c351944051d5c01af71d0`, sequences 369–371 merged through PR #2361. Candidate and post-merge CI, QG, Docker, Invariants, Docs Deploy, and Codex CI passed on that main. The historical sequence-368 base was `0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91` (tree `75f898f777ed66d6c0306d3b3215f0773b341184`).
 
 The scheduled Federation Health evidence gap is now closed for this exact main source. Run #39122005777 (`schedule`, source `0e2a7bff…`) passed the Administrator preflight, privileged generator, and publisher; fixture was skipped as designed. Independently verified artifact #12134432857, SHA-256 `293290a30e85dd3cf3e80e2c7c09948827f3f08a8b85958fbd9d3278d84d2a2d`, reports 1 node, 0 recent events, `quiet`. Publisher output was `pull-request-operation = none` because report bytes matched main. This is not changed-output fixture proof.
 
@@ -18,7 +18,15 @@ Sequence 370 source candidate: `b4dc89c13ab773eafa048926a5f7ed3daeb82923`, tree 
 
 Sequence 371 source candidate: `4606778f352d38ca86b0f233719c495792c17b7d`, tree `c0c3d5926b9ae81a51066830086da7dd525164d5`. Sequence 371 records the second hosted finalizer stop (#39122735813): all 29 acceptance nodes and strict Administrator audit passed, but the pull-request synchronize event retained the prior PR title and correctly failed the exact title/commit-subject guard before finalizer invocation. PR #2361 title was updated before the next head update; the next commit subject is set to match. A fresh full gate is pending.
 
-Latest construction segment: `work/construction/segments/0371-record-title-payload-retry-behavior.md`
-Latest segment SHA-256: `395ef63cd9f4a6ff07d2e1add0eef9387ba5658e8ab309963cc9cd18f2cb3a40`
-Latest segment SHA-256: `a651dfe66e2486f1af03c8077fa0edb54c6401f4a37b4c89bc4aee9096765bd1`
-Sequence: 371
+
+Sequence 372 source is the exact verified main `a205fdeb280e5488ff6216ab54d7d1800dc0bee8`, tree `a378b176cff01d46697c351944051d5c01af71d0`. The construction continuation index at that main is unreadable binary (blob `8e94b8f63fb590b56a25957be7da7141eda1bc0c`); the recovery restores the valid sequence-368 index from `f78a538547c4c41a1d396e8ad6108f55ac164276` and reconstructs entries 369–371 from their unchanged tracked segments/evidence. This preserves the original segment chain and records the defect in sequence 372 evidence.
+
+Sequence 372 also binds the daemon's World-State resource facts and causal-resource introspection to one read-only owner snapshot per tick. A read is cached across both projections; a new tick refreshes it, and a same-tick owner failure is not retried into an inconsistent second view. The source schema now declares the two chat-process generation observations its callback already emitted. Runtime-closure tests also exposed missing optional transition attributes on lightweight injected surfaces; those reads now default safely while preserving the fail-closed transition behavior when the error is present.
+
+Canonical targeted tests passed: 40 passed, 0 skipped across resource observation integration, causal introspection composition, and daemon runtime closure. `py_compile`, `git diff --check`, and `scripts/check_mypy_baseline.py` passed; the baseline reported 0 new errors and 40 retired errors. The local finalizer did not return ready: its two Administrator-only audit stages failed closed with `Access denied`. Hosted QG, hosted strict audit and immutability gate, and post-merge verification remain pending. No production inference or authority expansion occurred.
+
+The changed-output Federation Health fixture still requires repository setting `Allow GitHub Actions to create and approve pull requests`; do not represent the prior denied run as publication proof. Sequence-286 provenance loss remains unresolved. The stale sequence-178 and sequence-368 workspaces remain untouched.
+
+Latest construction segment: `work/construction/segments/0372-restore-construction-index-and-bind-resource-observations.md`
+Latest segment SHA-256: `eb93ff0ed9d9d31cc4556ab814ecb380d5d3362cf003d81bbf500fdd966d476c`
+Sequence: 372
