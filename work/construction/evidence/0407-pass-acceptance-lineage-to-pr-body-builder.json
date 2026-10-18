@@ -1,0 +1,152 @@
+{
+  "append_only": true,
+  "change": {
+    "drift_checks_weakened": false,
+    "failure_mode": "body builder omitted pre/post task-acceptance reports when validating an authorized exact-source acceptance roll-forward",
+    "files": [
+      "scripts/build_codex_landing_evidence_body.py",
+      "tests/test_build_codex_landing_evidence_body_script.py"
+    ],
+    "fix": "pass precommit and PR-metadata task_acceptance payloads to verify_validation_plan_transition",
+    "production_inference": false,
+    "provider_invoked": false,
+    "runtime_authority_added": false
+  },
+  "hosted_verification": {
+    "status": "pending_exact_updated_candidate"
+  },
+  "local_verification": {
+    "canonical_runner_bootstrap": {
+      "reason": "sandbox denied outbound pip access for setuptools>=78.1.1; not counted as test result",
+      "status": "failed_before_collection"
+    },
+    "exact_candidate_body_reproduction": {
+      "binding_sha256": "39441ebac0c3d6ed5fa0de8c7c285889a708b2dcaf47a0a910e63f9efcbb080f",
+      "body_sha256": "a5eefff27e3c5fe4e840a0c6ec3a9d62a76705818d50c22c694553243b258b2f",
+      "hosted_candidate_sha": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+      "hosted_candidate_tree": "c42c51d36382bf94a138e700f28cd0a67845d716",
+      "status": "pr_body_binding_ready"
+    },
+    "exact_task_acceptance": {
+      "manifest_digest": "sha256:f6de920bca98ce139ab92b80c195fab3dbb0154d09ad586e87883cdc342cadb6",
+      "provenance_digest": "sha256:8cf0a8879f98c97b9ec5434d4ec9509adad93294bc6078e653fb9b007539741d",
+      "schema_version": "sentientos.task_acceptance:v1",
+      "status": "task_acceptance_ready",
+      "successful_path_node": "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward"
+    },
+    "git_diff_check": "passed",
+    "pre_append_custody": {
+      "failures": [],
+      "segments_verified": 406,
+      "status": "construction_continuation_custody_ready"
+    },
+    "python_compile": "passed",
+    "repository_native_runner": {
+      "command": "python -m scripts.run_tests -q tests/test_build_codex_landing_evidence_body_script.py tests/test_codex_pr_metadata_guard.py",
+      "environment": "/tmp/sentientos-main-5a97-venv",
+      "junit_sha256": "385c3870b44d07d60d66a30f760da33f960ceddd36ad5ddea32681308a6c1189",
+      "provenance_sha256": "8cf0a8879f98c97b9ec5434d4ec9509adad93294bc6078e653fb9b007539741d",
+      "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+      "run_id": "cedd225aa7a24461b4ae2950b40568e0",
+      "source_tree": "3fa1d39e89ef8f097de33fa29a686d2d384fc1ee",
+      "tests_failed": 0,
+      "tests_passed": 46,
+      "tests_skipped": 14,
+      "validation_status": "validation_complete"
+    },
+    "targeted_mypy": "passed, 0 issues"
+  },
+  "prior_candidate_verification": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39171458459,
+      "source_validation_artifact_id": 12152284732,
+      "source_validation_artifact_sha256": "8529af892f27d4bb2b0608e129d6d4af3d0fd1ec5413a2295288cde97771144c",
+      "source_validation_git_sha": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+      "source_validation_tests_failed": 0,
+      "source_validation_tests_passed": 20,
+      "source_validation_tests_skipped": 0
+    },
+    "commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39171458389
+    },
+    "required_quality_gate": {
+      "acceptance_nodes_failed": 0,
+      "acceptance_nodes_passed": 29,
+      "acceptance_nodes_skipped": 0,
+      "administrator_verified": true,
+      "artifact_id": 12152548158,
+      "artifact_sha256": "9307d755d088f6c231205f33a73fea23a63dcbfcb3f1d46d718b829c526997b0",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "expected_sha": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+      "immutability_ok": true,
+      "run_id": 39171458382,
+      "strict_audit_ok": true
+    },
+    "tree": "c42c51d36382bf94a138e700f28cd0a67845d716"
+  },
+  "reproduction": {
+    "body_builder_rejection": [
+      "validation_lineage_field_mismatch:task_acceptance_manifest_digest",
+      "validation_lineage_field_mismatch:task_acceptance_provenance_digest"
+    ],
+    "candidate_sha": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+    "finalizer_artifact_id": 12151639832,
+    "finalizer_artifact_sha256": "2866159f4be3e1c8b261880d5d40cf208f264f98b7fd0f21fad7c672cdd349a4",
+    "hosted_finalizer_run": 39171458382,
+    "metadata_guard": "pr_metadata_guard_ready"
+  },
+  "scheduled_observations": {
+    "federation_health_exact_main": "pending",
+    "nightly_audit_integrity_exact_main": "pending",
+    "nightly_self_check_exact_main": "pending"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2525,
+  "segment_path": "work/construction/segments/0407-pass-acceptance-lineage-to-pr-body-builder.md",
+  "segment_sha256": "93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
+  "sequence": 407,
+  "source": {
+    "local_verification_commit": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+    "local_verification_tree": "3fa1d39e89ef8f097de33fa29a686d2d384fc1ee",
+    "parent_commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
+    "parent_tree": "c42c51d36382bf94a138e700f28cd0a67845d716",
+    "source_patch_tree": "3fa1d39e89ef8f097de33fa29a686d2d384fc1ee"
+  },
+  "supporting_artifacts": [
+    {
+      "bytes": 30116,
+      "path": "work/construction/evidence/0407-body-builder-rollforward-test-provenance.json",
+      "sha256": "8cf0a8879f98c97b9ec5434d4ec9509adad93294bc6078e653fb9b007539741d"
+    },
+    {
+      "bytes": 12734,
+      "path": "work/construction/evidence/0407-body-builder-rollforward-test-junit.xml",
+      "sha256": "385c3870b44d07d60d66a30f760da33f960ceddd36ad5ddea32681308a6c1189"
+    },
+    {
+      "bytes": 786,
+      "path": "work/construction/evidence/0407-task-acceptance-manifest.json",
+      "sha256": "f6de920bca98ce139ab92b80c195fab3dbb0154d09ad586e87883cdc342cadb6"
+    },
+    {
+      "bytes": 1491,
+      "path": "work/construction/evidence/0407-task-acceptance-result.json",
+      "sha256": "8ddc118db21f96793dcc0c462b6f87a086d1d3602f5a408756b18878591523ec"
+    },
+    {
+      "bytes": 15427,
+      "path": "work/construction/evidence/0407-exact-candidate-body-reproduction.md",
+      "sha256": "a5eefff27e3c5fe4e840a0c6ec3a9d62a76705818d50c22c694553243b258b2f"
+    },
+    {
+      "bytes": 697,
+      "path": "work/construction/evidence/0407-exact-candidate-body-reproduction-binding.json",
+      "sha256": "39441ebac0c3d6ed5fa0de8c7c285889a708b2dcaf47a0a910e63f9efcbb080f"
+    }
+  ],
+  "title": "Pass task-acceptance lineage to canonical PR body builder"
+}

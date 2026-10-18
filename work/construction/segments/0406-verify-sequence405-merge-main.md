@@ -1,0 +1,9 @@
+# Sequence 406: verify sequence 405 merge and exact-main validation
+
+PR #2377 was merged with a regular merge. The resulting main commit is `fe5eea358254e4e968d4ab751b532c2a825f0705`, tree `36e23f790646aec5e69399f4272da5ae5f129a1c`, with parents `5a97f4395f32f59febc51ad1eba589729ea13122` and candidate `59111731c3e4051ac8741e74ea4a5122564a1947`. The branch ref independently read back at that merge commit. Sequence 405's exact-candidate checks all passed before merge; its exact PR quality gate, source validation, metadata guard, and artifact hashes are retained in the prior candidate run evidence.
+
+Every configured post-merge push check on exact main `fe5eea…` completed successfully: Required Quality Gate #39170929339, CI #39170929338, Docker #39170929360, Invariants #39170929343, Docs Deploy #39170929341, and Codex CI #39170929375. Forge Smoke #39170929386 was skipped by its configured opt-in condition. The independently downloaded QG artifact #12152965034 matched GitHub's SHA-256 `d520c756800dd661bf947f2621a7efa39a9ded536c9ab020ca77de12a4a34b29`; it binds exact SHA `fe5eea…`, hosted Administrator UID 0, strict audit and immutability success, and 29/29 acceptance nodes. The CI source-validation artifact #12151838562 matched SHA-256 `9076a719f8df677852300950428770cf35bbdb05abfca825f727eccbef004b43`; its provenance binds exact SHA `fe5eea…` to 20 passed, 0 failed, 0 skipped call-phase nodes. Resource-to-cognition lifecycle acceptance and canonical planning/execution separation both passed.
+
+At this evidence cutoff there is no scheduled Federation Health run on `fe5eea…` and no scheduled Nightly Audit Integrity or Nightly Self Check run on this main. Those remain pending. No manually dispatched or historical run is substituted for scheduled evidence.
+
+This sequence records verification only; it adds no runtime behavior, authority, provider invocation, inference, or production effect.

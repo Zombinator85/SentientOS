@@ -199,7 +199,10 @@ def test_duplicate_remote_events_suppressed(monkeypatch):
     ingested = pulse_federation.request_recent_events(15)
     assert len(ingested) == 2
     pending = [
-        evt for evt in pulse_bus.pending_events() if str(evt.get("event_type")) == "heartbeat"
+        evt
+        for evt in pulse_bus.pending_events()
+        if str(evt.get("event_type")) == "heartbeat"
+        and str(evt.get("source_peer")) == "peer-alpha"
     ]
     assert len(pending) == 1
     assert pending[0]["payload"]["note"] == "dup"

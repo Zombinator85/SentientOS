@@ -1,0 +1,159 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_federated_restart.py::test_federated_restart_rejected_for_untrusted_peer": 0,
+    "tests/test_federated_restart.py::test_federated_restart_requires_valid_signature": 0,
+    "tests/test_federated_restart.py::test_federated_restart_with_valid_signature": 0,
+    "tests/test_federated_restart.py::test_local_node_ignores_outbound_federated_requests": 0,
+    "tests/test_federated_restart.py::test_local_restart_request_remains_operational": 0,
+    "tests/test_federated_restart.py::test_monitoring_daemon_logs_federated_restart": 0,
+    "tests/test_pulse_federation.py::test_distinct_remote_events_are_not_suppressed": 0,
+    "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed": 0,
+    "tests/test_pulse_federation.py::test_local_publish_forwarded_with_signature": 0,
+    "tests/test_pulse_federation.py::test_remote_events_do_not_echo": 0,
+    "tests/test_pulse_federation.py::test_remote_replay_ingests_events": 0,
+    "tests/test_pulse_federation.py::test_tampered_signature_rejected": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 12,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/SentientOS-main-5a97/glow/test_runs/pytest_junitxml_8a6a09d5b9034d17a27d7de65460a7d0.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_pulse_federation.py::test_local_publish_forwarded_with_signature",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_pulse_federation.py::test_tampered_signature_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_pulse_federation.py::test_remote_replay_ingests_events",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_pulse_federation.py::test_remote_events_do_not_echo",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_pulse_federation.py::test_distinct_remote_events_are_not_suppressed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_local_restart_request_remains_operational",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_federated_restart_requires_valid_signature",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_federated_restart_with_valid_signature",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_federated_restart_rejected_for_untrusted_peer",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_monitoring_daemon_logs_federated_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_local_node_ignores_outbound_federated_requests",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "4cf16b41a3b0d7fec66b0f93c98e3524f49e6425751bdf32c4cf4dfb9e50adff",
+  "provenance_hash": "161dd0422f869ca6c6da10b34dd6d13c35dff47f2d54d3556beba3a8715c0f92",
+  "pytest_args": [
+    "tests/test_pulse_federation.py",
+    "tests/test_federated_restart.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-main-5a97-venv/bin/python",
+  "repo_root": "/tmp/SentientOS-main-5a97",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "7280571603dc4b51a6a74914316af530",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_pulse_federation.py::test_local_publish_forwarded_with_signature",
+    "tests/test_pulse_federation.py::test_tampered_signature_rejected",
+    "tests/test_pulse_federation.py::test_remote_replay_ingests_events",
+    "tests/test_pulse_federation.py::test_remote_events_do_not_echo",
+    "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+    "tests/test_pulse_federation.py::test_distinct_remote_events_are_not_suppressed",
+    "tests/test_federated_restart.py::test_local_restart_request_remains_operational",
+    "tests/test_federated_restart.py::test_federated_restart_requires_valid_signature",
+    "tests/test_federated_restart.py::test_federated_restart_with_valid_signature",
+    "tests/test_federated_restart.py::test_federated_restart_rejected_for_untrusted_peer",
+    "tests/test_federated_restart.py::test_monitoring_daemon_logs_federated_restart",
+    "tests/test_federated_restart.py::test_local_node_ignores_outbound_federated_requests"
+  ],
+  "selection_flags": [
+    "tests/test_pulse_federation.py",
+    "tests/test_federated_restart.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 12,
+  "tests_executed": 12,
+  "tests_failed": 0,
+  "tests_passed": 12,
+  "tests_selected": 12,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-18T22:30:58.634443+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

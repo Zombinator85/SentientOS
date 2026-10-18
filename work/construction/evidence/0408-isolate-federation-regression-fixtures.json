@@ -1,0 +1,123 @@
+{
+  "append_only": true,
+  "change": {
+    "files": [
+      "tests/test_pulse_federation.py",
+      "tests/test_federated_restart.py"
+    ],
+    "failure_mode": "the duplicate replay test counted heartbeat events from any source; the signed federated restart fixture omitted the required protocol identity",
+    "fix": "scope the heartbeat assertion to peer-alpha and sign test restart events with the current pulse protocol identity",
+    "production_inference": false,
+    "provider_invoked": false,
+    "runtime_authority_added": false,
+    "verification_requirements_weakened": false
+  },
+  "triggering_hosted_failure": {
+    "run_id": 39172356150,
+    "job_id": 117807892365,
+    "workflow": "Docker Image",
+    "event": "pull_request",
+    "candidate_sha": "39a7d18061699ca79132ea242de7af10814c9a42",
+    "candidate_tree": "8556f61004d967ab75a1b9f575d8f5def8d365e2",
+    "failed_node": "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+    "result": {
+      "passed": 142,
+      "failed": 1,
+      "skipped": 13
+    },
+    "provenance_artifact_id": 12152054547,
+    "provenance_artifact_sha256": "8d5abd110fe227d965245a7413159329d79b2cfe8677746badddfc552f5c6bea"
+  },
+  "prior_candidate_verification": {
+    "ci_push": {
+      "run_id": 39172138051,
+      "conclusion": "success"
+    },
+    "invariants_push": {
+      "run_id": 39172138072,
+      "conclusion": "success"
+    },
+    "required_quality_gate_push": {
+      "run_id": 39172138055,
+      "conclusion": "success",
+      "quality_gate_artifact_id": 12152682393,
+      "quality_gate_artifact_sha256": "35af26dc5c82efc3cfc199f34521a654f6ed99823f9c1cb07bb238a790f86879",
+      "finalizer_artifact_id": 12153166474,
+      "finalizer_artifact_sha256": "5211754efd9fa523bd4f2ada7cb6e760b17afea82943ea01c5db0e39d884de74",
+      "candidate_sha": "39a7d18061699ca79132ea242de7af10814c9a42",
+      "candidate_tree": "8556f61004d967ab75a1b9f575d8f5def8d365e2",
+      "administrator_verified": true,
+      "effective_uid": 0,
+      "strict_audit_ok": true,
+      "immutability_ok": true,
+      "acceptance_nodes_passed": 29,
+      "acceptance_nodes_failed": 0,
+      "acceptance_nodes_skipped": 0,
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready"
+    }
+  },
+  "hosted_verification": {
+    "replacement_candidate_status": "pending",
+    "stale_draft_pr": 2378,
+    "stale_draft_pr_status": "open; prior exact candidate retained for audit and not used as the replacement"
+  },
+  "local_verification": {
+    "canonical_runner_command": "python -m scripts.run_tests -q tests/test_pulse_federation.py tests/test_federated_restart.py",
+    "environment": "/tmp/sentientos-main-5a97-venv",
+    "run_id": "7280571603dc4b51a6a74914316af530",
+    "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+    "source_tree": "3e7254c837f8b9a5c7604978e8eb0620dbf3fd07",
+    "tests_passed": 12,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "validation_status": "validation_complete",
+    "task_acceptance": {
+      "status": "task_acceptance_ready",
+      "manifest_sha256": "68000f31a42152b1511befd55f62297b9d8231274752a7c48429b3f17b888c10",
+      "result_sha256": "a9207a72f703bb991429062c0a0179cb2a39246c20a938885b9487699d449ff6",
+      "required_nodes_passed": 2,
+      "required_nodes_failed": 0
+    },
+    "junit_sha256": "56e025bc73c5bd39a992484d62c46423ce3f967f93f6e24c481ec780d42450ec",
+    "provenance_sha256": "98a87db36693a33b51fa99618e8dc834e1896075837ab9ab30941cf8632d3a9b",
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "pre_append_custody_segments_verified": 407
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1718,
+  "segment_path": "work/construction/segments/0408-isolate-federation-regression-fixtures.md",
+  "segment_sha256": "0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a",
+  "sequence": 408,
+  "source": {
+    "parent_commit": "39a7d18061699ca79132ea242de7af10814c9a42",
+    "parent_tree": "8556f61004d967ab75a1b9f575d8f5def8d365e2",
+    "local_verification_commit": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+    "local_verification_tree": "3e7254c837f8b9a5c7604978e8eb0620dbf3fd07"
+  },
+  "supporting_artifacts": [
+    {
+      "path": "work/construction/evidence/0408-federation-regression-tests-junit.xml",
+      "bytes": 1636,
+      "sha256": "56e025bc73c5bd39a992484d62c46423ce3f967f93f6e24c481ec780d42450ec"
+    },
+    {
+      "path": "work/construction/evidence/0408-federation-regression-tests-provenance.json",
+      "bytes": 6295,
+      "sha256": "98a87db36693a33b51fa99618e8dc834e1896075837ab9ab30941cf8632d3a9b"
+    },
+    {
+      "path": "work/construction/evidence/0408-task-acceptance-manifest.json",
+      "bytes": 964,
+      "sha256": "68000f31a42152b1511befd55f62297b9d8231274752a7c48429b3f17b888c10"
+    },
+    {
+      "path": "work/construction/evidence/0408-task-acceptance-result.json",
+      "bytes": 1724,
+      "sha256": "a9207a72f703bb991429062c0a0179cb2a39246c20a938885b9487699d449ff6"
+    }
+  ],
+  "title": "Isolate federation replay and protocol regression fixtures"
+}

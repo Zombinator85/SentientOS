@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T222028Z_a8b93752cb79_387af8b552ea4631ac78227570f84c01.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward",
+      "rationale": "Proves canonical landing-body generation accepts only the already-verified parent-to-candidate acceptance source roll-forward."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_build_codex_landing_evidence_body_script.py::test_body_builder_accepts_verified_task_acceptance_source_rollforward"
+  ]
+}

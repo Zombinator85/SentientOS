@@ -1,0 +1,117 @@
+{
+  "append_only": true,
+  "candidate_verification": {
+    "ci": 39170366749,
+    "codex_ci": 39170366755,
+    "docker": 39170366734,
+    "exact_candidate_acceptance_artifact": {
+      "failed": 0,
+      "id": 12152202995,
+      "passed": 29,
+      "sha256": "7d3e08ea72475fe341298b74d50d2392dc6f1b8519d1ea05890e10039f052f10",
+      "skipped": 0
+    },
+    "gradient_regression": 39170366645,
+    "invariants": 39170366735,
+    "lint_benchmark": 39170366737,
+    "metadata_guard": "pr_metadata_guard_ready",
+    "push_ci": 39170320357,
+    "push_invariants": 39170320313,
+    "push_quality_gate": 39170320353,
+    "release": 39170366745,
+    "required_quality_gate": 39170366728,
+    "status": "passed"
+  },
+  "effects": {
+    "production_inference": false,
+    "provider_invoked": false,
+    "runtime_authority_added": false
+  },
+  "post_merge_main": {
+    "all_configured_checks_passed": true,
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39170929338
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39170929375
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39170929360
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 39170929341
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "configured opt-in condition",
+        "run_id": 39170929386
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39170929343
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 39170929339
+      }
+    },
+    "commit": "fe5eea358254e4e968d4ab751b532c2a825f0705",
+    "quality_gate_artifact": {
+      "acceptance_nodes_failed": 0,
+      "acceptance_nodes_passed": 29,
+      "acceptance_nodes_skipped": 0,
+      "administrator_verified": true,
+      "effective_uid": 0,
+      "expected_sha": "fe5eea358254e4e968d4ab751b532c2a825f0705",
+      "id": 12152965034,
+      "immutability_ok": true,
+      "sha256": "d520c756800dd661bf947f2621a7efa39a9ded536c9ab020ca77de12a4a34b29",
+      "strict_audit_ok": true
+    },
+    "ref": "refs/heads/main",
+    "source_validation_artifact": {
+      "call_phase_outcomes": 20,
+      "canonical_planning_execution_separation": "passed",
+      "id": 12151838562,
+      "repository_sha": "fe5eea358254e4e968d4ab751b532c2a825f0705",
+      "resource_to_cognition_lifecycle": "passed",
+      "sha256": "9076a719f8df677852300950428770cf35bbdb05abfca825f727eccbef004b43",
+      "tests_failed": 0,
+      "tests_passed": 20,
+      "tests_skipped": 0
+    },
+    "tree": "36e23f790646aec5e69399f4272da5ae5f129a1c"
+  },
+  "pr": {
+    "candidate_sha": "59111731c3e4051ac8741e74ea4a5122564a1947",
+    "candidate_tree": "36e23f790646aec5e69399f4272da5ae5f129a1c",
+    "merge_method": "merge",
+    "merged": true,
+    "number": 2377
+  },
+  "scheduled_observations": {
+    "federation_health_exact_main": "pending_no_scheduled_run_on_fe5eea_at_cutoff",
+    "nightly_audit_integrity_exact_main": "pending",
+    "nightly_self_check_exact_main": "pending"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1921,
+  "segment_path": "work/construction/segments/0406-verify-sequence405-merge-main.md",
+  "segment_sha256": "922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7",
+  "sequence": 406,
+  "source": {
+    "commit": "fe5eea358254e4e968d4ab751b532c2a825f0705",
+    "commit_title": "Merge pull request #2377: reject symlinked artifact output roots",
+    "parents": [
+      "5a97f4395f32f59febc51ad1eba589729ea13122",
+      "59111731c3e4051ac8741e74ea4a5122564a1947"
+    ],
+    "tree": "36e23f790646aec5e69399f4272da5ae5f129a1c"
+  },
+  "title": "Verify sequence 405 merge and exact-main validation"
+}
