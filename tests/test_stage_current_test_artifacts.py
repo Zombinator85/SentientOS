@@ -91,6 +91,22 @@ def test_artifact_paths_cannot_escape_the_test_run_directory(tmp_path: Path) -> 
     assert manifest["artifacts"]["junitxml_path"]["status"] == "outside_test_run_root"
 
 
+def test_artifact_output_directory_symlink_is_rejected(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    run_dir = repo / "glow" / "test_runs"
+    run_dir.mkdir(parents=True)
+    _write_provenance(repo, {"run_id": "run-output-symlink"})
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    output = tmp_path / "artifact"
+    output.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="output directory must not be a symlink"):
+        stage_current_test_artifacts(repo_root=repo, output_dir=output)
+
+    assert list(outside.iterdir()) == []
+
+
 def test_stale_provenance_is_not_staged_even_when_its_artifact_still_exists(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     run_dir = repo / "glow" / "test_runs"
