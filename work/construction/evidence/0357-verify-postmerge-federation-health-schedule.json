@@ -127,5 +127,16 @@
     "evidence_sha256": "2ea44f2015a147bf4f06908c96dd3f669b8c4775b75145f734be86dcb2be38cc"
   },
   "segment_path": "work/construction/segments/0357-verify-postmerge-federation-health-schedule.md",
-  "segment_sha256": "40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060"
+  "segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+  "publication_finalizer_observation": {
+    "run_id": "39103993545",
+    "first_attempt": "failure_pr_title_did_not_match_commit_subject",
+    "first_attempt_other_required_steps": "success",
+    "metadata_corrected": true,
+    "failed_job_rerun_attempt": 2,
+    "rerun_result": "failure_original_pr_event_title_retained",
+    "finalizer_passed": false,
+    "remediation": "fresh_synchronized_candidate_with_exact_pr_title_and_latest_commit_subject",
+    "verification_weakening": false
+  }
 }

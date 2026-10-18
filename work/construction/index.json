@@ -1,9 +1,9 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "692adc25a34dad7454e2bc2c631d06ddb9d3a9d053899bcd0270debb28ba48a1",
+    "checkpoint_sha256": "e9fed12bc89b78a09628a05de5628cad4fd7257b414952b33eb7fd3484ef3f85",
     "latest_segment_sequence": 357,
-    "latest_segment_sha256": "40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060",
+    "latest_segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
     "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
     "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
   },
@@ -3910,15 +3910,15 @@
       "source_tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
     },
     {
-      "bytes": 3291,
+      "bytes": 3845,
       "evidence": "work/construction/evidence/0357-verify-postmerge-federation-health-schedule.json",
-      "evidence_bytes": 4337,
+      "evidence_bytes": 4830,
       "evidence_path": "work/construction/evidence/0357-verify-postmerge-federation-health-schedule.json",
-      "evidence_sha256": "cd8426b707c79508aec544e11bfe2073a3219e5e7c9dea8a4607580b05902327",
+      "evidence_sha256": "ecfd248677d56e383aab386264d99d97a58e0bd3daa97e2b0f1aaa37007d1dc9",
       "path": "work/construction/segments/0357-verify-postmerge-federation-health-schedule.md",
       "predecessor": "segment-sha256:5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
       "sequence": 357,
-      "sha256": "40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060",
+      "sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
       "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
       "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
     }

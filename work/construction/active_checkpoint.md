@@ -7,5 +7,7 @@ Federation Health is configured for minute 17 hourly, but the expected 06:17 UTC
 The next claim-bearing bridge is a real production temporal resident A-to-B-to-A trial. Its bounded runtime and synthetic rehearsal exist; actual execution requires exact hardened commissioned A/B identities and receipts, distinct external serving approvals, and operator-approved preregistration. Preserve sequence-286 provenance-loss evidence and the stale sequence-178 workspace.
 
 Latest construction segment: `work/construction/segments/0357-verify-postmerge-federation-health-schedule.md`
-Latest segment SHA-256: `40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060`
+Latest segment SHA-256: dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7`40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060`
+The hosted PR finalizer rejected a title mismatch and a rerun with stale event metadata; a fresh exact-title synchronize validation is underway.
+
 Sequence: 357
