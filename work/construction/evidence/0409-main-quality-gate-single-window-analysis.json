@@ -1,0 +1,60 @@
+{
+  "avoidance_alert": false,
+  "avoidance_reasons": [],
+  "avoidance_score": 0.0,
+  "continuity_checked": true,
+  "continuity_discontinuity_count": 0,
+  "continuity_issues": [],
+  "continuity_ok": true,
+  "deduplicated_runs_total": 1,
+  "incomplete_run_count": 0,
+  "incomplete_run_reasons": {},
+  "insufficient_evidence": false,
+  "integrity_checked": true,
+  "integrity_issues": [
+    {
+      "file": "/workspace/work/postmerge_qg_provenance.json",
+      "issue": "unanchored-start"
+    }
+  ],
+  "integrity_ok": false,
+  "metrics": {
+    "admissible_rate": 0.0,
+    "allow_flags_used": {
+      "allow_nonexecution": 0,
+      "budget_allow_violation": 0,
+      "bypass_env": 0
+    },
+    "escalation_rate": 0.0,
+    "exceptional_count": 0,
+    "prior_admissible_rate": 0.0,
+    "prior_proof_spend_p95": 0.0,
+    "prior_skip_rate_mean": 0.0,
+    "prior_tests_executed_mean": 0.0,
+    "prior_tests_passed_mean": 0.0,
+    "prior_xfail_rate_mean": 0.0,
+    "proof_spend_mean": 0.0,
+    "proof_spend_p95": 0.0,
+    "router_runs_analyzed": 0,
+    "run_intent_distribution": {
+      "targeted": 1
+    },
+    "skip_rate_mean": 0.0,
+    "stage_a_all_fail_rate": 0.0,
+    "tests_executed_mean": 29.0,
+    "tests_passed_mean": 29.0,
+    "xfail_rate_mean": 0.0
+  },
+  "overall_status": "INTEGRITY_BROKEN",
+  "runs_analyzed": 1,
+  "runs_discovered": 1,
+  "schema_version": 2,
+  "sources": {
+    "bundles_count": 0,
+    "index_entries_used": 0,
+    "live_dir_count": 1
+  },
+  "validation_complete_run_count": 1,
+  "validation_evidence_status": "complete",
+  "window_size": 20
+}

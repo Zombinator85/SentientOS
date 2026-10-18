@@ -1,0 +1,62 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:18729ce6ed161bdef9dd3bf7118815587f1100e1407bef69ccf28efbbc5b6b50",
+  "manifest_path": "/workspace/work/0409-local-acceptance-manifest.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:e66417d2f2f40efda311ca558a78577d5d5406d0e01eeff2875ebde96488ca66",
+  "provenance_path": "/workspace/work/0409-local-test-provenance.json",
+  "reasons": [],
+  "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "required_node_ids": [
+    "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+    "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index",
+    "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+    "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index",
+    "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

@@ -1,0 +1,153 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_analyze_test_provenance.py::test_analyze_alert_on_spikes_and_override": 0,
+    "tests/test_analyze_test_provenance.py::test_analyze_no_alert_on_stable_runs": 0,
+    "tests/test_analyze_test_provenance.py::test_analyze_reports_deduplicated_source_stats": 0,
+    "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike": 0,
+    "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index": 0,
+    "tests/test_analyze_test_provenance.py::test_discover_inputs_ignores_latest_pointers": 0,
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_deleted_middle_snapshot": 0,
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_mutated_snapshot": 0,
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files": 0,
+    "tests/test_analyze_test_provenance.py::test_verify_chain_ok_for_synthetic_chain": 0,
+    "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 11,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-main-e00-clean/glow/test_runs/pytest_junitxml_d3071c3fb249481faaf63aca8d76245d.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyze_no_alert_on_stable_runs",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyze_alert_on_spikes_and_override",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_discover_inputs_ignores_latest_pointers",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_chain_ok_for_synthetic_chain",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_chain_detects_mutated_snapshot",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_chain_detects_deleted_middle_snapshot",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyze_reports_deduplicated_source_stats",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "da0c3e3efb7f5eab5d0da208df0afb842775144a2439f9677af6ee15431a3950",
+  "provenance_hash": "3b2a4d56f8bc3bccd515d574814160ca4370c2c885236dcbc479ff9ce29a88df",
+  "pytest_args": [
+    "-m",
+    "legacy",
+    "-q",
+    "tests/test_analyze_test_provenance.py"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-main-5a97-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-main-e00-clean",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "571d0ad2b55e4775b5c013b4c89f4f50",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_analyze_test_provenance.py::test_analyze_no_alert_on_stable_runs",
+    "tests/test_analyze_test_provenance.py::test_analyze_alert_on_spikes_and_override",
+    "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+    "tests/test_analyze_test_provenance.py::test_discover_inputs_ignores_latest_pointers",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_ok_for_synthetic_chain",
+    "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_mutated_snapshot",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_deleted_middle_snapshot",
+    "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files",
+    "tests/test_analyze_test_provenance.py::test_analyze_reports_deduplicated_source_stats",
+    "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index"
+  ],
+  "selection_flags": [
+    "-m",
+    "tests/test_analyze_test_provenance.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 11,
+  "tests_executed": 11,
+  "tests_failed": 0,
+  "tests_passed": 11,
+  "tests_selected": 11,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-18T22:49:11.093540+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
