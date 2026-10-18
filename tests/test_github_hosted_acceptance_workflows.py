@@ -85,12 +85,9 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
     assert 'DELETE_TRIGGER_BRANCH:' in publisher
     assert 'trigger_branch_deleted' in publisher
-    assert (
-        ROOT / "work/federation_health_publication_fixture_request.txt"
-    ).read_text(encoding="utf-8") == (
-        "sentientos.federation_health_publication_fixture_request:v1\n"
-        "TEST FIXTURE ONLY — NOT TELEMETRY.\n"
-    )
+    # The one-shot sentinel must be absent from main so its addition is an
+    # observable, exact-path push on the disposable fixture branch.
+    assert not (ROOT / "work/federation_health_publication_fixture_request.txt").exists()
 
 def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
     import yaml
@@ -571,6 +568,8 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
     assert "delete-branch: false" in workflow
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
+    proof_upload = workflow.split("- name: Upload changed-output publication proof", 1)[1]
+    assert "always() && (inputs.publication_fixture == true || (github.event_name == 'push'" in proof_upload
     assert "&& 'always-true' || 'false' }}" in workflow
 
 
