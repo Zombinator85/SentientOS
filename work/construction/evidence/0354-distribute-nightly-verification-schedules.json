@@ -1,0 +1,68 @@
+{
+  "candidate": {
+    "base_commit": "9cb581b3b4820423793053beb8b460cafbe0f66e",
+    "base_tree": "e647a536d2d0636ddd753518c4e549b498517367",
+    "commit": "8efd7db6ed5e9f70f8e3b5476d6e40aac42de44d",
+    "pr_number": 2345,
+    "tree": "0304b244b59ea1e14bb63555f3d6e8b53e92b856"
+  },
+  "collision_analysis": {
+    "original_audit_proposal": "17 3 * * *",
+    "audit_collision": {
+      "workflow": ".github/workflows/federation-health.yml",
+      "schedule": "17 * * * *"
+    },
+    "original_self_check_proposal": "23 4 * * *",
+    "self_check_collision": {
+      "workflow": ".github/workflows/remote-smoke-ci.yml",
+      "schedule": "23 4 * * *"
+    },
+    "final_audit_schedule": "41 3 * * *",
+    "final_self_check_schedule": "37 4 * * *",
+    "all_workflow_schedules_collision_checked": true
+  },
+  "local_validation": {
+    "compileall": "passed",
+    "diff_check": "passed",
+    "pytest_nodes": 35,
+    "repository_test_runner": "passed"
+  },
+  "operational_status": {
+    "hosted_required_quality_gate": "audits_and_acceptance_passed_finalizer_metadata_mismatch",
+    "post_merge_current_source_federation_run": "39100005185_success_noop_publisher",
+    "changed_output_fixture": "not_run_dispatch_interface_unavailable",
+    "nightly_post_merge_execution": "pending_candidate_merge"
+  },
+  "schedule_inventory": [
+    {
+      "workflow": ".github/workflows/audit-nightly.yml",
+      "cron": "41 3 * * *"
+    },
+    {
+      "workflow": ".github/workflows/federation-health.yml",
+      "cron": "17 * * * *"
+    },
+    {
+      "workflow": ".github/workflows/nightly-self-check.yml",
+      "cron": "37 4 * * *"
+    },
+    {
+      "workflow": ".github/workflows/remote-smoke-ci.yml",
+      "cron": "23 4 * * *"
+    },
+    {
+      "workflow": ".github/workflows/audit.yml",
+      "cron": "0 0 1 * *"
+    }
+  ],
+  "schema_version": 1,
+  "source": {
+    "commit": "9cb581b3b4820423793053beb8b460cafbe0f66e",
+    "tree": "e647a536d2d0636ddd753518c4e549b498517367"
+  },
+  "workflow_controls_unchanged": {
+    "administrator_audit": true,
+    "top_level_permissions": "contents: read",
+    "repair_write_authority": "isolated conditional repair job only"
+  }
+}
