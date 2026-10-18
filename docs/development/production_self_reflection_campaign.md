@@ -61,3 +61,9 @@ campaign root. Expected fail-closed states include specific missing A/B,
 commissioning, approval, transition, self-model/history, backend, interrupted,
 canonical-conflict, and synthetic-component classifications. An in-progress
 trial discovered after process death is terminal and is never silently retried.
+
+Calling `create` again for the same campaign root verifies the exact immutable
+protocol, the digest-bound state, ordered completed-trial identities, and every
+referenced receipt before returning the existing campaign. It preserves partial
+and completed progress. Missing or mismatched protocol/state/receipt custody
+fails closed; an in-progress trial is marked interrupted and cannot be retried.
