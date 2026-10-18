@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "bf7042bce7f0980638b8511ca055ce821078df90e8aba85bbef297fa8f03f781",
-    "latest_segment_sequence": 341,
-    "latest_segment_sha256": "fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2",
-    "source_commit": "7f026f6ec41190cf3d24c1586f318b8abbebe8a4",
-    "source_tree": "156ee1d99b06d81c21cb40a0a166e59f15a3d9b4"
+    "checkpoint_sha256": "b6071228b62fe5e6d4891bd01652a055855a9032fcd072ab9c37dc23cba5f0db",
+    "latest_segment_sequence": 347,
+    "latest_segment_sha256": "f0ea54409e41668643cc061227d9bd76589872c2fec31270d0a7a7c3151c6fb3",
+    "source_commit": "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda",
+    "source_tree": "9c842a4c7aefaa9cb7d3bc8cd58e6356b74b382e"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 341,
+  "latest_sequence": 347,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3763,6 +3763,64 @@
       "sha256": "fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2",
       "source_commit": "7f026f6ec41190cf3d24c1586f318b8abbebe8a4",
       "source_tree": "156ee1d99b06d81c21cb40a0a166e59f15a3d9b4"
+    },
+    {
+      "bytes": 2967,
+      "evidence": "work/construction/evidence/0342-verify-writeback-owned-history-boundary.json",
+      "evidence_bytes": 3463,
+      "evidence_path": "work/construction/evidence/0342-verify-writeback-owned-history-boundary.json",
+      "evidence_sha256": "bfa9311b4a9292955f5f8435a596688bc8a7ae40ca396c980e186bcef7508a90",
+      "path": "work/construction/segments/0342-verify-writeback-owned-history-boundary.md",
+      "predecessor": "segment-sha256:fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2",
+      "sequence": 342,
+      "sha256": "5ec4604ea6180d5ab003571dcf420c8481da590d96542e6a89b42a6722a743e8",
+      "source_commit": "0ffdfc5e58f458b760847e89956649d1e52ed45c",
+      "source_tree": "f8a65a8069e36e27248444cd1884f0955f6c9b28"
+    },
+    {
+      "bytes": 4032,
+      "evidence": "work/construction/evidence/0343-project-verified-developmental-history.json",
+      "evidence_bytes": 4880,
+      "evidence_path": "work/construction/evidence/0343-project-verified-developmental-history.json",
+      "evidence_sha256": "77c017c10737e3daec80e46590f6ac80c0bc2603e9616710f2df8f761cd8e9ac",
+      "path": "work/construction/segments/0343-project-verified-developmental-history.md",
+      "predecessor": "segment-sha256:5ec4604ea6180d5ab003571dcf420c8481da590d96542e6a89b42a6722a743e8",
+      "sequence": 343,
+      "sha256": "919ad68c559d6de49193863a6099a192b7b50f8f2307e27a94eb7c764cddb3a0",
+      "source_commit": "131fd43b497a22c3ce3e221a515730d781b0a076",
+      "source_tree": "57e6e2bf6426cb4bf9a940770d6c3d08bffd160c"
+    },
+    {
+      "bytes": 2726,
+      "path": "work/construction/segments/0344-evaluate-every-tagged-prior-position.md",
+      "predecessor": "segment-sha256:919ad68c559d6de49193863a6099a192b7b50f8f2307e27a94eb7c764cddb3a0",
+      "sequence": 344,
+      "sha256": "778e618d924849f23fba2b1d66b13bcd3f8d86fdfdc657812c77f69b2fa8da94",
+      "source_commit": "520c02fa09366c14ceb1b4c741c7821fa802a3b8"
+    },
+    {
+      "bytes": 4354,
+      "path": "work/construction/segments/0345-bind-transition-protocol-model-roles.md",
+      "predecessor": "segment-sha256:778e618d924849f23fba2b1d66b13bcd3f8d86fdfdc657812c77f69b2fa8da94",
+      "sequence": 345,
+      "sha256": "42321b4311a18e8b669a84d53610c8892f0210d5ff45899d8bf088244061f6fa",
+      "source_commit": "50470e09fcd7014d3e3b09ce23d20e9a9b80909c"
+    },
+    {
+      "bytes": 2141,
+      "path": "work/construction/segments/0346-scope-feedback-comment-authority.md",
+      "predecessor": "segment-sha256:42321b4311a18e8b669a84d53610c8892f0210d5ff45899d8bf088244061f6fa",
+      "sequence": 346,
+      "sha256": "cce5c6e54b08f6c1c8322bf3909efdfe154e1df2add8bb84e96cc000238a628a",
+      "source_commit": "e5a19f3a7bb6184395499857acdb4d136e7e8e82"
+    },
+    {
+      "bytes": 3196,
+      "path": "work/construction/segments/0347-grant-pr-comment-authority.md",
+      "predecessor": "segment-sha256:cce5c6e54b08f6c1c8322bf3909efdfe154e1df2add8bb84e96cc000238a628a",
+      "sequence": 347,
+      "sha256": "f0ea54409e41668643cc061227d9bd76589872c2fec31270d0a7a7c3151c6fb3",
+      "source_commit": "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda"
     }
   ],
   "source_acquisition": {

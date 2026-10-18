@@ -1,0 +1,92 @@
+{
+  "candidate": {
+    "base_commit": "6c3f4192287e08775ded7b3e6527fc82105572aa",
+    "head": "e24145a3b82cc923dd940895b8f44c2a54d90bff",
+    "merge_method": "merge",
+    "pr_number": 2332,
+    "tree": "f8a65a8069e36e27248444cd1884f0955f6c9b28"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "finalizer_artifact_id": "12122542349",
+    "finalizer_artifact_sha256": "70c7341df49ba6a101774cf30537fd4324801666438c1f921693ef20defcc3e9",
+    "finalizer_decision": "ready_for_pr_metadata",
+    "finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12123070276",
+    "quality_gate_artifact_sha256": "470ebd684649cb98afa9b7b9adb8a44397f14225ddcc35d7481d5c3d844c172f",
+    "quality_gate_run_id": "39090642096",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "continuation": {
+    "evidence_path": "work/construction/evidence/0342-verify-writeback-owned-history-boundary.json",
+    "predecessor_segment_sha256": "fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2",
+    "segment_path": "work/construction/segments/0342-verify-writeback-owned-history-boundary.md",
+    "sequence": 342,
+    "source_commit": "0ffdfc5e58f458b760847e89956649d1e52ed45c",
+    "source_tree": "f8a65a8069e36e27248444cd1884f0955f6c9b28",
+    "segment_bytes": 2967,
+    "segment_sha256": "5ec4604ea6180d5ab003571dcf420c8481da590d96542e6a89b42a6722a743e8"
+  },
+  "local_verification": {
+    "canonical_test_runner": "python -m scripts.run_tests",
+    "compileall": "passed",
+    "focused_suites": 8,
+    "git_diff_check": "passed",
+    "mypy_baseline": {
+      "existing_matched": 1050,
+      "new_diagnostics": 0,
+      "retired": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "tests_collected": 237,
+    "tests_executed": 231,
+    "tests_failed": 0,
+    "tests_skipped": 6
+  },
+  "main": {
+    "commit": "0ffdfc5e58f458b760847e89956649d1e52ed45c",
+    "merge_method": "merge",
+    "parents": [
+      "6c3f4192287e08775ded7b3e6527fc82105572aa",
+      "e24145a3b82cc923dd940895b8f44c2a54d90bff"
+    ],
+    "pr_closed_merged": true,
+    "pr_number": 2332,
+    "tree": "f8a65a8069e36e27248444cd1884f0955f6c9b28"
+  },
+  "post_merge_workflows": {
+    "administrator_verified": true,
+    "ci_run_id": "39091160327",
+    "ci_status": "success",
+    "codex_ci_run_id": "39091160302",
+    "codex_ci_status": "success",
+    "docker_run_id": "39091160378",
+    "docker_status": "success",
+    "docs_deploy_run_id": "39091160382",
+    "docs_deploy_status": "success",
+    "effective_uid": 0,
+    "forge_smoke_run_id": "39091160352",
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed_no_issues",
+    "invariant_run_id": "39091160303",
+    "invariant_status": "success",
+    "quality_gate_artifact_id": "12123046386",
+    "quality_gate_artifact_sha256": "8016e6dd8a0e52edf0ac61a177dd6fb0cc7e83b8b10095de2a7f091e46c223ce",
+    "quality_gate_run_id": "39091160347",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "production_boundary": "No production A→B→A transition, running-source observation, learning, or improvement is claimed.",
+  "schema_version": 1
+}

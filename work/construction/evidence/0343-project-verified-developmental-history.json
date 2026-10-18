@@ -1,0 +1,138 @@
+{
+  "candidate": {
+    "base_commit": "0ffdfc5e58f458b760847e89956649d1e52ed45c",
+    "head": "16ae6884fbbfa3ce0dd3be72243ac26224e2e7fa",
+    "merge_method": "merge",
+    "pr_number": 2333,
+    "tree": "57e6e2bf6426cb4bf9a940770d6c3d08bffd160c"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "finalizer_artifact_id": "12123065944",
+    "finalizer_artifact_sha256": "5bfc093b7baa457a7737705194c88f979809465fdaddbd0639af664cc563c392",
+    "finalizer_decision": "ready_for_pr_metadata",
+    "finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12122384383",
+    "quality_gate_artifact_sha256": "221490c9d278cfbf7ec932867b38d661460d2fa6777918efffa8aea1231eea88",
+    "quality_gate_run_id": "39091215910",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "workflows": {
+      "ci": {
+        "run_id": "39091215796",
+        "status": "success"
+      },
+      "codex_ci": {
+        "run_id": "39091215923",
+        "status": "success"
+      },
+      "docker": {
+        "run_id": "39091215880",
+        "status": "success"
+      },
+      "gradient": {
+        "run_id": "39091215835",
+        "status": "success"
+      },
+      "invariants": {
+        "run_id": "39091215826",
+        "status": "success"
+      },
+      "lint_mypy": {
+        "run_id": "39091215841",
+        "status": "success"
+      },
+      "release": {
+        "run_id": "39091215828",
+        "status": "success"
+      }
+    }
+  },
+  "continuation": {
+    "evidence_path": "work/construction/evidence/0343-project-verified-developmental-history.json",
+    "predecessor_segment_sha256": "5ec4604ea6180d5ab003571dcf420c8481da590d96542e6a89b42a6722a743e8",
+    "segment_path": "work/construction/segments/0343-project-verified-developmental-history.md",
+    "sequence": 343,
+    "source_commit": "131fd43b497a22c3ce3e221a515730d781b0a076",
+    "source_tree": "57e6e2bf6426cb4bf9a940770d6c3d08bffd160c",
+    "segment_bytes": 4032,
+    "segment_sha256": "919ad68c559d6de49193863a6099a192b7b50f8f2307e27a94eb7c764cddb3a0"
+  },
+  "local_verification": {
+    "canonical_test_runner": "python -m scripts.run_tests",
+    "compileall": "passed",
+    "focused_suites": 4,
+    "git_diff_check": "passed",
+    "local_run_id": "084cec3dd16e4628bf7e1ce93348c700",
+    "local_run_provenance_sha256": "b2c01bffbef2386b0ccef8c68b84a6e4b4500013e00df48d6017b3c50751a53b",
+    "mypy_baseline": {
+      "existing_matched": 1050,
+      "new_diagnostics": 0,
+      "retired": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "source_commit": "49e6a4a4f0b04653647c6d5fdac3157c0b6f10f5",
+    "source_tree": "afac2b031ab40c113a38454720bdd9c8f374af0c",
+    "tests_collected": 157,
+    "tests_executed": 157,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "main": {
+    "commit": "131fd43b497a22c3ce3e221a515730d781b0a076",
+    "merge_method": "merge",
+    "parents": [
+      "0ffdfc5e58f458b760847e89956649d1e52ed45c",
+      "16ae6884fbbfa3ce0dd3be72243ac26224e2e7fa"
+    ],
+    "pr_closed_merged": true,
+    "pr_number": 2333,
+    "tree": "57e6e2bf6426cb4bf9a940770d6c3d08bffd160c"
+  },
+  "post_merge_workflows": {
+    "administrator_verified": true,
+    "ci_run_id": "39091479424",
+    "ci_status": "success",
+    "codex_ci_run_id": "39091479378",
+    "codex_ci_status": "success",
+    "docker_run_id": "39091479357",
+    "docker_status": "success",
+    "docs_deploy_run_id": "39091479335",
+    "docs_deploy_status": "success",
+    "effective_uid": 0,
+    "forge_smoke_run_id": "39091479353",
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed_no_issues",
+    "invariant_run_id": "39091479332",
+    "invariant_status": "success",
+    "quality_gate_artifact_id": "12122628692",
+    "quality_gate_artifact_sha256": "19117309a1e2306a8d0ff4dff62643181093b1a796d15d82fc63ab37f1d9a120",
+    "quality_gate_run_id": "39091479685",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "federation_health_fixture": {
+    "workflow_dispatch_supported_by_connector": false,
+    "hosted_publication_test": "not_dispatched",
+    "local_gh_auth": "unavailable",
+    "static_workflow_permission_and_cleanup_tests": "passed",
+    "production_telemetry_fabricated": false
+  },
+  "nightly_execution_status": {
+    "nightly_audit": "pending_next_scheduled_execution",
+    "nightly_self_check": "pending_next_scheduled_execution",
+    "permission_requirements_weakened": false
+  },
+  "production_boundary": "No production A→B→A transition, real model improvement, or developmental benefit is claimed.",
+  "schema_version": 1
+}

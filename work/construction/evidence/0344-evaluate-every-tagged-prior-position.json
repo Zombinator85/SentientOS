@@ -1,0 +1,21 @@
+{
+  "candidate": {
+    "head": "37aa76097d4f8b61e3285063ae1c66887102977e",
+    "tree": "30fb63bb1777ca5facd69974697c0dca6a0144cd",
+    "pr_number": 2334,
+    "merge_method": "merge"
+  },
+  "continuation": {
+    "sequence": 344,
+    "segment_path": "work/construction/segments/0344-evaluate-every-tagged-prior-position.md",
+    "evidence_path": "work/construction/evidence/0344-evaluate-every-tagged-prior-position.json",
+    "segment_bytes": 2726,
+    "segment_sha256": "778e618d924849f23fba2b1d66b13bcd3f8d86fdfdc657812c77f69b2fa8da94",
+    "predecessor_segment_sha256": "919ad68c559d6de49193863a6099a192b7b50f8f2307e27a94eb7c764cddb3a0"
+  },
+  "source": {
+    "main_commit": "520c02fa09366c14ceb1b4c741c7821fa802a3b8",
+    "main_tree": "1acf5eeb682b9d98aca18c61c6c313044cd12c89"
+  },
+  "schema_version": 1
+}
