@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T223058Z_a8b93752cb79_72e871c269e34e0d89b8b9e866180a86.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+      "rationale": "Verifies replay suppression counts only events ingested from the peer whose duplicate replay is under test."
+    },
+    {
+      "node_id": "tests/test_federated_restart.py::test_federated_restart_with_valid_signature",
+      "rationale": "Verifies accepted federated restart fixtures carry the required signed protocol identity."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+    "tests/test_federated_restart.py::test_federated_restart_with_valid_signature"
+  ]
+}

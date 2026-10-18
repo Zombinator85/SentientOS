@@ -79,6 +79,7 @@ def _register_daemon(counter: dict[str, int]) -> None:
 def _sign_event(signing_key: SigningKey, event: dict) -> dict:
     payload = copy.deepcopy(event)
     payload.setdefault("priority", "critical")
+    payload.setdefault("pulse_protocol", pulse_federation._local_protocol_identity())
     signature = signing_key.sign(pulse_bus._serialize_for_signature(payload)).signature
     payload["signature"] = base64.b64encode(signature).decode("ascii")
     return payload

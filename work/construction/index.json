@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "98bc023178645d9870d262eaf194842576ab19e1bb3d2149c9c600aa82ffd76e",
-    "latest_segment_sequence": 407,
-    "latest_segment_sha256": "93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
-    "latest_sequence": 407,
-    "source_commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
-    "source_tree": "c42c51d36382bf94a138e700f28cd0a67845d716"
+    "checkpoint_sha256": "47fcbb5a002ea9c903c196017fee578e1355b0d38c1d8de5fe5cc0f0028b629c",
+    "latest_segment_sequence": 408,
+    "latest_segment_sha256": "0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a",
+    "latest_sequence": 408,
+    "source_commit": "39a7d18061699ca79132ea242de7af10814c9a42",
+    "source_tree": "8556f61004d967ab75a1b9f575d8f5def8d365e2"
   },
-  "checkpoint_sha256": "98bc023178645d9870d262eaf194842576ab19e1bb3d2149c9c600aa82ffd76e",
+  "checkpoint_sha256": "47fcbb5a002ea9c903c196017fee578e1355b0d38c1d8de5fe5cc0f0028b629c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 407,
+  "latest_sequence": 408,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4568,6 +4568,18 @@
       "sha256": "93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
       "source_commit": "3c3c445eaf630da08abfa9529ae534d84ce4f3a6",
       "source_tree": "c42c51d36382bf94a138e700f28cd0a67845d716"
+    },
+    {
+      "bytes": 1718,
+      "evidence_bytes": 5169,
+      "evidence_path": "work/construction/evidence/0408-isolate-federation-regression-fixtures.json",
+      "evidence_sha256": "55cd4bfacdb13c99e7ed828ffa68ca7f326e57990afe12e486da6463fcc42ba0",
+      "path": "work/construction/segments/0408-isolate-federation-regression-fixtures.md",
+      "predecessor": "segment-sha256:93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687",
+      "sequence": 408,
+      "sha256": "0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a",
+      "source_commit": "39a7d18061699ca79132ea242de7af10814c9a42",
+      "source_tree": "8556f61004d967ab75a1b9f575d8f5def8d365e2"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,42 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:68000f31a42152b1511befd55f62297b9d8231274752a7c48429b3f17b888c10",
+  "manifest_path": "/tmp/seq408-task-acceptance-manifest.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_federated_restart.py::test_federated_restart_with_valid_signature",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:98a87db36693a33b51fa99618e8dc834e1896075837ab9ab30941cf8632d3a9b",
+  "provenance_path": "glow/test_runs/provenance/20261018T223058Z_a8b93752cb79_72e871c269e34e0d89b8b9e866180a86.json",
+  "reasons": [],
+  "repository_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+  "required_node_ids": [
+    "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+    "tests/test_federated_restart.py::test_federated_restart_with_valid_signature"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_pulse_federation.py::test_duplicate_remote_events_suppressed",
+    "tests/test_federated_restart.py::test_federated_restart_with_valid_signature"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

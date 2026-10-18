@@ -300,3 +300,11 @@ Latest construction segment: `work/construction/segments/0407-pass-acceptance-li
 Latest segment SHA-256: `93471b5267e53cd513981947770359cbe781fbc2bcf4e8b651e2860c1874b687`
 Sequence: 407 (focused local verification passed; updated-candidate hosted verification pending)
 Source parent commit `3c3c445eaf630da08abfa9529ae534d84ce4f3a6`, tree `c42c51d36382bf94a138e700f28cd0a67845d716`.
+
+
+Sequence 408 isolates two federation test-contract defects found by hosted verification of sequence 407. The replay regression now counts only peer-alpha's heartbeat; the restart fixture signs the protocol identity required by the receiver. The affected repository-native suite passed 12/12 with zero skips, and both changed behavioral paths were independently accepted. The original exact PR candidate's Docker check failure is retained; replacement-candidate hosted checks remain pending.
+
+Latest construction segment: `work/construction/segments/0408-isolate-federation-regression-fixtures.md`
+Latest segment SHA-256: `0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a`
+Sequence: 408 (affected local tests passed; replacement-candidate hosted verification pending)
+Source parent commit `39a7d18061699ca79132ea242de7af10814c9a42`, tree `8556f61004d967ab75a1b9f575d8f5def8d365e2`.
