@@ -41,7 +41,7 @@ from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
 from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
-from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary)
+from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary, digest as _transition_evidence_digest)
 from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 from sentientos.local_model_production_activation import verify_current_activation
@@ -2121,6 +2121,15 @@ class RuntimeMaintenanceSurfaces:
                 else:
                     legacy[role] = {"posture": "unavailable_not_protocol_bound"}
             return legacy
+        if (set(references) == {"predecessor_a", "successor_b"}
+                and not _same_transition_replacement_protocol(references)):
+            return {role: {"posture": "contradictory_provenance_evidence",
+                "finding": "transition_model_source_lineage_protocol_reference_mismatch",
+                "protocol_id": (references.get(role, {}).get("protocol_id")
+                    if isinstance(references.get(role), Mapping) else None),
+                "protocol_digest": (references.get(role, {}).get("protocol_digest")
+                    if isinstance(references.get(role), Mapping) else None)}
+                for role in ("predecessor_a", "successor_b")}
         owner = self._resident_developmental_owner
         if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
             owner = owner._owner
@@ -3122,6 +3131,8 @@ def _verify_live_resident_transition_source_lineage(protocol: Any,
     references = protocol.value.get("model_replacement_protocol_references")
     if not isinstance(references, Mapping) or set(references) != {"predecessor_a", "successor_b"}:
         raise TransitionError("transition_model_source_lineage_references_required")
+    if not _same_transition_replacement_protocol(references):
+        raise TransitionError("transition_model_source_lineage_protocol_reference_mismatch")
     if artifact_root is None:
         raise TransitionError("transition_model_source_lineage_store_required")
     from sentientos.developmental_model_replacement_experiment import (
@@ -3179,6 +3190,8 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
     if not isinstance(boundary, Mapping):
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     records = boundary.get("records")
+    boundary_value = dict(boundary)
+    claimed_boundary_digest = boundary_value.pop("boundary_digest", None)
     record_ids = context.get("history_record_ids")
     record_digests = context.get("history_record_digests")
     if (not isinstance(records, (list, tuple))
@@ -3187,6 +3200,8 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
             or len(record_ids) != len(record_digests)):
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     resident_records: dict[str, str] = {}
+    actual_record_ids: list[str] = []
+    actual_record_digests: list[str] = []
     for record in records:
         if not isinstance(record, Mapping):
             raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
@@ -3196,23 +3211,43 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
                 or record_id in resident_records):
             raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
         resident_records[record_id] = record_digest
+        actual_record_ids.append(record_id)
+        actual_record_digests.append(record_digest)
+    if (boundary.get("record_ids") != actual_record_ids
+            or boundary.get("record_digests") != actual_record_digests
+            or boundary.get("record_set_digest") != _transition_evidence_digest({
+                "record_ids": actual_record_ids, "record_digests": actual_record_digests})
+            or not isinstance(claimed_boundary_digest, str)
+            or claimed_boundary_digest != _transition_evidence_digest(boundary_value)):
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     for record_id, record_digest in zip(record_ids, record_digests):
         if not isinstance(record_id, str) or not record_id or record_id not in resident_records:
             raise TransitionError("transition_model_source_lineage_history_record_absent")
         if resident_records[record_id] != record_digest:
             raise TransitionError("transition_model_source_lineage_history_record_digest_mismatch")
-    boundary_digest = boundary.get("boundary_digest")
-    if not isinstance(boundary_digest, str) or not boundary_digest:
-        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     return {
         "selected_history_record_ids": list(record_ids),
         "selected_history_record_digests": list(record_digests),
         "selected_history_record_set_digest": context.get("history_record_set_digest"),
         "selected_history_record_count": len(record_ids),
         "resident_initial_history_record_count": len(records),
-        "resident_initial_history_boundary_digest": boundary_digest,
+        "resident_initial_history_boundary_digest": claimed_boundary_digest,
         "history_binding_posture": "verified_bounded_selection_within_complete_resident_boundary",
     }
+
+
+def _same_transition_replacement_protocol(references: Mapping[str, Any]) -> bool:
+    """Require A and B roles to bind one preregistered model-pair protocol."""
+    predecessor = references.get("predecessor_a")
+    successor = references.get("successor_b")
+    if not isinstance(predecessor, Mapping) or not isinstance(successor, Mapping):
+        return False
+    protocol_id = predecessor.get("protocol_id")
+    protocol_digest = predecessor.get("protocol_digest")
+    return (isinstance(protocol_id, str) and bool(protocol_id)
+        and isinstance(protocol_digest, str) and bool(protocol_digest)
+        and successor.get("protocol_id") == protocol_id
+        and successor.get("protocol_digest") == protocol_digest)
 
 
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
