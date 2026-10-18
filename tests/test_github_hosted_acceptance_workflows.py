@@ -41,10 +41,14 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "schedule:" in triggers and "workflow_dispatch:" in triggers
     assert "pull_request:" not in triggers
     push = triggers.split("  push:", 1)[1]
-    assert "branches:\n      - main" in push
+    assert (
+        "branches:\n      - main\n"
+        "      - automation/federation-health-publication-fixture"
+    ) in push
     assert (
         'paths:\n      - ".github/workflows/federation-health.yml"\n'
-        '      - "federation_health_badge.py"'
+        '      - "federation_health_badge.py"\n'
+        '      - "work/federation_health_publication_fixture_request.txt"'
     ) in push
     import yaml
 
@@ -63,6 +67,11 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "if-no-files-found: error" in health
     assert "actions/download-artifact@v4" in publisher
     assert "needs: [health, fixture]" in publisher
+    assert "inputs.publication_fixture == true || (github.event_name == 'push'" in workflow
+    assert "github.ref == 'refs/heads/automation/federation-health-publication-fixture'" in workflow
+    assert 'fixture_request_commit_must_change_only_sentinel' in workflow
+    assert 'fixture_request_parent_must_be_current_main' in workflow
+    assert 'ref: main' in publisher
     assert "test \"$(sudo -n id -u)\" = \"0\"" in health
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in health
     assert "python federation_health_badge.py" in health
@@ -74,6 +83,14 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "automation/federation-health" in publisher
     assert "format('automation/federation-health-fixture-{0}', github.run_id)" in publisher
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
+    assert 'DELETE_TRIGGER_BRANCH:' in publisher
+    assert 'trigger_branch_deleted' in publisher
+    assert (
+        ROOT / "work/federation_health_publication_fixture_request.txt"
+    ).read_text(encoding="utf-8") == (
+        "sentientos.federation_health_publication_fixture_request:v1\n"
+        "TEST FIXTURE ONLY — NOT TELEMETRY.\n"
+    )
 
 def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
     import yaml
@@ -548,12 +565,13 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "actions: write" not in workflow
     assert "TEST FIXTURE — NOT TELEMETRY" in workflow
     assert "publication_scope_verified" in workflow
-    assert 'proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}' in workflow
+    assert '"trigger_branch_deleted": trigger_branch_deleted' in workflow
+    assert "and trigger_branch_deleted" in workflow
     assert "cleanup_errors" in workflow
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
     assert "delete-branch: false" in workflow
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
-    assert "draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}" in workflow
+    assert "&& 'always-true' || 'false' }}" in workflow
 
 
 

@@ -1,0 +1,2 @@
+sentientos.federation_health_publication_fixture_request:v1
+TEST FIXTURE ONLY — NOT TELEMETRY.

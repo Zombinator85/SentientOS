@@ -13,16 +13,18 @@ on:
   push:
     branches:
       - main
+      - automation/federation-health-publication-fixture
     paths:
       - ".github/workflows/federation-health.yml"
       - "federation_health_badge.py"
+      - "work/federation_health_publication_fixture_request.txt"
 
 permissions:
   contents: read
 
 jobs:
   health:
-    if: ${{ inputs.publication_fixture != true }}
+    if: ${{ inputs.publication_fixture != true && github.ref != 'refs/heads/automation/federation-health-publication-fixture' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,12 +48,43 @@ jobs:
           if-no-files-found: error
 
   fixture:
-    if: ${{ inputs.publication_fixture == true }}
+    if: ${{ inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact disposable branch request
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          branch = "refs/heads/automation/federation-health-publication-fixture"
+          request = Path("work/federation_health_publication_fixture_request.txt")
+          expected = "sentientos.federation_health_publication_fixture_request:v1\nTEST FIXTURE ONLY — NOT TELEMETRY.\n"
+          if __import__("os").environ.get("GITHUB_REF") != branch:
+              raise SystemExit("fixture_request_branch_mismatch")
+          changed = subprocess.check_output(
+              ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+              text=True,
+          ).splitlines()
+          if changed != [str(request)]:
+              raise SystemExit("fixture_request_commit_must_change_only_sentinel")
+          parent = subprocess.check_output(
+              ["git", "rev-parse", "HEAD^"], text=True
+          ).strip()
+          main = subprocess.check_output(
+              ["git", "ls-remote", "origin", "refs/heads/main"], text=True
+          ).split()[0]
+          if parent != main:
+              raise SystemExit("fixture_request_parent_must_be_current_main")
+          if request.read_text(encoding="utf-8") != expected:
+              raise SystemExit("fixture_request_marker_invalid")
+          PY
       - name: Generate an explicitly labeled publication test fixture
         run: |
           cat > docs/FEDERATION_HEALTH.md <<EOF
@@ -77,6 +110,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/download-artifact@v4
         with:
           name: federation-health-${{ github.run_id }}
@@ -86,17 +121,17 @@ jobs:
         with:
           token: ${{ github.token }}
           base: main
-          branch: ${{ inputs.publication_fixture && format('automation/federation-health-fixture-{0}', github.run_id) || 'automation/federation-health' }}
+          branch: ${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && format('automation/federation-health-fixture-{0}', github.run_id) || 'automation/federation-health' }}
           delete-branch: false
-          draft: ${{ inputs.publication_fixture && 'always-true' || 'false' }}
-          commit-message: "${{ inputs.publication_fixture && 'test: verify federation health publisher fixture' || 'chore: update federation health' }}"
-          title: "${{ inputs.publication_fixture && '[TEST FIXTURE] verify Federation Health publication path' || 'chore: update federation health' }}"
-          body: "${{ inputs.publication_fixture && 'TEST FIXTURE — NOT TELEMETRY. The workflow independently verifies the exact one-file draft PR, then closes it and deletes its branch without merging.' || 'Automated Federation Health output generated after the hosted Administrator preflight.' }}"
+          draft: ${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && 'always-true' || 'false' }}
+          commit-message: "${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && 'test: verify federation health publisher fixture' || 'chore: update federation health' }}"
+          title: "${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && '[TEST FIXTURE] verify Federation Health publication path' || 'chore: update federation health' }}"
+          body: "${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && 'TEST FIXTURE — NOT TELEMETRY. The workflow independently verifies the exact one-file draft PR, then closes it and deletes its branch without merging.' || 'Automated Federation Health output generated after the hosted Administrator preflight.' }}"
           add-paths: |
             docs/FEDERATION_HEALTH.md
       - name: Verify the changed-output test PR
         id: verify-fixture
-        if: ${{ inputs.publication_fixture == true }}
+        if: ${{ inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture') }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPOSITORY: ${{ github.repository }}
@@ -154,12 +189,13 @@ jobs:
               output.write("verified=true\n")
           PY
       - name: Close any fixture PR and remove its branch without merging
-        if: ${{ always() && inputs.publication_fixture == true }}
+        if: ${{ always() && (inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture')) }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
           FIXTURE_BRANCH: automation/federation-health-fixture-${{ github.run_id }}
+          DELETE_TRIGGER_BRANCH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture' }}
         run: |
           python - <<'PY'
           import json
@@ -240,9 +276,47 @@ jobs:
           except Exception as exc:
               branch_deleted = False
               errors.append(f"fixture_branch_cleanup_failed:{type(exc).__name__}:{str(exc)[:300]}")
-          proof["cleanup"] = {"closed": closed, "merged": merged, "branch_deleted": branch_deleted}
+          trigger_branch_deleted = True
+          if os.environ.get("DELETE_TRIGGER_BRANCH") == "true":
+              trigger_ref = (
+                  f"repos/{repository}/git/ref/heads/"
+                  "automation/federation-health-publication-fixture"
+              )
+              try:
+                  lookup = subprocess.run(["gh", "api", trigger_ref], capture_output=True, text=True)
+                  if lookup.returncode == 0:
+                      subprocess.run(["gh", "api", "--method", "DELETE", trigger_ref],
+                                     check=True, capture_output=True, text=True)
+                      readback = subprocess.run(["gh", "api", trigger_ref], capture_output=True, text=True)
+                      trigger_branch_deleted = (
+                          readback.returncode != 0 and
+                          ("HTTP 404" in readback.stderr or
+                           "Reference does not exist" in readback.stderr)
+                      )
+                  elif "HTTP 404" in lookup.stderr or "Reference does not exist" in lookup.stderr:
+                      trigger_branch_deleted = True
+                  else:
+                      trigger_branch_deleted = False
+                      errors.append(f"fixture_trigger_branch_lookup_failed:{lookup.stderr.strip()[:300]}")
+                  if not trigger_branch_deleted:
+                      errors.append("fixture_trigger_branch_removal_readback_failed")
+              except Exception as exc:
+                  trigger_branch_deleted = False
+                  errors.append(f"fixture_trigger_branch_cleanup_failed:{type(exc).__name__}:{str(exc)[:300]}")
+          proof["cleanup"] = {
+              "closed": closed,
+              "merged": merged,
+              "branch_deleted": branch_deleted,
+              "trigger_branch_deleted": trigger_branch_deleted,
+          }
           proof["cleanup_errors"] = errors
-          proof["verified"] = bool(proof.get("publication_scope_verified") and closed and not merged and branch_deleted)
+          proof["verified"] = bool(
+              proof.get("publication_scope_verified")
+              and closed
+              and not merged
+              and branch_deleted
+              and trigger_branch_deleted
+          )
           proof_path.write_text(json.dumps(proof, sort_keys=True, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(proof, sort_keys=True))
           if not proof["verified"]:
