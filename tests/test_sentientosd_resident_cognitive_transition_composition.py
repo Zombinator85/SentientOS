@@ -247,6 +247,14 @@ def test_production_transition_requires_verified_frozen_model_generation_lineage
         transition.value["initial_history_boundary"]["boundary_digest"])
     assert bindings["predecessor_a"]["history_binding_posture"] == (
         "verified_bounded_selection_within_complete_resident_boundary")
+    omitted_record = transition.value["initial_history_boundary"]["records"][1]
+    assert bindings["predecessor_a"]["omitted_history_record_count"] == 1
+    assert bindings["predecessor_a"]["omitted_history_record_set_digest"] == _digest({
+        "record_ids": [omitted_record["record_id"]],
+        "record_digests": [omitted_record["record_digest"]],
+    })
+    assert bindings["predecessor_a"]["omission_binding_posture"] == (
+        "verified_exact_complement_within_complete_resident_boundary")
     assert bindings["predecessor_a"]["software_generation_posture"] == (
         "frozen_context_declaration_not_running_observation")
 
@@ -344,6 +352,30 @@ def _assert_transition_protocol_pair_and_boundary_integrity(tmp_path: Path) -> N
         with pytest.raises(TransitionError,
                 match="transition_model_source_lineage_history_boundary_invalid"):
             sentientosd._verify_transition_context_history_binding(context.__dict__, tampered)
+
+    malformed_context = dict(context.__dict__)
+    malformed_context["history_record_ids"] = ["record-1", "record-1"]
+    malformed_context["history_record_digests"] = [
+        context.history_record_digests[0], context.history_record_digests[0]]
+    malformed_context["history_record_set_digest"] = _digest({
+        "record_ids": malformed_context["history_record_ids"],
+        "record_digests": malformed_context["history_record_digests"]})
+    with pytest.raises(TransitionError,
+            match="transition_model_source_lineage_history_boundary_invalid"):
+        sentientosd._verify_transition_context_history_binding(malformed_context, original)
+
+    for key, replacement in (
+            ("schema_version", "sentientos.developmental_history_boundary:v3"),
+            ("writeback_receipt_ids", ["receipt-without-digest"]),
+    ):
+        malformed_boundary = {**original, key: replacement}
+        body = {name: item for name, item in malformed_boundary.items()
+            if name != "boundary_digest"}
+        malformed_boundary["boundary_digest"] = _digest(body)
+        with pytest.raises(TransitionError,
+                match="transition_model_source_lineage_history_boundary_invalid"):
+            sentientosd._verify_transition_context_history_binding(
+                context.__dict__, malformed_boundary)
 
 
 def test_transition_lineage_requires_one_model_pair_protocol_and_integral_boundary(tmp_path: Path) -> None:
