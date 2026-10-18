@@ -205,6 +205,74 @@ def test_serving_introspection_uses_non_invalidating_observation(tmp_path: Path)
         if item.observation_key == "session_present") is False
 
 
+def test_developmental_history_introspection_uses_verified_writeback_pairs(
+        tmp_path: Path) -> None:
+    from sentientos.resident_developmental_writeback import DevelopmentalWritebackError
+
+    record = SimpleNamespace(record_id="record-1", record_digest="sha256:" + "a" * 64,
+        created_at="2026-10-18T00:00:00+00:00", candidate={
+            "candidate_id": "candidate-1", "model_id": "model-1",
+            "model_artifact_digest": "sha256:" + "b" * 64,
+            "snapshot_digest": "sha256:" + "c" * 64,
+            "selected_fact_ids": ["fact-1"], "selected_facts": []})
+    receipt = SimpleNamespace(receipt_id="receipt-1",
+        receipt_digest="sha256:" + "d" * 64)
+
+    class Store:
+        def records(self):
+            raise AssertionError("raw record inventory must not bypass writeback verification")
+
+    class Writeback:
+        def __init__(self, *, fail: bool = False):
+            self.store = Store()
+            self.fail = fail
+            self.calls = 0
+
+        def inspect_completed_records(self):
+            self.calls += 1
+            if self.fail:
+                raise DevelopmentalWritebackError("durable_writeback_receipt_missing")
+            return ((record, receipt),)
+
+    def compose(writeback):
+        owner = SimpleNamespace(writeback=writeback)
+        surfaces = SimpleNamespace(
+            _epistemic_state_owner=None, _epistemic_development_runtime=None,
+            _resource_observation_owner=None, _longitudinal_self_model_owner=None,
+            _resident_developmental_owner=owner, _resident_transition_runtime=None,
+            _resident_transition_custody=None, _resident_cognitive_invoker=None,
+            _resident_software_transition_controller=None,
+            _resident_software_transition_config=None,
+            governance_feedback=lambda: {"surfaces": {}})
+        config = IntrospectionConfig(True, tmp_path / "introspection", True, 4,
+            ("developmental_history",), ("developmental_history",))
+        return sentientosd._compose_causal_introspection(surfaces,
+            resident_serving_controller=None, config=config)
+
+    verified = Writeback()
+    snapshot = compose(verified).capture(sentientosd.CaptureContext(
+        "developmental-history-tick", capture_posture="synthetic_test"))
+    assert verified.calls == 1
+    projection = snapshot.projections[0]
+    observations = {item.observation_key: item.bounded_value
+        for item in projection.observations}
+    assert observations["record_count"] == 1
+    assert observations["latest_record_id"] == record.record_id
+    assert observations["latest_writeback_receipt_id"] == receipt.receipt_id
+    assert observations["latest_writeback_receipt_digest"] == receipt.receipt_digest
+    assert observations["writeback_pair_verification_posture"] == "verified_nonempty"
+
+    incomplete = Writeback(fail=True)
+    degraded = compose(incomplete).capture(sentientosd.CaptureContext(
+        "developmental-history-incomplete", capture_posture="synthetic_test"))
+    assert incomplete.calls == 1
+    assert degraded.completion_posture == "partial"
+    assert not degraded.projections
+    assert [(item.error_code, item.error_class) for item in degraded.capture_findings] == [
+        ("provider_projection_failed", "DevelopmentalWritebackError"),
+        ("required_provider_missing", "CoverageError")]
+
+
 def test_causal_resource_allocation_identity_projection_is_bounded_and_digest_located() -> None:
     from sentientosd import _bounded_resource_allocation_identity_projection
 
