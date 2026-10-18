@@ -1,23 +1,20 @@
-Warning: truncated output (original token count: 62931)
-Total output lines: 4468
-
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "90b9844097673b08d7e493aa7d55afd9b61c7ab90e8729664ff7bd123094dde3",
-    "latest_segment_sequence": 397,
-    "latest_segment_sha256": "c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04",
-    "source_commit": "b935c6ec34007111df491801ce277f865f434a34",
-    "source_tree": "0fd3cbc04c170217675f09b3776818f33101ad24"
+    "checkpoint_sha256": "c5f79eb6897e68d8e7eb1527a8df80b7e933bb7ed08f13fd9fff913a5f4076fe",
+    "latest_segment_sequence": 398,
+    "latest_segment_sha256": "1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e",
+    "source_commit": "efc6ac6c906601445b8b1fc88597101bcfd6180e",
+    "source_tree": "be7bb0fe2d65cd44f006e4cf151fd2143d0b7390"
   },
-  "checkpoint_sha256": "90b9844097673b08d7e493aa7d55afd9b61c7ab90e8729664ff7bd123094dde3",
+  "checkpoint_sha256": "c5f79eb6897e68d8e7eb1527a8df80b7e933bb7ed08f13fd9fff913a5f4076fe",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 397,
+  "latest_sequence": 398,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -1874,11 +1871,6 @@ Total output lines: 4468
       "bytes": 1920,
       "evidence_bytes": 1578,
       "evidence_path": "work/construction/evidence/0189-multi-event-strategy-packets.json",
-      "evidence_sha256": "942b916a4688571fc7c00cc9e36cb2319a038c31917f1006caa417124eaac155",
-      "path": "work/construction/segments/0189-multi-event-strategy-packets.md",
-      "predecessor": "segment-sha256:c452514d8286567d768aaf657259aa6b8941db3a4ad89779ef3f59926a6d4d39",
-      "sequence": 189,
-      "sha256": "3c42c422baeeabf6b19a92e3ffb1c0ba4462c5a6a87f32060…12931 tokens truncated…ion/evidence/0266-fresh-process-cross-model-guidance-gate.json",
       "evidence_sha256": "b25ce8c81a5626d1e302f033679ed9ddf73eb375e7c771212c2b1fd76f19c9f5",
       "path": "work/construction/segments/0266-fresh-process-cross-model-guidance-gate.md",
       "predecessor": "segment-sha256:005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
@@ -3526,6 +3518,19 @@ Total output lines: 4468
       "sha256": "c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04",
       "source_commit": "b935c6ec34007111df491801ce277f865f434a34",
       "source_tree": "0fd3cbc04c170217675f09b3776818f33101ad24"
+    },
+    {
+      "bytes": 1986,
+      "evidence": "work/construction/evidence/0398-allow-exact-task-acceptance-source-rollforward.json",
+      "evidence_bytes": 2388,
+      "evidence_path": "work/construction/evidence/0398-allow-exact-task-acceptance-source-rollforward.json",
+      "evidence_sha256": "c60c70c011eb8bc22d845d4ee9acfcac84ca1926869e3bee7f6fe4fe6405df38",
+      "path": "work/construction/segments/0398-allow-exact-task-acceptance-source-rollforward.md",
+      "predecessor": "segment-sha256:c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04",
+      "sequence": 398,
+      "sha256": "1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e",
+      "source_commit": "efc6ac6c906601445b8b1fc88597101bcfd6180e",
+      "source_tree": "be7bb0fe2d65cd44f006e4cf151fd2143d0b7390"
     }
   ],
   "source_acquisition": {

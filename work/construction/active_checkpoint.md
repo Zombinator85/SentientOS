@@ -230,3 +230,10 @@ Sequence 397 improves hosted failure observability for the exact PR metadata gua
 Latest construction segment: `work/construction/segments/0397-surface-metadata-guard-failure-reasons.md`
 Latest segment SHA-256: `c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04`
 Sequence: 397 (untested; hosted verification pending)
+
+
+Sequence 398 resolves the acceptance lineage mismatch diagnosed by the sequence-397 hosted gate. The exact transition verifier now accepts a manifest/provenance digest change only across the verified workspace-parent to exact-candidate SHA boundary and only when readiness, classification, exact required and successful node IDs, call-phase outcomes, and passing witness summaries match. Targeted metadata guard tests passed 29/29 non-legacy cases (14 legacy cases remain skipped under the repository marker policy); hosted workflow contract test passed; changed-module mypy, compilation, and diff checks passed. Documentation build succeeded at 614 pages. Sequence-397 CI and invariants passed; its required gate remains recorded as failed for the diagnosed transition mismatch. Sequence-398 hosted verification is pending. Parent: `efc6ac6c906601445b8b1fc88597101bcfd6180e`, tree `be7bb0fe2d65cd44f006e4cf151fd2143d0b7390`; verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0398-allow-exact-task-acceptance-source-rollforward.md`
+Latest segment SHA-256: `1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e`
+Sequence: 398 (local checks passed; hosted verification pending)

@@ -63,14 +63,15 @@ def _request(tmp_path: Path, **overrides: object) -> CodexPrMetadataGuardRequest
 
 
 def _transition_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, profile: str = "solo"
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, profile: str = "solo",
+    acceptance_rollforward: bool = False,
 ) -> tuple[CodexPrMetadataGuardRequest, Path, Path]:
     request = _request(tmp_path)
     matrix_digest = hashlib.sha256(Path(request.matrix_json_path).read_bytes()).hexdigest()
     common = {
         "requested_profile": profile, "effective_profile": profile, "title": TITLE,
-        "intended_commit_title": TITLE, "task_acceptance_manifest_digest": "d" * 64,
-        "task_acceptance_provenance_digest": "e" * 64,
+        "intended_commit_title": TITLE, "task_acceptance_manifest_digest": "sha256:" + "d" * 64,
+        "task_acceptance_provenance_digest": "sha256:" + "e" * 64,
         "focused_test_command_contract": ["python -m scripts.run_tests -q tests/test_codex_pr_metadata_guard.py"],
         "targeted_mypy_command_contract": ["python -m mypy sentientos/codex_pr_metadata_guard.py"],
         "configured_total_budget_seconds": 1200, "exhaustive_matrix_digest": matrix_digest if profile == "exhaustive" else None,
@@ -83,8 +84,12 @@ def _transition_request(
         "total_validation_duration_seconds": 8, "remaining_budget_seconds": 1192,
         "exhaustive_matrix_status": matrix_status, "overall_status": "ready_to_commit",
     })
+    post_common = dict(common)
+    if acceptance_rollforward:
+        post_common["task_acceptance_manifest_digest"] = "sha256:" + "f" * 64
+        post_common["task_acceptance_provenance_digest"] = "sha256:" + "g" * 64
     post_plan = seal_validation_plan({
-        **common, "repository_sha": "b" * 40, "phase": "pr-metadata", "changed_file_identity": [],
+        **post_common, "repository_sha": "b" * 40, "phase": "pr-metadata", "changed_file_identity": [],
         "required_stage_ids": ["focused_tests", "pr_landing_gate"], "conditionally_required_stage_ids": [], "skipped_or_deferred_stage_ids": ["matrix_summary"],
         "stage_results": {"focused_tests": {"status": "passed", "duration_seconds": 3}, "pr_landing_gate": {"status": "passed", "duration_seconds": 1}},
         "total_validation_duration_seconds": 5, "remaining_budget_seconds": 1195,
@@ -96,6 +101,31 @@ def _transition_request(
     pre_payload, post_payload = json.loads(pre_path.read_text()), json.loads(post_path.read_text())
     pre_payload.update(landing_validation_plan=pre_plan, workspace_binding=workspace)
     post_payload.update(landing_validation_plan=post_plan, commit_binding=commit)
+    if acceptance_rollforward:
+        node = "tests/test_example.py::test_exact_candidate"
+
+        def acceptance(source_sha: str, manifest_digest: str, provenance_digest: str) -> dict[str, object]:
+            return {
+                "status": "task_acceptance_ready", "repository_sha": source_sha,
+                "task_classification": "behavior_adding",
+                "manifest_digest": manifest_digest, "provenance_digest": provenance_digest,
+                "required_node_ids": [node], "successful_path_node_ids": [node],
+                "node_outcomes": [{"node_id": node, "exists": True, "selected": True,
+                                   "phase": "call", "outcome": "passed", "passed": True}],
+                "required_witness_contract_count": 1, "passed_witness_contract_count": 1,
+                "witness_status": "ready", "witness_contract_results": [
+                    {"node_id": node, "contract_id": "retained_contract", "passed": True},
+                ],
+            }
+
+        pre_payload["task_acceptance"] = acceptance(
+            "a" * 40, common["task_acceptance_manifest_digest"],
+            common["task_acceptance_provenance_digest"],
+        )
+        post_payload["task_acceptance"] = acceptance(
+            "b" * 40, post_common["task_acceptance_manifest_digest"],
+            post_common["task_acceptance_provenance_digest"],
+        )
     pre_path.write_text(json.dumps(pre_payload), encoding="utf-8")
     post_path.write_text(json.dumps(post_payload), encoding="utf-8")
     monkeypatch.setattr(
@@ -134,12 +164,71 @@ def test_solo_phase_local_plan_transition_is_ready_and_inspectable(tmp_path: Pat
     assert proof["shared_validation_profile"] == "solo"
 
 
+@pytest.mark.no_legacy_skip
+def test_exact_task_acceptance_rolls_forward_from_parent_to_candidate_sha(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, _, _ = _transition_request(tmp_path, monkeypatch, acceptance_rollforward=True)
+    result = evaluate_pr_metadata_guard(request)
+    assert result.status == "pr_metadata_guard_ready"
+    proof = result.proof["validation_plan_transition"]
+    assert proof["task_acceptance_transition"]["status"] == "source_sha_rollforward_ready"
+    assert proof["task_acceptance_transition"]["pre_repository_sha"] == "a" * 40
+    assert proof["task_acceptance_transition"]["post_repository_sha"] == "b" * 40
+
+
+@pytest.mark.no_legacy_skip
+def test_changed_acceptance_digests_without_source_bound_rollforward_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, _, post = _transition_request(tmp_path, monkeypatch)
+    _mutate(post, "landing_validation_plan", "task_acceptance_manifest_digest", "sha256:" + "f" * 64)
+    result = evaluate_pr_metadata_guard(request)
+    assert "validation_lineage_field_mismatch:task_acceptance_manifest_digest" in result.reasons
+    assert "task_acceptance_rollforward_evidence_missing" in result.reasons
+    assert result.ready is False
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("mutation,reason", [
+    ("wrong_sha", "pr_metadata_task_acceptance_source_sha_mismatch"),
+    ("changed_nodes", "task_acceptance_required_nodes_changed"),
+    ("failed_node", "pr_metadata_task_acceptance_node_not_passed"),
+    ("wrong_digest", "pr_metadata_task_acceptance_manifest_digest_mismatch"),
+    ("changed_witness", "task_acceptance_witness_contracts_changed"),
+    ("inconsistent_witness_count", "pr_metadata_task_acceptance_witnesses_not_ready"),
+])
+def test_task_acceptance_rollforward_rejects_unbound_or_changed_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str, reason: str,
+) -> None:
+    request, _, post = _transition_request(tmp_path, monkeypatch, acceptance_rollforward=True)
+    payload = json.loads(post.read_text())
+    acceptance = payload["task_acceptance"]
+    if mutation == "wrong_sha":
+        acceptance["repository_sha"] = "c" * 40
+    elif mutation == "changed_nodes":
+        acceptance["required_node_ids"] = ["tests/test_other.py::test_other"]
+    elif mutation == "failed_node":
+        acceptance["node_outcomes"][0]["passed"] = False
+    elif mutation == "wrong_digest":
+        acceptance["manifest_digest"] = "sha256:bad"
+    elif mutation == "changed_witness":
+        acceptance["witness_contract_results"][0]["contract_id"] = "different_contract"
+    elif mutation == "inconsistent_witness_count":
+        acceptance["required_witness_contract_count"] = 2
+    post.write_text(json.dumps(payload), encoding="utf-8")
+    result = evaluate_pr_metadata_guard(request)
+    assert any(reason in item for item in result.reasons)
+    assert result.ready is False
+
+
 @pytest.mark.parametrize("field,value", [
     ("requested_profile", "exhaustive"), ("effective_profile", "exhaustive"),
     ("title", "changed"), ("intended_commit_title", "changed"),
     ("task_acceptance_manifest_digest", "changed"), ("task_acceptance_provenance_digest", "changed"),
     ("focused_test_command_contract", ["changed"]), ("targeted_mypy_command_contract", ["changed"]),
 ])
+@pytest.mark.no_legacy_skip
 def test_solo_stable_lineage_mutation_blocks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, value: object) -> None:
     request, _, post = _transition_request(tmp_path, monkeypatch)
     _mutate(post, "landing_validation_plan", field, value)
@@ -158,6 +247,7 @@ def test_solo_stable_lineage_mutation_blocks(tmp_path: Path, monkeypatch: pytest
     ("pre", "repository_sha", "9" * 40, "pre_commit_validation_repository_sha_mismatch"),
     ("post", "repository_sha", "9" * 40, "pr_metadata_validation_repository_sha_mismatch"),
 ])
+@pytest.mark.no_legacy_skip
 def test_solo_invalid_plan_transition_blocks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, field: str, value: object, reason: str) -> None:
     request, pre, post = _transition_request(tmp_path, monkeypatch)
     _mutate(pre if target == "pre" else post, "landing_validation_plan", field, value, reseal=field != "artifact_digest")
@@ -169,12 +259,14 @@ def test_solo_invalid_plan_transition_blocks(tmp_path: Path, monkeypatch: pytest
     ("post", "changed_path_manifest_digest", "9" * 64, "workspace_manifest_mismatch"),
     ("post", "commit_subject", "changed", "commit_title_mismatch"),
 ])
+@pytest.mark.no_legacy_skip
 def test_solo_commit_workspace_lineage_mutation_blocks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str, field: str, value: object, reason: str) -> None:
     request, _, post = _transition_request(tmp_path, monkeypatch)
     _mutate(post, "commit_binding", field, value)
     assert reason in evaluate_pr_metadata_guard(request).reasons
 
 
+@pytest.mark.no_legacy_skip
 def test_exhaustive_transition_remains_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     request, _, _ = _transition_request(tmp_path, monkeypatch, profile="exhaustive")
     assert evaluate_pr_metadata_guard(request).status == "pr_metadata_guard_ready"
