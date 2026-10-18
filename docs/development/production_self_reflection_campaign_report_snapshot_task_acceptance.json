@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot",
+      "rationale": "Prove report scoring uses the exact receipt snapshot whose custody was verified, even if the on-disk receipt is replaced immediately afterward."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot"
+  ]
+}

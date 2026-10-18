@@ -1,0 +1,26 @@
+{
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_uses_receipts_from_the_verified_lineage_snapshot"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign_cli.py::test_cli_run_one_rejects_unverified_json_before_campaign_access"
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json"
+}

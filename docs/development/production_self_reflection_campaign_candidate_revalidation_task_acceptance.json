@@ -1,0 +1,31 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T175239Z_045dc196c641_f98b6428417f4aa29ca7fda484f46ab2.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]",
+      "rationale": "Reject a readiness artifact whose body no longer matches its digest."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]",
+      "rationale": "Reject a valid readiness artifact for another campaign protocol."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]",
+      "rationale": "Keep a valid negative readiness result blocked."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]",
+      "rationale": "Reject an unbound status-only mapping."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a",
+      "rationale": "Retain the successful exact-transition and external-scorer path."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+  ]
+}

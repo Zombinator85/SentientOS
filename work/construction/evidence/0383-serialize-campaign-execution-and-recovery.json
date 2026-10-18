@@ -1,0 +1,73 @@
+{
+  "change": {
+    "authority_added": false,
+    "coordination": "private native POSIX interprocess flock around campaign create/re-entry, reconstruction, reporting, and complete trial execution/state publication",
+    "inference_added": false,
+    "lock_contract": [
+      "private campaign directory opened without following symlinks",
+      "lock file opened relative to the held directory descriptor",
+      "regular file, owner, single-link, and private-mode checks",
+      "unsupported platforms fail closed",
+      "process exit releases the lock and preserves interrupted no-retry recovery"
+    ],
+    "regression": "second owner reconstructs only after active executor completes and does not mark the live trial interrupted"
+  },
+  "local_verification": {
+    "acceptance": {
+      "manifest_path": "docs/development/production_self_reflection_campaign_serialization_task_acceptance.json",
+      "manifest_sha256": "f6a962d32aac37d26aa7f356f2639dc657ad47c3f358eb13cec15e4600e1ee52",
+      "passed_nodes": 2,
+      "provenance_sha256": "cbc8a2c5bd45878521767c919ec6340ba08a73b0a7a35c686330fa6c7a09ace0",
+      "result_sha256": "0c7a5ec6f4ff835759d919fe9856a01af1fe0c07d516a58c4781dd097af3e02e",
+      "status": "task_acceptance_ready"
+    },
+    "campaign_and_transition_regression": {
+      "failed": 0,
+      "passed": 149,
+      "selected": 149,
+      "skipped": 0,
+      "provenance_path": "glow/test_runs/provenance/20261018T173811Z_0ed3caf3d483_a6bcb428d792434c8d2fa7b210757a23.json",
+      "provenance_sha256": "cbc8a2c5bd45878521767c919ec6340ba08a73b0a7a35c686330fa6c7a09ace0",
+      "junitxml_path": "glow/test_runs/pytest_junitxml_aa492c675252459aab8939087cb14290.xml",
+      "junitxml_sha256": "e3a58b476551cd8fc499ad7119546f315a5ffb6126ab172779437a534515a9f4"
+    },
+    "git_diff_check": "passed",
+    "mypy": "passed for changed module with imports skipped",
+    "py_compile": "passed",
+    "repository_mypy_baseline": {
+      "matched_existing_errors": 1050,
+      "matched_with_location_drift": 108,
+      "new_errors": 0,
+      "retired_error_records": 40,
+      "status": "mypy_baseline_improved"
+    }
+  },
+  "publication": {
+    "commit": "not_created",
+    "exact_candidate_guard": "not_run; PR #2371 candidate and parent objects are absent from all available local object stores",
+    "merge": "not_performed",
+    "pull_request": 2371,
+    "source_publish": "not_performed",
+    "status": "unpublished_local_increment"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2555,
+  "segment_path": "work/construction/segments/0383-serialize-campaign-execution-and-recovery.md",
+  "segment_sha256": "fe23c11e6972043d93a05c7865f279170fc45c850c12bf43edc2004623b33f95",
+  "sequence": 383,
+  "source": {
+    "candidate_source": "PR #2371 head 045dc196c641cecbb3b9cf2313ed05187fd73d4c is confirmed by GitHub but unavailable as a local Git object",
+    "local_base_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "local_base_tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "verified_main_commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "verified_main_tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584"
+  },
+  "status": "unpublished_local_increment",
+  "tested_source_sha256": {
+    "docs/development/production_self_reflection_campaign.md": "1dfce9d7d9d719cbdd860ca1f4cdf1158e12c3d5bbfc7c7436760f9466042e47",
+    "docs/development/production_self_reflection_campaign_serialization_task_acceptance.json": "f6a962d32aac37d26aa7f356f2639dc657ad47c3f358eb13cec15e4600e1ee52",
+    "sentientos/production_self_reflection_campaign.py": "9ee05f784b4ebd222270deeb9bde9848a0812d7089ffd357e8c472d318515271",
+    "tests/test_production_self_reflection_campaign.py": "b4c583c182542b76363f9a99751bf50135fe11a91897d13c14439f55eec97a97"
+  },
+  "title": "Serialize campaign execution and recovery"
+}

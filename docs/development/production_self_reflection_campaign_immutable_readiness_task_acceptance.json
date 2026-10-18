@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_publication_rejects_symlink_and_content_collision",
+      "rationale": "Require immutable readiness publication to reject symlink substitution and preserve collision failure for conflicting preexisting content."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_concurrent_publication_is_first_writer_immutable",
+      "rationale": "Require concurrent readiness publishers to preserve the first artifact and reject conflicting writes instead of atomically overwriting it."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_publication_rejects_symlink_and_content_collision",
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_concurrent_publication_is_first_writer_immutable"
+  ]
+}

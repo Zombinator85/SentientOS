@@ -1,0 +1,144 @@
+{
+  "acceptance_result": {
+    "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "manifest_digest": "sha256:a71c7ce5f32e1f29b58f78ef021017b87492ae3444fa9534dbe4151ea24558e8",
+    "manifest_path": "docs/development/production_self_reflection_campaign_candidate_revalidation_task_acceptance.json",
+    "node_outcomes": [
+      {
+        "exists": true,
+        "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]",
+        "outcome": "passed",
+        "passed": true,
+        "phase": "call",
+        "selected": true
+      },
+      {
+        "exists": true,
+        "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]",
+        "outcome": "passed",
+        "passed": true,
+        "phase": "call",
+        "selected": true
+      },
+      {
+        "exists": true,
+        "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]",
+        "outcome": "passed",
+        "passed": true,
+        "phase": "call",
+        "selected": true
+      },
+      {
+        "exists": true,
+        "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]",
+        "outcome": "passed",
+        "passed": true,
+        "phase": "call",
+        "selected": true
+      },
+      {
+        "exists": true,
+        "node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a",
+        "outcome": "passed",
+        "passed": true,
+        "phase": "call",
+        "selected": true
+      }
+    ],
+    "passed_witness_contract_count": 0,
+    "provenance_digest": "sha256:714c35ddbb2a76a65fe46ca64cdbc6360ff351804cb631206f6bde7eda94d6c3",
+    "provenance_path": "glow/test_runs/provenance/20261018T175239Z_045dc196c641_f98b6428417f4aa29ca7fda484f46ab2.json",
+    "reasons": [],
+    "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "required_node_ids": [
+      "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[tampered-readiness_tampered]",
+      "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[wrong_protocol-readiness_protocol_mismatch]",
+      "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[not_ready-production_trial_not_ready]",
+      "tests/test_production_self_reflection_campaign.py::test_run_one_requires_digest_valid_protocol_bound_readiness[unbound-readiness_tampered]",
+      "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+    ],
+    "required_witness_contract_count": 0,
+    "schema_version": "sentientos.task_acceptance_result:v1",
+    "status": "task_acceptance_ready",
+    "successful_path_node_ids": [
+      "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+    ],
+    "task_classification": "behavior_adding",
+    "witness_contract_results": [],
+    "witness_status": "ready"
+  },
+  "publication": {
+    "ahead_by": 1,
+    "behind_by": 0,
+    "guard_blocker": "required PR metadata-finalizer and matrix JSON inputs are in an artifact exposed only as an unreadable File Service reference",
+    "hosted_finalizer_substituted_for_guard": false,
+    "merge": "not_performed",
+    "metadata_guard": "not_run",
+    "pr": 2371,
+    "source_publish": "not_performed",
+    "state": "open_draft"
+  },
+  "recovery": {
+    "candidate_commit_reconstructed_and_hash_verified": true,
+    "candidate_root_tree_matches_remote": true,
+    "candidate_tree_objects_reconstructed_and_hash_verified": 323,
+    "main_commit_reconstructed_byte_for_byte": true,
+    "method": "local object-store reuse plus GitHub Git tree/blob/commit API reads",
+    "missing_candidate_blobs_retrieved_and_git_hash_verified": 10,
+    "stale_and_protected_workspaces_modified": false
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1950,
+  "segment_path": "work/construction/segments/0385-recover-and-revalidate-pr2371-exact-candidate.md",
+  "segment_sha256": "aa7c2de1e3f7e7305f10c35b22803f80a348282dc1e06c26125d7f640db9418b",
+  "sequence": 385,
+  "source": {
+    "candidate_checkout": "/workspace/SentientOS-pr2371-exact-candidate (detached, clean)",
+    "construction_worktree": "codex/seq385-campaign-revalidation",
+    "pr_2371_candidate": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "pr_2371_candidate_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+    "verified_main_commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "verified_main_tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584"
+  },
+  "status": "unpublished_local_increment",
+  "tested_source_sha256": {
+    "docs/development/production_self_reflection_campaign.md": "88f224004d012ba8a146bd23f9afaa8fa52ac3b9b037731162c23f80c5862e87",
+    "docs/development/production_self_reflection_campaign_candidate_revalidation_task_acceptance.json": "a71c7ce5f32e1f29b58f78ef021017b87492ae3444fa9534dbe4151ea24558e8",
+    "sentientos/production_self_reflection_campaign.py": "75e165c4b15da587456da47e971527a67742ba4ea9ac8c3cca29bba037629dfc",
+    "tests/test_production_self_reflection_campaign.py": "2bf3984facae43aae36cdc6a8ac35d899732557b6202c78c0c9a430c248fadbb"
+  },
+  "title": "Recover and revalidate PR #2371 exact candidate",
+  "verification": {
+    "acceptance": {
+      "manifest_path": "docs/development/production_self_reflection_campaign_candidate_revalidation_task_acceptance.json",
+      "manifest_sha256": "a71c7ce5f32e1f29b58f78ef021017b87492ae3444fa9534dbe4151ea24558e8",
+      "passed_nodes": 5,
+      "provenance_sha256": "714c35ddbb2a76a65fe46ca64cdbc6360ff351804cb631206f6bde7eda94d6c3",
+      "required_nodes": 5,
+      "result_sha256": "b2580da3b016094709072a5306a271663c3178e226f10dc2f7c8b3f7fe3c3881",
+      "status": "task_acceptance_ready"
+    },
+    "canonical_tests": {
+      "failed": 0,
+      "junitxml_path": "glow/test_runs/pytest_junitxml_6806382710a6401ebfef2861e24e3c48.xml",
+      "junitxml_sha256": "602749db75a5832b7d42a28e0e40fcd14de605aebe9dff97833194cedeb423be",
+      "passed": 150,
+      "provenance_path": "glow/test_runs/provenance/20261018T175239Z_045dc196c641_f98b6428417f4aa29ca7fda484f46ab2.json",
+      "provenance_sha256": "714c35ddbb2a76a65fe46ca64cdbc6360ff351804cb631206f6bde7eda94d6c3",
+      "selected": 150,
+      "selection": "campaign, transition, capability admission, serving rehearsal",
+      "skipped": 0
+    },
+    "git_diff_check": "passed",
+    "mypy_baseline": {
+      "matched_existing_errors": 1050,
+      "matched_with_location_drift": 108,
+      "new_errors": 0,
+      "retired_errors": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "pre_append_construction_custody": "construction_continuation_custody_ready; 384 segments",
+    "python_compileall": "passed",
+    "targeted_mypy": "passed"
+  }
+}

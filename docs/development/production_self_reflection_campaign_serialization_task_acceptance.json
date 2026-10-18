@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption",
+      "rationale": "Prove another owner cannot classify a live claimed trial as process-death interruption while its executor is active."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry",
+      "rationale": "Prove OS process death releases the lock and existing recovery preserves interrupted no-retry behavior."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_reconstruction_waits_for_live_trial_before_classifying_interruption",
+    "tests/test_production_self_reflection_campaign.py::test_process_death_releases_campaign_lock_and_preserves_no_retry"
+  ]
+}

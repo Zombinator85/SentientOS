@@ -1,0 +1,136 @@
+{
+  "candidate_source_blobs_before_increment": {
+    "sentientos/production_self_reflection_campaign.py": "e3fc63e32683ee798a07d3c67710e421ac363972",
+    "tests/test_production_self_reflection_campaign.py": "1d907c9b6414143720bb5ce5e0bbf5fb4fd53656"
+  },
+  "change": {
+    "authority_added": false,
+    "correction": "_verify_progress returns the validated receipt mappings and report scores those mappings without reopening paths",
+    "defect": "report verified receipt custody, reopened receipt paths, then scored the second read without binding it to the recorded receipt id and digest",
+    "inference_added": false,
+    "regression": "replace a valid receipt immediately after validation and prove the report remains based on the verified receipt snapshot"
+  },
+  "landing": {
+    "clean_clone_attempt": "failed because executor could not connect to configured HTTP proxy",
+    "draft_preserved": true,
+    "merge": "not_performed",
+    "metadata_guard": "not_run; exact candidate commit object is absent locally",
+    "publication": "not_performed"
+  },
+  "local_verification": {
+    "campaign_tests": {
+      "failed": 0,
+      "passed": 21,
+      "selected": 21,
+      "skipped": 0
+    },
+    "canonical_runner": "python -m scripts.run_tests -q tests/test_production_self_reflection_campaign.py",
+    "continuation_custody": {
+      "segments_verified": 382,
+      "status": "construction_continuation_custody_ready"
+    },
+    "exact_task_acceptance": {
+      "passed": 1,
+      "required": 1,
+      "result_sha256": "f4854362b8dc32190f097d27d534063773539efb9945eafe1ed60995d739f5f2",
+      "status": "task_acceptance_ready"
+    },
+    "git_diff_check": "passed",
+    "pip_check": "passed in copied, isolated Python environment",
+    "py_compile": "passed for changed module and test file",
+    "reproduction_before_fix": "failed_as_expected; report used replacement receipt outcomes",
+    "targeted_mypy": "passed, one source file, imports skipped to isolate target module"
+  },
+  "model_experiment": "not_performed; this code change does not invoke a model",
+  "outcome": "The report time-of-check/time-of-use gap was reproduced and fixed in an isolated local copy. Source-bound local regression evidence is complete; the increment remains unpublished and unmerged because the exact PR candidate checkout and metadata guard are unavailable here.",
+  "prior_exact_candidate": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39137280633
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39137280657
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39137280645
+      },
+      "gradient": {
+        "conclusion": "success",
+        "run_id": 39137280638
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39137280600
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39137280616
+      },
+      "quality_gate": {
+        "conclusion": "success",
+        "run_id": 39137280639
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39137280610
+      }
+    },
+    "commit": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "main_parent": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "main_tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584",
+    "pr": 2371,
+    "state": "open_draft",
+    "tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846"
+  },
+  "protected_state": {
+    "protected_audit_workspace_modified": false,
+    "sequence_286_provenance_changed": false,
+    "source_workspace_modified": false,
+    "stale_workspaces_modified": false
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2088,
+  "segment_path": "work/construction/segments/0382-score-only-the-verified-campaign-receipt-snapshot.md",
+  "segment_sha256": "f6aebe00e4978c623108e36e42a0880ded87869d5572b0c13209c855c2bd1704",
+  "sequence": 382,
+  "source": {
+    "candidate_commit": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "candidate_commit_present_in_local_object_store": false,
+    "exact_candidate_checkout_created": false,
+    "local_base_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "local_base_tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "relationship": "source and test input files were copied byte-for-byte from the uncommitted sequence-381 workspace; this local base commit is not a verified descendant of the candidate"
+  },
+  "status": "unpublished_local_increment",
+  "tested_local_source": {
+    "docs/development/production_self_reflection_campaign.md": {
+      "bytes": 4548,
+      "git_blob_sha": "c931b946aeb40a75e7514b46d7f4fd58d81b038d",
+      "sha256": "14c86dac9e9c18c22f07778bea72cd421ea25047142e644fef70654bd793e39f"
+    },
+    "docs/development/production_self_reflection_campaign_report_snapshot_task_acceptance.json": {
+      "bytes": 721,
+      "git_blob_sha": "37dcac2e342ba98f03b7cc316597cc0fc27a6d8f",
+      "sha256": "028c0088feb52d95ce8c3fa51f92f5a47eeffaeaebefdeaf8ece52d3a45479c9"
+    },
+    "glow/test_runs/test_run_provenance.json": {
+      "bytes": 11944,
+      "git_blob_sha": "c58fb029689fbd7962c09fb708b652b3e738d331",
+      "sha256": "702190828f013ccc9a16c843f95c5b35462044df8a1b4dd4fd852ef65c0cf581"
+    },
+    "sentientos/production_self_reflection_campaign.py": {
+      "bytes": 26722,
+      "git_blob_sha": "338f9593fee0a183175153215a87b3044eb10e73",
+      "sha256": "8f40ba3819555e13efaa693869e164a0fe90e892566bf2d3c94188f418aba53e"
+    },
+    "tests/test_production_self_reflection_campaign.py": {
+      "bytes": 18460,
+      "git_blob_sha": "b3d63a270e54726fbe8bfe61caeb758db396f0c6",
+      "sha256": "628c0afb95847980bc4ac4437552d0d636a6d4dbf2e7b5b0142d3c4d798bf3e0"
+    }
+  },
+  "title": "Score only the verified campaign receipt snapshot"
+}

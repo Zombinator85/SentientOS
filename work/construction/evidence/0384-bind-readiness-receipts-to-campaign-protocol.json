@@ -1,0 +1,76 @@
+{
+  "change": {
+    "authority_added": false,
+    "digest_semantics": "integrity only; not signature, trusted observation, or authority grant",
+    "regressions": [
+      "tampered_readiness_digest_rejected",
+      "readiness_for_other_protocol_rejected",
+      "valid_not_ready_result_stays_blocked",
+      "status_only_readiness_mapping_rejected",
+      "positive_exact_transition_path_retained"
+    ],
+    "required_binding": [
+      "readiness_schema_and_digest",
+      "exact_campaign_protocol_id_and_digest",
+      "complete_all_true_readiness_check_set",
+      "production_evidence_posture_without_synthetic_components",
+      "no_authority_or_effect_claim"
+    ]
+  },
+  "local_verification": {
+    "acceptance": {
+      "manifest_path": "docs/development/production_self_reflection_campaign_readiness_binding_task_acceptance.json",
+      "manifest_sha256": "f76c0e505ffa05f1e8c345f57895f769e160c97db9268390d83ec34c99bc57b0",
+      "passed_nodes": 5,
+      "provenance_sha256": "986fcaa783ab791d9757ded8f5ce6d2cec031703809ecb0acde7763cfdeb990a",
+      "result_path": "/tmp/seq384_acceptance.json",
+      "result_sha256": "a5c47e2c872b846e8032aa7e3655d9e1c3a3a9b93f3cd870deac4f4f26da5655",
+      "status": "task_acceptance_ready"
+    },
+    "campaign_transition_capability_rehearsal_regression": {
+      "failed": 0,
+      "passed": 153,
+      "selected": 153,
+      "skipped": 0,
+      "provenance_path": "glow/test_runs/provenance/20261018T174132Z_0ed3caf3d483_0a6b3db15619452e94f63b75b0ecf253.json",
+      "provenance_sha256": "986fcaa783ab791d9757ded8f5ce6d2cec031703809ecb0acde7763cfdeb990a",
+      "junitxml_path": "glow/test_runs/pytest_junitxml_c10c0ecef63b4b128a3b467fab60b241.xml",
+      "junitxml_sha256": "0d8c95e276ecc8d26ca532214cdccf0a759500acd76fd28d869c387ae973e9c7"
+    },
+    "git_diff_check": "passed",
+    "mypy_baseline": {
+      "new_errors": 0,
+      "retired_error_records": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "py_compile": "passed"
+  },
+  "publication": {
+    "commit": "not_created",
+    "exact_candidate_guard": "not_run; exact candidate and parent objects are absent from local stores",
+    "merge": "not_performed",
+    "pull_request": 2371,
+    "source_publish": "not_performed",
+    "status": "unpublished_local_increment"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1988,
+  "segment_path": "work/construction/segments/0384-bind-readiness-receipts-to-campaign-protocol.md",
+  "segment_sha256": "49b917d1a2bf1c89839960761e6feef1393bf36c125e5cfbb8cb6a00840cf7aa",
+  "sequence": 384,
+  "source": {
+    "local_base_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "local_base_tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "pr_2371_candidate": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "verified_main_commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "verified_main_tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584"
+  },
+  "status": "unpublished_local_increment",
+  "tested_source_sha256": {
+    "docs/development/production_self_reflection_campaign.md": "88f224004d012ba8a146bd23f9afaa8fa52ac3b9b037731162c23f80c5862e87",
+    "docs/development/production_self_reflection_campaign_readiness_binding_task_acceptance.json": "f76c0e505ffa05f1e8c345f57895f769e160c97db9268390d83ec34c99bc57b0",
+    "sentientos/production_self_reflection_campaign.py": "75e165c4b15da587456da47e971527a67742ba4ea9ac8c3cca29bba037629dfc",
+    "tests/test_production_self_reflection_campaign.py": "2bf3984facae43aae36cdc6a8ac35d899732557b6202c78c0c9a430c248fadbb"
+  },
+  "title": "Bind readiness receipts to campaign protocol"
+}

@@ -1,0 +1,9 @@
+# Sequence 399: run candidate acceptance verification in the exact worktree
+
+Sequence-398's push-event Required Quality Gate passed (#39163448369), including both finalizer phases and the metadata guard. The pull-request event exercised the detached candidate path and exposed a separate source-caused failure: after candidate-bound provenance and acceptance were generated in the exact PR-head worktree, the workflow invoked a second acceptance verification while still in GitHub's synthetic merge checkout. The verifier correctly rejected the mismatch between the manifest's PR-head SHA and the checkout's `HEAD`; the PR-event gate failed at finalization (#39163615834). That failed run is retained as a failure and is not counted as successful candidate verification.
+
+The workflow now changes into the exact detached candidate worktree before that second verification. A workflow-contract regression requires the exact candidate-root switch to precede the verifier invocation. The landing transition verifier also now treats non-object acceptance reports as explicit invalid evidence and returns a blocked decision instead of raising on malformed payloads; regressions cover malformed pre- and post-commit reports in both stable-digest and source-roll-forward cases.
+
+Local verification: the focused landing and hosted-workflow group passed 150 tests, with 16 legacy-marked skips and zero failures; targeted mypy, compilation, and `git diff --check` passed. The successful sequence-398 push gate remains independently recorded. Sequence-399 hosted push and pull-request checks are pending; no finalizer or guard success is claimed for this candidate.
+
+Source parent `320ab95e9073eb043eab5fd8169ea3865b368d67`, tree `7de4093d83f76a2d88ee79edbc20320f15639038`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.

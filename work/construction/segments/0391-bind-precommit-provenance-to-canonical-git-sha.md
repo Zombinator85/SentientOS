@@ -1,0 +1,7 @@
+# Sequence 391: bind precommit provenance using the canonical field
+
+After the LFS pointer fix, hosted run `39158544727` reached the exact precommit test run and failed its source identity assertion. The runner emits the checkout identity as `git_sha`; `repository_sha` is a field in the separate task-acceptance manifest. The workflow checked the wrong provenance field and correctly failed closed. Local inspection of `scripts/run_tests.py` and `sentientos/task_acceptance.py` confirmed the schema; this increment changes the assertion to require `provenance.git_sha == expected_head` and adds an explicit hosted workflow contract regression.
+
+The workflow contract test passed locally 1/1 with zero skips. The test runner's provenance for that run is preserved and the acceptance verifier returned `task_acceptance_ready`. The failed hosted result remains preserved; this repair has not yet run in hosted CI. The preceding run demonstrated that the `GIT_LFS_SKIP_SMUDGE=1` worktree reconstruction proceeds beyond the prior LFS error, but no finalizer or guard success is claimed.
+
+No requirement, audit, title binding, or privilege check is weakened. The change adds no runtime authority. It follows the verified sequence-390 candidate `e3259f8dd59108842aa287a83e31bbba3358fdc0`, tree `6eb37dd027479c3da0b9caa7de7e669372402909`; latest verified `main` remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.

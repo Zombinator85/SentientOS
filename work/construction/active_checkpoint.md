@@ -114,3 +114,133 @@ Post-merge evidence is now complete for sequence 380. Exact-main QG artifact #12
 Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
 Latest segment SHA-256: `fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80`
 Sequence: 381
+
+
+Sequence 382 records an isolated campaign-report custody repair. PR #2371 exact candidate 045dc196c641cecbb3b9cf2313ed05187fd73d4c passed its hosted checks and remains open as a draft. The local Git object stores do not contain that candidate, its parent 5da046b5a990a15dbc240053351f74e87393d3a6, or its tree, so exact-source metadata guard validation and merge were not possible. A public clone attempt failed at the configured proxy. The original dirty and protected workspaces remain unchanged.
+
+The report race was reproduced: after full receipt validation, replacing a receipt with a different valid receipt before report scoring changed the old implementation's output. The isolated source now scores the verifier-returned receipt mappings directly. Campaign tests passed 21/21; exact acceptance passed 1/1; module-targeted mypy, py_compile, pip check, and diff check passed. This increment is local and unpublished; it is based on local commit `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d` tree `c2d41c644daec56a285bae564cb482831570652a`, not a verified descendant commit of PR #2371.
+
+Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
+Latest construction segment: `work/construction/segments/0382-score-only-the-verified-campaign-receipt-snapshot.md`
+Latest segment SHA-256: `f6aebe00e4978c623108e36e42a0880ded87869d5572b0c13209c855c2bd1704`
+Sequence: 382 (unpublished local increment)
+
+
+Sequence 383 serializes campaign trial execution, campaign creation/re-entry, recovery, and report publication under the native private interprocess lock. An active executor can no longer be mistaken for a dead process by concurrent reconstruction. The campaign/transition/capability/rehearsal regression set passed 149/149; both exact serialization acceptance nodes passed 2/2. The repository mypy baseline reported zero new errors and 40 retired records; targeted mypy, compilation, and diff check passed. This increment remains unpublished and is based on local commit `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d`, tree `c2d41c644daec56a285bae564cb482831570652a`.
+
+The protected PR #2371 remains a draft at candidate `045dc196c641cecbb3b9cf2313ed05187fd73d4c`, parent `5da046b5a990a15dbc240053351f74e87393d3a6`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`. GitHub confirms the candidate is exactly one commit ahead of main, and its listed hosted checks passed. The candidate, parent, and main tree objects are absent from all available local stores; the exact-source metadata guard remains unrun. No finalizer was substituted, no PR metadata was changed, and no merge occurred.
+
+Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
+Latest local segment: `work/construction/segments/0383-serialize-campaign-execution-and-recovery.md`
+Latest local segment SHA-256: `fe23c11e6972043d93a05c7865f279170fc45c850c12bf43edc2004623b33f95`
+Sequence: 383 (unpublished local increment)
+
+
+Sequence 384 binds `run_one()` to a digest-valid readiness receipt for the exact campaign protocol. Tampered, cross-protocol, status-only, and valid not-ready receipts cannot invoke the executor; the valid exact-transition path remains accepted. The combined campaign/transition/capability/rehearsal set passed 153/153; exact acceptance passed 5/5. The full mypy baseline reported zero new errors and 40 retired records; compilation and diff checks passed. Sequence 384 has its own acceptance manifest; sequence 383's manifest and evidence are preserved byte-for-byte.
+
+This remains unpublished local work on local base `0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d` / tree `c2d41c644daec56a285bae564cb482831570652a`. GitHub confirms PR #2371 is still open, draft, and one commit ahead of main at `045dc196c641cecbb3b9cf2313ed05187fd73d4c`; its candidate object and required full tree are absent locally. The exact-source metadata guard is not run; no source or PR metadata was published and no merge was attempted.
+
+Latest local segment: `work/construction/segments/0384-bind-readiness-receipts-to-campaign-protocol.md`
+Latest local segment SHA-256: `49b917d1a2bf1c89839960761e6feef1393bf36c125e5cfbb8cb6a00840cf7aa`
+Sequence: 384 (unpublished local increment)
+
+
+Sequence 385 reconstructs PR #2371 candidate `045dc196c641cecbb3b9cf2313ed05187fd73d4c` / tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846` into a clean detached checkout using existing local objects and GitHub Git-object reads. Sequences 382–384 are revalidated in a separate candidate-based worktree. The campaign/transition/capability/rehearsal selection passed 150/150; exact candidate-bound acceptance passed 5/5; full mypy baseline had zero new and 40 retired errors; targeted mypy, compilation, diff check, and pre-append custody passed. The separate metadata guard is still blocked because its finalizer/matrix JSON inputs cannot be read from the returned File Service reference. PR #2371 remains draft; no publication or merge occurred.
+
+Latest local segment: `work/construction/segments/0385-recover-and-revalidate-pr2371-exact-candidate.md`
+Latest local segment SHA-256: `aa7c2de1e3f7e7305f10c35b22803f80a348282dc1e06c26125d7f640db9418b`
+Sequence: 385 (unpublished local increment)
+
+
+Sequence 386 blocks standalone JSON-backed campaign trials because a digest does not prove canonical owner provenance. The CLI exits before campaign or bundle access; a subprocess regression covers this guard and the positive in-process campaign path remains required. The canonical affected set passed 151/151 with zero skips; exact acceptance passed 2/2; the mypy baseline has 0 new and 40 retired errors; targeted mypy, compileall, diff check, and pre-append custody passed. This is unpublished work atop the exact PR #2371 candidate. The metadata guard remains blocked on unreadable finalizer/matrix artifact inputs; PR #2371 remains a draft.
+
+Latest local segment: `work/construction/segments/0386-block-unverified-campaign-cli-trials.md`
+Latest local segment SHA-256: `c18b1d33c4bd96cf603e8fe99a64b6d5fb0fdfee248232c30b7514a8f6c4b891`
+Sequence: 386 (unpublished local increment)
+
+
+Sequence 387 verifies the regular merge of PR #2371 into `main` at `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`. The exact candidate’s eight PR checks passed; exact-main CI, Required Quality Gate, Codex CI, Docs Deploy, Invariant Tests, and Docker Image passed, while Forge Smoke was skipped by workflow conditions. The contract places the metadata guard before PR publication, not before merging; solo profile was configured and exhaustive matrix was not requested. The preserved sequence-382–386 source changes passed the fresh affected 151-test suite, exact post-merge acceptance, targeted mypy, compilation, diff, and continuation custody checks on a clean isolated worktree with the same source tree. Those source changes remain unpublished and are not claimed as part of PR #2371.
+
+Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+Latest construction segment: `work/construction/segments/0387-reconcile-pr2371-merge-and-preserve-campaign-work.md`
+Latest segment SHA-256: `6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688`
+Sequence: 387
+
+
+Sequence 388 repairs the exact configured ASCII privilege banner missing from the new campaign CLI test. The failure was found by the remote CI self-check after the initial post-merge candidate passed hosted QG; it was reproduced locally and fixed without suppressing the linter. On the repaired local tree, the affected 151-test set, exact acceptance, full privilege lint, targeted mypy, compilation, and diff checks pass. The hosted follow-up checks for this repair are pending.
+
+Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+Latest construction segment: `work/construction/segments/0388-fix-campaign-cli-test-privilege-banner.md`
+Latest segment SHA-256: `d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d`
+Sequence: 388
+
+Hosted source-candidate parent at the sequence-388 follow-up: `abd33e735064a068d00a4f344893ce30fb82cf14`; tree `acc822896c4b5e9f532c277c00799e350301c0c4`.
+
+
+Sequence 389 adds the missing hosted pre-publication PR metadata verification path to Required Quality Gate. Locally, the exact workflow contract test passed; the related workflow/finalizer/metadata-guard test selection passed without failures (environment-dependent finalizer cases were skipped locally); YAML parsing, compilation, and diff checks passed. Construction custody passed through sequence 388 before this append. GitHub CI, actual Administrator precommit finalization, and the metadata guard for this new candidate remain pending and are not claimed. The exact candidate is based on verified construction head `ef8609ceb96dc207432c2070bee6f0dcf0ba420a`, tree `b070bf198e4d8d3b72b1fdd9a2018243feaedacb`; latest verified main is `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0389-hosted-prepublication-guard-in-required-quality-gate.md`
+Latest segment SHA-256: `743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8`
+Sequence: 389 (hosted verification pending)
+
+
+Sequence 390 repairs the actual hosted sequence-389 QG failure: detached worktree creation tried to download a missing LFS model object. Reconstruction now uses `GIT_LFS_SKIP_SMUDGE=1`, preserving the repository checkout's pointer form. The exact hosted workflow contract test passed 1/1 with no skips; task acceptance and diff checks passed. The hosted repair has not yet run. Failed QG evidence remains attached to run `39158284969` and is not reclassified as success. This candidate is based on construction head `0c3948d281cd64e55cba005525277c9330379642`, tree `d867fcca4fa88463ad275f26c2724c887a4fc7fd`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0390-preserve-lfs-pointer-form-in-precommit-worktree.md`
+Latest segment SHA-256: `10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98
+Sequence: 390 (hosted verification pending)
+
+
+Sequence 391 fixes a second source-caused failure in the hosted precommit workflow: it now reads the runner's canonical `git_sha` provenance field and compares it to the exact reconstructed parent. The failure from QG run `39158544727` remains recorded as a failed hosted check. The corrected workflow contract test passed 1/1 with zero skips; its task acceptance is ready. The fix awaits its exact-candidate hosted run. Candidate parent is `e3259f8dd59108842aa287a83e31bbba3358fdc0`, tree `6eb37dd027479c3da0b9caa7de7e669372402909`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0391-bind-precommit-provenance-to-canonical-git-sha.md`
+Latest segment SHA-256: `103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432`
+Sequence: 391 (hosted verification pending)
+
+Sequence 392 repairs the hosted precommit finalizer's missing documentation dependencies using the repository's guarded minimal bootstrap with actual hosted Administrator authority. The local hosted-workflow contract test passed 1/1 with zero skips and acceptance is ready. Hosted rerun is pending; run `39158737729` remains a failed result, and no finalizer/guard success is claimed. The source candidate is `bfbb1abd21200a1ffc8e0be5ede5de5c307724bd`, tree `6b0dd48681b209223147dca6fd752759894ecb47`.
+
+Latest construction segment: `work/construction/segments/0392-bootstrap-docs-for-precommit-finalizer.md`
+Latest segment SHA-256: `514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc`
+Sequence: 392 (hosted verification pending)
+
+Sequence 393 binds the PR finalizer and metadata guard to a detached checkout of the exact PR head, with a fresh 29-node candidate-bound acceptance run. The local workflow and evidence-binding regressions passed 2/2 with zero skips; hosted validation remains pending. This prevents GitHub's synthetic merge checkout from being associated with PR-head precommit evidence. Source candidate: `5f87e1b36bd93a07983ada6f6735ce3e893dba48`, tree `8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569`.
+
+Latest construction segment: `work/construction/segments/0393-bind-pr-finalization-to-exact-candidate.md`
+Latest segment SHA-256: `ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d`
+Sequence: 393 (hosted verification pending)
+
+Sequence 394 hardens immutable campaign evidence publication with descriptor-bound private custody, atomic first-writer semantics, symlink rejection, collision detection, and a 16 MiB bound. The full campaign module passed 29/29, exact acceptance passed 2/2 with zero skips, changed-module mypy, compilation, privilege lint, and custody checks passed. Hosted verification remains pending. No inference or runtime authority was added. Source candidate: `9d77f455557b4f408eb1f77cefe528c3b780297d`, tree `a9bd6b476303e421b4d547837fda0c1932af031c`.
+
+Latest construction segment: `work/construction/segments/0394-preserve-immutable-readiness-evidence.md`
+Latest segment SHA-256: `21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35`
+Sequence: 394 (hosted verification pending)
+
+Source candidate parent: `1bbd4abd0bb6d33870b9a79b90248f079a06ddba`, tree `297983b58b80346ab7fc8157754d3ca9ba783293`.
+Latest construction segment: `work/construction/segments/0395-audit-before-hosted-bootstrap.md`
+Latest segment SHA-256: `295ecc09d5e5df05caf20210a84d80f54e3052065a587cf8c3f7073c5fb81063`
+
+Sequence 396 repairs the hosted QG cleanup failure. Run `39162183378` passed strict audit, immutability, and reached `ready_to_commit`, then failed because the runner lacked permission to remove the root-owned detached precommit worktree. Precommit and exact PR candidate cleanup now require exact `$RUNNER_TEMP` paths and use `sudo -n git worktree remove` with Git trust scoped to the main workspace. Overall QG remains failed pending rerun; no finalizer/guard completion is claimed. Source parent: `2222fe85292b36f8277465b99cf42ed99b3fd041`, tree `396547271a26186a8ffb749e94831679efc99328`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0396-remove-finalizer-worktrees-with-scoped-admin-custody.md`
+Latest segment SHA-256: `9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150`
+Sequence: 396 (untested; hosted verification pending)
+
+Sequence 397 improves hosted failure observability for the exact PR metadata guard. Sequence-396 run `39162397893` passed strict audit, immutability, all 29 required nodes, and both finalizer phases, but the guard failed and its redirected JSON reasons were not emitted before `set -e` stopped the job. The workflow now captures the status and emits exact guard reasons while preserving fail-closed behavior and unchanged criteria. Hosted rerun remains pending; no guard success is claimed. Source parent: `b935c6ec34007111df491801ce277f865f434a34`, tree `0fd3cbc04c170217675f09b3776818f33101ad24`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0397-surface-metadata-guard-failure-reasons.md`
+Latest segment SHA-256: `c8d93b036f87fdf6649a14e021fdc431cf0b3956c3ca40ccfd73eba6c7d52d04`
+Sequence: 397 (untested; hosted verification pending)
+
+
+Sequence 398 resolves the acceptance lineage mismatch diagnosed by the sequence-397 hosted gate. The exact transition verifier now accepts a manifest/provenance digest change only across the verified workspace-parent to exact-candidate SHA boundary and only when readiness, classification, exact required and successful node IDs, call-phase outcomes, and passing witness summaries match. Targeted metadata guard tests passed 29/29 non-legacy cases (14 legacy cases remain skipped under the repository marker policy); hosted workflow contract test passed; changed-module mypy, compilation, and diff checks passed. Documentation build succeeded at 614 pages. Sequence-397 CI and invariants passed; its required gate remains recorded as failed for the diagnosed transition mismatch. Sequence-398 hosted verification is pending. Parent: `efc6ac6c906601445b8b1fc88597101bcfd6180e`, tree `be7bb0fe2d65cd44f006e4cf151fd2143d0b7390`; verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0398-allow-exact-task-acceptance-source-rollforward.md`
+Latest segment SHA-256: `1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e`
+Sequence: 398 (local checks passed; hosted verification pending)
+
+
+Sequence 399 repairs the exact PR-event finalizer failure from run 39163615834: task acceptance was reverified from the synthetic merge checkout after being bound to the detached PR-head worktree. The verifier now runs from that exact worktree; a workflow contract test binds the cwd to the candidate. Malformed acceptance reports also return explicit blocked decisions instead of raising. Focused landing/workflow tests passed 150 with 16 legacy skips; targeted mypy, compilation, and diff checks passed. Sequence-398 push QG passed; sequence-399 hosted checks are pending. Parent `320ab95e9073eb043eab5fd8169ea3865b368d67`, tree `7de4093d83f76a2d88ee79edbc20320f15639038`; main `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`.
+
+Latest construction segment: `work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md`
+Latest segment SHA-256: `2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8`
+Sequence: 399 (local checks passed; hosted verification pending)

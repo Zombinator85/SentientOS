@@ -11,12 +11,16 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .local_model_authority import atomic_write_json, digest_payload
+from .platform_fcntl import fcntl, require_flock
+from .private_file_custody import PrivateFileCustodyError, open_private_directory, publish_immutable_bytes
 from .resident_cognitive_model_transition_experiment import PHASES
 from .self_model_intervention_experiment import CONDITION_ORDER, score_assessment
 
@@ -27,10 +31,20 @@ RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v1"
 REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
 SCORER = "deterministic_exact_evidence_key:v1"
 MIN_TRIALS, MAX_TRIALS = 2, 32
+MAX_IMMUTABLE_ARTIFACT_BYTES = 16 * 1024 * 1024
 ALIASES = {"", "latest", "current", "default", "any", "*"}
 COMPONENTS = ("commissioning", "artifact_custody", "runtime_workers", "approvals",
               "resident_serving", "activation", "inference", "world_state_inputs",
               "self_model_custody", "scorer", "live_transition_execution")
+READINESS_CHECK_KEYS = frozenset({
+    "authenticated_installation_custody", "longitudinal_self_model_custody",
+    "developmental_history_custody", "active_resident_model", "model_a", "model_b",
+    "commissioning", "model_artifacts", "runtime_backend", "activation_approvals",
+    "serving_approvals", "inference_admission", "transition_protocol",
+    "stable_serving_slot", "quiescence_gate", "required_roots", "assessment_protocol",
+    "external_scorer", "campaign_state", "prior_trial_resolved", "transition_journal",
+    "canonical_state",
+})
 
 
 class ProductionSelfReflectionError(RuntimeError):
@@ -52,17 +66,17 @@ def _exact(value: object, label: str) -> str:
 
 
 def _immutable(path: Path, value: Mapping[str, Any]) -> None:
-    if path.exists():
-        try:
-            prior = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ProductionSelfReflectionError("immutable_artifact_tampered") from exc
-        expected = json.loads(json.dumps(dict(value), sort_keys=True))
-        if prior != expected:
-            raise ProductionSelfReflectionError("immutable_artifact_collision")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, value)
+    encoded = (json.dumps(dict(value), indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        publish_immutable_bytes(
+            path,
+            encoded,
+            max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES,
+            collision_code="immutable_artifact_collision",
+        )
+    except PrivateFileCustodyError as exc:
+        code = "immutable_artifact_collision" if exc.code == "immutable_artifact_collision" else "immutable_artifact_tampered"
+        raise ProductionSelfReflectionError(code) from exc
 
 
 @dataclass(frozen=True)
@@ -211,45 +225,119 @@ def verify_production_readiness(protocol: ProductionSelfReflectionProtocol, obse
     return MappingProxyType(body)
 
 
+def _verify_readiness_binding(protocol: ProductionSelfReflectionProtocol, readiness: Mapping[str, Any]) -> None:
+    value = dict(readiness)
+    claimed_digest = value.pop("readiness_digest", None)
+    readiness_id = value.get("readiness_id")
+    if value.get("schema_version") != READINESS_SCHEMA or not isinstance(readiness_id, str):
+        raise ProductionSelfReflectionError("readiness_tampered")
+    id_body = dict(value)
+    id_body.pop("readiness_id", None)
+    if readiness_id != "production-readiness-" + _digest(id_body)[7:31] or claimed_digest != _digest(value):
+        raise ProductionSelfReflectionError("readiness_tampered")
+    if (value.get("protocol_id") != protocol.protocol_id
+            or value.get("protocol_digest") != protocol.protocol_digest):
+        raise ProductionSelfReflectionError("readiness_protocol_mismatch")
+    if value.get("status") != "production_trial_ready":
+        raise ProductionSelfReflectionError("production_trial_not_ready")
+    checks = value.get("checks")
+    if (not isinstance(checks, Mapping) or set(checks) != READINESS_CHECK_KEYS
+            or any(checks.get(key) is not True for key in READINESS_CHECK_KEYS)
+            or value.get("derived_evidence_posture") != "production_experimental_evidence"
+            or value.get("synthetic_components") not in ([], ())
+            or value.get("grants_authority") is not False
+            or value.get("effect_performed") is not False):
+        raise ProductionSelfReflectionError("readiness_not_complete")
+
+
 class ProductionSelfReflectionCampaign:
     """Immutable protocol plus mutable digest-bound progress; interruption is terminal."""
     def __init__(self, root: Path, protocol: ProductionSelfReflectionProtocol):
         self.root, self.protocol = Path(root), protocol
         self.protocol_path = self.root / "protocol.json"; self.state_path = self.root / "state.json"
 
+    @contextmanager
+    def _campaign_lock(self) -> Iterator[None]:
+        """Serialize campaign mutation and live trial execution across processes."""
+        if os.name != "posix":
+            raise ProductionSelfReflectionError("campaign_lock_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(self.root, create=True)
+            descriptor = os.open(
+                ".production-self-reflection-campaign.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                    or metadata.st_nlink != 1 or metadata.st_mode & 0o077):
+                raise ProductionSelfReflectionError("campaign_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except ProductionSelfReflectionError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise ProductionSelfReflectionError("campaign_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
     @classmethod
     def create(cls, root: Path, protocol: ProductionSelfReflectionProtocol) -> "ProductionSelfReflectionCampaign":
         protocol.verify(); campaign = cls(root, protocol)
-        protocol_exists = campaign.protocol_path.exists()
-        state_exists = campaign.state_path.exists()
-        if protocol_exists or state_exists:
-            if not protocol_exists:
-                raise ProductionSelfReflectionError("campaign_protocol_unavailable")
-            if not state_exists:
-                raise ProductionSelfReflectionError("campaign_state_unavailable")
+        with campaign._campaign_lock():
+            protocol_exists = campaign.protocol_path.exists()
+            state_exists = campaign.state_path.exists()
+            if protocol_exists or state_exists:
+                if not protocol_exists:
+                    raise ProductionSelfReflectionError("campaign_protocol_unavailable")
+                if not state_exists:
+                    raise ProductionSelfReflectionError("campaign_state_unavailable")
+                _immutable(campaign.protocol_path, asdict(protocol))
+                state = campaign.state()
+                campaign._verify_progress(state)
+                if state["in_progress_trial_id"] and state["validity"] != "invalid_interrupted":
+                    campaign._write({**state, "validity": "invalid_interrupted", "failure_reason": "prior_trial_interrupted"})
+                    _immutable(campaign.root / "failures" / f"{state['in_progress_trial_id']}.json",
+                               {"trial_id": state["in_progress_trial_id"], "classification": "prior_trial_interrupted", "retry_permitted": False})
+                    raise ProductionSelfReflectionError("prior_trial_interrupted")
+                return campaign
             _immutable(campaign.protocol_path, asdict(protocol))
-            state = campaign.state()
-            campaign._verify_progress(state)
-            if state["in_progress_trial_id"] and state["validity"] != "invalid_interrupted":
-                return cls.reconstruct(root)
+            campaign._write({"completed_trials": [], "next_trial_id": protocol.campaign_policy["trial_ids"][0],
+                             "in_progress_trial_id": None, "validity": "valid_incomplete", "failure_reason": None})
             return campaign
-        _immutable(campaign.protocol_path, asdict(protocol))
-        campaign._write({"completed_trials": [], "next_trial_id": protocol.campaign_policy["trial_ids"][0],
-                         "in_progress_trial_id": None, "validity": "valid_incomplete", "failure_reason": None})
-        return campaign
 
     @classmethod
     def reconstruct(cls, root: Path) -> "ProductionSelfReflectionCampaign":
         try: protocol = reconstruct_protocol(json.loads((Path(root) / "protocol.json").read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_protocol_unavailable") from exc
-        campaign = cls(root, protocol); state = campaign.state()
-        campaign._verify_progress(state)
-        if state["in_progress_trial_id"]:
-            campaign._write({**state, "validity": "invalid_interrupted", "failure_reason": "prior_trial_interrupted"})
-            _immutable(campaign.root / "failures" / f"{state['in_progress_trial_id']}.json",
-                       {"trial_id": state["in_progress_trial_id"], "classification": "prior_trial_interrupted", "retry_permitted": False})
-            raise ProductionSelfReflectionError("prior_trial_interrupted")
-        return campaign
+        campaign = cls(root, protocol)
+        with campaign._campaign_lock():
+            state = campaign.state()
+            campaign._verify_progress(state)
+            if state["in_progress_trial_id"]:
+                campaign._write({**state, "validity": "invalid_interrupted", "failure_reason": "prior_trial_interrupted"})
+                _immutable(campaign.root / "failures" / f"{state['in_progress_trial_id']}.json",
+                           {"trial_id": state["in_progress_trial_id"], "classification": "prior_trial_interrupted", "retry_permitted": False})
+                raise ProductionSelfReflectionError("prior_trial_interrupted")
+            return campaign
 
     def _write(self, value: Mapping[str, Any]) -> Mapping[str, Any]:
         body = {"schema_version": CAMPAIGN_SCHEMA, "protocol_id": self.protocol.protocol_id,
@@ -269,11 +357,12 @@ class ProductionSelfReflectionCampaign:
             raise ProductionSelfReflectionError("campaign_state_tampered")
         return MappingProxyType({**value, "state_digest": claimed})
 
-    def _verify_progress(self, state: Mapping[str, Any]) -> None:
+    def _verify_progress(self, state: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
         trial_ids = tuple(self.protocol.campaign_policy["trial_ids"])
         completed = state.get("completed_trials")
         if not isinstance(completed, list) or len(completed) > len(trial_ids):
             raise ProductionSelfReflectionError("campaign_state_tampered")
+        verified_receipts: list[Mapping[str, Any]] = []
         for index, row in enumerate(completed):
             if not isinstance(row, Mapping) or row.get("trial_id") != trial_ids[index]:
                 raise ProductionSelfReflectionError("campaign_state_tampered")
@@ -292,6 +381,7 @@ class ProductionSelfReflectionCampaign:
                     or receipt.get("protocol_id") != self.protocol.protocol_id
                     or receipt.get("protocol_digest") != self.protocol.protocol_digest):
                 raise ProductionSelfReflectionError("campaign_receipt_mismatch")
+            verified_receipts.append(receipt)
 
         in_progress = state.get("in_progress_trial_id")
         validity = state.get("validity")
@@ -312,38 +402,40 @@ class ProductionSelfReflectionCampaign:
             valid = False
         if not valid:
             raise ProductionSelfReflectionError("campaign_state_tampered")
+        return tuple(verified_receipts)
 
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
-        state = self.state()
-        self._verify_progress(state)
-        if readiness.get("status") != "production_trial_ready": raise ProductionSelfReflectionError("production_trial_not_ready")
-        if state["validity"] != "valid_incomplete" or state["in_progress_trial_id"] or not state["next_trial_id"]:
-            raise ProductionSelfReflectionError("campaign_not_runnable")
-        trial_id = str(state["next_trial_id"]); self._write({**state, "in_progress_trial_id": trial_id})
-        try: evidence = dict(executor(trial_id, self.protocol)); receipt = make_trial_receipt(self.protocol, trial_id, evidence)
-        except Exception:
-            self._write({**self.state(), "validity": "invalid_interrupted", "failure_reason": "trial_interrupted_no_retry"})
-            raise
-        _immutable(self.root / "receipts" / f"{trial_id}.json", receipt)
-        completed = list(state["completed_trials"]) + [{"trial_id": trial_id, "receipt_id": receipt["receipt_id"], "receipt_digest": receipt["receipt_digest"]}]
-        ids = list(self.protocol.campaign_policy["trial_ids"]); index = len(completed)
-        self._write({"completed_trials": completed, "next_trial_id": ids[index] if index < len(ids) else None,
-                     "in_progress_trial_id": None, "validity": "valid_complete" if index == len(ids) else "valid_incomplete",
-                     "failure_reason": None})
-        return MappingProxyType(receipt)
+        with self._campaign_lock():
+            state = self.state()
+            self._verify_progress(state)
+            _verify_readiness_binding(self.protocol, readiness)
+            if state["validity"] != "valid_incomplete" or state["in_progress_trial_id"] or not state["next_trial_id"]:
+                raise ProductionSelfReflectionError("campaign_not_runnable")
+            trial_id = str(state["next_trial_id"]); self._write({**state, "in_progress_trial_id": trial_id})
+            try: evidence = dict(executor(trial_id, self.protocol)); receipt = make_trial_receipt(self.protocol, trial_id, evidence)
+            except Exception:
+                self._write({**self.state(), "validity": "invalid_interrupted", "failure_reason": "trial_interrupted_no_retry"})
+                raise
+            _immutable(self.root / "receipts" / f"{trial_id}.json", receipt)
+            completed = list(state["completed_trials"]) + [{"trial_id": trial_id, "receipt_id": receipt["receipt_id"], "receipt_digest": receipt["receipt_digest"]}]
+            ids = list(self.protocol.campaign_policy["trial_ids"]); index = len(completed)
+            self._write({"completed_trials": completed, "next_trial_id": ids[index] if index < len(ids) else None,
+                         "in_progress_trial_id": None, "validity": "valid_complete" if index == len(ids) else "valid_incomplete",
+                         "failure_reason": None})
+            return MappingProxyType(receipt)
 
     def report(self) -> Mapping[str, Any]:
-        state = self.state()
-        self._verify_progress(state)
-        if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
-        receipts = [verify_trial_receipt(json.loads((self.root / "receipts" / f"{x['trial_id']}.json").read_text())) for x in state["completed_trials"]]
-        scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}
-        body: dict[str, Any] = {"schema_version": REPORT_SCHEMA, "protocol_id": self.protocol.protocol_id,
-            "planned_trial_count": len(receipts), "valid_completed_trials": len(receipts), "interrupted_trials": 0,
-            "condition_scores": scores, "restoration_results": [r["restoration_result"] for r in receipts],
-            "descriptive_only": True, "negative_null_unstable_retained": True,
-            "unsupported_inferences": ["consciousness", "identity", "learning", "sentience", "guaranteed_improvement"]}
-        body["report_digest"] = _digest(body); _immutable(self.root / "report.json", body); return MappingProxyType(body)
+        with self._campaign_lock():
+            state = self.state()
+            receipts = self._verify_progress(state)
+            if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
+            scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}
+            body: dict[str, Any] = {"schema_version": REPORT_SCHEMA, "protocol_id": self.protocol.protocol_id,
+                "planned_trial_count": len(receipts), "valid_completed_trials": len(receipts), "interrupted_trials": 0,
+                "condition_scores": scores, "restoration_results": [r["restoration_result"] for r in receipts],
+                "descriptive_only": True, "negative_null_unstable_retained": True,
+                "unsupported_inferences": ["consciousness", "identity", "learning", "sentience", "guaranteed_improvement"]}
+            body["report_digest"] = _digest(body); _immutable(self.root / "report.json", body); return MappingProxyType(body)
 
 
 def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str, evidence: Mapping[str, Any]) -> dict[str, Any]:

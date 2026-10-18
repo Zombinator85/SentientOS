@@ -232,7 +232,9 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
             reasons.extend(str(r) for r in verification.get("reasons", ()))
             if isinstance(pre_plan, Mapping) and isinstance(pr_plan, Mapping):
                 _, transition_reasons, transition_proof = verify_validation_plan_transition(
-                    pre_plan, pr_plan, workspace_binding, commit_binding
+                    pre_plan, pr_plan, workspace_binding, commit_binding,
+                    pre_acceptance=pre_payload.get("task_acceptance"),
+                    post_acceptance=pr_payload.get("task_acceptance"),
                 )
                 proof["validation_plan_transition"] = transition_proof
                 reasons.extend(transition_reasons)

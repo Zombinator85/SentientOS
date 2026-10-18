@@ -1,0 +1,7 @@
+# Sequence 396: remove privileged finalizer worktrees with scoped Administrator custody
+
+Hosted QG run `39162183378` for sequence 395 passed strict audit and audit immutability, then the reconstructed precommit finalizer returned `ready_to_commit`. Cleanup failed with `Permission denied` because the privileged finalizer left root-owned files inside its detached worktree and the runner removed it as an unprivileged user. The pull-request candidate workspace has the same ownership pattern after its root finalizer.
+
+Both cleanup paths now require the exact predeclared path under `$RUNNER_TEMP` and invoke `git worktree remove --force` through noninteractive `sudo`, with `safe.directory` scoped to `$GITHUB_WORKSPACE`. The hosted Administrator check is explicit for the PR candidate path. No broader deletion or additional repository write permission is introduced. Added workflow contract assertions for both path binding and privileged cleanup.
+
+The source failure is confirmed from hosted logs; this increment is untested until its exact-candidate hosted rerun. No passing precommit status is inferred beyond the observed `ready_to_commit`; the overall QG remains failed at cleanup. Source parent `2222fe85292b36f8277465b99cf42ed99b3fd041`, tree `396547271a26186a8ffb749e94831679efc99328`; latest verified main `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.

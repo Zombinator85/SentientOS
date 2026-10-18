@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 
@@ -10,7 +14,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.production_self_reflection_campaign import (
     COMPONENTS, ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
     ProductionSelfReflectionProtocol, reconstruct_protocol, verify_production_readiness,
-    verify_trial_receipt,
+    make_trial_receipt, verify_trial_receipt,
 )
 from sentientos.resident_cognitive_model_transition_experiment import PHASES
 from sentientos.self_model_intervention_experiment import CONDITION_ORDER
@@ -33,8 +37,8 @@ def _model(name: str) -> dict[str, object]:
         "inference_authority_map_id": f"authority-{name}"}
 
 
-def _protocol() -> ProductionSelfReflectionProtocol:
-    return ProductionSelfReflectionProtocol.create(installation_identity="installation-1", software_generation="generation-1",
+def _protocol(software_generation: str = "generation-1") -> ProductionSelfReflectionProtocol:
+    return ProductionSelfReflectionProtocol.create(installation_identity="installation-1", software_generation=software_generation,
         runtime_configuration={"backend": "real-local"}, model_a=_model("a"), model_b=_model("b"),
         persistent_state={"developmental_history_boundary_digest": "history-1", "composition_state_digest": "composition-1",
             "initial_reconciliation_id": "reconcile-1", "initial_reconciliation_digest": "reconcile-digest-1",
@@ -104,6 +108,34 @@ def test_one_shot_exact_transition_firewall_external_scorer_and_restored_a(tmp_p
     assert receipt["model_output_has_scoring_authority"] is False
     assert receipt["post_resident_identity"] == "cognitive-a"
     assert all(receipt["condition_scores"][c]["counts"]["supported_correct"] == 1 for c in CONDITION_ORDER)
+
+
+@pytest.mark.parametrize(
+    ("readiness_case", "error_code"),
+    [("tampered", "readiness_tampered"), ("wrong_protocol", "readiness_protocol_mismatch"),
+     ("not_ready", "production_trial_not_ready"), ("unbound", "readiness_tampered")],
+)
+def test_run_one_requires_digest_valid_protocol_bound_readiness(
+    tmp_path: Path, readiness_case: str, error_code: str,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    if readiness_case == "wrong_protocol":
+        readiness = verify_production_readiness(_protocol("generation-2"), _observed())
+    elif readiness_case == "not_ready":
+        readiness = verify_production_readiness(protocol, _observed(model_a_available=False))
+    elif readiness_case == "unbound":
+        readiness = {"status": "production_trial_ready"}
+    else:
+        readiness = dict(verify_production_readiness(protocol, _observed()))
+        readiness["readiness_digest"] = "sha256:replaced"
+
+    executor_calls = []
+    with pytest.raises(ProductionSelfReflectionError, match=error_code):
+        campaign.run_one(readiness, lambda *args: executor_calls.append(args) or _evidence())
+
+    assert executor_calls == []
+    assert campaign.state()["completed_trials"] == []
 
 
 @pytest.mark.parametrize("trial_count", [1, 2])
@@ -214,6 +246,105 @@ def test_report_revalidates_every_completed_receipt(
     assert not (tmp_path / "report.json").exists()
 
 
+def test_report_uses_receipts_from_the_verified_lineage_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    original_verify = campaign._verify_progress
+
+    def verify_then_replace_receipt(state):
+        verified_receipts = original_verify(state)
+        changed_evidence = _evidence()
+        changed_evidence["condition_answers"] = {
+            condition: [{"question_id": "claim:c1:classification", "answer": "unknown",
+                         "claim_ids": ["c1"], "source_evidence_ids": ["e1"]}]
+            for condition in CONDITION_ORDER
+        }
+        replacement = make_trial_receipt(protocol, "trial-1", changed_evidence)
+        (tmp_path / "receipts" / "trial-1.json").write_text(
+            json.dumps(replacement), encoding="utf-8"
+        )
+        return verified_receipts
+
+    monkeypatch.setattr(campaign, "_verify_progress", verify_then_replace_receipt)
+
+    report = campaign.report()
+
+    for condition in CONDITION_ORDER:
+        assert [row["supported_correct"] for row in report["condition_scores"][condition]] == [1, 1]
+
+
+def test_reconstruction_waits_for_live_trial_before_classifying_interruption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    entered = threading.Event()
+    release = threading.Event()
+    reconstruction_read = threading.Event()
+    executor_calls = []
+
+    original_state = ProductionSelfReflectionCampaign.state
+
+    def observe_reconstruction_state(owner):
+        if owner is not campaign:
+            reconstruction_read.set()
+        return original_state(owner)
+
+    monkeypatch.setattr(ProductionSelfReflectionCampaign, "state", observe_reconstruction_state)
+
+    def executor(trial_id, _protocol):
+        executor_calls.append(trial_id)
+        entered.set()
+        assert release.wait(timeout=5)
+        return _evidence()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(campaign.run_one, readiness, executor)
+        assert entered.wait(timeout=5)
+        reconstruction = pool.submit(ProductionSelfReflectionCampaign.reconstruct, tmp_path)
+        assert not reconstruction_read.wait(timeout=0.1)
+        release.set()
+        first.result(timeout=5)
+        resumed = reconstruction.result(timeout=5)
+
+    assert executor_calls == ["trial-1"]
+    assert resumed.state()["completed_trials"][0]["trial_id"] == "trial-1"
+    assert resumed.state()["validity"] == "valid_incomplete"
+
+
+def test_process_death_releases_campaign_lock_and_preserves_no_retry(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness_path = tmp_path / "readiness.json"
+    readiness_path.write_text(json.dumps(dict(verify_production_readiness(protocol, _observed()))), encoding="utf-8")
+    script = (
+        "import os, sys, json; from pathlib import Path; "
+        "from sentientos.production_self_reflection_campaign import "
+        "ProductionSelfReflectionCampaign, reconstruct_protocol; "
+        "root = Path(sys.argv[1]); "
+        "protocol = reconstruct_protocol(__import__('json').loads((root / 'protocol.json').read_text())); "
+        "campaign = ProductionSelfReflectionCampaign(root, protocol); "
+        "readiness = json.loads(Path(sys.argv[2]).read_text()); "
+        "campaign.run_one(readiness, lambda *_: os._exit(73))"
+    )
+
+    child = subprocess.run([sys.executable, "-c", script, str(tmp_path), str(readiness_path)], check=False)
+
+    assert child.returncode == 73
+    with pytest.raises(ProductionSelfReflectionError, match="prior_trial_interrupted"):
+        ProductionSelfReflectionCampaign.reconstruct(tmp_path)
+    recovered = campaign.state()
+    assert recovered["validity"] == "invalid_interrupted"
+    assert recovered["failure_reason"] == "prior_trial_interrupted"
+    assert not (tmp_path / "receipts" / "trial-1.json").exists()
+
+
 @pytest.mark.parametrize("contradiction", ["reordered", "duplicate", "next_trial"])
 def test_run_and_report_reject_contradictory_completion_lineage(
     tmp_path: Path, contradiction: str,
@@ -298,6 +429,51 @@ def test_missing_real_models_writes_precise_not_ready_artifact(tmp_path: Path) -
     assert result["status"] == "production_trial_not_ready" and result["effect_performed"] is False
     assert "missing_model_a" in result["classifications"] and "missing_model_b" in result["classifications"]
     assert json.loads(path.read_text())["readiness_digest"] == result["readiness_digest"]
+
+
+def test_readiness_artifact_publication_rejects_symlink_and_content_collision(tmp_path: Path) -> None:
+    protocol = _protocol()
+    observed = _observed(model_a_available=False)
+    readiness = verify_production_readiness(protocol, observed)
+    link = tmp_path / "readiness-link.json"
+    target = tmp_path / "target.json"
+    target.write_text(json.dumps(dict(readiness), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    target.chmod(0o600)
+    link.symlink_to(target)
+
+    with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_tampered"):
+        verify_production_readiness(protocol, observed, artifact_path=link)
+
+    path = tmp_path / "readiness.json"
+    verify_production_readiness(protocol, observed, artifact_path=path)
+    with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_collision"):
+        verify_production_readiness(protocol, _observed(model_b_available=False), artifact_path=path)
+
+
+def test_readiness_artifact_concurrent_publication_is_first_writer_immutable(tmp_path: Path) -> None:
+    protocol = _protocol()
+    barrier = threading.Barrier(2)
+    path = tmp_path / "readiness.json"
+
+    def publish(observed):
+        barrier.wait()
+        return verify_production_readiness(protocol, observed, artifact_path=path)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(publish, _observed(model_a_available=True)),
+                   pool.submit(publish, _observed(model_a_available=False))]
+        successes = []
+        failures = []
+        for future in futures:
+            try:
+                successes.append(future.result())
+            except ProductionSelfReflectionError as exc:
+                failures.append(exc.code)
+
+    assert len(successes) == 1
+    assert failures == ["immutable_artifact_collision"]
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["readiness_digest"] == successes[0]["readiness_digest"]
 
 
 def test_negative_and_null_scores_are_valid_evidence(tmp_path: Path) -> None:

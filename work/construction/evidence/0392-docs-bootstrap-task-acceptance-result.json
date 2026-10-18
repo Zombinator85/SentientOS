@@ -1,0 +1,32 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:06f654ff43fc695b118b182e7333773449334444625b2754a711645a4c4d290c",
+  "manifest_path": "docs/development/hosted_pr_metadata_guard_docs_bootstrap_task_acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:74ea705c2960ee0871aa14221e53ee4fdef157316f0e4d6100ce4d80959327a4",
+  "provenance_path": "glow/test_runs/provenance/20261018T195057Z_045dc196c641_4b2218d74f924f70bcb063aee7f17763.json",
+  "reasons": [],
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "required_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}
