@@ -1,0 +1,79 @@
+{
+  "candidate": {
+    "base_commit": "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda",
+    "head": "ca009679fc53f49ec19b2f89c9c17f020f3b16a9",
+    "merge_method": "merge",
+    "pr_number": 2338,
+    "tree": "d80c66f0ebbeee9126856db9a2ad7ad6e917f6ec"
+  },
+  "candidate_checks": {
+    "ci": "success",
+    "ci_run_id": "39095025384",
+    "codex_ci_run_id": "39095025404",
+    "docker_run_id": "39095025382",
+    "finalizer_artifact_id": "12124152053",
+    "finalizer_artifact_sha256": "eaae986815cd2bcff6ec3e841d031bcb2ffb1a145c6ee0ef58d877259a4eb3d4",
+    "gradient_run_id": "39095025452",
+    "invariants_run_id": "39095025363",
+    "lint_run_id": "39095025393",
+    "qg": "success",
+    "qg_artifact_id": "12123319500",
+    "qg_artifact_sha256": "a9f22625a5f554efaababf312f1499ec76ff6d21150b7a3eac20512166a0a9a8",
+    "qg_run_id": "39095025397",
+    "release_run_id": "39095025365"
+  },
+  "continuation": {
+    "evidence_path": "work/construction/evidence/0348-verify-evidence-merge-post-merge-gates.json",
+    "predecessor_segment_sha256": "f0ea54409e41668643cc061227d9bd76589872c2fec31270d0a7a7c3151c6fb3",
+    "segment_bytes": 2694,
+    "segment_path": "work/construction/segments/0348-verify-evidence-merge-post-merge-gates.md",
+    "segment_sha256": "8d2be6946ff6969257b1f8671f17388b4a7682ac0ad0e1c71a0a1e6748d95c73",
+    "sequence": 348,
+    "source_commit": "c83aa80d6776024af8e39011f3698c6e3c7afd9a",
+    "source_tree": "d80c66f0ebbeee9126856db9a2ad7ad6e917f6ec"
+  },
+  "main": {
+    "commit": "c83aa80d6776024af8e39011f3698c6e3c7afd9a",
+    "merge_method": "merge",
+    "parents": [
+      "06b1b3cbf5424b4e05cc3f0274b5ce5646f7fbda",
+      "ca009679fc53f49ec19b2f89c9c17f020f3b16a9"
+    ],
+    "pr_number": 2338,
+    "tree": "d80c66f0ebbeee9126856db9a2ad7ad6e917f6ec"
+  },
+  "operational_status": {
+    "as_of_utc": "2026-10-18T04:03:21Z",
+    "changed_output_fixture": "not_dispatched",
+    "federation_latest_run_id": "39083395122",
+    "federation_latest_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "manual_dispatch_available": false,
+    "nightly_audit_latest_run_id": "39014123936",
+    "nightly_audit_latest_source": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14",
+    "nightly_self_check_latest_run_id": "38876666946",
+    "nightly_self_check_latest_source": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+    "scheduled_current_main_runs": []
+  },
+  "post_merge_checks": {
+    "ci": "success",
+    "ci_run_id": "39095268117",
+    "codex_ci_run_id": "39095268116",
+    "docker_run_id": "39095268132",
+    "docs_deploy_run_id": "39095268109",
+    "effective_uid": 0,
+    "forge_smoke": "skipped_by_workflow_conditions",
+    "forge_smoke_run_id": "39095268200",
+    "immutability_audit": "passed",
+    "invariants_run_id": "39095268136",
+    "post_merge_feedback": "success",
+    "post_merge_feedback_run_id": "39095268032",
+    "qg": "success",
+    "qg_artifact_id": "12123929332",
+    "qg_artifact_sha256": "5142c61c21da425c05278215ff4a797210f228ef231c6a787222318781dee034",
+    "qg_run_id": "39095268143",
+    "source_sha": "c83aa80d6776024af8e39011f3698c6e3c7afd9a",
+    "source_tree": "d80c66f0ebbeee9126856db9a2ad7ad6e917f6ec",
+    "strict_audit": "passed"
+  },
+  "schema_version": 1
+}
