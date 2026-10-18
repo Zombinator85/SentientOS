@@ -1,0 +1,174 @@
+{
+  "campaign_integrity": {
+    "authority_added": false,
+    "inference_added": false,
+    "interrupted_state": "no_retry_preserved",
+    "operation_revalidation": [
+      "run_one",
+      "report"
+    ],
+    "positive_path": "completed_report_written_after_full_revalidation",
+    "tampering_cases": [
+      "missing_receipt",
+      "tampered_receipt",
+      "reordered_receipts",
+      "duplicate_receipt",
+      "contradictory_next_trial"
+    ]
+  },
+  "local_verification": {
+    "continuation_custody": "construction_continuation_custody_ready",
+    "git_diff_check": "passed",
+    "py_compile": "passed",
+    "regression_set": {
+      "provenance_path": "glow/test_runs/provenance/20261018T142624Z_0ed3caf3d483_92338aaafb184414a3c3bd53cd1687d1.json",
+      "provenance_sha256": "89d88bc25a01a8423b23f6758ee38d2a412f28189eb67378587e96d8720b22ea",
+      "tests_executed": 169,
+      "tests_failed": 0,
+      "tests_selected": 169,
+      "tests_skipped": 0
+    },
+    "source_base_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "targeted_mypy": "passed_no_issues",
+    "task_acceptance": {
+      "manifest_sha256": "c9b32d7317eb3f588b841d62a6144d8524c00ecdd1a9d864201333ce60a720dd",
+      "passed_nodes": 10,
+      "required_nodes": 10,
+      "result_sha256": "2a8ddc55de32c7fd2c67b3b256894dbe0a03bd14de37cf5394ab24c8a8975af1",
+      "result_status": "task_acceptance_ready",
+      "status": "task_acceptance_ready",
+      "successful_path_nodes": [
+        "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation"
+      ]
+    },
+    "tested_source_sha256": {
+      "docs/development/production_self_reflection_campaign.md": "5f983c5417836ee31abd2db3a282518de5a6a0698f68209d006a03bc6a14a3ea",
+      "sentientos/production_self_reflection_campaign.py": "4e896021093d8493771728f6dfff07ed8209121c16c6a431a88926ddac94ef1e",
+      "tests/test_production_self_reflection_campaign.py": "8e0369f41948946dbaec98e7057afdcad3805d2c6ce3cd47c3f2599c12ee286e"
+    }
+  },
+  "model_execution_assessment": {
+    "artifact_acquisition": "remains subject to signed approval and custody contracts",
+    "codex_chat_model": "available only as current conversational engine; no callable isolated repeatable inference interface exposed",
+    "escrow_artifacts": "five Git LFS pointer files, each 127 bytes; no weights present",
+    "local_runtime": "not_installed",
+    "mock_claimed_as_real": false,
+    "model_endpoint_or_credentials": "none_configured",
+    "python_runtime_packages": {
+      "llama_cpp": false,
+      "torch": false,
+      "transformers": false
+    },
+    "real_model_experiment": "not_performed"
+  },
+  "outcome": "Added fail-closed receipt-prefix revalidation before campaign progression and report generation; local regression and exact-node acceptance pass. Real-model experimentation remains unavailable through an existing repeatable authorized runtime in this environment.",
+  "post_merge_validation": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39136646187
+      },
+      "codex_ci": "success",
+      "configured_skips": [
+        "fixture",
+        "forge-smoke"
+      ],
+      "docker": "success",
+      "docs_deploy": "success",
+      "gradient_null_regression": "success",
+      "helm_k8s": "success",
+      "invariants": "success",
+      "lint_benchmark": "success",
+      "release": "success",
+      "required_quality_gate": {
+        "acceptance_failed": 0,
+        "acceptance_passed": 29,
+        "acceptance_skipped": 0,
+        "administrator_verified": true,
+        "artifact_bytes": 11209,
+        "artifact_digest_verified": true,
+        "artifact_id": 12139099532,
+        "artifact_sha256": "a8899ad16bf1975d8a32f68f61c95558707d9e9145661c1b3cae336d22d93772",
+        "audit_immutability": "passed",
+        "conclusion": "success",
+        "effective_uid": 0,
+        "run_id": 39136646039,
+        "source_unchanged": true,
+        "strict_audit": "passed"
+      },
+      "self_check": {
+        "artifact_bytes": 385418,
+        "artifact_digest_verified": true,
+        "artifact_id": 12139658216,
+        "artifact_sha256": "e597e13b0678da3dbd129c3309d9b51aea19f402aa018bf9cae1f29f54964374",
+        "run_id": 39136646187,
+        "skips_phase": "setup",
+        "tests_executed": 143,
+        "tests_failed": 0,
+        "tests_selected": 156,
+        "tests_skipped": 13
+      },
+      "source_validation": {
+        "artifact_bytes": 472275,
+        "artifact_digest_verified": true,
+        "artifact_id": 12140375527,
+        "artifact_sha256": "ad033eed8692f9037b8a549ffa26f17caca86d077cd72d8f75db76481e02cdb4",
+        "canonical_planning_passed": 20,
+        "failed": 0,
+        "run_id": 39136646187,
+        "skipped": 0,
+        "source_validation_passed": 11,
+        "world_state_contracts_passed": 3
+      }
+    },
+    "federation_health": {
+      "administrator_verification": "success",
+      "artifact_bytes": 223,
+      "artifact_digest_verified": true,
+      "artifact_id": 12139992259,
+      "artifact_sha256": "f3b0c369452076683065b1e2f6eca5136d4c22cc8fc5824164fb9c2c782f8c71",
+      "changed_output_pr": "none",
+      "conclusion": "success",
+      "event": "schedule",
+      "fixture_job": "skipped_by_configured_condition",
+      "head_sha": "5da046b5a990a15dbc240053351f74e87393d3a6",
+      "health_generation": "success",
+      "health_job": "success",
+      "nodes": 1,
+      "publish_job": "success",
+      "recent_events": 0,
+      "run_id": 39136688867,
+      "run_number": 8666,
+      "status": "quiet",
+      "workflow": "Federation Health Update"
+    },
+    "main_commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "main_tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584",
+    "status": "exact_main_post_merge_validation_complete"
+  },
+  "prior_increment": {
+    "candidate_commit": "51095d1137ed5b94b4837992143112550dc4326e",
+    "merge_commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "merge_method": "merge",
+    "parents": [
+      "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
+      "51095d1137ed5b94b4837992143112550dc4326e"
+    ],
+    "pull_request": 2370,
+    "sequence": 380,
+    "tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 3298,
+  "segment_path": "work/construction/segments/0381-revalidate-campaign-receipt-lineage.md",
+  "segment_sha256": "fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80",
+  "sequence": 381,
+  "source": {
+    "branch": "main",
+    "commit": "5da046b5a990a15dbc240053351f74e87393d3a6",
+    "live_ref_matches": true,
+    "tree": "d318bc4fd76b2f2df4e5100c1012727a7704f584",
+    "verified_at": "2026-10-18T14:35:00Z"
+  },
+  "title": "Revalidate campaign receipt lineage before progress and reporting"
+}

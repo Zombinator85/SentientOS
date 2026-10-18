@@ -1,0 +1,51 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+  "test_provenance_path": "/tmp/production_self_reflection_campaign_lineage_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_revalidates_completed_receipt_custody",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[missing-campaign_receipt_unavailable]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_one_revalidates_prior_receipt_before_starting_next_trial[tampered-trial_receipt_tampered]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[missing-campaign_receipt_unavailable]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_report_revalidates_every_completed_receipt[tampered-trial_receipt_tampered]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[reordered]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[duplicate]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_reject_contradictory_completion_lineage[next_trial]",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_run_and_report_preserve_interrupted_trial_no_retry",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation",
+      "rationale": "Bind the exact receipt-lineage revalidation regression."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_completed_campaign_report_succeeds_after_lineage_revalidation"
+  ]
+}

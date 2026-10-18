@@ -162,6 +162,117 @@ def test_campaign_reentry_revalidates_completed_receipt_custody(tmp_path: Path) 
     assert campaign.state()["completed_trials"][0]["trial_id"] == "trial-1"
 
 
+@pytest.mark.parametrize(
+    ("receipt_change", "error_code"),
+    [("missing", "campaign_receipt_unavailable"), ("tampered", "trial_receipt_tampered")],
+)
+def test_run_one_revalidates_prior_receipt_before_starting_next_trial(
+    tmp_path: Path, receipt_change: str, error_code: str,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    receipt_path = tmp_path / "receipts" / "trial-1.json"
+    if receipt_change == "missing":
+        receipt_path.unlink()
+    else:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["protocol_digest"] = "sha256:replaced"
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    executor_calls = []
+    with pytest.raises(ProductionSelfReflectionError, match=error_code):
+        campaign.run_one(readiness, lambda *args: executor_calls.append(args) or _evidence())
+
+    assert executor_calls == []
+    assert campaign.state()["next_trial_id"] == "trial-2"
+
+
+@pytest.mark.parametrize(
+    ("receipt_change", "error_code"),
+    [("missing", "campaign_receipt_unavailable"), ("tampered", "trial_receipt_tampered")],
+)
+def test_report_revalidates_every_completed_receipt(
+    tmp_path: Path, receipt_change: str, error_code: str,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    receipt_path = tmp_path / "receipts" / "trial-1.json"
+    if receipt_change == "missing":
+        receipt_path.unlink()
+    else:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["protocol_digest"] = "sha256:replaced"
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    with pytest.raises(ProductionSelfReflectionError, match=error_code):
+        campaign.report()
+    assert not (tmp_path / "report.json").exists()
+
+
+@pytest.mark.parametrize("contradiction", ["reordered", "duplicate", "next_trial"])
+def test_run_and_report_reject_contradictory_completion_lineage(
+    tmp_path: Path, contradiction: str,
+) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    state = dict(campaign.state())
+    completed = list(state["completed_trials"])
+    if contradiction == "reordered":
+        state["completed_trials"] = list(reversed(completed))
+    elif contradiction == "duplicate":
+        state["completed_trials"] = [completed[0], completed[0]]
+    else:
+        state["next_trial_id"] = "trial-1"
+    campaign._write(state)
+
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_state_tampered"):
+        campaign.run_one(readiness, lambda *_: _evidence())
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_state_tampered"):
+        campaign.report()
+
+
+def test_run_and_report_preserve_interrupted_trial_no_retry(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    state = dict(campaign.state())
+    campaign._write({**state, "in_progress_trial_id": "trial-1"})
+    executor_calls = []
+
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_not_runnable"):
+        campaign.run_one(readiness, lambda *args: executor_calls.append(args) or _evidence())
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_incomplete"):
+        campaign.report()
+
+    assert executor_calls == []
+    assert campaign.state()["in_progress_trial_id"] == "trial-1"
+
+
+def test_completed_campaign_report_succeeds_after_lineage_revalidation(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.run_one(readiness, lambda *_: _evidence())
+
+    report = campaign.report()
+
+    assert report["planned_trial_count"] == 2
+    assert report["valid_completed_trials"] == 2
+    assert all(len(report["condition_scores"][condition]) == 2 for condition in CONDITION_ORDER)
+    assert report["unsupported_inferences"] == [
+        "consciousness", "identity", "learning", "sentience", "guaranteed_improvement",
+    ]
+
+
 def test_interrupted_campaign_is_no_retry(tmp_path: Path) -> None:
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, _protocol())
     state = dict(campaign.state()); state["in_progress_trial_id"] = "trial-1"; campaign._write(state)

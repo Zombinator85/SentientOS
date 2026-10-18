@@ -99,3 +99,18 @@ The pre-commit finalizer was rerun after adding the malformed-state regression a
 
 
 Sequence 380 source publication now uses the documented generated-runtime-artifact boundary: the candidate inherits the existing remote audit blob, while the two newest privileged runtime rows remain byte-for-byte in the original workspace and are hash-bound in sequence-380 evidence. The exact updated source has not yet been hosted-verified.
+
+
+Sequence 381 records campaign receipt-lineage revalidation in `run_one()` and `report()`. Exact local regression passed 169/169; all 10 exact acceptance nodes passed. Sequence 380's regular merge is `5da046b5a990a15dbc240053351f74e87393d3a6` with tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`. Exact-main post-merge docs and self-check are pending in the current snapshot. The inspected escrow files are Git LFS pointer stubs and no local model runtime or invocation endpoint is available; no real-model experiment is claimed.
+
+Latest verified main: `5da046b5a990a15dbc240053351f74e87393d3a6`; tree `d318bc4fd76b2f2df4e5100c1012727a7704f584`.
+Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
+Latest segment SHA-256: `6e8a96b9c7af90bc97bf32d753079fdf0ec7d4786ccc7253000ae47549b17e93`
+Sequence: 381
+
+
+Post-merge evidence is now complete for sequence 380. Exact-main QG artifact #12139099532 matched its published SHA-256 and confirms Administrator UID 0, strict audit, immutability, and 29/29 acceptance. CI/source-validation artifacts #12140375527 and self-check #12139658216 matched their published digests; source validation passed 34/34 across its three groups, and self-check reported 143 passed, 13 setup-phase skips, zero failures. Scheduled Federation Health run #39136688867 on `5da046b5a990a15dbc240053351f74e87393d3a6` succeeded with Administrator verification and reported 1 node, 0 recent events, quiet. Its artifact #12139992259 matched its published SHA-256; publication created no PR because the output was unchanged.
+
+Latest construction segment: `work/construction/segments/0381-revalidate-campaign-receipt-lineage.md`
+Latest segment SHA-256: `fbda4e5f917f85335cdbcdd3cbc6c15bb9f34bcfefabba906b82a87c16703e80`
+Sequence: 381
