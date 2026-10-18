@@ -1,0 +1,130 @@
+{
+  "candidate": {
+    "base_commit": "9cb581b3b4820423793053beb8b460cafbe0f66e",
+    "base_tree": "e647a536d2d0636ddd753518c4e549b498517367",
+    "commit": "db907475f999098705a9532edb5663f8ce4456a7",
+    "pr_number": 2345,
+    "tree": "2ffd4f3d8291bace948725c107e25de7eac51be5"
+  },
+  "merge": {
+    "commit": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "tree": "2ffd4f3d8291bace948725c107e25de7eac51be5",
+    "parents": [
+      "9cb581b3b4820423793053beb8b460cafbe0f66e",
+      "db907475f999098705a9532edb5663f8ce4456a7"
+    ],
+    "pr_number": 2345,
+    "merge_method": "merge"
+  },
+  "post_merge_runs": {
+    "quality_gate": {
+      "run_id": "39100678374",
+      "conclusion": "success",
+      "artifact_id": "12125939528",
+      "artifact_sha256": "038177e3f26640450861f905c1bac914733b5eda23c93faf2c3fff444162877d"
+    },
+    "ci": {
+      "run_id": "39100678280",
+      "conclusion": "success"
+    },
+    "docker": {
+      "run_id": "39100678357",
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": "39100678270",
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": "39100678317",
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": "39100678320",
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": "39100678253",
+      "conclusion": "skipped_configured"
+    }
+  },
+  "nightly_audit": {
+    "run_id": "39100678248",
+    "event": "push",
+    "head_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "conclusion": "success",
+    "strict_sudo_audit": "passed",
+    "repair_job": "skipped",
+    "token_contents_permission": "read"
+  },
+  "nightly_self_check": {
+    "run_id": "39100678294",
+    "event": "push",
+    "head_sha": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "conclusion": "success",
+    "strict_sudo_audit": "passed",
+    "mypy": "passed",
+    "pytest_airlock": "passed",
+    "pytest": "passed",
+    "artifacts": [
+      {
+        "id": "12126526167",
+        "name": "test_run_provenance_39100678294_self-check",
+        "sha256": "7b5b1fa6d80d6e18728b37069e5288ed0061ee12f13feb53f71b076a1b69cf0b"
+      },
+      {
+        "id": "12126710411",
+        "name": "test_trend_report_39100678294_self-check",
+        "sha256": "2b6d1ea91437362c28c3ab0e5f90443a815f28891189d1d6e840091e8f7e9645"
+      },
+      {
+        "id": "12125519665",
+        "name": "router_telemetry_report_39100678294_self-check",
+        "sha256": "6526ee77c372f2274d437f0ff791f3d8300b45da3031a02a8f901e9bdc9b0d1b"
+      }
+    ]
+  },
+  "historical_failures": {
+    "nightly_self_check": {
+      "run_id": "38876666946",
+      "head_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "failure": "strict audit access denied without Administrator elevation"
+    },
+    "nightly_audit": {
+      "run_id": "38870399436",
+      "head_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "failure": "unprivileged verifier denied; empty repair commit failed"
+    }
+  },
+  "federation_health": {
+    "current_source_push_run": {
+      "run_id": "39100005185",
+      "head_sha": "9cb581b3b4820423793053beb8b460cafbe0f66e",
+      "conclusion": "success",
+      "artifact_id": "12126023057",
+      "artifact_sha256": "adee8cc1aba25dbac1da863fb0f2b8d7245b76d56c2b995d93706a7c236fa45f",
+      "publisher": "no_op_report_matches_main"
+    },
+    "scheduled_recurrence_after_schedule_shift": "not_observed_as_of_2026-10-18T05:32Z",
+    "changed_output_fixture": "awaiting_operator_workflow_dispatch_true"
+  },
+  "local_validation": {
+    "workflow_contract_tests": 35,
+    "repository_test_runner": "passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  },
+  "next_dependency": "production_temporal_resident_transition_with_commissioned_A_B_models_and_operator_approved_protocol",
+  "schema_version": 1,
+  "source": {
+    "commit": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "tree": "2ffd4f3d8291bace948725c107e25de7eac51be5"
+  },
+  "workflow_schedules": {
+    "audit_nightly": "41 3 * * *",
+    "federation_health": "17 * * * *",
+    "nightly_self_check": "37 4 * * *",
+    "remote_smoke": "23 4 * * *",
+    "monthly_audit": "0 0 1 * *"
+  }
+}
