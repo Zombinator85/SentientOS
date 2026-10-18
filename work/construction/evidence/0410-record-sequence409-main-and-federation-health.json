@@ -1,0 +1,127 @@
+{
+  "append_only": true,
+  "change": {
+    "files": [
+      "README.md",
+      "work/construction/active_checkpoint.md"
+    ],
+    "hosted_verification_summary": "Records the regular merge of sequence 409, exact-main verification, and first successful scheduled Federation Health run on that exact main.",
+    "history_repaired_or_discarded": false,
+    "production_inference": false,
+    "runtime_authority_added": false,
+    "verification_requirements_weakened": false
+  },
+  "hosted_verification": {
+    "main": {
+      "candidate_commit": "f2d6bf97110c40dc2e61b8402d1a68ef5eebadd1",
+      "merge_commit": "915cf098c15eed3157dd908763d06c54911390fe",
+      "merge_parent": "e00f920b099c7f6b87d76b0a5e256c4bd152d15f",
+      "merge_second_parent": "f2d6bf97110c40dc2e61b8402d1a68ef5eebadd1",
+      "pr": 2380,
+      "tree": "105f71b68b1ec08b6e31b66aa90a6ed67efc1e49",
+      "method": "regular_merge_preserving_commit_history"
+    },
+    "post_merge_runs": {
+      "required_quality_gate": {
+        "run_id": 39175308712,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39175308758,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39175308717,
+        "conclusion": "success"
+      },
+      "docs_deploy": {
+        "run_id": 39175308704,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39175308731,
+        "conclusion": "success"
+      },
+      "forge_smoke": {
+        "run_id": 39175308694,
+        "conclusion": "skipped_by_configured_condition"
+      },
+      "ci": {
+        "run_id": 39175308697,
+        "self_check": "success",
+        "helm_kubernetes": "success",
+        "source_validation": "success",
+        "docs_link_check": "success"
+      }
+    },
+    "quality_gate_artifact": {
+      "artifact_id": 12153599644,
+      "api_sha256": "76dae317892620a5379e9c26616c864f2f1f1b75bd13282989fc0491a44a73c2",
+      "independently_downloaded_sha256": "76dae317892620a5379e9c26616c864f2f1f1b75bd13282989fc0491a44a73c2",
+      "expected_sha": "915cf098c15eed3157dd908763d06c54911390fe",
+      "source_sha": "915cf098c15eed3157dd908763d06c54911390fe",
+      "source_tree": "105f71b68b1ec08b6e31b66aa90a6ed67efc1e49",
+      "administrator_uid": 0,
+      "strict_audit": "passed",
+      "immutability": "passed",
+      "acceptance": {
+        "required": 29,
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "source_validation_artifact": {
+      "artifact_id": 12153948284,
+      "api_sha256": "a2252b1366a190ebbf35ece7ffd4ca1134efcbe05e807cf25afb3cebc937f3af",
+      "independently_downloaded_sha256": "a2252b1366a190ebbf35ece7ffd4ca1134efcbe05e807cf25afb3cebc937f3af",
+      "source_sha": "915cf098c15eed3157dd908763d06c54911390fe",
+      "source_validation": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "canonical_planning": {
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0
+      },
+      "world_state_contracts": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "federation_health": {
+      "run_id": 39175640282,
+      "event": "schedule",
+      "conclusion": "success",
+      "source_sha": "915cf098c15eed3157dd908763d06c54911390fe",
+      "administrator_preflight": "success",
+      "generation": "success",
+      "artifact_id": 12154690421,
+      "artifact_api_sha256": "43efdd80e7bd97851b301a0cc54798ff79f47db9a98ac264ac9f37a836613337",
+      "artifact_independently_downloaded_sha256": "43efdd80e7bd97851b301a0cc54798ff79f47db9a98ac264ac9f37a836613337",
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet",
+      "changed_output_fixture": "not_run_in_scheduled_workflow"
+    },
+    "nightly_audit_integrity": "scheduled_exact_main_run_pending",
+    "nightly_self_check": "scheduled_exact_main_run_pending"
+  },
+  "provenance": {
+    "quality_gate_integrity_status": "INTEGRITY_BROKEN",
+    "quality_gate_partial_window_issue": "unanchored-start",
+    "sequence_286_gap": "preserved_unresolved",
+    "history_repaired_or_discarded": false
+  },
+  "developmental_boundary": {
+    "production_temporal_a_to_b_to_a": "not_run",
+    "remaining_requirements": [
+      "commissioned A/B model identities and receipts",
+      "separately approved serving",
+      "operator-approved preregistered trial"
+    ]
+  }
+}
