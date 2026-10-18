@@ -1,0 +1,184 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 380,
+  "title": "Preserve self-reflection campaign progress on re-entry",
+  "segment_path": "work/construction/segments/0380-preserve-self-reflection-campaign-progress.md",
+  "segment_bytes": 4090,
+  "segment_sha256": "a214f59913ecf5940c159fc3e6e98702e71f145086d76134fd8bcd60b9ac1fcd",
+  "source": {
+    "branch": "main",
+    "commit": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
+    "tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "live_ref_matches": true,
+    "verified_at": "2026-10-18T13:35:50Z"
+  },
+  "prior_increment": {
+    "sequence": 379,
+    "pull_request": 2369,
+    "candidate_commit": "9757badf802091cfb6392309566dddf88029c6a9",
+    "merge_commit": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
+    "merge_method": "merge",
+    "tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "parents": [
+      "1737cc7e14bcf973a8032ba30bf3ccbcde82ff51",
+      "9757badf802091cfb6392309566dddf88029c6a9"
+    ]
+  },
+  "post_merge_checks": {
+    "required_quality_gate": {
+      "run_id": 39131843478,
+      "conclusion": "success",
+      "artifact_id": 12138073837,
+      "artifact_bytes": 11210,
+      "artifact_sha256": "e67ce1452cec9ab17208428be60d4e65c84ddc553597caa22029d6a8f0f74d0e",
+      "source_sha": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
+      "source_tree": "c2d41c644daec56a285bae564cb482831570652a",
+      "effective_uid": 0,
+      "administrator_verified": true,
+      "source_unchanged": true,
+      "strict_audit": "passed",
+      "audit_immutability": "passed",
+      "acceptance_passed": 29,
+      "acceptance_failed": 0,
+      "acceptance_skipped": 0,
+      "artifact_digest_verified": true
+    },
+    "ci": {
+      "run_id": 39131843558,
+      "conclusion": "success",
+      "source_validation_artifact_id": 12137573929,
+      "source_validation_artifact_bytes": 472369,
+      "source_validation_artifact_sha256": "9d108e82ac826906d3431696aa3390f77c1d33fabaabd6914d034ad238567658",
+      "canonical_planning_passed": 20,
+      "source_validation_passed": 11,
+      "world_state_contracts_passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "artifact_digest_verified": true
+    },
+    "docker": {
+      "run_id": 39131843493,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39131843425,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 39131843439,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39131843428,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": 39131843426,
+      "conclusion": "skipped_configured"
+    }
+  },
+  "scope_pr_checks": {
+    "pull_request": 2369,
+    "head_commit": "9757badf802091cfb6392309566dddf88029c6a9",
+    "required_quality_gate_run": 39131503145,
+    "ci_run": 39131503093,
+    "docker_run": 39131503119,
+    "invariants_run": 39131503131,
+    "codex_ci_run": 39131503132,
+    "gradient_run": 39131503147,
+    "release_run": 39131503144,
+    "lint_benchmark_run": 39131503137,
+    "all_required_conclusions": "success",
+    "hosted_finalizer_artifact_id": 12138336757,
+    "hosted_finalizer_artifact_bytes": 14231,
+    "hosted_finalizer_artifact_sha256": "b0a7f6f3936d2c29fda8050d57d5f7d11797868c265b8df834e360421d4114e2",
+    "hosted_finalizer_decision": "ready_for_pr_metadata",
+    "pr_metadata_guard_status": "pr_metadata_guard_ready"
+  },
+  "local_verification": {
+    "base_source_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "base_source_tree": "c2d41c644daec56a285bae564cb482831570652a",
+    "modified_files_sha256": {
+      "sentientos/production_self_reflection_campaign.py": "bdda0d9689966d52b882c140d8db3059f7dc579272d92bd8e25fd697db6c1e85",
+      "tests/test_production_self_reflection_campaign.py": "d29d893d7f48529cd854758b49d0c2a5bf96805a4d09e1ea24747127c9ec29b7",
+      "docs/development/production_self_reflection_campaign.md": "d6e547d37ef7d673c30a7e21c7c07ee4debd31e5c1adc61ab298d3f2ae5a9c8d"
+    },
+    "source_diff_sha256": "2eb377c33ff1e2616818e5469a71077a9f472d2749b1c3edeb16a1e58848a0de",
+    "test_suite": {
+      "tests_selected": 159,
+      "tests_executed": 159,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    },
+    "test_provenance_sha256": "4a21ae2a3f7d96d7871a65dc1440740f7ac5da844b0daca1d0788b9617fbcaad",
+    "task_acceptance": {
+      "status": "task_acceptance_ready",
+      "manifest_sha256": "f6dd4563ac1f9725f2e5c63cc89530649323db6da380e0dee241bfd62a76a533",
+      "result_sha256": "e1d6a6615e59f3146047a9ba40f4fe31a14b648aff18cb2ff0544e1f9da08855",
+      "successful_path_nodes": [
+        "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[1]",
+        "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]"
+      ]
+    },
+    "targeted_mypy": "passed_no_issues",
+    "mypy_baseline": {
+      "status": "mypy_baseline_improved",
+      "new_errors": 0,
+      "retired_errors": 40
+    },
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "construction_custody_segments_verified": 379,
+    "precommit_finalizer": {
+      "status": "repair_required_task_caused",
+      "focused_tests": "passed",
+      "targeted_mypy": "passed_no_issues",
+      "mypy_baseline": "passed_zero_new_errors_40_retired",
+      "prompt_boundary": "passed",
+      "docs_check_deps": "blocked_missing_mkdocs_and_watchdog_offline",
+      "docs_build": "blocked_missing_mkdocs_and_watchdog_offline",
+      "strict_audits": "failed_closed_access_denied_non_administrator",
+      "audit_immutability": "failed_closed_access_denied_non_administrator",
+      "hosted_exact_candidate_verification_required": true
+    },
+    "append_only_audit_entries_preserved": [
+      {
+        "command": "verify_audits",
+        "prev_hash": "c14588041497602d6ed6815e082181c66e968d5f67b136f6603b54ccc6f306f4",
+        "rolling_hash": "ba094b064ed1bfab6adfc28673bbef22b23e0e69dbc36dccbb01e1b8700c9c00"
+      },
+      {
+        "command": "audit_immutability_verifier",
+        "prev_hash": "ba094b064ed1bfab6adfc28673bbef22b23e0e69dbc36dccbb01e1b8700c9c00",
+        "rolling_hash": "f0647f96ed044be29923b8718d3b566c71a8a42452efb551e0d80655745505e1"
+      }
+    ]
+  },
+  "federation_health": {
+    "workflow": "Federation Health Update",
+    "workflow_id": 165993285,
+    "cron": "17 * * * *",
+    "health_permission": "contents:read",
+    "current_main_sha": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
+    "observation_cutoff": "2026-10-18T13:35:50Z",
+    "current_main_scheduled_run": "not_observed",
+    "latest_visible_run_id": 39122005777,
+    "latest_visible_run_sha": "0e2a7bffde2397e5096c7d9cca0d07d0eecfdb91",
+    "latest_visible_run_conclusion": "success"
+  },
+  "preservation": {
+    "production_inference": "not_invoked",
+    "runtime_authority_changed": false,
+    "prior_segments": "append-only",
+    "sequence_178_workspace": "untouched",
+    "sequence_368_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "changed_output_fixture_branch": "preserved"
+  },
+  "developmental_dependency": {
+    "completed": "campaign create/re-entry preserves exact protocol, progress prefix, and receipt custody without retrying interrupted work",
+    "next": "verify live A->B->A evidence against exact commissioned model identities, installation lineage, and owner-attributed transition receipts; no production trial absent approvals"
+  },
+  "outcome": "Merged bounded campaign custody scope and verified exact-main gates. Implemented and locally validated progress-preserving campaign re-entry; exact source hosted verification is pending PR checks."
+}

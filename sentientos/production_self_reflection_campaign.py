@@ -57,7 +57,8 @@ def _immutable(path: Path, value: Mapping[str, Any]) -> None:
             prior = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ProductionSelfReflectionError("immutable_artifact_tampered") from exc
-        if prior != dict(value):
+        expected = json.loads(json.dumps(dict(value), sort_keys=True))
+        if prior != expected:
             raise ProductionSelfReflectionError("immutable_artifact_collision")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +219,21 @@ class ProductionSelfReflectionCampaign:
 
     @classmethod
     def create(cls, root: Path, protocol: ProductionSelfReflectionProtocol) -> "ProductionSelfReflectionCampaign":
-        protocol.verify(); campaign = cls(root, protocol); _immutable(campaign.protocol_path, asdict(protocol))
+        protocol.verify(); campaign = cls(root, protocol)
+        protocol_exists = campaign.protocol_path.exists()
+        state_exists = campaign.state_path.exists()
+        if protocol_exists or state_exists:
+            if not protocol_exists:
+                raise ProductionSelfReflectionError("campaign_protocol_unavailable")
+            if not state_exists:
+                raise ProductionSelfReflectionError("campaign_state_unavailable")
+            _immutable(campaign.protocol_path, asdict(protocol))
+            state = campaign.state()
+            campaign._verify_progress(state)
+            if state["in_progress_trial_id"] and state["validity"] != "invalid_interrupted":
+                return cls.reconstruct(root)
+            return campaign
+        _immutable(campaign.protocol_path, asdict(protocol))
         campaign._write({"completed_trials": [], "next_trial_id": protocol.campaign_policy["trial_ids"][0],
                          "in_progress_trial_id": None, "validity": "valid_incomplete", "failure_reason": None})
         return campaign
@@ -228,6 +243,7 @@ class ProductionSelfReflectionCampaign:
         try: protocol = reconstruct_protocol(json.loads((Path(root) / "protocol.json").read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_protocol_unavailable") from exc
         campaign = cls(root, protocol); state = campaign.state()
+        campaign._verify_progress(state)
         if state["in_progress_trial_id"]:
             campaign._write({**state, "validity": "invalid_interrupted", "failure_reason": "prior_trial_interrupted"})
             _immutable(campaign.root / "failures" / f"{state['in_progress_trial_id']}.json",
@@ -245,9 +261,55 @@ class ProductionSelfReflectionCampaign:
         try: value = json.loads(self.state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
         claimed = value.pop("state_digest", None)
-        if claimed != _digest(value) or value.get("protocol_digest") != self.protocol.protocol_digest:
+        if (claimed != _digest(value) or value.get("schema_version") != CAMPAIGN_SCHEMA
+                or value.get("protocol_id") != self.protocol.protocol_id
+                or value.get("protocol_digest") != self.protocol.protocol_digest):
             raise ProductionSelfReflectionError("campaign_state_tampered")
         return MappingProxyType({**value, "state_digest": claimed})
+
+    def _verify_progress(self, state: Mapping[str, Any]) -> None:
+        trial_ids = tuple(self.protocol.campaign_policy["trial_ids"])
+        completed = state.get("completed_trials")
+        if not isinstance(completed, list) or len(completed) > len(trial_ids):
+            raise ProductionSelfReflectionError("campaign_state_tampered")
+        for index, row in enumerate(completed):
+            if not isinstance(row, Mapping) or row.get("trial_id") != trial_ids[index]:
+                raise ProductionSelfReflectionError("campaign_state_tampered")
+            try:
+                raw_receipt = json.loads(
+                    (self.root / "receipts" / f"{trial_ids[index]}.json").read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ProductionSelfReflectionError("campaign_receipt_unavailable") from exc
+            if not isinstance(raw_receipt, Mapping):
+                raise ProductionSelfReflectionError("trial_receipt_tampered")
+            receipt = verify_trial_receipt(raw_receipt)
+            if (row.get("receipt_id") != receipt.get("receipt_id")
+                    or row.get("receipt_digest") != receipt.get("receipt_digest")
+                    or receipt.get("trial_id") != trial_ids[index]
+                    or receipt.get("protocol_id") != self.protocol.protocol_id
+                    or receipt.get("protocol_digest") != self.protocol.protocol_digest):
+                raise ProductionSelfReflectionError("campaign_receipt_mismatch")
+
+        in_progress = state.get("in_progress_trial_id")
+        validity = state.get("validity")
+        expected_next = trial_ids[len(completed)] if len(completed) < len(trial_ids) else None
+        if state.get("next_trial_id") != expected_next:
+            raise ProductionSelfReflectionError("campaign_state_tampered")
+        if in_progress is not None and in_progress != expected_next:
+            raise ProductionSelfReflectionError("campaign_state_tampered")
+        if validity == "valid_incomplete":
+            valid = len(completed) < len(trial_ids) and state.get("failure_reason") is None
+        elif validity == "valid_complete":
+            valid = len(completed) == len(trial_ids) and in_progress is None and state.get("failure_reason") is None
+        elif validity == "invalid_interrupted":
+            valid = in_progress in trial_ids and state.get("failure_reason") in {
+                "prior_trial_interrupted", "trial_interrupted_no_retry"
+            }
+        else:
+            valid = False
+        if not valid:
+            raise ProductionSelfReflectionError("campaign_state_tampered")
 
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
         state = self.state()

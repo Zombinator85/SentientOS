@@ -84,3 +84,13 @@ Local sequence-379 pre-commit finalizer returned `repair_required_task_caused`: 
 Latest construction segment: `work/construction/segments/0379-verify-scheduled-federation-health-and-open-transition-scope.md`
 Latest segment SHA-256: `398b33f3987bec651b68671ac1677d8c118b5f20e00a5757eeeb3e01533939b4`
 Sequence: 379
+
+
+Sequence 380 verifies PR #2369's merge and all exact-main push gates on `d70d63b31416f21bcc50b4c2a4708c6c822ff5e6`, tree `c2d41c644daec56a285bae564cb482831570652a`. Its QG binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance; CI source-validation records canonical planning 20, source validation 11, and World-State contracts 3 with zero failures/skips. The next bounded repair preserves campaign state, protocol identity, ordered trial history, and referenced receipt custody when campaign creation is repeated. Local regressions passed 159/159; hosted verification for this source repair remains pending. Federation Health has no scheduled execution on current main by 13:35 UTC; sequence-379's changed-output publication setting remains unresolved.
+
+Latest verified main: `d70d63b31416f21bcc50b4c2a4708c6c822ff5e6`; tree `c2d41c644daec56a285bae564cb482831570652a`.
+Latest construction segment: `work/construction/segments/0380-preserve-self-reflection-campaign-progress.md`
+Latest segment SHA-256: `a214f59913ecf5940c159fc3e6e98702e71f145086d76134fd8bcd60b9ac1fcd`
+Sequence: 380
+
+Local sequence-380 pre-commit finalization failed closed on the offline docs toolchain and Administrator-only strict audit stages; focused tests, targeted mypy, baseline, and prompt-boundary checks passed. Its two runtime audit rows are preserved append-only. Hosted verification of the exact campaign change is required before landing.

@@ -106,6 +106,51 @@ def test_one_shot_exact_transition_firewall_external_scorer_and_restored_a(tmp_p
     assert all(receipt["condition_scores"][c]["counts"]["supported_correct"] == 1 for c in CONDITION_ORDER)
 
 
+@pytest.mark.parametrize("trial_count", [1, 2])
+def test_campaign_reentry_preserves_partial_and_completed_progress(tmp_path: Path, trial_count: int) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    for _ in range(trial_count):
+        campaign.run_one(readiness, lambda *_: _evidence())
+    before = dict(campaign.state())
+
+    resumed = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+
+    assert dict(resumed.state()) == before
+    assert len(resumed.state()["completed_trials"]) == trial_count
+    if trial_count == 1:
+        assert resumed.state()["next_trial_id"] == "trial-2"
+        resumed.run_one(readiness, lambda *_: _evidence())
+        assert resumed.state()["validity"] == "valid_complete"
+    else:
+        assert resumed.state()["validity"] == "valid_complete"
+
+
+def test_campaign_reentry_does_not_reinitialize_missing_progress(tmp_path: Path) -> None:
+    protocol = _protocol()
+    ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    (tmp_path / "state.json").unlink()
+
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_state_unavailable"):
+        ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    assert not (tmp_path / "state.json").exists()
+
+
+def test_campaign_reentry_revalidates_completed_receipt_custody(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    campaign.run_one(verify_production_readiness(protocol, _observed()), lambda *_: _evidence())
+    receipt_path = tmp_path / "receipts" / "trial-1.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["protocol_digest"] = "sha256:stale-protocol"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    assert campaign.state()["completed_trials"][0]["trial_id"] == "trial-1"
+
+
 def test_interrupted_campaign_is_no_retry(tmp_path: Path) -> None:
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, _protocol())
     state = dict(campaign.state()); state["in_progress_trial_id"] = "trial-1"; campaign._write(state)
