@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8ba3653cce84c78ff1ae0c2da22926e62e494a7f41fb9d9c4885cc7c17269b5c",
-    "latest_segment_sequence": 337,
-    "latest_segment_sha256": "c42d01eba743e3af2de89d18fa31c183e3920930cb9484c1c2230fe17cbe9dc5",
-    "source_commit": "26a71f64f89b57d9fd40ef870e69b02baee17bb6",
-    "source_tree": "7621184456b05876b07dfd215669abef031c91e1"
+    "checkpoint_sha256": "959c017a2737e8367529169a464e7fdd8039660d4651cc2228bf26560fe417bf",
+    "latest_segment_sequence": 339,
+    "latest_segment_sha256": "91fd8a08106c19380b91e8f346e830cf31633b8cc870f2b1f564564b38cad425",
+    "source_commit": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "source_tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 337,
+  "latest_sequence": 339,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3711,6 +3711,32 @@
       "sha256": "c42d01eba743e3af2de89d18fa31c183e3920930cb9484c1c2230fe17cbe9dc5",
       "source_commit": "26a71f64f89b57d9fd40ef870e69b02baee17bb6",
       "source_tree": "7621184456b05876b07dfd215669abef031c91e1"
+    },
+    {
+      "sequence": 338,
+      "path": "work/construction/segments/0338-bind-transition-history-to-resident-boundary.md",
+      "bytes": 2567,
+      "sha256": "25b22b499dea32bfc719c1234b308dbad2a3386eab0f296d91e309800616f611",
+      "predecessor": "segment-sha256:c42d01eba743e3af2de89d18fa31c183e3920930cb9484c1c2230fe17cbe9dc5",
+      "source_commit": "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+      "source_tree": "4f7dc059a6ff612bd7dbec054159cb74d8304515",
+      "evidence": "work/construction/evidence/0338-bind-transition-history-to-resident-boundary.json",
+      "evidence_path": "work/construction/evidence/0338-bind-transition-history-to-resident-boundary.json",
+      "evidence_bytes": 4255,
+      "evidence_sha256": "305155f64f58a0602afcfd33301adfa1cbbd891ea7724bdd1008831202ca3266"
+    },
+    {
+      "sequence": 339,
+      "path": "work/construction/segments/0339-record-transition-history-binding-merge.md",
+      "bytes": 3728,
+      "sha256": "91fd8a08106c19380b91e8f346e830cf31633b8cc870f2b1f564564b38cad425",
+      "predecessor": "segment-sha256:25b22b499dea32bfc719c1234b308dbad2a3386eab0f296d91e309800616f611",
+      "source_commit": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+      "source_tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1",
+      "evidence": "work/construction/evidence/0339-record-transition-history-binding-merge.json",
+      "evidence_path": "work/construction/evidence/0339-record-transition-history-binding-merge.json",
+      "evidence_bytes": 6566,
+      "evidence_sha256": "749666e265708c05c7771e232e485202af3dc29fe5f7378822ac6100fd788850"
     }
   ],
   "source_acquisition": {

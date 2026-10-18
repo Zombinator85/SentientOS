@@ -1,0 +1,149 @@
+{
+  "candidate": {
+    "base_commit": "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+    "head": "a892d47a2f37ecab693c168dd7cbcfad561a262a",
+    "merge_method": "merge",
+    "parent": "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+    "pr_number": 2328,
+    "remote_blob_readback": "all four candidate blobs were fetched independently and their computed Git blob SHA and byte counts matched the local commit tree",
+    "source_files": {
+      "docs/architecture/sentientos_trajectory_and_missing_organs.md": {
+        "git_blob": "da43c97cb1ea61bab42c0efec64065749690d19b",
+        "sha256": "3ad012a472b703b210ef845c0667ba940e8d06c6827e6c9d777fe3cc53e1b81d"
+      },
+      "docs/development/developmental_model_replacement_experiment.md": {
+        "git_blob": "69855f5f7cb9f35ab43d46b72b3cd8f8d9dce19d",
+        "sha256": "a8b4d86993e012940a0e4185b37bf094ce6bc197b3348a4bdc3d67836a1b6a86"
+      },
+      "sentientosd.py": {
+        "git_blob": "61f0f04ddb6866e962b4dc2d34147b0318fbb9c4",
+        "sha256": "cdbb1e61b86f169465bf4df129d5f2d61413175fba43145ca4e3f217b9c8d261"
+      },
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py": {
+        "git_blob": "a1a086b8343afc3f61a24306f81a900cc7429b33",
+        "sha256": "46719f8dc3c534088f45fdd2cbe06e910093fa1d2ac57b2428e2bd0beb7e1767"
+      }
+    },
+    "tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "execution_commit": "f27da85b6a5b8e5616c2fa71a403c85710575bb7",
+    "hosted_finalizer_artifact_id": "12118839816",
+    "hosted_finalizer_artifact_sha256": "0d62306be90aa66a6015aa96d821129c47efee4e703e47b5f95d3d97d2950b94",
+    "hosted_finalizer_decision": "ready_for_pr_metadata",
+    "hosted_finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12119198103",
+    "quality_gate_artifact_sha256": "20de86063cb31531bd46931c75e65435685ebc58b5cfcedee9fb71c1dbe4c29e",
+    "quality_gate_run_id": "39082276884",
+    "strict_audit": "passed_no_issues",
+    "strict_audit_status": "healthy_strict",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "transition_history_binding_node": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_production_transition_requires_verified_frozen_model_generation_lineage",
+    "workflows": {
+      "ci_pull_request": {
+        "run_id": "39082276808",
+        "status": "success"
+      },
+      "ci_push": {
+        "run_id": "39082224133",
+        "status": "success"
+      },
+      "codex_ci": {
+        "run_id": "39082276828",
+        "status": "success"
+      },
+      "docker": {
+        "run_id": "39082276803",
+        "status": "success"
+      },
+      "gradient": {
+        "run_id": "39082276832",
+        "status": "success"
+      },
+      "invariants": {
+        "run_id": "39082276809",
+        "status": "success"
+      },
+      "lint_mypy": {
+        "run_id": "39082276864",
+        "status": "success"
+      },
+      "release": {
+        "run_id": "39082276824",
+        "status": "success"
+      }
+    }
+  },
+  "continuation": {
+    "checkpoint_bytes": 2280,
+    "checkpoint_path": "work/construction/active_checkpoint.md",
+    "checkpoint_sha256": "959c017a2737e8367529169a464e7fdd8039660d4651cc2228bf26560fe417bf",
+    "predecessor_segment_sha256": "25b22b499dea32bfc719c1234b308dbad2a3386eab0f296d91e309800616f611",
+    "segment_bytes": 3728,
+    "segment_path": "work/construction/segments/0339-record-transition-history-binding-merge.md",
+    "segment_sha256": "91fd8a08106c19380b91e8f346e830cf31633b8cc870f2b1f564564b38cad425",
+    "sequence": 339,
+    "source_commit": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "source_tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1"
+  },
+  "federation_publication_fixture": "Undispatched because no workflow-dispatch action is exposed; the scheduled production run recorded in sequence 335 was a no-op because its report matched main.",
+  "local_verification": {
+    "bootstrap_attempts": [
+      "default package proxy denied setuptools>=78.1.1 before collection",
+      "network-enabled editable install reached pip but protected /home/agent/.local/bin prevented uninstalling an existing entrypoint; no protected file changed",
+      "workspace-local virtual environment plus requirements-codex.txt resolved dependencies and the canonical runner passed"
+    ],
+    "canonical_test_runner": "python -m scripts.run_tests via fresh workspace-local venv",
+    "continuation_custody_before_append": "337 segments verified; ready",
+    "focused_regressions_collected": 66,
+    "focused_regressions_executed": 66,
+    "focused_regressions_failed": 0,
+    "focused_regressions_skipped": 0,
+    "git_diff_check": "passed",
+    "local_run_provenance_sha256": "7e43c2734994f984374b346727fa242233275c92e22b219474de339e273ce356",
+    "production_lineage_node": "passed with positive subset, absent record, substituted digest, and cross-context cases",
+    "python_compilation": "passed"
+  },
+  "main": {
+    "commit": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "parents": [
+      "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+      "a892d47a2f37ecab693c168dd7cbcfad561a262a"
+    ],
+    "pr_closed_merged": true,
+    "tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1"
+  },
+  "post_merge_workflows": {
+    "administrator_verified": true,
+    "ci_run_id": "39082540811",
+    "ci_status": "success",
+    "codex_ci_run_id": "39082540829",
+    "codex_ci_status": "success",
+    "docker_run_id": "39082540855",
+    "docker_status": "success",
+    "docs_deploy_run_id": "39082540830",
+    "docs_deploy_status": "success",
+    "effective_uid": 0,
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed_no_issues",
+    "invariant_run_id": "39082540813",
+    "invariant_status": "success",
+    "required_quality_gate_artifact_id": "12118998005",
+    "required_quality_gate_artifact_sha256": "347b714525df5465c039f08d0336ec81a75b6e29507e855fd48dcb6a4eb8625b",
+    "required_quality_gate_run_id": "39082540831",
+    "strict_audit": "passed_no_issues",
+    "strict_audit_status": "healthy_strict",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "production_boundary": "No production A-to-B-to-A execution or running-software source observation is claimed. Commissioned model identities, prepared installation, and operator-approved protocol remain required.",
+  "schema_version": 1
+}
