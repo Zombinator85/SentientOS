@@ -1,0 +1,145 @@
+{
+  "candidate": {
+    "base_commit": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "base_tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1",
+    "head": "b11b5eb76884d40fb1f8ac796e48e1876c11ac19",
+    "merge_method": "merge",
+    "pr_number": 2330,
+    "tree": "f6f9d59be414e149577e937694e777af60f3be6d"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "finalizer_artifact_id": "12119822535",
+    "finalizer_artifact_sha256": "2866c47d3e730be3c3cffb8aff3aa72b5fe7cbf234c906df68556edb87d6b715",
+    "finalizer_decision": "ready_for_pr_metadata",
+    "finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12119703006",
+    "quality_gate_artifact_sha256": "1dd0e63a16c97d9d5b9ea1f25d749fc949583a46d05153f9abc329713d2ba986",
+    "quality_gate_run_id": "39083363484",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "workflows": {
+      "ci": {
+        "run_id": "39083363438",
+        "status": "success"
+      },
+      "codex_ci": {
+        "run_id": "39083363381",
+        "status": "success"
+      },
+      "docker": {
+        "run_id": "39083363367",
+        "status": "success"
+      },
+      "gradient": {
+        "run_id": "39083363499",
+        "status": "success"
+      },
+      "invariants": {
+        "run_id": "39083363360",
+        "status": "success"
+      },
+      "lint_mypy": {
+        "run_id": "39083363358",
+        "status": "success"
+      },
+      "release": {
+        "run_id": "39083363439",
+        "status": "success"
+      }
+    }
+  },
+  "candidate_tree_source_files": {
+    "sentientosd.py": {
+      "git_blob": "48e7c45340cf7e6383c74c82b39a9918ea3c328a",
+      "sha256": "8c24660ba9b9ac2dd5e6a505b1cb2e1f4c0b64d33474e16a98d2b5f2359b4aee"
+    },
+    "tests/test_sentientosd_resident_cognitive_transition_composition.py": {
+      "git_blob": "3fa98a0573c8e1886d03819ab6419185e8d14201",
+      "sha256": "ec3ed6472b8b076951d2d26b29f1d48dc0745a746465fd6aca29356aed0bdd30"
+    }
+  },
+  "continuation": {
+    "evidence_path": "work/construction/evidence/0340-verify-transition-protocol-and-history-boundary.json",
+    "predecessor_segment_sha256": "91fd8a08106c19380b91e8f346e830cf31633b8cc870f2b1f564564b38cad425",
+    "segment_bytes": 3182,
+    "segment_path": "work/construction/segments/0340-verify-transition-protocol-and-history-boundary.md",
+    "segment_sha256": "4c2f5db6b868006c0581e2ef5dd9007574bd37b6622b14e6306b75d3bc73b9eb",
+    "sequence": 340,
+    "source_commit": "ebbaa6fa447f30f9ef6bd9254c853d64149bec88",
+    "source_tree": "f6f9d59be414e149577e937694e777af60f3be6d"
+  },
+  "federation_health_scheduled_execution": {
+    "administrator_preflight": "passed",
+    "artifact_id": "12119932177",
+    "artifact_sha256": "19aea605b25d2693aa5c6a64ad2a4f32e5bf957a6e79c54535158ca4eddb2872",
+    "changed_output_publication": "not_exercised_output_unchanged",
+    "conclusion": "success",
+    "event": "schedule",
+    "fixture_job": "skipped",
+    "head_sha": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "health_update": "passed",
+    "report": "# Federation Health\n\n- Nodes: 1\n- Recent events: 0\n- Status: quiet\n",
+    "report_matches_main_docs": "docs/FEDERATION_HEALTH.md",
+    "run_id": "39083395122",
+    "workflow": "Federation Health Update"
+  },
+  "local_verification": {
+    "canonical_test_runner": "python -m scripts.run_tests",
+    "focused_suites": 4,
+    "git_diff_check": "passed",
+    "local_run_provenance_sha256": "9164602b1088804a9808fc49e8a77e8b18431e510bf54eb2bcb43226922688b8",
+    "python_compilation": "passed",
+    "targeted_mypy": "no changed-region diagnostics; whole-file invocation reports existing baseline diagnostics",
+    "tests_collected": 67,
+    "tests_executed": 67,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "main": {
+    "commit": "ebbaa6fa447f30f9ef6bd9254c853d64149bec88",
+    "merge_method": "merge",
+    "parents": [
+      "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+      "b11b5eb76884d40fb1f8ac796e48e1876c11ac19"
+    ],
+    "pr_closed_merged": true,
+    "pr_number": 2330,
+    "tree": "f6f9d59be414e149577e937694e777af60f3be6d"
+  },
+  "post_merge_workflows": {
+    "administrator_verified": true,
+    "ci_run_id": "39083651253",
+    "ci_status": "success",
+    "codex_ci_run_id": "39083651213",
+    "codex_ci_status": "success",
+    "docker_run_id": "39083651216",
+    "docker_status": "success",
+    "docs_deploy_run_id": "39083651205",
+    "docs_deploy_status": "success",
+    "effective_uid": 0,
+    "forge_smoke_run_id": "39083651242",
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed_no_issues",
+    "invariant_run_id": "39083651247",
+    "invariant_status": "success",
+    "quality_gate_artifact_id": "12119498915",
+    "quality_gate_artifact_sha256": "5cc24b3cbdcf298716779c50c030d34d220bcf61221e5c293669d27db475b333",
+    "quality_gate_run_id": "39083651195",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "strict_audit_status": "healthy_strict",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "production_boundary": "No production A\u2192B\u2192A transition, running-source observation, or model improvement is claimed. Commissioned model identities, prepared installation, and operator-approved protocol remain prerequisites.",
+  "schema_version": 1
+}

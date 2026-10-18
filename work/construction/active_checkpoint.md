@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Latest verified `main`: `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`, tree `4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1`. Sequence 338 was merged normally by PR #2328 with both parents preserved. Candidate and post-merge Required Quality Gates each passed 29/29 exact nodes, zero failures/skips, actual Administrator verification, strict audit, and immutability checks. Candidate CI, lint/Mypy, Docker, invariants, Release, Gradient, and Codex CI passed. Post-merge CI, Docker, invariants, Codex CI, and Docs Deploy passed; Forge Smoke was skipped by its configured conditions.
+Latest verified `main`: `ebbaa6fa447f30f9ef6bd9254c853d64149bec88`, tree `f6f9d59be414e149577e937694e777af60f3be6d`. Sequence 340 merged normally by PR #2330 with both parents preserved. Candidate CI and lint/Mypy, Docker, invariants, Release, Gradient, Codex CI, and strict Administrator QG passed. Post-merge CI, QG (29/29 exact tests, UID 0 strict/immutability clean), Docker, invariants, Codex CI, and Docs Deploy passed; Forge Smoke was skipped by its configured condition.
 
-Sequence 338 requires the predecessor and successor model-replacement references to resolve to one frozen context, then verifies the context's bounded history IDs/digests against exact records in the complete initial resident boundary. Read-only status preserves the selected history identity separately from the complete boundary digest/count. Missing records, duplicate resident identities, digest substitution, and cross-context references fail closed before production ingress. This does not grant history or transition authority or observe the daemon's running source.
+Sequence 340 requires both transition roles to use the same frozen model-replacement protocol and validates the complete resident history manifest against its records. Selected model-context history must match exact resident IDs/digests. No running-software observation or transition authority is implied.
 
-Next: bind both transition roles to the exact same preregistered model-pair protocol and validate the resident boundary's record-ID/digest summary and boundary digest against its full records before projecting it as verified. Preserve the bounded context selection as a subset of complete resident history.
+A scheduled Federation Health execution, run `39083395122`, succeeded on `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`, which was main at the time. Its hosted Administrator preflight and update passed; the generated report matched `docs/FEDERATION_HEALTH.md` exactly (one node, zero recent events, quiet). The publication job succeeded with no changed-output PR; changed-output fixture steps were skipped. This establishes scheduled execution, not changed-output publication.
 
-The changed-output Federation Health fixture remains undispatched because no workflow-dispatch operation is exposed. The scheduled production publisher run recorded in sequence 335 was a no-op because the report matched `main`; it does not prove changed-output publication. A production A→B→A campaign still requires commissioned model identities, a prepared installation, and an operator-approved protocol.
+Next source dependency: expose a deterministic count and canonical digest for omitted resident history, after exact frozen selection integrity and boundary receipt validation. Sequence 341 is open as draft PR #2331; hosted CI and privileged QG are pending. Keep the current Nightly Audit and Nightly Self Check privilege requirements and least-write scopes. Their next scheduled executions on `ebbaa6fa447f30f9ef6bd9254c853d64149bec88` have not yet occurred.
 
-Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Synthetic rehearsal and CI do not establish production developmental evidence.
+Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Fixture and hosted CI evidence do not establish production developmental evidence.
 
-Latest construction segment: `work/construction/segments/0339-record-transition-history-binding-merge.md`
-Latest segment SHA-256: `91fd8a08106c19380b91e8f346e830cf31633b8cc870f2b1f564564b38cad425`
-Sequence: 339
+Latest construction segment: `work/construction/segments/0340-verify-transition-protocol-and-history-boundary.md`
+Latest segment SHA-256: `4c2f5db6b868006c0581e2ef5dd9007574bd37b6622b14e6306b75d3bc73b9eb`
+Sequence: 340
