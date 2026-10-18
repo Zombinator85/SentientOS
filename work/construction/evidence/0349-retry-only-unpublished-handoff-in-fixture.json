@@ -1,0 +1,29 @@
+{
+  "continuation": {
+    "predecessor_segment_sha256": "8d2be6946ff6969257b1f8671f17388b4a7682ac0ad0e1c71a0a1e6748d95c73",
+    "segment_path": "work/construction/segments/0349-retry-only-unpublished-handoff-in-fixture.md",
+    "segment_sha256": "6e9d73d2885f4c4132ae89971a9ae4a86b49ca39ea98ed67aa3c5e308128b29e",
+    "sequence": 349,
+    "source_commit": "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9"
+  },
+  "failure": "RuntimeError: chat_process_runtime_handoff_child_not_running",
+  "failure_artifact_id": "12124886339",
+  "failure_artifact_sha256": "7551df9cb427ec380d62e9cc0094b9ebc1d914cfd31ac5550136998023fc193c",
+  "failure_node": "tests.test_local_model_chat_runtime_startup::test_actual_adapter_handoff_binds_live_child_and_source_generation",
+  "failure_observed_on_main": "617fdad39833c05cf0e0a1784d46e59a73cfd5b3",
+  "failure_run_id": "39096148804",
+  "local_tests": {
+    "compile": "passed",
+    "diff_check": "passed",
+    "failing_node_repeats_passed": 20,
+    "focused_suites": "passed",
+    "passed": 38,
+    "skip": "pre-existing legacy marker",
+    "skipped": 1
+  },
+  "main_commit": "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9",
+  "main_tree": "0b698550ca6bfb9786f55e4d3c0515cafec8f3c1",
+  "schema_version": 1,
+  "source_candidate_commit": "9b96dfd2f2869f62393926fdb25248aed0889366",
+  "source_candidate_tree": "0b698550ca6bfb9786f55e4d3c0515cafec8f3c1"
+}
