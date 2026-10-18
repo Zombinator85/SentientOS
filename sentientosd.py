@@ -2147,6 +2147,7 @@ class RuntimeMaintenanceSurfaces:
             return {role: {"posture": "contradictory_artifact_store_configuration"}
                     for role in references}
         bindings: dict[str, dict[str, Any]] = {}
+        verified_contexts: dict[str, Mapping[str, Any]] = {}
         model_roles = {"predecessor_a": "predecessor_a", "successor_b": "successor_b"}
         for transition_role, reference in references.items():
             expected_identity = protocol_value.get(model_roles[transition_role])
@@ -2162,6 +2163,8 @@ class RuntimeMaintenanceSurfaces:
                     raise DevelopmentalModelReplacementError("provenance_subject_active_identity_mismatch")
                 frozen_context = store.load_verified_context(
                     replacement.causal_context_id, replacement.causal_context_digest)
+                history_binding = _verify_transition_context_history_binding(
+                    frozen_context, protocol_value.get("initial_history_boundary"))
             except Exception as exc:
                 code = str(exc)
                 posture = ("unavailable_protocol" if code == "preregistered_protocol_unavailable"
@@ -2171,6 +2174,7 @@ class RuntimeMaintenanceSurfaces:
                     "protocol_id": reference.get("protocol_id"),
                     "protocol_digest": reference.get("protocol_digest")}
                 continue
+            verified_contexts[transition_role] = frozen_context
             bindings[transition_role] = {
                 "posture": ("verified_source_bound_claim_manifest" if manifest.claims
                     else "verified_manifest_with_unknown_claims"),
@@ -2196,7 +2200,19 @@ class RuntimeMaintenanceSurfaces:
                     "frozen_context_declaration_not_running_observation"
                     if frozen_context.get("repository_generation_identity") is not None
                     else "unknown"),
+                **history_binding,
             }
+        context_a = verified_contexts.get("predecessor_a")
+        context_b = verified_contexts.get("successor_b")
+        if (context_a is not None and context_b is not None
+                and (context_a.get("context_id") != context_b.get("context_id")
+                    or context_a.get("context_digest") != context_b.get("context_digest"))):
+            for role in ("predecessor_a", "successor_b"):
+                if role in bindings:
+                    bindings[role] = {"posture": "contradictory_provenance_evidence",
+                        "finding": "transition_model_source_lineage_context_mismatch",
+                        "protocol_id": bindings[role].get("protocol_id"),
+                        "protocol_digest": bindings[role].get("protocol_digest")}
         return bindings
 
     def _resident_succession_world_state_records(self, observed_at: str) -> list[dict[str, Any]]:
@@ -3116,6 +3132,8 @@ def _verify_live_resident_transition_source_lineage(protocol: Any,
         raise TransitionError("transition_model_source_lineage_store_invalid") from exc
     expected_roles = {"predecessor_a": "model_a", "successor_b": "model_b"}
     verified: dict[str, dict[str, Any]] = {}
+    verified_contexts: dict[str, Mapping[str, Any]] = {}
+    history_boundary = protocol.value.get("initial_history_boundary")
     for transition_role, model_role in expected_roles.items():
         reference = references[transition_role]
         if not isinstance(reference, Mapping) or reference.get("model_role") != model_role:
@@ -3134,6 +3152,7 @@ def _verify_live_resident_transition_source_lineage(protocol: Any,
         generation = context.get("repository_generation_identity")
         if not isinstance(generation, str) or not generation or len(generation) > 512:
             raise TransitionError("transition_software_generation_declaration_required")
+        verified_contexts[transition_role] = context
         verified[transition_role] = {
             "model_replacement_protocol_id": replacement.protocol_id,
             "model_replacement_protocol_digest": replacement.protocol_digest,
@@ -3143,7 +3162,57 @@ def _verify_live_resident_transition_source_lineage(protocol: Any,
             "software_generation_identity": generation,
             "software_generation_posture": "frozen_context_declaration_not_running_observation",
         }
+    context_a = verified_contexts["predecessor_a"]
+    context_b = verified_contexts["successor_b"]
+    if (context_a.get("context_id") != context_b.get("context_id")
+            or context_a.get("context_digest") != context_b.get("context_digest")):
+        raise TransitionError("transition_model_source_lineage_context_mismatch")
+    history_binding = _verify_transition_context_history_binding(context_a, history_boundary)
+    for lineage in verified.values():
+        lineage.update(history_binding)
     return verified
+
+
+def _verify_transition_context_history_binding(context: Mapping[str, Any],
+        boundary: Any) -> dict[str, Any]:
+    """Bind bounded experiment history to exact records in the complete frozen boundary."""
+    if not isinstance(boundary, Mapping):
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+    records = boundary.get("records")
+    record_ids = context.get("history_record_ids")
+    record_digests = context.get("history_record_digests")
+    if (not isinstance(records, (list, tuple))
+            or not isinstance(record_ids, (list, tuple))
+            or not isinstance(record_digests, (list, tuple))
+            or len(record_ids) != len(record_digests)):
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+    resident_records: dict[str, str] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+        record_id, record_digest = record.get("record_id"), record.get("record_digest")
+        if (not isinstance(record_id, str) or not record_id
+                or not isinstance(record_digest, str) or not record_digest.startswith("sha256:")
+                or record_id in resident_records):
+            raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+        resident_records[record_id] = record_digest
+    for record_id, record_digest in zip(record_ids, record_digests):
+        if not isinstance(record_id, str) or not record_id or record_id not in resident_records:
+            raise TransitionError("transition_model_source_lineage_history_record_absent")
+        if resident_records[record_id] != record_digest:
+            raise TransitionError("transition_model_source_lineage_history_record_digest_mismatch")
+    boundary_digest = boundary.get("boundary_digest")
+    if not isinstance(boundary_digest, str) or not boundary_digest:
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+    return {
+        "selected_history_record_ids": list(record_ids),
+        "selected_history_record_digests": list(record_digests),
+        "selected_history_record_set_digest": context.get("history_record_set_digest"),
+        "selected_history_record_count": len(record_ids),
+        "resident_initial_history_record_count": len(records),
+        "resident_initial_history_boundary_digest": boundary_digest,
+        "history_binding_posture": "verified_bounded_selection_within_complete_resident_boundary",
+    }
 
 
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
