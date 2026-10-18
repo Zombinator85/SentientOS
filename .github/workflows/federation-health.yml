@@ -257,10 +257,11 @@ jobs:
               except Exception as exc:
                   errors.append(f"fixture_pr_close_failed:{type(exc).__name__}:{str(exc)[:300]}")
           ref = f"repos/{repository}/git/ref/heads/{branch}"
+          delete_ref = f"repos/{repository}/git/refs/heads/{branch}"
           try:
               lookup = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
               if lookup.returncode == 0:
-                  subprocess.run(["gh", "api", "--method", "DELETE", ref],
+                  subprocess.run(["gh", "api", "--method", "DELETE", delete_ref],
                                  check=True, capture_output=True, text=True)
                   readback = subprocess.run(["gh", "api", ref], capture_output=True, text=True)
                   branch_deleted = (readback.returncode != 0 and
@@ -273,6 +274,10 @@ jobs:
                   errors.append(f"fixture_branch_lookup_failed:{lookup.stderr.strip()[:300]}")
               if not branch_deleted:
                   errors.append("fixture_branch_removal_readback_failed")
+          except subprocess.CalledProcessError as exc:
+              branch_deleted = False
+              detail = (exc.stderr or exc.stdout or str(exc)).strip()[:300]
+              errors.append(f"fixture_branch_cleanup_failed:exit={exc.returncode}:{detail}")
           except Exception as exc:
               branch_deleted = False
               errors.append(f"fixture_branch_cleanup_failed:{type(exc).__name__}:{str(exc)[:300]}")
@@ -282,10 +287,14 @@ jobs:
                   f"repos/{repository}/git/ref/heads/"
                   "automation/federation-health-publication-fixture"
               )
+              trigger_delete_ref = (
+                  f"repos/{repository}/git/refs/heads/"
+                  "automation/federation-health-publication-fixture"
+              )
               try:
                   lookup = subprocess.run(["gh", "api", trigger_ref], capture_output=True, text=True)
                   if lookup.returncode == 0:
-                      subprocess.run(["gh", "api", "--method", "DELETE", trigger_ref],
+                      subprocess.run(["gh", "api", "--method", "DELETE", trigger_delete_ref],
                                      check=True, capture_output=True, text=True)
                       readback = subprocess.run(["gh", "api", trigger_ref], capture_output=True, text=True)
                       trigger_branch_deleted = (
@@ -300,6 +309,10 @@ jobs:
                       errors.append(f"fixture_trigger_branch_lookup_failed:{lookup.stderr.strip()[:300]}")
                   if not trigger_branch_deleted:
                       errors.append("fixture_trigger_branch_removal_readback_failed")
+              except subprocess.CalledProcessError as exc:
+                  trigger_branch_deleted = False
+                  detail = (exc.stderr or exc.stdout or str(exc)).strip()[:300]
+                  errors.append(f"fixture_trigger_branch_cleanup_failed:exit={exc.returncode}:{detail}")
               except Exception as exc:
                   trigger_branch_deleted = False
                   errors.append(f"fixture_trigger_branch_cleanup_failed:{type(exc).__name__}:{str(exc)[:300]}")
