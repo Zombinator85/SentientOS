@@ -470,7 +470,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
     freeze = workflow.split(
         "- name: Freeze exact hosted acceptance for PR landing finalization", 1
-    )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
+    )[1].split("- name: Restore generated test-run residue after evidence capture", 1)[0]
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in freeze
     assert "cp glow/test_runs/test_run_provenance.json" in freeze
     assert 'manifest["test_provenance_path"]' in freeze
@@ -480,15 +480,30 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
 
     cleanup = workflow.split(
         "- name: Restore generated test-run residue after evidence capture", 1
-    )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
+    )[1].split("- name: Reconstruct and verify exact hosted pre-commit state", 1)[0]
     assert '["git","restore","--",tracked]' in cleanup
     assert 'source[:12] not in target.name' in cleanup
     assert 'code != "??"' in cleanup
     assert "refusing to remove tracked provenance" in cleanup
 
+    precommit = workflow.split(
+        "- name: Reconstruct and verify exact hosted pre-commit state", 1
+    )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
+    assert 'git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"' in precommit
+    assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
+    assert "selected_node_ids" in precommit
+    assert 'len(nodes) != 29' in precommit
+    assert "--phase pre-commit" in precommit
+    assert "--validation-profile solo" in precommit
+    assert '--workspace-root "$PRECOMMIT_WORKSPACE"' in precommit
+    assert "--allow-current-tracked-changes" in precommit
+    assert "--allow-current-task-files" in precommit
+    assert 'decision.get("status") != "ready_to_commit"' in precommit
+    assert 'SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR"' in precommit
+
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
-    )[1].split("- name: Upload hosted privileged PR landing finalizer evidence", 1)[0]
+    )[1].split("- name: Verify pre-publication PR metadata guard", 1)[0]
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
     assert 'test "$(sudo -n id -u)" = "0"' in finalizer
     assert '"HOME=$HOME"' in finalizer
@@ -496,6 +511,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert "scripts/codex_finalize_landing.py finalize" in finalizer
     assert "--phase pr-metadata" in finalizer
     assert "--validation-profile solo" in finalizer
+    assert '--pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json"' in finalizer
     assert '--task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json"' in finalizer
     assert "--allow-generated-artifact-cleanup" in finalizer
     assert 'SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs"' in finalizer
@@ -504,11 +520,22 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'git log -1 --format=%s "$COMMIT_REF"' in finalizer
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
 
+    guard = workflow.split(
+        "- name: Verify pre-publication PR metadata guard", 1
+    )[1].split("- name: Upload hosted privileged PR landing finalizer evidence", 1)[0]
+    assert "scripts/codex_pr_metadata_guard.py verify" in guard
+    assert '--pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json"' in guard
+    assert '--pr-metadata-finalizer-json "$RUNNER_TEMP/codex-finalizer-pr-metadata.json"' in guard
+    assert '--matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json"' in guard
+    assert 'payload.get("status") != "pr_metadata_guard_ready"' in guard
+
     upload = workflow.split(
         "- name: Upload hosted privileged PR landing finalizer evidence", 1
     )[1]
     assert "if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))" in upload
     assert "codex-finalizer-pr-metadata.json" in upload
+    assert "codex-finalizer-pre-commit.json" in upload
+    assert "codex-pr-metadata-guard.json" in upload
     assert "acceptance-result.json" in upload
     assert "if-no-files-found: error" in upload
     permissions = workflow.split("permissions:", 1)[1].split("jobs:", 1)[0]
@@ -516,7 +543,11 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert workflow.index("Upload quality-gate evidence") < workflow.index(
         "Freeze exact hosted acceptance"
     ) < workflow.index("Restore generated test-run residue") < workflow.index(
+        "Reconstruct and verify exact hosted pre-commit state"
+    ) < workflow.index(
         "Complete hosted privileged PR landing finalization"
+    ) < workflow.index(
+        "Verify pre-publication PR metadata guard"
     )
 
 

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "72100ae7c1a7fb67169cc164a41e2918de8887bb301234dac72e3f5bb104d4e3",
-    "latest_segment_sequence": 388,
-    "latest_segment_sha256": "d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
-    "source_commit": "abd33e735064a068d00a4f344893ce30fb82cf14",
-    "source_tree": "acc822896c4b5e9f532c277c00799e350301c0c4"
+    "checkpoint_sha256": "dfd6ad758b3247f0cd311fb631eddda3982bc93c1c18177e5014fe1e0cc2c6c3",
+    "latest_segment_sequence": 389,
+    "latest_segment_sha256": "743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8",
+    "source_commit": "ef8609ceb96dc207432c2070bee6f0dcf0ba420a",
+    "source_tree": "b070bf198e4d8d3b72b1fdd9a2018243feaedacb"
   },
-  "checkpoint_sha256": "72100ae7c1a7fb67169cc164a41e2918de8887bb301234dac72e3f5bb104d4e3",
+  "checkpoint_sha256": "dfd6ad758b3247f0cd311fb631eddda3982bc93c1c18177e5014fe1e0cc2c6c3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 388,
+  "latest_sequence": 389,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4325,6 +4325,19 @@
       "sha256": "d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
       "source_commit": "abd33e735064a068d00a4f344893ce30fb82cf14",
       "source_tree": "acc822896c4b5e9f532c277c00799e350301c0c4"
+    },
+    {
+      "bytes": 1929,
+      "evidence": "work/construction/evidence/0389-hosted-prepublication-guard-in-required-quality-gate.json",
+      "evidence_bytes": 3583,
+      "evidence_path": "work/construction/evidence/0389-hosted-prepublication-guard-in-required-quality-gate.json",
+      "evidence_sha256": "2e4bafc29bc0570811ec54c69dbf88ff60f7fac2049e34656891b9b1da436fe6",
+      "path": "work/construction/segments/0389-hosted-prepublication-guard-in-required-quality-gate.md",
+      "predecessor": "segment-sha256:d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
+      "sequence": 389,
+      "sha256": "743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8",
+      "source_commit": "ef8609ceb96dc207432c2070bee6f0dcf0ba420a",
+      "source_tree": "b070bf198e4d8d3b72b1fdd9a2018243feaedacb"
     }
   ],
   "source_acquisition": {

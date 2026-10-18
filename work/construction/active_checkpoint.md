@@ -175,3 +175,10 @@ Latest segment SHA-256: `d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc
 Sequence: 388
 
 Hosted source-candidate parent at the sequence-388 follow-up: `abd33e735064a068d00a4f344893ce30fb82cf14`; tree `acc822896c4b5e9f532c277c00799e350301c0c4`.
+
+
+Sequence 389 adds the missing hosted pre-publication PR metadata verification path to Required Quality Gate. Locally, the exact workflow contract test passed; the related workflow/finalizer/metadata-guard test selection passed without failures (environment-dependent finalizer cases were skipped locally); YAML parsing, compilation, and diff checks passed. Construction custody passed through sequence 388 before this append. GitHub CI, actual Administrator precommit finalization, and the metadata guard for this new candidate remain pending and are not claimed. The exact candidate is based on verified construction head `ef8609ceb96dc207432c2070bee6f0dcf0ba420a`, tree `b070bf198e4d8d3b72b1fdd9a2018243feaedacb`; latest verified main is `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0389-hosted-prepublication-guard-in-required-quality-gate.md`
+Latest segment SHA-256: `743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8`
+Sequence: 389 (hosted verification pending)

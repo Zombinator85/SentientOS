@@ -149,6 +149,89 @@ jobs:
                   raise SystemExit(f"refusing to remove tracked provenance: {path}")
               target.unlink()
           PY
+      - name: Reconstruct and verify exact hosted pre-commit state
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(sudo -n id -u)" = "0"
+          COMMIT_REF="${PR_HEAD_SHA:-$GITHUB_SHA}"
+          COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
+          PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
+          test "$PR_TITLE" = "$COMMIT_TITLE"
+          PRECOMMIT_PARENT="$(git rev-parse "$COMMIT_REF^")"
+          PRECOMMIT_WORKSPACE="$RUNNER_TEMP/sentientos-precommit-workspace"
+          PRECOMMIT_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-tests"
+          PRECOMMIT_FINALIZER_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-finalizer-tests"
+          git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"
+          git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF" | git -C "$PRECOMMIT_WORKSPACE" apply --index
+          python -m pip install --no-deps --no-build-isolation -e "$PRECOMMIT_WORKSPACE"
+          python - "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \
+            "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT" "$PRECOMMIT_TEST_RUN_DIR" <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
+          candidate = json.loads(Path(source_provenance).read_text())
+          nodes = candidate.get("selected_node_ids")
+          if not isinstance(nodes, list) or len(nodes) != 29 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("hosted candidate acceptance must contain the exact 29 required nodes")
+          run_dir = Path(test_run_dir)
+          run_dir.mkdir(parents=True, exist_ok=True)
+          env = os.environ.copy()
+          env["SENTIENTOS_TEST_RUN_DIR"] = str(run_dir)
+          result = subprocess.run([sys.executable, "-m", "scripts.run_tests", "-q", *nodes],
+                                  cwd=workspace, env=env, check=False)
+          if result.returncode:
+              raise SystemExit(result.returncode)
+          provenance_path = run_dir / "test_run_provenance.json"
+          provenance = json.loads(provenance_path.read_text())
+          if provenance.get("repository_sha") != expected_head or provenance.get("validation_status") != "validation_complete":
+              raise SystemExit("pre-commit test provenance is not bound to the exact parent workspace")
+          selected = provenance.get("selected_node_ids")
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": expected_head,
+              "test_provenance_path": str(provenance_path),
+              "required_nodes": [{"node_id": node} for node in selected],
+              "successful_path_nodes": selected,
+          }
+          manifest_path = run_dir / "manifest.json"
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+          subprocess.run([sys.executable, "scripts/verify_task_acceptance.py", "--manifest", str(manifest_path),
+                          "--provenance", str(provenance_path), "--output", str(run_dir / "acceptance-result.json")],
+                         cwd=workspace, env={**env, "PYTHONPATH": workspace}, check=True)
+          PY
+          cd "$PRECOMMIT_WORKSPACE"
+          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$PRECOMMIT_WORKSPACE" \
+            SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR" \
+            python scripts/codex_finalize_landing.py finalize \
+              --phase pre-commit \
+              --validation-profile solo \
+              --title "$COMMIT_TITLE" \
+              --intended-commit-title "$COMMIT_TITLE" \
+              --workspace-root "$PRECOMMIT_WORKSPACE" \
+              --task-acceptance-manifest "$PRECOMMIT_TEST_RUN_DIR/manifest.json" \
+              --focused-test-command "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests" \
+              --allow-current-tracked-changes \
+              --allow-current-task-files \
+              --allow-generated-artifact-cleanup \
+              --output "$RUNNER_TEMP/codex-finalizer-pre-commit.json" \
+              --stage-timeout-seconds 1200 \
+              --overall-timeout-seconds 5400 \
+              --summary
+          python - "$RUNNER_TEMP/codex-finalizer-pre-commit.json" <<'PY'
+          import json, sys
+          payload=json.load(open(sys.argv[1]))
+          decision=payload.get("decision",{})
+          if decision.get("status") != "ready_to_commit":
+              raise SystemExit(f"hosted reconstructed pre-commit finalizer blocked: {decision.get('status')}")
+          PY
+          cd "$GITHUB_WORKSPACE"
+          python -m pip install --no-deps --no-build-isolation -e "$GITHUB_WORKSPACE"
+          git worktree remove --force "$PRECOMMIT_WORKSPACE"
       - name: Complete hosted privileged PR landing finalization
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
         env:
@@ -167,6 +250,7 @@ jobs:
               --validation-profile solo \
               --title "$PR_TITLE" \
               --intended-commit-title "$COMMIT_TITLE" \
+              --pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json" \
               --task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json" \
               --focused-test-command "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests" \
               --allow-generated-artifact-cleanup \
@@ -174,6 +258,32 @@ jobs:
               --stage-timeout-seconds 1200 \
               --overall-timeout-seconds 5400 \
               --summary
+      - name: Verify pre-publication PR metadata guard
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          COMMIT_REF="${PR_HEAD_SHA:-HEAD}"
+          COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
+          PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
+          test "$PR_TITLE" = "$COMMIT_TITLE"
+          PYTHONPATH="$GITHUB_WORKSPACE" python scripts/codex_pr_metadata_guard.py verify \
+            --title "$PR_TITLE" \
+            --intended-commit-title "$COMMIT_TITLE" \
+            --pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json" \
+            --pr-metadata-finalizer-json "$RUNNER_TEMP/codex-finalizer-pr-metadata.json" \
+            --matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json" \
+            --workspace-root "$GITHUB_WORKSPACE" \
+            > "$RUNNER_TEMP/codex-pr-metadata-guard.json"
+          python - "$RUNNER_TEMP/codex-pr-metadata-guard.json" <<'PY'
+          import json, sys
+          payload=json.load(open(sys.argv[1]))
+          if payload.get("status") != "pr_metadata_guard_ready":
+              raise SystemExit(f"pre-publication metadata guard blocked: {payload.get('status')} {payload.get('reasons')}")
+          print(f"Codex PR metadata guard decision: {payload['status']}")
+          PY
       - name: Upload hosted privileged PR landing finalizer evidence
         if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))
         uses: actions/upload-artifact@v4
@@ -181,8 +291,13 @@ jobs:
           name: hosted-privileged-pr-landing-finalizer
           path: |
             ${{ runner.temp }}/codex-finalizer-pr-metadata.json
+            ${{ runner.temp }}/codex-finalizer-pre-commit.json
+            ${{ runner.temp }}/codex-pr-metadata-guard.json
             ${{ runner.temp }}/sentientos-landing-acceptance/manifest.json
             ${{ runner.temp }}/sentientos-landing-acceptance/provenance.json
             ${{ runner.temp }}/sentientos-landing-acceptance/acceptance-result.json
+            ${{ runner.temp }}/sentientos-precommit-tests/manifest.json
+            ${{ runner.temp }}/sentientos-precommit-tests/test_run_provenance.json
+            ${{ runner.temp }}/sentientos-precommit-tests/acceptance-result.json
           if-no-files-found: error
 
