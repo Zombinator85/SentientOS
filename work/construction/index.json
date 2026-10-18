@@ -1,20 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "96fbb148acebbbcff6332656043054f35e47cf43f10094a842bddb42b7778dfb",
-    "latest_segment_sequence": 402,
-    "latest_segment_sha256": "d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae",
-    "source_commit": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
-    "source_tree": "5075600c1029318d8881aa6e5f0f09b80093591c"
+    "checkpoint_sha256": "ea4bd4281afac7399767fcaf01bec112d3beb8b5577133324531ade08bdeb888",
+    "latest_segment_sequence": 403,
+    "latest_segment_sha256": "33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb",
+    "source_commit": "aa9235ca50057ab508e077892cbd2f2f37b54415",
+    "source_tree": "c6299ce5f39dbf8da3376d3ef27b7766e0c507bd",
+    "latest_sequence": null
   },
-  "checkpoint_sha256": "96fbb148acebbbcff6332656043054f35e47cf43f10094a842bddb42b7778dfb",
+  "checkpoint_sha256": "ea4bd4281afac7399767fcaf01bec112d3beb8b5577133324531ade08bdeb888",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 402,
+  "latest_sequence": 403,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4507,6 +4508,18 @@
       "sha256": "d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae",
       "source_commit": "128a8410890d57d2d52b797b488e7e11dcd41c9a",
       "source_tree": "5075600c1029318d8881aa6e5f0f09b80093591c"
+    },
+    {
+      "sequence": 403,
+      "path": "work/construction/segments/0403-enforce-construction-custody-in-ci.md",
+      "bytes": 2618,
+      "sha256": "33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb",
+      "predecessor": "segment-sha256:d64ad9535191b45284bc31158b11b78034248d575e9a097b4e5a8a9c4d31e4ae",
+      "evidence_path": "work/construction/evidence/0403-enforce-construction-custody-in-ci.json",
+      "evidence_bytes": 5852,
+      "evidence_sha256": "76df6a78c799b77e2bd15ad7012fd0259398a248ae6c99330fef4357528a966d",
+      "source_commit": "aa9235ca50057ab508e077892cbd2f2f37b54415",
+      "source_tree": "c6299ce5f39dbf8da3376d3ef27b7766e0c507bd"
     }
   ],
   "source_acquisition": {
