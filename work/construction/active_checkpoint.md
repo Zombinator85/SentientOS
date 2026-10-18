@@ -272,3 +272,10 @@ Sequence 403 records PR #2374's regular merge as current main `aa9235ca50057ab50
 Latest construction segment: `work/construction/segments/0403-enforce-construction-custody-in-ci.md`
 Latest segment SHA-256: `33c4e34ab2b9501ae7113dff11aae8e2250f2615a2ca3bd9c054ff37ae13f0cb`
 Sequence: 403 (local custody checks passed; hosted CI pending)
+
+
+Sequence 404 records the CI artifact-staging fix: uploaded JUnit and failure-digest files are selected from current, post-cutoff provenance and bound by hash; historical wildcard collection is removed. Its focused canonical suite passed 44/44 with zero skips, the Mypy baseline had zero new errors, and the existing 403-record custody chain passed. The exact candidate still requires hosted verification. Its source base is main commit `e53c3219c431c9c11de6bf40a764d3913fba1f57`, tree `30075ab4c789356cb647dcc528845af06db4c030`. Sequence 403 post-merge main checks have now all completed successfully (Required Quality Gate, CI, Docker, invariants, Docs Deploy, Codex CI); Forge Smoke remained skipped by configured opt-in.
+
+Latest construction segment: `work/construction/segments/0404-bind-ci-test-artifacts-to-current-provenance.md`
+Latest segment SHA-256: 59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b
+Sequence: 404 (local source validation passed; hosted exact-candidate verification pending)

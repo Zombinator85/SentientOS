@@ -310,7 +310,11 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "continue-on-error" not in source
     assert "|| true" not in source
     assert ".ci-runtime/governor" in source
-    assert "runner.temp" not in ci
+    assert ci.count("${{ runner.temp }}/sentientos-test-artifacts/*") == 2
+    assert ci.count('RUNNER_TEMP/sentientos-test-artifacts') == 2
+    assert "runner.temp" not in ci.replace(
+        "${{ runner.temp }}/sentientos-test-artifacts/*", ""
+    )
     # CI installs the lock without invoking the privilege-gated repair script;
     # equivalent static checks and the full test suite run in later steps.
     self_check = ci.split("  self-check:", 1)[1].split("  docs:", 1)[0]
@@ -333,6 +337,31 @@ def test_ci_source_validation_verifies_append_only_construction_custody() -> Non
     assert "Verify append-only construction custody" in source
     assert "python scripts/verify_construction_continuation_custody.py --repo-root . --summary" in source
     assert source.index("Verify append-only construction custody") < source.index("Install canonical test airlock")
+
+
+def test_ci_uploads_only_test_artifacts_bound_by_current_provenance() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "glow/test_runs/pytest_junitxml*.xml" not in ci
+    assert "scripts/stage_current_test_artifacts.py" in ci
+    assert "tests/test_stage_current_test_artifacts.py" in ci
+    for job_name, upload_name in (
+        ("source-validation", "Upload canonical test evidence"),
+        ("self-check", "Upload test failure digest artifacts"),
+    ):
+        job = ci.split(f"  {job_name}:", 1)[1]
+        if job_name == "source-validation":
+            job = job.split("  self-check:", 1)[0]
+        else:
+            job = job.split("  docs:", 1)[0]
+        stage = job.index("Stage current test-run artifacts")
+        upload = job.index(upload_name)
+        marker = job.index("Mark current test-run provenance cutoff")
+        assert stage < upload
+        assert marker < job.index("Install canonical test airlock")
+        assert '--output-dir "$RUNNER_TEMP/sentientos-test-artifacts"' in job
+        assert '--expected-repository-sha "$GITHUB_SHA"' in job
+        assert '--started-after "$RUNNER_TEMP/sentientos-test-run-started"' in job
+        assert "${{ runner.temp }}/sentientos-test-artifacts/*" in job[upload:]
 
 
 def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> None:

@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Mark current test-run provenance cutoff
+        run: touch "$RUNNER_TEMP/sentientos-test-run-started"
       - name: Verify append-only construction custody
         run: python scripts/verify_construction_continuation_custody.py --repo-root . --summary
       - name: Install canonical test airlock
@@ -91,6 +93,7 @@ jobs:
             tests/test_run_tests_bootstrap_airlock.py \
             tests/test_task_acceptance_verifier.py \
             tests/test_github_hosted_acceptance_workflows.py \
+            tests/test_stage_current_test_artifacts.py \
             tests/test_import_inertness_verifier.py \
             tests/integrity/test_import_purity.py
       - name: Verify exact resource-to-cognition acceptance nodes
@@ -200,6 +203,14 @@ jobs:
             --manifest glow/test_runs/canonical_planning_acceptance.json \
             --provenance glow/test_runs/canonical_planning_provenance.json \
             --output glow/test_runs/canonical_planning_acceptance_result.json
+      - name: Stage current test-run artifacts
+        if: always()
+        run: >-
+          python scripts/stage_current_test_artifacts.py
+          --repo-root .
+          --output-dir "$RUNNER_TEMP/sentientos-test-artifacts"
+          --expected-repository-sha "$GITHUB_SHA"
+          --started-after "$RUNNER_TEMP/sentientos-test-run-started"
       - name: Upload canonical test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -208,8 +219,7 @@ jobs:
           path: |
             glow/test_runs/test_run_provenance.json
             glow/test_runs/provenance/*.json
-            glow/test_runs/test_failure_digest.json
-            glow/test_runs/pytest_junitxml*.xml
+            ${{ runner.temp }}/sentientos-test-artifacts/*
             glow/test_runs/source_validation_acceptance.json
             glow/test_runs/source_validation_acceptance_result.json
             glow/test_runs/world_state_contracts_provenance.json
@@ -254,6 +264,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Mark current test-run provenance cutoff
+        run: touch "$RUNNER_TEMP/sentientos-test-run-started"
 
       - name: Install canonical test airlock
         run: |
@@ -622,14 +634,21 @@ jobs:
             glow/test_runs/test_run_provenance.json
             glow/test_runs/provenance/*.json
 
+      - name: Stage current test-run artifacts
+        if: always()
+        run: >-
+          python scripts/stage_current_test_artifacts.py
+          --repo-root .
+          --output-dir "$RUNNER_TEMP/sentientos-test-artifacts"
+          --expected-repository-sha "$GITHUB_SHA"
+          --started-after "$RUNNER_TEMP/sentientos-test-run-started"
       - name: Upload test failure digest artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test_failure_digest_${{ github.run_id }}_${{ github.job }}
           path: |
-            glow/test_runs/test_failure_digest.json
-            glow/test_runs/pytest_junitxml*.xml
+            ${{ runner.temp }}/sentientos-test-artifacts/*
           if-no-files-found: ignore
 
       - name: Upload test trend report

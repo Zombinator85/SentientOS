@@ -1,0 +1,404 @@
+{
+  "append_only": true,
+  "change": {
+    "artifact_scope": [
+      "current-run JUnit XML",
+      "current-run failure digest when recorded"
+    ],
+    "binding": {
+      "expected_repository_sha": "GITHUB_SHA",
+      "freshness": "provenance mtime must be later than a per-job RUNNER_TEMP cutoff",
+      "manifest_sha256_binding": true,
+      "path_root": "glow/test_runs/"
+    },
+    "files": [
+      ".github/workflows/ci.yml",
+      "scripts/stage_current_test_artifacts.py",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "tests/test_stage_current_test_artifacts.py"
+    ],
+    "production_inference": false,
+    "provider_invoked": false,
+    "repository_write_authority_added": false,
+    "runtime_authority_added": false,
+    "stale_historical_globs_removed": [
+      "glow/test_runs/pytest_junitxml*.xml"
+    ],
+    "workflows": [
+      "source-validation",
+      "self-check"
+    ]
+  },
+  "hosted_verification": {
+    "exact_candidate_required": true,
+    "status": "pending"
+  },
+  "local_verification": {
+    "canonical_test_run": {
+      "command": "python -m scripts.run_tests -q tests/test_stage_current_test_artifacts.py tests/test_github_hosted_acceptance_workflows.py",
+      "junitxml_bytes": 6936,
+      "junitxml_raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?><testsuites name=\"pytest tests\"><testsuite name=\"pytest\" errors=\"0\" failures=\"0\" skipped=\"0\" tests=\"44\" time=\"0.953\" timestamp=\"2026-10-18T21:44:42.204201+00:00\" hostname=\"bd0bd410e58a\"><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_only_artifacts_bound_by_current_provenance_are_staged\" time=\"0.014\" /><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_missing_current_artifact_does_not_retain_previous_staged_xml\" time=\"0.001\" /><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_artifact_paths_cannot_escape_the_test_run_directory\" time=\"0.001\" /><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_stale_provenance_is_not_staged_even_when_its_artifact_still_exists\" time=\"0.001\" /><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_provenance_for_a_different_source_revision_is_not_staged\" time=\"0.001\" /><testcase classname=\"tests.test_stage_current_test_artifacts\" name=\"test_invalid_current_provenance_fails_closed\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_devcontainer_uses_private_virtualenv\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_disabled_accelerator_performs_no_setup\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_release_pr_validation_installs_project_without_publishing\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_runs_and_verifies_real_tests\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_runs_on_construction_candidate_pushes\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope\" time=\"0.020\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_federation_health_schedule_avoids_top_of_hour_load_spike\" time=\"0.012\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_scheduled_workflows_do_not_collide_by_minute_and_hour\" time=\"0.088\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_governor_and_federation_test_roots_are_set_before_project_imports\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_nightly_self_check_installs_canonical_test_dependencies\" time=\"0.005\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access\" time=\"0.006\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_name_is_unique\" time=\"0.002\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_uses_minimal_dependency_bootstrap\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_runs_diagnostic_import_smoke\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_uploads_import_smoke_evidence\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_runs_exact_nodes_after_import_smoke\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_uploads_pytest_bootstrap_evidence\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_invariant_and_helm_jobs_install_the_canonical_test_airlock\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_ci_adds_separate_unprivileged_canonical_lifecycle_validation\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_ci_source_validation_verifies_append_only_construction_custody\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_ci_uploads_only_test_artifacts_bound_by_current_provenance\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_github_mypy_jobs_use_the_repository_baseline_ratchet\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_pre_commit_uses_canonical_read_only_checks\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_smoke_job_conditions_use_supported_explicit_opt_in_contexts\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_source_validation_verifies_exact_provenance_acceptance_nodes\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_privilege_lint_workflows_use_read_only_mode\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_nightly_workflows_have_path_scoped_main_push_triggers\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_dev_extra_includes_runtime_dependency_used_by_privilege_lint\" time=\"0.001\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_federation_health_fixture_keeps_generator_read_only_and_cleans_up\" time=\"0.018\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed\" time=\"0.435\" /><testcase classname=\"tests.test_github_hosted_acceptance_workflows\" name=\"test_post_merge_feedback_uses_only_pull_request_comment_authority\" time=\"0.002\" /></testsuite></testsuites>",
+      "junitxml_sha256": "397244acd27361eb1aae9dd6f2b9f76c316c3bbcc88aab5a25c72e7bf5fd4972",
+      "provenance_raw_json": "{\n  \"allow_no_tests\": false,\n  \"allow_nonexecution\": false,\n  \"behavioral_witness_count\": 0,\n  \"behavioral_witness_counts_by_node\": {\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_source_validation_verifies_append_only_construction_custody\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_uploads_only_test_artifacts_bound_by_current_provenance\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_dev_extra_includes_runtime_dependency_used_by_privilege_lint\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_keeps_generator_read_only_and_cleans_up\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_schedule_avoids_top_of_hour_load_spike\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_governor_and_federation_test_roots_are_set_before_project_imports\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_installs_canonical_test_dependencies\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_workflows_have_path_scoped_main_push_triggers\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_post_merge_feedback_uses_only_pull_request_comment_authority\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_scheduled_workflows_do_not_collide_by_minute_and_hour\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts\": 0,\n    \"tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_artifact_paths_cannot_escape_the_test_run_directory\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_invalid_current_provenance_fails_closed\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_missing_current_artifact_does_not_retain_previous_staged_xml\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_only_artifacts_bound_by_current_provenance_are_staged\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_provenance_for_a_different_source_revision_is_not_staged\": 0,\n    \"tests/test_stage_current_test_artifacts.py::test_stale_provenance_is_not_staged_even_when_its_artifact_still_exists\": 0\n  },\n  \"behavioral_witness_digest\": \"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\n  \"behavioral_witness_reporter_status\": \"complete\",\n  \"behavioral_witnesses\": [],\n  \"budget_allow_violation\": false,\n  \"budget_thresholds\": {\n    \"max_skip_rate\": 0.2,\n    \"max_xfail_rate\": 0.1,\n    \"min_passed\": 1\n  },\n  \"budget_violations\": [],\n  \"bypass_env\": false,\n  \"call_phase_outcome_count\": 44,\n  \"canonical_requirements_path\": \"requirements-codex.txt\",\n  \"collection_completed\": true,\n  \"collection_error\": false,\n  \"collection_started\": true,\n  \"editable_ok\": true,\n  \"editable_reason\": \"direct-url\",\n  \"execution_mode\": \"execute\",\n  \"full_capability_dependencies_requested\": false,\n  \"git_sha\": \"fd2221cf8fdcfc125b349b633efec6ddd0ea8a7b\",\n  \"hash_algo\": \"sha256\",\n  \"install_attempted_modes\": [],\n  \"install_fallback_reason\": null,\n  \"install_mode\": \"none\",\n  \"install_performed\": false,\n  \"junitxml_path\": \"/tmp/sentientos-seq404-verified-runs/pytest_junitxml_e3f6b8ba437a49fc94cd1aa53a90192e.xml\",\n  \"metrics_status\": \"ok\",\n  \"node_outcomes\": [\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_only_artifacts_bound_by_current_provenance_are_staged\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_missing_current_artifact_does_not_retain_previous_staged_xml\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_artifact_paths_cannot_escape_the_test_run_directory\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_stale_provenance_is_not_staged_even_when_its_artifact_still_exists\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_provenance_for_a_different_source_revision_is_not_staged\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_stage_current_test_artifacts.py::test_invalid_current_provenance_fails_closed\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_schedule_avoids_top_of_hour_load_spike\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_scheduled_workflows_do_not_collide_by_minute_and_hour\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_governor_and_federation_test_roots_are_set_before_project_imports\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_installs_canonical_test_dependencies\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_ci_source_validation_verifies_append_only_construction_custody\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_ci_uploads_only_test_artifacts_bound_by_current_provenance\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_workflows_have_path_scoped_main_push_triggers\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_dev_extra_includes_runtime_dependency_used_by_privilege_lint\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_keeps_generator_read_only_and_cleans_up\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    },\n    {\n      \"node_id\": \"tests/test_github_hosted_acceptance_workflows.py::test_post_merge_feedback_uses_only_pull_request_comment_authority\",\n      \"outcome\": \"passed\",\n      \"phase\": \"call\"\n    }\n  ],\n  \"non_execution_flags\": [],\n  \"prev_provenance_hash\": null,\n  \"provenance_hash\": \"0a26d18d730747d5c68450c5aacdaafff2240e7715cdd3c6091ccb2cc42fa71d\",\n  \"pytest_args\": [\n    \"tests/test_stage_current_test_artifacts.py\",\n    \"tests/test_github_hosted_acceptance_workflows.py\",\n    \"-q\"\n  ],\n  \"pytest_exit_code\": 0,\n  \"python\": \"/tmp/sentientos-seq404-venv/bin/python\",\n  \"repo_root\": \"/tmp/SentientOS-seq404\",\n  \"reporter_error\": null,\n  \"reporter_loaded\": true,\n  \"reporter_ok\": true,\n  \"reporter_status\": \"complete\",\n  \"run_id\": \"0ce46d4e8f824b1687846923edfe56c9\",\n  \"run_intent\": \"targeted\",\n  \"schema_version\": 1,\n  \"selected_node_ids\": [\n    \"tests/test_stage_current_test_artifacts.py::test_only_artifacts_bound_by_current_provenance_are_staged\",\n    \"tests/test_stage_current_test_artifacts.py::test_missing_current_artifact_does_not_retain_previous_staged_xml\",\n    \"tests/test_stage_current_test_artifacts.py::test_artifact_paths_cannot_escape_the_test_run_directory\",\n    \"tests/test_stage_current_test_artifacts.py::test_stale_provenance_is_not_staged_even_when_its_artifact_still_exists\",\n    \"tests/test_stage_current_test_artifacts.py::test_provenance_for_a_different_source_revision_is_not_staged\",\n    \"tests/test_stage_current_test_artifacts.py::test_invalid_current_provenance_fails_closed\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_schedule_avoids_top_of_hour_load_spike\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_scheduled_workflows_do_not_collide_by_minute_and_hour\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_governor_and_federation_test_roots_are_set_before_project_imports\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_self_check_installs_canonical_test_dependencies\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uses_minimal_dependency_bootstrap\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_diagnostic_import_smoke\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_import_smoke_evidence\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_uploads_pytest_bootstrap_evidence\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_invariant_and_helm_jobs_install_the_canonical_test_airlock\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_adds_separate_unprivileged_canonical_lifecycle_validation\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_source_validation_verifies_append_only_construction_custody\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_ci_uploads_only_test_artifacts_bound_by_current_provenance\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_github_mypy_jobs_use_the_repository_baseline_ratchet\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_pre_commit_uses_canonical_read_only_checks\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_source_validation_verifies_exact_provenance_acceptance_nodes\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_privilege_lint_workflows_use_read_only_mode\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_nightly_workflows_have_path_scoped_main_push_triggers\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_dev_extra_includes_runtime_dependency_used_by_privilege_lint\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_keeps_generator_read_only_and_cleans_up\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed\",\n    \"tests/test_github_hosted_acceptance_workflows.py::test_post_merge_feedback_uses_only_pull_request_comment_authority\"\n  ],\n  \"selection_flags\": [\n    \"tests/test_stage_current_test_artifacts.py\",\n    \"tests/test_github_hosted_acceptance_workflows.py\"\n  ],\n  \"session_finish_reached\": true,\n  \"skip_rate\": 0.0,\n  \"tests_collected\": 44,\n  \"tests_executed\": 44,\n  \"tests_failed\": 0,\n  \"tests_passed\": 44,\n  \"tests_selected\": 44,\n  \"tests_skipped\": 0,\n  \"tests_xfailed\": 0,\n  \"tests_xpassed\": 0,\n  \"timestamp\": \"2026-10-18T21:44:43.334692+00:00\",\n  \"validation_complete\": true,\n  \"validation_status\": \"validation_complete\",\n  \"xfail_rate\": 0.0\n}\n",
+      "provenance_sha256": "2a542298853e9b61fe4d4d3fd7d0e37b56200033e984b32066943f8dc291375e",
+      "python_version": "3.12",
+      "source_commit": "fd2221cf8fdcfc125b349b633efec6ddd0ea8a7b",
+      "source_tree": "c080840587cdcd9516eebb0e83a2c6501ef4312e",
+      "status": "validation_complete",
+      "tests_collected": 44,
+      "tests_executed": 44,
+      "tests_failed": 0,
+      "tests_passed": 44,
+      "tests_skipped": 0
+    },
+    "construction_custody": "passed: 403 contiguous records, zero failures",
+    "git_diff_check": "passed",
+    "mypy_baseline": {
+      "affected_new_files": [],
+      "baseline": "vow/mypy_baseline.json",
+      "baseline_digest": "20201c39f7b73e3b9e07bd76d5454365a2204a120a9de96c4ab56a64bac748a9",
+      "drifted_files": [
+        "scripts/audit_immutability_verifier.py",
+        "scripts/quarantine_clear.py",
+        "scripts/verify_audits.py",
+        "sentientos/attestation_snapshot.py",
+        "sentientos/auto_remediation.py",
+        "sentientos/cathedral_forge.py",
+        "sentientos/consciousness/integration.py",
+        "sentientos/consciousness/sentience_kernel.py",
+        "sentientos/embodiment_proposal_diagnostic.py",
+        "sentientos/embodiment_proposal_review.py",
+        "sentientos/first_boot.py",
+        "sentientos/forge_daemon.py",
+        "sentientos/forge_index.py",
+        "sentientos/forge_queue.py",
+        "sentientos/goal_completion.py",
+        "sentientos/integrity_controller.py",
+        "sentientos/integrity_pressure.py",
+        "sentientos/remediation_pack.py",
+        "sentientos/start.py",
+        "sentientos/strategic_adaptation.py"
+      ],
+      "matched_existing_errors": 1050,
+      "matched_with_location_drift": 108,
+      "mypy_command": [
+        "python",
+        "-m",
+        "mypy",
+        "--config-file",
+        "pyproject.toml",
+        "--python-version",
+        "3.11",
+        "--no-site-packages",
+        "--no-incremental",
+        "--hide-error-context",
+        "--no-color-output",
+        "--show-column-numbers",
+        "--show-error-codes",
+        "scripts/",
+        "sentientos/"
+      ],
+      "new_errors": 0,
+      "retired_error_records": [
+        {
+          "code": "call-overload",
+          "column": 31,
+          "line": 168,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/attestation_snapshot.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 32,
+          "line": 178,
+          "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+          "path": "sentientos/consciousness/sentience_kernel.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 32,
+          "line": 197,
+          "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+          "path": "sentientos/consciousness/sentience_kernel.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 40,
+          "line": 206,
+          "message": "Argument 2 to \"emit_goal_event\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+          "path": "sentientos/consciousness/sentience_kernel.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 28,
+          "line": 218,
+          "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+          "path": "sentientos/consciousness/sentience_kernel.py"
+        },
+        {
+          "code": "assignment",
+          "column": 34,
+          "line": 134,
+          "message": "Incompatible types in assignment (expression has type \"dict[str, str]\", variable has type \"dict[str, object] | None\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "no-redef",
+          "column": 9,
+          "line": 140,
+          "message": "Name \"summary\" already defined on line 133",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "assignment",
+          "column": 30,
+          "line": 168,
+          "message": "Incompatible types in assignment (expression has type \"list[dict[str, object]]\", target has type \"str\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "assignment",
+          "column": 28,
+          "line": 171,
+          "message": "Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"str\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "assignment",
+          "column": 33,
+          "line": 174,
+          "message": "Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"str\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "assignment",
+          "column": 29,
+          "line": 183,
+          "message": "Incompatible types in assignment (expression has type \"list[dict[str, Sequence[str]]]\", target has type \"str\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "assignment",
+          "column": 30,
+          "line": 201,
+          "message": "Incompatible types in assignment (expression has type \"dict[str, str]\", variable has type \"dict[str, object] | None\")",
+          "path": "sentientos/first_boot.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 127,
+          "line": 206,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/forge_index.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 56,
+          "line": 390,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/forge_index.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 29,
+          "line": 99,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/goal_completion.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 55,
+          "line": 140,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/goal_completion.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 29,
+          "line": 187,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/goal_completion.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 50,
+          "line": 147,
+          "message": "Argument 2 to \"_deterministic_progress\" has incompatible type \"list[CompletionResult]\"; expected \"list[object]\"",
+          "path": "sentientos/goal_executor.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 50,
+          "line": 270,
+          "message": "Argument 1 to \"_goal_state_summary\" has incompatible type \"dict[str, GoalStateRecord]\"; expected \"dict[str, object]\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 38,
+          "line": 314,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 20,
+          "line": 318,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 70,
+          "line": 404,
+          "message": "No overload variant of \"list\" matches argument type \"object\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 72,
+          "line": 405,
+          "message": "No overload variant of \"list\" matches argument type \"object\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "assignment",
+          "column": 48,
+          "line": 406,
+          "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"dict[str, object]\")",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "index",
+          "column": 37,
+          "line": 420,
+          "message": "Value of type \"object\" is not indexable",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "assignment",
+          "column": 35,
+          "line": 441,
+          "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"str\")",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "assignment",
+          "column": 35,
+          "line": 442,
+          "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"str | None\")",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 38,
+          "line": 443,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 37,
+          "line": 589,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "arg-type",
+          "column": 43,
+          "line": 590,
+          "message": "Argument 1 to \"len\" has incompatible type \"object\"; expected \"Sized\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 16,
+          "line": 680,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 96,
+          "line": 681,
+          "message": "\"object\" has no attribute \"get\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 24,
+          "line": 859,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/orchestrator.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 24,
+          "line": 633,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "index",
+          "column": 35,
+          "line": 638,
+          "message": "Value of type \"object\" is not indexable",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "index",
+          "column": 35,
+          "line": 640,
+          "message": "Value of type \"object\" is not indexable",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 34,
+          "line": 645,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "call-overload",
+          "column": 24,
+          "line": 829,
+          "message": "No overload variant of \"int\" matches argument type \"object\"",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "attr-defined",
+          "column": 55,
+          "line": 849,
+          "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+          "path": "sentientos/strategic_adaptation.py"
+        },
+        {
+          "code": "union-attr",
+          "column": 54,
+          "line": 156,
+          "message": "Item \"None\" of \"Any | dict[Any, Any] | None\" has no attribute \"items\"",
+          "path": "sentientos/work_plan.py"
+        }
+      ],
+      "retired_errors": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "python_compile": "passed"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2506,
+  "segment_path": "work/construction/segments/0404-bind-ci-test-artifacts-to-current-provenance.md",
+  "segment_sha256": "59eb74a14683896fb13fd69a80ace735f340115553e07604bc16d7e253dcd79b",
+  "sequence": 404,
+  "source": {
+    "bootstrap_status": "ready",
+    "bootstrap_task_slug": "ci_current_test_artifact_provenance",
+    "commit_title": "[codex:ci] bind test artifacts to run provenance",
+    "local_verification_commit": "fd2221cf8fdcfc125b349b633efec6ddd0ea8a7b",
+    "local_verification_tree": "c080840587cdcd9516eebb0e83a2c6501ef4312e",
+    "parent_commit": "e53c3219c431c9c11de6bf40a764d3913fba1f57",
+    "parent_tree": "30075ab4c789356cb647dcc528845af06db4c030"
+  },
+  "title": "Bind uploaded CI test artifacts to current provenance"
+}
