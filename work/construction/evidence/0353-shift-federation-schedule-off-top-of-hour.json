@@ -1,0 +1,51 @@
+{
+  "candidate": {
+    "base_commit": "9b0595f2384a70f8b2540240b157b90061368104",
+    "base_tree": "963912b175a6ea1f0191fcdc7d57fe24e63af345",
+    "commit": "7f78fc7710589a6a8821cd83cf26f60a3959649e",
+    "pr_number": 2344,
+    "tree": "9b614a81ad2474a9f7ff27da9d1752131a1f9448"
+  },
+  "continuation": {
+    "predecessor_segment_sha256": "0e906e62fad8734cc579e1ebd4da57414b904d7ff868c6117c095a3aa7c1e35f",
+    "segment_path": "work/construction/segments/0353-shift-federation-schedule-off-top-of-hour.md",
+    "sequence": 353,
+    "source_commit": "9b0595f2384a70f8b2540240b157b90061368104",
+    "source_tree": "963912b175a6ea1f0191fcdc7d57fe24e63af345"
+  },
+  "historical_scheduled_run": {
+    "artifact_id": "12098768757",
+    "artifact_sha256": "e31d836617954fbd9775efad4e6c3abd548f5009078de870f323b3b9d1b80475",
+    "conclusion": "success",
+    "event": "schedule",
+    "head_sha": "f0564c9f780e1f86a53e84348ec4a4a9534c0e48",
+    "node_count": 1,
+    "publisher_result": "no_pr_report_matches_main",
+    "recent_events": 0,
+    "run_id": "39028288072",
+    "status": "quiet"
+  },
+  "local_validation": {
+    "compileall": "passed",
+    "diff_check": "passed",
+    "pytest_nodes": 34,
+    "pytest_status": "passed",
+    "repository_test_runner": "passed"
+  },
+  "operational_status": {
+    "changed_output_fixture": "not_run",
+    "current_source_scheduled_execution": "not_yet_verified",
+    "workflow_dispatch_connector": "unavailable"
+  },
+  "superseded_candidate_attempt": {
+    "qg_run_id": "39099404706",
+    "qg_result": "failed_finalizer_pr_title_commit_subject_mismatch",
+    "rerun_result": "failed_original_event_title_retained"
+  },
+  "workflow_change": {
+    "new_cron": "17 * * * *",
+    "permissions_unchanged": true,
+    "old_cron": "0 * * * *"
+  },
+  "schema_version": 1
+}
