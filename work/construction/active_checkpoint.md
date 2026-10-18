@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Latest verified `main`: `5de59c31961fb05c2200ffad7469f8080d82b2b8`, tree `c6c54dce7925b2b0216861d1885a623b5124fe40`. PR #2349 merged normally with both parents preserved and a verified GitHub signature. Exact-main Required Quality Gate, full CI, Docker, invariants, Docs Deploy, and Codex CI passed; Forge Smoke was skipped by configured condition. Strict Administrator verification and audit immutability passed on exact main. Sequence 359 binds these results.
+Latest verified `main`: `cd245f623e82cad39265f3c7506d28ca8a88cc4c`, tree `694478da6c2681b98ca172fb851aec224d3370c2`. PR #2350 merged normally with both parents preserved and GitHub signature verified. Exact-main QG, CI, Docker, invariants, Docs Deploy, and Codex CI passed; Forge Smoke was skipped by its configured condition. Sequence 359 binds the merge and exact-main checks.
 
-The corrected Nightly Audit Integrity and Nightly Self Check workflows passed on a main push at `e3011573c2eb05c1a4dfbf9a142f5376823d515c`; current-main workflow blobs match those tested. The audit workflow skipped its conditional repair job, so no repair write occurred. These are push-triggered validations, not scheduled-run evidence. Historical scheduled failures occurred on older source.
+The corrected Nightly Audit Integrity and Nightly Self Check passed push-triggered validations on `e3011573c2eb05c1a4dfbf9a142f5376823d515c`; current workflow blobs match. Scheduled current-main runs remain pending: next at 03:41Z and 04:37Z on 2026-10-19. Strict Administrator requirements remain intact and no repair write occurred.
 
-Federation Health is configured for minute 17 hourly. No current-main scheduled run was observed as of 06:50:15 UTC; the next recurrence is 07:17 UTC. The latest visible scheduled execution is still on older source. The report uses historical committed telemetry through 2025-06-05 and does not establish live federation activity. The changed-output fixture still requires an operator-started `publication_fixture=true` dispatch.
+Federation Health is configured for minute 17 hourly (`0c61426532cd1a99f1c58565a6d8fb7fd52b0617`). No run on current main was observed for the 07:17Z recurrence by `2026-10-18T08:12:09Z` (55 minutes). Latest visible scheduled run `39083395122` is older-source `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`, success; its hash-verified artifact is historical telemetry (1 node, 0 recent events, quiet). The 08:17Z recurrence remains pending. The changed-output fixture is implemented as a `workflow_dispatch`-only labeled draft PR and cleanup gate, but it has not been dispatched. Connector has no dispatch operation; local GitHub CLI token is invalid; operator action was requested.
 
-The next claim-bearing bridge remains production temporal resident A-to-B-to-A evidence, requiring exact commissioned hardened A/B identities and receipts, distinct external approvals, and operator-approved preregistration. No production inference or effect was initiated. Preserve sequence-286 provenance-loss evidence and the untouched sequence-178 workspace.
+The architecture reassessment confirms resident transition composition and identity/provenance/history-boundary guards are already implemented. The next developmental evidence dependency is a real production temporal resident A→B→A campaign with exact commissioned identities/receipts, distinct external approvals, and operator-approved preregistration. No production inference or effect was initiated.
 
-Latest construction segment: `work/construction/segments/0359-verify-sequence358-merge-main-and-nightly-workflows.md`
-Latest segment SHA-256: `d34aa0b0889371884a34d44d72e3ba72490b37da1a4613a8772931763c652601`
-Sequence: 359
+Preserve sequence-286 provenance-loss evidence and the untouched sequence-178 workspace.
+
+Latest construction segment: `work/construction/segments/0360-verify-current-main-federation-schedule-and-publication-path.md`
+Latest segment SHA-256: `acd5b8cfd636c0d77abafd4c2ce4185aba06afe56365230a4399a0e59b8b634e`
+Sequence: 360
