@@ -1,0 +1,103 @@
+{
+  "sequence": 372,
+  "title": "Restore the continuation index and bind resource projections to one tick",
+  "source": {
+    "commit": "a205fdeb280e5488ff6216ab54d7d1800dc0bee8",
+    "tree": "a378b176cff01d46697c351944051d5c01af71d0",
+    "relation": "exact verified main before construction changes"
+  },
+  "construction_index_recovery": {
+    "broken_main_blob": "8e94b8f63fb590b56a25957be7da7141eda1bc0c",
+    "broken_main_bytes": 24060,
+    "broken_main_sha256": "374a4dc598eaad270a21565c57671dae0991c44e655f87951a9649dd5573a7bf",
+    "first_broken_source_commit": "b4dc89c13ab773eafa048926a5f7ed3daeb82923",
+    "broken_variants": [
+      {
+        "commit": "b4dc89c13ab773eafa048926a5f7ed3daeb82923",
+        "tree": "a03424d810a8843982d1a5a61720bd1e1ced6542",
+        "blob": "c0523b410168e4c1c892c8249d9ce1ab57a3dbdd",
+        "bytes": 60060,
+        "sha256": "efea1a7a7e795d88895a25c5a7ddb7b06db56f8e7894a1c735be7827e0cc5243"
+      },
+      {
+        "commit": "4606778f352d38ca86b0f233719c495792c17b7d",
+        "tree": "c0c3d5926b9ae81a51066830086da7dd525164d5",
+        "blob": "3db84d693070cd96d9dc641b5708a3865b3c01a6",
+        "bytes": 30060,
+        "sha256": "bf66b135f892115e06c978d55ac4d36a7d3055d8103c586aa5aaeddbe861ff17"
+      },
+      {
+        "commit": "38b93ce32eae609a0b980cf0f163ead7e94c8643",
+        "tree": "a378b176cff01d46697c351944051d5c01af71d0",
+        "blob": "8e94b8f63fb590b56a25957be7da7141eda1bc0c",
+        "bytes": 24060,
+        "sha256": "374a4dc598eaad270a21565c57671dae0991c44e655f87951a9649dd5573a7bf"
+      }
+    ],
+    "recovery_source_commit": "f78a538547c4c41a1d396e8ad6108f55ac164276",
+    "recovery_source_tree": "75f898f777ed66d6c0306d3b3215f0773b341184",
+    "recovery_source_blob": "9947a204bad029fc604005f723d29058a3e5f7b2",
+    "recovery_source_bytes": 228439,
+    "valid_records_recovered": 368,
+    "existing_records_reconstructed": [
+      369,
+      370,
+      371
+    ],
+    "reconstructed_record_source_files_unchanged": true,
+    "historical_broken_blobs_preserved_in_git": true,
+    "verification_before_recovery": "invalid:index_unreadable:UnicodeDecodeError"
+  },
+  "implementation": {
+    "resource_observation_snapshot_cache": "one read-only owner observation or failure per tick; refreshed at next tick",
+    "same_tick_projections": [
+      "World-State resource facts",
+      "causal_resources introspection"
+    ],
+    "resource_provider_schema": "declares chat_process_generation_posture and verified_chat_process_generation_attribution_count already returned by callback",
+    "runtime_closure_optional_surface_fields": "guarded access for transition custody/runtime/configuration fields",
+    "authority_added": false,
+    "production_inference_started": false
+  },
+  "verification": {
+    "targeted_command": "python -m scripts.run_tests -q sentientos/tests/test_resource_observation_world_state_integration.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py tests/test_host_resource_runtime.py tests/test_production_chat_resource_observation_recovery.py tests/test_causal_introspection.py",
+    "tests_passed": 81,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "adversarial_same_tick_identity_change": "one owner call per tick; both projections share identity; next tick refreshes",
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "mypy_baseline": {
+      "status": "mypy_baseline_improved",
+      "new_errors": 0,
+      "retired_error_records": 40
+    },
+    "noncanonical_direct_mypy": {
+      "reported_errors": 837,
+      "interpretation": "repository-wide configured baseline state; not accepted as success or baseline proof"
+    },
+    "strict_audit": "blocked_locally_administrator_required",
+    "immutability_verification": "blocked_locally_administrator_required",
+    "hosted_qg": "pending",
+    "post_merge_checks": "pending",
+    "precommit_finalizer": {
+      "status": "repair_required_task_caused",
+      "focused_tests": "passed:81 passed, 0 skipped",
+      "mypy_baseline": "passed:0 new errors; 40 retired error records",
+      "strict_audit": "blocked:Access denied: run as Administrator",
+      "audit_immutability": "blocked:Access denied: run as Administrator",
+      "generated_runner_artifacts": "restored/removed after capture; no protected data touched",
+      "interpretation": "local finalizer did not return ready_to_commit; hosted Required Quality Gate must execute the unchanged privileged gates"
+    }
+  },
+  "external_blocker": {
+    "changed_output_federation_fixture": "repository setting Allow GitHub Actions to create and approve pull requests must be enabled before manually dispatching publication_fixture=true"
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "unresolved_and_preserved",
+    "sequence_368_workspace": "untouched",
+    "all_previous_construction_segments": "preserved"
+  },
+  "outcome": "construction custody integrity is recoverable from the last valid index and existing append-only evidence; daemon resource projections now share a coherent per-tick owner snapshot. Hosted authority checks remain required."
+}

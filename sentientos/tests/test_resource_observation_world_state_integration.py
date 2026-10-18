@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model_serving_inference import ProductionServingInferenceController
@@ -16,6 +18,9 @@ from sentientos.production_chat_resource_provisioning import load_production_cha
 from sentientosd import RuntimeMaintenanceSurfaces
 from tests.test_local_model_serving_inference import setup as serving_setup
 from tests.test_production_chat_resource_provisioning_bundle_producer import inputs
+
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_explicit_read_only_resource_owner_reaches_runtime_world_state(
@@ -215,3 +220,84 @@ print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     finally:
         context_owner.close()
         serving.close()
+
+
+def test_resource_world_state_and_introspection_share_one_owner_snapshot_per_tick(
+        tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from dataclasses import replace
+
+    import sentientosd
+    from sentientos.causal_introspection import IntrospectionConfig
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path / "repo"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust" / "state.json"))
+    registry, provisioning_inputs = inputs(tmp_path)
+    produce_production_chat_resource_provisioning_bundle(
+        registry, "same-tick", **provisioning_inputs)
+    handle = InstallationStateRegistry(
+        tmp_path / "state", _test_only=True).open_read_only(
+            InstallationIdentity.parse("production"))
+    source = ProductionChatResourceObservationOwner(handle, "same-tick")
+    source_observation = source.observe()
+
+    class ChangingObservationOwner:
+        calls = 0
+
+        def observe(self):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls == 1:
+                return source_observation
+            # Model a valid source changing between independent reads in one tick.
+            return replace(source_observation, installation_identity="changed-between-reads")
+
+    owner = ChangingObservationOwner()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        resource_observation_owner=owner,  # type: ignore[arg-type]
+        resource_observation_configuration_status={
+            "status": "configured", "read_only": True, "effect_authority": False,
+        },
+    )
+    config = IntrospectionConfig(
+        enabled=True, custody_root=tmp_path / "introspection",
+        world_state_consumption_enabled=True, max_projections=1,
+        enabled_domains=("causal_resources",), required_domains=("causal_resources",))
+    surfaces._causal_introspection_runtime = sentientosd._compose_causal_introspection(
+        surfaces, resident_serving_controller=None, config=config)
+
+    surfaces.build_world_state_board(tick_id="2026-10-18T12:00:00Z")
+    first_world_state = surfaces.current_world_state_snapshot
+    assert first_world_state is not None
+    first_fact = next(fact for fact in first_world_state.facts
+        if fact.source.source_id == "governed_local_model_resource_consumption")
+    surfaces.capture_causal_introspection(tick_id="2026-10-18T12:00:00Z")
+    first_generation = surfaces._causal_introspection_runtime.reconstruct()[0]
+    assert first_generation.projections, first_generation.capture_findings
+    first_projection = first_generation.projections[0]
+    first_observations = {item.observation_key: item.bounded_value
+        for item in first_projection.observations}
+
+    assert owner.calls == 1
+    assert first_fact.payload["source_identity"]["installation_identity"] == "production"
+    assert first_observations["installation_identity"] == "production"
+    assert first_observations["manifest_digest"] == first_fact.payload["source_identity"]["manifest_digest"]
+
+    surfaces.build_world_state_board(tick_id="2026-10-18T12:00:01Z")
+    second_world_state = surfaces.current_world_state_snapshot
+    assert second_world_state is not None
+    second_fact = next(fact for fact in second_world_state.facts
+        if fact.source.source_id == "governed_local_model_resource_consumption")
+    surfaces.capture_causal_introspection(tick_id="2026-10-18T12:00:01Z")
+    second_generation = surfaces._causal_introspection_runtime.reconstruct()[1]
+    second_projection = second_generation.projections[0]
+    second_observations = {item.observation_key: item.bounded_value
+        for item in second_projection.observations}
+
+    assert owner.calls == 2
+    assert second_fact.payload["source_identity"]["installation_identity"] == "changed-between-reads"
+    assert second_observations["installation_identity"] == "changed-between-reads"
+    assert second_observations["manifest_digest"] == second_fact.payload["source_identity"]["manifest_digest"]
