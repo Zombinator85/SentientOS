@@ -182,3 +182,10 @@ Sequence 389 adds the missing hosted pre-publication PR metadata verification pa
 Latest construction segment: `work/construction/segments/0389-hosted-prepublication-guard-in-required-quality-gate.md`
 Latest segment SHA-256: `743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8`
 Sequence: 389 (hosted verification pending)
+
+
+Sequence 390 repairs the actual hosted sequence-389 QG failure: detached worktree creation tried to download a missing LFS model object. Reconstruction now uses `GIT_LFS_SKIP_SMUDGE=1`, preserving the repository checkout's pointer form. The exact hosted workflow contract test passed 1/1 with no skips; task acceptance and diff checks passed. The hosted repair has not yet run. Failed QG evidence remains attached to run `39158284969` and is not reclassified as success. This candidate is based on construction head `0c3948d281cd64e55cba005525277c9330379642`, tree `d867fcca4fa88463ad275f26c2724c887a4fc7fd`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0390-preserve-lfs-pointer-form-in-precommit-worktree.md`
+Latest segment SHA-256: `10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98
+Sequence: 390 (hosted verification pending)

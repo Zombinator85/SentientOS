@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "test_provenance_path": "glow/test_runs/provenance/20261018T192059Z_045dc196c641_1fa759dec346480585ae1526d9fe96c5.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+      "rationale": "The hosted precommit reconstruction preserves checkout semantics for LFS pointer stubs while still staging the exact parent-plus-candidate patch."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+  ]
+}

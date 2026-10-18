@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "dfd6ad758b3247f0cd311fb631eddda3982bc93c1c18177e5014fe1e0cc2c6c3",
-    "latest_segment_sequence": 389,
-    "latest_segment_sha256": "743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8",
-    "source_commit": "ef8609ceb96dc207432c2070bee6f0dcf0ba420a",
-    "source_tree": "b070bf198e4d8d3b72b1fdd9a2018243feaedacb"
+    "checkpoint_sha256": "c96f46438627542992f4769cafa2a94c63f1feeab0309dcbe4d8422ca81d34bf",
+    "latest_segment_sequence": 390,
+    "latest_segment_sha256": "10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
+    "source_commit": "0c3948d281cd64e55cba005525277c9330379642",
+    "source_tree": "d867fcca4fa88463ad275f26c2724c887a4fc7fd"
   },
-  "checkpoint_sha256": "dfd6ad758b3247f0cd311fb631eddda3982bc93c1c18177e5014fe1e0cc2c6c3",
+  "checkpoint_sha256": "c96f46438627542992f4769cafa2a94c63f1feeab0309dcbe4d8422ca81d34bf",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 389,
+  "latest_sequence": 390,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4338,6 +4338,19 @@
       "sha256": "743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8",
       "source_commit": "ef8609ceb96dc207432c2070bee6f0dcf0ba420a",
       "source_tree": "b070bf198e4d8d3b72b1fdd9a2018243feaedacb"
+    },
+    {
+      "bytes": 1675,
+      "evidence": "work/construction/evidence/0390-preserve-lfs-pointer-form-in-precommit-worktree.json",
+      "evidence_bytes": 2894,
+      "evidence_path": "work/construction/evidence/0390-preserve-lfs-pointer-form-in-precommit-worktree.json",
+      "evidence_sha256": "d47ee250dac7400ed44f1ca81c0eba24ed8693d6e47802591ba18d8352592415",
+      "path": "work/construction/segments/0390-preserve-lfs-pointer-form-in-precommit-worktree.md",
+      "predecessor": "segment-sha256:743515597b188bdcb31d3081083934042c5b30ed1ad559f36ad60289882af7e8",
+      "sequence": 390,
+      "sha256": "10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
+      "source_commit": "0c3948d281cd64e55cba005525277c9330379642",
+      "source_tree": "d867fcca4fa88463ad275f26c2724c887a4fc7fd"
     }
   ],
   "source_acquisition": {

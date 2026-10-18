@@ -165,7 +165,7 @@ jobs:
           PRECOMMIT_WORKSPACE="$RUNNER_TEMP/sentientos-precommit-workspace"
           PRECOMMIT_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-tests"
           PRECOMMIT_FINALIZER_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-finalizer-tests"
-          git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"
+          GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"
           git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF" | git -C "$PRECOMMIT_WORKSPACE" apply --index
           python -m pip install --no-deps --no-build-isolation -e "$PRECOMMIT_WORKSPACE"
           python - "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \

@@ -489,7 +489,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     precommit = workflow.split(
         "- name: Reconstruct and verify exact hosted pre-commit state", 1
     )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
-    assert 'git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"' in precommit
+    assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"' in precommit
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
     assert 'len(nodes) != 29' in precommit

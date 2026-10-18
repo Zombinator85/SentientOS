@@ -1,0 +1,54 @@
+{
+  "change": {
+    "authority_added": false,
+    "model_material_added": false,
+    "production_inference": false,
+    "repair": "Set GIT_LFS_SKIP_SMUDGE=1 for detached git worktree creation and assert the behavior in the hosted workflow contract test."
+  },
+  "hosted_failure": {
+    "classification": "reproducible checkout-filter incompatibility; not a passing gate",
+    "failed_operation": "git worktree add invoked LFS smudge and attempted to fetch a missing model object",
+    "job_id": 117765981752,
+    "lfs_object_id": "4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10",
+    "run_id": 39158284969,
+    "server_result": "HTTP 404; object is unavailable",
+    "step": "Reconstruct and verify exact hosted pre-commit state",
+    "workflow": "Required Quality Gate"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1675,
+  "segment_path": "work/construction/segments/0390-preserve-lfs-pointer-form-in-precommit-worktree.md",
+  "segment_sha256": "10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
+  "sequence": 390,
+  "source": {
+    "branch": "codex/construct-sentientos-seq387",
+    "latest_verified_main": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+    "latest_verified_main_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+    "parent_commit": "0c3948d281cd64e55cba005525277c9330379642",
+    "parent_tree": "d867fcca4fa88463ad275f26c2724c887a4fc7fd",
+    "tested_repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "tested_source_sha256": {
+      ".github/workflows/required-quality-gate.yml": "30e701aa76959a1b01ddec3465989efb27b2871302129294203c9ab9a4068b25",
+      "tests/test_github_hosted_acceptance_workflows.py": "13366f123b22646f9cce6354802333c7a081635d75bf96d103582344b4a9581b"
+    }
+  },
+  "task_acceptance": {
+    "manifest_path": "docs/development/hosted_pr_metadata_guard_lfs_worktree_task_acceptance.json",
+    "provenance_path": "glow/test_runs/provenance/20261018T192059Z_045dc196c641_1fa759dec346480585ae1526d9fe96c5.json",
+    "required_nodes": [
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+    ],
+    "result_path": "work/construction/evidence/0390-hosted-pr-metadata-guard-lfs-task-acceptance-result.json",
+    "successful_path_nodes": [
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator"
+    ]
+  },
+  "title": "Preserve LFS pointer form during hosted precommit reconstruction",
+  "verification": {
+    "diff_check": "passed",
+    "focused_workflow_contract": "passed 1/1, zero skips",
+    "hosted_fix_verification": "pending; not claimed",
+    "local_lfs_pointer_worktree_smoke": "passed; detached worktree retained ASCII Git LFS pointer without smudge/download",
+    "task_acceptance": "task_acceptance_ready"
+  }
+}
