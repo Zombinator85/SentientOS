@@ -1,0 +1,9 @@
+# Sequence 352: verify sequence-351 evidence integration
+
+PR #2342 appended sequence 351 and merged normally. Candidate evidence commit `29e800273457319fe87cec1249fc9c260af9a6fc`, tree `404649c384183ffafb1b0f631d59f624db332a4f`, was based on main `23b0475e283537d28b28742c1be65d844ccbb8f4`. The merge produced main `74c05682f11fdf5f9e7c4c5fde93f36c6b9ecb1a`, the same tree, with both parents preserved.
+
+Candidate CI `39097803457`, Required Quality Gate `39097803487`, Docker `39097803425`, invariants `39097803495`, Codex CI `39097803416`, Lint Benchmark `39097803417`, Release `39097803536`, and Gradient `39097803493` all succeeded. QG artifact `12125442102` has digest `sha256:c3da1835329b14c0a6c722f5dacb60d451c8b5fd5d5c7f56833341fabec244f0`; finalizer artifact `12125765523` has digest `sha256:3b4d7ca262d7417fb10b79196fee9a9257d5c46ffd6604ccc5847c519c56bde0`.
+
+Post-merge CI `39098093736`, Required Quality Gate `39098093756`, Docker `39098093758`, invariants `39098093719`, Codex CI `39098093716`, Docs Deploy `39098093745`, and feedback `39098093972` all succeeded on exact main `74c05682f11fdf5f9e7c4c5fde93f36c6b9ecb1a`. Forge Smoke `39098093730` was skipped by configured conditions. QG artifact `12125945126`, digest `sha256:97ea5b8930b052678cddd79afbc4463fe1622f0c593c9adea9af91d93ed624eb`, independently confirms 29/29 nodes passed, effective UID 0, exact source SHA/tree, Administrator verification, clean strict and immutability audits, and unchanged source.
+
+As of 2026-10-18 04:47 UTC, the Actions feed still showed no scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run on current main. The next hourly Federation Health schedule is 05:00 UTC. No current-source scheduled success or changed-output publication is claimed; the connector cannot dispatch Actions. Preserve workflow authority and append-only source history. No production model transition or developmental benefit is claimed.
