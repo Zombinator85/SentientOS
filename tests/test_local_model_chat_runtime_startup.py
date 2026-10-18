@@ -207,12 +207,27 @@ def test_actual_adapter_handoff_binds_live_child_and_source_generation(
 import json, os, sys, time
 from pathlib import Path
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
-from sentientos.chat_process_generation import verify_current_chat_process_handoff
+from sentientos.chat_process_generation import (
+    ChatProcessGenerationError, verify_chat_process_generation_lineage,
+    verify_current_chat_process_handoff,
+)
 
 args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
 registry = InstallationStateRegistry._for_testing(Path(os.environ['TEST_REGISTRY_ROOT']))
 handle = registry.open(InstallationIdentity.parse(args['--installation-identity']))
-handoff = verify_current_chat_process_handoff(handle=handle, handoff_id=args['--runtime-handoff-id'])
+handoff_id = args['--runtime-handoff-id']
+deadline = time.monotonic() + 5.0
+while True:
+    try:
+        handoff = verify_current_chat_process_handoff(handle=handle, handoff_id=handoff_id)
+        verify_chat_process_generation_lineage(
+            handle=handle, handoff_id=handoff_id,
+            expected_digest=str(handoff['handoff_digest']))
+        break
+    except ChatProcessGenerationError as exc:
+        if str(exc) != 'chat_process_handoff_unavailable' or time.monotonic() >= deadline:
+            raise
+        time.sleep(.01)
 if handoff['software_generation_digest'] != args['--expected-software-generation-digest']:
     raise SystemExit('source_generation_expectation_mismatch')
 Path(os.environ['TEST_CHILD_RESULT']).write_text(json.dumps(handoff, sort_keys=True))
