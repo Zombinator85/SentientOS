@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 from pathlib import Path
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
@@ -13,7 +13,8 @@ from sentientos.developmental_model_replacement_experiment import (
     ModelReplacementArtifactStore, ModelReplacementProtocol, _digest,
 )
 from sentientos.resident_cognitive_model_transition_experiment import (
-    TransitionError, TransitionJournal, TransitionProtocol, history_boundary,
+    TransitionError, TransitionJournal, TransitionProtocol, digest as transition_digest,
+    history_boundary,
 )
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 from sentientos.resident_cognitive_transition_operator import (
@@ -317,6 +318,41 @@ def _assert_transition_protocol_pair_and_boundary_integrity(tmp_path: Path) -> N
     store, transition = _source_lineage_fixture(tmp_path)
     value = transition.value
     references = dict(value["model_replacement_protocol_references"])
+    for invalid_references, expected_error in (
+        ({"predecessor_a": references["predecessor_a"]}, "protocol_tamper"),
+        ({**references, "successor_b": {**references["successor_b"], "model_role": "model_a"}},
+            "protocol_model_provenance_reference_invalid"),
+    ):
+        protocol_body = {key: item for key, item in value.items()
+            if key not in {"protocol_id", "protocol_digest", "transition_id"}}
+        protocol_body["model_replacement_protocol_references"] = invalid_references
+        forged_digest = transition_digest(protocol_body)
+        forged = TransitionProtocol(MappingProxyType({
+            **protocol_body,
+            "protocol_id": "resident-transition-protocol-" + forged_digest[:24],
+            "protocol_digest": forged_digest,
+            "transition_id": "transition-" + forged_digest[:24],
+        }))
+        with pytest.raises(TransitionError, match=expected_error):
+            forged.verify()
+
+    for invalid_references in (
+        {"predecessor_a": references["predecessor_a"]},
+        {**references, "successor_b": {**references["successor_b"], "model_role": "model_a"}},
+    ):
+        with pytest.raises(TransitionError, match="model_provenance_protocol_reference_invalid"):
+            TransitionProtocol.create(
+                installation_identity=value["installation_identity"],
+                predecessor=value["predecessor_a"],
+                successor=value["successor_b"],
+                initial_activation=value["initial_activation"],
+                initial_session=value["initial_resident_session"],
+                initial_boundary=value["initial_history_boundary"],
+                b_operation_id=value["b_serving_operation_id"],
+                restored_a_operation_id=value["restored_a_serving_operation_id"],
+                model_replacement_protocol_references=invalid_references,
+            )
+
     references["successor_b"] = {**references["successor_b"],
         "protocol_id": "model-replacement-protocol-distinct",
         "protocol_digest": "sha256:" + "f" * 64}
