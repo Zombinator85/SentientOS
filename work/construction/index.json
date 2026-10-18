@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "86182949b0941a8b8c73adfbe50800559531a77b7c1748977ea00aa96b38a329",
-    "latest_segment_sequence": 393,
-    "latest_segment_sha256": "ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d",
-    "source_commit": "5f87e1b36bd93a07983ada6f6735ce3e893dba48",
-    "source_tree": "8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569"
+    "checkpoint_sha256": "df0a2036157cc04d1769006d70b0098e62fb9d1afb016ccbe6ec1b3a6d96ccee",
+    "latest_segment_sequence": 394,
+    "latest_segment_sha256": "21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35",
+    "source_commit": "9d77f455557b4f408eb1f77cefe528c3b780297d",
+    "source_tree": "a9bd6b476303e421b4d547837fda0c1932af031c"
   },
-  "checkpoint_sha256": "86182949b0941a8b8c73adfbe50800559531a77b7c1748977ea00aa96b38a329",
+  "checkpoint_sha256": "df0a2036157cc04d1769006d70b0098e62fb9d1afb016ccbe6ec1b3a6d96ccee",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 393,
+  "latest_sequence": 394,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4390,6 +4390,19 @@
       "sha256": "ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d",
       "source_commit": "5f87e1b36bd93a07983ada6f6735ce3e893dba48",
       "source_tree": "8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569"
+    },
+    {
+      "bytes": 2006,
+      "evidence": "work/construction/evidence/0394-preserve-immutable-readiness-evidence.json",
+      "evidence_bytes": 3880,
+      "evidence_path": "work/construction/evidence/0394-preserve-immutable-readiness-evidence.json",
+      "evidence_sha256": "a807f05c7ab4a7456911f9aee727158f267daf3d475644ca97fb7c2f28f82aa0",
+      "path": "work/construction/segments/0394-preserve-immutable-readiness-evidence.md",
+      "predecessor": "segment-sha256:ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d",
+      "sequence": 394,
+      "sha256": "21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35",
+      "source_commit": "9d77f455557b4f408eb1f77cefe528c3b780297d",
+      "source_tree": "a9bd6b476303e421b4d547837fda0c1932af031c"
     }
   ],
   "source_acquisition": {

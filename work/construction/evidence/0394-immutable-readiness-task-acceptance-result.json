@@ -1,0 +1,42 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:fc0cbb595ae9d46e772bfed01a00f4fcbfc943eb7079e05f6ce5c1a2e8e4279d",
+  "manifest_path": "docs/development/production_self_reflection_campaign_immutable_readiness_task_acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_publication_rejects_symlink_and_content_collision",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_concurrent_publication_is_first_writer_immutable",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:5460ec0560f49a39317fded6344ce92dd7184474396d942323b54c5af64970ca",
+  "provenance_path": "glow/test_runs/provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json",
+  "reasons": [],
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "required_node_ids": [
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_publication_rejects_symlink_and_content_collision",
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_concurrent_publication_is_first_writer_immutable"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_publication_rejects_symlink_and_content_collision",
+    "tests/test_production_self_reflection_campaign.py::test_readiness_artifact_concurrent_publication_is_first_writer_immutable"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

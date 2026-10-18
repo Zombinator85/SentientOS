@@ -431,6 +431,51 @@ def test_missing_real_models_writes_precise_not_ready_artifact(tmp_path: Path) -
     assert json.loads(path.read_text())["readiness_digest"] == result["readiness_digest"]
 
 
+def test_readiness_artifact_publication_rejects_symlink_and_content_collision(tmp_path: Path) -> None:
+    protocol = _protocol()
+    observed = _observed(model_a_available=False)
+    readiness = verify_production_readiness(protocol, observed)
+    link = tmp_path / "readiness-link.json"
+    target = tmp_path / "target.json"
+    target.write_text(json.dumps(dict(readiness), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    target.chmod(0o600)
+    link.symlink_to(target)
+
+    with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_tampered"):
+        verify_production_readiness(protocol, observed, artifact_path=link)
+
+    path = tmp_path / "readiness.json"
+    verify_production_readiness(protocol, observed, artifact_path=path)
+    with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_collision"):
+        verify_production_readiness(protocol, _observed(model_b_available=False), artifact_path=path)
+
+
+def test_readiness_artifact_concurrent_publication_is_first_writer_immutable(tmp_path: Path) -> None:
+    protocol = _protocol()
+    barrier = threading.Barrier(2)
+    path = tmp_path / "readiness.json"
+
+    def publish(observed):
+        barrier.wait()
+        return verify_production_readiness(protocol, observed, artifact_path=path)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(publish, _observed(model_a_available=True)),
+                   pool.submit(publish, _observed(model_a_available=False))]
+        successes = []
+        failures = []
+        for future in futures:
+            try:
+                successes.append(future.result())
+            except ProductionSelfReflectionError as exc:
+                failures.append(exc.code)
+
+    assert len(successes) == 1
+    assert failures == ["immutable_artifact_collision"]
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["readiness_digest"] == successes[0]["readiness_digest"]
+
+
 def test_negative_and_null_scores_are_valid_evidence(tmp_path: Path) -> None:
     evidence = _evidence(); evidence["condition_answers"] = {condition: [] for condition in CONDITION_ORDER}
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, _protocol())

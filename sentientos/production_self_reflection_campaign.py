@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .local_model_authority import atomic_write_json, digest_payload
 from .platform_fcntl import fcntl, require_flock
-from .private_file_custody import PrivateFileCustodyError, open_private_directory
+from .private_file_custody import PrivateFileCustodyError, open_private_directory, publish_immutable_bytes
 from .resident_cognitive_model_transition_experiment import PHASES
 from .self_model_intervention_experiment import CONDITION_ORDER, score_assessment
 
@@ -31,6 +31,7 @@ RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v1"
 REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
 SCORER = "deterministic_exact_evidence_key:v1"
 MIN_TRIALS, MAX_TRIALS = 2, 32
+MAX_IMMUTABLE_ARTIFACT_BYTES = 16 * 1024 * 1024
 ALIASES = {"", "latest", "current", "default", "any", "*"}
 COMPONENTS = ("commissioning", "artifact_custody", "runtime_workers", "approvals",
               "resident_serving", "activation", "inference", "world_state_inputs",
@@ -65,17 +66,17 @@ def _exact(value: object, label: str) -> str:
 
 
 def _immutable(path: Path, value: Mapping[str, Any]) -> None:
-    if path.exists():
-        try:
-            prior = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ProductionSelfReflectionError("immutable_artifact_tampered") from exc
-        expected = json.loads(json.dumps(dict(value), sort_keys=True))
-        if prior != expected:
-            raise ProductionSelfReflectionError("immutable_artifact_collision")
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_json(path, value)
+    encoded = (json.dumps(dict(value), indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        publish_immutable_bytes(
+            path,
+            encoded,
+            max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES,
+            collision_code="immutable_artifact_collision",
+        )
+    except PrivateFileCustodyError as exc:
+        code = "immutable_artifact_collision" if exc.code == "immutable_artifact_collision" else "immutable_artifact_tampered"
+        raise ProductionSelfReflectionError(code) from exc
 
 
 @dataclass(frozen=True)

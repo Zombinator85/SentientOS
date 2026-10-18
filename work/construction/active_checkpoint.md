@@ -208,3 +208,9 @@ Sequence 393 binds the PR finalizer and metadata guard to a detached checkout of
 Latest construction segment: `work/construction/segments/0393-bind-pr-finalization-to-exact-candidate.md`
 Latest segment SHA-256: `ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d`
 Sequence: 393 (hosted verification pending)
+
+Sequence 394 hardens immutable campaign evidence publication with descriptor-bound private custody, atomic first-writer semantics, symlink rejection, collision detection, and a 16 MiB bound. The full campaign module passed 29/29, exact acceptance passed 2/2 with zero skips, changed-module mypy, compilation, privilege lint, and custody checks passed. Hosted verification remains pending. No inference or runtime authority was added. Source candidate: `9d77f455557b4f408eb1f77cefe528c3b780297d`, tree `a9bd6b476303e421b4d547837fda0c1932af031c`.
+
+Latest construction segment: `work/construction/segments/0394-preserve-immutable-readiness-evidence.md`
+Latest segment SHA-256: `21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35`
+Sequence: 394 (hosted verification pending)
