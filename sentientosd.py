@@ -37,7 +37,10 @@ from sentientos.control_plane_kernel import (
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
-from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model_authority import (
+    build_local_model_authority_map,
+    digest_payload as _transition_context_digest,
+)
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
 from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
@@ -3199,6 +3202,17 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
             or not isinstance(record_digests, (list, tuple))
             or len(record_ids) != len(record_digests)):
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+    receipt_ids = boundary.get("writeback_receipt_ids")
+    receipt_digests = boundary.get("writeback_receipt_digests")
+    if (boundary.get("schema_version") != "sentientos.developmental_history_boundary:v2"
+            or not isinstance(receipt_ids, (list, tuple))
+            or not isinstance(receipt_digests, (list, tuple))
+            or len(receipt_ids) != len(receipt_digests)
+            or any(not isinstance(item, str) or not item for item in receipt_ids)
+            or len(set(receipt_ids)) != len(receipt_ids)
+            or any(not isinstance(item, str) or not item.startswith("sha256:")
+                for item in receipt_digests)):
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
     resident_records: dict[str, str] = {}
     actual_record_ids: list[str] = []
     actual_record_digests: list[str] = []
@@ -3220,16 +3234,34 @@ def _verify_transition_context_history_binding(context: Mapping[str, Any],
             or not isinstance(claimed_boundary_digest, str)
             or claimed_boundary_digest != _transition_evidence_digest(boundary_value)):
         raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
-    for record_id, record_digest in zip(record_ids, record_digests):
+    selected_ids = list(record_ids)
+    selected_digests = list(record_digests)
+    if (any(not isinstance(record_id, str) or not record_id for record_id in selected_ids)
+            or len(set(selected_ids)) != len(selected_ids)
+            or any(not isinstance(record_digest, str)
+                or not record_digest.startswith("sha256:") for record_digest in selected_digests)
+            or context.get("history_record_set_digest") != "sha256:" +
+                _transition_context_digest({
+                    "record_ids": selected_ids, "record_digests": selected_digests})):
+        raise TransitionError("transition_model_source_lineage_history_boundary_invalid")
+    for record_id, record_digest in zip(selected_ids, selected_digests):
         if not isinstance(record_id, str) or not record_id or record_id not in resident_records:
             raise TransitionError("transition_model_source_lineage_history_record_absent")
         if resident_records[record_id] != record_digest:
             raise TransitionError("transition_model_source_lineage_history_record_digest_mismatch")
+    selected_id_set = set(selected_ids)
+    omitted_ids = [record_id for record_id in actual_record_ids if record_id not in selected_id_set]
+    omitted_digests = [record_digest for record_id, record_digest in zip(
+        actual_record_ids, actual_record_digests) if record_id not in selected_id_set]
     return {
-        "selected_history_record_ids": list(record_ids),
-        "selected_history_record_digests": list(record_digests),
+        "selected_history_record_ids": selected_ids,
+        "selected_history_record_digests": selected_digests,
         "selected_history_record_set_digest": context.get("history_record_set_digest"),
-        "selected_history_record_count": len(record_ids),
+        "selected_history_record_count": len(selected_ids),
+        "omitted_history_record_count": len(omitted_ids),
+        "omitted_history_record_set_digest": "sha256:" + _transition_context_digest({
+            "record_ids": omitted_ids, "record_digests": omitted_digests}),
+        "omission_binding_posture": "verified_exact_complement_within_complete_resident_boundary",
         "resident_initial_history_record_count": len(records),
         "resident_initial_history_boundary_digest": claimed_boundary_digest,
         "history_binding_posture": "verified_bounded_selection_within_complete_resident_boundary",
