@@ -1,0 +1,242 @@
+{
+  "architecture": {
+    "production_inference_invoked": false,
+    "resident_temporal_transition": {
+      "composition": "implemented",
+      "production_campaign_executed": false,
+      "protocol_model_provenance_generation_and_history_boundary_checks": "implemented",
+      "requires": [
+        "exact commissioned A/B identities and receipts",
+        "distinct external serving approvals",
+        "operator-approved preregistration"
+      ]
+    },
+    "resource_to_cognition": {
+      "exact_acceptance_nodes": 20,
+      "explicitly_configured_integrated_path": "hosted source-validation acceptance passed",
+      "production_consumption_or_developmental_benefit_established": false
+    }
+  },
+  "evidence_path": "work/construction/evidence/0365-reconcile-exact-main-and-postmerge-gates.json",
+  "federation_health": {
+    "current_main_scheduled_run": "not_visible_as_of_2026-10-18T09:33:00Z",
+    "latest_overall_run": {
+      "conclusion": "success",
+      "current_main": false,
+      "event": "push",
+      "run_id": 39100005185,
+      "source_sha": "9cb581b3b4820423793053beb8b460cafbe0f66e"
+    },
+    "latest_scheduled_run": {
+      "conclusion": "success",
+      "current_main": false,
+      "run_id": 39083395122,
+      "source_sha": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218"
+    },
+    "next_cron": "2026-10-18T10:17:00Z",
+    "publication_fixture": {
+      "connector_dispatch_available": false,
+      "input": "publication_fixture=true",
+      "local_gh_auth": "invalid_GH_TOKEN",
+      "operator_interface_required": true,
+      "run_observed": false,
+      "workflow_source_review": "health job contents:read; separate publisher contents/pull-requests:write; allowlist docs/FEDERATION_HEALTH.md; labeled draft PR verification then close/delete without merge"
+    },
+    "push_run_artifact": {
+      "artifact_id": 12126023057,
+      "bytes": 223,
+      "github_sha256_match": true,
+      "live_traffic_claim": false,
+      "nodes": 1,
+      "recent_events": 0,
+      "sha256": "adee8cc1aba25dbac1da863fb0f2b8d7245b76d56c2b995d93706a7c236fa45f",
+      "status": "quiet"
+    },
+    "push_run_jobs": {
+      "administrator_preflight": "success",
+      "privileged_generator": "success",
+      "publisher": "success",
+      "pull_request_operation": "none"
+    },
+    "schedule": "17 * * * *"
+  },
+  "local_validation": {
+    "active_checkpoint_sha256": "aacec77d307a147d430717afd48007fa81301736818a3205fe9c3e86f4ac753e",
+    "docs_dependency_check": {
+      "command": "python scripts/build_docs.py --check-deps",
+      "exit_code": 2,
+      "local_docs_build_success_claimed": false,
+      "missing": [
+        "mkdocs",
+        "watchdog.observers"
+      ],
+      "outcome": "blocked_before_build"
+    },
+    "git_diff_check": "passed",
+    "local_pytest": "not_run_for_documentation-only status reconciliation; candidate hosted CI remains required",
+    "predecessor_segments_verified": 364,
+    "source_preflight_attempts": [
+      {
+        "network_enabled": false,
+        "reason": "remote_read_failed",
+        "status": "remote_identity_unavailable"
+      },
+      {
+        "network_enabled": true,
+        "remote_head": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+        "remote_tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f",
+        "status": "correct_remote_and_local_base"
+      }
+    ]
+  },
+  "merge": {
+    "candidate_head": "1cbfa4e2ea8a47f4e62eb676de13fb59f9d389fa",
+    "candidate_tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f",
+    "commit": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+    "live_main_verified_by": "fresh git fetch and git ls-remote",
+    "method": "regular two-parent merge",
+    "parents": [
+      "046f3f7e79e019024af30842d0d4ee82b733637b",
+      "1cbfa4e2ea8a47f4e62eb676de13fb59f9d389fa"
+    ],
+    "pr_number": 2355,
+    "signature_present": true,
+    "signature_verification": "good signature using GitHub web-flow public key",
+    "tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f"
+  },
+  "nightly_workflows": {
+    "administrator_requirements_weakened": false,
+    "audit_integrity_push_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "audit_repair_write_performed": false,
+    "current_main_scheduled_executions": "pending",
+    "next_scheduled_runs_utc": [
+      "2026-10-19T03:41:00Z",
+      "2026-10-19T04:37:00Z"
+    ],
+    "self_check_push_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "workflow_blobs_match_current_main": true
+  },
+  "post_merge_checks": {
+    "ci": {
+      "conclusion": "success",
+      "docs_build": "success",
+      "helm_k8s_test": "success",
+      "run_id": 39115221968,
+      "self_check": "success",
+      "self_check_provenance": {
+        "artifact_id": 12132038664,
+        "bytes": 385404,
+        "call_phase_outcomes": 143,
+        "github_sha256_match": true,
+        "sha256": "84d13ebb6dcca39245257d3cd629c81f476535817aa57da783320043e127e3fd",
+        "source_sha": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+        "tests_failed": 0,
+        "tests_passed": 143,
+        "tests_skipped": 13
+      },
+      "source_validation": "success",
+      "source_validation_artifact": {
+        "acceptance_nodes_failed": 0,
+        "acceptance_nodes_passed": 20,
+        "acceptance_nodes_required": 20,
+        "artifact_id": 12131677989,
+        "bytes": 472229,
+        "github_sha256_match": true,
+        "sha256": "defd59e54e4892bc544d22973f92f9487451803c148c6e4eeb4feae68ee9cd8c"
+      },
+      "strict_linkcheck": "success"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39115221903
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39115221904
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39115221924
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_configured_condition",
+      "run_id": 39115221977
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39115221944
+    },
+    "qg": {
+      "accepted_nodes_failed": 0,
+      "accepted_nodes_passed": 29,
+      "accepted_nodes_skipped": 0,
+      "administrator_uid": 0,
+      "artifact_bytes": 11206,
+      "artifact_id": 12132132442,
+      "audit_immutability_ok": true,
+      "conclusion": "success",
+      "github_sha256": "6a514f4d23f66dcc2670a6db8249fcff6c779bb93bb847aa937d04ed4228589b",
+      "local_sha256_matches_github": true,
+      "run_id": 39115221958,
+      "source_sha": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+      "source_tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f",
+      "strict_audit_ok": true
+    }
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0364-verify-sequence363-merge-and-postmerge-gates.json",
+    "evidence_sha256": "a5b2c81acb4751f190d2ff9abb64d5af306d0ce6af939c37891097e9be4212b1",
+    "segment_path": "work/construction/segments/0364-verify-sequence363-merge-and-postmerge-gates.md",
+    "segment_sha256": "5b1a73a39deefd6ba5c8f4eda65fae25d3c66af4c925a957105cde469fff3bcf",
+    "sequence": 364
+  },
+  "preservation": {
+    "authority_changed": false,
+    "production_configuration_changed": false,
+    "remote_stale_construction_branch": "untouched",
+    "runtime_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "publication_attempts": [
+    {
+      "branch": "codex/verify-seq364-merge-postmerge-365",
+      "corrected_operation": "github_create_branch at final candidate commit SHA",
+      "expected_branch_state": "absent",
+      "http_status": 422,
+      "main_changed": false,
+      "operation": "github_update_ref",
+      "reason": "Reference does not exist",
+      "remote_ref_changed": false,
+      "result": "rejected",
+      "superseded_commit_object": "e9196d6bdd5875396554b0e069cd342d3712d7b1",
+      "superseded_commit_referenced": false
+    }
+  ],
+  "remote_branch_reconciliation": {
+    "action": "left untouched; isolated work continues from exact main",
+    "ahead_of_common_base": 0,
+    "behind_main": 283,
+    "branch": "codex/construct-sentientos",
+    "head": "9f358fdb2ab7c4dddce1ad70154919192b9c9ddc",
+    "modified": false,
+    "tree": "48ae62dff32c71b91c263e8693a4b796b1f44955"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 5498,
+  "segment_path": "work/construction/segments/0365-reconcile-exact-main-and-postmerge-gates.md",
+  "segment_sha256": "df1a156fbdad53cf403db37c9bde4d192c02a726f39024b417fb0db69650a361",
+  "sequence": 365,
+  "source": {
+    "branch": "main",
+    "commit": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+    "latest_runtime_source_commit": "007000a28e1759d7b700cccfaa63f110dd0a6c41",
+    "latest_runtime_source_tree": "24c506d8a7977486ead5edb3a11b615f513c04ab",
+    "remote_main_ref_matches": true,
+    "remote_tree_readback": true,
+    "signature_verification": "good signature using GitHub web-flow public key",
+    "tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f",
+    "verified_at": "2026-10-18T09:33:00Z"
+  },
+  "title": "Reconcile exact main and post-merge evidence"
+}

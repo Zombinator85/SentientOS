@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2e0c30e92cfe2cad6da19c3b8b5b742e6b687ef020458b201de33490bd46ae2b",
-    "latest_segment_sequence": 364,
-    "latest_segment_sha256": "5b1a73a39deefd6ba5c8f4eda65fae25d3c66af4c925a957105cde469fff3bcf",
-    "source_commit": "046f3f7e79e019024af30842d0d4ee82b733637b",
-    "source_tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552"
+    "checkpoint_sha256": "aacec77d307a147d430717afd48007fa81301736818a3205fe9c3e86f4ac753e",
+    "latest_segment_sequence": 365,
+    "latest_segment_sha256": "df1a156fbdad53cf403db37c9bde4d192c02a726f39024b417fb0db69650a361",
+    "source_commit": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+    "source_tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 364,
+  "latest_sequence": 365,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4012,6 +4012,19 @@
       "sha256": "5b1a73a39deefd6ba5c8f4eda65fae25d3c66af4c925a957105cde469fff3bcf",
       "source_commit": "046f3f7e79e019024af30842d0d4ee82b733637b",
       "source_tree": "aaa5fd18852c00cc6da172bea78fbac586b1d552"
+    },
+    {
+      "bytes": 5498,
+      "evidence": "work/construction/evidence/0365-reconcile-exact-main-and-postmerge-gates.json",
+      "evidence_bytes": 8999,
+      "evidence_path": "work/construction/evidence/0365-reconcile-exact-main-and-postmerge-gates.json",
+      "evidence_sha256": "1dc9302b6697cb80ac2f1e227fedae16537a61e1173982fe3cbb081657844ceb",
+      "path": "work/construction/segments/0365-reconcile-exact-main-and-postmerge-gates.md",
+      "predecessor": "segment-sha256:5b1a73a39deefd6ba5c8f4eda65fae25d3c66af4c925a957105cde469fff3bcf",
+      "sequence": 365,
+      "sha256": "df1a156fbdad53cf403db37c9bde4d192c02a726f39024b417fb0db69650a361",
+      "source_commit": "099e20f048743f0ae6fd7e1cec93073842d504f3",
+      "source_tree": "ab2c9808bfa0c2f866d77d8ecbc54f8056fb1c0f"
     }
   ],
   "source_acquisition": {
