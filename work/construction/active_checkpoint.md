@@ -218,3 +218,9 @@ Sequence: 394 (hosted verification pending)
 Source candidate parent: `1bbd4abd0bb6d33870b9a79b90248f079a06ddba`, tree `297983b58b80346ab7fc8157754d3ca9ba783293`.
 Latest construction segment: `work/construction/segments/0395-audit-before-hosted-bootstrap.md`
 Latest segment SHA-256: `295ecc09d5e5df05caf20210a84d80f54e3052065a587cf8c3f7073c5fb81063`
+
+Sequence 396 repairs the hosted QG cleanup failure. Run `39162183378` passed strict audit, immutability, and reached `ready_to_commit`, then failed because the runner lacked permission to remove the root-owned detached precommit worktree. Precommit and exact PR candidate cleanup now require exact `$RUNNER_TEMP` paths and use `sudo -n git worktree remove` with Git trust scoped to the main workspace. Overall QG remains failed pending rerun; no finalizer/guard completion is claimed. Source parent: `2222fe85292b36f8277465b99cf42ed99b3fd041`, tree `396547271a26186a8ffb749e94831679efc99328`; latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0396-remove-finalizer-worktrees-with-scoped-admin-custody.md`
+Latest segment SHA-256: `9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150`
+Sequence: 396 (untested; hosted verification pending)

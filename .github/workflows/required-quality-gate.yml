@@ -237,7 +237,9 @@ jobs:
           PY
           cd "$GITHUB_WORKSPACE"
           python -m pip install --no-deps --no-build-isolation -e "$GITHUB_WORKSPACE"
-          git worktree remove --force "$PRECOMMIT_WORKSPACE"
+          test "$PRECOMMIT_WORKSPACE" = "$RUNNER_TEMP/sentientos-precommit-workspace"
+          sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE" \
+            worktree remove --force "$PRECOMMIT_WORKSPACE"
       - name: Complete hosted privileged PR landing finalization
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
         env:
@@ -361,8 +363,11 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         run: |
           CANDIDATE_WORKSPACE="$RUNNER_TEMP/sentientos-candidate-workspace"
+          test "$CANDIDATE_WORKSPACE" = "$RUNNER_TEMP/sentientos-candidate-workspace"
           if [ -e "$CANDIDATE_WORKSPACE/.git" ]; then
-            git worktree remove --force "$CANDIDATE_WORKSPACE"
+            test "$(sudo -n id -u)" = "0"
+            sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE" \
+              worktree remove --force "$CANDIDATE_WORKSPACE"
           fi
       - name: Upload hosted privileged PR landing finalizer evidence
         if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))

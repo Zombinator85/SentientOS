@@ -1,0 +1,41 @@
+{
+  "append_only": true,
+  "change": {
+    "authority_added": false,
+    "repair": "Remove only the exact finalizer worktree paths under RUNNER_TEMP using actual Administrator authority and a repository-scoped Git safe.directory.",
+    "verification_requirements_weakened": false
+  },
+  "hosted_observation": {
+    "audit_immutability": "passed",
+    "failure": "Permission denied while unprivileged runner removed root-owned detached worktree",
+    "overall_quality_gate": "failed",
+    "precommit_finalizer": "ready_to_commit",
+    "run_id": 39162183378,
+    "strict_audit": "passed"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1411,
+  "segment_path": "work/construction/segments/0396-remove-finalizer-worktrees-with-scoped-admin-custody.md",
+  "segment_sha256": "9a3ce041ccdfd4a555e0bb727f3a43a3322d6609d189136f13cb874ab677a150",
+  "sequence": 396,
+  "source": {
+    "branch": "codex/construct-sentientos-seq387",
+    "latest_verified_main": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+    "latest_verified_main_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+    "parent_commit": "2222fe85292b36f8277465b99cf42ed99b3fd041",
+    "parent_tree": "396547271a26186a8ffb749e94831679efc99328",
+    "source_sha256": {
+      ".github/workflows/required-quality-gate.yml": "7936ffb1ffe8f423f7fcf8085db3954648db3b6140eaa1f75b262ea5bd151fce",
+      "tests/test_github_hosted_acceptance_workflows.py": "2a9b6f6e2b850bc5e4f83b15256f2f1b87d78f1e0595920ff29fa72ab81ca1d1"
+    }
+  },
+  "title": "Remove privileged finalizer worktrees with scoped Administrator custody",
+  "verification": {
+    "construction_custody": "pending",
+    "hosted_checks": "pending",
+    "python_compile": "pending",
+    "static_contract_test": "pending_hosted",
+    "status": "untested",
+    "workflow_yaml": "pending"
+  }
+}

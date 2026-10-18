@@ -514,6 +514,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert "--allow-current-task-files" in precommit
     assert 'decision.get("status") != "ready_to_commit"' in precommit
     assert 'SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR"' in precommit
+    assert 'test "$PRECOMMIT_WORKSPACE" = "$RUNNER_TEMP/sentientos-precommit-workspace"' in precommit
+    assert 'sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE"' in precommit
+    assert 'worktree remove --force "$PRECOMMIT_WORKSPACE"' in precommit
 
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
@@ -549,7 +552,13 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'cd "$METADATA_WORKSPACE"' in guard
     assert 'payload.get("status") != "pr_metadata_guard_ready"' in guard
 
+    candidate_cleanup = workflow.split(
+        "- name: Remove exact PR candidate workspace", 1
+    )[1].split("- name:", 1)[0]
     assert "Remove exact PR candidate workspace" in workflow
+    assert 'test "$(sudo -n id -u)" = "0"' in candidate_cleanup
+    assert 'sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE"' in candidate_cleanup
+    assert 'worktree remove --force "$CANDIDATE_WORKSPACE"' in candidate_cleanup
     assert "Upload exact PR candidate acceptance evidence" in workflow
 
     upload = workflow.split(
