@@ -301,3 +301,79 @@ def test_resource_world_state_and_introspection_share_one_owner_snapshot_per_tic
     assert second_fact.payload["source_identity"]["installation_identity"] == "changed-between-reads"
     assert second_observations["installation_identity"] == "changed-between-reads"
     assert second_observations["manifest_digest"] == second_fact.payload["source_identity"]["manifest_digest"]
+
+
+def test_resource_owner_failure_is_cached_until_next_tick(
+        tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import sentientosd
+    from sentientos.causal_introspection import IntrospectionConfig
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path / "repo"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust" / "state.json"))
+    registry, provisioning_inputs = inputs(tmp_path)
+    produce_production_chat_resource_provisioning_bundle(
+        registry, "same-tick-recovery", **provisioning_inputs)
+    handle = InstallationStateRegistry(
+        tmp_path / "state", _test_only=True).open_read_only(
+            InstallationIdentity.parse("production"))
+    source = ProductionChatResourceObservationOwner(handle, "same-tick-recovery")
+    source_observation = source.observe()
+
+    class FailOnceObservationOwner:
+        calls = 0
+
+        def observe(self):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("transient_owner_read_failure")
+            return source_observation
+
+    owner = FailOnceObservationOwner()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        resource_observation_owner=owner,  # type: ignore[arg-type]
+        resource_observation_configuration_status={
+            "status": "configured", "read_only": True, "effect_authority": False,
+        },
+    )
+    config = IntrospectionConfig(
+        enabled=True, custody_root=tmp_path / "introspection",
+        world_state_consumption_enabled=True, max_projections=1,
+        enabled_domains=("causal_resources",), required_domains=("causal_resources",))
+    surfaces._causal_introspection_runtime = sentientosd._compose_causal_introspection(
+        surfaces, resident_serving_controller=None, config=config)
+
+    first_tick = "2026-10-18T12:01:00Z"
+    surfaces.build_world_state_board(tick_id=first_tick)
+    first_world_state = surfaces.current_world_state_snapshot
+    assert first_world_state is not None
+    assert not any(fact.source.source_id == "governed_local_model_resource_consumption"
+        for fact in first_world_state.facts)
+    surfaces.capture_causal_introspection(tick_id=first_tick)
+    first_generation = surfaces._causal_introspection_runtime.reconstruct()[0]
+    assert not first_generation.projections
+    assert [(item.error_code, item.error_class) for item in first_generation.capture_findings] == [
+        ("provider_projection_failed", "RuntimeError"),
+        ("required_provider_missing", "CoverageError"),
+    ]
+    assert owner.calls == 1
+
+    next_tick = "2026-10-18T12:01:01Z"
+    surfaces.build_world_state_board(tick_id=next_tick)
+    next_world_state = surfaces.current_world_state_snapshot
+    assert next_world_state is not None
+    next_fact = next(fact for fact in next_world_state.facts
+        if fact.source.source_id == "governed_local_model_resource_consumption")
+    surfaces.capture_causal_introspection(tick_id=next_tick)
+    next_generation = surfaces._causal_introspection_runtime.reconstruct()[1]
+    assert len(next_generation.projections) == 1
+    assert not next_generation.capture_findings
+    assert owner.calls == 2
+    observations = {item.observation_key: item.bounded_value
+        for item in next_generation.projections[0].observations}
+    assert observations["installation_identity"] == next_fact.payload["source_identity"]["installation_identity"]
+    assert observations["manifest_digest"] == next_fact.payload["source_identity"]["manifest_digest"]
