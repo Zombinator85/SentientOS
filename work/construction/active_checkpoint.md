@@ -251,3 +251,10 @@ Sequence 400 closes the mutable nested campaign-protocol gap before execution. E
 Latest construction segment: `work/construction/segments/0400-revalidate-mutable-campaign-protocol.md`
 Latest segment SHA-256: `dbe6a950ef7152794a3d49a5d5556bf7fe30a0f89227e8b4d080ad450a9acbf9`
 Sequence: 400 (hosted candidate checks pending)
+
+
+Sequence 401 isolates execution from caller mutation through a verified campaign protocol snapshot and serializes concurrent immutable publication without weakening first-writer custody. Campaign tests passed 31/31; the collision regression passed ten repeats; all seven selected dependent owner suites completed successfully. Compilation, focused mypy, and diff checks passed; repository baseline mypy wrapper remains blocked by the isolated environment. Sequence-400 exact PR Required Quality Gate passed (#39164845405); sequence-401 hosted verification is pending. Parent candidate `6cbdea630933d7e3247da5711f4df898a040d011`, tree `c2d9e42a8ac50bbcd75c8b407f8284f8a9621381`.
+
+Latest construction segment: `work/construction/segments/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.md`
+Latest segment SHA-256: `212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4`
+Sequence: 401 (hosted verification pending)

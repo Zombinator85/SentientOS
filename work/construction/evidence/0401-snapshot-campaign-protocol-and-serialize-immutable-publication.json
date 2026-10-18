@@ -1,0 +1,62 @@
+{
+  "append_only": true,
+  "change": {
+    "authority_added": false,
+    "campaign_protocol_snapshot": "The executor receives a fresh protocol copy reconstructed from a deep canonical snapshot; caller-visible protocol mutation cannot change the verified execution bindings.",
+    "immutable_publication_race": "Serialized directory-scoped immutable publication prevents a collision reader from observing the winning temporary hard-link count before cleanup.",
+    "success_criteria_changed": false
+  },
+  "hosted_parent_observation": {
+    "candidate": "6cbdea630933d7e3247da5711f4df898a040d011",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 39164845405
+  },
+  "local_verification": {
+    "campaign_tests": {
+      "failed": 0,
+      "passed": 31,
+      "skipped": 0
+    },
+    "concurrent_immutable_collision_regression": {
+      "failed": 0,
+      "passed": 10,
+      "repetitions": 10
+    },
+    "dependent_owner_suites": {
+      "command_exit": 0,
+      "failed": 0,
+      "files": 7
+    },
+    "focused_mypy": {
+      "command": "mypy --follow-imports=silent sentientos/private_file_custody.py sentientos/production_self_reflection_campaign.py",
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "py_compile": "passed",
+    "repository_mypy_baseline_wrapper": {
+      "reason": "isolated venv Python could not import the installed mypy module; no baseline pass is claimed",
+      "status": "blocked_environment"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 2057,
+  "segment_path": "work/construction/segments/0401-snapshot-campaign-protocol-and-serialize-immutable-publication.md",
+  "segment_sha256": "212f1c815eff31870bb1f553e95eca4e8681491f7195110099c77012a70639f4",
+  "sequence": 401,
+  "source": {
+    "branch": "codex/construct-sentientos-seq400",
+    "latest_verified_main": "ae55461e13be358c2754c7686b381ae2d72daa63",
+    "latest_verified_main_tree": "43736a4f450483cb16a6df0c73c16d7c10a68ee6",
+    "parent_commit": "6cbdea630933d7e3247da5711f4df898a040d011",
+    "parent_tree": "c2d9e42a8ac50bbcd75c8b407f8284f8a9621381",
+    "source_sha256": {
+      "sentientos/private_file_custody.py": "2490db438ee70121b42231e48612ce683c8dc14351bc85d1f60ca5bc8b395b40",
+      "sentientos/production_self_reflection_campaign.py": "b2c97975b161c3b12201e99245f0bfa6e022985eda49bf31ab0c096ff0c0b289",
+      "tests/test_production_self_reflection_campaign.py": "c6caaacc56c3ea45707c89e4ab49ad0a2996a85e978a2ebb2c97620eb06a2bbf"
+    }
+  },
+  "verification": {
+    "hosted_checks": "pending",
+    "status": "local_regression_verified_hosted_pending"
+  }
+}
