@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d529d1c9d68357e690ed64c82bffcd3256e881f34db69c2d24390d15a34e805c",
-    "latest_segment_sequence": 375,
-    "latest_segment_sha256": "be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c",
-    "source_commit": "c09d569f25daaf15304d19f9b7da3e56ec9ec1b7",
-    "source_tree": "77da3e1c510089b0ac3b28a6df3ad840e3e7d652"
+    "checkpoint_sha256": "5d1adbf3e9a9101c1224c8d21665f071a903815a60205165890189015bfb74b3",
+    "latest_segment_sequence": 376,
+    "latest_segment_sha256": "3c9954d5c07d393112aff711b280849455b51f406b438c66ee33f2338fb2e2c5",
+    "source_commit": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+    "source_tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 375,
+  "latest_sequence": 376,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4155,6 +4155,19 @@
       "evidence_path": "work/construction/evidence/0375-verify-exact-main-post-merge-gates.json",
       "evidence_bytes": 4724,
       "evidence_sha256": "782d77f1eba32d7fee10038ffc40c503dff7be90ff528b16776659b26ba00ac8"
+    },
+    {
+      "bytes": 2966,
+      "path": "work/construction/segments/0376-verify-sequence375-postmerge-main.md",
+      "predecessor": "segment-sha256:be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c",
+      "sequence": 376,
+      "sha256": "3c9954d5c07d393112aff711b280849455b51f406b438c66ee33f2338fb2e2c5",
+      "source_commit": "bed8ec6ca41d537fc89a39d023d76f6c0e7f6b3d",
+      "source_tree": "7994cd9cf44e9446bdebbc44ace34570a85b8d0b",
+      "evidence": "work/construction/evidence/0376-verify-sequence375-postmerge-main.json",
+      "evidence_path": "work/construction/evidence/0376-verify-sequence375-postmerge-main.json",
+      "evidence_bytes": 5299,
+      "evidence_sha256": "57a1e84071803c3e4713aa9030d8b1243c2224cc03ee65ed8bffabb2bc52a071"
     }
   ],
   "source_acquisition": {
