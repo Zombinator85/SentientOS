@@ -137,6 +137,17 @@ def test_campaign_reentry_does_not_reinitialize_missing_progress(tmp_path: Path)
     assert not (tmp_path / "state.json").exists()
 
 
+def test_campaign_reentry_rejects_non_object_state_without_reinitializing(tmp_path: Path) -> None:
+    protocol = _protocol()
+    ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    state_path = tmp_path / "state.json"
+    state_path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_state_tampered"):
+        ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    assert state_path.read_text(encoding="utf-8") == "[]"
+
+
 def test_campaign_reentry_revalidates_completed_receipt_custody(tmp_path: Path) -> None:
     protocol = _protocol()
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)

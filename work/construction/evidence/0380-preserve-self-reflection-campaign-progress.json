@@ -3,8 +3,8 @@
   "sequence": 380,
   "title": "Preserve self-reflection campaign progress on re-entry",
   "segment_path": "work/construction/segments/0380-preserve-self-reflection-campaign-progress.md",
-  "segment_bytes": 4090,
-  "segment_sha256": "a214f59913ecf5940c159fc3e6e98702e71f145086d76134fd8bcd60b9ac1fcd",
+  "segment_bytes": 6159,
+  "segment_sha256": "12919099c8a5b386209f021bbd72df1f0240b08e7dcd252739c14148e91c4fdc",
   "source": {
     "branch": "main",
     "commit": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
@@ -93,32 +93,62 @@
     "hosted_finalizer_artifact_bytes": 14231,
     "hosted_finalizer_artifact_sha256": "b0a7f6f3936d2c29fda8050d57d5f7d11797868c265b8df834e360421d4114e2",
     "hosted_finalizer_decision": "ready_for_pr_metadata",
-    "pr_metadata_guard_status": "pr_metadata_guard_ready"
+    "pr_metadata_guard_status": "pr_metadata_guard_ready",
+    "followup_pull_request": 2370,
+    "published_head_commit": "e0805bf1d80552fb0cbf490d07eb03b061a115a8",
+    "published_head_tree": "f1de11f9db1f2ec41141abc1d7b9b7c8670e37bf",
+    "published_head_checks": "all PR checks and the construction-candidate push CI and Invariants concluded success on e0805bf1d80552fb0cbf490d07eb03b061a115a8; source is older than updated local 160-test candidate",
+    "published_head_candidate_source_tests": 159,
+    "updated_local_source_tests": 160,
+    "updated_local_source_hosted_checks": "pending; prior head results do not bind to the updated source",
+    "hosted_qg_artifact_id": 12137883858,
+    "hosted_qg_artifact_bytes": 11213,
+    "hosted_qg_artifact_sha256": "1691202f5bac58195721093528bb2c8424c0f131737cdfeecae90f0614c3f90a",
+    "hosted_qg_artifact_source_sha": "1398b1efe234d9996e07df54391452d544004428",
+    "hosted_pr_finalizer_artifact_id": 12138685840,
+    "hosted_pr_finalizer_artifact_bytes": 14208,
+    "hosted_pr_finalizer_artifact_sha256": "d779714a4899acb977c4307661ff248653a1fa73471b0544bb7157bb3587c276",
+    "hosted_pr_finalizer_decision": "ready_for_pr_metadata",
+    "published_head_run_ids": {
+      "ci_pr": 39132519801,
+      "ci_push": 39132507726,
+      "quality_gate": 39132519863,
+      "docker": 39132519822,
+      "invariants_pr": 39132519810,
+      "invariants_push": 39132507688,
+      "codex_ci": 39132519934,
+      "gradient": 39132519921,
+      "release": 39132519798,
+      "lint_benchmark": 39132519783
+    },
+    "published_head_source_validation_artifact_id": 12138358660,
+    "published_head_source_validation_artifact_sha256": "01f2c9330f55247a4f012a2b7f35c1cb44bb76c31ffb95d762a36647ca7451fe"
   },
   "local_verification": {
     "base_source_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
     "base_source_tree": "c2d41c644daec56a285bae564cb482831570652a",
     "modified_files_sha256": {
-      "sentientos/production_self_reflection_campaign.py": "bdda0d9689966d52b882c140d8db3059f7dc579272d92bd8e25fd697db6c1e85",
-      "tests/test_production_self_reflection_campaign.py": "d29d893d7f48529cd854758b49d0c2a5bf96805a4d09e1ea24747127c9ec29b7",
+      "sentientos/production_self_reflection_campaign.py": "623aafbb48092090115ae366b294e5d43d199e503f011242bee8e9608dd35f42",
+      "tests/test_production_self_reflection_campaign.py": "6a99307adbc390e9c50337b3af9f647c50775408f82cd3ce18672cf7eed99348",
       "docs/development/production_self_reflection_campaign.md": "d6e547d37ef7d673c30a7e21c7c07ee4debd31e5c1adc61ab298d3f2ae5a9c8d"
     },
-    "source_diff_sha256": "2eb377c33ff1e2616818e5469a71077a9f472d2749b1c3edeb16a1e58848a0de",
+    "source_diff_sha256": "cf374b8da925b4ccc6fd945bc131201194f734326c06a913d6825d84946532e1",
     "test_suite": {
-      "tests_selected": 159,
-      "tests_executed": 159,
+      "tests_selected": 160,
+      "tests_executed": 160,
       "tests_failed": 0,
       "tests_skipped": 0,
       "validation_status": "validation_complete"
     },
-    "test_provenance_sha256": "4a21ae2a3f7d96d7871a65dc1440740f7ac5da844b0daca1d0788b9617fbcaad",
+    "test_provenance_sha256": "4f7f8e3df3e6cf0bea8403546ab54918a33b9672d522f9f4d9c5644d2fd9e4ac",
     "task_acceptance": {
       "status": "task_acceptance_ready",
-      "manifest_sha256": "f6dd4563ac1f9725f2e5c63cc89530649323db6da380e0dee241bfd62a76a533",
-      "result_sha256": "e1d6a6615e59f3146047a9ba40f4fe31a14b648aff18cb2ff0544e1f9da08855",
+      "manifest_sha256": "d3878ea99eef4cd64e5f5f18dff37672166c689ed587a95d8d25f65182882a6a",
+      "result_sha256": "04c16715d935a65304917af9711a8d229aff13d81a0a86605c20dbab514e1b18",
       "successful_path_nodes": [
         "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[1]",
-        "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]"
+        "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_preserves_partial_and_completed_progress[2]",
+        "tests/test_production_self_reflection_campaign.py::test_campaign_reentry_rejects_non_object_state_without_reinitializing"
       ]
     },
     "targeted_mypy": "passed_no_issues",
@@ -129,7 +159,7 @@
     },
     "py_compile": "passed",
     "git_diff_check": "passed",
-    "construction_custody_segments_verified": 379,
+    "construction_custody_segments_verified": 380,
     "precommit_finalizer": {
       "status": "repair_required_task_caused",
       "focused_tests": "passed",
@@ -140,7 +170,8 @@
       "docs_build": "blocked_missing_mkdocs_and_watchdog_offline",
       "strict_audits": "failed_closed_access_denied_non_administrator",
       "audit_immutability": "failed_closed_access_denied_non_administrator",
-      "hosted_exact_candidate_verification_required": true
+      "hosted_exact_candidate_verification_required": true,
+      "runs": 2
     },
     "append_only_audit_entries_preserved": [
       {
@@ -152,8 +183,20 @@
         "command": "audit_immutability_verifier",
         "prev_hash": "ba094b064ed1bfab6adfc28673bbef22b23e0e69dbc36dccbb01e1b8700c9c00",
         "rolling_hash": "f0647f96ed044be29923b8718d3b566c71a8a42452efb551e0d80655745505e1"
+      },
+      {
+        "command": "verify_audits",
+        "prev_hash": "f0647f96ed044be29923b8718d3b566c71a8a42452efb551e0d80655745505e1",
+        "rolling_hash": "669311f6ed317f9fb8a27ebd8e07de6c59c87c780edb6c9c94a009d18590bf24"
+      },
+      {
+        "command": "audit_immutability_verifier",
+        "prev_hash": "669311f6ed317f9fb8a27ebd8e07de6c59c87c780edb6c9c94a009d18590bf24",
+        "rolling_hash": "20cf5a39526b170bcba4ad3a345f05e496767077464f39e4f123b4e363d06051"
       }
-    ]
+    ],
+    "source_tree_including_host_local_audit_changes": "61928b40a9a2badfb35b0f13dff5d821962e63b8",
+    "source_candidate_tree": "pending: exact hosted candidate will inherit e080 remote runtime-audit blob and update source/evidence paths only"
   },
   "federation_health": {
     "workflow": "Federation Health Update",
@@ -180,5 +223,45 @@
     "completed": "campaign create/re-entry preserves exact protocol, progress prefix, and receipt custody without retrying interrupted work",
     "next": "verify live A->B->A evidence against exact commissioned model identities, installation lineage, and owner-attributed transition receipts; no production trial absent approvals"
   },
-  "outcome": "Merged bounded campaign custody scope and verified exact-main gates. Implemented and locally validated progress-preserving campaign re-entry; exact source hosted verification is pending PR checks."
+  "outcome": "Sequence-380 source and local audit custody are separated: the full latest campaign source remains locally preserved, the runtime audit log stays intact in its original workspace, and only source changes plus metadata-only audit identity evidence are eligible for a new hosted verification. No merge until the updated source receives exact hosted checks.",
+  "local_audit_custody": {
+    "path": "pulse/audit/privileged_audit.runtime.jsonl",
+    "custody": "preserved unchanged in original workspace; not part of source publication update",
+    "original_workspace_commit": "0ed3caf3d483dc49d6000343fc74f3a6ee9e5a8d",
+    "base_blob_sha": "3fef1e3bc71174bff41f6fb1bf865e554a6ea5ea",
+    "base_bytes": 133521,
+    "base_sha256": "619e0eea8a40e0bc7b7f6726375d1a6a882c262a35d36aa03fde680289ef18f7",
+    "current_bytes": 134773,
+    "current_sha256": "729f9c2115d297917342207d1198ec6ced0c2bbf5d625852c58f96548335e0a0",
+    "remote_candidate_prefix": {
+      "commit": "e0805bf1d80552fb0cbf490d07eb03b061a115a8",
+      "blob_sha": "2d9655eac11f4ce14008bb34350d781cdda7c4bb",
+      "bytes": 134147,
+      "lines": 443,
+      "matches_local_prefix": true
+    },
+    "local_only_appends": [
+      {
+        "timestamp": "2026-10-18T13:41:49.630275Z",
+        "line_sha256": "5af10bb9709ab9ae0f1e1d7190f95ff57e3dd5e9d9592a8f7f5561ec7f704f1d",
+        "prev_hash": "f0647f96ed044be29923b8718d3b566c71a8a42452efb551e0d80655745505e1",
+        "rolling_hash": "669311f6ed317f9fb8a27ebd8e07de6c59c87c780edb6c9c94a009d18590bf24"
+      },
+      {
+        "timestamp": "2026-10-18T13:41:49.746608Z",
+        "line_sha256": "db3bef54f1c3cfcfe993fa43e8382f36ad5b2412aa927c7d6d75514f4af6ac65",
+        "prev_hash": "669311f6ed317f9fb8a27ebd8e07de6c59c87c780edb6c9c94a009d18590bf24",
+        "rolling_hash": "20cf5a39526b170bcba4ad3a345f05e496767077464f39e4f123b4e363d06051"
+      }
+    ]
+  },
+  "publication_boundary": {
+    "operation": "github_create_blob for pulse/audit/privileged_audit.runtime.jsonl",
+    "result": "rejected_by_connector_unacceptable_risk",
+    "observed_rejection_excerpt": "This action was rejected due to unacceptable risk. Reason: The payload is visibly corrupted and contains extensive raw privileged-audit/runtime data, so publishing it to GitHub could disclose sensitive internal evidence.",
+    "response_truncated": true,
+    "alternate_encoding_or_endpoint_attempted": false,
+    "branch_ref_changed": false,
+    "resolution": "publish source changes from a separate checkout inheriting the exact remote log blob; retain and hash-bind local-only append records in original workspace"
+  }
 }

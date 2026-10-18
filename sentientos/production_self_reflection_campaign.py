@@ -260,6 +260,8 @@ class ProductionSelfReflectionCampaign:
     def state(self) -> Mapping[str, Any]:
         try: value = json.loads(self.state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
+        if not isinstance(value, dict):
+            raise ProductionSelfReflectionError("campaign_state_tampered")
         claimed = value.pop("state_digest", None)
         if (claimed != _digest(value) or value.get("schema_version") != CAMPAIGN_SCHEMA
                 or value.get("protocol_id") != self.protocol.protocol_id

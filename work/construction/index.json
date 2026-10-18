@@ -1,12 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0008f57a5e9bebade5404fc510a148f9aba27835123e0798e9742c73b29ba801",
+    "checkpoint_sha256": "436574eff159ea7c20452ee57bdf8243a6f3a4cf0f06b6ceca35526cd2a545ff",
     "latest_segment_sequence": 380,
-    "latest_segment_sha256": "a214f59913ecf5940c159fc3e6e98702e71f145086d76134fd8bcd60b9ac1fcd",
+    "latest_segment_sha256": "12919099c8a5b386209f021bbd72df1f0240b08e7dcd252739c14148e91c4fdc",
     "source_commit": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
     "source_tree": "c2d41c644daec56a285bae564cb482831570652a"
   },
+  "checkpoint_sha256": "df065d21476abccf0dc029c71dec4667a205cf47468d6a7388f080e46f124687",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -4209,17 +4210,17 @@
       "source_tree": "6064d7e5f8b5d05bdb38655a15db7f49a29d1797"
     },
     {
-      "bytes": 4090,
+      "bytes": 6159,
+      "evidence": "work/construction/evidence/0380-preserve-self-reflection-campaign-progress.json",
+      "evidence_bytes": 12691,
+      "evidence_path": "work/construction/evidence/0380-preserve-self-reflection-campaign-progress.json",
+      "evidence_sha256": "a063d30b5414f1de217c204a5b0404a8e33b983f1bb4e0d72b4ae14e23260216",
       "path": "work/construction/segments/0380-preserve-self-reflection-campaign-progress.md",
       "predecessor": "segment-sha256:398b33f3987bec651b68671ac1677d8c118b5f20e00a5757eeeb3e01533939b4",
       "sequence": 380,
-      "sha256": "a214f59913ecf5940c159fc3e6e98702e71f145086d76134fd8bcd60b9ac1fcd",
+      "sha256": "12919099c8a5b386209f021bbd72df1f0240b08e7dcd252739c14148e91c4fdc",
       "source_commit": "d70d63b31416f21bcc50b4c2a4708c6c822ff5e6",
-      "source_tree": "c2d41c644daec56a285bae564cb482831570652a",
-      "evidence": "work/construction/evidence/0380-preserve-self-reflection-campaign-progress.json",
-      "evidence_path": "work/construction/evidence/0380-preserve-self-reflection-campaign-progress.json",
-      "evidence_bytes": 7735,
-      "evidence_sha256": "c9829f950d95603bc6711770b8cc6574a20d1095a2945b540f22c3afd71d8bba"
+      "source_tree": "c2d41c644daec56a285bae564cb482831570652a"
     }
   ],
   "source_acquisition": {
@@ -4242,6 +4243,5 @@
       "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
       "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
     }
-  ],
-  "checkpoint_sha256": "df065d21476abccf0dc029c71dec4667a205cf47468d6a7388f080e46f124687"
+  ]
 }
