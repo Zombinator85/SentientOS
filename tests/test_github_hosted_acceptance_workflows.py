@@ -86,6 +86,20 @@ def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
     assert minute not in {"0", "*"}
 
 
+def test_nightly_workflow_schedules_avoid_top_of_hour_load_spike() -> None:
+    import yaml
+
+    for relative in (
+        ".github/workflows/audit-nightly.yml",
+        ".github/workflows/nightly-self-check.yml",
+    ):
+        workflow = (ROOT / relative).read_text()
+        parsed = yaml.safe_load(workflow)
+        triggers = parsed.get("on", parsed.get(True))
+        minute = triggers["schedule"][0]["cron"].split()[0]
+        assert minute not in {"0", "*"}, relative
+
+
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
     workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
     assert "permissions:\n  contents: read" in workflow
