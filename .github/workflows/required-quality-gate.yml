@@ -28,12 +28,6 @@ jobs:
           python -m pip install --only-binary=:all: -r requirements-codex.txt
           python -m pip install --no-deps -e .
           python -m pip check
-      - name: Bootstrap minimal documentation tooling with hosted Administrator authority
-        run: |
-          test "$(sudo -n id -u)" = "0"
-          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
-            SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1 \
-            python scripts/build_docs.py --bootstrap-docs
       - name: Run strict audits with actual Administrator authority
         run: |
           test "$(sudo -n id -u)" = "0"
@@ -41,6 +35,12 @@ jobs:
             python scripts/run_privileged_audit_verification.py \
               --expected-sha "$GITHUB_SHA" \
               --output glow/audits/privileged_audit_verification.json
+      - name: Bootstrap minimal documentation tooling with hosted Administrator authority
+        run: |
+          test "$(sudo -n id -u)" = "0"
+          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
+            SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1 \
+            python scripts/build_docs.py --bootstrap-docs
       - name: Prove imports are inert
         run: python scripts/verify_import_inertness.py --output glow/test_runs/quality_gate_import_smoke.json
       - name: Prove pytest bootstrap is privilege-inert

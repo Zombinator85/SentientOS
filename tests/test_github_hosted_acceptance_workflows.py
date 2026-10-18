@@ -474,6 +474,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'test "$(sudo -n id -u)" = "0"' in bootstrap
     assert "scripts/build_docs.py --bootstrap-docs" in bootstrap
     assert "SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1" in bootstrap
+    assert workflow.index("Run strict audits with actual Administrator authority") < workflow.index(
+        "Bootstrap minimal documentation tooling"
+    )
     assert workflow.index("Bootstrap minimal documentation tooling") < workflow.index(
         "Reconstruct and verify exact hosted pre-commit state"
     )

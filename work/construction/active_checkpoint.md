@@ -214,3 +214,7 @@ Sequence 394 hardens immutable campaign evidence publication with descriptor-bou
 Latest construction segment: `work/construction/segments/0394-preserve-immutable-readiness-evidence.md`
 Latest segment SHA-256: `21a93ee2b05f56c860f6b5a5ad12f7b98b9a81d26c36abeb2dcdcecd12cc1f35`
 Sequence: 394 (hosted verification pending)
+
+Source candidate parent: `1bbd4abd0bb6d33870b9a79b90248f079a06ddba`, tree `297983b58b80346ab7fc8157754d3ca9ba783293`.
+Latest construction segment: `work/construction/segments/0395-audit-before-hosted-bootstrap.md`
+Latest segment SHA-256: `295ecc09d5e5df05caf20210a84d80f54e3052065a587cf8c3f7073c5fb81063`
