@@ -1,13 +1,11 @@
 # Active construction checkpoint
 
-Latest verified `main`: `e9d64e53d0275507b2e5ba5a171ca9dc302d7329`, tree `5dc06dc2e4937e362b2ef5b45fc8056f60e33f59`. PR #2347 merged normally with both parents preserved. Candidate and post-merge QG, CI, Docker, invariants, Docs Deploy, and Codex CI passed; Forge Smoke was skipped by its configured condition. The exact-source post-merge QG ran strict Administrator audits and audit immutability verification successfully. Sequence 357 binds these results.
+Latest verified `main`: `ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27`, tree `da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9`. PR #2348 merged normally with both parents preserved. Candidate and post-merge QG, full CI, Docker, invariants, Codex CI, Docs Deploy, lint, release, and gradient checks passed; Forge Smoke was skipped by its configured condition. Hosted Administrator strict audits and audit immutability passed on exact main. Sequence 358 binds these results.
 
-Federation Health is configured for minute 17 hourly, but the expected 06:17 UTC recurrence on this main was not visible by 06:23:55 UTC. The latest visible schedule run remains #39083395122 on older source `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`. The report reads committed log history through 2025-06-05 and currently says one node, zero recent events, quiet; this does not establish live traffic. A separate changed-output fixture still awaits an operator-started `publication_fixture=true` dispatch.
+No current-main Federation Health scheduled recurrence was visible by 06:39:31 UTC; the expected 06:17 recurrence has not been observed, and the latest visible schedule run is on older source. The report uses a committed log snapshot whose newest entry is from 2025-06-05, so workflow success would not establish live federation traffic. The changed-output publication fixture still needs an operator-started `publication_fixture=true` dispatch. Latest scheduled Nightly Audit Integrity and Nightly Self Check runs are also older than current main; see the sequence-358 sidecar.
 
-The next claim-bearing bridge is a real production temporal resident A-to-B-to-A trial. Its bounded runtime and synthetic rehearsal exist; actual execution requires exact hardened commissioned A/B identities and receipts, distinct external serving approvals, and operator-approved preregistration. Preserve sequence-286 provenance-loss evidence and the stale sequence-178 workspace.
+The next claim-bearing developmental bridge is a real production temporal resident A-to-B-to-A trial. Its bounded runtime and synthetic rehearsal exist; actual execution requires exact hardened commissioned A/B identities and receipts, distinct external serving approvals, and operator-approved preregistration. No production inference or effect was initiated. Preserve sequence-286 provenance-loss evidence and the stale sequence-178 workspace.
 
-Latest construction segment: `work/construction/segments/0357-verify-postmerge-federation-health-schedule.md`
-Latest segment SHA-256: dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7`40d4764e9843b8944c23b67df9e24dce019511a773cc8b03b86db77404c02060`
-The hosted PR finalizer rejected a title mismatch and a rerun with stale event metadata; a fresh exact-title synchronize validation is underway.
-
-Sequence: 357
+Latest construction segment: `work/construction/segments/0358-verify-sequence357-merge-and-main-gates.md`
+Latest segment SHA-256: `4a06436c558625fa74caf0ce6c5a8a42e8f88e8aec5c0d1c389c1f9d6b9297c0`
+Sequence: 358

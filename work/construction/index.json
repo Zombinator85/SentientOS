@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e9fed12bc89b78a09628a05de5628cad4fd7257b414952b33eb7fd3484ef3f85",
-    "latest_segment_sequence": 357,
-    "latest_segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
-    "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
-    "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
+    "checkpoint_sha256": "f118c912f330c57d7f7562a1356198bec9fe20c8817b8e1dc7f28f62fa341445",
+    "latest_segment_sequence": 358,
+    "latest_segment_sha256": "4a06436c558625fa74caf0ce6c5a8a42e8f88e8aec5c0d1c389c1f9d6b9297c0",
+    "source_commit": "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+    "source_tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 357,
+  "latest_sequence": 358,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3921,6 +3921,19 @@
       "sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
       "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
       "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
+    },
+    {
+      "bytes": 3948,
+      "evidence": "work/construction/evidence/0358-verify-sequence357-merge-and-main-gates.json",
+      "evidence_bytes": 6003,
+      "evidence_path": "work/construction/evidence/0358-verify-sequence357-merge-and-main-gates.json",
+      "evidence_sha256": "400a18ffab6336a38691510ec6166434fc3eb956767aa9f400a469df0257b045",
+      "path": "work/construction/segments/0358-verify-sequence357-merge-and-main-gates.md",
+      "predecessor": "segment-sha256:dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+      "sequence": 358,
+      "sha256": "4a06436c558625fa74caf0ce6c5a8a42e8f88e8aec5c0d1c389c1f9d6b9297c0",
+      "source_commit": "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+      "source_tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "sequence": 358,
+  "title": "Verify sequence 357 merge and exact-main gates",
+  "source": {
+    "branch": "main",
+    "commit": "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+    "tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9"
+  },
+  "predecessor": {
+    "sequence": 357,
+    "segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+    "evidence_sha256": "ecfd248677d56e383aab386264d99d97a58e0bd3daa97e2b0f1aaa37007d1dc9"
+  },
+  "candidate": {
+    "pr_number": 2348,
+    "commit": "cea5353aff17a27788c31565bc6a09a150e3c17e",
+    "tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9",
+    "checks": {
+      "qg": {
+        "run_id": "39104187001",
+        "conclusion": "success",
+        "artifact_id": "12128230014",
+        "artifact_bytes": 11203,
+        "artifact_sha256": "54b65081712a31e6ee317d9de00dee14e7e471a83f22fe4e5e68baba6d1d3e2e",
+        "download_sha256_verified": true,
+        "acceptance_repository_sha": "b5f3660a55e12644a7ea6b216ca450629ebcfdb6",
+        "acceptance_tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9",
+        "acceptance_status": "task_acceptance_ready"
+      },
+      "ci": {
+        "run_id": "39104186989",
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": "39104187022",
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": "39104187012",
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": "39104187003",
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": "39104186995",
+        "conclusion": "success"
+      },
+      "gradient_null_regression": {
+        "run_id": "39104187004",
+        "conclusion": "success"
+      },
+      "lint_benchmark": {
+        "run_id": "39104186991",
+        "conclusion": "success"
+      }
+    },
+    "finalizer": {
+      "artifact_id": "12128085543",
+      "artifact_bytes": 14176,
+      "artifact_sha256": "7e041a12b3ab3d173fe47318cd7047f82a438ed2c8e44bfcecaef63ce3487bed",
+      "download_sha256_verified": true,
+      "status": "ready_for_pr_metadata",
+      "reasons": [],
+      "title_matches_commit_subject": true
+    },
+    "finalizer_failures": {
+      "initial_run_id": "39103993545",
+      "initial_attempt": 1,
+      "rerun_attempt": 2,
+      "cause": "title mismatch; rerun reused original event title",
+      "resolved_by": "fresh synchronized commit with exact title binding"
+    }
+  },
+  "merge": {
+    "pr_number": 2348,
+    "method": "merge",
+    "commit": "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+    "tree": "da61cc1f7cac3aa01b0aeae10c849e6ca7fb56f9",
+    "parents": [
+      "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+      "cea5353aff17a27788c31565bc6a09a150e3c17e"
+    ],
+    "signature_verified": true
+  },
+  "post_merge_checks": {
+    "qg": {
+      "run_id": "39104452501",
+      "conclusion": "success",
+      "artifact_id": "12127931440",
+      "artifact_bytes": 11208,
+      "artifact_sha256": "ef7644ed3a5cf07babb047eff384457b81a23253b8c6aa2425aad4b8666657dc",
+      "download_sha256_verified": true,
+      "acceptance_repository_sha": "ab1044bb4b9ed1d4bb859f0d15f9d37ed3b94f27",
+      "acceptance_status": "task_acceptance_ready",
+      "actual_administrator_strict_audit": true,
+      "strict_audit_ok": true,
+      "audit_immutability_ok": true
+    },
+    "ci": {
+      "run_id": "39104452631",
+      "conclusion": "success",
+      "pytest_with_coverage": "success",
+      "resource_to_cognition_lifecycle": "success",
+      "planning_execution_separation": "success",
+      "helm_kubernetes": "success",
+      "docs_build": "success",
+      "sphinx_linkcheck": "success"
+    },
+    "docker": {
+      "run_id": "39104452689",
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": "39104452617",
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": "39104452588",
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": "39104452500",
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": "39104452539",
+      "conclusion": "skipped_configured"
+    }
+  },
+  "federation_health": {
+    "workflow": ".github/workflows/federation-health.yml",
+    "schedule": "17 * * * *",
+    "expected_recurrence": "2026-10-18T06:17:00Z",
+    "observed_as_of": "2026-10-18T06:39:31Z",
+    "current_main_scheduled_run": "not_observed",
+    "latest_scheduled_run_id": "39083395122",
+    "latest_scheduled_run_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "latest_scheduled_run_created_at": "2026-10-18T00:36:39Z",
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "log_latest_timestamp": "2025-06-05T16:25:13.805813",
+    "log_is_live_telemetry": false,
+    "fixture_dispatch": "awaiting_operator_dispatch_publication_fixture_true"
+  },
+  "nightly_schedules": {
+    "latest_audit_integrity": {
+      "run_id": "39014123936",
+      "source": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14",
+      "conclusion": "success",
+      "current_main_execution": false
+    },
+    "latest_self_check": {
+      "run_id": "38876666946",
+      "source": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "conclusion": "failure",
+      "current_main_execution": false
+    }
+  },
+  "architecture": {
+    "next_claim_bearing_bridge": "real_production_temporal_resident_A_to_B_to_A_evidence",
+    "production_transition_executed": false,
+    "requires": [
+      "exact hardened commissioned A/B identities and receipts",
+      "distinct external serving approvals",
+      "operator-approved preregistration"
+    ],
+    "synthetic_rehearsal_is_production_evidence": false
+  },
+  "preservation": {
+    "source_code_changed": false,
+    "authority_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "segment_path": "work/construction/segments/0358-verify-sequence357-merge-and-main-gates.md",
+  "segment_sha256": "4a06436c558625fa74caf0ce6c5a8a42e8f88e8aec5c0d1c389c1f9d6b9297c0"
+}
