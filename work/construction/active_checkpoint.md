@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-Latest verified main after sequence 373: regular merge `731979b9ed0361cb729981fd44a8fd70b9dcb780`, tree `f64be96d05a666c2cfec6101a574afdc6d0d1aa8`, PR #2363. Candidate `94c885a2c10ca9d09e064e8354e09dc9fa3689fd` passed Required Quality Gate (hosted Administrator verification and landing finalizer), CI, Docker, invariants, Gradient, Codex CI, lint, and Release. The CI integrated resource-to-cognition lifecycle and planning/execution separation passed. The five candidate file blobs were independently read back from main and match the local reconstructed tree. The connected GitHub tool exposes PR-triggered commit runs only, so post-merge workflow conclusions remain unobserved.
+Latest verified main after sequence 374: regular merge `c09d569f25daaf15304d19f9b7da3e56ec9ec1b7`, tree `77da3e1c510089b0ac3b28a6df3ad840e3e7d652`, PR #2364. Exact-main post-merge Required Quality Gate, CI, Docker, Invariants, Docs Deploy, and Codex CI all passed; Forge Smoke was skipped by its configured condition. The QG artifact (12135968235) was SHA-256 verified as `e240a891275956d8abd2d13460cec66e3f999a5b2e6264d3f42bf122f7222635` and binds effective UID 0, Administrator verification, strict audit, immutability, and 29/29 acceptance outcomes to this exact source. The CI source-validation artifact (12136043283) was SHA-256 verified as `a1bc65317fcc3c7408645ecf3e6740b3cf85028f14418f9b014e9647aa134d3b` and contains passing canonical planning, World-State/resource, and resource-to-cognition acceptance records. At 12:19 UTC the expected 12:17 Federation Health schedule on this SHA had not appeared; the latest visible scheduled run remains on older source 0e2a7bff. This is unobserved, not failed or successful.
 
 The scheduled Federation Health evidence gap is now closed for this exact main source. Run #39122005777 (`schedule`, source `0e2a7bff…`) passed the Administrator preflight, privileged generator, and publisher; fixture was skipped as designed. Independently verified artifact #12134432857, SHA-256 `293290a30e85dd3cf3e80e2c7c09948827f3f08a8b85958fbd9d3278d84d2a2d`, reports 1 node, 0 recent events, `quiet`. Publisher output was `pull-request-operation = none` because report bytes matched main. This is not changed-output fixture proof.
 
@@ -45,3 +45,10 @@ Sequence 374 records the completed sequence-373 hosted candidate verification an
 Latest construction segment: `work/construction/segments/0374-verify-sequence373-merge-and-hosted-checks.md`
 Latest segment SHA-256: `aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83`
 Sequence: 374
+
+
+Sequence 375 records independently verified exact-main post-merge execution evidence for sequence 374. Local resource/introspection/runtime regression tests passed 82/82 with zero skips; mypy, py_compile, diff check, and continuation custody passed. The Federation Health workflow remains read-only for health and retains the hourly schedule, but its 12:17 execution on this exact main SHA was not observed by 12:19 UTC. The changed-output fixture still requires the repository Actions PR-creation setting; corrected nightly scheduled executions remain pending their next scheduled window. No production inference or runtime authority was added. The A→B→A trial still requires exact commissioned models and separate operator approvals. Sequence-286 provenance loss and stale sequence-178/368 workspaces remain preserved.
+
+Latest construction segment: `work/construction/segments/0375-verify-exact-main-post-merge-gates.md`
+Latest segment SHA-256: `be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c`
+Sequence: 375
