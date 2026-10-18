@@ -75,6 +75,17 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "format('automation/federation-health-fixture-{0}', github.run_id)" in publisher
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
 
+def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
+    import yaml
+
+    workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
+    parsed = yaml.safe_load(workflow)
+    triggers = parsed.get("on", parsed.get(True))
+    cron = triggers["schedule"][0]["cron"]
+    minute = cron.split()[0]
+    assert minute not in {"0", "*"}
+
+
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
     workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
     assert "permissions:\n  contents: read" in workflow

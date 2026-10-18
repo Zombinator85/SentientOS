@@ -2,7 +2,7 @@ name: Federation Health Update
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       publication_fixture:
