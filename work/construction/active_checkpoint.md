@@ -286,3 +286,10 @@ Sequence 405 hardens sequence-404 artifact staging against a pre-created symlink
 Latest construction segment: `work/construction/segments/0405-reject-symlink-artifact-output-root.md`
 Latest segment SHA-256: `5d13bb964ad581d1f9b065936a34707b8c92742a32d4cd7c8b8c6691514a8bc0`
 Sequence: 405 (local verification passed; hosted candidate verification pending)
+
+
+Sequence 406 verifies PR #2377 and exact-main validation on `fe5eea358254e4e968d4ab751b532c2a825f0705` / tree `36e23f790646aec5e69399f4272da5ae5f129a1c`. The regular merge preserved candidate history. Required Quality Gate, CI, Docker, invariants, Docs Deploy, and Codex CI passed on that exact main; Forge Smoke was skipped by configured opt-in. Independently downloaded QG evidence matched GitHub SHA-256 `d520c756800dd661bf947f2621a7efa39a9ded536c9ab020ca77de12a4a34b29` and binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance. The source-validation artifact matched `9076a719f8df677852300950428770cf35bbdb05abfca825f727eccbef004b43` and binds 20/20 exact-main call-phase tests, including resource-to-cognition and planning/execution separation. Scheduled Federation Health on this SHA and both nightly workflows remain pending at this cutoff.
+
+Latest construction segment: `work/construction/segments/0406-verify-sequence405-merge-main.md`
+Latest segment SHA-256: `922e35569cca3b4d86a89317729e0c6372ad8f62ea0ad25f91a093a39475c3e7`
+Sequence: 406 (exact-main post-merge checks passed; current-main scheduled observations pending)
