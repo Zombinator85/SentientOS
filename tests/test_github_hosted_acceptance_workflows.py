@@ -493,6 +493,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
     assert 'len(nodes) != 29' in precommit
+    assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
     assert "--validation-profile solo" in precommit
     assert '--workspace-root "$PRECOMMIT_WORKSPACE"' in precommit

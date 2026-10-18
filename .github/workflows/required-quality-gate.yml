@@ -187,7 +187,7 @@ jobs:
               raise SystemExit(result.returncode)
           provenance_path = run_dir / "test_run_provenance.json"
           provenance = json.loads(provenance_path.read_text())
-          if provenance.get("repository_sha") != expected_head or provenance.get("validation_status") != "validation_complete":
+          if provenance.get("git_sha") != expected_head or provenance.get("validation_status") != "validation_complete":
               raise SystemExit("pre-commit test provenance is not bound to the exact parent workspace")
           selected = provenance.get("selected_node_ids")
           manifest = {

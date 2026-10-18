@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c96f46438627542992f4769cafa2a94c63f1feeab0309dcbe4d8422ca81d34bf",
-    "latest_segment_sequence": 390,
-    "latest_segment_sha256": "10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
-    "source_commit": "0c3948d281cd64e55cba005525277c9330379642",
-    "source_tree": "d867fcca4fa88463ad275f26c2724c887a4fc7fd"
+    "checkpoint_sha256": "4980461b5063eb3bd922a5a12847f785dd73bebc657f018d08d6f7b7c747a139",
+    "latest_segment_sequence": 391,
+    "latest_segment_sha256": "103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432",
+    "source_commit": "e3259f8dd59108842aa287a83e31bbba3358fdc0",
+    "source_tree": "6eb37dd027479c3da0b9caa7de7e669372402909"
   },
-  "checkpoint_sha256": "c96f46438627542992f4769cafa2a94c63f1feeab0309dcbe4d8422ca81d34bf",
+  "checkpoint_sha256": "4980461b5063eb3bd922a5a12847f785dd73bebc657f018d08d6f7b7c747a139",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 390,
+  "latest_sequence": 391,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4351,6 +4351,19 @@
       "sha256": "10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
       "source_commit": "0c3948d281cd64e55cba005525277c9330379642",
       "source_tree": "d867fcca4fa88463ad275f26c2724c887a4fc7fd"
+    },
+    {
+      "bytes": 1456,
+      "evidence": "work/construction/evidence/0391-bind-precommit-provenance-to-canonical-git-sha.json",
+      "evidence_bytes": 2768,
+      "evidence_path": "work/construction/evidence/0391-bind-precommit-provenance-to-canonical-git-sha.json",
+      "evidence_sha256": "40df40ef1bed0d166c96a3c56e06b53fb15e942e8e30eaf857d76aaeb7e7e520",
+      "path": "work/construction/segments/0391-bind-precommit-provenance-to-canonical-git-sha.md",
+      "predecessor": "segment-sha256:10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98",
+      "sequence": 391,
+      "sha256": "103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432",
+      "source_commit": "e3259f8dd59108842aa287a83e31bbba3358fdc0",
+      "source_tree": "6eb37dd027479c3da0b9caa7de7e669372402909"
     }
   ],
   "source_acquisition": {

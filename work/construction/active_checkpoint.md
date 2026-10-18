@@ -189,3 +189,10 @@ Sequence 390 repairs the actual hosted sequence-389 QG failure: detached worktre
 Latest construction segment: `work/construction/segments/0390-preserve-lfs-pointer-form-in-precommit-worktree.md`
 Latest segment SHA-256: `10f62a155ad6dd8c3007bad53d554904184c33402ae2e37b3dfd5304b2114b98
 Sequence: 390 (hosted verification pending)
+
+
+Sequence 391 fixes a second source-caused failure in the hosted precommit workflow: it now reads the runner's canonical `git_sha` provenance field and compares it to the exact reconstructed parent. The failure from QG run `39158544727` remains recorded as a failed hosted check. The corrected workflow contract test passed 1/1 with zero skips; its task acceptance is ready. The fix awaits its exact-candidate hosted run. Candidate parent is `e3259f8dd59108842aa287a83e31bbba3358fdc0`, tree `6eb37dd027479c3da0b9caa7de7e669372402909`; latest verified main remains `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`, tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+
+Latest construction segment: `work/construction/segments/0391-bind-precommit-provenance-to-canonical-git-sha.md`
+Latest segment SHA-256: `103b2540efb666420bf9aa5e5f5202432dd99b0c21263ce4a0cff5ff3820c432`
+Sequence: 391 (hosted verification pending)
