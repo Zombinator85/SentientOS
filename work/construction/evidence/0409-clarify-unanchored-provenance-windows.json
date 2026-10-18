@@ -1,0 +1,295 @@
+{
+  "append_only": true,
+  "change": {
+    "files": [
+      "scripts/analyze_test_provenance.py",
+      "tests/test_analyze_test_provenance.py",
+      "README.md"
+    ],
+    "fixes": [
+      "A partial input window beginning with a non-null predecessor reports unanchored-start and remains integrity false; an internal predecessor mismatch remains prev-mismatch.",
+      "Bundle discovery deduplicates lexical absolute and repository-relative spellings without resolving symlinks.",
+      "Trend fixtures now include complete test execution metrics, and the reordered-chain fixture actually changes timestamp ordering while preserving each record hash."
+    ],
+    "history_repaired_or_discarded": false,
+    "problem": "The standalone quality-gate trend report treated a supplied non-genesis run as a broken predecessor link even though its predecessor was outside that one-file window. The QG record is still not chain-anchored; the canonical committed history contains additional actual gaps.",
+    "production_inference": false,
+    "provider_invoked": false,
+    "runtime_authority_added": false,
+    "verification_requirements_weakened": false
+  },
+  "hosted_candidate_verification": {
+    "ci": "pending",
+    "docker": "pending",
+    "docs": "pending",
+    "invariants": "pending",
+    "required_quality_gate": "pending",
+    "status": "pending"
+  },
+  "local_verification": {
+    "compileall": "passed for changed Python files",
+    "diff_check": "passed",
+    "docs_dependency_check": {
+      "interpretation": "No local documentation build is claimed; exact-candidate hosted documentation workflow remains required.",
+      "missing_packages": [
+        "mkdocs>=1.6,<2",
+        "watchdog>=2,<3"
+      ],
+      "status": "blocked_before_build"
+    },
+    "mypy_baseline": {
+      "new_errors": 0,
+      "retired_error_records": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "pre_append_custody": {
+      "failures": 0,
+      "segments_verified": 408,
+      "status": "construction_continuation_custody_ready"
+    },
+    "superseded_attempts": {
+      "initial_airlock": {
+        "reason": "sandbox proxy denied setuptools build-isolation download; no test pass claimed",
+        "status": "blocked_before_collection"
+      },
+      "legacy_policy": {
+        "collected": 11,
+        "executed": 0,
+        "failed": 0,
+        "passed": 0,
+        "reason": "all selected module tests are quarantined; the runner correctly rejected zero call-phase outcomes",
+        "skipped": 11
+      },
+      "pre_fix_fixture_suite": {
+        "executed": 11,
+        "failed": 3,
+        "passed": 8,
+        "resolution": "fixed incomplete fixture metrics, actual order permutation, and duplicate archive path; then reran the whole file successfully",
+        "skipped": 0
+      }
+    },
+    "targeted_mypy": "passed: scripts/analyze_test_provenance.py; no issues",
+    "targeted_nodes": [
+      "tests/test_analyze_test_provenance.py::test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity",
+      "tests/test_analyze_test_provenance.py::test_analyzer_cli_reads_bundle_and_archive_index",
+      "tests/test_analyze_test_provenance.py::test_analyze_router_telemetry_flags_proof_burn_spike",
+      "tests/test_analyze_test_provenance.py::test_verify_chain_detects_reordered_files"
+    ],
+    "task_acceptance": {
+      "local_wrapper_sha": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+      "required_nodes": 4,
+      "status": "task_acceptance_ready",
+      "successful_nodes": 4
+    },
+    "test_command": "python -m scripts.run_tests -- -m legacy -q tests/test_analyze_test_provenance.py",
+    "test_file_result": {
+      "collected": 11,
+      "executed": 11,
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0,
+      "validation_status": "validation_complete"
+    }
+  },
+  "post_merge_main_verification": {
+    "merge_commit": "e00f920b099c7f6b87d76b0a5e256c4bd152d15f",
+    "parents": [
+      "fe5eea358254e4e968d4ab751b532c2a825f0705",
+      "32a7d0e3c7bbee26e3c7a39b244d289ba1f8bc66"
+    ],
+    "pr_number": 2379,
+    "quality_gate": {
+      "acceptance_failed": 0,
+      "acceptance_passed": 29,
+      "acceptance_skipped": 0,
+      "administrator_verified": true,
+      "effective_uid": 0,
+      "immutability_ok": true,
+      "strict_audit_ok": true
+    },
+    "source_validation_acceptance": {
+      "canonical_planning": "20/20",
+      "source_validation": "11/11",
+      "world_state_contracts": "3/3"
+    },
+    "tree": "0cb82a29c44ab21dabf8570ab3f0f112e3d2e21b",
+    "workflows": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 39173381537,
+        "source_validation_artifact_id": 12153930092,
+        "source_validation_artifact_sha256": "875bd270c325ca5ba055c0021b68f5df559b35363c94a63b962f90cd159377d6"
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 39173381460
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 39173381515
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "run_id": 39173381459
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_configured_condition",
+        "run_id": 39173381547
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 39173381522
+      },
+      "Required Quality Gate": {
+        "artifact_id": 12153601411,
+        "artifact_sha256": "8029291a38480cac39773afa654efe42f1d782c7cc745855fc07b97774f06967",
+        "conclusion": "success",
+        "run_id": 39173381468
+      }
+    }
+  },
+  "provenance_diagnostic": {
+    "committed_snapshot_count": 123,
+    "full_history_continuity_discontinuity_count": 8,
+    "full_history_integrity_ok": false,
+    "full_history_issue_count": 8,
+    "full_history_issues": [
+      {
+        "file": "/workspace/work/committed-provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T191554Z_045dc196c641_1a0bf520837048bd9919f0556c37d17c.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T195057Z_045dc196c641_4b2218d74f924f70bcb063aee7f17763.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T195607Z_045dc196c641_76346407d7fd402393e5eef81a7e1eb8.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/committed-provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json",
+        "issue": "prev-mismatch"
+      },
+      {
+        "file": "/workspace/work/postmerge_qg_provenance.json",
+        "issue": "prev-mismatch"
+      }
+    ],
+    "full_history_run_count": 124,
+    "interpretation": "No claim of chain integrity is made. A non-genesis first record is unanchored; observed links between included records that do not match remain failures. The historical gaps are preserved for separate custody recovery.",
+    "known_provenance_loss_sequence": 286,
+    "post_fix_standalone_integrity_ok": false,
+    "post_fix_standalone_issues": [
+      {
+        "file": "/workspace/work/postmerge_qg_provenance.json",
+        "issue": "unanchored-start"
+      }
+    ],
+    "qg_artifact_predecessor_hash": "a18ef544b6f0cd5735d233a33eb2a2dc3448f8c1fce3c7ebd87b602d8ecc7aa8",
+    "qg_artifact_source_sha": null,
+    "qg_predecessor_present_in_committed_snapshots": false,
+    "qg_standalone_issue_before_fix": "prev-mismatch",
+    "qg_standalone_trend_status_before_fix": "INTEGRITY_BROKEN"
+  },
+  "scheduled_workflows_at_cutoff": {
+    "federation_health": {
+      "last_schedule_run_id": 39164710891,
+      "last_schedule_sha": "ae55461e13be358c2754c7686b381ae2d72daa63",
+      "next_current_main_schedule": "pending"
+    },
+    "nightly_audit_integrity": {
+      "current_main_schedule": "pending",
+      "last_conclusion": "success",
+      "last_schedule_run_id": 39014123936,
+      "last_schedule_sha": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14"
+    },
+    "nightly_self_check": {
+      "current_main_schedule": "pending",
+      "last_conclusion": "failure",
+      "last_schedule_run_id": 38876666946,
+      "last_schedule_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e"
+    }
+  },
+  "sequence": 409,
+  "source_binding": {
+    "candidate_commit": null,
+    "candidate_tree": null,
+    "local_test_tree": "80cad51ce5d5ff910fe42f3a4a7b4cc5aac70cc3",
+    "local_wrapper_head": "a8b93752cb79c21ad4177eba87189652cc5af9d0",
+    "tree_after_readme_status_update_before_evidence_append": "6f9477e88a1f16bc4d6a18dd637b4784f8ef26f9",
+    "verified_main_sha": "e00f920b099c7f6b87d76b0a5e256c4bd152d15f",
+    "verified_main_tree": "0cb82a29c44ab21dabf8570ab3f0f112e3d2e21b"
+  },
+  "supporting_artifacts": [
+    {
+      "bytes": 4045,
+      "path": "work/construction/evidence/0409-provenance-analysis-unselected-legacy-attempt-junit.xml",
+      "sha256": "54c0876f1dbe78288a659714e98de8b2d353814e40748476964b10b05de9777c"
+    },
+    {
+      "bytes": 6604,
+      "path": "work/construction/evidence/0409-provenance-analysis-unselected-legacy-attempt-provenance.json",
+      "sha256": "5fd30caac68e2d5689dffad5ec5d878cfc45f98b1c275656add8defed5b8550d"
+    },
+    {
+      "bytes": 1612,
+      "content_bytes": 5923,
+      "content_encoding": "gzip",
+      "content_sha256": "b95016626d0b3b3002ff973fd8a15508b86ce1d29fc0ca28c9abecde16d9fd27",
+      "path": "work/construction/evidence/0409-provenance-analysis-fixture-failures-junit.xml.gz",
+      "sha256": "4a04ffc2d758c1655fdeb47ed2cb951d7f28a6e6aaa92be7de6cdb482cd8b39f"
+    },
+    {
+      "bytes": 6592,
+      "path": "work/construction/evidence/0409-provenance-analysis-fixture-failures-provenance.json",
+      "sha256": "d5ed8ca59e266efd26f94355297c8fdf199a821874325457b47d1addcbf4d80e"
+    },
+    {
+      "bytes": 1649,
+      "path": "work/construction/evidence/0409-provenance-analysis-tests-junit.xml",
+      "sha256": "493d6a1c8fe2b35d2452bc5a90abb418ce5b324328bf3303c574e95da8869963"
+    },
+    {
+      "bytes": 6347,
+      "path": "work/construction/evidence/0409-provenance-analysis-tests-provenance.json",
+      "sha256": "e66417d2f2f40efda311ca558a78577d5d5406d0e01eeff2875ebde96488ca66"
+    },
+    {
+      "bytes": 1266,
+      "path": "work/construction/evidence/0409-local-task-acceptance-manifest.json",
+      "sha256": "18729ce6ed161bdef9dd3bf7118815587f1100e1407bef69ccf28efbbc5b6b50"
+    },
+    {
+      "bytes": 2715,
+      "path": "work/construction/evidence/0409-local-task-acceptance-result.json",
+      "sha256": "1cdf31f5243d63b6333c1da121217459834aaed2c566a22cc0b1e75d0cd65641"
+    },
+    {
+      "bytes": 20786,
+      "path": "work/construction/evidence/0409-main-quality-gate-provenance.json",
+      "sha256": "7a221e226eb7a0856321fdd9d81c7b70da8a2ed082b689b82583cdfdbc8fbcc2"
+    },
+    {
+      "bytes": 1566,
+      "path": "work/construction/evidence/0409-main-quality-gate-single-window-analysis.json",
+      "sha256": "3f21121e13a54a84d526eac1577834b59e39ebb87bfbc6167cf31a191cd1ff13"
+    },
+    {
+      "bytes": 5265,
+      "path": "work/construction/evidence/0409-main-quality-gate-committed-history-analysis.json",
+      "sha256": "84a5d92ace703bf1807922698f14f5ee47995d6ff19a6ba24121bbc109a2a7ac"
+    }
+  ]
+}

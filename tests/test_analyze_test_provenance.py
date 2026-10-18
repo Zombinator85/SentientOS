@@ -99,6 +99,8 @@ def test_analyze_router_telemetry_flags_proof_burn_spike() -> None:
         {
             "timestamp": f"2026-01-01T00:00:0{idx}+00:00",
             "run_intent": "default",
+            "tests_executed": 10,
+            "tests_passed": 10,
             "router_telemetry": {
                 "stage_b_evaluations": 1,
                 "escalated": False,
@@ -112,6 +114,8 @@ def test_analyze_router_telemetry_flags_proof_burn_spike() -> None:
         {
             "timestamp": f"2026-01-01T00:00:1{idx}+00:00",
             "run_intent": "default",
+            "tests_executed": 10,
+            "tests_passed": 10,
             "router_telemetry": {
                 "stage_b_evaluations": 6,
                 "escalated": True,
@@ -175,6 +179,29 @@ def test_verify_chain_ok_for_synthetic_chain(tmp_path: Path) -> None:
     assert report["integrity_issues"] == []
 
 
+def test_verify_partial_chain_marks_unverified_predecessor_without_claiming_integrity(tmp_path: Path) -> None:
+    partial = _build_chain(tmp_path, 2)[1:]
+
+    report = analyze(
+        partial,
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        verify_chain_enabled=True,
+    )
+
+    assert report["integrity_checked"] is True
+    assert report["integrity_ok"] is False
+    assert report["integrity_issues"] == [
+        {"file": partial[0]["_source"], "issue": "unanchored-start"}
+    ]
+
+
 def test_verify_chain_detects_mutated_snapshot(tmp_path: Path) -> None:
     runs = _build_chain(tmp_path, 3)
     runs[1]["tests_passed"] = 9
@@ -219,6 +246,12 @@ def test_verify_chain_detects_deleted_middle_snapshot(tmp_path: Path) -> None:
 
 def test_verify_chain_detects_reordered_files(tmp_path: Path) -> None:
     runs = _build_chain(tmp_path, 3)
+    runs[1]["timestamp"], runs[2]["timestamp"] = runs[2]["timestamp"], runs[1]["timestamp"]
+    for run in runs:
+        run["provenance_hash"] = compute_provenance_hash(
+            {key: value for key, value in run.items() if key != "_source"},
+            run.get("prev_provenance_hash") if isinstance(run.get("prev_provenance_hash"), str) else None,
+        )
     runs[1]["_source"], runs[2]["_source"] = runs[2]["_source"], runs[1]["_source"]
 
     report = analyze(

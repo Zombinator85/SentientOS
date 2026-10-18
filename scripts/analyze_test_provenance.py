@@ -116,9 +116,17 @@ def _discover_bundle_inputs(
     use_archive_index: bool,
     archive_index: Path,
 ) -> tuple[list[Path], int]:
-    candidates: set[Path] = set(explicit_bundles)
+    # The same bundle can be discovered through both --bundle-dir and the
+    # archive index, where one spelling may be absolute and the other
+    # repository-relative. Normalize lexically (without resolving symlinks)
+    # before deduplication so one archive is not analyzed twice.
+    candidates: set[Path] = {Path(os.path.abspath(path)) for path in explicit_bundles}
     if bundle_dir and bundle_dir.exists():
-        candidates.update(path for path in bundle_dir.glob("*.tar.gz") if path.is_file())
+        candidates.update(
+            Path(os.path.abspath(path))
+            for path in bundle_dir.glob("*.tar.gz")
+            if path.is_file()
+        )
 
     index_entries_used = 0
     if use_archive_index and archive_index.exists():
@@ -126,7 +134,7 @@ def _discover_bundle_inputs(
         for entry in entries:
             bundle = entry.get("bundle_path")
             if isinstance(bundle, str) and bundle.strip():
-                candidates.add(Path(bundle))
+                candidates.add(Path(os.path.abspath(bundle)))
                 index_entries_used += 1
 
     existing = sorted(path for path in candidates if path.exists() and path.is_file())
@@ -263,7 +271,13 @@ def verify_chain(runs: list[dict[str, Any]]) -> dict[str, Any]:
 
         expected_prev = prior_hash if index > 0 else None
         if prev_hash != expected_prev:
-            issues.append({"file": source, "issue": "prev-mismatch"})
+            # A supplied provenance window may begin partway through a longer
+            # chain. Its first record is not demonstrably broken just because
+            # its predecessor is outside the window, but the link is also not
+            # verified. Keep integrity false while distinguishing that custody
+            # gap from a mismatch between two records present in the window.
+            issue = "unanchored-start" if index == 0 and prev_hash is not None else "prev-mismatch"
+            issues.append({"file": source, "issue": issue})
 
         if not isinstance(actual_hash, str) or len(actual_hash) != 64:
             issues.append({"file": source, "issue": "missing-fields:provenance_hash"})

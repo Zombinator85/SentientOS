@@ -308,3 +308,14 @@ Latest construction segment: `work/construction/segments/0408-isolate-federation
 Latest segment SHA-256: `0464a6413f516311f40ef1ff384b973982790dea5661111608c9ebd53bf80f2a`
 Sequence: 408 (affected local tests passed; replacement-candidate hosted verification pending)
 Source parent commit `39a7d18061699ca79132ea242de7af10814c9a42`, tree `8556f61004d967ab75a1b9f575d8f5def8d365e2`.
+
+
+## Sequence 409 checkpoint
+
+Verified main at sequence start: `e00f920b099c7f6b87d76b0a5e256c4bd152d15f`, tree `0cb82a29c44ab21dabf8570ab3f0f112e3d2e21b`. PR #2379 is a regular merge. Exact-main QG #39173381468, CI #39173381537, Docker #39173381515, Invariants #39173381522, Docs Deploy #39173381459, and Codex CI #39173381460 passed; Forge Smoke #39173381547 was skipped by configuration. QG and source-validation artifact digests and exact acceptance details are recorded in sequence 409 evidence.
+
+The QG trend diagnostic and committed provenance history still report unanchored predecessor gaps; the separate sequence-409 code change corrects partial-window labeling without clearing integrity status. Sequence-286 provenance loss and all other gaps are preserved. Sequence-409 local regression, mypy, compilation, baseline, and custody checks passed. Its hosted candidate checks remain pending. The post-merge Federation Health schedule on this main and the current-main nightly schedules remain pending; prior-source runs are not substituted.
+
+Latest construction segment: `work/construction/segments/0409-clarify-unanchored-provenance-windows.md`
+Latest segment SHA-256: `3f2ad1de7acda02a17b5d309a95ebce704bb98334efff8e8844f1a2fb6a6bd18`
+Sequence: 409 (local source validation passed; hosted candidate verification pending)

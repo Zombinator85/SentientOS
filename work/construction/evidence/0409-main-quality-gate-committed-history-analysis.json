@@ -1,0 +1,135 @@
+{
+  "avoidance_alert": false,
+  "avoidance_reasons": [],
+  "avoidance_score": 0.0,
+  "continuity_checked": true,
+  "continuity_discontinuity_count": 8,
+  "continuity_issues": [
+    {
+      "current_file": "/workspace/work/committed-provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261009T131811Z_a2fbcc46aea4_cc19f20f85884e3c9543a2f008a779c3.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261017T215144Z_08179763200d_23b41dff1f7e4acbbfe1a8c14c299d70.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T191554Z_045dc196c641_1a0bf520837048bd9919f0556c37d17c.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T195057Z_045dc196c641_4b2218d74f924f70bcb063aee7f17763.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T192407Z_045dc196c641_d4f58e8b80ee46ae8c3f9fdb84e4dcd3.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T195607Z_045dc196c641_76346407d7fd402393e5eef81a7e1eb8.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T195057Z_045dc196c641_4b2218d74f924f70bcb063aee7f17763.json"
+    },
+    {
+      "current_file": "/workspace/work/committed-provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T195607Z_045dc196c641_76346407d7fd402393e5eef81a7e1eb8.json"
+    },
+    {
+      "current_file": "/workspace/work/postmerge_qg_provenance.json",
+      "issue": "history-gap",
+      "prior_file": "/workspace/work/committed-provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json"
+    }
+  ],
+  "continuity_ok": false,
+  "deduplicated_runs_total": 124,
+  "incomplete_run_count": 33,
+  "incomplete_run_reasons": {
+    "bootstrap_failed": 4,
+    "collection_failed": 4,
+    "metrics_missing": 4,
+    "validation_failed": 19,
+    "zero_call_phase_outcomes": 2
+  },
+  "insufficient_evidence": false,
+  "integrity_checked": true,
+  "integrity_issues": [
+    {
+      "file": "/workspace/work/committed-provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T185655Z_045dc196c641_b3fa5a4fa445475a8c538d424288fca6.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T191554Z_045dc196c641_1a0bf520837048bd9919f0556c37d17c.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T195057Z_045dc196c641_4b2218d74f924f70bcb063aee7f17763.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T195607Z_045dc196c641_76346407d7fd402393e5eef81a7e1eb8.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/committed-provenance/20261018T200343Z_045dc196c641_ec8b1523b7be4561b901113e2a69f274.json",
+      "issue": "prev-mismatch"
+    },
+    {
+      "file": "/workspace/work/postmerge_qg_provenance.json",
+      "issue": "prev-mismatch"
+    }
+  ],
+  "integrity_ok": false,
+  "metrics": {
+    "admissible_rate": 0.0,
+    "allow_flags_used": {
+      "allow_nonexecution": 0,
+      "budget_allow_violation": 0,
+      "bypass_env": 0
+    },
+    "escalation_rate": 0.0,
+    "exceptional_count": 0,
+    "prior_admissible_rate": 0.0,
+    "prior_proof_spend_p95": 0.0,
+    "prior_skip_rate_mean": 0.024166666666666666,
+    "prior_tests_executed_mean": 49.95,
+    "prior_tests_passed_mean": 49.95,
+    "prior_xfail_rate_mean": 0.0,
+    "proof_spend_mean": 0.0,
+    "proof_spend_p95": 0.0,
+    "router_runs_analyzed": 0,
+    "run_intent_distribution": {
+      "targeted": 20
+    },
+    "skip_rate_mean": 0.022183908045977013,
+    "stage_a_all_fail_rate": 0.0,
+    "tests_executed_mean": 38.55,
+    "tests_passed_mean": 38.55,
+    "xfail_rate_mean": 0.0
+  },
+  "overall_status": "INTEGRITY_BROKEN",
+  "runs_analyzed": 20,
+  "runs_discovered": 124,
+  "schema_version": 2,
+  "sources": {
+    "bundles_count": 0,
+    "index_entries_used": 0,
+    "live_dir_count": 124
+  },
+  "validation_complete_run_count": 91,
+  "validation_evidence_status": "complete",
+  "window_size": 20
+}
