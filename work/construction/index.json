@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c00766866d7aa860c08758d36c199baf6666b9b9d77ad4b26dbd21369ad2cf3e",
-    "latest_segment_sequence": 352,
-    "latest_segment_sha256": "0e906e62fad8734cc579e1ebd4da57414b904d7ff868c6117c095a3aa7c1e35f",
-    "source_commit": "74c05682f11fdf5f9e7c4c5fde93f36c6b9ecb1a",
-    "source_tree": "404649c384183ffafb1b0f631d59f624db332a4f"
+    "checkpoint_sha256": "289ab79e5c9f68e53bf616f620bb223eeb2041e02b6f0f0901b187bf49783172",
+    "latest_segment_sequence": 353,
+    "latest_segment_sha256": "9a9e131dc215706b3f6cc39cabc2a01a9135448dd4f4833d786ce5bc5ee3c941",
+    "source_commit": "9b0595f2384a70f8b2540240b157b90061368104",
+    "source_tree": "963912b175a6ea1f0191fcdc7d57fe24e63af345"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 352,
+  "latest_sequence": 353,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3861,6 +3861,14 @@
       "sequence": 352,
       "sha256": "0e906e62fad8734cc579e1ebd4da57414b904d7ff868c6117c095a3aa7c1e35f",
       "source_commit": "74c05682f11fdf5f9e7c4c5fde93f36c6b9ecb1a"
+    },
+    {
+      "bytes": 3124,
+      "path": "work/construction/segments/0353-shift-federation-schedule-off-top-of-hour.md",
+      "predecessor": "segment-sha256:0e906e62fad8734cc579e1ebd4da57414b904d7ff868c6117c095a3aa7c1e35f",
+      "sequence": 353,
+      "sha256": "9a9e131dc215706b3f6cc39cabc2a01a9135448dd4f4833d786ce5bc5ee3c941",
+      "source_commit": "9b0595f2384a70f8b2540240b157b90061368104"
     }
   ],
   "source_acquisition": {
