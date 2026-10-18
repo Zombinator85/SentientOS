@@ -1,0 +1,114 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 374,
+  "title": "Verify sequence 373 merge and hosted candidate checks",
+  "segment_path": "work/construction/segments/0374-verify-sequence373-merge-and-hosted-checks.md",
+  "segment_bytes": 2952,
+  "segment_sha256": "aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83",
+  "source": {
+    "branch": "main",
+    "commit": "731979b9ed0361cb729981fd44a8fd70b9dcb780",
+    "tree": "f64be96d05a666c2cfec6101a574afdc6d0d1aa8",
+    "live_ref_matches": true,
+    "verified_at": "2026-10-18T12:00:40Z",
+    "latest_runtime_source_commit": "731979b9ed0361cb729981fd44a8fd70b9dcb780",
+    "latest_runtime_source_tree": "f64be96d05a666c2cfec6101a574afdc6d0d1aa8"
+  },
+  "prior_main": {
+    "commit": "fa8a934ed34bb50b0988aeb0fd829a8806d132f8",
+    "tree": "a67c9c115990317c79e98f6edb5ae619e2d6cb25"
+  },
+  "merged_candidate": {
+    "pull_request": 2363,
+    "branch": "codex/seq373-resource-failure-recovery",
+    "candidate_commit": "94c885a2c10ca9d09e064e8354e09dc9fa3689fd",
+    "candidate_tree": "f64be96d05a666c2cfec6101a574afdc6d0d1aa8",
+    "merge_commit": "731979b9ed0361cb729981fd44a8fd70b9dcb780",
+    "parents": [
+      "fa8a934ed34bb50b0988aeb0fd829a8806d132f8",
+      "94c885a2c10ca9d09e064e8354e09dc9fa3689fd"
+    ],
+    "merge_method": "merge",
+    "candidate_checks": {
+      "required_quality_gate": {
+        "run_id": 39125211942,
+        "conclusion": "success",
+        "hosted_administrator_verification": "passed",
+        "hosted_landing_finalizer": "passed"
+      },
+      "ci": {
+        "run_id": 39125211934,
+        "conclusion": "success",
+        "self_check": "success",
+        "docs": "success",
+        "helm": "success",
+        "integrated_resource_to_cognition_lifecycle": "success",
+        "canonical_planning_execution_separation": "success"
+      },
+      "docker": {
+        "run_id": 39125211964,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39125211978,
+        "conclusion": "success"
+      },
+      "gradient_null_regression": {
+        "run_id": 39125211946,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39125212062,
+        "conclusion": "success"
+      },
+      "lint_benchmark": {
+        "run_id": 39125211941,
+        "conclusion": "success",
+        "python_3_11_testclient_regression": "success",
+        "python_3_11_core": "success",
+        "python_3_14_binary_lock": "success",
+        "python_3_14_source_lock": "success"
+      },
+      "release": {
+        "run_id": 39125211959,
+        "conclusion": "success"
+      }
+    },
+    "main_blob_readback": {
+      "sentientos/tests/test_resource_observation_world_state_integration.py": "95bc2916dfa032c3f5082964e9a9d087df15394c",
+      "work/construction/active_checkpoint.md": "57b9cb3f85b41aff1863301c425487d17bc248d2",
+      "work/construction/evidence/0373-bind-resource-read-failure-to-tick.json": "bf89262676e563613f098d589ea7fcb35b3b49b0",
+      "work/construction/index.json": "0096ecfcf211b439d6ecd710bdf28e6fa83dcee2",
+      "work/construction/segments/0373-bind-resource-read-failure-to-tick.md": "f457b94197f53605c8c6898ae21bc13499742e6c"
+    }
+  },
+  "verification": {
+    "targeted_command": "python -m scripts.run_tests -q sentientos/tests/test_resource_observation_world_state_integration.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py tests/test_host_resource_runtime.py tests/test_production_chat_resource_observation_recovery.py tests/test_causal_introspection.py",
+    "tests_passed": 82,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "mypy_baseline_status": "mypy_baseline_improved",
+    "mypy_new_errors": 0,
+    "mypy_retired_error_records": 40,
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "construction_continuation_custody": "passed"
+  },
+  "post_merge_workflow_observability": {
+    "conclusion": "unknown",
+    "reason": "GitHub connector returns pull-request-triggered commit runs only; no runs or simple statuses were returned for merge commit."
+  },
+  "next_dependency": {
+    "resident_transition": "real longitudinal A-to-B-to-A requires exact commissioned hardened A/B identities and receipts, installation/runtime/software lineage, and separate operator approvals for activation, serving, and preregistered trial protocol",
+    "federation_health_fixture": "requires repository Actions setting that permits Actions-created pull requests",
+    "sequence_286_provenance": "unresolved_and_preserved"
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_368_workspace": "untouched",
+    "prior_segments": "append-only",
+    "authority_changed": false,
+    "production_inference": "not_invoked"
+  },
+  "outcome": "sequence 373 is merged to main after all candidate checks passed; exact source blobs match the independently read-back identities; post-merge workflow conclusions remain unobserved."
+}

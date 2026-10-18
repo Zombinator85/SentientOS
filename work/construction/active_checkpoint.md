@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-Latest verified main after sequence 372: signed regular merge `fa8a934ed34bb50b0988aeb0fd829a8806d132f8`, tree `a67c9c115990317c79e98f6edb5ae619e2d6cb25`, PR #2362. Required Quality Gate, CI, Docker, invariants, Gradient, Codex CI, lint, and Release passed on candidate `09417da4c869233587c3640f24a9378376b6a294`; all six changed blobs were independently read back from main with the expected Git blob IDs. The available GitHub connector does not return push-triggered post-merge workflow runs, so post-merge check conclusions remain unobserved.
+Latest verified main after sequence 373: regular merge `731979b9ed0361cb729981fd44a8fd70b9dcb780`, tree `f64be96d05a666c2cfec6101a574afdc6d0d1aa8`, PR #2363. Candidate `94c885a2c10ca9d09e064e8354e09dc9fa3689fd` passed Required Quality Gate (hosted Administrator verification and landing finalizer), CI, Docker, invariants, Gradient, Codex CI, lint, and Release. The CI integrated resource-to-cognition lifecycle and planning/execution separation passed. The five candidate file blobs were independently read back from main and match the local reconstructed tree. The connected GitHub tool exposes PR-triggered commit runs only, so post-merge workflow conclusions remain unobserved.
 
 The scheduled Federation Health evidence gap is now closed for this exact main source. Run #39122005777 (`schedule`, source `0e2a7bff…`) passed the Administrator preflight, privileged generator, and publisher; fixture was skipped as designed. Independently verified artifact #12134432857, SHA-256 `293290a30e85dd3cf3e80e2c7c09948827f3f08a8b85958fbd9d3278d84d2a2d`, reports 1 node, 0 recent events, `quiet`. Publisher output was `pull-request-operation = none` because report bytes matched main. This is not changed-output fixture proof.
 
@@ -38,3 +38,10 @@ The next developmental evidence dependency remains a real, longitudinal resident
 Latest construction segment: `work/construction/segments/0373-bind-resource-read-failure-to-tick.md`
 Latest segment SHA-256: `a4c3b484d94aa5db159ea1a00ed8ce04a8e2406dbfc7147bbd7d3e3d30edea37`
 Sequence: 373
+
+
+Sequence 374 records the completed sequence-373 hosted candidate verification and regular merge. The targeted resource/introspection/runtime suite passed 82 tests with zero skips; py_compile, diff check, custody, and mypy baseline checks passed. No production inference or runtime authority was added. The next developmental evidence dependency remains a real resident A→B→A trial with exact commissioned A/B identities and separate operator approvals. The Federation Health changed-output fixture still requires the repository Actions PR-creation setting; sequence-286 provenance loss remains preserved. The stale sequence-178 and sequence-368 workspaces remain untouched.
+
+Latest construction segment: `work/construction/segments/0374-verify-sequence373-merge-and-hosted-checks.md`
+Latest segment SHA-256: `aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83`
+Sequence: 374
