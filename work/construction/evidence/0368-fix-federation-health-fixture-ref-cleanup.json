@@ -1,0 +1,167 @@
+{
+  "base": {
+    "commit": "ef0b3fb8c4ee83d5532582fb4035d1c177f4e404",
+    "tree": "2420ed1b738f504fe6bbee3ea325f732432e8e5c"
+  },
+  "change": {
+    "authority_changed": false,
+    "test": "Static contract pins distinct read/delete routes. A subprocess test executes the embedded cleanup script against a stateful fake gh API, verifies close/readback and both ref deletions, and verifies denied deletion returns nonzero with concrete API error details.",
+    "workflow": "Readback uses singular git/ref; both deletion requests use plural git/refs; CalledProcessError stdout/stderr is retained in cleanup_errors; cleanup remains fail-closed."
+  },
+  "defect": {
+    "branches_left_by_failed_run": [
+      "automation/federation-health-publication-fixture",
+      "automation/federation-health-fixture-39119356695"
+    ],
+    "cleanup_defect": "the GitHub REST read route is /git/ref/heads/{branch}, while deletion requires /git/refs/heads/{branch}; source used singular route for both read and DELETE",
+    "failed_proof_artifact": {
+      "cleanup_verified": false,
+      "id": 12134125157,
+      "sha256": "926d1f95620c45e8115c379d95f9c8f385fe9759badf2b42b648cf8293cd2173",
+      "verified": false
+    },
+    "fixture_validation": "passed: exact fixture branch, exact sentinel bytes, sole changed path, parent equal to current main",
+    "health_generation": "skipped as intended for fixture-only path",
+    "observed_run_id": 39119356695,
+    "publisher": "failed before creating a PR; GitHub Actions reported that it is not permitted to create or approve pull requests",
+    "setting_required": "Repository Actions general setting Allow GitHub Actions to create and approve pull requests; workflow continues to request only contents:write and pull-requests:write."
+  },
+  "integration_state": {
+    "candidate_hosted_checks": "pending",
+    "changed_output_fixture": "not yet established; cannot be proven until repository Actions setting permits PR creation and corrected cleanup is executed on hosted source",
+    "exact_main_scheduled_federation_health": "not yet observed for this main revision",
+    "main": "ef0b3fb8c4ee83d5532582fb4035d1c177f4e404",
+    "production_temporal_trial": "still gated by commissioned A/B identities and receipts, distinct serving approvals, and operator-approved preregistration; no inference initiated"
+  },
+  "preservation": {
+    "cleanup_scope": "Only the 5 timestamped provenance files, 3 JUnit files, and 3 pytest reports listed above were removed after their digests and status were recorded. Older canonical history was untouched.",
+    "remote_codex_construct_sentientos": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "stale_sequence_178": "untouched",
+    "tracked_test_state": "The two tracked test-run files were restored byte-for-byte from the unchanged seq367 candidate index before cleanup."
+  },
+  "runner_artifacts": [
+    {
+      "bytes": 2146,
+      "path": "glow/test_runs/provenance/20261018T103139Z_66e066a89d95_13573f443571403aa0df1b4b0912bc8c.json",
+      "sha256": "202e4a7c2c45727cf2a020ab3daa29d37c360f0dc67d9db13996cee154a862bb"
+    },
+    {
+      "bytes": 2074,
+      "path": "glow/test_runs/provenance/20261018T103202Z_66e066a89d95_1720212a0a5d498e8f17a0b4d606d315.json",
+      "sha256": "d0c53ff1aa47fec5253c8378a8ed38e562c1eb12874e5184c56b88f5a18d82e5"
+    },
+    {
+      "bytes": 17699,
+      "path": "glow/test_runs/provenance/20261018T103220Z_66e066a89d95_d379e7109cfe467a8191afe1b4696de3.json",
+      "sha256": "a258f04a4d1b18b17514bee47294c38a3aa259c87e61d84749aac5de3598e079"
+    },
+    {
+      "bytes": 18393,
+      "path": "glow/test_runs/provenance/20261018T103319Z_66e066a89d95_6fdc56c226994317ae05ad1d1dd31bbe.json",
+      "sha256": "8ddd4e74ba449e97b144bb67d76b216c72c715a319ceed20216e060c6f79f43d"
+    },
+    {
+      "bytes": 18155,
+      "path": "glow/test_runs/provenance/20261018T103337Z_66e066a89d95_44be99d95a4f4ffb86e57a441a828273.json",
+      "sha256": "bffc058207d34027e496528f8ceb57d9fc8d0383d0b85ff756d44490d84d3c22"
+    },
+    {
+      "bytes": 5600,
+      "path": "glow/test_runs/pytest_junitxml_111f39f985ef43858cc8be9becb24484.xml",
+      "sha256": "65d9d2c9c85f755b102a260458ea73802ce08b8cdeb5ca215b161af9f4d497b1"
+    },
+    {
+      "bytes": 12241,
+      "path": "glow/test_runs/pytest_junitxml_646ca9a99f02496ead6f43f802e35cf5.xml",
+      "sha256": "0b1d4db0eecdbcbbf1b7660c45ea549d5b63bda35730fdd8e708b842da93ee94"
+    },
+    {
+      "bytes": 5759,
+      "path": "glow/test_runs/pytest_junitxml_a6f3ef6aa95641079f38746e2854910e.xml",
+      "sha256": "52f234145cf8a58a086c1478b034aa8be0e86bd5bf503d895d772eb47089aa10"
+    },
+    {
+      "bytes": 16116,
+      "path": "glow/test_runs/pytest_report_4be49f4820da43879b2f777e22ff771b.json",
+      "sha256": "26913fa6741129394924677366f0a8286f7b3e63816b1b01e9c61ddd9723196f"
+    },
+    {
+      "bytes": 16572,
+      "path": "glow/test_runs/pytest_report_b24caa795ef647d486bc21938d292c96.json",
+      "sha256": "75f63c52b696d8dfbdc6f76f0a82db5e1cba01fc5dc771d6a5607b861df51b48"
+    },
+    {
+      "bytes": 16572,
+      "path": "glow/test_runs/pytest_report_d9e8c80ba8994753b83f06ed7249771d.json",
+      "sha256": "a5d7d93770703b419fc2a3f3e86335c4db493b954395a48fc0d8b3ee7c7cd59b"
+    }
+  ],
+  "runner_attempts": [
+    {
+      "exit_reason": "install-failed",
+      "git_sha": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "path": "glow/test_runs/provenance/20261018T103139Z_66e066a89d95_13573f443571403aa0df1b4b0912bc8c.json",
+      "sha256": "202e4a7c2c45727cf2a020ab3daa29d37c360f0dc67d9db13996cee154a862bb",
+      "tests_failed": 0,
+      "tests_passed": 0,
+      "tests_skipped": 0,
+      "validation_status": "bootstrap_failed"
+    },
+    {
+      "exit_reason": "airlock-failed",
+      "git_sha": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "path": "glow/test_runs/provenance/20261018T103202Z_66e066a89d95_1720212a0a5d498e8f17a0b4d606d315.json",
+      "sha256": "d0c53ff1aa47fec5253c8378a8ed38e562c1eb12874e5184c56b88f5a18d82e5",
+      "tests_failed": 0,
+      "tests_passed": 0,
+      "tests_skipped": 0,
+      "validation_status": "bootstrap_failed"
+    },
+    {
+      "exit_reason": null,
+      "git_sha": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "path": "glow/test_runs/provenance/20261018T103220Z_66e066a89d95_d379e7109cfe467a8191afe1b4696de3.json",
+      "sha256": "a258f04a4d1b18b17514bee47294c38a3aa259c87e61d84749aac5de3598e079",
+      "tests_failed": 0,
+      "tests_passed": 35,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    },
+    {
+      "exit_reason": "pytest-failed",
+      "git_sha": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "path": "glow/test_runs/provenance/20261018T103319Z_66e066a89d95_6fdc56c226994317ae05ad1d1dd31bbe.json",
+      "sha256": "8ddd4e74ba449e97b144bb67d76b216c72c715a319ceed20216e060c6f79f43d",
+      "tests_failed": 1,
+      "tests_passed": 35,
+      "tests_skipped": 0,
+      "validation_status": "validation_failed"
+    },
+    {
+      "exit_reason": null,
+      "git_sha": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "path": "glow/test_runs/provenance/20261018T103337Z_66e066a89d95_44be99d95a4f4ffb86e57a441a828273.json",
+      "sha256": "bffc058207d34027e496528f8ceb57d9fc8d0383d0b85ff756d44490d84d3c22",
+      "tests_failed": 0,
+      "tests_passed": 36,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    }
+  ],
+  "sequence": 368,
+  "source_sha256": {
+    ".github/workflows/federation-health.yml": "ac7eadf1faf4b28ca0adabd4206e3eb99640bf62d2ec212b9ed2b0052ee2d552",
+    "tests/test_github_hosted_acceptance_workflows.py": "70b9f159dc57f0733a3d36dd1e35b5fe9454d6bc87675dc8c0ea9cefdf013230"
+  },
+  "title": "Fix Federation Health fixture ref cleanup and prove fail-closed behavior",
+  "verification": {
+    "canonical_runner_command": "PYTHONPATH=/tmp/sentientos-seq368-home/.local/lib/python3.12/site-packages python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py",
+    "final_result": "36 passed, 0 failed, 0 skipped",
+    "git_diff_check": "passed",
+    "python_compile": "passed",
+    "scope_limitation": "Local run occurred on synthetic verification source identity 66e066a89d959b1e8b88dd2e76d3f15dd5617b83 in the dirty sequence-368 working tree. It is not exact candidate hosted verification; that is required before merge.",
+    "source_hash_binding": "source SHA-256 values recorded above",
+    "yaml_and_embedded_python_parse": "passed"
+  }
+}

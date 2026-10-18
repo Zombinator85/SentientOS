@@ -566,11 +566,142 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     assert "and trigger_branch_deleted" in workflow
     assert "cleanup_errors" in workflow
     assert "fixture_publication_cleanup_or_scope_unverified" in workflow
+    cleanup = workflow.split(
+        "- name: Close any fixture PR and remove its branch without merging", 1
+    )[1].split("- name: Upload changed-output publication proof", 1)[0]
+    assert 'ref = f"repos/{repository}/git/ref/heads/{branch}"' in cleanup
+    assert 'delete_ref = f"repos/{repository}/git/refs/heads/{branch}"' in cleanup
+    assert '["gh", "api", "--method", "DELETE", delete_ref]' in cleanup
+    assert '"repos/{repository}/git/refs/heads/"' in cleanup
+    assert '["gh", "api", "--method", "DELETE", trigger_ref]' not in cleanup
+    assert '"--method", "DELETE", trigger_delete_ref' in cleanup
+    assert "CalledProcessError as exc" in cleanup
     assert "delete-branch: false" in workflow
     assert workflow.count("name: federation-health-publication-fixture-${{ github.run_id }}") == 1
     proof_upload = workflow.split("- name: Upload changed-output publication proof", 1)[1]
     assert "always() && (inputs.publication_fixture == true || (github.event_name == 'push'" in proof_upload
     assert "&& 'always-true' || 'false' }}" in workflow
+
+
+def test_federation_health_fixture_cleanup_deletes_refs_and_fails_closed(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    import textwrap
+
+    workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
+    cleanup_step = workflow.split(
+        "- name: Close any fixture PR and remove its branch without merging", 1
+    )[1].split("- name: Upload changed-output publication proof", 1)[0]
+    marker = "          python - <<'PY'\n"
+    script = textwrap.dedent(cleanup_step.split(marker, 1)[1].split("\n          PY", 1)[0])
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    gh = fake_bin / "gh"
+    gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, pathlib, sys\n"
+        "args=sys.argv[1:]\n"
+        "method=args[args.index('--method')+1] if '--method' in args else 'GET'\n"
+        "endpoint=next(x for x in args if x.startswith('repos/'))\n"
+        "state_path=pathlib.Path(os.environ['FAKE_GH_STATE'])\n"
+        "state=json.loads(state_path.read_text())\n"
+        "state['requests'].append([method, endpoint])\n"
+        "state_path.write_text(json.dumps(state))\n"
+        "if endpoint.endswith('/pulls/42'):\n"
+        "  if method == 'PATCH': state['pr_state']='closed'; state_path.write_text(json.dumps(state))\n"
+        "  print(json.dumps({'number':42,'state':state['pr_state'],'merged':False,'merged_at':None,'head':{'ref':state['fixture_branch'],'repo':{'full_name':state['repository']}}}))\n"
+        "elif '/git/refs/heads/' in endpoint and method == 'DELETE':\n"
+        "  if os.environ.get('FAKE_GH_FAIL_DELETE') == '1': print('Resource not accessible by integration',file=sys.stderr); sys.exit(1)\n"
+        "  branch=endpoint.split('/git/refs/heads/',1)[1]; state['refs'][branch]=False; state_path.write_text(json.dumps(state)); print('{}')\n"
+        "elif '/git/ref/heads/' in endpoint and method == 'GET':\n"
+        "  branch=endpoint.split('/git/ref/heads/',1)[1]\n"
+        "  if not state['refs'].get(branch,False): print('HTTP 404: Reference does not exist',file=sys.stderr); sys.exit(1)\n"
+        "  print(json.dumps({'ref':endpoint}))\n"
+        "else: print('unexpected mocked GitHub request: '+method+' '+endpoint,file=sys.stderr); sys.exit(2)\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    repository = "Zombinator85/SentientOS"
+    fixture_branch = "automation/federation-health-fixture-123"
+    trigger_branch = "automation/federation-health-publication-fixture"
+
+    def invoke_cleanup(*, fail_delete: bool) -> tuple[subprocess.CompletedProcess[str], dict]:
+        run_dir = tmp_path / ("failed" if fail_delete else "passed")
+        run_dir.mkdir()
+        state_path = run_dir / "github.json"
+        state_path.write_text(json.dumps({
+            "repository": repository,
+            "fixture_branch": fixture_branch,
+            "pr_state": "open",
+            "refs": {fixture_branch: True, trigger_branch: True},
+            "requests": [],
+        }), encoding="utf-8")
+        proof = {
+            "schema_version": "sentientos.federation_health_fixture_publication:v1",
+            "workflow_run_id": "123",
+            "repository": repository,
+            "pull_request_number": 42,
+            "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/42",
+            "pull_request_head_sha": "a" * 40,
+            "pull_request_base_sha": "b" * 40,
+            "test_fixture_only": True,
+            "publication_scope_verified": True,
+            "cleanup": {"closed": False, "merged": False, "branch_deleted": False},
+            "verified": False,
+        }
+        (run_dir / "federation-health-fixture-publication.json").write_text(
+            json.dumps(proof), encoding="utf-8"
+        )
+        env = os.environ.copy()
+        env.update({
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "FAKE_GH_STATE": str(state_path),
+            "GH_REPOSITORY": repository,
+            "PR_NUMBER": "42",
+            "FIXTURE_BRANCH": fixture_branch,
+            "DELETE_TRIGGER_BRANCH": "true",
+            "GITHUB_RUN_ID": "123",
+            "RUNNER_TEMP": str(run_dir),
+            "GITHUB_OUTPUT": str(run_dir / "output.txt"),
+        })
+        if fail_delete:
+            env["FAKE_GH_FAIL_DELETE"] = "1"
+        else:
+            env.pop("FAKE_GH_FAIL_DELETE", None)
+        result = subprocess.run(
+            [sys.executable, "-c", script], cwd=ROOT, env=env,
+            capture_output=True, text=True, check=False,
+        )
+        return result, json.loads(
+            (run_dir / "federation-health-fixture-publication.json").read_text()
+        )
+
+    passed, proof = invoke_cleanup(fail_delete=False)
+    assert passed.returncode == 0, passed.stdout + passed.stderr
+    assert proof["verified"] is True
+    assert proof["cleanup"] == {
+        "closed": True,
+        "merged": False,
+        "branch_deleted": True,
+        "trigger_branch_deleted": True,
+    }
+    state = json.loads(
+        (tmp_path / "passed" / "github.json").read_text(encoding="utf-8")
+    )
+    deletes = [request for request in state["requests"] if request[0] == "DELETE"]
+    assert deletes == [
+        ["DELETE", f"repos/{repository}/git/refs/heads/{fixture_branch}"],
+        ["DELETE", f"repos/{repository}/git/refs/heads/{trigger_branch}"],
+    ]
+    failed, failed_proof = invoke_cleanup(fail_delete=True)
+    assert failed.returncode != 0
+    assert failed_proof["verified"] is False
+    assert any(
+        "Resource not accessible by integration" in item
+        for item in failed_proof["cleanup_errors"]
+    )
 
 
 
