@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "sequence": 357,
+  "title": "Verify current-main Federation Health scheduling and merge gates",
+  "source": {
+    "branch": "main",
+    "commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+    "tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
+  },
+  "merge": {
+    "pr_number": 2347,
+    "method": "merge",
+    "commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+    "tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59",
+    "parents": [
+      "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+      "376e2a5a7fa23428714720a419529dbef9ace93e"
+    ],
+    "signature_verified": true
+  },
+  "candidate": {
+    "commit": "376e2a5a7fa23428714720a419529dbef9ace93e",
+    "tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59",
+    "pr_number": 2347,
+    "checks": {
+      "required_quality_gate": "success",
+      "ci": "success",
+      "docker": "success",
+      "invariants": "success",
+      "codex_ci": "success",
+      "release": "success",
+      "gradient_null_regression": "success",
+      "lint_benchmark": "success"
+    }
+  },
+  "post_merge_checks": {
+    "required_quality_gate": {
+      "run_id": "39102300147",
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": "39102300174",
+      "conclusion": "success",
+      "pytest_with_coverage": "success",
+      "resource_to_cognition_lifecycle": "success",
+      "planning_execution_separation": "success",
+      "helm_kubernetes": "success",
+      "docs_build": "success",
+      "sphinx_linkcheck": "success"
+    },
+    "docker": {
+      "run_id": "39102300173",
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": "39102300142",
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": "39102300213",
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": "39102300154",
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": "39102300175",
+      "conclusion": "skipped_configured"
+    }
+  },
+  "quality_gate_artifact": {
+    "id": "12127560519",
+    "bytes": 11210,
+    "sha256": "e683da144c91d707c165f441bf8672cbb96c56bff2333fca52ccbe2ce02e4f16",
+    "download_sha256_verified": true,
+    "acceptance_repository_sha": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+    "acceptance_status": "task_acceptance_ready",
+    "actual_administrator_strict_audit": true,
+    "strict_audit_ok": true,
+    "audit_immutability_ok": true
+  },
+  "federation_health": {
+    "workflow": ".github/workflows/federation-health.yml",
+    "schedule": "17 * * * *",
+    "expected_recurrence": "2026-10-18T06:17:00Z",
+    "observed_as_of": "2026-10-18T06:23:55Z",
+    "current_main_scheduled_run": "not_observed",
+    "latest_scheduled_run_id": "39083395122",
+    "latest_scheduled_run_created_at": "2026-10-18T00:36:39Z",
+    "latest_scheduled_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "workflow_dispatch_available_in_connector": false,
+    "current_document": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "log_snapshot": {
+      "path": "logs/federation_log.jsonl",
+      "git_blob_sha": "9f94d24b70ac83d8736eb8d1de3276b65f47ff8b",
+      "bytes": 8490,
+      "records": 15,
+      "latest_timestamp": "2025-06-05T16:25:13.805813",
+      "live_traffic_evidence": false
+    },
+    "publication_fixture": "awaiting_operator_dispatch_publication_fixture_true"
+  },
+  "architecture": {
+    "next_claim_bearing_bridge": "real_production_temporal_resident_A_to_B_to_A_evidence",
+    "production_transition_executed": false,
+    "requires": [
+      "exact hardened commissioned A/B identities and receipts",
+      "distinct external serving approvals",
+      "operator-approved preregistration"
+    ],
+    "synthetic_rehearsal_is_production_evidence": false
+  },
+  "preservation": {
+    "source_code_changed": false,
+    "authority_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved"
+  },
+  "predecessor": {
+    "sequence": 356,
+    "segment_sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
+    "evidence_sha256": "2ea44f2015a147bf4f06908c96dd3f669b8c4775b75145f734be86dcb2be38cc"
+  },
+  "segment_path": "work/construction/segments/0357-verify-postmerge-federation-health-schedule.md",
+  "segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+  "publication_finalizer_observation": {
+    "run_id": "39103993545",
+    "first_attempt": "failure_pr_title_did_not_match_commit_subject",
+    "first_attempt_other_required_steps": "success",
+    "metadata_corrected": true,
+    "failed_job_rerun_attempt": 2,
+    "rerun_result": "failure_original_pr_event_title_retained",
+    "finalizer_passed": false,
+    "remediation": "fresh_synchronized_candidate_with_exact_pr_title_and_latest_commit_subject",
+    "verification_weakening": false
+  }
+}

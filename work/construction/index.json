@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "6f791b4d81c919e9f3b67beeda139e3686700674e564c3248500b77334337f95",
-    "latest_segment_sequence": 356,
-    "latest_segment_sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
-    "source_commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
-    "source_tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
+    "checkpoint_sha256": "e9fed12bc89b78a09628a05de5628cad4fd7257b414952b33eb7fd3484ef3f85",
+    "latest_segment_sequence": 357,
+    "latest_segment_sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+    "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+    "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 356,
+  "latest_sequence": 357,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3908,6 +3908,19 @@
       "sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
       "source_commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
       "source_tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
+    },
+    {
+      "bytes": 3845,
+      "evidence": "work/construction/evidence/0357-verify-postmerge-federation-health-schedule.json",
+      "evidence_bytes": 4830,
+      "evidence_path": "work/construction/evidence/0357-verify-postmerge-federation-health-schedule.json",
+      "evidence_sha256": "ecfd248677d56e383aab386264d99d97a58e0bd3daa97e2b0f1aaa37007d1dc9",
+      "path": "work/construction/segments/0357-verify-postmerge-federation-health-schedule.md",
+      "predecessor": "segment-sha256:5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
+      "sequence": 357,
+      "sha256": "dc30a4df5f3cba9de5f8459a59e5c5c1e2e7aae273f361e52872da9f90db46b7",
+      "source_commit": "e9d64e53d0275507b2e5ba5a171ca9dc302d7329",
+      "source_tree": "5dc06dc2e4937e362b2ef5b45fc8056f60e33f59"
     }
   ],
   "source_acquisition": {
