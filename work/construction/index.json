@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c5f79eb6897e68d8e7eb1527a8df80b7e933bb7ed08f13fd9fff913a5f4076fe",
-    "latest_segment_sequence": 398,
-    "latest_segment_sha256": "1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e",
-    "source_commit": "efc6ac6c906601445b8b1fc88597101bcfd6180e",
-    "source_tree": "be7bb0fe2d65cd44f006e4cf151fd2143d0b7390"
+    "checkpoint_sha256": "25291cdfa937dde1860af325bf47c72d8da204b22aa2cee5855a1601d50e94ac",
+    "latest_segment_sequence": 399,
+    "latest_segment_sha256": "2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
+    "source_commit": "320ab95e9073eb043eab5fd8169ea3865b368d67",
+    "source_tree": "7de4093d83f76a2d88ee79edbc20320f15639038"
   },
-  "checkpoint_sha256": "c5f79eb6897e68d8e7eb1527a8df80b7e933bb7ed08f13fd9fff913a5f4076fe",
+  "checkpoint_sha256": "25291cdfa937dde1860af325bf47c72d8da204b22aa2cee5855a1601d50e94ac",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 398,
+  "latest_sequence": 399,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3531,6 +3531,19 @@
       "sha256": "1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e",
       "source_commit": "efc6ac6c906601445b8b1fc88597101bcfd6180e",
       "source_tree": "be7bb0fe2d65cd44f006e4cf151fd2143d0b7390"
+    },
+    {
+      "bytes": 1885,
+      "evidence": "work/construction/evidence/0399-run-candidate-acceptance-from-exact-worktree.json",
+      "evidence_bytes": 2129,
+      "evidence_path": "work/construction/evidence/0399-run-candidate-acceptance-from-exact-worktree.json",
+      "evidence_sha256": "816931f8b425c9a310167428239138f651bbe307e5da19771e8751a02b607346",
+      "path": "work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md",
+      "predecessor": "segment-sha256:1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e",
+      "sequence": 399,
+      "sha256": "2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
+      "source_commit": "320ab95e9073eb043eab5fd8169ea3865b368d67",
+      "source_tree": "7de4093d83f76a2d88ee79edbc20320f15639038"
     }
   ],
   "source_acquisition": {

@@ -190,6 +190,29 @@ def test_changed_acceptance_digests_without_source_bound_rollforward_block(
 
 
 @pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("rollforward", [False, True])
+@pytest.mark.parametrize("target", ["pre", "post"])
+def test_malformed_task_acceptance_report_blocks_without_crashing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rollforward: bool, target: str,
+) -> None:
+    request, pre, post = _transition_request(
+        tmp_path, monkeypatch, acceptance_rollforward=rollforward,
+    )
+    report_path = pre if target == "pre" else post
+    report_phase = "pre_commit" if target == "pre" else "pr_metadata"
+    payload = json.loads(report_path.read_text())
+    payload["task_acceptance"] = []
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_pr_metadata_guard(request)
+
+    assert result.ready is False
+    assert f"{report_phase}_task_acceptance_report_invalid" in result.reasons
+    if rollforward:
+        assert "task_acceptance_rollforward_evidence_invalid" in result.reasons
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("mutation,reason", [
     ("wrong_sha", "pr_metadata_task_acceptance_source_sha_mismatch"),
     ("changed_nodes", "task_acceptance_required_nodes_changed"),

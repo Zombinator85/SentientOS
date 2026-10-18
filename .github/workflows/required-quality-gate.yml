@@ -307,6 +307,7 @@ jobs:
           manifest["test_provenance_path"] = str(provenance_path)
           manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
           PY
+            cd "$METADATA_WORKSPACE"
             PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py" \
               --manifest "$CANDIDATE_ACCEPTANCE_DIR/manifest.json" \
               --provenance "$CANDIDATE_ACCEPTANCE_DIR/provenance.json" \

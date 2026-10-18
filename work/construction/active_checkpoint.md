@@ -237,3 +237,10 @@ Sequence 398 resolves the acceptance lineage mismatch diagnosed by the sequence-
 Latest construction segment: `work/construction/segments/0398-allow-exact-task-acceptance-source-rollforward.md`
 Latest segment SHA-256: `1e561ea6e6b574e3364a2c96da9b59fb2a5eeb2b91a9bb02b347fd702b51bf1e`
 Sequence: 398 (local checks passed; hosted verification pending)
+
+
+Sequence 399 repairs the exact PR-event finalizer failure from run 39163615834: task acceptance was reverified from the synthetic merge checkout after being bound to the detached PR-head worktree. The verifier now runs from that exact worktree; a workflow contract test binds the cwd to the candidate. Malformed acceptance reports also return explicit blocked decisions instead of raising. Focused landing/workflow tests passed 150 with 16 legacy skips; targeted mypy, compilation, and diff checks passed. Sequence-398 push QG passed; sequence-399 hosted checks are pending. Parent `320ab95e9073eb043eab5fd8169ea3865b368d67`, tree `7de4093d83f76a2d88ee79edbc20320f15639038`; main `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`.
+
+Latest construction segment: `work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md`
+Latest segment SHA-256: `2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8`
+Sequence: 399 (local checks passed; hosted verification pending)

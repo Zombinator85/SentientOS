@@ -71,13 +71,16 @@ def _verify_acceptance_source_rollforward(
     reasons: list[str] = []
     proof: dict[str, Any] = {
         "status": "blocked",
-        "pre_repository_sha": pre_acceptance.get("repository_sha") if pre_acceptance else None,
-        "post_repository_sha": post_acceptance.get("repository_sha") if post_acceptance else None,
+        "pre_repository_sha": pre_acceptance.get("repository_sha") if isinstance(pre_acceptance, Mapping) else None,
+        "post_repository_sha": post_acceptance.get("repository_sha") if isinstance(post_acceptance, Mapping) else None,
         "required_node_ids": [],
         "reasons": reasons,
     }
     if pre_acceptance is None or post_acceptance is None:
         reasons.append("task_acceptance_rollforward_evidence_missing")
+        return False, tuple(reasons), proof
+    if not isinstance(pre_acceptance, Mapping) or not isinstance(post_acceptance, Mapping):
+        reasons.append("task_acceptance_rollforward_evidence_invalid")
         return False, tuple(reasons), proof
     if pre_acceptance.get("status") != "task_acceptance_ready":
         reasons.append("pre_commit_task_acceptance_not_ready")
@@ -190,6 +193,10 @@ def verify_validation_plan_transition(
 ) -> tuple[bool, tuple[str, ...], dict[str, Any]]:
     """Verify two phase-local plans as one exact landing validation lineage."""
     reasons: list[str] = []
+    if pre_acceptance is not None and not isinstance(pre_acceptance, Mapping):
+        reasons.append("pre_commit_task_acceptance_report_invalid")
+    if post_acceptance is not None and not isinstance(post_acceptance, Mapping):
+        reasons.append("pr_metadata_task_acceptance_report_invalid")
     pre_valid, pre_reasons = verify_validation_plan(pre_plan)
     post_valid, post_reasons = verify_validation_plan(post_plan)
     if not pre_valid:
@@ -216,8 +223,8 @@ def verify_validation_plan_transition(
     if post_plan.get("repository_sha") != head_sha: reasons.append("pr_metadata_validation_repository_sha_mismatch")
     acceptance_transition: dict[str, Any] = {
         "status": "same_evidence",
-        "pre_repository_sha": pre_acceptance.get("repository_sha") if pre_acceptance else None,
-        "post_repository_sha": post_acceptance.get("repository_sha") if post_acceptance else None,
+        "pre_repository_sha": pre_acceptance.get("repository_sha") if isinstance(pre_acceptance, Mapping) else None,
+        "post_repository_sha": post_acceptance.get("repository_sha") if isinstance(post_acceptance, Mapping) else None,
         "required_node_ids": [],
         "reasons": [],
     }
@@ -232,7 +239,7 @@ def verify_validation_plan_transition(
         else:
             reasons.extend(f"validation_lineage_field_mismatch:{field}" for field in acceptance_digest_mismatches)
             reasons.extend(acceptance_reasons)
-    elif (pre_acceptance is not None and post_acceptance is not None
+    elif (isinstance(pre_acceptance, Mapping) and isinstance(post_acceptance, Mapping)
           and pre_acceptance.get("repository_sha") != post_acceptance.get("repository_sha")):
         reasons.append("task_acceptance_source_sha_changed_without_digest_transition")
         acceptance_transition["status"] = "blocked"

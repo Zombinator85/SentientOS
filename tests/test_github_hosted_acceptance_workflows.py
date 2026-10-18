@@ -539,6 +539,10 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
     assert 'provenance.get("git_sha") != expected_head' in finalizer
     assert 'candidate acceptance must contain the exact 29 required nodes' in finalizer
+    candidate_verify = finalizer.index(
+        'PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py"'
+    )
+    assert finalizer.rfind('cd "$METADATA_WORKSPACE"', 0, candidate_verify) >= 0
     assert 'SENTIENTOS_METADATA_WORKSPACE=$METADATA_WORKSPACE' in finalizer
 
     guard = workflow.split(

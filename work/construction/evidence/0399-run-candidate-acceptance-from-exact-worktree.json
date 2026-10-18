@@ -1,0 +1,48 @@
+{
+  "append_only": true,
+  "change": {
+    "authority_added": false,
+    "repair": "Run candidate acceptance verification from the exact detached PR-head worktree, and convert malformed task-acceptance objects into fail-closed guard decisions.",
+    "success_criteria_changed": false
+  },
+  "hosted_observation": {
+    "failure": "candidate acceptance verification ran from the synthetic merge checkout and rejected the candidate-bound repository SHA",
+    "pr_gate": "failed",
+    "pr_gate_run_id": 39163615834,
+    "push_gate": "passed",
+    "push_gate_run_id": 39163448369
+  },
+  "local_verification": {
+    "focused_tests": {
+      "failed": 0,
+      "passed": 150,
+      "skipped_legacy": 16
+    },
+    "git_diff_check": "passed",
+    "py_compile": "passed",
+    "targeted_mypy": "passed"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1885,
+  "segment_path": "work/construction/segments/0399-run-candidate-acceptance-from-exact-worktree.md",
+  "segment_sha256": "2433a5d10bc05ce102f15d936782fd6060e8ca09cb46a60fcf9e7ec809593bc8",
+  "sequence": 399,
+  "source": {
+    "branch": "codex/construct-sentientos-seq387",
+    "latest_verified_main": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
+    "latest_verified_main_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846",
+    "parent_commit": "320ab95e9073eb043eab5fd8169ea3865b368d67",
+    "parent_tree": "7de4093d83f76a2d88ee79edbc20320f15639038",
+    "source_sha256": {
+      ".github/workflows/required-quality-gate.yml": "285279d0a55dc13f616031d1d5fc0719a2184408127a0a9aee03c5045fc90b01",
+      "sentientos/landing_validation_plan.py": "9f15361ee0e4f213be28ce2349a456fb12fa2733a101cfdab020898c46bf6c17",
+      "tests/test_codex_pr_metadata_guard.py": "05260675e3cc6fd8b3e75780e84bdfda5bdf92b3c16b794f66af516ed2a63e97",
+      "tests/test_github_hosted_acceptance_workflows.py": "af8cf44acdaae0010409bda251c81172bcb885d10245581eabcbd0d476d70926"
+    }
+  },
+  "title": "Run candidate acceptance verification from exact PR-head worktree",
+  "verification": {
+    "hosted_checks": "pending",
+    "status": "locally_verified_hosted_pending"
+  }
+}
