@@ -198,6 +198,29 @@ def test_developmental_boundary_requires_verified_record_receipt_pairs(tmp_path)
             composition_state_path=tmp_path / "composition.json", activation={}, session={})
 
 
+def test_developmental_boundary_preserves_verified_empty_history(tmp_path):
+    class EmptyWriteback:
+        def __init__(self):
+            self.inspections = 0
+
+        def inspect_completed_records(self):
+            self.inspections += 1
+            return ()
+
+    writeback = EmptyWriteback()
+    boundary = developmental_history_boundary(writeback=writeback,
+        composition_state_path=tmp_path / "composition.json", activation={}, session={})
+    assert writeback.inspections == 1
+    assert boundary["schema_version"] == "sentientos.developmental_history_boundary:v3"
+    assert boundary["records"] == []
+    assert boundary["record_ids"] == []
+    assert boundary["record_digests"] == []
+    assert boundary["writeback_receipt_ids"] == []
+    assert boundary["writeback_receipt_digests"] == []
+    assert boundary["writeback_receipt_record_ids"] == []
+    assert boundary["writeback_receipt_record_digests"] == []
+
+
 def test_completed_stage_reconstructs(tmp_path):
     ctl, gate, journal, slot, ops = controller(tmp_path)
     advance(ctl, slot)
