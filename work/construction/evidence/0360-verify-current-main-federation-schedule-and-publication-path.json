@@ -1,0 +1,103 @@
+{
+  "architecture": {
+    "bounded_resident_transition_composition": "implemented",
+    "next_claim_bearing_bridge": "real_production_temporal_resident_A_to_B_to_A",
+    "production_campaign_executed": false,
+    "protocol_identity_provenance_generation_and_history_boundary_checks": "implemented",
+    "reassessment_source_commit": "cd245f623e82cad39265f3c7506d28ca8a88cc4c",
+    "requires": [
+      "exact commissioned A/B identities and receipts",
+      "distinct external serving approvals",
+      "operator-approved preregistration"
+    ],
+    "synthetic_rehearsal_is_production_evidence": false
+  },
+  "federation_health": {
+    "artifact": {
+      "bytes": 223,
+      "files": [
+        "FEDERATION_HEALTH.md"
+      ],
+      "github_digest_match": true,
+      "id": 12119932177,
+      "report": {
+        "live_traffic_claim": false,
+        "nodes": 1,
+        "recent_events": 0,
+        "status": "quiet",
+        "telemetry_timestamp": "2025-06-05T16:25:13.805813"
+      },
+      "sha256": "19aea605b25d2693aa5c6a64ad2a4f32e5bf957a6e79c54535158ca4eddb2872"
+    },
+    "current_main_scheduled_run": "not_observed_as_of_2026-10-18T08:12:09Z",
+    "fixture_dispatch": {
+      "connector_has_dispatch_operation": false,
+      "input": "publication_fixture=true",
+      "local_gh_auth": "invalid_GH_TOKEN",
+      "operator_action_requested": true,
+      "run_observed": false,
+      "scope": "one labeled draft PR changing docs/FEDERATION_HEALTH.md then close and delete run-specific branch; never merge",
+      "workflow_source_inspected": true
+    },
+    "jobs": {
+      "administrator_preflight": "success",
+      "fixture": "skipped",
+      "privileged_generator": "success",
+      "publisher": "success",
+      "pull_request_operation": "none"
+    },
+    "latest_visible_scheduled_run": {
+      "conclusion": "success",
+      "created_at": "2026-10-18T00:36:39Z",
+      "current_main": false,
+      "id": 39083395122,
+      "source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218"
+    },
+    "next_recurrence": "2026-10-18T08:17:00Z",
+    "observation_delay_minutes": 55,
+    "recurrence_observed": "2026-10-18T07:17:00Z",
+    "schedule": "17 * * * *"
+  },
+  "local_custody_before_append": {
+    "segments_verified": 359,
+    "status": "construction_continuation_custody_ready"
+  },
+  "nightly_workflows": {
+    "current_main_scheduled_runs": "not_observed",
+    "current_workflow_blobs_match_verified_source": true,
+    "next_scheduled_runs_utc": [
+      "2026-10-19T03:41:00Z",
+      "2026-10-19T04:37:00Z"
+    ],
+    "push_verified_source": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "repair_job_conditional_and_separate": true,
+    "strict_admin_preserved": true
+  },
+  "predecessor": {
+    "evidence_path": "work/construction/evidence/0359-verify-sequence358-merge-main-and-nightly-workflows.json",
+    "evidence_sha256": "a2613e4bdce12230dcc767019515bcef2a9dfb9bf3cfa1a61594cccd3f35b7b4",
+    "segment_path": "work/construction/segments/0359-verify-sequence358-merge-main-and-nightly-workflows.md",
+    "segment_sha256": "d34aa0b0889371884a34d44d72e3ba72490b37da1a4613a8772931763c652601",
+    "sequence": 359
+  },
+  "preservation": {
+    "authority_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "source_code_changed": false
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 4126,
+  "segment_path": "work/construction/segments/0360-verify-current-main-federation-schedule-and-publication-path.md",
+  "segment_sha256": "acd5b8cfd636c0d77abafd4c2ce4185aba06afe56365230a4399a0e59b8b634e",
+  "sequence": 360,
+  "source": {
+    "branch": "main",
+    "commit": "cd245f623e82cad39265f3c7506d28ca8a88cc4c",
+    "remote_main_ref_match": true,
+    "tree": "694478da6c2681b98ca172fb851aec224d3370c2",
+    "verified_at": "2026-10-18T08:12:09Z",
+    "workflow_blob": "0c61426532cd1a99f1c58565a6d8fb7fd52b0617"
+  },
+  "title": "Verify current-main Federation Health scheduling and publication path"
+}
