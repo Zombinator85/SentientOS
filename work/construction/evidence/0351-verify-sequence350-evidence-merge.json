@@ -1,0 +1,74 @@
+{
+  "candidate": {
+    "base_commit": "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9",
+    "commit": "9fb863f8888ee8afa14cdb1d0b4acb5a37a5c333",
+    "pr_number": 2341,
+    "tree": "66e21f8a6cddfe09e20332076b359d54ccf85ba0"
+  },
+  "candidate_check_ids": {
+    "ci": "39097243043",
+    "codex_ci": "39097243205",
+    "docker": "39097243119",
+    "gradient": "39097243155",
+    "invariants": "39097243039",
+    "lint": "39097243083",
+    "qg": "39097243150",
+    "release": "39097243153"
+  },
+  "candidate_finalizer_artifact": {
+    "id": "12125625069",
+    "sha256": "72fbb7c4a925ba04ef61a8bb110ccd6a4b6bfd65a02bbf6df56ae26b2fdfa5ab"
+  },
+  "candidate_qg_artifact": {
+    "id": "12124833308",
+    "sha256": "c9c01512d322bb45eb5be7349bd421f2de5d19128c96819177eb013c6fb21e9f"
+  },
+  "continuation": {
+    "predecessor_segment_sha256": "e4628361c101cc099a39b96c9450c58dbdb03bb659954b6381b85e60751cd785",
+    "segment_path": "work/construction/segments/0351-verify-sequence350-evidence-merge.md",
+    "segment_sha256": "891aa2a624fddc4c9aa83bb8d48b28fabece3d5c94e217517c64ba68ab59b4dc",
+    "sequence": 351,
+    "source_commit": "23b0475e283537d28b28742c1be65d844ccbb8f4",
+    "source_tree": "66e21f8a6cddfe09e20332076b359d54ccf85ba0"
+  },
+  "main": {
+    "commit": "23b0475e283537d28b28742c1be65d844ccbb8f4",
+    "merge_method": "merge",
+    "parents": [
+      "3696b2aeb9fab43629cf037fc7337db0d0d2b0a9",
+      "9fb863f8888ee8afa14cdb1d0b4acb5a37a5c333"
+    ],
+    "pr_number": 2341,
+    "tree": "66e21f8a6cddfe09e20332076b359d54ccf85ba0"
+  },
+  "operational_status": {
+    "as_of_utc": "2026-10-18T04:37:18Z",
+    "current_main_scheduled_runs": [],
+    "workflow_dispatch_available": false
+  },
+  "post_merge": {
+    "ci": "39097551923",
+    "codex_ci": "39097551948",
+    "docker": "39097551933",
+    "docs_deploy": "39097551951",
+    "effective_uid": 0,
+    "feedback": "39097551892",
+    "forge_smoke": "39097551922",
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed",
+    "invariants": "39097551980",
+    "passed_nodes": 29,
+    "qg": "39097551927",
+    "qg_artifact_id": "12125063087",
+    "qg_artifact_sha256": "1d15ad0f540b374e5d071f6d01f898c863ef6a9259382876e04f99aeedfce473",
+    "required_nodes": 29,
+    "source_unchanged": true,
+    "strict_audit": "passed"
+  },
+  "schema_version": 1,
+  "tree_readback": {
+    "changed_blobs_matched": 6,
+    "entries": 7669,
+    "truncated": false
+  }
+}
