@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Latest verified `main`: `26a71f64f89b57d9fd40ef870e69b02baee17bb6`, tree `7621184456b05876b07dfd215669abef031c91e1`. Sequence 336 was merged normally by PR #2326 with both parents preserved. Candidate Required Quality Gate passed 29/29 exact nodes, strict Administrator and immutability audits, and hosted finalizer. Candidate CI passed, including the integrated resource-to-cognition lifecycle, docs link-check, TestClient regression, Helm, Docker, and lint. Post-merge CI, Required Quality Gate, Docker, invariants, Codex CI, and Docs Deploy passed on the exact main commit; Forge Smoke was skipped by configured conditions. The optional Post-Merge Feedback Invitation failed with HTTP 403 due to missing issue-comment permission.
+Latest verified `main`: `ebbaa6fa447f30f9ef6bd9254c853d64149bec88`, tree `f6f9d59be414e149577e937694e777af60f3be6d`. Sequence 340 merged normally by PR #2330 with both parents preserved. Candidate CI and lint/Mypy, Docker, invariants, Release, Gradient, Codex CI, and strict Administrator QG passed. Post-merge CI, QG (29/29 exact tests, UID 0 strict/immutability clean), Docker, invariants, Codex CI, and Docs Deploy passed; Forge Smoke was skipped by its configured condition.
 
-Sequence 336 requires exact verified predecessor-A and successor-B model-replacement protocols, active identity matches, provenance manifests, and frozen causal contexts with bounded repository-generation declarations before non-synthetic resident-transition ingress. These declarations are not observations of the running process. The exact sequence 336 regression passed in hosted QG. Local canonical testing remains blocked before collection by the sandbox package-proxy restriction; compilation, diff checks, static workflow selection, and construction custody passed. Failed attempts and their exact hosted artifacts remain recorded append-only.
+Sequence 340 requires both transition roles to use the same frozen model-replacement protocol and validates the complete resident history manifest against its records. Selected model-context history must match exact resident IDs/digests. No running-software observation or transition authority is implied.
 
-Next: bind each model-replacement context's selected history record IDs and digests to matching entries in the resident transition's initial durable history boundary before enabling ingress. Keep the bounded experimental selection distinct from the complete resident history and from running-code identity.
+A scheduled Federation Health execution, run `39083395122`, succeeded on `7d19f2651e8b09bd614322a1ba4ad8b2ae014218`, which was main at the time. Its hosted Administrator preflight and update passed; the generated report matched `docs/FEDERATION_HEALTH.md` exactly (one node, zero recent events, quiet). The publication job succeeded with no changed-output PR; changed-output fixture steps were skipped. This establishes scheduled execution, not changed-output publication.
 
-The changed-output Federation Health publication fixture remains undispatched because this session exposes no GitHub workflow-dispatch operation and local `GH_TOKEN` authentication is invalid. The successful scheduled production publisher run recorded in sequence 335 was a no-op because the report matched `main`; it does not prove changed-output PR creation. A production A→B→A campaign still requires commissioned model identities, a prepared installation, and an operator-approved protocol.
+Next source dependency: expose a deterministic count and canonical digest for omitted resident history, after exact frozen selection integrity and boundary receipt validation. Sequence 341 is open as draft PR #2331; hosted CI and privileged QG are pending. Keep the current Nightly Audit and Nightly Self Check privilege requirements and least-write scopes. Their next scheduled executions on `ebbaa6fa447f30f9ef6bd9254c853d64149bec88` have not yet occurred.
 
-Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Synthetic rehearsal and CI do not establish production developmental evidence.
+Preserve sequence 286 provenance-loss evidence and the stale sequence-178 workspace. Fixture and hosted CI evidence do not establish production developmental evidence.
 
-Latest construction segment: `work/construction/segments/0337-record-verified-transition-lineage-merge.md`
-Latest segment SHA-256: `c42d01eba743e3af2de89d18fa31c183e3920930cb9484c1c2230fe17cbe9dc5`
-Sequence: 337
+Latest construction segment: `work/construction/segments/0340-verify-transition-protocol-and-history-boundary.md`
+Latest segment SHA-256: `4c2f5db6b868006c0581e2ef5dd9007574bd37b6622b14e6306b75d3bc73b9eb`
+Sequence: 340

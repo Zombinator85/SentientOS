@@ -1,0 +1,96 @@
+{
+  "candidate": {
+    "base_commit": "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+    "base_tree": "4f7dc059a6ff612bd7dbec054159cb74d8304515",
+    "head": "a892d47a2f37ecab693c168dd7cbcfad561a262a",
+    "merge_method": "merge",
+    "pr_number": 2328,
+    "tree": "4bf7579ed07bae02c2a18ea01d0c2f6057a38fc1"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "execution_commit": "f27da85b6a5b8e5616c2fa71a403c85710575bb7",
+    "hosted_finalizer_artifact_id": "12118839816",
+    "hosted_finalizer_artifact_sha256": "0d62306be90aa66a6015aa96d821129c47efee4e703e47b5f95d3d97d2950b94",
+    "hosted_finalizer_decision": "ready_for_pr_metadata",
+    "hosted_finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12119198103",
+    "quality_gate_artifact_sha256": "20de86063cb31531bd46931c75e65435685ebc58b5cfcedee9fb71c1dbe4c29e",
+    "quality_gate_run_id": "39082276884",
+    "strict_audit": "passed_no_issues",
+    "strict_audit_status": "healthy_strict",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "transition_history_binding_node": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_production_transition_requires_verified_frozen_model_generation_lineage",
+    "workflows": {
+      "ci_pull_request": {
+        "run_id": "39082276808",
+        "status": "success"
+      },
+      "ci_push": {
+        "run_id": "39082224133",
+        "status": "success"
+      },
+      "codex_ci": {
+        "run_id": "39082276828",
+        "status": "success"
+      },
+      "docker": {
+        "run_id": "39082276803",
+        "status": "success"
+      },
+      "gradient": {
+        "run_id": "39082276832",
+        "status": "success"
+      },
+      "invariants": {
+        "run_id": "39082276809",
+        "status": "success"
+      },
+      "lint_mypy": {
+        "run_id": "39082276864",
+        "status": "success"
+      },
+      "release": {
+        "run_id": "39082276824",
+        "status": "success"
+      }
+    }
+  },
+  "continuation": {
+    "checkpoint_bytes": 2605,
+    "checkpoint_path": "work/construction/active_checkpoint.md",
+    "checkpoint_sha256": "8ba3653cce84c78ff1ae0c2da22926e62e494a7f41fb9d9c4885cc7c17269b5c",
+    "predecessor_segment_sha256": "c42d01eba743e3af2de89d18fa31c183e3920930cb9484c1c2230fe17cbe9dc5",
+    "segment_bytes": 2567,
+    "segment_path": "work/construction/segments/0338-bind-transition-history-to-resident-boundary.md",
+    "segment_sha256": "25b22b499dea32bfc719c1234b308dbad2a3386eab0f296d91e309800616f611",
+    "sequence": 338,
+    "source_commit": "afe8931ff5bcdacbeda3ab5e955bd0e437da23d5",
+    "source_tree": "4f7dc059a6ff612bd7dbec054159cb74d8304515"
+  },
+  "federation_publication_fixture": "Undispatched because no workflow-dispatch action is exposed; the scheduled production run recorded in sequence 335 was a no-op because its report matched main.",
+  "local_verification": {
+    "bootstrap_attempts": [
+      "default package proxy denied setuptools>=78.1.1 before collection",
+      "network-enabled editable install reached pip but protected /home/agent/.local/bin prevented uninstalling an existing entrypoint; no protected file changed",
+      "workspace-local virtual environment plus requirements-codex.txt resolved dependencies and the canonical runner passed"
+    ],
+    "canonical_test_runner": "python -m scripts.run_tests via fresh workspace-local venv",
+    "continuation_custody_before_append": "337 segments verified; ready",
+    "focused_regressions_collected": 66,
+    "focused_regressions_executed": 66,
+    "focused_regressions_failed": 0,
+    "focused_regressions_skipped": 0,
+    "git_diff_check": "passed",
+    "local_run_provenance_sha256": "7e43c2734994f984374b346727fa242233275c92e22b219474de339e273ce356",
+    "production_lineage_node": "passed with positive subset, absent record, substituted digest, and cross-context cases",
+    "python_compilation": "passed"
+  },
+  "production_boundary": "No production A-to-B-to-A campaign or running-source observation is claimed. Commissioned model identities, a prepared installation, and operator-approved protocol remain required.",
+  "schema_version": 1
+}
