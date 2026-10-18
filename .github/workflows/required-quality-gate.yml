@@ -244,12 +244,77 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -euo pipefail
           test "$(sudo -n id -u)" = "0"
           COMMIT_REF="${PR_HEAD_SHA:-HEAD}"
           COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
           PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
           test "$PR_TITLE" = "$COMMIT_TITLE"
-          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
+          METADATA_WORKSPACE="$GITHUB_WORKSPACE"
+          ACCEPTANCE_MANIFEST="$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json"
+          if [ -n "$PR_HEAD_SHA" ]; then
+            METADATA_WORKSPACE="$RUNNER_TEMP/sentientos-candidate-workspace"
+            CANDIDATE_ACCEPTANCE_DIR="$RUNNER_TEMP/sentientos-candidate-acceptance"
+            CANDIDATE_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-candidate-tests"
+            mkdir -p "$CANDIDATE_ACCEPTANCE_DIR" "$CANDIDATE_TEST_RUN_DIR"
+            GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"
+            python - "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \
+              "$METADATA_WORKSPACE" "$COMMIT_REF" "$CANDIDATE_TEST_RUN_DIR" <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
+          initial = json.loads(Path(source_provenance).read_text())
+          nodes = initial.get("selected_node_ids")
+          if not isinstance(nodes, list) or len(nodes) != 29 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("candidate acceptance must contain the exact 29 required nodes")
+          run_dir = Path(test_run_dir)
+          run_dir.mkdir(parents=True, exist_ok=True)
+          env = {**os.environ, "PYTHONPATH": workspace, "SENTIENTOS_TEST_RUN_DIR": str(run_dir)}
+          result = subprocess.run([sys.executable, "-m", "scripts.run_tests", "-q", *nodes],
+                                  cwd=workspace, env=env, check=False)
+          if result.returncode:
+              raise SystemExit(result.returncode)
+          provenance_path = run_dir / "test_run_provenance.json"
+          provenance = json.loads(provenance_path.read_text())
+          if provenance.get("git_sha") != expected_head or provenance.get("validation_status") != "validation_complete":
+              raise SystemExit("candidate provenance is not bound to the exact PR head")
+          selected = provenance.get("selected_node_ids")
+          if selected != nodes:
+              raise SystemExit("candidate provenance selected a different required-node set")
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": expected_head,
+              "test_provenance_path": str(provenance_path),
+              "required_nodes": [{"node_id": node} for node in selected],
+              "successful_path_nodes": selected,
+          }
+          manifest_path = Path(workspace).parent / "sentientos-candidate-acceptance" / "manifest.json"
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+          acceptance_result = manifest_path.parent / "acceptance-result.json"
+          subprocess.run([sys.executable, "scripts/verify_task_acceptance.py", "--manifest", str(manifest_path),
+                          "--provenance", str(provenance_path), "--output", str(acceptance_result)],
+                         cwd=workspace, env=env, check=True)
+          PY
+            cp "$CANDIDATE_TEST_RUN_DIR/test_run_provenance.json" "$CANDIDATE_ACCEPTANCE_DIR/provenance.json"
+            python - "$CANDIDATE_ACCEPTANCE_DIR/manifest.json" "$CANDIDATE_ACCEPTANCE_DIR/provenance.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          manifest_path, provenance_path = map(Path, sys.argv[1:])
+          manifest = json.loads(manifest_path.read_text())
+          manifest["test_provenance_path"] = str(provenance_path)
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+            PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py" \
+              --manifest "$CANDIDATE_ACCEPTANCE_DIR/manifest.json" \
+              --provenance "$CANDIDATE_ACCEPTANCE_DIR/provenance.json" \
+              --output "$CANDIDATE_ACCEPTANCE_DIR/acceptance-result.json"
+            ACCEPTANCE_MANIFEST="$CANDIDATE_ACCEPTANCE_DIR/manifest.json"
+          fi
+          echo "SENTIENTOS_METADATA_WORKSPACE=$METADATA_WORKSPACE" >> "$GITHUB_ENV"
+          echo "SENTIENTOS_POSTCOMMIT_ACCEPTANCE_MANIFEST=$ACCEPTANCE_MANIFEST" >> "$GITHUB_ENV"
+          cd "$METADATA_WORKSPACE"
+          sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$METADATA_WORKSPACE" \
             SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs" \
             python scripts/codex_finalize_landing.py finalize \
               --phase pr-metadata \
@@ -257,7 +322,7 @@ jobs:
               --title "$PR_TITLE" \
               --intended-commit-title "$COMMIT_TITLE" \
               --pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json" \
-              --task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json" \
+              --task-acceptance-manifest "$ACCEPTANCE_MANIFEST" \
               --focused-test-command "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests" \
               --allow-generated-artifact-cleanup \
               --output "$RUNNER_TEMP/codex-finalizer-pr-metadata.json" \
@@ -272,16 +337,18 @@ jobs:
         run: |
           set -euo pipefail
           COMMIT_REF="${PR_HEAD_SHA:-HEAD}"
+          METADATA_WORKSPACE="${SENTIENTOS_METADATA_WORKSPACE:-$GITHUB_WORKSPACE}"
           COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
           PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
           test "$PR_TITLE" = "$COMMIT_TITLE"
-          PYTHONPATH="$GITHUB_WORKSPACE" python scripts/codex_pr_metadata_guard.py verify \
+          cd "$METADATA_WORKSPACE"
+          PYTHONPATH="$METADATA_WORKSPACE" python scripts/codex_pr_metadata_guard.py verify \
             --title "$PR_TITLE" \
             --intended-commit-title "$COMMIT_TITLE" \
             --pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json" \
             --pr-metadata-finalizer-json "$RUNNER_TEMP/codex-finalizer-pr-metadata.json" \
             --matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json" \
-            --workspace-root "$GITHUB_WORKSPACE" \
+            --workspace-root "$METADATA_WORKSPACE" \
             > "$RUNNER_TEMP/codex-pr-metadata-guard.json"
           python - "$RUNNER_TEMP/codex-pr-metadata-guard.json" <<'PY'
           import json, sys
@@ -290,6 +357,13 @@ jobs:
               raise SystemExit(f"pre-publication metadata guard blocked: {payload.get('status')} {payload.get('reasons')}")
           print(f"Codex PR metadata guard decision: {payload['status']}")
           PY
+      - name: Remove exact PR candidate workspace
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          CANDIDATE_WORKSPACE="$RUNNER_TEMP/sentientos-candidate-workspace"
+          if [ -e "$CANDIDATE_WORKSPACE/.git" ]; then
+            git worktree remove --force "$CANDIDATE_WORKSPACE"
+          fi
       - name: Upload hosted privileged PR landing finalizer evidence
         if: always() && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos'))
         uses: actions/upload-artifact@v4
@@ -306,4 +380,14 @@ jobs:
             ${{ runner.temp }}/sentientos-precommit-tests/test_run_provenance.json
             ${{ runner.temp }}/sentientos-precommit-tests/acceptance-result.json
           if-no-files-found: error
+      - name: Upload exact PR candidate acceptance evidence
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-pr-candidate-acceptance
+          path: |
+            ${{ runner.temp }}/sentientos-candidate-acceptance/manifest.json
+            ${{ runner.temp }}/sentientos-candidate-acceptance/provenance.json
+            ${{ runner.temp }}/sentientos-candidate-acceptance/acceptance-result.json
+          if-no-files-found: warn
 

@@ -1,0 +1,42 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:04e2f20990aee7200a0e6cd019e57fd903b522e55109e67762233d09ff8e5335",
+  "manifest_path": "docs/development/hosted_pr_metadata_guard_exact_candidate_workspace_task_acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_codex_landing_evidence_binding.py::test_wrong_title_parent_matrix_and_runtime_root",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:bf8f9746e58cd7dd922ca2b9caf0d459f49b9ee71621b1dfb1fc9c25de3f4840",
+  "provenance_path": "glow/test_runs/provenance/20261018T195607Z_045dc196c641_76346407d7fd402393e5eef81a7e1eb8.json",
+  "reasons": [],
+  "repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+  "required_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+    "tests/test_codex_landing_evidence_binding.py::test_wrong_title_parent_matrix_and_runtime_root"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+    "tests/test_codex_landing_evidence_binding.py::test_wrong_title_parent_matrix_and_runtime_root"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

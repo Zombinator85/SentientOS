@@ -518,18 +518,22 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
     assert 'test "$(sudo -n id -u)" = "0"' in finalizer
     assert '"HOME=$HOME"' in finalizer
-    assert '"PYTHONPATH=$GITHUB_WORKSPACE"' in finalizer
+    assert '"PYTHONPATH=$METADATA_WORKSPACE"' in finalizer
     assert "scripts/codex_finalize_landing.py finalize" in finalizer
     assert "--phase pr-metadata" in finalizer
     assert "--validation-profile solo" in finalizer
     assert '--pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json"' in finalizer
-    assert '--task-acceptance-manifest "$RUNNER_TEMP/sentientos-landing-acceptance/manifest.json"' in finalizer
+    assert '--task-acceptance-manifest "$ACCEPTANCE_MANIFEST"' in finalizer
     assert "--allow-generated-artifact-cleanup" in finalizer
     assert 'SENTIENTOS_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-landing-test-runs"' in finalizer
     assert 'PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}' in finalizer
     assert 'COMMIT_REF="${PR_HEAD_SHA:-HEAD}"' in finalizer
     assert 'git log -1 --format=%s "$COMMIT_REF"' in finalizer
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
+    assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
+    assert 'provenance.get("git_sha") != expected_head' in finalizer
+    assert 'candidate acceptance must contain the exact 29 required nodes' in finalizer
+    assert 'SENTIENTOS_METADATA_WORKSPACE=$METADATA_WORKSPACE' in finalizer
 
     guard = workflow.split(
         "- name: Verify pre-publication PR metadata guard", 1
@@ -538,7 +542,12 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert '--pre-commit-finalizer-json "$RUNNER_TEMP/codex-finalizer-pre-commit.json"' in guard
     assert '--pr-metadata-finalizer-json "$RUNNER_TEMP/codex-finalizer-pr-metadata.json"' in guard
     assert '--matrix-json-path "$RUNNER_TEMP/solo-matrix-not-requested.json"' in guard
+    assert '--workspace-root "$METADATA_WORKSPACE"' in guard
+    assert 'cd "$METADATA_WORKSPACE"' in guard
     assert 'payload.get("status") != "pr_metadata_guard_ready"' in guard
+
+    assert "Remove exact PR candidate workspace" in workflow
+    assert "Upload exact PR candidate acceptance evidence" in workflow
 
     upload = workflow.split(
         "- name: Upload hosted privileged PR landing finalizer evidence", 1

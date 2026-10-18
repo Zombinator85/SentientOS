@@ -202,3 +202,9 @@ Sequence 392 repairs the hosted precommit finalizer's missing documentation depe
 Latest construction segment: `work/construction/segments/0392-bootstrap-docs-for-precommit-finalizer.md`
 Latest segment SHA-256: `514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc`
 Sequence: 392 (hosted verification pending)
+
+Sequence 393 binds the PR finalizer and metadata guard to a detached checkout of the exact PR head, with a fresh 29-node candidate-bound acceptance run. The local workflow and evidence-binding regressions passed 2/2 with zero skips; hosted validation remains pending. This prevents GitHub's synthetic merge checkout from being associated with PR-head precommit evidence. Source candidate: `5f87e1b36bd93a07983ada6f6735ce3e893dba48`, tree `8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569`.
+
+Latest construction segment: `work/construction/segments/0393-bind-pr-finalization-to-exact-candidate.md`
+Latest segment SHA-256: `ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d`
+Sequence: 393 (hosted verification pending)

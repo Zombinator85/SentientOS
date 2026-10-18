@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "46a307dc372f64e9fe3b3c5316363d409f04e784da5a2c2fef6952e25003c680",
-    "latest_segment_sequence": 392,
-    "latest_segment_sha256": "514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc",
-    "source_commit": "bfbb1abd21200a1ffc8e0be5ede5de5c307724bd",
-    "source_tree": "6b0dd48681b209223147dca6fd752759894ecb47"
+    "checkpoint_sha256": "86182949b0941a8b8c73adfbe50800559531a77b7c1748977ea00aa96b38a329",
+    "latest_segment_sequence": 393,
+    "latest_segment_sha256": "ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d",
+    "source_commit": "5f87e1b36bd93a07983ada6f6735ce3e893dba48",
+    "source_tree": "8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569"
   },
-  "checkpoint_sha256": "46a307dc372f64e9fe3b3c5316363d409f04e784da5a2c2fef6952e25003c680",
+  "checkpoint_sha256": "86182949b0941a8b8c73adfbe50800559531a77b7c1748977ea00aa96b38a329",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 392,
+  "latest_sequence": 393,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4377,6 +4377,19 @@
       "sha256": "514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc",
       "source_commit": "bfbb1abd21200a1ffc8e0be5ede5de5c307724bd",
       "source_tree": "6b0dd48681b209223147dca6fd752759894ecb47"
+    },
+    {
+      "bytes": 1777,
+      "evidence": "work/construction/evidence/0393-bind-pr-finalization-to-exact-candidate.json",
+      "evidence_bytes": 3436,
+      "evidence_path": "work/construction/evidence/0393-bind-pr-finalization-to-exact-candidate.json",
+      "evidence_sha256": "521f7f96916cc30893cc4856805218eae33c913fa89fa557f8129452818e33f5",
+      "path": "work/construction/segments/0393-bind-pr-finalization-to-exact-candidate.md",
+      "predecessor": "segment-sha256:514b714cc9e96e2cb8254b54f6f7c6c2cf2318fba48b7cd3622ca1982ca881dc",
+      "sequence": 393,
+      "sha256": "ebb483c56a6e5f80d4d1d3a3dc428302b3b643b91718eae31e1414bbee5c5d4d",
+      "source_commit": "5f87e1b36bd93a07983ada6f6735ce3e893dba48",
+      "source_tree": "8f9b5b2721fc0e4ecdbbc4c3753e0ad49af6a569"
     }
   ],
   "source_acquisition": {
