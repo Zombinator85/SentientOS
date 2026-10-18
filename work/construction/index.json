@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e3dcf6363a81ade57a1ef89186d60c335150b29800368127383ca969fad9abbc",
-    "latest_segment_sequence": 374,
-    "latest_segment_sha256": "aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83",
-    "source_commit": "731979b9ed0361cb729981fd44a8fd70b9dcb780",
-    "source_tree": "f64be96d05a666c2cfec6101a574afdc6d0d1aa8"
+    "checkpoint_sha256": "d529d1c9d68357e690ed64c82bffcd3256e881f34db69c2d24390d15a34e805c",
+    "latest_segment_sequence": 375,
+    "latest_segment_sha256": "be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c",
+    "source_commit": "c09d569f25daaf15304d19f9b7da3e56ec9ec1b7",
+    "source_tree": "77da3e1c510089b0ac3b28a6df3ad840e3e7d652"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 374,
+  "latest_sequence": 375,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4142,6 +4142,19 @@
       "evidence_path": "work/construction/evidence/0374-verify-sequence373-merge-and-hosted-checks.json",
       "evidence_bytes": 4995,
       "evidence_sha256": "dd3b4f52662fcfac73006e6da2ce392e7f4e0e3d259edc2639c9d62dd305b2e1"
+    },
+    {
+      "bytes": 2875,
+      "path": "work/construction/segments/0375-verify-exact-main-post-merge-gates.md",
+      "predecessor": "segment-sha256:aa28e55c931e932bb8e3466d2d8e977c7af0cc75a0ddb88b36bc4907bf242a83",
+      "sequence": 375,
+      "sha256": "be9806bba510a2d85c3549b2cb4ddd92b6334253a0d03fcee9866734970e819c",
+      "source_commit": "c09d569f25daaf15304d19f9b7da3e56ec9ec1b7",
+      "source_tree": "77da3e1c510089b0ac3b28a6df3ad840e3e7d652",
+      "evidence": "work/construction/evidence/0375-verify-exact-main-post-merge-gates.json",
+      "evidence_path": "work/construction/evidence/0375-verify-exact-main-post-merge-gates.json",
+      "evidence_bytes": 4724,
+      "evidence_sha256": "782d77f1eba32d7fee10038ffc40c503dff7be90ff528b16776659b26ba00ac8"
     }
   ],
   "source_acquisition": {
