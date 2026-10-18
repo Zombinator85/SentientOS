@@ -85,12 +85,9 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
     assert 'DELETE_TRIGGER_BRANCH:' in publisher
     assert 'trigger_branch_deleted' in publisher
-    assert (
-        ROOT / "work/federation_health_publication_fixture_request.txt"
-    ).read_text(encoding="utf-8") == (
-        "sentientos.federation_health_publication_fixture_request:v1\n"
-        "TEST FIXTURE ONLY — NOT TELEMETRY.\n"
-    )
+    # The one-shot sentinel must be absent from main so its addition is an
+    # observable, exact-path push on the disposable fixture branch.
+    assert not (ROOT / "work/federation_health_publication_fixture_request.txt").exists()
 
 def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
     import yaml

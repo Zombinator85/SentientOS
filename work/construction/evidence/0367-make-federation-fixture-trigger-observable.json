@@ -1,0 +1,144 @@
+{
+  "defect_and_correction": {
+    "authority_changed": false,
+    "correction": "Remove the sentinel from main and make the static workflow contract require its absence. The fixture branch will add the exact sentinel as its only changed path; exact content, current-main parent, and least-privilege checks remain unchanged.",
+    "defect": "Sequence 366 committed the exact fixture sentinel on main while requiring the request commit to change only that path and contain those exact same bytes; a child commit from current main could not satisfy both constraints.",
+    "fixture_execution_claimed": false,
+    "production_telemetry_fabricated": false,
+    "source_cause": "work/federation_health_publication_fixture_request.txt was present in the published main tree."
+  },
+  "developmental_status": {
+    "production_resident_temporal_a_to_b_to_a": "not executed",
+    "remaining_external_inputs": [
+      "commissioned A/B identities and receipts",
+      "distinct serving approvals",
+      "operator-approved preregistration"
+    ],
+    "remote_codex_construct_branch_touched": false,
+    "sequence_178_workspace_touched": false,
+    "sequence_286_provenance_loss_preserved": true
+  },
+  "evidence_path": "work/construction/evidence/0367-make-federation-fixture-trigger-observable.json",
+  "federation_health": {
+    "administrator_preflight": "passed",
+    "changed_output_fixture_executed": false,
+    "health_artifact_bytes": 223,
+    "health_artifact_id": 12133037195,
+    "health_artifact_report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "health_artifact_sha256": "409db684ee7d97b9efc8a2825ab1b9648eb464aad0a7941df6683394c6a222be",
+    "is_scheduled_execution": false,
+    "main_push_run": 39117521303,
+    "privileged_health_generator": "passed",
+    "publisher_job": "success",
+    "publisher_operation": "none",
+    "run_conclusion": "success",
+    "run_event": "push",
+    "run_head_sha": "c4d9538ce4caee49e77f58364d568b47aa5c03cd",
+    "scheduled_main_run_due": "2026-10-18T10:17:00Z"
+  },
+  "local_validation": {
+    "canonical_runner": "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py",
+    "construction_custody_after_append": "construction_continuation_custody_ready; 367 indexed segments and active checkpoint hashes verified",
+    "environment_recovery": "reused installed build backend with pip install --no-deps --no-build-isolation -e .; canonical scripts.run_tests retained",
+    "first_attempt": {
+      "cause": "sandbox package proxy blocked isolated setuptools>=78.1.1 bootstrap before test collection",
+      "provenance_path": "glow/test_runs/provenance/20261018T100355Z_66e066a89d95_0c9cb5d3650f422c911a11625511b48a.json",
+      "provenance_sha256": "bf3211c93f2b11440318fc3b734e1e0848ffe1a15adce96c247496885701c112",
+      "run_id": "bd342ec0a0344542a748d0514f182273",
+      "status": "bootstrap_failed",
+      "tests_executed": 0
+    },
+    "generated_test_residue": {
+      "cleanup_scope": "only exact files generated or deleted by the two sequence-367 test attempts in the isolated verification worktree",
+      "files_hashed_before_cleanup": [
+        {
+          "path": "glow/test_runs/provenance/20261018T100355Z_66e066a89d95_0c9cb5d3650f422c911a11625511b48a.json",
+          "sha256": "bf3211c93f2b11440318fc3b734e1e0848ffe1a15adce96c247496885701c112"
+        },
+        {
+          "path": "glow/test_runs/provenance/20261018T100403Z_66e066a89d95_9473516b0bf249f196fd46a0bee553c4.json",
+          "sha256": "0dc67dd22a21bc74057358309e1f08fc4bf07ddfc2aff3d54bddb67cf70ed1b9"
+        },
+        {
+          "path": "glow/test_runs/pytest_junitxml_bf65a276c3394a4cb9a9a86007d6f3a1.xml",
+          "sha256": "ebe5e8fa88239a7b92c20c58008a45fb0580596bf3b535cf805720c86d58f18d"
+        },
+        {
+          "path": "glow/test_runs/pytest_report_d8d2dc3f895443719e9e53cf1ff32fe3.json",
+          "sha256": "54a51883727740e3d976c4ec5b0c3ddb5c85046d44799b391986c8e229f46252"
+        },
+        {
+          "path": "glow/test_runs/pytest_report_9f57efbb45934ce69ec3220532c003f9.json",
+          "sha256": "26913fa6741129394924677366f0a8286f7b3e63816b1b01e9c61ddd9723196f"
+        }
+      ],
+      "tracked_test_summaries_restored": true
+    },
+    "git_diff_check": "passed",
+    "passing_attempt": {
+      "provenance_chain_hash": "68342f47c0d3d512feaf5376645d79df44159092d1894b978764eab35e77247f",
+      "provenance_path": "glow/test_runs/provenance/20261018T100403Z_66e066a89d95_9473516b0bf249f196fd46a0bee553c4.json",
+      "provenance_sha256": "0dc67dd22a21bc74057358309e1f08fc4bf07ddfc2aff3d54bddb67cf70ed1b9",
+      "remote_source_tree_match": true,
+      "run_id": "22d85b93a0fa44e399ea1c031c70fb63",
+      "source_commit": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+      "source_tree": "e902657d660116b6159ff5868970fa5b323582b7",
+      "tests_collected": 35,
+      "tests_executed": 35,
+      "tests_failed": 0,
+      "tests_passed": 35,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    },
+    "python_compile": "passed",
+    "workflow_yaml_and_embedded_python": "passed"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 367,
+  "sequence_366_merge": {
+    "candidate_checks": {
+      "all_required_candidate_runs_succeeded": true,
+      "ci_run": 39117244691,
+      "codex_ci_run": 39117244678,
+      "docker_run": 39117244881,
+      "gradient_regression_run": 39117244704,
+      "invariants_run": 39117244708,
+      "lint_benchmark_run": 39117244731,
+      "quality_gate_artifact": 12132832698,
+      "quality_gate_artifact_sha256": "9f43b5e93b156e563d1b7d2a77e7b2e5b141993b0b7acb07d96052e1cd2a1481",
+      "quality_gate_run": 39117244723,
+      "release_validation_run": 39117244688,
+      "self_check_artifact_sha256": "b638f51e70cfde89763064c72d5f8a45305bda3f6b4488ee4d1e6dd431583a07",
+      "self_check_failed": 0,
+      "self_check_passed": 143,
+      "self_check_provenance_artifact": 12132457619,
+      "self_check_skipped": 13,
+      "source_validation_artifact": 12133041982,
+      "source_validation_artifact_sha256": "2c7b19b42bada0725e3cb859497ef225cb89ca0c0c12188cd4836a6e99b8e18e",
+      "source_validation_failed": 0,
+      "source_validation_passed": 20,
+      "source_validation_selected_nodes": 20
+    },
+    "candidate_head": "ccaae4fb2d0cf747f94fe9dcb0e9040649aa2795",
+    "candidate_tree": "e902657d660116b6159ff5868970fa5b323582b7",
+    "merge_commit": "c4d9538ce4caee49e77f58364d568b47aa5c03cd",
+    "pull_request": 2357,
+    "signed_regular_two_parent_merge": true
+  },
+  "source": {
+    "github_signature_verified": true,
+    "local_verification_snapshot_commit": "66e066a89d959b1e8b88dd2e76d3f15dd5617b83",
+    "local_verification_snapshot_tree": "e902657d660116b6159ff5868970fa5b323582b7",
+    "remote_main_commit": "c4d9538ce4caee49e77f58364d568b47aa5c03cd",
+    "remote_main_tree": "e902657d660116b6159ff5868970fa5b323582b7",
+    "remote_merge_parents": [
+      "fee10c58ce86ce5b726c8dfee9a76a72586fab46",
+      "ccaae4fb2d0cf747f94fe9dcb0e9040649aa2795"
+    ],
+    "snapshot_tree_matches_remote_main": true
+  }
+}

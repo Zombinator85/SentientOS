@@ -1,0 +1,9 @@
+# Sequence 367: Make the Federation fixture trigger observable
+
+GitHub merged sequence 366 through PR #2357 as signed regular merge `c4d9538ce4caee49e77f58364d568b47aa5c03cd` (tree `e902657d660116b6159ff5868970fa5b323582b7`). Its hosted candidate checks passed. The first post-merge Federation Health push run, #39117521303, passed Administrator preflight and generation; its independently hash-matched artifact reported one node, zero recent events, and `quiet`. The publisher succeeded with no PR operation.
+
+Reviewing the proposed changed-output route exposed a contradiction before fixture execution: sequence 366 placed the exact sentinel on `main`, while the fixture job requires the request commit to change only that sentinel and retain the same exact bytes. A child of current `main` cannot satisfy both conditions. The static contract previously asserted the sentinel was present, so its green test had encoded the defect.
+
+This increment removes the sentinel from the default branch and changes the contract test to require its absence. The existing exact-content validator remains unchanged. A future disposable branch can now add the one exact sentinel as its sole changed path, with its parent checked against current `main`; fixture and health jobs remain read-only, and the publisher still closes its labeled output PR without merging it.
+
+The correction is bounded to the fixture trigger and its contract. No production telemetry or inference was fabricated, no changed-output publication is claimed, and the scheduled main run due at 10:17 UTC remains pending. No runtime cognition or authority changed.
