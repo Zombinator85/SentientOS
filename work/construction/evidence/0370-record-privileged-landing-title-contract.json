@@ -1,0 +1,54 @@
+{
+  "sequence": 370,
+  "title": "Record and correct the privileged landing title contract",
+  "source": {
+    "commit": "b4dc89c13ab773eafa048926a5f7ed3daeb82923",
+    "tree": "a03424d810a8843982d1a5a61720bd1e1ced6542",
+    "relation": "sequence 369 candidate at the point this landing-contract finding was made"
+  },
+  "hosted_finding": {
+    "workflow_run_id": 39122354578,
+    "workflow": "Required Quality Gate",
+    "event": "pull_request",
+    "quality_gate_call_phase_tests": {
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    },
+    "strict_audit": "passed_with_actual_hosted_administrator_authority",
+    "finalizer": "failed_before_execution_because_PR_title_did_not_equal_latest_commit_subject_byte_for_byte",
+    "observed_commit_subject": "[codex:construction-evidence] reconcile scheduled workflow evidence",
+    "initial_pr_title": "[codex:construction-evidence] Reconcile scheduled workflow evidence",
+    "retry_observation": "renaming and recreating the draft PR on the same head did not produce a fresh workflow event; rerun retained the original title payload and failed at the same title equality guard",
+    "source_log_lines": "run steps show test \"$PR_TITLE\" = \"$COMMIT_TITLE\" immediately before the privileged finalizer invocation; the failing step exited before finalizer evidence output was written"
+  },
+  "resolution": {
+    "action": "preserve the original candidate commit; add this append-only construction record in a new descendant commit whose subject exactly matches the new draft PR title",
+    "guard": "retain the workflow equality check and required privileged finalizer; do not bypass or weaken either",
+    "verification_pending": "fresh PR event and quality-gate run for the new descendant head must pass before merge"
+  },
+  "source_identities": {
+    ".github/workflows/required-quality-gate.yml": {
+      "git_blob": "b94dd109c485d943030e74105fc21e23dbbce4d8",
+      "sha256": "075d777f8c93050853f8fc78a5715aece880ea0b0423d5a613feefed79383bac"
+    },
+    "scripts/codex_finalize_landing.py": {
+      "git_blob": "c66c4d916d05354a1c09cee05dd22ce6d544a1e8",
+      "sha256": "87df61b9f36fbf324c88fb8c326c38a3b41badcbac107b09501e9a59f43cf85b"
+    }
+  },
+  "scope": {
+    "source_code_changed": false,
+    "authority_changed": false,
+    "runtime_or_cognition_changed": false,
+    "append_only_evidence_added": true
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_368_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved_unresolved",
+    "prior_candidate_commit": "b4dc89c13ab773eafa048926a5f7ed3daeb82923",
+    "prior_candidate_tree": "a03424d810a8843982d1a5a61720bd1e1ced6542"
+  },
+  "outcome": "landing metadata failure localized to the submitted PR title casing; all prior acceptance nodes and strict audit succeeded. The fail-closed title contract is retained."
+}

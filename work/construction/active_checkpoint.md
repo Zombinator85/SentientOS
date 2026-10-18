@@ -14,6 +14,8 @@ The next developmental evidence dependency remains a real, longitudinal resident
 
 Sequence-286 provenance loss remains unresolved and unchanged. The stale sequence-178 workspace, preexisting sequence-368 workspace, remote `codex/construct-sentientos`, and old fixture branches were left untouched.
 
-Latest construction segment: `work/construction/segments/0369-reconcile-postmerge-scheduled-workflow-evidence.md`
-Latest segment SHA-256: `36440e2bd9ccdbaf9c35b59d460e7f3f211f7f3816df554bcd98b7e844f18d5e`
-Sequence: 369
+Sequence 370 source candidate: `b4dc89c13ab773eafa048926a5f7ed3daeb82923`, tree `a03424d810a8843982d1a5a61720bd1e1ced6542`. It records the hosted PR-finalizer title-contract failure discovered while landing sequence 369. The QG's hosted Administrator audit and 29 acceptance nodes passed; finalization did not run because the PR title differed from the latest commit subject by capitalization. A metadata rename and retry reused the original GitHub event payload, so the guard failed again. The title guard and finalizer remain unchanged. The next descendant's commit subject and draft PR title will match exactly, and its fresh hosted finalizer must pass before merge.
+
+Latest construction segment: `work/construction/segments/0370-record-privileged-landing-title-contract.md`
+Latest segment SHA-256: `395ef63cd9f4a6ff07d2e1add0eef9387ba5658e8ab309963cc9cd18f2cb3a40`
+Sequence: 370
