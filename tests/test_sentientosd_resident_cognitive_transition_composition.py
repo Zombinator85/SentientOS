@@ -365,8 +365,11 @@ def _assert_transition_protocol_pair_and_boundary_integrity(tmp_path: Path) -> N
         sentientosd._verify_transition_context_history_binding(malformed_context, original)
 
     for key, replacement in (
-            ("schema_version", "sentientos.developmental_history_boundary:v3"),
+            ("schema_version", "sentientos.developmental_history_boundary:v2"),
             ("writeback_receipt_ids", ["receipt-without-digest"]),
+            ("writeback_receipt_record_ids", ["substituted-record", "record-2"]),
+            ("writeback_receipt_record_digests", ["sha256:" + "0" * 64,
+                original["record_digests"][1]]),
     ):
         malformed_boundary = {**original, key: replacement}
         body = {name: item for name, item in malformed_boundary.items()
