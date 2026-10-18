@@ -16,6 +16,9 @@ Sequence-286 provenance loss remains unresolved and unchanged. The stale sequenc
 
 Sequence 370 source candidate: `b4dc89c13ab773eafa048926a5f7ed3daeb82923`, tree `a03424d810a8843982d1a5a61720bd1e1ced6542`. It records the hosted PR-finalizer title-contract failure discovered while landing sequence 369. The QG's hosted Administrator audit and 29 acceptance nodes passed; finalization did not run because the PR title differed from the latest commit subject by capitalization. A metadata rename and retry reused the original GitHub event payload, so the guard failed again. The title guard and finalizer remain unchanged. The next descendant's commit subject and draft PR title will match exactly, and its fresh hosted finalizer must pass before merge.
 
-Latest construction segment: `work/construction/segments/0370-record-privileged-landing-title-contract.md`
+Sequence 371 source candidate: `4606778f352d38ca86b0f233719c495792c17b7d`, tree `c0c3d5926b9ae81a51066830086da7dd525164d5`. Sequence 371 records the second hosted finalizer stop (#39122735813): all 29 acceptance nodes and strict Administrator audit passed, but the pull-request synchronize event retained the prior PR title and correctly failed the exact title/commit-subject guard before finalizer invocation. PR #2361 title was updated before the next head update; the next commit subject is set to match. A fresh full gate is pending.
+
+Latest construction segment: `work/construction/segments/0371-record-title-payload-retry-behavior.md`
 Latest segment SHA-256: `395ef63cd9f4a6ff07d2e1add0eef9387ba5658e8ab309963cc9cd18f2cb3a40`
-Sequence: 370
+Latest segment SHA-256: `a651dfe66e2486f1af03c8077fa0edb54c6401f4a37b4c89bc4aee9096765bd1`
+Sequence: 371

@@ -1,0 +1,41 @@
+{
+  "sequence": 371,
+  "title": "Record title-payload behavior across privileged finalizer retries",
+  "source": {
+    "commit": "4606778f352d38ca86b0f233719c495792c17b7d",
+    "tree": "c0c3d5926b9ae81a51066830086da7dd525164d5"
+  },
+  "hosted_observation": {
+    "workflow_run_id": 39122735813,
+    "event": "pull_request synchronize",
+    "quality_gate": "failure at hosted PR landing finalizer step",
+    "strict_audit": "passed_with_hosted_administrator_authority",
+    "acceptance_nodes": {
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pr_title_from_event": "[codex:construction-evidence] reconcile scheduled workflow evidence",
+    "latest_commit_subject": "[codex:construction-evidence] record privileged landing title contract",
+    "failure": "The workflow event retained the PR title from the time the synchronize run was enqueued; it did not track later PR metadata edits. The guarded equality check correctly prevented finalizer execution.",
+    "log_evidence": "The finalizer step log exposed PR_TITLE and PR_HEAD_SHA and runs test \"$PR_TITLE\" = \"$COMMIT_TITLE\" before sudo invocation."
+  },
+  "correction": {
+    "pr_title_updated_before_next_head": "[codex:construction-evidence] record title-payload retry behavior",
+    "required_next_commit_subject": "[codex:construction-evidence] record title-payload retry behavior",
+    "next_verification": "fresh pull_request synchronize event and full Required Quality Gate including hosted finalizer must pass before merge",
+    "guard_changes": "none; equality check, strict audit, test acceptance, and finalizer remain mandatory"
+  },
+  "scope": {
+    "runtime_or_cognition_changed": false,
+    "authority_changed": false,
+    "workflow_changed": false,
+    "append_only_evidence_added": true
+  },
+  "preservation": {
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved_unresolved",
+    "prior_sequence_369_and_370_commits": "preserved_as_ancestors"
+  },
+  "outcome": "the title comparison itself is functioning as designed; the failure came from immutable workflow event metadata. A corrected PR title is set before the next head update so the next synchronize event can bind matching values."
+}
