@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ceeac256da372c5212857c34671c52045cdadfc5bd9be5ab72c3da9e7bcc4a47",
-    "latest_segment_sequence": 355,
-    "latest_segment_sha256": "662dae05820a19ea41e13a47b5d7a07718eb19bd9e6261b36c9a18e485bdcf97",
-    "source_commit": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
-    "source_tree": "2ffd4f3d8291bace948725c107e25de7eac51be5"
+    "checkpoint_sha256": "6f791b4d81c919e9f3b67beeda139e3686700674e564c3248500b77334337f95",
+    "latest_segment_sequence": 356,
+    "latest_segment_sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
+    "source_commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+    "source_tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -13,7 +13,7 @@
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 355,
+  "latest_sequence": 356,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -3895,6 +3895,19 @@
       "sha256": "662dae05820a19ea41e13a47b5d7a07718eb19bd9e6261b36c9a18e485bdcf97",
       "source_commit": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
       "source_tree": "2ffd4f3d8291bace948725c107e25de7eac51be5"
+    },
+    {
+      "bytes": 3189,
+      "evidence": "work/construction/evidence/0356-verify-sequence355-merge-and-gates.json",
+      "evidence_bytes": 4362,
+      "evidence_path": "work/construction/evidence/0356-verify-sequence355-merge-and-gates.json",
+      "evidence_sha256": "2ea44f2015a147bf4f06908c96dd3f669b8c4775b75145f734be86dcb2be38cc",
+      "path": "work/construction/segments/0356-verify-sequence355-merge-and-gates.md",
+      "predecessor": "segment-sha256:662dae05820a19ea41e13a47b5d7a07718eb19bd9e6261b36c9a18e485bdcf97",
+      "sequence": 356,
+      "sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
+      "source_commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+      "source_tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
     }
   ],
   "source_acquisition": {
