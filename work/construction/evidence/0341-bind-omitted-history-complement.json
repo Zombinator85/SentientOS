@@ -1,0 +1,111 @@
+{
+  "candidate": {
+    "base_commit": "ebbaa6fa447f30f9ef6bd9254c853d64149bec88",
+    "base_tree": "f6f9d59be414e149577e937694e777af60f3be6d",
+    "head": "398f368bf832e940ff3eccbbeae177d3ba3d4e41",
+    "merge_method": "merge",
+    "pr_number": 2331,
+    "tree": "156ee1d99b06d81c21cb40a0a166e59f15a3d9b4"
+  },
+  "candidate_hosted_verification": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "finalizer_artifact_id": "12119034717",
+    "finalizer_artifact_sha256": "a855c6c25c0981b2f4de29316633adf48bc30f4d3298198c677f4c8f508b071d",
+    "finalizer_decision": "ready_for_pr_metadata",
+    "finalizer_reasons": [],
+    "immutability_audit": "passed_no_issues",
+    "quality_gate_artifact_id": "12120225730",
+    "quality_gate_artifact_sha256": "6db846ea0e0a3504466d0c560b4ca1bb6c73b636d8c79c0e94c6b82b368ea415",
+    "quality_gate_run_id": "39083947379",
+    "quality_gate_status": "success",
+    "strict_audit": "passed_no_issues",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "workflows": {
+      "ci": {
+        "run_id": "39083947436",
+        "status": "success"
+      },
+      "codex_ci": {
+        "run_id": "39083947423",
+        "status": "success"
+      },
+      "docker": {
+        "run_id": "39083947443",
+        "status": "success"
+      },
+      "gradient": {
+        "run_id": "39083947414",
+        "status": "success"
+      },
+      "invariants": {
+        "run_id": "39083947431",
+        "status": "success"
+      },
+      "lint_mypy": {
+        "run_id": "39083947460",
+        "status": "success"
+      },
+      "release": {
+        "run_id": "39083947385",
+        "status": "success"
+      }
+    }
+  },
+  "continuation": {
+    "evidence_path": "work/construction/evidence/0341-bind-omitted-history-complement.json",
+    "predecessor_segment_sha256": "4c2f5db6b868006c0581e2ef5dd9007574bd37b6622b14e6306b75d3bc73b9eb",
+    "segment_bytes": 2788,
+    "segment_path": "work/construction/segments/0341-bind-omitted-history-complement.md",
+    "segment_sha256": "fbc7b817f380677eff67aa895e6fc5a3d9d8b12e76044b38443e479927b623d2",
+    "sequence": 341,
+    "source_commit": "7f026f6ec41190cf3d24c1586f318b8abbebe8a4",
+    "source_tree": "156ee1d99b06d81c21cb40a0a166e59f15a3d9b4"
+  },
+  "local_verification": {
+    "source_to_candidate_tree": "exactly_bound; candidate hosted workflows verified the source tree",
+    "stale_sequence_178_workspace": "preserved_untouched"
+  },
+  "main": {
+    "commit": "7f026f6ec41190cf3d24c1586f318b8abbebe8a4",
+    "merge_method": "merge",
+    "parents": [
+      "ebbaa6fa447f30f9ef6bd9254c853d64149bec88",
+      "398f368bf832e940ff3eccbbeae177d3ba3d4e41"
+    ],
+    "pr_closed_merged": true,
+    "pr_number": 2331,
+    "tree": "156ee1d99b06d81c21cb40a0a166e59f15a3d9b4"
+  },
+  "post_merge_workflows": {
+    "administrator_verified": true,
+    "ci_run_id": "39084255820",
+    "ci_status": "success",
+    "codex_ci_run_id": "39084255797",
+    "codex_ci_status": "success",
+    "docker_run_id": "39084255940",
+    "docker_status": "success",
+    "docs_deploy_run_id": "39084255719",
+    "docs_deploy_status": "success",
+    "effective_uid": 0,
+    "forge_smoke_run_id": "39084255757",
+    "forge_smoke_status": "skipped_by_workflow_conditions",
+    "immutability_audit": "passed_no_issues",
+    "invariant_run_id": "39084255822",
+    "invariant_status": "success",
+    "quality_gate_artifact_id": "12120455500",
+    "quality_gate_artifact_sha256": "7359bb7c361d87e82f7469f7a2cd1c14f242915b7e30cc178978dea9a4e7811a",
+    "quality_gate_run_id": "39084255775",
+    "quality_gate_status": "success",
+    "strict_audit_status": "healthy_strict",
+    "tests_collected": 29,
+    "tests_executed": 29,
+    "tests_failed": 0,
+    "tests_skipped": 0
+  },
+  "production_boundary": "No production A\u2192B\u2192A transition, running-source observation, or model improvement is claimed. Commissioned model identities, prepared installation, and operator-approved protocol remain prerequisites.",
+  "schema_version": 1
+}
