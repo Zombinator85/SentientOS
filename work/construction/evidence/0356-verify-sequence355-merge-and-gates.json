@@ -1,0 +1,133 @@
+{
+  "architecture": {
+    "next_claim_bearing_bridge": "real_production_temporal_resident_A_to_B_to_A_evidence",
+    "production_transition_executed": false,
+    "requires": "exact hardened commissioned A/B identities and receipts, externally supplied serving approvals, and operator-approved preregistration",
+    "synthetic_rehearsal_is_production_evidence": false
+  },
+  "candidate": {
+    "base_commit": "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+    "ci": {
+      "conclusion": "success",
+      "run_id": "39100995572"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": "39100995619"
+    },
+    "commit": "73c032b25324203a7f9d91cbae967d1e9f03bcf3",
+    "docker": {
+      "conclusion": "success",
+      "run_id": "39100995536"
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": "39100995573"
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": "39100995564"
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": "39100995569"
+    },
+    "pr_number": 2346,
+    "release": {
+      "conclusion": "success",
+      "run_id": "39100995577"
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": "39100995584"
+    },
+    "tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
+  },
+  "federation_health": {
+    "changed_output_fixture": "awaiting_operator_dispatch_publication_fixture_true",
+    "current_main_scheduled_recurrence": "not_yet_observed",
+    "historical_run_39028288072": "recorded_in_sequence_310_not_current_source_proof",
+    "latest_schedule_as_of": "2026-10-18T05:47Z",
+    "latest_scheduled_run_id": "39083395122",
+    "latest_scheduled_source": "7d19f2651e8b09bd614322a1ba4ad8b2ae014218",
+    "schedule": "17 * * * *",
+    "workflow": ".github/workflows/federation-health.yml"
+  },
+  "merge": {
+    "commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+    "merge_method": "merge",
+    "parents": [
+      "e3011573c2eb05c1a4dfbf9a142f5376823d515c",
+      "73c032b25324203a7f9d91cbae967d1e9f03bcf3"
+    ],
+    "pr_number": 2346,
+    "tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109",
+    "verified_commit_signature": true
+  },
+  "post_merge_checks": {
+    "ci": {
+      "conclusion": "success",
+      "docs_build": "success",
+      "helm_kubernetes": "success",
+      "pytest_with_coverage": "success",
+      "resource_to_cognition_lifecycle": "success",
+      "run_id": "39101231573",
+      "source_validation": "success",
+      "sphinx_linkcheck": "success"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": "39101231547"
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": "39101231554"
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": "39101231586"
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_configured",
+      "run_id": "39101231570"
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": "39101231585"
+    },
+    "required_quality_gate": {
+      "acceptance_repository_sha": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+      "administrator_strict_audit": "passed",
+      "artifact_bytes": 11215,
+      "artifact_id": "12126413358",
+      "artifact_sha256": "76ab7f9a6bb4933ff19e0b09d7f4052c24c0dadd9f16bc998130bcd76dda8846",
+      "audit_immutability_ok": true,
+      "conclusion": "success",
+      "download_sha256_verified": true,
+      "run_id": "39101231561",
+      "strict_audit_ok": true,
+      "task_acceptance": "task_acceptance_ready"
+    }
+  },
+  "predecessor": {
+    "evidence_sha256": "87d4731e6130bebde737040798a01d96d84585461771f0a6100591833d002593",
+    "segment_sha256": "662dae05820a19ea41e13a47b5d7a07718eb19bd9e6261b36c9a18e485bdcf97",
+    "sequence": 355
+  },
+  "preservation": {
+    "authority_changed": false,
+    "sequence_178_workspace": "untouched",
+    "sequence_286_provenance_loss": "preserved",
+    "source_code_changed": false
+  },
+  "schema_version": 1,
+  "segment_path": "work/construction/segments/0356-verify-sequence355-merge-and-gates.md",
+  "segment_sha256": "5c2648c1be561f932e547b9a1da29f7735afa04b791fe36556b5bbc3c4182d51",
+  "sequence": 356,
+  "source": {
+    "branch": "main",
+    "commit": "21a25462819a97fa5e11f67cccdf59fb0b8cca7d",
+    "tree": "9d7b59cdebc2bfca4a8139b83986ef230cb5d109"
+  },
+  "title": "Verify sequence 355 evidence merge and post-merge gates"
+}
