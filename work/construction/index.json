@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "cd7c0543107990f51622fae558643e8c12d8a63cf15d51ef98d1aa728819e2d7",
-    "latest_segment_sequence": 387,
-    "latest_segment_sha256": "6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688",
-    "source_commit": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
-    "source_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846"
+    "checkpoint_sha256": "72100ae7c1a7fb67169cc164a41e2918de8887bb301234dac72e3f5bb104d4e3",
+    "latest_segment_sequence": 388,
+    "latest_segment_sha256": "d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
+    "source_commit": "abd33e735064a068d00a4f344893ce30fb82cf14",
+    "source_tree": "acc822896c4b5e9f532c277c00799e350301c0c4"
   },
-  "checkpoint_sha256": "cd7c0543107990f51622fae558643e8c12d8a63cf15d51ef98d1aa728819e2d7",
+  "checkpoint_sha256": "72100ae7c1a7fb67169cc164a41e2918de8887bb301234dac72e3f5bb104d4e3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 387,
+  "latest_sequence": 388,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4312,6 +4312,19 @@
       "sha256": "6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688",
       "source_commit": "8a2b6807e7868fcf67dfbe6b11b650d4ad020837",
       "source_tree": "65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846"
+    },
+    {
+      "bytes": 1810,
+      "evidence": "work/construction/evidence/0388-fix-campaign-cli-test-privilege-banner.json",
+      "evidence_bytes": 2621,
+      "evidence_path": "work/construction/evidence/0388-fix-campaign-cli-test-privilege-banner.json",
+      "evidence_sha256": "939b12ecaddf97437854b4d25d2d6a3ec01abc3ce919c09738689369369d3cee",
+      "path": "work/construction/segments/0388-fix-campaign-cli-test-privilege-banner.md",
+      "predecessor": "segment-sha256:6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688",
+      "sequence": 388,
+      "sha256": "d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
+      "source_commit": "abd33e735064a068d00a4f344893ce30fb82cf14",
+      "source_tree": "acc822896c4b5e9f532c277c00799e350301c0c4"
     }
   ],
   "source_acquisition": {

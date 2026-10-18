@@ -165,3 +165,13 @@ Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1
 Latest construction segment: `work/construction/segments/0387-reconcile-pr2371-merge-and-preserve-campaign-work.md`
 Latest segment SHA-256: `6a4db18c342e116ba039a34deb0d6b01cdaed02a94ec3bf97f2fb26e482f4688`
 Sequence: 387
+
+
+Sequence 388 repairs the exact configured ASCII privilege banner missing from the new campaign CLI test. The failure was found by the remote CI self-check after the initial post-merge candidate passed hosted QG; it was reproduced locally and fixed without suppressing the linter. On the repaired local tree, the affected 151-test set, exact acceptance, full privilege lint, targeted mypy, compilation, and diff checks pass. The hosted follow-up checks for this repair are pending.
+
+Latest verified main: `8a2b6807e7868fcf67dfbe6b11b650d4ad020837`; tree `65ab41d1842e26ed0d9e5dcd05b8db8e8f84d846`.
+Latest construction segment: `work/construction/segments/0388-fix-campaign-cli-test-privilege-banner.md`
+Latest segment SHA-256: `d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d`
+Sequence: 388
+
+Hosted source-candidate parent at the sequence-388 follow-up: `abd33e735064a068d00a4f344893ce30fb82cf14`; tree `acc822896c4b5e9f532c277c00799e350301c0c4`.

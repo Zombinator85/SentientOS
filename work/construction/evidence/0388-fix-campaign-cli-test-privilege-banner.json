@@ -1,0 +1,55 @@
+{
+  "change": {
+    "authority_added": false,
+    "issue": "new CLI test missing configured privilege banner",
+    "repair": "exact DEFAULT_BANNER_ASCII header with future import and privilege ritual module docstring"
+  },
+  "publication": {
+    "branch_candidate": "abd33e735064a068d00a4f344893ce30fb82cf14",
+    "followup_hosted_verification": "pending",
+    "initial_hosted_finalizer": "success",
+    "initial_qg": "success",
+    "initial_self_check": "failure: privilege lint; fixed by this increment"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "segment_bytes": 1810,
+  "segment_path": "work/construction/segments/0388-fix-campaign-cli-test-privilege-banner.md",
+  "segment_sha256": "d49788a4dabf1f19e1e8b83b3627df497db482e54a2a21ac5c2dbfc9c3b3c97d",
+  "sequence": 388,
+  "source": {
+    "base_commit": "abd33e735064a068d00a4f344893ce30fb82cf14",
+    "base_tree": "acc822896c4b5e9f532c277c00799e350301c0c4",
+    "branch": "codex/construct-sentientos-seq387",
+    "tested_repository_sha": "045dc196c641cecbb3b9cf2313ed05187fd73d4c",
+    "tested_source_sha256": {
+      "scripts/run_production_self_reflection_campaign.py": "3ba8f3d2842c029efa352bef2751e0934c939de577ad73539d87ff9c411a91c9",
+      "sentientos/production_self_reflection_campaign.py": "75e165c4b15da587456da47e971527a67742ba4ea9ac8c3cca29bba037629dfc",
+      "tests/test_production_self_reflection_campaign_cli.py": "b5bd9664ded76df6d40d597b5fa009c187e95a6ed31611523e81ce8a371a9169"
+    }
+  },
+  "task_acceptance_provenance": "glow/test_runs/provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json",
+  "title": "Repair the campaign CLI test privilege banner",
+  "verification": {
+    "affected_regression": {
+      "failed": 0,
+      "passed": 151,
+      "provenance_path": "glow/test_runs/provenance/20261018T190724Z_045dc196c641_9b8d8cf79be7401cb3dd46726c351e58.json",
+      "provenance_sha256": "041890fd09cae679925f81881ce0bf1f7e6720b0791719c3068e9f51487e89b2",
+      "selected": 151,
+      "skipped": 0,
+      "status": "validation_complete"
+    },
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "privilege_lint": "passed: python -m privilege_lint_cli --read-only --quiet .",
+    "targeted_mypy": "passed",
+    "task_acceptance": {
+      "manifest": "docs/development/production_self_reflection_campaign_privilege_banner_fix_task_acceptance.json",
+      "passed_nodes": 5,
+      "required_nodes": 5,
+      "successful_path_nodes": [
+        "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"
+      ]
+    }
+  }
+}
