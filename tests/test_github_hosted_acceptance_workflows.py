@@ -86,6 +86,50 @@ def test_federation_health_schedule_avoids_top_of_hour_load_spike() -> None:
     assert minute not in {"0", "*"}
 
 
+def test_scheduled_workflows_do_not_collide_by_minute_and_hour() -> None:
+    import yaml
+
+    workflow_paths = sorted((ROOT / ".github/workflows").glob("*.yml")) + sorted(
+        (ROOT / ".github/workflows").glob("*.yaml")
+    )
+    occupied: dict[tuple[int, int], str] = {}
+
+    def expand(field: str, maximum: int) -> set[int]:
+        values: set[int] = set()
+        for item in field.split(","):
+            base, separator, step_text = item.partition("/")
+            step = int(step_text) if separator else 1
+            assert step > 0
+            if base == "*":
+                lower, upper = 0, maximum
+            elif "-" in base:
+                lower_text, upper_text = base.split("-", maxsplit=1)
+                lower, upper = int(lower_text), int(upper_text)
+            else:
+                lower = upper = int(base)
+            assert 0 <= lower <= upper <= maximum
+            values.update(range(lower, upper + 1, step))
+        return values
+
+    for path in workflow_paths:
+        parsed = yaml.safe_load(path.read_text())
+        triggers = parsed.get("on", parsed.get(True, {}))
+        for entry in triggers.get("schedule", []):
+            fields = entry["cron"].split()
+            assert len(fields) == 5, path
+            minutes = expand(fields[0], 59)
+            hours = expand(fields[1], 23)
+            for hour in hours:
+                for minute in minutes:
+                    slot = (hour, minute)
+                    previous = occupied.get(slot)
+                    assert previous is None, (
+                        f"scheduled workflows collide at {hour:02}:{minute:02}: "
+                        f"{previous} and {path}"
+                    )
+                    occupied[slot] = str(path.relative_to(ROOT))
+
+
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
     workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
     assert "permissions:\n  contents: read" in workflow

@@ -10,7 +10,7 @@ on:
       - "tests/conftest.py"
       - "tests/test_runtime_governor.py"
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '37 4 * * *'
   workflow_dispatch:
 
 permissions:
