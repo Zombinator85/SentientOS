@@ -413,8 +413,23 @@ def create_pr_publication_handoff(
     elif not isinstance(post_plan, Mapping):
         reasons.append("pr_metadata_validation_plan_invalid:validation_plan_not_object"); plan = {}
     else:
+        pre_acceptance_value = pre.get("task_acceptance")
+        post_acceptance_value = post.get("task_acceptance")
         transition_ready, transition_reasons, _transition_proof = verify_validation_plan_transition(
-            pre_plan, post_plan, workspace, commit,
+            pre_plan,
+            post_plan,
+            workspace,
+            commit,
+            pre_acceptance=(
+                pre_acceptance_value
+                if isinstance(pre_acceptance_value, Mapping)
+                else None
+            ),
+            post_acceptance=(
+                post_acceptance_value
+                if isinstance(post_acceptance_value, Mapping)
+                else None
+            ),
         )
         if not transition_ready: reasons.extend(transition_reasons)
         plan = post_plan

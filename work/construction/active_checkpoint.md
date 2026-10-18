@@ -343,3 +343,18 @@ Latest verified main: `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36
 Latest segment: `work/construction/segments/0411-bind-checkpoint-segment-pointers-to-custody-index.md`
 Latest segment SHA-256: `1afd6e3f78ffa1f29c62d8823deecb6bb9f222b62b4ec5df134233fdb3ca81cd`
 Sequence: 411 (exact-main source and hosted checks verified; pointer repair candidate pending hosted checks)
+
+
+## Sequence 412 checkpoint
+
+Sequence 411 candidate `1a32691b6705d94e7e2178d3e4b90f9d576bd7f9`, tree `b378429a420a046015dd0fa866dfc0869010ba5f`, was pushed as a direct child of exact main `5054ad41f600280ef5836c60a0964b38601b04b9`. Its hosted Required Quality Gate #39177525904 passed, including exact-source Administrator UID 0, strict audit, immutability, and 29/29 acceptance. Hosted pre-commit finalization returned `ready_to_commit`; hosted PR-metadata finalization returned `ready_for_pr_metadata`; the pre-publication metadata guard returned `pr_metadata_guard_ready`. CI source validation and invariants passed; at this checkpoint the docs link-check job remained in progress.
+
+Before creating a PR, local exact-body publication-handoff sealing exposed that `create_pr_publication_handoff` validated pre/post validation plans without supplying their task-acceptance reports. When the source SHA changes from the validated base to the candidate commit, their acceptance manifest/provenance digests must roll forward through the exact-node verifier. The body builder already supplies these reports, but the final publication handoff did not, so a valid sequence-411 payload was blocked with `task_acceptance_rollforward_evidence_missing` and digest-transition mismatches. No PR was created from that blocked handoff.
+
+Sequence 412 passes the reports into the same unchanged transition verifier and adds a regression covering valid source roll-forward plus rejection of a failed required node. The canonical landing-evidence binding suite passed 60/60 with zero skips; body-builder and CLI handoff suites passed 20/20 with zero skips. Targeted mypy on the changed source passed; both changed Python modules compiled; `git diff --check` passed. Repository-wide mypy of the legacy test module reports pre-existing untyped-test errors and was not used as source proof. Exact-candidate hosted validation for sequence 412 remains pending.
+
+Latest verified main remains `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3d64aa36cd666a2fe856f0976819e2f0b1331419`. Sequence 411 is an unmerged candidate in the construction branch history. Current-main scheduled Federation Health and Nightly Audit/Self Check executions remain pending; provenance remains `INTEGRITY_BROKEN` at an unanchored start, including the preserved sequence-286 loss. No production inference or authority expansion occurred.
+
+Latest construction segment: `work/construction/segments/0412-forward-task-acceptance-through-publication-handoff.md`
+Latest segment SHA-256: 20690405cf1b334532e20c78852efa6aec044bf64f2b3ac9fc1bb0633dc4b10d
+Sequence: 412 (local regression verification passed; exact hosted candidate verification pending)

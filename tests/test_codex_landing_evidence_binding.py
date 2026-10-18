@@ -171,6 +171,104 @@ def test_publication_handoff_accepts_digest_protected_phase_local_differences(tm
         assert pre[field] != post[field]
     assert create_pr_publication_handoff(**inputs).status == PUBLICATION_HANDOFF_READY
 
+
+def test_publication_handoff_accepts_verified_task_acceptance_source_rollforward(
+    tmp_path: Path,
+) -> None:
+    inputs, paths = publication_inputs(tmp_path)
+    pre = json.loads(paths["pre"].read_text(encoding="utf-8"))
+    post = json.loads(paths["post"].read_text(encoding="utf-8"))
+    node_id = (
+        "tests/test_codex_landing_evidence_binding.py::"
+        "test_publication_handoff_accepts_verified_task_acceptance_source_rollforward"
+    )
+
+    def acceptance(source_sha: str, suffix: str) -> dict[str, object]:
+        return {
+            "status": "task_acceptance_ready",
+            "task_classification": "behavior_adding",
+            "repository_sha": source_sha,
+            "manifest_digest": f"sha256:{suffix}-manifest",
+            "provenance_digest": f"sha256:{suffix}-provenance",
+            "required_node_ids": [node_id],
+            "successful_path_node_ids": [node_id],
+            "node_outcomes": [
+                {
+                    "node_id": node_id,
+                    "exists": True,
+                    "selected": True,
+                    "phase": "call",
+                    "outcome": "passed",
+                    "passed": True,
+                }
+            ],
+            "witness_status": "ready",
+            "required_witness_contract_count": 0,
+            "passed_witness_contract_count": 0,
+            "witness_contract_results": [],
+        }
+
+    pre_acceptance = acceptance("a" * 40, "pre")
+    post_acceptance = acceptance("b" * 40, "post")
+    pre_plan = pre["landing_validation_plan"]
+    post_plan = post["landing_validation_plan"]
+    assert isinstance(pre_plan, dict) and isinstance(post_plan, dict)
+    pre_plan["task_acceptance_manifest_digest"] = pre_acceptance["manifest_digest"]
+    pre_plan["task_acceptance_provenance_digest"] = pre_acceptance["provenance_digest"]
+    post_plan["task_acceptance_manifest_digest"] = post_acceptance["manifest_digest"]
+    post_plan["task_acceptance_provenance_digest"] = post_acceptance["provenance_digest"]
+    pre["landing_validation_plan"] = seal_validation_plan(pre_plan)
+    post["landing_validation_plan"] = seal_validation_plan(post_plan)
+    pre["task_acceptance"] = pre_acceptance
+    post["task_acceptance"] = post_acceptance
+    paths["pre"].write_text(json.dumps(pre), encoding="utf-8")
+    paths["post"].write_text(json.dumps(post), encoding="utf-8")
+    paths["binding"].write_text(
+        json.dumps(
+            create_body_binding(
+                "[codex:stabilization] fix publication handoff validation lineage",
+                paths["body"],
+                post["commit_binding"],
+                {
+                    "pre": str(paths["pre"]),
+                    "post": str(paths["post"]),
+                    "guard": str(paths["guard"]),
+                },
+            ).to_dict()
+        ),
+        encoding="utf-8",
+    )
+
+    handoff = create_pr_publication_handoff(**inputs)
+
+    assert handoff.status == PUBLICATION_HANDOFF_READY
+    assert handoff.task_acceptance_manifest_sha256 == post_acceptance["manifest_digest"]
+    assert handoff.task_acceptance_provenance_sha256 == post_acceptance["provenance_digest"]
+
+    pre_acceptance["node_outcomes"][0]["outcome"] = "failed"
+    pre_acceptance["node_outcomes"][0]["passed"] = False
+    pre["task_acceptance"] = pre_acceptance
+    paths["pre"].write_text(json.dumps(pre), encoding="utf-8")
+    paths["binding"].write_text(
+        json.dumps(
+            create_body_binding(
+                "[codex:stabilization] fix publication handoff validation lineage",
+                paths["body"],
+                post["commit_binding"],
+                {
+                    "pre": str(paths["pre"]),
+                    "post": str(paths["post"]),
+                    "guard": str(paths["guard"]),
+                },
+            ).to_dict()
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        ValueError, match="pre_commit_task_acceptance_node_not_passed"
+    ):
+        create_pr_publication_handoff(**inputs)
+
 @pytest.mark.parametrize(('field','value'), [('repository','Other/repo'),('intended_base_ref','release')])
 def test_publication_handoff_repository_and_base_substitution_fails(tmp_path: Path, field: str, value: str):
     inputs, _ = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); altered=dict(inputs); altered[field]=value
