@@ -24,6 +24,7 @@ def test_release_pr_validation_installs_project_without_publishing():
     assert "softprops" not in validate and "secrets." not in validate
 def test_required_quality_gate_runs_and_verifies_real_tests():
     text=(ROOT/".github/workflows/required-quality-gate.yml").read_text()
+    assert "types: [opened, synchronize, reopened, edited]" in text
     assert "python -m scripts.run_tests" in text and "verify_task_acceptance.py" in text
     assert "validation_complete" in text and "--require-validation-complete" in text
 def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:

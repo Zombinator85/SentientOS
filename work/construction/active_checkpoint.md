@@ -21,4 +21,4 @@ Scheduled Nightly Self Check #39235681245 passed on `b5912ecc...`, including Adm
 Latest verified main: `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`.
 Latest construction segment: `work/construction/segments/0456-reconcile-integrated-checkpoint-and-schedule.md`
 Latest segment SHA-256: `0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455`
-Sequence: 456 (checkpoint reconciled; current-main scheduled Federation Health pending)
+Sequence: 457 (title edit retriggers landing gate; exact-head matrix pending)

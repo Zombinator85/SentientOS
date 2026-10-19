@@ -1,0 +1,40 @@
+{
+  "sequence": 457,
+  "title": "Retrigger landing verification after PR title edits",
+  "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+  "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5",
+  "predecessor_segment_sha256": "0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
+  "diagnosis": {
+    "first_run": {
+      "id": 39241673948,
+      "job": 118023728238,
+      "attempt": 2,
+      "conclusion": "failure"
+    },
+    "retry": {
+      "id": 39241673948,
+      "job": 118024580689,
+      "conclusion": "failure"
+    },
+    "observed_pr_title": "[codex:test] preserve strict pre-commit finalizer assertion",
+    "then_current_commit_subject": "[codex:workflow] print exact pre-commit finalizer evidence",
+    "failed_before": "parent workspace reconstruction and pre-commit finalizer invocation",
+    "cause": "workflow run and rerun used the earlier pull_request event title after the PR title had been updated"
+  },
+  "change": {
+    "workflow": ".github/workflows/required-quality-gate.yml",
+    "trigger": "pull_request edited",
+    "regression_test": "tests/test_github_hosted_acceptance_workflows.py",
+    "contract": "PR title must still equal exact commit subject; finalizer and metadata guard remain fail-closed"
+  },
+  "verification": {
+    "exact_head_matrix": "pending"
+  },
+  "limitations": {
+    "actions_token_pr_creation": "blocked by repository setting",
+    "scheduled_current_main_federation_health": "unverified",
+    "live_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}

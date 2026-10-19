@@ -55,11 +55,12 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
-## Current construction checkpoint (2026-10-19 10:48 UTC)
+## Current construction checkpoint (2026-10-19 11:05 UTC)
 
-Sequence 456 reconciles the active construction pointer with PR #2423, which regular-merged sequence 455 as main `0082e3d9d76337c2f25efb9defb49e40e87dc482`, preserving tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`. Its exact-head hosted matrix and main post-merge CI, quality gate, invariants, Codex CI, Docker, and docs deployment passed. The Federation Health UTF-8 hardening and receipt are integrated.
+Sequence 457 addresses a Required Quality Gate event-payload race in PR #2424. Runs #39241673948 and its retry carried the earlier PR title after the head commit and current title had advanced. Both failed the exact title check before parent-workspace reconstruction or pre-commit finalization. The workflow change makes title edits retrigger the gate and preserves the exact PR-title/commit-subject requirement.
 
-Scheduled Nightly Self Check passed on `b5912ecc...` before the evidence-only PR #2423; Nightly Audit Integrity passed on older main `fd20cf6...`. At 10:48 UTC, no scheduled Federation Health execution on current main was present. The latest observed scheduled Health run was #39218331969 on older main `e66ac2f...`; successful run #39235242309 on `b5912ecc...` was push-triggered. Automatic Actions-token PR creation remains blocked by repository policy. The report describes a configured local log snapshot, not live telemetry; production inference is not claimed.
+Sequence 456 records PR #2423's regular merge as main `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`. Its exact-head and post-merge CI passed. The scheduled Federation Health run on current main remains unverified; push-triggered success is not scheduled evidence. Health output remains a configured local snapshot, not live telemetry. Historical provenance gaps and protected workspaces remain unchanged.
+
 ## Read next
 
 1. [Concise technical thesis](one_pager.md) — purpose, causal loop, and core distinctions.

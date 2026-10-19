@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8203afcbeb28f5b2844a40afb75ce52d7e6f66279a2ad70cdeec564fad6c77c8",
-    "latest_segment_sequence": 456,
-    "latest_segment_sha256": "0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
-    "latest_sequence": 456,
+    "checkpoint_sha256": "bd5fc1e5aa1a6011793fe1428c7c30f1da4799f8e3d5d2ca2b976b6fbe98e778",
+    "latest_segment_sequence": 457,
+    "latest_segment_sha256": "bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a",
+    "latest_sequence": 457,
     "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
     "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
   },
-  "checkpoint_sha256": "8203afcbeb28f5b2844a40afb75ce52d7e6f66279a2ad70cdeec564fad6c77c8",
+  "checkpoint_sha256": "bd5fc1e5aa1a6011793fe1428c7c30f1da4799f8e3d5d2ca2b976b6fbe98e778",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 456,
+  "latest_sequence": 457,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5154,6 +5154,18 @@
       "predecessor": "segment-sha256:318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
       "sequence": 456,
       "sha256": "0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
+      "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+      "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
+    },
+    {
+      "bytes": 1801,
+      "evidence_bytes": 1602,
+      "evidence_path": "work/construction/evidence/0457-retrigger-landing-gate-on-pr-title-edit.json",
+      "evidence_sha256": "86c3646d45137f768376da952454a2fd24104c28f50747d4fed0a58b9281523d",
+      "path": "work/construction/segments/0457-retrigger-landing-gate-on-pr-title-edit.md",
+      "predecessor": "segment-sha256:0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
+      "sequence": 457,
+      "sha256": "bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a",
       "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
       "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
     }
