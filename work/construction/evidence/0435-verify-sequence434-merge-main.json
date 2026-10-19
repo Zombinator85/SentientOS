@@ -1,0 +1,106 @@
+{
+  "candidate_status": "merged_exact_head_checks_passed_post_merge_execution_pending",
+  "exact_candidate_checks": {
+    "canonical_self_check": {
+      "conclusion": "success",
+      "mypy_baseline_ratchet": "passed",
+      "pytest_failed": 0,
+      "pytest_passed": 143,
+      "rerun_after_docker_hub_502": "passed",
+      "run_ids": [
+        39214046992,
+        39214037116
+      ]
+    },
+    "docker_build_smoke": {
+      "conclusion": "success",
+      "run_ids": [
+        39214047131,
+        39214046999
+      ]
+    },
+    "docs": {
+      "conclusion": "success",
+      "run_ids": [
+        39214046992,
+        39214037116
+      ]
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39214047110
+    },
+    "helm": {
+      "conclusion": "success",
+      "run_ids": [
+        39214046992,
+        39214037116
+      ]
+    },
+    "invariant_tests": {
+      "conclusion": "success",
+      "run_ids": [
+        39214047338,
+        39214037213
+      ]
+    },
+    "lint": {
+      "conclusion": "success",
+      "run_id": 39214047047
+    },
+    "required_quality_gate": {
+      "administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "hosted_finalizer": "passed",
+      "immutability": "passed",
+      "prepublication_metadata_guard": "passed",
+      "run_ids": [
+        39214047045,
+        39214037145
+      ]
+    },
+    "source_validation": {
+      "conclusion": "success",
+      "exact_acceptance_nodes": "passed",
+      "integrated_resource_to_cognition_lifecycle": "passed",
+      "planning_execution_separation": "passed",
+      "run_ids": [
+        39214046992,
+        39214037116
+      ]
+    },
+    "validation": {
+      "conclusion": "success",
+      "run_id": 39214047127
+    }
+  },
+  "post_merge_evidence": {
+    "main_push_checks": "not observed at this evidence cut",
+    "nightly_audit_integrity": "pending",
+    "nightly_self_check": "pending",
+    "scheduled_federation_health": "pending"
+  },
+  "predecessor_segment_sha256": "b1436a332898bffb91ee3b380c702609308ecf7160a5960331b8611e193f9f35",
+  "sequence": 435,
+  "sequence_434_merge": {
+    "candidate_commit": "a935018ca2b11cc08ab6c4aac076bbe8723c1557",
+    "merge_commit": "4973d33b50e5e48ccaea239751787015fb5de894",
+    "method": "regular_two_parent_merge",
+    "pull_request": 2401,
+    "tree_preserved": true
+  },
+  "source_change_boundary": {
+    "effect_authority_added": false,
+    "production_configuration_enabled": false,
+    "production_inference_claimed": false,
+    "runtime_source_changed": false
+  },
+  "source_commit": "4973d33b50e5e48ccaea239751787015fb5de894",
+  "source_tree": "18de05c0d224871c1c09161e63014d7515f356ad",
+  "title": "Verify sequence 434 merge to main",
+  "verification": {
+    "local_pytest": "blocked by canonical minimal-install guard; no local pass claimed",
+    "remote_compare": "merge tree equals candidate tree",
+    "remote_main_ref": "4973d33b50e5e48ccaea239751787015fb5de894"
+  }
+}
