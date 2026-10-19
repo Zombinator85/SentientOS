@@ -1,0 +1,108 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 471,
+  "title": "Compose daemon transition planning with active-trial binding",
+  "observed_at": "2026-10-19T19:30:07Z",
+  "predecessor": {
+    "sequence": 470,
+    "segment_path": "work/construction/segments/0470-bind-verified-transition-request-to-active-campaign-trial.md",
+    "segment_sha256": "ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "fd9f44f9079c75034f9f6a62bed4777f52d76f77",
+    "candidate_commit": "bfb25ad31dcd24dec2ec2e775ed7bf68ac49b8df",
+    "merge_commit": "19f202bd0f44352599f0750f58133407256d610a",
+    "tree": "689b126c098ca7798626901739177e9003c21ca6",
+    "parents": [
+      "fd9f44f9079c75034f9f6a62bed4777f52d76f77",
+      "bfb25ad31dcd24dec2ec2e775ed7bf68ac49b8df"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2446,
+    "title": "[codex:construction] compose daemon transition plan with canonical trial binding",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2446",
+    "state": "merged",
+    "head_sha": "bfb25ad31dcd24dec2ec2e775ed7bf68ac49b8df"
+  },
+  "behavior": {
+    "files": [
+      "sentientosd.py",
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py"
+    ],
+    "projection": "daemon composes verified request plan with canonical active-trial binding snapshot",
+    "checks": [
+      "exact_request_id_used",
+      "trial_id_taken_only_from_verified_request_projection",
+      "plan_readiness_required",
+      "canonical_owner_revalidates_plan_and_live_state",
+      "missing_request_trial_fails_closed",
+      "operator_packet_processor_not_called"
+    ],
+    "authority": {
+      "accepts_caller_selected_trial_id": false,
+      "selects_or_mints_approval": false,
+      "processes_operator_request": false,
+      "advances_campaign": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    }
+  },
+  "validation": {
+    "ci_run": 39310728482,
+    "ci_conclusion": "success",
+    "required_quality_gate_run": 39310728321,
+    "required_quality_gate_conclusion": "success",
+    "hosted_administrator_audits": true,
+    "hosted_finalizer": true,
+    "separate_metadata_guard": true,
+    "other_checks": {
+      "codex_ci": {
+        "run": 39310728489,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run": 39310728513,
+        "conclusion": "success"
+      },
+      "release": {
+        "run": 39310728348,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run": 39310728453,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "run": 39310728329,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run": 39310728467,
+        "conclusion": "success"
+      },
+      "docs": "success",
+      "helm": "success"
+    }
+  },
+  "post_merge": {
+    "merge_commit": "19f202bd0f44352599f0750f58133407256d610a",
+    "workflow_runs_returned": [],
+    "all_applicable_success": false,
+    "limitation": "No separate post-merge workflow run was returned during verification."
+  },
+  "limitations": {
+    "campaign_executor": false,
+    "approval_selection": false,
+    "approval_minting": false,
+    "production_inference": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "segment_path": "work/construction/segments/0471-compose-daemon-active-trial-binding.md",
+  "evidence_path": "work/construction/evidence/0471-compose-daemon-active-trial-binding.json"
+}
