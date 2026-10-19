@@ -1,0 +1,92 @@
+{
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "merge": {
+    "candidate_checks": "all configured branch and PR checks passed; greet and publish skipped by condition",
+    "candidate_title": "[codex:construction] [untested] correct solo Landing Supervisor evidence summary (sequence 419)",
+    "final_body_byte_length": 16091,
+    "final_body_sha256": "432f4312244a9df4436361d4751abf3d7cef5256b4e6da0fcaf1679b4426db1e",
+    "first_parent": "9dd0ba01c1ff87b67200c367212e95a71eb370da",
+    "handoff_sha256": "c39aa3c632c5d92c3c314b49c778a6ebfba4f406f50af97f5a475da0c01c7378",
+    "merge_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
+    "merged": true,
+    "method": "merge",
+    "publication_custody": "hosted_publication_custody_verified_exact",
+    "pull_request": 2389,
+    "second_parent": "f5cb46c16295256d287266871d4d18dcd4f69e91",
+    "tree": "0b33dd00580f39765204d3249331a45b4bfdee2d"
+  },
+  "postmerge_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39188901657,
+      "self_check_artifact_id": 12159520942,
+      "self_check_artifact_sha256": "a0c2f72f36f14f4b29f50b96721bbd5d8d3583b75c2928331725d390fc436943",
+      "self_check_failed": 0,
+      "self_check_passed": 143,
+      "self_check_skipped": 13,
+      "source_artifact_id": 12159665461,
+      "source_artifact_sha256": "c49a00dacece80cb721513e39d7c0f3ad0d4da1fbd3ac7b9a9c8c290ec5786f8",
+      "source_validation_passed": 20
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39188901570
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39188901475
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39188901487
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39188901479
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39188901534
+    },
+    "required_quality_gate": {
+      "acceptance_failed": 0,
+      "acceptance_passed": 29,
+      "artifact_id": 12158649884,
+      "artifact_sha256": "833425ac88c1204d907709840cd1314c02e60c2b7b7981402acc7bfaedeae493",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "immutability": "passed",
+      "run_id": 39188901550,
+      "source_sha": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
+      "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d",
+      "strict_audit": "passed"
+    }
+  },
+  "previous_segment_sha256": "2c56ec57d7f7ee002d7b558bfd55f2899914c62479044e6f22b49529e335d988",
+  "scheduled_workflows": {
+    "authority_posture": "strict Administrator checks retained; write scopes limited to repair/publish jobs",
+    "federation_health_on_current_main": "pending as of 2026-10-19T02:17:27Z",
+    "latest_federation_health": {
+      "conclusion": "success",
+      "postmerge_current_main": false,
+      "run_id": 39184847466,
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b"
+    },
+    "nightly_audit_integrity_on_current_main": "pending_next_scheduled_window",
+    "nightly_self_check_on_current_main": "pending_next_scheduled_window"
+  },
+  "sequence": 420,
+  "source_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
+  "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d",
+  "title": "Verify sequence 419 merge and exact-main gates",
+  "workspace_preservation": {
+    "sequence_411_workspace_modified": false,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false
+  }
+}
