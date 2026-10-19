@@ -1,0 +1,37 @@
+{
+  "change": {
+    "authority_expansion": false,
+    "behavior": "sealed solo profile without supervisor artifact states that the phase is not required; exhaustive profile without artifact remains pending at supplied path or explicitly missing path",
+    "runtime_behavior_changed": false,
+    "source": "scripts/build_codex_landing_evidence_body.py",
+    "test": "tests/test_build_codex_landing_evidence_body_script.py",
+    "workflow_privileges_changed": false
+  },
+  "developmental_evidence": {
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "local_verification": {
+    "canonical_runner": "blocked_before_pytest; editable-install bootstrap could not fetch setuptools through the sandbox proxy",
+    "focused_suite": {
+      "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 PYTHONPATH=. python -m pytest -q tests/test_build_codex_landing_evidence_body_script.py",
+      "failed": 0,
+      "passed": 13,
+      "scope": "targeted only; bypasses canonical-install airlock for this local focused run"
+    },
+    "git_diff_check": "passed",
+    "hosted_exact_candidate": "pending",
+    "py_compile": "passed for changed Python files"
+  },
+  "previous_segment_sha256": "c2167a595a5ca68011f20e11ef8421f1f1e8081885fd9f61462793813f9c51f0",
+  "sequence": 419,
+  "source_commit": "9dd0ba01c1ff87b67200c367212e95a71eb370da",
+  "source_tree": "cfe1e9a0f04f638ab5287ac7d8f01b7e0e75f0d8",
+  "title": "Correct solo Landing Supervisor summary",
+  "workspace_preservation": {
+    "sequence_411_workspace_modified": false,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false
+  }
+}

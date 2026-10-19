@@ -138,9 +138,17 @@ def _matrix_command_lines(matrix: Mapping[str, Any]) -> list[str]:
     return lines
 
 
-def _supervisor_summary(payload: Mapping[str, Any] | None, path_text: str) -> str:
+def _supervisor_summary(
+    payload: Mapping[str, Any] | None,
+    path_text: str,
+    *,
+    validation_profile: str,
+) -> str:
     if payload is None:
-        return f"Landing Supervisor result: pending or not yet written at {path_text}."
+        if validation_profile == "solo":
+            return "Landing Supervisor result: not required by the sealed solo validation profile."
+        location = path_text or "no artifact path supplied"
+        return f"Landing Supervisor result: pending or not yet written at {location}."
     decision = payload.get("decision")
     if isinstance(decision, Mapping):
         status = str(decision.get("status", "unknown"))
@@ -341,7 +349,11 @@ def build_body(
         ("### Strict audit", f"Strict audit result: {strict_audit_result}"),
         ("### Immutability verifier", f"Immutability verifier result: {immutability_result}"),
         ("### Landing gate", _landing_gate_summary(landing_gate, parsed_artifacts.get("landing_gate", {}))),
-        ("### Landing Supervisor", _supervisor_summary(supervisor, landing_supervisor_json_path)),
+        ("### Landing Supervisor", _supervisor_summary(
+            supervisor,
+            landing_supervisor_json_path,
+            validation_profile=validation_profile,
+        )),
         ("### Finalizer status", _finalizer_summary(finalizer, pre_payload, post_payload)),
         ("### PR metadata guard", _guard_summary(pr_metadata_guard, parsed_artifacts.get("pr_metadata_guard", {}))),
         ("### Unresolved risks", f"Unresolved risks: {unresolved}"),
