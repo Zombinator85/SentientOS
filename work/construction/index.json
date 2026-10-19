@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7d8c27cccaa9727151dc749bd7913b273506281f8bd6fc42bc29ced1d81bd148",
-    "latest_segment_sequence": 415,
-    "latest_segment_sha256": "1598da163754df289680a9f9fb4fe462e633b09961654c74d59071c6e6d06c7d",
-    "latest_sequence": 415,
-    "source_commit": "7ae3a52e126f272a3e699376effbeb8f3a3fe8b7",
-    "source_tree": "b9ed0ff3a25bb09fa71fa1ef6564ef8739bcbe3a"
+    "checkpoint_sha256": "3028458964147645009200da73d31910e0d381a8d24f0273cefc6025a0f758d9",
+    "latest_segment_sequence": 416,
+    "latest_segment_sha256": "7c7350eb6aaf0c7b5003d99f3889a534d88502fc06b7b77bf4b0aeb6e7ee8837",
+    "latest_sequence": 416,
+    "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b",
+    "source_tree": "02fd3cb362d1e053968640ac1a5ef34410cb5fe8"
   },
-  "checkpoint_sha256": "d405351b4834bbde83516314db6bd471c70fe5ac44f3a7111349c8db1b161280",
+  "checkpoint_sha256": "3028458964147645009200da73d31910e0d381a8d24f0273cefc6025a0f758d9",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 415,
+  "latest_sequence": 416,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4664,6 +4664,18 @@
       "sha256": "1598da163754df289680a9f9fb4fe462e633b09961654c74d59071c6e6d06c7d",
       "source_commit": "7ae3a52e126f272a3e699376effbeb8f3a3fe8b7",
       "source_tree": "b9ed0ff3a25bb09fa71fa1ef6564ef8739bcbe3a"
+    },
+    {
+      "bytes": 4949,
+      "evidence_bytes": 5536,
+      "evidence_path": "work/construction/evidence/0416-bind-landing-body-status-to-artifacts.json",
+      "evidence_sha256": "9173966e6a9427c4e5daa371b923b876a566fffba8496fc551cda00bd5344133",
+      "path": "work/construction/segments/0416-bind-landing-body-status-to-artifacts.md",
+      "predecessor": "segment-sha256:1598da163754df289680a9f9fb4fe462e633b09961654c74d59071c6e6d06c7d",
+      "sequence": 416,
+      "sha256": "7c7350eb6aaf0c7b5003d99f3889a534d88502fc06b7b77bf4b0aeb6e7ee8837",
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b",
+      "source_tree": "02fd3cb362d1e053968640ac1a5ef34410cb5fe8"
     }
   ],
   "source_acquisition": {
