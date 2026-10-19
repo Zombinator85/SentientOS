@@ -1,0 +1,67 @@
+{
+  "candidate_status": "post_merge_main_checks_passed_scheduled_evidence_pending",
+  "main_ref_verified": "8a3d72b9b608dbe41753f454d215b5528ef854dd",
+  "post_merge_execution": {
+    "federation_health": "not yet observed after this main SHA",
+    "nightly_audit_integrity": "not yet observed after this main SHA",
+    "nightly_self_check": "not yet observed after this main SHA"
+  },
+  "post_merge_push_checks": {
+    "ci": {
+      "canonical_planning_execution_separation": "passed",
+      "canonical_self_check": "passed",
+      "conclusion": "success",
+      "contract_bundle_artifact_id": 12169742653,
+      "contract_bundle_artifact_sha256": "27ef36e4b3705a6d8bbb8f5b995171838dc7b5a5f4b13930e46ea3516574d0fd",
+      "documentation_build_linkcheck": "passed",
+      "exact_acceptance_nodes": "passed",
+      "helm_kubernetes": "passed",
+      "integrated_resource_to_cognition_validation": "passed",
+      "run_id": 39216241670,
+      "source_validation_artifact_id": 12169702841,
+      "source_validation_artifact_sha256": "bddd92291784c42a09f746474eb4db3b11a9098024e00c8b862a1484838a97ae"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39216241758
+    },
+    "docker_image": {
+      "conclusion": "success",
+      "run_id": 39216241648
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39216241755
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_configured_condition",
+      "run_id": 39216241604
+    },
+    "invariant_tests": {
+      "conclusion": "success",
+      "run_id": 39216241779
+    },
+    "required_quality_gate": {
+      "actual_administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "exact_acceptance_binding": "passed",
+      "run_id": 39216241571
+    }
+  },
+  "predecessor_segment_sha256": "f973360ce87341b4ef3593afa234388c1f6ac0e20e512b9bfd19048d69f6471b",
+  "quality_gate_artifact": {
+    "artifact_id": 12169816104,
+    "contents_independently_inspected": false,
+    "sha256": "aefb7d9e6a045d3fd6687122ce671f95d45dcb0cd25d8fffad9d5d581da105e8"
+  },
+  "sequence": 437,
+  "source_change_boundary": {
+    "authority_changed": false,
+    "production_execution_claimed": false,
+    "production_learning_claimed": false,
+    "runtime_source_changed": false
+  },
+  "source_commit": "8a3d72b9b608dbe41753f454d215b5528ef854dd",
+  "source_tree": "c72e9b571212b9776d7e8c9db8102c5fec5af977",
+  "title": "Verify sequence 436 post-merge main checks"
+}
