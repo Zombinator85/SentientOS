@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4aa316a5a3425ad6eee5df626cb21e1d7329b1308b370bf876b64746996dbf74",
-    "latest_segment_sequence": 469,
-    "latest_segment_sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
-    "latest_sequence": 469,
-    "source_commit": "360ac720b194412518188bd5526f430a3b70185d",
-    "source_tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f"
+    "checkpoint_sha256": "b64ee2f92c13197767875423a0bd370e3d397a34dda2a84d26a6ce0cbd7443dc",
+    "latest_segment_sequence": 470,
+    "latest_segment_sha256": "ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e",
+    "latest_sequence": 470,
+    "source_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
+    "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a"
   },
-  "checkpoint_sha256": "4aa316a5a3425ad6eee5df626cb21e1d7329b1308b370bf876b64746996dbf74",
+  "checkpoint_sha256": "b64ee2f92c13197767875423a0bd370e3d397a34dda2a84d26a6ce0cbd7443dc",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 469,
+  "latest_sequence": 470,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5312,6 +5312,18 @@
       "sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
       "source_commit": "360ac720b194412518188bd5526f430a3b70185d",
       "source_tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f"
+    },
+    {
+      "bytes": 3595,
+      "evidence_bytes": 5043,
+      "evidence_path": "work/construction/evidence/0470-bind-verified-transition-request-to-active-campaign-trial.json",
+      "evidence_sha256": "cee931a8de738c81db0823254e9970adcb9e969dcc0a8b0b7a4430030fdcba21",
+      "path": "work/construction/segments/0470-bind-verified-transition-request-to-active-campaign-trial.md",
+      "predecessor": "segment-sha256:9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
+      "sequence": 470,
+      "sha256": "ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e",
+      "source_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
+      "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a"
     }
   ],
   "source_acquisition": {
@@ -5321,7 +5333,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f",
+  "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

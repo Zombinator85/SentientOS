@@ -1,0 +1,138 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 470,
+  "title": "Bind verified transition requests to active campaign trials",
+  "observed_at": "2026-10-19T19:15:10Z",
+  "predecessor": {
+    "sequence": 469,
+    "segment_path": "work/construction/segments/0469-expose-read-only-daemon-transition-planning.md",
+    "segment_sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "360ac720b194412518188bd5526f430a3b70185d",
+    "intermediate_merge_commit": "b457641498e4eaaa04660c047fb4f42ff4b7ee2a",
+    "candidate_commit": "d15cbf2444e85f108f5723e1a61259746f753b3c",
+    "merge_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
+    "tree": "4c367f215a39532925135d4abfa8a90911b3638a",
+    "parents": [
+      "b457641498e4eaaa04660c047fb4f42ff4b7ee2a",
+      "d15cbf2444e85f108f5723e1a61259746f753b3c"
+    ],
+    "method": "merge"
+  },
+  "pull_requests": [
+    {
+      "number": 2443,
+      "title": "[codex:construction] bind active campaign trial to verified transition plan",
+      "url": "https://github.com/Zombinator85/SentientOS/pull/2443",
+      "state": "merged",
+      "merge_commit": "b457641498e4eaaa04660c047fb4f42ff4b7ee2a",
+      "disposition": "post-merge review identified that request-to-trial identity was not established; corrected additively in PR 2444"
+    },
+    {
+      "number": 2444,
+      "title": "[codex:construction] update v2 transition receipt test fixtures",
+      "url": "https://github.com/Zombinator85/SentientOS/pull/2444",
+      "state": "merged",
+      "head_sha": "d15cbf2444e85f108f5723e1a61259746f753b3c",
+      "merge_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
+      "method": "merge"
+    }
+  ],
+  "behavior": {
+    "files": [
+      "sentientos/production_self_reflection_campaign.py",
+      "sentientos/resident_cognitive_transition_operator.py",
+      "tests/test_production_self_reflection_campaign.py",
+      "tests/test_resident_cognitive_transition_operator.py"
+    ],
+    "projection": "request-declared campaign trial identifier is carried in verified stage-receipt v2 and matched against the active canonical campaign trial",
+    "checks": [
+      "request_digest_binds_declared_trial_identifier",
+      "receipt_schema_v2_exact_projection",
+      "missing_or_mismatched_request_trial_fails_closed",
+      "live_digest_verified_campaign_state_matches_trial",
+      "approval_remains_separate",
+      "planning_does_not_execute_or_advance"
+    ],
+    "authority": {
+      "selects_approval": false,
+      "processes_operator_request": false,
+      "advances_campaign": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    }
+  },
+  "validation": {
+    "ci_run": 39308509382,
+    "ci_conclusion": "success",
+    "required_quality_gate_run": 39308511865,
+    "required_quality_gate_conclusion": "success",
+    "hosted_administrator_audits": true,
+    "hosted_finalizer": true,
+    "separate_metadata_guard": true,
+    "other_checks": {
+      "codex_ci": {
+        "run": 39308509453,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run": 39308509440,
+        "conclusion": "success"
+      },
+      "release": {
+        "run": 39308509070,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run": 39308509160,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "run": 39308509297,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run": 39308509326,
+        "conclusion": "success"
+      },
+      "docs": "success",
+      "helm": "success"
+    },
+    "candidate_attempts": [
+      {
+        "candidate": "b90654455270be9364d0fe980fb470f2ff776099",
+        "source_validation": "failure",
+        "reason": "test fixtures still emitted v1 receipt projection and omitted campaign_trial_id"
+      },
+      {
+        "candidate": "d15cbf2444e85f108f5723e1a61259746f753b3c",
+        "source_validation": "success",
+        "all_current_head_checks": "success"
+      }
+    ],
+    "earlier_quality_gate_run": {
+      "run": 39308509157,
+      "conclusion": "failure",
+      "disposition": "earlier candidate hosted pre-commit reconstruction failure; corrected candidate run 39308511865 passed"
+    }
+  },
+  "post_merge": {
+    "merge_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
+    "workflow_runs_returned": [],
+    "all_applicable_success": false,
+    "limitation": "No separate post-merge workflow run was returned during verification."
+  },
+  "limitations": {
+    "campaign_executor": false,
+    "approval_selection": false,
+    "production_inference": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "segment_path": "work/construction/segments/0470-bind-verified-transition-request-to-active-campaign-trial.md",
+  "evidence_path": "work/construction/evidence/0470-bind-verified-transition-request-to-active-campaign-trial.json"
+}
