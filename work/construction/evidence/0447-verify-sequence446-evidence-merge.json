@@ -1,0 +1,83 @@
+{
+  "historical_provenance": {
+    "reconstructed_or_discarded": false,
+    "status": "INTEGRITY_BROKEN"
+  },
+  "post_merge": {
+    "first_scheduled_federation_health_on_this_sha": "pending",
+    "main_push_checks": "not_observed; run reader is PR-event scoped",
+    "production_inference_claimed": false
+  },
+  "predecessor_segment_sha256": "ca7eac0be661a8433d0feab36788f814d46c26ee2791b6e7950023c347736a23",
+  "pull_request": {
+    "candidate_commit": "b04602946848d35fefedf51b0cf18017512c7edf",
+    "candidate_tree": "0b242214151de5f660916d5cb771b6c31c1cfd6e",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39224519397
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39224519364
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 39224519450
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39224519093
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39224519360
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39224519370
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39224519152
+      },
+      "required_quality_gate": {
+        "administrator_strict_audit": "passed",
+        "conclusion": "success",
+        "precommit_finalizer": "passed",
+        "prepublication_metadata_guard": "passed",
+        "run_id": 39224519143
+      }
+    },
+    "conclusion": "merged",
+    "merge_commit": "4d2ae99c3ac653ef6feb8e5eb8cac1c267e7c3d7",
+    "merge_method": "merge",
+    "number": 2411
+  },
+  "readback": {
+    "changed_paths": [
+      "README.md",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/evidence/0446-verify-federation-health-receipt-merge.json",
+      "work/construction/segments/0446-verify-federation-health-receipt-merge.md"
+    ],
+    "content_tree": "0b242214151de5f660916d5cb771b6c31c1cfd6e",
+    "remote_main_blob_sha_matches_candidate": true
+  },
+  "receipt_authority": {
+    "automatic_main_publication": false,
+    "fixture_single_file": true,
+    "new_permissions": false
+  },
+  "sequence": 447,
+  "source_commit": "4d2ae99c3ac653ef6feb8e5eb8cac1c267e7c3d7",
+  "source_tree": "0b242214151de5f660916d5cb771b6c31c1cfd6e",
+  "status": "receipt_workflow_merged_first_schedule_pending",
+  "title": "Verify sequence 446 evidence merge",
+  "verification": {
+    "construction_custody": "passed through sequence 447",
+    "git_diff_check": "passed",
+    "local_pytest": "not run; canonical hosted tests passed"
+  }
+}
