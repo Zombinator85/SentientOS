@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c34e48dbaaadbfc9932c29d1ef48ca69c65ed00fa9d81207de1f40121f53d7c0",
-    "latest_segment_sequence": 458,
-    "latest_segment_sha256": "a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
-    "latest_sequence": 458,
-    "source_commit": "f017629039c607cb6b75b85d75c53a4bee214adb",
-    "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0"
+    "checkpoint_sha256": "777aff2bf92aa92b0069927afa72f85e6c876f18f47190fe8775d8940cc1f1f3",
+    "latest_segment_sequence": 459,
+    "latest_segment_sha256": "46f1988c9fe0dc7676d71851112971f2cd74db51d32bf14862f4c74b65c2fd12",
+    "latest_sequence": 459,
+    "source_commit": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
+    "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935"
   },
-  "checkpoint_sha256": "c34e48dbaaadbfc9932c29d1ef48ca69c65ed00fa9d81207de1f40121f53d7c0",
+  "checkpoint_sha256": "777aff2bf92aa92b0069927afa72f85e6c876f18f47190fe8775d8940cc1f1f3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 458,
+  "latest_sequence": 459,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5180,6 +5180,18 @@
       "sha256": "a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
       "source_commit": "f017629039c607cb6b75b85d75c53a4bee214adb",
       "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0"
+    },
+    {
+      "bytes": 2708,
+      "evidence_bytes": 3820,
+      "evidence_path": "work/construction/evidence/0459-confirm-nightly-privilege-repair-history.json",
+      "evidence_sha256": "ce398d8f96ee98f8c167ac96a46c109ebad5534c57fa13c0fb255893a2d84203",
+      "path": "work/construction/segments/0459-confirm-nightly-privilege-repair-history.md",
+      "predecessor": "segment-sha256:a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
+      "sequence": 459,
+      "sha256": "46f1988c9fe0dc7676d71851112971f2cd74db51d32bf14862f4c74b65c2fd12",
+      "source_commit": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
+      "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935"
     }
   ],
   "source_acquisition": {
@@ -5189,7 +5201,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0",
+  "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
