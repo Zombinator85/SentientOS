@@ -1,0 +1,179 @@
+{
+  "sequence": 455,
+  "title": "Verify sequence 454 and Federation Health receipt publication",
+  "source_commit": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
+  "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a",
+  "predecessor_segment_sha256": "6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
+  "sequence454": {
+    "pr": 2421,
+    "candidate": "e17148dedf5ab5b110ce15a092a3f10d398c7dd9",
+    "tree": "76861eca7f0a5237e6a29023953a9a96372d58dc",
+    "checks": {
+      "qg": {
+        "id": 39234808834,
+        "success": true,
+        "administrator_audit": "passed",
+        "exact_acceptance": "passed",
+        "finalizer": "passed",
+        "metadata_guard": "passed"
+      },
+      "ci": {
+        "id": 39234808674,
+        "success": true
+      },
+      "invariants": {
+        "id": 39234808712,
+        "success": true
+      },
+      "codex_ci": {
+        "id": 39234808720,
+        "success": true
+      },
+      "docker": {
+        "id": 39234808741,
+        "success": true
+      },
+      "lint": {
+        "id": 39234808736,
+        "success": true
+      },
+      "release": {
+        "id": 39234808844,
+        "success": true
+      },
+      "gradient": {
+        "id": 39234808672,
+        "success": true
+      }
+    },
+    "merge": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+    "merge_method": "merge",
+    "candidate_tree_preserved": true,
+    "all_seven_blobs_match": true
+  },
+  "health_push": {
+    "run": 39235242309,
+    "source": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+    "job": "success",
+    "administrator_preflight": "passed",
+    "artifact_id": 12178601264,
+    "artifact_sha256": "9d75cf78c8b68cf3c510d6891e343b27f0df38ce367be491a41913d05c638e6c",
+    "report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9",
+    "downloaded_zip_and_report_digest_match": true,
+    "report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "latest": "2025-06-05T16:25:13.805813Z",
+      "scope": "configured local log snapshot",
+      "live_telemetry": false
+    },
+    "publisher": "failed: GitHub Actions is not permitted to create or approve pull requests"
+  },
+  "publication_pr": {
+    "number": 2422,
+    "candidate": "c690bc28fad399bb65cc8c08515f18fc4f92f43a",
+    "tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a",
+    "changed_path": "docs/FEDERATION_HEALTH_EXECUTION.json",
+    "checks": {
+      "qg": {
+        "id": 39236377286,
+        "success": true,
+        "administrator_audit": "passed",
+        "exact_acceptance": "passed",
+        "finalizer": "passed",
+        "metadata_guard": "passed"
+      },
+      "ci": {
+        "id": 39236377423,
+        "success": true
+      },
+      "invariants": {
+        "id": 39236377554,
+        "success": true
+      },
+      "codex_ci": {
+        "id": 39236377319,
+        "success": true
+      },
+      "docker": {
+        "id": 39236377156,
+        "success": true
+      },
+      "lint": {
+        "id": 39236377637,
+        "success": true
+      },
+      "release": {
+        "id": 39236377359,
+        "success": true
+      },
+      "gradient": {
+        "id": 39236377235,
+        "success": true
+      }
+    },
+    "merge": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
+    "merge_method": "merge",
+    "candidate_tree_preserved": true
+  },
+  "postmerge": {
+    "head": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
+    "qg": {
+      "id": 39236864365,
+      "success": true
+    },
+    "ci": {
+      "id": 39236864421,
+      "success": true
+    },
+    "invariants": {
+      "id": 39236864439,
+      "success": true
+    },
+    "codex_ci": {
+      "id": 39236864429,
+      "success": true
+    },
+    "docker": {
+      "id": 39236864524,
+      "success": true
+    },
+    "docs": {
+      "id": 39236864450,
+      "success": true
+    },
+    "forge_smoke": {
+      "id": 39236864461,
+      "conclusion": "skipped_by_condition"
+    }
+  },
+  "scheduled": {
+    "self_check": {
+      "id": 39235681245,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "success": true,
+      "administrator_preflight": "passed",
+      "strict_audit": "passed",
+      "privilege_lint": "passed",
+      "mypy": "passed",
+      "pytest_airlock": "passed",
+      "pytest": "passed"
+    },
+    "audit_integrity": {
+      "id": 39228761152,
+      "head": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "success": true,
+      "repair": "skipped"
+    },
+    "federation_health": {
+      "current_main": "not_found",
+      "latest_observed_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028"
+    }
+  },
+  "limitations": {
+    "actions_token_pr_creation": "blocked by repository setting",
+    "live_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}
