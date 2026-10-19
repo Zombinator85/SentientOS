@@ -2,19 +2,21 @@
 
 ## Latest verified main
 
-PR #2431 regular-merged sequence 463 as main `68271d25890ee1a32c688f2b3f16aee894356317`, preserving tree `f188eb92e436fb14e3088bf1e707f1ae13f7b6d7` and both parents. Exact-candidate push Quality Gate, Administrator strict audit and hosted finalizer, separate pre-publication metadata guard, PR matrix, and main post-merge validation passed. CI, quality gate, invariants, Docker, Codex CI, and docs deployment are green; Forge Smoke was skipped by workflow condition.
+PR #2433 regular-merged sequence 464 as main `961255c3c7339ffad8b7a6822f372c94ee8ba0bb`, preserving tree `730b0d23336ff67295a2e2b618489a1d73c039e8` and both parents. The daemon now projects a read-only binding between existing campaign custody and its composed live transition owner. Inspection never creates or recovers campaign state and grants no readiness or execution authority.
 
-Sequence 464 records that integration and its evidence bindings. The source branch for the next increment is based on this verified main and adds nonblocking read-only campaign custody inspection plus daemon projection. Its hosted candidate checks are still running.
+A real hosted finalizer defect found during PR validation is fixed: reconstructed parent-workspace tests now resolve their runner through that exact workspace, so their provenance binds to the expected parent instead of the synthetic PR merge ref. Regression and finalizer artifact verify all 30 selected parent tests.
+
+The exact candidate's push gate, PR matrix, hosted finalizer and metadata guard, and main post-merge Quality Gate, CI, invariants, Docker, Codex CI, and Docs Deploy all passed. Forge Smoke was skipped by workflow condition.
 
 ## Open evidence boundaries
 
-- At 2026-10-19 12:51:25 UTC, no scheduled Federation Health run had appeared on current main `68271d25890ee1a32c688f2b3f16aee894356317`. Latest scheduled Health #39218331969 remained on older head `e66ac2f937db789380ae3da7f2999e4f2a5cd028`; push runs are not schedule evidence.
-- Both nightly workflow definitions keep Administrator preflight before strict audits. Self Check is read-only. Audit Integrity grants contents/PR write only to its Administrator-gated repair job; repository policy blocks Actions-token PR creation, so the repair publication path remains unverified.
-- The next self-reflection campaign dependency is a trusted in-process transition executor. The CLI rejects caller-supplied JSON before campaign access. Read-only binding observation does not create approvals or claim a production trial.
+- At 2026-10-19 13:26 UTC, no scheduled Federation Health run had appeared on current main `961255c3c7339ffad8b7a6822f372c94ee8ba0bb`. Latest scheduled Health #39218331969 remained on older head `e66ac2f937db789380ae3da7f2999e4f2a5cd028`; push runs are not schedule evidence.
+- Nightly Self Check #39235681245 and Nightly Audit Integrity #39228761152 succeeded on earlier heads. The audit repair publication remains unverified because repository policy blocks Actions-token PR creation; least-privilege and Administrator checks remain intact.
+- The next self-reflection campaign dependency is a daemon-owned, stepwise executor that consumes existing approved phase receipts without minting approvals, processing multiple operator packets in one tick, or weakening terminal interruption handling. No campaign execution, readiness, or production trial is claimed.
 - Historical test provenance remains `INTEGRITY_BROKEN`; sequence-286 loss remains explicit. Production A→B→A still requires commissioned identities, distinct serving approvals, operator preregistration, and live execution.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `68271d25890ee1a32c688f2b3f16aee894356317`, tree `f188eb92e436fb14e3088bf1e707f1ae13f7b6d7`
-Latest construction segment: `work/construction/segments/0464-verify-sequence463-integration.md`
-Latest segment SHA-256: 68ef737c890f4b634d1796c8abfb92f788b5bfdc023b0417eeb36e75b7909b39
-Sequence: 464 (sequence 463 fully merged and verified; post-merge scheduled Federation Health still pending; in-process campaign execution owner remains a future dependency)
+Latest verified main: `961255c3c7339ffad8b7a6822f372c94ee8ba0bb`, tree `730b0d23336ff67295a2e2b618489a1d73c039e8`
+Latest construction segment: `work/construction/segments/0465-verify-sequence464-and-exact-parent-finalizer.md`
+Latest segment SHA-256: ba111e703d43a96faf1ac6fda81ebe2f0ed00095365e9096f6fffc70d905db59
+Sequence: 465 (sequence 464 merged and verified; current-main scheduled Federation Health still pending; stepwise daemon campaign executor remains a future dependency)
