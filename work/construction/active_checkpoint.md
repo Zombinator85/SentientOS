@@ -16,5 +16,5 @@ Historical scheduled failures confirmed the former nightly audit workflows lacke
 
 Latest verified main: `f37d758e26421b91939930b6fd9ffacc2e110a4b`, tree `d48c0ee2663b3d21d5d00f2723698cf207b05935`.
 Latest construction segment: `work/construction/segments/0459-confirm-nightly-privilege-repair-history.md`
-Latest segment SHA-256: `46f1988c9fe0dc7676d71851112971f2cd74db51d32bf14862f4c74b65c2fd12`
+Latest segment SHA-256: `429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf`
 Sequence: 459 (nightly privilege repairs verified; Health schedule and repair publication pending)
