@@ -1,0 +1,119 @@
+{
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "merge": {
+    "candidate": "104188450ad5742387d8e2bce848bc104a38424f",
+    "candidate_checks": "all_configured_branch_and_pr_checks_passed; greet_and_publish_skipped_by_condition",
+    "first_parent": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
+    "merge_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+    "method": "regular_two_parent_merge",
+    "pull_request": 2391,
+    "second_parent": "104188450ad5742387d8e2bce848bc104a38424f",
+    "tree": "5764cd9bc63373c5c48940e03be672d2d249cee3"
+  },
+  "postmerge_checks": {
+    "ci": {
+      "attempt": 2,
+      "canonical_planning_acceptance_nodes": 20,
+      "conclusion": "success",
+      "first_attempt_docs_failure": "img.shields.io request timed out; docs-only retry at same exact source passed",
+      "run_id": 39191406640,
+      "self_check_artifact_id": 12159533623,
+      "self_check_artifact_sha256": "71d0a34c8541f5b15c9534e85eb23e64cd15564091fa811bfd75eca200f90f30",
+      "self_check_failed": 0,
+      "self_check_passed": 143,
+      "self_check_skipped": 13,
+      "source_acceptance_nodes": 11,
+      "source_artifact_id": 12160441458,
+      "source_artifact_sha256": "0687addf04abc038af34cb3641364654fdaa5dbd6267885284a573e3ffc2472c",
+      "source_validation_passed": 20,
+      "world_state_acceptance_nodes": 3
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39191406897
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39191406655
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39191406643
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39191406662
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39191406646
+    },
+    "required_quality_gate": {
+      "acceptance_failed": 0,
+      "acceptance_passed": 29,
+      "artifact_id": 12160400645,
+      "artifact_sha256": "751cadb5d88e0edc59393c9f5a20e1a2a6b8c9eb278b9dd6465da2367862c2e3",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "immutability": "passed_no_issues",
+      "run_id": 39191406666,
+      "source_sha": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+      "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3",
+      "source_unchanged": true,
+      "strict_audit": "passed"
+    }
+  },
+  "previous_segment_sha256": "85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
+  "scheduled_workflows": {
+    "as_of": "2026-10-19T05:01:00Z",
+    "authority_posture": "sudo_n_strict_audit_retained; audit repair contents/pull-requests write only on repair job; self-check read-only",
+    "current_workflow_source": {
+      "audit_nightly": "sudo_n strict audits; scoped repair job; append-only evidence staging; conditional commit/publish only when evidence changed",
+      "nightly_self_check": "sudo_n strict audits; contents read only"
+    },
+    "federation_health_on_current_main": "pending_no_scheduled_run_on_0722b49e_as_of_checkpoint",
+    "latest_federation_health": {
+      "artifact_id": 12157279094,
+      "artifact_sha256": "554f1516708144c414d9cc219ef3f558f10549c591a70d163b00f79f56ef0b52",
+      "conclusion": "success",
+      "output": {
+        "nodes": 1,
+        "recent_events": 0,
+        "status": "quiet"
+      },
+      "postmerge_current_main": false,
+      "run_id": 39184847466,
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b"
+    },
+    "latest_nightly_audit": {
+      "conclusion": "success",
+      "pre_repair_audit": "success",
+      "repair": "skipped",
+      "run_id": 39014123936,
+      "source_commit": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14"
+    },
+    "latest_nightly_self_check": {
+      "conclusion": "failure",
+      "failure": "historical workflow invoked strict audit verifier without sudo_n; hosted run denied Administrator-only access",
+      "run_id": 38876666946,
+      "source_commit": "d8d7a219221cd94240accf7991fe353b14f6a84e"
+    },
+    "nightly_audit_integrity_on_current_main": "pending_no_scheduled_run_on_0722b49e_as_of_checkpoint",
+    "nightly_self_check_on_current_main": "pending_no_scheduled_run_on_0722b49e_as_of_checkpoint"
+  },
+  "sequence": 422,
+  "source_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+  "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3",
+  "title": "Verify sequence 421 merge and exact-main gates",
+  "workspace_preservation": {
+    "sequence_411_workspace_modified": false,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false,
+    "stale_sequence_417_workspace_modified": false
+  }
+}
