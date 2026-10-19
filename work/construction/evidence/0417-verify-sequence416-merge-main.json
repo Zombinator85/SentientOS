@@ -1,0 +1,179 @@
+{
+  "checkpoint_compaction": {
+    "action": "reduced active_checkpoint to a current summary with explicit links; no verifier limit was changed",
+    "limit_bytes": 65536,
+    "preserved": "all indexed segment and evidence files, including sequences 382-386",
+    "reason": "append-only active_checkpoint exceeded the verifier 64 KiB input bound after adding the verified sequence-417 checkpoint"
+  },
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "local_increment_verification": {
+    "blocker": "editable install could not resolve setuptools>=78.1.1 because sandbox network proxy denied access",
+    "canonical_pytest_runner": "blocked_before_pytest",
+    "construction_custody": "passed_all_417_segments",
+    "git_diff_check": "passed",
+    "interpretation": "no pytest success is claimed locally; exact-source hosted gates are pending for sequence 417"
+  },
+  "merge": {
+    "candidate_and_main_tree_match": true,
+    "candidate_commit": "8b9cbc2c438e0b789c160b7c7d13d4df6c5bf3f9",
+    "exact_candidate_pr_checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39184489175
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39184489140
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39184489155
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39184489210
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39184489132
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39184489145
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39184489176
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 39184489161
+      }
+    },
+    "first_parent": "944269a771c6f6300d6f8a559866ade9e262a56b",
+    "merge_commit": "1ee81c45efcc0565ea294944707e725ffaad3b6c",
+    "method": "merge",
+    "pr_body": {
+      "bytes": 17131,
+      "landing_gate": "pr_metadata_allowed",
+      "readback_byte_equal": true,
+      "sha256": "720bd3fafdf2ed922e29ce795ef33849a95dcf6a6626d4a3d299f9ce8d7f54e0"
+    },
+    "pr_state": "closed_merged",
+    "pull_request": 2386,
+    "second_parent": "8b9cbc2c438e0b789c160b7c7d13d4df6c5bf3f9",
+    "tree": "d2ae2319b22a1c38fbe25178d525436e1c21dde3"
+  },
+  "postmerge_checks": {
+    "ci": {
+      "artifact_id": 12158235129,
+      "artifact_sha256": "d8fa62c61b5ce6acec7cda3497efcc10d6a424bdd285284eb20c5d3eab4bd4e6",
+      "artifact_size_bytes": 436006,
+      "conclusion": "success",
+      "run_id": 39184996246
+    },
+    "ci_acceptance": {
+      "canonical_planning": {
+        "failed": 0,
+        "passed": 20
+      },
+      "repository_sha": "1ee81c45efcc0565ea294944707e725ffaad3b6c",
+      "source_validation": {
+        "failed": 0,
+        "passed": 11
+      },
+      "world_state": {
+        "failed": 0,
+        "passed": 3
+      }
+    },
+    "ci_jobs": {
+      "docs_build_and_strict_linkcheck": "success",
+      "helm_k8s_test": "success",
+      "self_check": "success",
+      "source_validation_unprivileged": "success"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39184996279
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39184996194
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39184996305
+    },
+    "effective_uid": 0,
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39184996224
+    },
+    "immutability": "passed",
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39184996199
+    },
+    "quality_gate_acceptance": {
+      "failed": 0,
+      "passed": 29,
+      "repository_sha": "1ee81c45efcc0565ea294944707e725ffaad3b6c"
+    },
+    "required_quality_gate": {
+      "artifact_id": 12157267933,
+      "artifact_sha256": "961edf436b13ad2c3a69e904d1237226c6c5b6b1ee7e9d2af0a785945a42190d",
+      "artifact_size_bytes": 11197,
+      "conclusion": "success",
+      "run_id": 39184996236
+    },
+    "strict_audit": "passed"
+  },
+  "previous_segment_sha256": "72418368cf364a2fadbbf160dd4633c190458ccf8309e8fc50b292995263d4a4",
+  "remote_readback": {
+    "commit_tree": "d2ae2319b22a1c38fbe25178d525436e1c21dde3",
+    "eight_changed_blobs_match_candidate_source": true,
+    "main_commit_verified": true,
+    "parents": [
+      "944269a771c6f6300d6f8a559866ade9e262a56b",
+      "8b9cbc2c438e0b789c160b7c7d13d4df6c5bf3f9"
+    ],
+    "paths": [
+      "README.md",
+      "docs/development/codex_landing_evidence_recovery_rail.md",
+      "scripts/build_codex_landing_evidence_body.py",
+      "tests/test_build_codex_landing_evidence_body_script.py",
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0416-bind-landing-body-status-to-artifacts.json",
+      "work/construction/index.json",
+      "work/construction/segments/0416-bind-landing-body-status-to-artifacts.md"
+    ]
+  },
+  "scheduled_workflows": {
+    "federation_health_on_current_main": "pending_next_hourly_schedule",
+    "latest_federation_health": {
+      "conclusion": "success",
+      "is_postmerge_current_main": false,
+      "run_id": 39184847466,
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b"
+    },
+    "nightly_audit_integrity_on_current_main": "pending_next_scheduled_window",
+    "nightly_self_check_on_current_main": "pending_next_scheduled_window",
+    "workflow_authority_changed": false
+  },
+  "sequence": 417,
+  "source_commit": "1ee81c45efcc0565ea294944707e725ffaad3b6c",
+  "source_tree": "d2ae2319b22a1c38fbe25178d525436e1c21dde3",
+  "title": "Verify sequence 416 merge and exact-main gates",
+  "workspace_preservation": {
+    "original_sequence_411_workspace_modified": false,
+    "published_source_change": false,
+    "source_copy": "clean content-only local snapshot from verified main tree",
+    "stale_sequence_178_workspace_modified": false
+  }
+}
