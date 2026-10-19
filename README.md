@@ -44,9 +44,9 @@ Governance, provenance, experiments, and custody serve the developmental objecti
 
 ## Where the current evidence stands
 
-Sequence 430 records PR #2396's regular merge of sequence 428 at main `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, preserving candidate tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`, and reconciles the current maturity report with the explicitly configured read-only resource-observer path.
+Sequence 431 records PR #2397's regular merge of sequence 430 at main `968d58f8e6ab49b4a6c6b27a02f063b1471cf388`, preserving candidate tree `7dd3bfac51db3584370a956cb09299bbb548b8cc`.
 
-- **Exact-candidate verification:** PR #2396 checks passed on exact head `fdbaa10f12d09b598a0c35d1f4b5e599f5d53049`: CI #39210538106, Required Quality Gate #39210538107, Invariant Tests #39210538155, Codex CI #39210538119, Release #39210538170, Lint Benchmark #39210538200, Gradient null regression #39210538221, and Docker #39210538921. Hosted strict Administrator audit, immutability, finalizer, and pre-publication metadata guard passed.
+- **Exact-candidate verification:** PR #2396 checks passed on exact head `fdbaa10f12d09b598a0c35d1f4b5e599f5d53049`: CI #39210538106, Required Quality Gate #39210538107, Invariant Tests #39210538155, Codex CI #39210538119, Release #39210538170, Lint Benchmark #39210538200, Gradient null regression #39210538221, and Docker #39210538921. Hosted strict Administrator audit, immutability, finalizer, and pre-publication metadata guard passed. PR #2397 then passed all exact-head checks on `9a68dc2a2431655efe6116628fc2d18e5514cd10`, including CI #39211279343 and Required Quality Gate #39211279336, and regular-merged as `968d58f8e6ab49b4a6c6b27a02f063b1471cf388` without changing candidate tree `7dd3bfac51db3584370a956cb09299bbb548b8cc`.
 - **Post-merge execution:** Main push checks, scheduled Federation Health, and nightly executions on `b95d26f07a9d1b52bc5e5a0856cd24740a14e610` have not been observed as of sequence 429; they remain pending.
 - **Audit verifier summary:** Sequence 428 makes “No mismatches” require no per-log or path findings, no repair activity, and a healthy audit-chain result. The historically blessed support-log mismatch remains preserved.
 - **Resource observer maturity:** When configured with both installation identity and provisioning ID, the daemon reads a verified resource-ledger image and linked receipts into World-State before cognition. The default daemon remains unconfigured; production execution and longitudinal outcomes are not evidenced.
@@ -54,9 +54,9 @@ Sequence 430 records PR #2396's regular merge of sequence 428 at main `b95d26f07
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
-## Current construction checkpoint (2026-10-19 06:41 UTC)
+## Current construction checkpoint (2026-10-19 06:45 UTC)
 
-Sequence 429 binds the successful exact-head candidate checks and regular merge of sequence 428. Sequence 430 corrects current maturity prose about the opt-in resource observer. Post-merge main push checks and subsequent scheduled workflow executions remain pending for this evidence cut. The support-log mismatch remains unmodified. Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
+Sequence 431 records sequence 430's regular merge and successful exact-head verification. The maturity report now distinguishes the opt-in resource observer from default configuration and production evidence. Post-merge main push checks and subsequent scheduled workflow executions remain pending for this evidence cut. The support-log mismatch remains unmodified. Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
 ## Read next
 

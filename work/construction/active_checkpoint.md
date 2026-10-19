@@ -2,13 +2,13 @@
 
 ## Latest verified main
 
-PR #2396 regular-merged sequence 428 at main `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, preserving candidate tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`. Exact-candidate CI, Required Quality Gate, Invariant Tests, Codex CI, Release, Lint Benchmark, Gradient regression, and Docker all passed. The hosted gate and separate metadata guard passed actual Administrator strict-audit and immutability checks.
+PR #2397 regular-merged sequence 430 at main `968d58f8e6ab49b4a6c6b27a02f063b1471cf388`, preserving candidate tree `7dd3bfac51db3584370a956cb09299bbb548b8cc`. Exact-head CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient regression, Release, and Lint Benchmark all passed. Hosted documentation build/link checking, source validation, and canonical self-check passed; the gate also verified actual Administrator strict audit, immutability, hosted finalization, and pre-publication metadata guard.
 
-Post-merge main push checks, scheduled Federation Health, and nightly runs on this main SHA were not available in the evidence cut for sequence 429 and remain pending.
+Post-merge main push checks and scheduled Federation Health/nightly executions on this merge commit are not yet evidenced. Sequence 431 preserves this boundary.
 
 ## Current work
 
-Sequence 429 records sequence 428's exact-candidate verification and merge. Sequence 430 corrects current architecture prose: the production-chat resource observer is explicitly opt-in, read-only, and composed through World-State before cognition when configured. The default daemon remains unconfigured, and production execution and longitudinal outcomes remain open. Hosted documentation and repository checks are pending.
+Sequence 431 records the merge lineage and completed exact-head checks. Sequence 430 reconciles current maturity prose with the opt-in read-only resource observer: default daemon configuration remains absent, and production use and longitudinal outcomes remain unproven.
 
 ## Open evidence boundaries
 
@@ -18,7 +18,7 @@ Sequence 429 records sequence 428's exact-candidate verification and merge. Sequ
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`.
-Latest construction segment: `work/construction/segments/0430-reconcile-resource-observer-maturity-claims.md`
-Latest segment SHA-256: `e106d533d724ee8be189d73de3ad2c08db34c329c8da8a7a100647a408197c3b`
-Sequence: 430 (documentation candidate; hosted verification pending)
+Latest verified main: `968d58f8e6ab49b4a6c6b27a02f063b1471cf388`, tree `7dd3bfac51db3584370a956cb09299bbb548b8cc`.
+Latest construction segment: `work/construction/segments/0431-verify-sequence430-merge-main.md`
+Latest segment SHA-256: `89fa1402daf04245857404e3d073dffcc015e2874b2bd20e352aaafb9a9688e7`
+Sequence: 431 (evidence candidate; hosted verification pending)
