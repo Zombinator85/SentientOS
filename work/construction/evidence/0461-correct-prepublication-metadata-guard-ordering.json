@@ -1,0 +1,41 @@
+{
+  "sequence": 461,
+  "title": "Correct pre-publication metadata-guard ordering",
+  "source_commit": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+  "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8",
+  "predecessor_segment_sha256": "4402067b392b33e71e26900d39242a31e0c4fa953fad8d2c16c32307059e4205",
+  "candidate_attempt": {
+    "pr": 2427,
+    "candidate": "524fd9c5a1b2279bc67a7b7e89428f92478430ed",
+    "candidate_tree": "0939910a1f60f3469239d947db0068f508ac80f9",
+    "push_quality_gate_run": 39247853406,
+    "event": "push",
+    "run_started_at": "2026-10-19T11:52:59Z",
+    "run_completed_at": "2026-10-19T11:54:34Z",
+    "metadata_guard_status": "pr_metadata_guard_ready",
+    "metadata_guard_completed_at": "2026-10-19T11:54:29Z",
+    "push_event_pr_title": "empty; finalizer used commit subject as proposed title",
+    "pr_created_at": "2026-10-19T11:53:05Z",
+    "pr_closed_at": "2026-10-19T11:56:01Z",
+    "merged": false,
+    "ordering_satisfied": false
+  },
+  "corrective_action": {
+    "closed_unmerged": true,
+    "candidate_commit_preserved": true,
+    "prior_evidence_rewritten": false,
+    "next_publication_requires_exact_candidate_push_gate_completion_before_opening_pr": true
+  },
+  "observation": {
+    "query_time": "2026-10-19T11:56:29Z",
+    "verified_main": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+    "verified_main_tree": "00db0d978645244b5f3d241172b143b49c0e47a8",
+    "scheduled_federation_health_on_main": "not_found",
+    "next_candidate_gate": "pending"
+  },
+  "limitations": {
+    "source_behavior_changed": false,
+    "protected_workspace_changed": false,
+    "publication_ordering_claimed_for_pr2427": false
+  }
+}
