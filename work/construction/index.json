@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "41cdadc20b54e19027c2f64f3956027a539bb91660a1746fcec75f8758c4de2c",
-    "latest_segment_sequence": 420,
-    "latest_segment_sha256": "a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
-    "latest_sequence": 420,
-    "source_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
-    "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d"
+    "checkpoint_sha256": "16d670ed6559d6d55cfd097db7696261bdfa21fd1f46cf9224517c5a9b0055d6",
+    "latest_segment_sequence": 421,
+    "latest_segment_sha256": "85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
+    "latest_sequence": 421,
+    "source_commit": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
+    "source_tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019"
   },
-  "checkpoint_sha256": "41cdadc20b54e19027c2f64f3956027a539bb91660a1746fcec75f8758c4de2c",
+  "checkpoint_sha256": "16d670ed6559d6d55cfd097db7696261bdfa21fd1f46cf9224517c5a9b0055d6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 420,
+  "latest_sequence": 421,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4724,6 +4724,18 @@
       "sha256": "a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
       "source_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
       "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d"
+    },
+    {
+      "bytes": 1911,
+      "evidence_bytes": 3237,
+      "evidence_path": "work/construction/evidence/0421-avoid-invented-default-motivation.json",
+      "evidence_sha256": "7491ce2cbaa06234d5c9d94ba3f6b5426d82cad297f382f61157b2cbf0622d38",
+      "path": "work/construction/segments/0421-avoid-invented-default-motivation.md",
+      "predecessor": "segment-sha256:a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
+      "sequence": 421,
+      "sha256": "85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
+      "source_commit": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
+      "source_tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019"
     }
   ],
   "source_acquisition": {
