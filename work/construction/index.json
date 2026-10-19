@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3f94dfc01e5332c634752c2d80a90b756406053e01b3ce2a303626ff2b073882",
-    "latest_segment_sequence": 459,
-    "latest_segment_sha256": "429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf",
-    "latest_sequence": 459,
-    "source_commit": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
-    "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935"
+    "checkpoint_sha256": "7449a3250b023ff5afc73431bdd25723a2909ef5ccf93079cf1f8236eb0ad721",
+    "latest_segment_sequence": 461,
+    "latest_segment_sha256": "0b467ede88553d8c422a36f37f489651f2585e1b813fe52aef6ff27b7528f901",
+    "latest_sequence": 461,
+    "source_commit": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+    "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8"
   },
-  "checkpoint_sha256": "3f94dfc01e5332c634752c2d80a90b756406053e01b3ce2a303626ff2b073882",
+  "checkpoint_sha256": "7449a3250b023ff5afc73431bdd25723a2909ef5ccf93079cf1f8236eb0ad721",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 459,
+  "latest_sequence": 461,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5192,6 +5192,30 @@
       "sha256": "429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf",
       "source_commit": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
       "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935"
+    },
+    {
+      "bytes": 2087,
+      "evidence_bytes": 3280,
+      "evidence_path": "work/construction/evidence/0460-verify-sequence459-merge-and-preserve-federation-health-boundary.json",
+      "evidence_sha256": "bb798aab478721a43c662452948e2558d0399801ae3c1040d66fbf93b0a64c0d",
+      "path": "work/construction/segments/0460-verify-sequence459-merge-and-preserve-federation-health-boundary.md",
+      "predecessor": "segment-sha256:429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf",
+      "sequence": 460,
+      "sha256": "4402067b392b33e71e26900d39242a31e0c4fa953fad8d2c16c32307059e4205",
+      "source_commit": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+      "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8"
+    },
+    {
+      "bytes": 1218,
+      "evidence_bytes": 1662,
+      "evidence_path": "work/construction/evidence/0461-correct-prepublication-metadata-guard-ordering.json",
+      "evidence_sha256": "c9a96eb2564cc4aea870eedfb9efaa9fe765d68e2411b5056378d52fd898b48e",
+      "path": "work/construction/segments/0461-correct-prepublication-metadata-guard-ordering.md",
+      "predecessor": "segment-sha256:4402067b392b33e71e26900d39242a31e0c4fa953fad8d2c16c32307059e4205",
+      "sequence": 461,
+      "sha256": "0b467ede88553d8c422a36f37f489651f2585e1b813fe52aef6ff27b7528f901",
+      "source_commit": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+      "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8"
     }
   ],
   "source_acquisition": {
@@ -5201,7 +5225,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935",
+  "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
