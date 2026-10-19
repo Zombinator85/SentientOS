@@ -110,7 +110,9 @@ def _approval(stage: str = PHASES[1]) -> dict[str, object]:
 
 def _config() -> LiveTransitionConfig:
     return LiveTransitionConfig(True, "installation-1", "protocol-1", "a" * 64,
-                                REQUEST_CUSTODY, JOURNAL_CUSTODY, "journal-1")
+                                REQUEST_CUSTODY, JOURNAL_CUSTODY, "journal-1",
+                                operator_trust_catalog_version=1,
+                                operator_trust_catalog_digest="sha256:" + "d" * 64)
 
 
 def _request(**changes):
@@ -308,12 +310,41 @@ def test_verified_stage_receipt_requires_completed_semantically_verified_journal
     assert projection["operator_receipt_digest"] == result["receipt_digest"]
     assert projection["completed_entry_digest"] == "head-1"
     assert projection["campaign_trial_id"] == "trial-1"
-    assert projection["schema_version"] == "sentientos.resident_cognitive_transition_verified_stage_receipt:v2"
+    assert projection["schema_version"] == "sentientos.resident_cognitive_transition_verified_stage_receipt:v3"
+    authentication = projection["operator_authentication"]
+    assert authentication["operator_identity"] == "operator-1"
+    assert authentication["signing_key_id"] == _TEST_OPERATOR_KEY_ID
+    assert authentication["request_claims_digest"] == packet["operator_provenance"]["request_claims_digest"]
+    assert authentication["provenance_digest"] == packet["operator_provenance"]["provenance_digest"]
+    assert authentication["trust_catalog_version"] == 1
+    assert authentication["trust_catalog_digest"] == _config().operator_trust_catalog_digest
+    with pytest.raises(TypeError):
+        authentication["operator_identity"] = "substituted"
     assert projection["read_only"] is True
     assert projection["effect_performed"] is False
     assert projection["grants_authority"] is False
     assert projection["execution_allowed"] is False
     assert "stage_approval" not in projection
+    assert runtime.receipt_path.read_bytes() == before
+    assert controller.calls == calls_before
+
+    class RevokedTrustStore(_TestOperatorTrustStore):
+        def lookup(self, **kwargs):
+            trusted = super().lookup(**kwargs)
+            assert trusted is not None
+            return TrustedTransitionOperatorKey(
+                trusted.operator_identity, trusted.signing_key_id, trusted.algorithm,
+                trusted.public_key, trusted.valid_from, trusted.valid_until, "revoked")
+
+    runtime.operator_provenance_verifier = TransitionOperatorProvenanceVerifier(
+        trust_store=RevokedTrustStore(),
+        signature_verifier=CryptographyEd25519SignatureVerifier(),
+    )
+    with pytest.raises(
+        TransitionError,
+        match="operator_stage_receipt_operator_authentication_unavailable",
+    ):
+        runtime.inspect_verified_stage_receipt(packet["request_id"])
     assert runtime.receipt_path.read_bytes() == before
     assert controller.calls == calls_before
 
@@ -474,7 +505,9 @@ def test_config_requires_fixed_installation_relative_custody(tmp_path: Path) -> 
               "request_custody": REQUEST_CUSTODY, "journal_custody": JOURNAL_CUSTODY,
               "journal_identity": "journal-1"}
     path = tmp_path / "config.json"; path.write_text(json.dumps(config), encoding="utf-8")
-    assert LiveTransitionConfig.load(path) == _config()
+    legacy = LiveTransitionConfig.load(path)
+    assert legacy == LiveTransitionConfig(True, "installation-1", "protocol-1", "a" * 64,
+        REQUEST_CUSTODY, JOURNAL_CUSTODY, "journal-1")
     config = {**config, "schema_version": CONFIG_SCHEMA_V2,
               "operator_trust_catalog_version": 3,
               "operator_trust_catalog_digest": "sha256:" + "b" * 64}

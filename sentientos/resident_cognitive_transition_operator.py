@@ -23,7 +23,8 @@ from .resident_cognitive_model_transition_experiment import (
     PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
 )
 from .resident_cognitive_transition_operator_authentication import (
-    TransitionOperatorProvenanceError, TransitionOperatorProvenanceVerifier,
+    AuthenticatedTransitionOperatorRequest, TransitionOperatorProvenanceError,
+    TransitionOperatorProvenanceVerifier,
 )
 from .platform_fcntl import fcntl, require_flock
 from .private_file_custody import PrivateFileCustodyError, open_private_directory
@@ -438,6 +439,17 @@ class LiveTransitionOperatorRuntime:
         if receipt is None or receipt.get("result") != "stage_advanced":
             raise TransitionError("operator_stage_receipt_unavailable")
 
+        try:
+            authenticated_operator = self._verify_operator_provenance(packet)
+        except TransitionError as exc:
+            raise TransitionError("operator_stage_receipt_operator_authentication_unavailable") from exc
+        catalog_version = self.config.operator_trust_catalog_version
+        catalog_digest = self.config.operator_trust_catalog_digest
+        if (type(catalog_version) is not int or catalog_version < 1
+                or not isinstance(catalog_digest, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", catalog_digest)):
+            raise TransitionError("operator_stage_receipt_trust_catalog_binding_unavailable")
+
         request_binding = {"request_id": request_id, "request_digest": packet["request_digest"]}
         matches = []
         for entry in self.controller.journal.entries():
@@ -488,7 +500,7 @@ class LiveTransitionOperatorRuntime:
             raise TransitionError("operator_stage_receipt_campaign_trial_binding_invalid")
 
         body = {
-            "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v2",
+            "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v3",
             "request_id": request_id,
             "request_digest": packet["request_digest"],
             "campaign_trial_id": campaign_trial_id,
@@ -500,6 +512,16 @@ class LiveTransitionOperatorRuntime:
             "attempt_entry_digest": attempt["entry_digest"],
             "completed_entry_digest": terminal["entry_digest"],
             "journal_head_observed": health.get("journal_head"),
+            "operator_authentication": MappingProxyType({
+                "schema_version": "sentientos.resident_cognitive_transition_operator_authentication_binding:v1",
+                "operator_identity": authenticated_operator.operator_identity,
+                "signing_key_id": authenticated_operator.signing_key_id,
+                "request_claims_digest": authenticated_operator.request_claims_digest,
+                "provenance_digest": authenticated_operator.provenance_digest,
+                "signed_at": authenticated_operator.signed_at,
+                "trust_catalog_version": catalog_version,
+                "trust_catalog_digest": catalog_digest,
+            }),
             "read_only": True,
             "effect_performed": False,
             "grants_authority": False,
@@ -613,12 +635,13 @@ class LiveTransitionOperatorRuntime:
         now = self.clock().astimezone(timezone.utc)
         if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
 
-    def _verify_operator_provenance(self, packet: Mapping[str, Any]) -> None:
+    def _verify_operator_provenance(
+            self, packet: Mapping[str, Any]) -> AuthenticatedTransitionOperatorRequest:
         verifier = self.operator_provenance_verifier
         if verifier is None:
             raise TransitionError("operator_provenance_verifier_unavailable")
         try:
-            verifier.verify(packet, current_time=self.clock())
+            return verifier.verify(packet, current_time=self.clock())
         except TransitionOperatorProvenanceError as exc:
             raise TransitionError(str(exc)) from exc
         except Exception as exc:

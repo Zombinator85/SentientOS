@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -61,6 +62,14 @@ class ProductionSelfReflectionError(RuntimeError):
 def _digest(value: Any) -> str:
     result: str = digest_payload(value)
     return "sha256:" + result
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    return value
 
 
 def _exact(value: object, label: str) -> str:
@@ -526,12 +535,13 @@ class ProductionSelfReflectionCampaign:
         binding: dict[str, Any] = {
             "schema_version": "sentientos.production_self_reflection_active_trial_stage_binding:v1",
             "status": "active_trial_stage_bound",
-            "campaign_trial_binding": "request_declared_trial_matches_live_campaign_state",
+            "campaign_trial_binding": "established_by_canonical_campaign_owner",
             "campaign_protocol_id": self._protocol_snapshot.protocol_id,
             "campaign_protocol_digest": self._protocol_snapshot.protocol_digest,
             "campaign_trial_id": trial_id,
             "campaign_state_digest": state.get("state_digest"),
             "transition_plan_digest": canonical_plan.get("plan_digest"),
+            "operator_authentication": dict(canonical_plan["operator_authentication"]),
             "receipt_request_id": request_id,
             "prior_stage": canonical_plan.get("prior_stage"),
             "next_stage": canonical_plan.get("next_stage"),
@@ -544,6 +554,7 @@ class ProductionSelfReflectionCampaign:
             "execution_allowed": False,
         }
         binding["binding_digest"] = _digest(binding)
+        binding["operator_authentication"] = MappingProxyType(binding["operator_authentication"])
         return MappingProxyType(binding)
 
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
@@ -739,19 +750,20 @@ class ProductionSelfReflectionTransitionBindingObserver:
             "installation_identity",
             "protocol_id", "protocol_digest", "phase", "operator_receipt_digest",
             "attempt_entry_digest", "completed_entry_digest", "journal_head_observed",
+            "operator_authentication",
             "read_only", "effect_performed", "grants_authority", "execution_allowed",
             "binding_digest",
         }
         body = dict(projection)
         claimed_binding = body.pop("binding_digest", None)
         observed_binding = hashlib.sha256(
-            (json.dumps(body, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+            (json.dumps(_json_value(body), sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
         ).hexdigest()
         if (
             set(projection) != required
             or claimed_binding != observed_binding
             or projection.get("schema_version")
-                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v2"
+                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v3"
             or (projection.get("campaign_trial_id") is not None
                 and (not isinstance(projection.get("campaign_trial_id"), str)
                      or not projection.get("campaign_trial_id")))
@@ -768,6 +780,40 @@ class ProductionSelfReflectionTransitionBindingObserver:
             or projection.get("execution_allowed") is not False
         ):
             raise ProductionSelfReflectionError("transition_stage_receipt_binding_invalid")
+
+        operator_authentication = projection.get("operator_authentication")
+        if (
+            not isinstance(operator_authentication, Mapping)
+            or set(operator_authentication) != {
+                "schema_version", "operator_identity", "signing_key_id",
+                "request_claims_digest", "provenance_digest", "signed_at",
+                "trust_catalog_version", "trust_catalog_digest",
+            }
+            or operator_authentication.get("schema_version")
+                != "sentientos.resident_cognitive_transition_operator_authentication_binding:v1"
+            or any(
+                not isinstance(operator_authentication.get(key), str)
+                or not operator_authentication.get(key)
+                for key in ("operator_identity", "signing_key_id", "request_claims_digest",
+                            "provenance_digest", "signed_at", "trust_catalog_digest")
+            )
+            or re.fullmatch(r"[a-z0-9][a-z0-9._:/-]{0,127}",
+                            str(operator_authentication.get("operator_identity"))) is None
+            or re.fullmatch(r"ed25519-sha256:[0-9a-f]{64}",
+                            str(operator_authentication.get("signing_key_id"))) is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            str(operator_authentication.get("request_claims_digest"))) is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            str(operator_authentication.get("provenance_digest"))) is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            str(operator_authentication.get("trust_catalog_digest"))) is None
+            or re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+                            str(operator_authentication.get("signed_at"))) is None
+            or type(operator_authentication.get("trust_catalog_version")) is not int
+            or operator_authentication.get("trust_catalog_version", 0) < 1
+        ):
+            raise ProductionSelfReflectionError("transition_stage_receipt_authentication_invalid")
+        operator_authentication = MappingProxyType(dict(operator_authentication))
 
         phase = projection["phase"]
         phase_order = tuple(transition.get("phase_order", ()))
@@ -816,6 +862,7 @@ class ProductionSelfReflectionTransitionBindingObserver:
             "next_stage": next_stage,
             "receipt_request_id": request_id,
             "receipt_binding_digest": claimed_binding,
+            "operator_authentication": operator_authentication,
             "completed_entry_digest": projection["completed_entry_digest"],
             "next_stage_requires_separately_supplied_approval": next_stage is not None,
             "read_only": True,
@@ -824,5 +871,5 @@ class ProductionSelfReflectionTransitionBindingObserver:
             "grants_authority": False,
             "execution_allowed": False,
         }
-        plan["plan_digest"] = _digest(plan)
+        plan["plan_digest"] = _digest(_json_value(plan))
         return MappingProxyType(plan)

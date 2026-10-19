@@ -622,7 +622,7 @@ def _verified_transition_stage_projection(
         protocol, phase: str, *, campaign_trial_id: str | None = "trial-1") -> dict[str, object]:
     transition = protocol.transition
     body: dict[str, object] = {
-        "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v2",
+        "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v3",
         "request_id": "resident-transition-request-planning",
         "campaign_trial_id": campaign_trial_id,
         "request_digest": "request-digest",
@@ -634,6 +634,16 @@ def _verified_transition_stage_projection(
         "attempt_entry_digest": "attempt-entry-digest",
         "completed_entry_digest": "completed-entry-digest",
         "journal_head_observed": "completed-entry-digest",
+        "operator_authentication": {
+            "schema_version": "sentientos.resident_cognitive_transition_operator_authentication_binding:v1",
+            "operator_identity": "operator-1",
+            "signing_key_id": "ed25519-sha256:" + "a" * 64,
+            "request_claims_digest": "sha256:" + "b" * 64,
+            "provenance_digest": "sha256:" + "c" * 64,
+            "signed_at": "2026-09-25T11:30:00Z",
+            "trust_catalog_version": 1,
+            "trust_catalog_digest": "sha256:" + "d" * 64,
+        },
         "read_only": True,
         "effect_performed": False,
         "grants_authority": False,
@@ -695,6 +705,9 @@ def test_verified_transition_receipt_plans_next_stage_without_execution(tmp_path
     assert plan["next_stage"] == PHASES[3]
     assert plan["campaign_next_trial_id"] == "trial-1"
     assert plan["campaign_trial_binding"] == "not_established_by_transition_receipt"
+    assert plan["operator_authentication"] == projection["operator_authentication"]
+    with pytest.raises(TypeError):
+        plan["operator_authentication"]["operator_identity"] = "substituted"
     assert plan["campaign_trial_in_progress"] is False
     assert plan["next_stage_requires_separately_supplied_approval"] is True
     assert plan["read_only"] is True
@@ -753,6 +766,36 @@ def test_transition_stage_plan_rejects_tampering_and_stale_owner(tmp_path: Path)
                        match="transition_stage_receipt_binding_invalid"):
         ProductionSelfReflectionTransitionBindingObserver(
             campaign, TransitionOwner(tampered)).plan_next_stage(projection["request_id"])
+
+    malformed_authentication = {
+        **projection,
+        "operator_authentication": {
+            **projection["operator_authentication"],
+            "signing_key_id": "unverified-key",
+        },
+    }
+    malformed_authentication.pop("binding_digest")
+    malformed_authentication["binding_digest"] = hashlib.sha256(
+        (json.dumps(malformed_authentication, sort_keys=True, separators=(",", ":")) + "\n")
+        .encode("utf-8")
+    ).hexdigest()
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_authentication_invalid"):
+        ProductionSelfReflectionTransitionBindingObserver(
+            campaign, TransitionOwner(malformed_authentication)).plan_next_stage(projection["request_id"])
+
+    legacy_projection = {key: value for key, value in projection.items()
+                         if key not in {"operator_authentication", "binding_digest"}}
+    legacy_projection["schema_version"] = (
+        "sentientos.resident_cognitive_transition_verified_stage_receipt:v2")
+    legacy_projection["binding_digest"] = hashlib.sha256(
+        (json.dumps(legacy_projection, sort_keys=True, separators=(",", ":")) + "\n")
+        .encode("utf-8")
+    ).hexdigest()
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_binding_invalid"):
+        ProductionSelfReflectionTransitionBindingObserver(
+            campaign, TransitionOwner(legacy_projection)).plan_next_stage(projection["request_id"])
 
     stale_owner = TransitionOwner(projection)
     stale_owner.current_phase = PHASES[3]
@@ -825,6 +868,9 @@ def test_campaign_binds_verified_transition_plan_to_active_trial_without_authori
     assert binding["campaign_trial_id"] == "trial-1"
     assert binding["receipt_request_id"] == request_id
     assert binding["transition_plan_digest"] == plan["plan_digest"]
+    assert binding["operator_authentication"] == plan["operator_authentication"]
+    with pytest.raises(TypeError):
+        binding["operator_authentication"]["operator_identity"] = "substituted"
     assert binding["next_stage"] == PHASES[3]
     assert binding["next_stage_requires_separately_supplied_approval"] is True
     assert binding["live_transition_owner_revalidation_required"] is True
@@ -881,7 +927,7 @@ def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
     if failure == "interrupted":
         campaign._write({**dict(campaign.state()), "validity": "invalid_interrupted",
                          "failure_reason": "trial_interrupted_no_retry"})
-        expected = "campaign_trial_binding_not_active"
+        expected = "transition_stage_plan_tampered_or_stale"
     else:
         expected = "transition_stage_plan_not_for_active_trial"
 
