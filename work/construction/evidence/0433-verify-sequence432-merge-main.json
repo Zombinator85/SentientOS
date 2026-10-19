@@ -1,0 +1,77 @@
+{
+  "candidate_status": "merged_exact_head_checks_passed_post_merge_execution_pending",
+  "exact_candidate_checks": {
+    "ci": {
+      "acceptance_nodes": "passed",
+      "conclusion": "success",
+      "docs": "passed",
+      "planning_execution_separation": "passed",
+      "resource_to_cognition_lifecycle": "passed",
+      "run_id": 39212682809,
+      "self_check": "passed"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39212682969
+    },
+    "docker_image": {
+      "conclusion": "success",
+      "run_id": 39212682938
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39212682930
+    },
+    "invariant_tests": {
+      "conclusion": "success",
+      "run_id": 39212682935
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": 39212682919
+    },
+    "release": {
+      "conclusion": "success",
+      "run_id": 39212682863
+    },
+    "required_quality_gate": {
+      "administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "hosted_finalizer": "passed",
+      "immutability": "passed",
+      "prepublication_metadata_guard": "passed",
+      "run_id": 39212682810
+    }
+  },
+  "post_merge_evidence": {
+    "main_push_checks": "not observed at this evidence cut",
+    "nightly_audit_integrity": "pending",
+    "nightly_self_check": "pending",
+    "scheduled_federation_health": "pending"
+  },
+  "predecessor_segment_sha256": "5c468d71480c2fb2c91055901e0fc38de8a83bdd3011cc84f6626ee7eb239f68",
+  "sequence": 433,
+  "sequence_432_merge": {
+    "candidate_commit": "2a060e4af03a19d49bbd78b4cad9a4b0704feb1e",
+    "files_changed_after_candidate": 0,
+    "merge_commit": "e3752cf923d536d22620799ece595e706903efff",
+    "merge_commit_ahead_by": 1,
+    "method": "regular_two_parent_merge",
+    "pull_request": 2399,
+    "tree_preserved": true
+  },
+  "source_change_boundary": {
+    "effect_authority_added": false,
+    "installation_state_mutated": false,
+    "production_use_claimed": false,
+    "resource_observer_default_enabled": false
+  },
+  "source_commit": "e3752cf923d536d22620799ece595e706903efff",
+  "source_tree": "03bc4ad2b06ce1f2043cddd3a16d5b396772e147",
+  "title": "Verify sequence 432 merge to main",
+  "verification": {
+    "construction_custody_before_append": 432,
+    "remote_compare": "one merge commit, zero changed files",
+    "remote_pr_status": "merged"
+  }
+}

@@ -2,13 +2,13 @@
 
 ## Latest verified main
 
-PR #2398 regular-merged sequence 431 at main `3d6e050e7caf903614027e666792314470177b66`, preserving candidate tree `96ef34fcc02391609458c439e66a7464dadd6dd9`. Exact-head CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient regression, Release, and Lint Benchmark all passed; the quality gate verified actual Administrator strict audit, immutability, hosted finalization, and the pre-publication metadata guard.
+PR #2399 regular-merged sequence 432 at main `e3752cf923d536d22620799ece595e706903efff`, preserving candidate tree `03bc4ad2b06ce1f2043cddd3a16d5b396772e147`. Exact-head CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient regression, Release, and Lint Benchmark all passed. CI verified the resource-to-cognition lifecycle, exact acceptance nodes, canonical planning/execution separation, hosted docs, and self-check. The gate verified Administrator strict audit, immutability, hosted finalization, and pre-publication metadata guard.
 
-Post-merge main push checks and scheduled Federation Health/nightly executions on this SHA remain unobserved and are not inferred.
+Post-merge main push checks and scheduled Federation Health/nightly executions on this SHA remain unobserved; no result is inferred.
 
 ## Current work
 
-Sequence 432 extracts and tests the opt-in resource-observer startup boundary. Missing selectors do not open installation state; complete selection returns only a read-only owner and remains `source_not_yet_observed` until a daemon-tick read. Local compilation and direct assertions pass. Focused local pytest is blocked by the canonical test-install guard; exact-candidate hosted verification is pending.
+Sequence 433 records sequence 432's exact merge and hosted checks. The resource-observer startup path remains explicitly opt-in and read-only; no selectors or operator-provisioned installation are available in this environment, so no production execution is claimed.
 
 ## Open evidence boundaries
 
@@ -18,7 +18,7 @@ Sequence 432 extracts and tests the opt-in resource-observer startup boundary. M
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `3d6e050e7caf903614027e666792314470177b66`, tree `96ef34fcc02391609458c439e66a7464dadd6dd9`.
-Latest construction segment: `work/construction/segments/0432-test-resource-observer-startup-binding.md`
-Latest segment SHA-256: `5c468d71480c2fb2c91055901e0fc38de8a83bdd3011cc84f6626ee7eb239f68`
-Sequence: 432 (source candidate; hosted validation pending)
+Latest verified main: `e3752cf923d536d22620799ece595e706903efff`, tree `03bc4ad2b06ce1f2043cddd3a16d5b396772e147`.
+Latest construction segment: `work/construction/segments/0433-verify-sequence432-merge-main.md`
+Latest segment SHA-256: `29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc`
+Sequence: 433 (evidence candidate; hosted verification pending)
