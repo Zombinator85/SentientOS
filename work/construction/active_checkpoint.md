@@ -16,5 +16,5 @@ Exact source validation passed 2/2 focused planning regressions with `task_accep
 
 Latest verified main: `360ac720b194412518188bd5526f430a3b70185d`, tree `116d4c040cea6762051dc7da0e5a9b534d67ca5f`
 Latest construction segment: `work/construction/segments/0469-expose-read-only-daemon-transition-planning.md`
-Latest segment SHA-256: 9fb1830db3d9910890d1895193a1edec32ef7819af3e2d9d3d8d514257090665
+Latest segment SHA-256: 9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf
 Sequence: 469 (daemon planning is read-only; no post-merge workflow run or current-main scheduled Federation Health has been observed)

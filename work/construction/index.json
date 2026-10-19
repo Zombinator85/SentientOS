@@ -1,14 +1,14 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e2335a4f3b1a4ae85ab67cb98424587a1e402fbeecf40b80923a0c41161ff143",
+    "checkpoint_sha256": "4aa316a5a3425ad6eee5df626cb21e1d7329b1308b370bf876b64746996dbf74",
     "latest_segment_sequence": 469,
-    "latest_segment_sha256": "9fb1830db3d9910890d1895193a1edec32ef7819af3e2d9d3d8d514257090665",
+    "latest_segment_sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
     "latest_sequence": 469,
     "source_commit": "360ac720b194412518188bd5526f430a3b70185d",
     "source_tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f"
   },
-  "checkpoint_sha256": "e2335a4f3b1a4ae85ab67cb98424587a1e402fbeecf40b80923a0c41161ff143",
+  "checkpoint_sha256": "4aa316a5a3425ad6eee5df626cb21e1d7329b1308b370bf876b64746996dbf74",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -5302,14 +5302,14 @@
       "source_tree": "bb86a1a451963624a01d1690144bb7e0545cc995"
     },
     {
-      "bytes": 3243,
-      "evidence_bytes": 3660,
+      "bytes": 3532,
+      "evidence_bytes": 3987,
       "evidence_path": "work/construction/evidence/0469-expose-read-only-daemon-transition-planning.json",
-      "evidence_sha256": "33c49a549204797ace9b4d642c5c19209c7fa1b637e83bce0a9207ba95b3d1f9",
+      "evidence_sha256": "e9b1d885558fc348d4049651047bf348062f9b425192faa9638afab0fd390b68",
       "path": "work/construction/segments/0469-expose-read-only-daemon-transition-planning.md",
       "predecessor": "segment-sha256:0c2a7a71f955d1ca94b8309641ac963c28c1cff7d1d1a6be9349c0c8514fa96f",
       "sequence": 469,
-      "sha256": "9fb1830db3d9910890d1895193a1edec32ef7819af3e2d9d3d8d514257090665",
+      "sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
       "source_commit": "360ac720b194412518188bd5526f430a3b70185d",
       "source_tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f"
     }

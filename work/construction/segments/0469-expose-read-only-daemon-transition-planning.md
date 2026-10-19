@@ -16,6 +16,8 @@ Codex CI #39303588294, Docker #39303588464, release #39303588298, invariant test
 
 No separate post-merge workflow run for merge commit `360ac720b194412518188bd5526f430a3b70185d` was returned during verification.
 
+The first evidence candidate failed the append-only custody guard because its segment SHA-256 and active checkpoint binding included an unintended extra newline in the digest input. That candidate was not merged. This follow-up corrects the digest bindings and reruns the complete guard.
+
 ## Next dependency and limits
 
 Next, make the canonical developmental progression owner consume this plan while retaining separate per-stage approvals, exact receipt and live-journal binding, and terminal interruption handling. This change adds no campaign executor, approval selection, trial binding, production inference, or authority grant.

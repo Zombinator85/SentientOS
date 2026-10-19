@@ -90,6 +90,15 @@
     "stale_workspace_modified": false
   },
   "segment_path": "work/construction/segments/0469-expose-read-only-daemon-transition-planning.md",
-  "segment_sha256": "9fb1830db3d9910890d1895193a1edec32ef7819af3e2d9d3d8d514257090665",
-  "segment_bytes": 3243
+  "segment_sha256": "9e99cf31bec7608a4abcc3ce57baa126c3f0dc72c56a3c277f2c41074b3f01cf",
+  "segment_bytes": 3532,
+  "evidence_candidate_custody_recovery": {
+    "first_candidate": "1af7c96b2adb3d2e8c29167908bc9d0d70531e8e",
+    "first_candidate_guard": "failed",
+    "failure_codes": [
+      "segment_469_sha256_mismatch",
+      "active_checkpoint_sha256_mismatch"
+    ],
+    "disposition": "corrected_in_follow_up_commit_before_merge"
+  }
 }
