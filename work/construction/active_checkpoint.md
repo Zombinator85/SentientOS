@@ -8,7 +8,7 @@ The first receipt-bearing Federation Health execution (run #39224329633, push ev
 
 ## Current construction
 
-Sequence 449 records the exact checks, regular merge, candidate-to-merge tree comparison, and four-blob readback for sequence 448. The first scheduled Federation Health run on current main remains pending; the receipt-bearing push execution itself passed health generation but its separate PR publisher failed under repository policy.
+Sequence 450 qualifies the Federation Health report as a configured local log snapshot, not live federation telemetry. The report now identifies source scope, observation window, and latest event time, and excludes future-dated events from its recent count. The first scheduled execution on this main remains pending.
 
 ## Open evidence boundaries
 
@@ -19,7 +19,7 @@ Sequence 449 records the exact checks, regular merge, candidate-to-merge tree co
 - No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `5f4a94635ee1285f5199054cc37319e1fc1e0626`, tree `56f7cabd065ec1baba89a171a1bec0d9d6d0d46a`.
-Latest construction segment: `work/construction/segments/0449-verify-sequence448-merge.md`
-Latest segment SHA-256: `ac15b910eabe8eeac8b6b8055ad60eceb5fbe7367dad39aa44bcbef5850763fb`
-Sequence: 449 (sequence 448 merge verified; scheduled Federation Health pending)
+Latest verified main: `fd20cf6ccef310a827794fb5956538df89a6598a`, tree `576805f6e87686afb7042e795fb3b44d084f3e17`.
+Latest construction segment: `work/construction/segments/0450-qualify-federation-health-snapshot-scope.md`
+Latest segment SHA-256: `6cfd9518b07378610fd70355bf36b439a49e02ac13a05427efe9f6739258449c`
+Sequence: 450 (Federation Health source scope qualification pending exact-head verification)
