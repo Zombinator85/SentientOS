@@ -455,10 +455,19 @@ class LiveTransitionOperatorRuntime:
                 or terminal["entry_digest"] not in verified_entries):
             raise TransitionError("operator_stage_receipt_semantic_verification_unavailable")
 
+        stage_evidence = packet.get("stage_evidence")
+        if not isinstance(stage_evidence, Mapping):
+            raise TransitionError("operator_stage_receipt_campaign_trial_binding_invalid")
+        campaign_trial_id = stage_evidence.get("campaign_trial_id")
+        if campaign_trial_id is not None and (
+                not isinstance(campaign_trial_id, str) or not campaign_trial_id):
+            raise TransitionError("operator_stage_receipt_campaign_trial_binding_invalid")
+
         body = {
-            "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v1",
+            "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v2",
             "request_id": request_id,
             "request_digest": packet["request_digest"],
+            "campaign_trial_id": campaign_trial_id,
             "installation_identity": self.config.installation_identity,
             "protocol_id": self.config.protocol_id,
             "protocol_digest": self.config.protocol_digest,

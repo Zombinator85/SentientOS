@@ -505,6 +505,7 @@ class ProductionSelfReflectionCampaign:
             canonical_plan.get("status") != "next_stage_planned"
             or canonical_plan.get("receipt_request_id") != request_id
             or canonical_plan.get("campaign_next_trial_id") != trial_id
+            or canonical_plan.get("transition_request_trial_id") != trial_id
             or canonical_plan.get("campaign_trial_in_progress") is not True
         ):
             raise ProductionSelfReflectionError("transition_stage_plan_not_for_active_trial")
@@ -525,7 +526,7 @@ class ProductionSelfReflectionCampaign:
         binding: dict[str, Any] = {
             "schema_version": "sentientos.production_self_reflection_active_trial_stage_binding:v1",
             "status": "active_trial_stage_bound",
-            "campaign_trial_binding": "established_by_canonical_campaign_owner",
+            "campaign_trial_binding": "request_declared_trial_matches_live_campaign_state",
             "campaign_protocol_id": self._protocol_snapshot.protocol_id,
             "campaign_protocol_digest": self._protocol_snapshot.protocol_digest,
             "campaign_trial_id": trial_id,
@@ -734,7 +735,8 @@ class ProductionSelfReflectionTransitionBindingObserver:
             ) from exc
 
         required = {
-            "schema_version", "request_id", "request_digest", "installation_identity",
+            "schema_version", "request_id", "request_digest", "campaign_trial_id",
+            "installation_identity",
             "protocol_id", "protocol_digest", "phase", "operator_receipt_digest",
             "attempt_entry_digest", "completed_entry_digest", "journal_head_observed",
             "read_only", "effect_performed", "grants_authority", "execution_allowed",
@@ -749,7 +751,10 @@ class ProductionSelfReflectionTransitionBindingObserver:
             set(projection) != required
             or claimed_binding != observed_binding
             or projection.get("schema_version")
-                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v1"
+                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v2"
+            or (projection.get("campaign_trial_id") is not None
+                and (not isinstance(projection.get("campaign_trial_id"), str)
+                     or not projection.get("campaign_trial_id")))
             or projection.get("request_id") != request_id
             or any(not isinstance(projection.get(key), str) or not projection.get(key)
                 for key in (
@@ -804,6 +809,7 @@ class ProductionSelfReflectionTransitionBindingObserver:
             "protocol_digest": protocol.protocol_digest,
             "campaign_state_digest": state.get("state_digest"),
             "campaign_trial_binding": "not_established_by_transition_receipt",
+            "transition_request_trial_id": projection.get("campaign_trial_id"),
             "campaign_next_trial_id": state.get("next_trial_id"),
             "campaign_trial_in_progress": state.get("in_progress_trial_id") is not None,
             "prior_stage": phase,

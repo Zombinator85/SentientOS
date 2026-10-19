@@ -843,7 +843,9 @@ def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
     campaign = ProductionSelfReflectionCampaign.create(tmp_path / failure, protocol)
     active = {**dict(campaign.state()), "in_progress_trial_id": "trial-1"}
     campaign._write(active)
-    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+    projection = _verified_transition_stage_projection(
+        protocol, PHASES[2],
+        campaign_trial_id=None if failure == "unbound_request" else "trial-1")
     owner_protocol = {
         "installation_identity": protocol.installation_identity,
         "protocol_id": protocol.transition["protocol_id"],
