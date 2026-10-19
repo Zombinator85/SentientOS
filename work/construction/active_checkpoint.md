@@ -2,22 +2,23 @@
 
 ## Latest verified main
 
-PR #2395 regular-merged sequence 427 at main `457b0555f8e63d1951104c8db651e12500a8aa77` with the candidate tree `7be03edf9023dd97286e1b2e6fd3c59028883803` unchanged. Exact-candidate PR checks, including CI, Required Quality Gate, Invariant Tests, Docker, Codex CI, Lint Benchmark, Release, and docs, passed. The separate metadata guard and strict Administrator quality gates passed. Main push CI, Required Quality Gate, invariants, Docker, Codex CI, and docs-deploy checks for `457b0555f8e63d1951104c8db651e12500a8aa77` are still pending at this checkpoint.
+PR #2396 regular-merged sequence 428 at main `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, preserving candidate tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`. Exact-candidate CI, Required Quality Gate, Invariant Tests, Codex CI, Release, Lint Benchmark, Gradient regression, and Docker all passed. The hosted gate and separate metadata guard passed actual Administrator strict-audit and immutability checks.
 
-Sequence 427 records the successful Federation Health and Nightly Audit Integrity/Self Check executions on main `5611dbddc6b4cc55116692833b1b201cd4c149c2`. The latest scheduled Federation Health result was still pending when sequence 427 was cut; no scheduled execution on `457b0555f8e63d1951104c8db651e12500a8aa77` is claimed. The nightly support-log previous-hash mismatch remains unmodified.
+Post-merge main push checks, scheduled Federation Health, and nightly runs on this main SHA were not available in the evidence cut for sequence 429 and remain pending.
 
 ## Current work
 
-Sequence 428 corrects the verifier's human-readable “No mismatches” condition so it requires no reported issues, no repair activity, and a healthy audit-chain result. Its focused regression test and local compile/direct assertions pass. Exact-candidate hosted verification is pending; local canonical pytest and Ruff have not run. No strict gate, audit record, privilege, or production behavior changes.
+Sequence 429 records sequence 428's exact-candidate verification and merge. Sequence 430 corrects current architecture prose: the production-chat resource observer is explicitly opt-in, read-only, and composed through World-State before cognition when configured. The default daemon remains unconfigured, and production execution and longitudinal outcomes remain open. Hosted documentation and repository checks are pending.
 
 ## Open evidence boundaries
 
 - Historical test provenance remains `INTEGRITY_BROKEN` at its unanchored start; the preserved sequence-286 loss remains unresolved.
 - No production resident A→B→A trial or production inference occurred. Commissioned identities, distinct serving approvals, and operator preregistration remain required.
+- No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `457b0555f8e63d1951104c8db651e12500a8aa77`, tree `7be03edf9023dd97286e1b2e6fd3c59028883803`.
-Latest construction segment: `work/construction/segments/0428-report-audit-mismatch-summary-accurately.md`
-Latest segment SHA-256: `7360d4f267c90b01526d7ce06a0bd6ebd526c6145f6370c0dfe59a72cb7cfa9a`
-Sequence: 428 (source candidate; hosted validation pending)
+Latest verified main: `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`.
+Latest construction segment: `work/construction/segments/0430-reconcile-resource-observer-maturity-claims.md`
+Latest segment SHA-256: `e106d533d724ee8be189d73de3ad2c08db34c329c8da8a7a100647a408197c3b`
+Sequence: 430 (documentation candidate; hosted verification pending)

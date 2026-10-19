@@ -1,0 +1,7 @@
+# Sequence 430 — Reconcile resource-observer maturity claims
+
+**Construction status: documentation candidate pending hosted verification.** Source review found the current maturity report and project thesis still described the production-chat-to-daemon resource bridge as uncomposed. The verified source has since added an explicitly configured `ProductionChatResourceObservationOwner`: startup requires both installation identity and provisioning ID, uses a read-only installation-state view, verifies the bounded ledger image and receipt lineage, and projects resource evidence into World-State before resident cognition. The default daemon remains unconfigured.
+
+The two current architecture documents now distinguish source-level opt-in composition from default configuration and from production evidence. The maturity report's remaining gap now asks for production execution and longitudinal epistemic outcomes; it no longer calls the existing owner handoff absent. Historical SHA-bound atlases and prior construction records are not rewritten. This documentation update does not enable configuration, mutate resource custody, change authority, or claim production use, physical resource measurement, learning, or benefit.
+
+Source base: verified main `b95d26f07a9d1b52bc5e5a0856cd24740a14e610`, tree `5e8b605313e0e64b86321ebdd61ba0c5c1a1e192`. Local verification: exact wording assertions, construction custody through sequence 430, and `git diff --check` passed. Hosted documentation and repository checks remain pending.
