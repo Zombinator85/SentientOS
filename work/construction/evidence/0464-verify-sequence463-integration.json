@@ -1,0 +1,105 @@
+{
+  "sequence": 464,
+  "title": "Verify sequence 463 integration",
+  "source_commit": "68271d25890ee1a32c688f2b3f16aee894356317",
+  "source_tree": "f188eb92e436fb14e3088bf1e707f1ae13f7b6d7",
+  "predecessor_segment_sha256": "4b535115d23b9bfbf299d4214a786ee2ab016ad50009485f213e64f189194f5d",
+  "merge": {
+    "pr": 2431,
+    "merge_commit": "68271d25890ee1a32c688f2b3f16aee894356317",
+    "tree": "f188eb92e436fb14e3088bf1e707f1ae13f7b6d7",
+    "parents": [
+      "7466150d1d11518e8b9448af49710410f9a2ac96",
+      "a11c5f3f332b283b7cdad06fd9bb360105ec961c"
+    ],
+    "method": "merge",
+    "merged_at": "2026-10-19T12:46:28Z"
+  },
+  "candidate_gate": {
+    "commit": "a11c5f3f332b283b7cdad06fd9bb360105ec961c",
+    "push_quality_gate_run": 39253740464,
+    "conclusion": "success",
+    "hosted_administrator_finalizer": "ready_for_pr_metadata",
+    "metadata_guard": "pr_metadata_guard_ready",
+    "completed_before_pr_creation": true
+  },
+  "pr_checks": {
+    "ci": 39254180917,
+    "quality_gate": 39254180877,
+    "invariants": 39254180891,
+    "docker": 39254180925,
+    "codex": 39254181457,
+    "release": 39254181023,
+    "gradient_null": 39254181060,
+    "lint_benchmark": 39254180989,
+    "all_conclusion": "success"
+  },
+  "post_merge_checks": [
+    {
+      "workflow": "Required Quality Gate",
+      "run": 39254689002,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "CI",
+      "run": 39254689063,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Invariant Tests",
+      "run": 39254689138,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docker Image",
+      "run": 39254689112,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Codex CI",
+      "run": 39254689129,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docs Deploy",
+      "run": 39254689085,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Forge Smoke",
+      "run": 39254689173,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    },
+    {
+      "workflow": "Required Quality Gate (merge push)",
+      "run": 39254822284,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "CI (merge push)",
+      "run": 39254822389,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Invariant Tests (merge push)",
+      "run": 39254822320,
+      "conclusion": "success"
+    }
+  ],
+  "federation_health": {
+    "observed_at": "2026-10-19T12:51:25Z",
+    "scheduled_run_on_main": "not_found",
+    "latest_scheduled_run": 39218331969,
+    "latest_scheduled_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+    "next_expected_cron": "2026-10-19T13:17:00Z"
+  },
+  "limitations": {
+    "production_trial_claimed": false,
+    "synthetic_rehearsal_claimed": false,
+    "audit_integrity_repair_publication_verified": false,
+    "actions_token_pr_creation_policy_blocks_repair_pr": true,
+    "source_behavior_changed": false,
+    "protected_workspace_changed": false
+  }
+}
