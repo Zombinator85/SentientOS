@@ -1,0 +1,95 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 469,
+  "title": "Expose read-only daemon transition planning",
+  "observed_at": "2026-10-19T18:40:00Z",
+  "predecessor": {
+    "sequence": 468,
+    "segment_path": "work/construction/segments/0468-plan-from-verified-transition-receipts.md",
+    "segment_sha256": "0c2a7a71f955d1ca94b8309641ac963c28c1cff7d1d1a6be9349c0c8514fa96f"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "5739d5d7244dc8e80bb19f153dd8b04d77c38ded",
+    "candidate_commit": "d350efd40a42d1629edffb453960f00ae2538b2f",
+    "merge_commit": "360ac720b194412518188bd5526f430a3b70185d",
+    "tree": "116d4c040cea6762051dc7da0e5a9b534d67ca5f",
+    "parents": [
+      "5739d5d7244dc8e80bb19f153dd8b04d77c38ded",
+      "d350efd40a42d1629edffb453960f00ae2538b2f"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2441,
+    "title": "[codex:construction] expose read-only daemon transition planning",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2441",
+    "state": "merged",
+    "head_sha": "d350efd40a42d1629edffb453960f00ae2538b2f"
+  },
+  "behavior": {
+    "files": [
+      "sentientosd.py",
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py"
+    ],
+    "projection": "explicit_daemon_api_delegates_read_only_verified_next_stage_plan",
+    "checks": [
+      "absolute_campaign_root",
+      "read_only_campaign_open",
+      "exact_request_id_delegation",
+      "planning_separate_from_daemon_tick_packet_processing",
+      "packet_processor_not_called"
+    ],
+    "authority": {
+      "processes_operator_request": false,
+      "advances_campaign": false,
+      "selects_approval": false,
+      "establishes_campaign_trial_binding": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    }
+  },
+  "validation": {
+    "ci_run": 39303588304,
+    "ci_conclusion": "success",
+    "source_validation_artifact": 12213350326,
+    "source_validation_artifact_sha256": "12d043daa1e3cb2805e9da1acae6b3f0c6848586514713f8f4172f11d08b869f",
+    "required_quality_gate_run": 39303588380,
+    "required_quality_gate_conclusion": "success",
+    "quality_artifact": 12212930880,
+    "quality_artifact_sha256": "aecbf5df2e13f0046e50259cd0619b1e53014bbd56deca71d5e262c85db1d2",
+    "hosted_finalizer_artifact": 12212911125,
+    "hosted_finalizer_artifact_sha256": "6ad011f031b7c8725702a350d61b99723137035d5af3f3732cf878750b19e1af",
+    "exact_acceptance_artifact": 12211664315,
+    "exact_acceptance_artifact_sha256": "fdf6b76c3a5ce31445fc8b58503cc47fd7bfd5b09a8c19a084099e4e6b25a470",
+    "other_checks": {
+      "codex_ci": 39303588294,
+      "docker": 39303588464,
+      "release": 39303588298,
+      "invariants": 39303588375,
+      "gradient": 39303588334,
+      "lint": 39303588390,
+      "docs": "success",
+      "helm": "success"
+    }
+  },
+  "post_merge": {
+    "merge_commit": "360ac720b194412518188bd5526f430a3b70185d",
+    "workflow_runs_returned": [],
+    "all_applicable_success": false,
+    "limitation": "No separate post-merge workflow run was returned during verification."
+  },
+  "limitations": {
+    "campaign_executor": false,
+    "approval_selection": false,
+    "campaign_trial_binding": false,
+    "production_inference": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "segment_path": "work/construction/segments/0469-expose-read-only-daemon-transition-planning.md",
+  "segment_sha256": "9fb1830db3d9910890d1895193a1edec32ef7819af3e2d9d3d8d514257090665",
+  "segment_bytes": 3243
+}
