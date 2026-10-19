@@ -2,19 +2,19 @@
 
 ## Latest verified main
 
-PR #2425 regular-merged sequence 458 as main `f37d758e26421b91939930b6fd9ffacc2e110a4b`, preserving tree `d48c0ee2663b3d21d5d00f2723698cf207b05935`. Its exact-head matrix and main post-merge Required Quality Gate, CI, invariants, CPU Docker smoke, Docker build, and Docs Deploy passed. Forge Smoke was skipped by condition. Sequence 458 records sequence 457's integration and the scheduled-run boundary.
+PR #2426 regular-merged sequence 459 as main `cb1e60ac31e58ec411d431ee21cf530459066a61`, preserving candidate tree `00db0d978645244b5f3d241172b143b49c0e47a8` and both parents. Exact-candidate quality, CI, invariant, Docker, lint, release, Codex, and gradient-null checks passed. Main post-merge Required Quality Gate #39247116064, CI #39247115954, Invariant Tests #39247116179, Docker Image #39247115950, Codex CI CPU smoke #39247115984, and Docs Deploy #39247116148 passed. CI source validation, integrated resource-to-cognition lifecycle, canonical planning/execution separation, Mypy, pytest, Helm/Kubernetes, and docs linkcheck passed. Forge Smoke #39247116079 was skipped by condition.
 
-Historical scheduled failures confirmed the former nightly audit workflows lacked Administrator execution. Both current main workflow definitions now put Administrator preflight before strict audit. Self Check is read-only and runs privilege lint, Mypy, pytest airlock, and pytest. Audit Integrity keeps the audit job read-only and grants contents/PR write only to its Administrator-gated safe-repair job, followed by strict verification. Nightly Self Check #39235681245 passed on `b5912ecc...`; Nightly Audit Integrity #39228761152 passed on `fd20cf6...` with repair skipped.
+Both current nightly workflow definitions keep Administrator preflight before strict audits. Self Check is read-only. Audit Integrity grants contents/PR write only to its Administrator-gated repair job and verifies strictly after repair. Scheduled Self Check #39235681245 passed on older head `b5912ecc...`; Audit Integrity #39228761152 passed on older head `fd20cf6...` with repair skipped. Repository policy still blocks Actions-token PR creation, so the repair publication path has not been exercised end to end.
 
 ## Open evidence boundaries
 
-- At 2026-10-19 11:35:57 UTC, no scheduled Federation Health run on current main `f37d758e...` was present. The latest scheduled run is #39218331969 on older main `e66ac2f...`; successful push run #39235242309 is not scheduled evidence.
-- The Audit Integrity repair publication path was not exercised by its recent scheduled success. Repository policy blocks Actions-token PR creation, which the repair workflow uses after safe repair. Its current write permissions are limited to the repair job; no authority was broadened.
-- Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved.
-- A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration. No production resource-observer execution, longitudinal learning, or benefit is claimed.
+- At 2026-10-19 11:51:13 UTC, scheduled Federation Health had no run on current main `cb1e60ac...`. Latest scheduled Health #39218331969 is successful on older head `e66ac2f937db789380ae3da7f2999e4f2a5cd028`; push run #39235242309 is not scheduled evidence. Observe the next real scheduled execution.
+- The next self-reflection campaign dependency is a trusted in-process live transition owner. The CLI correctly rejects caller-supplied JSON evidence before campaign access. Implement and test an owner composition without creating approvals or claiming a production trial.
+- Historical test provenance remains `INTEGRITY_BROKEN`; sequence-286 loss remains explicit.
+- Production A→B→A requires commissioned identities, distinct serving approvals, operator preregistration, and live execution. No production resource-observer execution, learning benefit, or sentience result is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `f37d758e26421b91939930b6fd9ffacc2e110a4b`, tree `d48c0ee2663b3d21d5d00f2723698cf207b05935`.
-Latest construction segment: `work/construction/segments/0459-confirm-nightly-privilege-repair-history.md`
-Latest segment SHA-256: `429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf`
-Sequence: 459 (nightly privilege repairs verified; Health schedule and repair publication pending)
+Latest verified main: `cb1e60ac31e58ec411d431ee21cf530459066a61`, tree `00db0d978645244b5f3d241172b143b49c0e47a8`.
+Latest construction segment: `work/construction/segments/0460-verify-sequence459-merge-and-preserve-federation-health-boundary.md`
+Latest segment SHA-256: `4402067b392b33e71e26900d39242a31e0c4fa953fad8d2c16c32307059e4205`
+Sequence: 460 (sequence 459 merge verified; current-main scheduled Health pending; trusted campaign owner is the next source dependency)

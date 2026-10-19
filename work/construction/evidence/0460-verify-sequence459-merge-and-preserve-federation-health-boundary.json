@@ -1,0 +1,107 @@
+{
+  "sequence": 460,
+  "title": "Verify the sequence 459 merge and preserve the Federation Health boundary",
+  "source_commit": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+  "source_tree": "00db0d978645244b5f3d241172b143b49c0e47a8",
+  "predecessor_segment_sha256": "429c080c5d589362c12ae3e5b729389f2d98820937b80d2cbcb6afc065c37eaf",
+  "sequence459_merge": {
+    "pr": 2426,
+    "candidate": "a462bc3c41001ae36dc47427db1b5efb248c8bb5",
+    "merge": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+    "candidate_tree": "00db0d978645244b5f3d241172b143b49c0e47a8",
+    "merge_method": "merge",
+    "tree_preserved": true,
+    "parents": [
+      "f37d758e26421b91939930b6fd9ffacc2e110a4b",
+      "a462bc3c41001ae36dc47427db1b5efb248c8bb5"
+    ]
+  },
+  "post_merge_checks": {
+    "required_quality_gate": {
+      "run": 39247116064,
+      "check": 118041611485,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run": 39247115954,
+      "jobs": {
+        "source_validation": {
+          "check": 118041611301,
+          "conclusion": "success"
+        },
+        "self_check": {
+          "check": 118041610584,
+          "conclusion": "success"
+        },
+        "documentation_linkcheck": {
+          "check": 118041610859,
+          "conclusion": "success"
+        },
+        "helm_kubernetes": {
+          "check": 118041610750,
+          "conclusion": "success"
+        }
+      },
+      "integrated_resource_to_cognition": "passed",
+      "canonical_planning_execution_separation": "passed",
+      "mypy": "passed",
+      "pytest": "passed",
+      "conclusion": "success"
+    },
+    "invariant_tests": {
+      "run": 39247116179,
+      "check": 118041611644,
+      "conclusion": "success"
+    },
+    "docker_image": {
+      "run": 39247115950,
+      "check": 118041610622,
+      "conclusion": "success"
+    },
+    "codex_ci_cpu_smoke": {
+      "run": 39247115984,
+      "check": 118041610233,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run": 39247116148,
+      "check": 118041768419,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run": 39247116079,
+      "check": 118041612492,
+      "conclusion": "skipped_by_condition"
+    },
+    "all_required_success": true
+  },
+  "schedule_observation": {
+    "query_time": "2026-10-19T11:51:13Z",
+    "current_main": "cb1e60ac31e58ec411d431ee21cf530459066a61",
+    "federation_health_current_main": "not_found",
+    "latest_scheduled_federation_health": {
+      "run": 39218331969,
+      "head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+      "event": "schedule",
+      "conclusion": "success",
+      "current_main_evidence": false
+    },
+    "successful_push_health_is_scheduled_evidence": false
+  },
+  "nightly_workflow_boundary": {
+    "self_check_read_only": true,
+    "strict_administrator_audit_preserved": true,
+    "audit_repair_write_authority_scoped_to_repair_job": true,
+    "actions_token_pr_creation_blocked_by_repository_setting": true,
+    "repair_publication_path_verified": false,
+    "recent_audit_repair_job": "skipped"
+  },
+  "limitations": {
+    "live_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "production_trial_claimed": false,
+    "learning_claimed": false,
+    "sentience_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}
