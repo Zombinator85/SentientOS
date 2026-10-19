@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2809a007da9c0b20e84b300eba9fe98d238306c708a52616325468842bd13749",
-    "latest_segment_sequence": 438,
-    "latest_segment_sha256": "2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
-    "latest_sequence": 438,
+    "checkpoint_sha256": "85aeafbcf8b8024c2bae998b4a37855d196e94581afb916e550d84eef34733a2",
+    "latest_segment_sequence": 439,
+    "latest_segment_sha256": "0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
+    "latest_sequence": 439,
     "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
     "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
   },
-  "checkpoint_sha256": "2809a007da9c0b20e84b300eba9fe98d238306c708a52616325468842bd13749",
+  "checkpoint_sha256": "85aeafbcf8b8024c2bae998b4a37855d196e94581afb916e550d84eef34733a2",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 438,
+  "latest_sequence": 439,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4938,6 +4938,18 @@
       "predecessor": "segment-sha256:dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113",
       "sequence": 438,
       "sha256": "2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
+      "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+      "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
+    },
+    {
+      "bytes": 1270,
+      "evidence_bytes": 1484,
+      "evidence_path": "work/construction/evidence/0439-update-nightly-workflow-contract-assertion.json",
+      "evidence_sha256": "b241bb7a5fe66b20ea80ad838d7aee1f2cc203b59d19d0363a46250a93e658c8",
+      "path": "work/construction/segments/0439-update-nightly-workflow-contract-assertion.md",
+      "predecessor": "segment-sha256:2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
+      "sequence": 439,
+      "sha256": "0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
       "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
       "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
     }

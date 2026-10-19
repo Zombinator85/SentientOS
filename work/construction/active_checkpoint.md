@@ -2,13 +2,11 @@
 
 ## Latest verified main
 
-PR #2404 regular-merged sequence 437 at main `e66ac2f937db789380ae3da7f2999e4f2a5cd028`, preserving candidate tree `cf063909f5e4f16b22dae09b1ee7cd5a93f09fec`. Its exact-candidate Required Quality Gate #39217207658, CI #39217207619, Invariants #39217207678, Codex CI #39217207718, Docker #39217207597, Gradient #39217207664, Release #39217207626, and Lint Benchmark #39217207665 passed.
-
-Sequence 437 recorded the post-merge main-push checks on the preceding SHA `8a3d72b9b608dbe41753f454d215b5528ef854dd`; those passed, including Required Quality Gate #39216241571 and CI #39216241670. Scheduled Federation Health and nightly runs on that SHA remain unobserved.
+PR #2404 regular-merged sequence 437 at main `e66ac2f937db789380ae3da7f2999e4f2a5cd028`, tree `cf063909f5e4f16b22dae09b1ee7cd5a93f09fec`. Its exact-candidate quality gate, CI, invariants, Codex CI, Docker, Gradient, Release, and Lint Benchmark all passed. Sequence 437 separately records the previous main SHA's complete successful post-merge push checks.
 
 ## Current construction
 
-Sequence 438 adds explicit noninteractive Administrator preflights to both nightly workflows and prevents `audit-nightly` from starting its write-enabled repair job unless the read-only audit job succeeded. Strict audit requirements and existing narrow permissions remain intact. Hosted checks are pending.
+Sequence 438 adds Administrator preflights to nightly audit/self-check and gates the write-enabled audit repair job on successful completion of the read-only audit job. The first exact-candidate gate correctly caught a stale test expectation for that changed condition. Sequence 439 corrects the assertion without changing workflow source or weakening checks. Hosted verification for the updated candidate is pending.
 
 ## Open evidence boundaries
 
@@ -19,6 +17,6 @@ Sequence 438 adds explicit noninteractive Administrator preflights to both night
 - No production authority or workflow privilege changed.
 
 Latest verified main: `e66ac2f937db789380ae3da7f2999e4f2a5cd028`, tree `cf063909f5e4f16b22dae09b1ee7cd5a93f09fec`.
-Latest construction segment: `work/construction/segments/0438-gate-nightly-repairs-on-admin-preflight.md`
-Latest segment SHA-256: `2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1`
-Sequence: 438 (workflow source candidate; hosted verification pending)
+Latest construction segment: `work/construction/segments/0439-update-nightly-workflow-contract-assertion.md`
+Latest segment SHA-256: `0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255`
+Sequence: 439 (corrective test candidate; hosted verification pending)

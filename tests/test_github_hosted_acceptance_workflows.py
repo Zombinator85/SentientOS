@@ -712,7 +712,8 @@ def test_workflow_dispatch_jobs_are_main_bound() -> None:
     )
     assert audit["jobs"]["audit"]["if"] == main_guard
     assert audit["jobs"]["repair"]["if"] == (
-        "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"
+        "${{ github.ref == 'refs/heads/main' && needs.audit.result == 'success' "
+        "&& needs.audit.outputs.status != '0' }}"
     )
     assert self_check["jobs"]["self-check"]["if"] == main_guard
     assert federation["jobs"]["health"]["if"] == (

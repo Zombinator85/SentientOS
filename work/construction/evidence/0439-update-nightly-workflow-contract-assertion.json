@@ -1,0 +1,35 @@
+{
+  "candidate_status": "corrective_test_candidate_pending_hosted_verification",
+  "change": {
+    "assertion_updated_to": "needs.audit.result == success and audit status != 0",
+    "files": [
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "strictness_weakened": false,
+    "workflow_authority_changed": false,
+    "workflow_source_changed": false
+  },
+  "predecessor_segment_sha256": "2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
+  "previous_candidate": {
+    "cause": "stale expectation for the pre-sequence-438 repair condition",
+    "commit": "02fe61679dedb9b2b76779eac31233aa5d9c6497",
+    "conclusion": "failure",
+    "failed_gate_finalizer_artifacts": "none; finalizer did not run after failing acceptance",
+    "failed_test": "tests/test_github_hosted_acceptance_workflows.py::test_workflow_dispatch_jobs_are_main_bound",
+    "pull_request": 2405,
+    "required_quality_gate_run_id": 39217803240,
+    "strict_audit_defect": "not observed",
+    "workflow_authority_defect": "not observed"
+  },
+  "sequence": 439,
+  "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+  "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec",
+  "title": "Update the nightly workflow contract assertion",
+  "verification": {
+    "construction_custody": "passed through sequence 439",
+    "git_diff_check": "passed",
+    "hosted_checks": "pending",
+    "python_compile": "passed",
+    "workflow_yaml_and_authority_assertions": "passed"
+  }
+}
