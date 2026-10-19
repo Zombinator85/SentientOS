@@ -1,0 +1,11 @@
+# Sequence 451 — Verify sequence 450 merge and Federation Health publication
+
+**Construction status: sequence 450 is merged and independently verified.** PR #2415 passed the exact-head Administrator quality gate, acceptance, hosted finalizer and separate metadata guard, plus CI and the complete parallel matrix. It regular-merged without changing candidate content tree `51ddd36dac47a93eda405ab283758b1b03a4dea4` as main `9cd0d89cd43c614de070bee0043cdd1df35afdb9`. All seven changed blob identities were read back from the merged tree.
+
+The post-merge Federation Health push run #39229381396 executed on main source `9cd0d89cd43c614de070bee0043cdd1df35afdb9`. Hosted Administrator preflight and health generation succeeded. Artifact #12176317340 digest matched its downloaded ZIP; the receipt's report SHA-256 matched the report bytes and branch readback. The report states it used the configured local log snapshot, records one peer, zero events in 24 hours, latest event `2025-06-05T16:25:13.805813Z`, and status `quiet`. It explicitly disclaims live telemetry.
+
+The automated publisher then failed because repository policy blocks Actions-token PR creation. Its branch push succeeded. PR #2416 carried only the generated report and receipt, passed the full exact-head matrix and regular-merged as `4500226be7e9b16077d4e7667701f27c874a07a8`, preserving content tree `8dccdb3730292714602d78339310898a9fce6220`. Both publication blobs were read back from main. This is a completed publication through normal PR governance; it does not resolve the Action-token setting.
+
+At checkpoint creation, main post-merge quality gate, invariants, Codex CI and docs deploy for PR #2416 were successful. Its main-push CI and Docker jobs were still running; exact-candidate CI and Docker checks passed before merge. A scheduled Federation Health execution on this main has not yet been observed. The latest scheduled Nightly Audit Integrity run succeeded on the preceding main `fd20cf6ccef310a827794fb5956538df89a6598a` with repair skipped; no Nightly Self Check schedule run was returned in the observed window.
+
+No live federation connectivity, production inference, or historical provenance repair is claimed. Sequences 382–386 and protected stale workspaces remain untouched.
