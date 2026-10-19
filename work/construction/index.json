@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "44fc879f50c387388fe2c6bf6bc185b70f2e9b75a96a0821fc20592223e49391",
-    "latest_segment_sequence": 424,
-    "latest_segment_sha256": "e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
-    "latest_sequence": 424,
-    "source_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
-    "source_tree": "26d88c5f0f3727d9ae02c1db8652a2ff5ef52c7d"
+    "checkpoint_sha256": "38edc6db18d9f9626a30ea8a16df2a7b6ea73721d0045cd0d2a335f05a769f97",
+    "latest_segment_sequence": 425,
+    "latest_segment_sha256": "322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
+    "latest_sequence": 425,
+    "source_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+    "source_tree": "38124ee137974910354e1a1f9e38a9a68db6368e"
   },
-  "checkpoint_sha256": "44fc879f50c387388fe2c6bf6bc185b70f2e9b75a96a0821fc20592223e49391",
+  "checkpoint_sha256": "38edc6db18d9f9626a30ea8a16df2a7b6ea73721d0045cd0d2a335f05a769f97",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 424,
+  "latest_sequence": 425,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4772,6 +4772,18 @@
       "sha256": "e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
       "source_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
       "source_tree": "26d88c5f0f3727d9ae02c1db8652a2ff5ef52c7d"
+    },
+    {
+      "bytes": 2413,
+      "evidence_bytes": 3462,
+      "evidence_path": "work/construction/evidence/0425-bind-manual-workflows-to-main-and-scope-baseline-writes.json",
+      "evidence_sha256": "5c1f73657c6103a046dc98121177fb8cef0d2b39a77b41a60e680e1f573a1641",
+      "path": "work/construction/segments/0425-bind-manual-workflows-to-main-and-scope-baseline-writes.md",
+      "predecessor": "segment-sha256:e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
+      "sequence": 425,
+      "sha256": "322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
+      "source_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+      "source_tree": "38124ee137974910354e1a1f9e38a9a68db6368e"
     }
   ],
   "source_acquisition": {

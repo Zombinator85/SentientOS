@@ -660,9 +660,31 @@ def test_workflow_dispatch_jobs_are_main_bound() -> None:
     import yaml
 
     audit = yaml.safe_load((ROOT / ".github/workflows/audit-nightly.yml").read_text())
+    capture = yaml.safe_load((ROOT / ".github/workflows/capture-audit-baseline.yml").read_text())
+    forge = yaml.safe_load((ROOT / ".github/workflows/forge-smoke.yml").read_text())
     self_check = yaml.safe_load((ROOT / ".github/workflows/nightly-self-check.yml").read_text())
+    remote_smoke = yaml.safe_load((ROOT / ".github/workflows/remote-smoke-ci.yml").read_text())
     federation = yaml.safe_load((ROOT / ".github/workflows/federation-health.yml").read_text())
     main_guard = "${{ github.ref == 'refs/heads/main' }}"
+    assert capture["permissions"] == {"contents": "read"}
+    assert capture["jobs"]["capture"]["if"] == main_guard
+    assert capture["jobs"]["capture"]["permissions"] == {"contents": "read"}
+    assert capture["jobs"]["capture"]["steps"][0]["with"]["persist-credentials"] is False
+    assert capture["jobs"]["commit"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && inputs.commit_baseline == 'true' }}"
+    )
+    assert capture["jobs"]["commit"]["permissions"] == {"contents": "write"}
+    assert capture["jobs"]["commit"]["needs"] == "capture"
+    assert capture["jobs"]["commit"]["steps"][0]["with"]["ref"] == "${{ github.sha }}"
+    assert "git push origin HEAD:main" in capture["jobs"]["commit"]["steps"][-1]["run"]
+    assert forge["permissions"] == {"contents": "read"}
+    assert forge["jobs"]["forge-smoke"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}"
+    )
+    assert remote_smoke["permissions"] == {"contents": "read"}
+    assert remote_smoke["jobs"]["remote-smoke"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && vars.SENTIENTOS_CI_RUN_REMOTE_SMOKE == '1' }}"
+    )
     assert audit["jobs"]["audit"]["if"] == main_guard
     assert audit["jobs"]["repair"]["if"] == (
         "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"

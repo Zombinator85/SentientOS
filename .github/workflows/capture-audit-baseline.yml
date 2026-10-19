@@ -12,13 +12,19 @@ on:
         required: true
         default: "false"
 
+permissions:
+  contents: read
+
 jobs:
   capture:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
@@ -43,8 +49,21 @@ jobs:
           name: audit_baseline_${{ github.run_id }}
           path: glow/audits/baseline/audit_baseline.json
 
+  commit:
+    needs: capture
+    if: ${{ github.ref == 'refs/heads/main' && inputs.commit_baseline == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: audit_baseline_${{ github.run_id }}
+          path: glow/audits/baseline
       - name: Commit baseline
-        if: ${{ inputs.commit_baseline == 'true' }}
         run: |
           if git diff --quiet -- glow/audits/baseline/audit_baseline.json; then
             echo "No baseline changes to commit"
@@ -54,4 +73,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add glow/audits/baseline/audit_baseline.json
           git commit -m "[codex:audits] refresh captured audit baseline"
-          git push
+          git push origin HEAD:main

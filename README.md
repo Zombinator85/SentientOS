@@ -52,6 +52,12 @@ This status reflects PR #2392, which regular-merged sequence 422 on 2026-10-19: 
 - **Provenance custody:** Test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** CI and hosted Federation Health telemetry do not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities and receipts, distinct serving approvals, and an operator-approved preregistered trial. No production inference or authority expansion occurred.
 
+## Current construction checkpoint (2026-10-19 05:38 UTC)
+
+- Sequence 424 candidate `266a9a99da41abb0f30c983ec46aa675c6d83bc6` passed hosted CI, Invariant Tests, and Required Quality Gate. The Gate verified actual Administrator strict audit and immutability, 30/30 acceptance nodes, and the separate pre-publication metadata guard. PR #2393 is open; PR-event checks are still running, and no merge is claimed.
+- Sequence 425 locally hardens the remaining manual workflow-dispatch paths: baseline capture is read-only, optional baseline writes are isolated to a main-only job, and Forge/Remote Smoke dispatch runs only on main. YAML and direct contract checks, compilation, custody, and diff hygiene pass. Exact-candidate hosted verification is pending.
+- No post-merge scheduled Federation Health run has appeared as of 05:38 UTC. The next hourly schedule is expected at 06:17 UTC. The next Nightly Audit Integrity and Nightly Self Check runs are scheduled for 2026-10-20 03:41 and 04:37 UTC.
+
 ## Read next
 
 1. [Concise technical thesis](one_pager.md) — purpose, causal loop, and core distinctions.
