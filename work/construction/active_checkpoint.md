@@ -412,5 +412,5 @@ No exact-main scheduled Federation Health, Nightly Audit Integrity, or Nightly S
 
 Latest verified main: `944269a771c6f6300d6f8a559866ade9e262a56b`, tree `02fd3cb362d1e053968640ac1a5ef34410cb5fe8`.
 Latest construction segment: `work/construction/segments/0416-bind-landing-body-status-to-artifacts.md`
-Latest segment SHA-256: `7c7350eb6aaf0c7b5003d99f3889a534d88502fc06b7b77bf4b0aeb6e7ee8837`
+Latest segment SHA-256: `cd76120093e68da3cade51373c5aef1fcad6f7fd9ada458c7efc768c216cad8e`
 Sequence: 416 (sequence 415 regular-merge and exact-main verification recorded; next source increment handed off [untested] for full repository acceptance; focused checks passed and hosted verification is pending)

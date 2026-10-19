@@ -175,6 +175,8 @@ def _artifact_status(payload: Mapping[str, Any], *, label: str) -> str:
 def _status_summary_override(value: str, statuses: Sequence[str], *, label: str) -> None:
     """Do not let free-form body text contradict a supplied decision artifact."""
     normalized = " ".join(value.lower().replace("_", " ").split())
+    if any(token in normalized for token in ("stale evidence", "stale matrix", "stale-evidence")):
+        raise ValueError(f"{label} text contains stale-evidence markers")
     for status in statuses:
         if not status:
             continue
@@ -204,7 +206,7 @@ def _finalizer_summary(
     if supplied.strip():
         _status_summary_override(supplied, statuses, label="finalizer")
     summary = "Finalizer artifact status: " + "; ".join(statuses) + "."
-    return summary + (f" Details: {supplied.strip()}" if supplied.strip() else "")
+    return summary
 
 
 def _guard_summary(supplied: str, payload: Mapping[str, Any]) -> str:
@@ -214,8 +216,7 @@ def _guard_summary(supplied: str, payload: Mapping[str, Any]) -> str:
     if supplied.strip():
         _status_summary_override(supplied, (status,), label="PR metadata guard")
     reasons = payload.get("reasons", [])
-    summary = f"PR metadata guard artifact status: {status}; reasons={json.dumps(reasons, sort_keys=True)}."
-    return summary + (f" Details: {supplied.strip()}" if supplied.strip() else "")
+    return f"PR metadata guard artifact status: {status}; reasons={json.dumps(reasons, sort_keys=True)}."
 
 
 def _landing_gate_summary(supplied: str, payload: Mapping[str, Any]) -> str:
@@ -226,8 +227,7 @@ def _landing_gate_summary(supplied: str, payload: Mapping[str, Any]) -> str:
         _status_summary_override(supplied, (decision,), label="landing gate")
     blockers = payload.get("blocker_codes", [])
     warnings = payload.get("warning_codes", [])
-    summary = f"Landing gate artifact decision: {decision}; blockers={json.dumps(blockers, sort_keys=True)}; warnings={json.dumps(warnings, sort_keys=True)}."
-    return summary + (f" Details: {supplied.strip()}" if supplied.strip() else "")
+    return f"Landing gate artifact decision: {decision}; blockers={json.dumps(blockers, sort_keys=True)}; warnings={json.dumps(warnings, sort_keys=True)}."
 
 
 def _text(value: str, fallback: str) -> str:

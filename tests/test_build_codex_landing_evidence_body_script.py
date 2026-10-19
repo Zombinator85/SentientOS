@@ -328,6 +328,7 @@ def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_pa
         "--pre-commit-finalizer-json-path", str(pre_path),
         "--pr-metadata-finalizer-json-path", str(post_path),
         "--pr-metadata-guard-json-path", str(guard_path),
+        "--pr-metadata-guard", "pr_metadata_guard_ready; unverified caller note",
         "--landing-gate-json-path", str(gate_path),
         "--sidecar-output", str(sidecar), "--verify-body-binding",
     ])
@@ -339,6 +340,7 @@ def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_pa
     assert "Finalizer artifact status: ready_to_commit; ready_for_pr_metadata." in body
     assert "PR metadata guard artifact status: pr_metadata_guard_ready" in body
     assert "Landing gate artifact decision: pr_metadata_allowed" in body
+    assert "unverified caller note" not in body
     assert "pending standard two-phase finalizer" not in body
     assert "pending post-commit finalizer evidence" not in body
     binding = json.loads(sidecar.read_text(encoding="utf-8"))
