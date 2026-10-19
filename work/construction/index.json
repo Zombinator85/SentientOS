@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "be08cc9942f55427ae998b6a95f5fe06dd36b75a2247cf9211266dade5759b7e",
-    "latest_segment_sequence": 451,
-    "latest_segment_sha256": "c5c08f269cc7a270292b0f92539777befd1721be0188fb56b93ff573f024fc41",
-    "latest_sequence": 451,
-    "source_commit": "4500226be7e9b16077d4e7667701f27c874a07a8",
-    "source_tree": "8dccdb3730292714602d78339310898a9fce6220"
+    "checkpoint_sha256": "c0ca6555ac98d3c1168b1a7df4ec2505580c3fdffda068196ec6e2647819a47e",
+    "latest_segment_sequence": 452,
+    "latest_segment_sha256": "e0bbd9daa4504aa8d7c2aedb7da5dafb535eb631a056696daa2d3bfb3b8412eb",
+    "latest_sequence": 452,
+    "source_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
+    "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51"
   },
-  "checkpoint_sha256": "be08cc9942f55427ae998b6a95f5fe06dd36b75a2247cf9211266dade5759b7e",
+  "checkpoint_sha256": "c0ca6555ac98d3c1168b1a7df4ec2505580c3fdffda068196ec6e2647819a47e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 451,
+  "latest_sequence": 452,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5096,6 +5096,18 @@
       "sha256": "c5c08f269cc7a270292b0f92539777befd1721be0188fb56b93ff573f024fc41",
       "source_commit": "4500226be7e9b16077d4e7667701f27c874a07a8",
       "source_tree": "8dccdb3730292714602d78339310898a9fce6220"
+    },
+    {
+      "bytes": 1174,
+      "evidence_bytes": 3891,
+      "evidence_path": "work/construction/evidence/0452-reject-malformed-federation-health-inputs.json",
+      "evidence_sha256": "5f0adb1f71b7a471f7343333669b9498b8397361ce6cc71cbd8bf8096e16caaf",
+      "path": "work/construction/segments/0452-reject-malformed-federation-health-inputs.md",
+      "predecessor": "segment-sha256:c5c08f269cc7a270292b0f92539777befd1721be0188fb56b93ff573f024fc41",
+      "sequence": 452,
+      "sha256": "e0bbd9daa4504aa8d7c2aedb7da5dafb535eb631a056696daa2d3bfb3b8412eb",
+      "source_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
+      "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51"
     }
   ],
   "source_acquisition": {
@@ -5105,7 +5117,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "8dccdb3730292714602d78339310898a9fce6220",
+  "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
