@@ -1,0 +1,95 @@
+{
+  "sequence": 463,
+  "title": "Verify sequence 462 integration",
+  "source_commit": "4438411298b2ae5611bb05ad10017db4c6079ddd",
+  "source_tree": "a194e667eaa640b79890d71216722ef032baf9cf",
+  "predecessor_segment_sha256": "381e57ae2b34e9dc659214e979779f2460468c2413089182dcb810fb088f78e5",
+  "merge": {
+    "pr": 2429,
+    "merge_commit": "4438411298b2ae5611bb05ad10017db4c6079ddd",
+    "tree": "a194e667eaa640b79890d71216722ef032baf9cf",
+    "parents": [
+      "2826ba035a8847d3b364340db08775fcf5390cbc",
+      "533a6a986f9f4407e7d81f4b601a86fcb3cbccf2"
+    ],
+    "method": "merge",
+    "merged_at": "2026-10-19T12:28:21Z"
+  },
+  "candidate_gate": {
+    "commit": "533a6a986f9f4407e7d81f4b601a86fcb3cbccf2",
+    "push_quality_gate_run": 39251305209,
+    "conclusion": "success",
+    "hosted_administrator_finalizer": "ready_for_pr_metadata",
+    "metadata_guard": "pr_metadata_guard_ready",
+    "completed_before_pr_creation": true
+  },
+  "pr_checks": {
+    "ci": 39251604085,
+    "quality_gate": 39251604045,
+    "invariants": 39251604023,
+    "docker": 39251604048,
+    "codex": 39251604006,
+    "release": 39251604005,
+    "gradient_null": 39251604027,
+    "lint_benchmark": 39251604099,
+    "all_conclusion": "success"
+  },
+  "post_merge_checks": [
+    {
+      "workflow": "Required Quality Gate",
+      "run": 39252317820,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "CI",
+      "run": 39252317567,
+      "conclusion": "success",
+      "jobs": {
+        "source_validation": "success",
+        "self_check": "success",
+        "docs_linkcheck": "success",
+        "helm_k8s": "success"
+      }
+    },
+    {
+      "workflow": "Invariant Tests",
+      "run": 39252317586,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docker Image",
+      "run": 39252317407,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Codex CI",
+      "run": 39252317539,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docs Deploy",
+      "run": 39252317429,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Forge Smoke",
+      "run": 39252317413,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    }
+  ],
+  "federation_health": {
+    "observed_at": "2026-10-19T12:32:21Z",
+    "scheduled_run_on_main": "not_found",
+    "latest_scheduled_run": 39218331969,
+    "latest_scheduled_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028"
+  },
+  "limitations": {
+    "production_trial_claimed": false,
+    "synthetic_rehearsal_claimed": false,
+    "audit_integrity_repair_publication_verified": false,
+    "actions_token_pr_creation_policy_blocks_repair_pr": true,
+    "source_behavior_changed": false,
+    "protected_workspace_changed": false
+  }
+}
