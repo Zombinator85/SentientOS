@@ -1,0 +1,124 @@
+{
+  "sequence": 456,
+  "title": "Reconcile the integrated checkpoint and scheduled run boundary",
+  "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+  "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5",
+  "predecessor_segment_sha256": "318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
+  "sequence455_merge": {
+    "pr": 2423,
+    "candidate": "b006940b039a80030082fd7136c3ae998d0f219f",
+    "candidate_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5",
+    "merge": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+    "merge_method": "merge",
+    "tree_preserved": true,
+    "exact_head_checks": {
+      "qg": {
+        "id": 39237575966,
+        "success": true,
+        "administrator_audit": "passed",
+        "exact_acceptance": "passed",
+        "finalizer": "passed",
+        "metadata_guard": "passed"
+      },
+      "ci": {
+        "id": 39237576154,
+        "success": true
+      },
+      "invariants": {
+        "id": 39237575927,
+        "success": true
+      },
+      "codex_ci": {
+        "id": 39237576037,
+        "success": true
+      },
+      "docker": {
+        "id": 39237575921,
+        "success": true
+      },
+      "lint": {
+        "id": 39237576246,
+        "success": true
+      },
+      "release": {
+        "id": 39237575947,
+        "success": true
+      },
+      "gradient": {
+        "id": 39237576153,
+        "success": true
+      }
+    },
+    "main_postmerge": {
+      "head": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+      "ci": {
+        "id": 39238102167,
+        "success": true
+      },
+      "qg": {
+        "id": 39238102232,
+        "success": true
+      },
+      "invariants": {
+        "id": 39238102067,
+        "success": true
+      },
+      "codex_ci": {
+        "id": 39238102213,
+        "success": true
+      },
+      "docker": {
+        "id": 39238102159,
+        "success": true
+      },
+      "docs": {
+        "id": 39238102148,
+        "success": true
+      },
+      "forge_smoke": {
+        "id": 39238102171,
+        "conclusion": "skipped_by_condition"
+      }
+    }
+  },
+  "scheduled": {
+    "self_check": {
+      "id": 39235681245,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "success": true,
+      "administrator_preflight": "passed",
+      "strict_audit": "passed",
+      "privilege_lint": "passed",
+      "mypy": "passed",
+      "pytest_airlock": "passed",
+      "pytest": "passed"
+    },
+    "audit_integrity": {
+      "id": 39228761152,
+      "head": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "success": true,
+      "repair": "skipped"
+    },
+    "federation_health": {
+      "query_time": "2026-10-19T10:48:39Z",
+      "current_main": "not_found",
+      "latest_observed": {
+        "run": 39218331969,
+        "head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+        "event": "schedule"
+      }
+    },
+    "push_health": {
+      "run": 39235242309,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "event": "push",
+      "receipt_pr": 2422
+    }
+  },
+  "limitations": {
+    "actions_token_pr_creation": "blocked by repository setting",
+    "live_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}

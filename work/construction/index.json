@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2f3b0b26ce552954d271eb9ab1e2b53e2a88e654a706ad74f3600bd578c6c419",
-    "latest_segment_sequence": 455,
-    "latest_segment_sha256": "318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
-    "latest_sequence": 455,
-    "source_commit": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
-    "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a"
+    "checkpoint_sha256": "8203afcbeb28f5b2844a40afb75ce52d7e6f66279a2ad70cdeec564fad6c77c8",
+    "latest_segment_sequence": 456,
+    "latest_segment_sha256": "0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
+    "latest_sequence": 456,
+    "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+    "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
   },
-  "checkpoint_sha256": "2f3b0b26ce552954d271eb9ab1e2b53e2a88e654a706ad74f3600bd578c6c419",
+  "checkpoint_sha256": "8203afcbeb28f5b2844a40afb75ce52d7e6f66279a2ad70cdeec564fad6c77c8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 455,
+  "latest_sequence": 456,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5144,6 +5144,18 @@
       "sha256": "318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
       "source_commit": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
       "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a"
+    },
+    {
+      "bytes": 2434,
+      "evidence_bytes": 3213,
+      "evidence_path": "work/construction/evidence/0456-reconcile-integrated-checkpoint-and-schedule.json",
+      "evidence_sha256": "079239a2ab25ea0e12be8bdc1cf02d14387d33f6fa824a94b63ae6d625c36f68",
+      "path": "work/construction/segments/0456-reconcile-integrated-checkpoint-and-schedule.md",
+      "predecessor": "segment-sha256:318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
+      "sequence": 456,
+      "sha256": "0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455",
+      "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
+      "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
     }
   ],
   "source_acquisition": {
@@ -5153,7 +5165,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a",
+  "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
