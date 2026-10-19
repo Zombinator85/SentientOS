@@ -648,13 +648,14 @@ class ResidentCognitiveModelTransitionController:
             return None
         return None
 
-    def _reconstruct(self) -> _Reconstructed:
+    def _reconstruct(self, journal_entries: Sequence[Mapping[str, Any]] | None = None) -> _Reconstructed:
         phase, outstanding, token = PHASES[0], None, None
         blocked, reason = False, None
         semantically_verified: list[str] = []
         latest_activation: Mapping[str, Any] | None = None
         latest_serving_session_id: str | None = None
-        for entry in self.journal.entries():
+        entries = journal_entries if journal_entries is not None else self.journal.entries()
+        for entry in entries:
             status, entry_phase, evidence = entry["status"], entry["phase"], entry["evidence"]
             if status == "attempted":
                 if blocked or outstanding or entry_phase != phase or evidence.get("attempted_stage") != PHASES[PHASES.index(phase)+1]:
@@ -716,14 +717,19 @@ class ResidentCognitiveModelTransitionController:
     def phase(self) -> str:
         return self._state.phase
 
-    def _approval_expected(self, target: str, approval: Mapping[str, Any]) -> Mapping[str, Any]:
-        boundary = _plain(self.history_snapshot())
+    def _approval_expected(self, target: str, approval: Mapping[str, Any], *,
+                           prior_phase: str | None = None,
+                           journal_entries: Sequence[Mapping[str, Any]] | None = None,
+                           boundary_snapshot: Mapping[str, Any] | None = None,
+                           ) -> Mapping[str, Any]:
+        boundary = _plain(boundary_snapshot if boundary_snapshot is not None else self.history_snapshot())
+        entries = list(journal_entries) if journal_entries is not None else self.journal.entries()
         return {"capability": CAPABILITY, "principal": PRINCIPAL,
                 "protocol_id": self.protocol.value["protocol_id"],
                 "protocol_digest": self.protocol.value["protocol_digest"],
                 "transition_id": self.protocol.value["transition_id"], "requested_stage": target,
-                "prior_phase": self.phase, "journal_head_digest": (self.journal.entries()[-1]["entry_digest"]
-                                                                    if self.journal.entries() else "GENESIS"),
+                "prior_phase": prior_phase if prior_phase is not None else self.phase,
+                "journal_head_digest": entries[-1]["entry_digest"] if entries else "GENESIS",
                 "installation_identity": self.protocol.value["installation_identity"],
                 "predecessor_identity": self.protocol.value["predecessor_a"],
                 "successor_identity": self.protocol.value["successor_b"],
@@ -733,6 +739,65 @@ class ResidentCognitiveModelTransitionController:
                 "current_boundary": boundary,
                 "correlation_id": approval.get("correlation_id"),
                 "operation_identity": approval.get("operation_identity")}
+
+    def plan_stage_admission(self, approval: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Inspect one supplied stage approval without selecting or admitting it.
+
+        The approval digest is unkeyed.  A successful result means only that
+        the supplied bytes are digest-consistent, current, and bound to the
+        observed transition state; it does not authenticate the operator or
+        authorize a transition effect.
+        """
+        supplied_stage = approval.get("requested_stage") if isinstance(approval, Mapping) else None
+        supplied_digest = approval.get("approval_digest") if isinstance(approval, Mapping) else None
+        base: dict[str, Any] = {
+            "schema_version": "sentientos.resident_cognitive_transition_stage_admission_plan:v1",
+            "effect_performed": False, "execution_allowed": False,
+            "grants_authority": False, "approval_selected": False,
+            "approval_minted": False, "operator_origin_authenticated": False,
+            "operator_origin_posture": "not_authenticated_by_unkeyed_digest",
+            "exact_operator_approval_evidence_read": False,
+            "live_owner_revalidation_required": True, "read_only": True,
+        }
+        try:
+            if not isinstance(approval, Mapping):
+                raise TransitionError("stage_approval_invalid")
+            self.protocol.verify()
+            entries = self.journal.entries()
+            reconstructed = self._reconstruct(entries)
+            head = entries[-1]["entry_digest"] if entries else "GENESIS"
+            base.update({"current_phase": reconstructed.phase, "journal_head_digest": head,
+                         "requested_stage": supplied_stage, "approval_digest": supplied_digest})
+            if reconstructed.blocked:
+                raise TransitionError(reconstructed.reason or "transition_stage_admission_blocked")
+            if reconstructed.phase == PHASES[-1]:
+                raise TransitionError("experiment_already_complete")
+            target = PHASES[PHASES.index(reconstructed.phase) + 1]
+            if supplied_stage != target:
+                raise TransitionError("stage_approval_binding_mismatch")
+            boundary = _plain(self.history_snapshot())
+            verify_stage_approval(
+                approval,
+                expected=self._approval_expected(target, approval,
+                    prior_phase=reconstructed.phase, journal_entries=entries,
+                    boundary_snapshot=boundary),
+                observation_time=self.clock(),
+                allow_synthetic_for_tests=self.allow_synthetic_approval_for_tests,
+            )
+            if (self.journal.entries() != list(entries)
+                    or _plain(self.history_snapshot()) != boundary):
+                raise TransitionError("transition_state_changed_during_stage_inspection")
+        except TransitionError as exc:
+            base.update({"status": "stage_admission_plan_unavailable", "reason": exc.code})
+            return MappingProxyType(base)
+        except Exception:
+            base.update({"status": "stage_admission_plan_unavailable",
+                         "reason": "transition_stage_inspection_failed"})
+            return MappingProxyType(base)
+        base.update({"status": "stage_approval_candidate_state_bound",
+                     "approval_posture": "caller_supplied_digest_and_state_binding_valid",
+                     "operator_origin_authenticated": False})
+        return MappingProxyType(base)
 
     def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None,
                 stage_execution_context: TransitionStageExecutionContext | None = None,

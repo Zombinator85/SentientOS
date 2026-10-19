@@ -32,6 +32,25 @@ Receipts form a hash chain at
 already in that custody returns `already_consumed` without calling the controller.  The
 request file is never deleted or rewritten.
 
+## Supplied stage-approval inspection
+
+`RuntimeMaintenanceSurfaces.plan_resident_cognitive_transition_stage_admission`
+accepts one caller-supplied stage-approval object and returns a read-only
+`sentientos.resident_cognitive_transition_stage_admission_plan:v1` projection.
+The controller rechecks the supplied digest, exact next-stage and prior-phase
+binding, current journal head, protocol and installation identities, serving and
+history boundary, validity window, and synthetic-test posture against a fresh
+read of current state. It does not read the request mailbox, select or mint an
+approval, append a journal entry, consume a request, or invoke the stage owner.
+
+A `stage_approval_candidate_state_bound` result means only that the supplied
+object is internally digest-consistent and bound to the observed state. The
+approval digest is unkeyed, so this inspection does not authenticate the
+operator or prove that an operator issued the object. The result explicitly
+keeps `operator_origin_authenticated=false`, `execution_allowed=false`, and
+`grants_authority=false`; live stage processing remains separately responsible
+for fresh validation and all effect owners retain their independent admissions.
+
 ## Runtime ordering and status
 
 `RuntimeMaintenanceSurfaces.process_resident_cognitive_transition_request` calls the

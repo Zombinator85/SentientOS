@@ -3035,6 +3035,34 @@ class RuntimeMaintenanceSurfaces:
                     "reason": "planning_failed", "error_class": type(exc).__name__,
                     **unavailable}
 
+    def plan_resident_cognitive_transition_stage_admission(
+            self, stage_approval: Mapping[str, Any]) -> dict[str, Any]:
+        """Inspect one supplied approval without selecting or processing a request."""
+        unavailable = {
+            "schema_version": "sentientos.resident_cognitive_transition_stage_admission_plan:v1",
+            "status": "stage_admission_plan_unavailable",
+            "reason": "resident_transition_owner_unavailable",
+            "effect_performed": False, "execution_allowed": False,
+            "grants_authority": False, "approval_selected": False,
+            "approval_minted": False, "operator_origin_authenticated": False,
+            "exact_operator_approval_evidence_read": False,
+            "live_owner_revalidation_required": True, "read_only": True,
+        }
+        transition_owner = self._resident_transition_runtime
+        if transition_owner is None:
+            return unavailable
+        planner = getattr(transition_owner, "plan_stage_admission", None)
+        if not callable(planner):
+            return {**unavailable, "reason": "resident_transition_planner_unavailable"}
+        try:
+            plan = planner(stage_approval)
+        except Exception as exc:
+            return {**unavailable, "reason": "stage_admission_inspection_failed",
+                    "error_class": type(exc).__name__}
+        if not isinstance(plan, Mapping):
+            return {**unavailable, "reason": "stage_admission_plan_invalid"}
+        return dict(plan)
+
     def plan_production_self_reflection_transition_active_trial_binding(
             self, request_id: str) -> dict[str, Any]:
         """Plan a receipt-bound active-trial snapshot without executing its stage."""

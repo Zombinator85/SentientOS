@@ -473,12 +473,50 @@ def test_daemon_transition_planning_delegates_without_processing_operator_packet
     assert result["grants_authority"] is False
     assert calls == {"planned": ["request-17"], "processed": 0}
 
+
+def test_daemon_stage_admission_plan_uses_explicit_approval_without_processing_request():
+    supplied = {"requested_stage": "a_to_b_transition_requested",
+                "approval_digest": "d" * 64}
+    calls = {"planned": [], "processed": 0}
+
+    class Runtime:
+        def process_one(self):
+            calls["processed"] += 1
+            raise AssertionError("stage planning must not process an operator request")
+
+        def plan_stage_admission(self, stage_approval):
+            calls["planned"].append(stage_approval)
+            return {
+                "status": "stage_approval_candidate_state_bound",
+                "requested_stage": stage_approval["requested_stage"],
+                "approval_digest": stage_approval["approval_digest"],
+                "operator_origin_authenticated": False,
+                "effect_performed": False, "execution_allowed": False,
+                "grants_authority": False, "approval_selected": False,
+                "approval_minted": False, "read_only": True,
+            }
+
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = Runtime()
+
+    plan = surfaces.plan_resident_cognitive_transition_stage_admission(supplied)
+
+    assert plan["status"] == "stage_approval_candidate_state_bound"
+    assert plan["requested_stage"] == supplied["requested_stage"]
+    assert plan["approval_digest"] == supplied["approval_digest"]
+    assert plan["operator_origin_authenticated"] is False
+    assert plan["effect_performed"] is False and plan["execution_allowed"] is False
+    assert plan["grants_authority"] is False
+    assert plan["approval_selected"] is False and plan["approval_minted"] is False
+    assert plan["read_only"] is True
+    assert calls == {"planned": [supplied], "processed": 0}
+
 def test_daemon_active_trial_binding_uses_request_declared_trial_without_execution(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from sentientos import production_self_reflection_campaign as campaign_module
 
     calls = {"planned": [], "bound": [], "processed": 0}
-    campaign = object()
+    campaign = object.__new__(campaign_module.ProductionSelfReflectionCampaign)
 
     class Runtime:
         def process_one(self):
