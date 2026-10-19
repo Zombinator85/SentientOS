@@ -1,0 +1,144 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 466,
+  "title": "Bind verified transition-stage receipts to operator custody",
+  "observed_at": "2026-10-19T14:03:54Z",
+  "predecessor": {
+    "sequence": 465,
+    "segment_path": "work/construction/segments/0465-verify-sequence464-and-exact-parent-finalizer.md",
+    "segment_sha256": "ba111e703d43a96faf1ac6fda81ebe2f0ed00095365e9096f6fffc70d905db59"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "09e0492e16dc2c6999ba309f87554a052074b33b",
+    "candidate_commit": "1e1d7aeea3cf55e33c7ff4a40b7d347549436362",
+    "merge_commit": "cb1c5b97e869d9cdd86c18ab9cfceee9fad3ca8f",
+    "tree": "2d66f6cf52caf905043c3cbe4d35d8d688067384",
+    "parents": [
+      "09e0492e16dc2c6999ba309f87554a052074b33b",
+      "1e1d7aeea3cf55e33c7ff4a40b7d347549436362"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2435,
+    "title": "[codex:construction] expose verified transition stage receipts read-only",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2435",
+    "state": "merged",
+    "head_sha": "1e1d7aeea3cf55e33c7ff4a40b7d347549436362"
+  },
+  "behavior": {
+    "files": [
+      "sentientos/resident_cognitive_transition_operator.py",
+      "tests/test_resident_cognitive_transition_operator.py"
+    ],
+    "projection": "read_only_exact_request_receipt_journal_and_semantic_stage_binding",
+    "checks": [
+      "protocol_and_installation_identity",
+      "append_only_operator_receipt_chain",
+      "attempted_completed_journal_pair",
+      "approval_digest",
+      "receipt_to_terminal_journal_digest",
+      "controller_semantic_verification"
+    ],
+    "authority": {
+      "consumes_request": false,
+      "recovers_missing_receipt": false,
+      "exposes_approvals": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    },
+    "failure_cases": [
+      "rejected_or_missing_receipt",
+      "protocol_or_request_mismatch",
+      "journal_lineage_mismatch",
+      "interrupted_receipt_append_without_recovery",
+      "semantic_verification_missing"
+    ]
+  },
+  "candidate_validation": {
+    "push_quality_gate": 39263878759,
+    "push_ci": 39263879814,
+    "push_invariants": 39263879421,
+    "pr_checks": {
+      "ci": 39263887007,
+      "quality_gate": 39263916064,
+      "invariants": 39263887169,
+      "docker": 39263887043,
+      "codex_ci": 39263886634,
+      "release": 39263886639,
+      "gradient_null": 39263887157,
+      "lint_benchmark": 39263886666,
+      "all_success": true
+    },
+    "hosted_finalizer_artifact": {
+      "run_id": 39263878759,
+      "artifact_id": 12192860039,
+      "artifact_sha256": "sha256:7e2dab79e320bbe31cc1f69105f045dfe9db13a87e165ffe6ed50c1bf44f87ac",
+      "candidate_sha": "1e1d7aeea3cf55e33c7ff4a40b7d347549436362",
+      "candidate_selected_tests": 30,
+      "candidate_tests_failed": 0,
+      "candidate_validation": "validation_complete",
+      "precommit_parent": "ef61920de56e07e93e274caaea9adeaf7d66be5a",
+      "precommit_selected_tests": 30,
+      "precommit_tests_failed": 0,
+      "precommit_validation": "validation_complete",
+      "precommit_finalizer": "ready_to_commit",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "profile": "solo",
+      "exhaustive_matrix": "not_requested"
+    }
+  },
+  "prior_gate_failures": [
+    {
+      "run_id": 39263259709,
+      "reason": "PR title did not match latest commit subject; metadata check correctly failed"
+    },
+    {
+      "run_id": 39263554569,
+      "reason": "metadata-only commit produced empty diff rejected by exact-parent reconstruction"
+    },
+    {
+      "run_id": 39263562941,
+      "reason": "metadata-only commit produced empty diff rejected by exact-parent reconstruction"
+    }
+  ],
+  "post_merge_checks": {
+    "quality_gate": 39264661467,
+    "ci": 39264661411,
+    "invariants": 39264661717,
+    "docker": 39264661590,
+    "codex_ci": 39264661554,
+    "docs_deploy": 39264661390,
+    "forge_smoke": {
+      "run_id": 39264661378,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    },
+    "all_applicable_success": true
+  },
+  "federation_health": {
+    "observed_at": "2026-10-19T14:03:54Z",
+    "scheduled_run_on_current_main": false,
+    "latest_scheduled_run": 39218331969,
+    "latest_scheduled_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+    "next_expected_cron": "2026-10-19T14:17:00Z"
+  },
+  "coverage_boundary": {
+    "direct_receipt_tests_run_by_current_ci": false,
+    "follow_up": "Add exact receipt regression nodes to hosted source validation and preserve per-run provenance."
+  },
+  "limitations": {
+    "campaign_execution": false,
+    "production_trial": false,
+    "synthetic_rehearsal": false,
+    "readiness": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "segment_path": "work/construction/segments/0466-verify-sequence465-and-bind-receipt-projections.md",
+  "segment_sha256": "481fe849ae269bc1a3f64579437538c8990e236f2846a443ff03be0593d1e4c8",
+  "segment_bytes": 4231
+}
