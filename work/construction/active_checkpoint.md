@@ -2,9 +2,9 @@
 
 ## Latest verified main
 
-PR #2402 regular-merged sequence 435 at main `f96372e629c621536571be1eb1cb63514417fe1e`, preserving candidate tree `000248bd345ae7e6eef98d23f4444714f105459a`. Exact-candidate CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient, Release, and Lint Benchmark passed. CI included canonical self-check, integrated source validation, documentation build, and linkcheck. The Required Quality Gate passed actual Administrator strict audit and immutability, hosted finalization, and the separate pre-publication metadata guard.
+PR #2403 regular-merged sequence 436 at main `8a3d72b9b608dbe41753f454d215b5528ef854dd`, preserving candidate tree `c72e9b571212b9776d7e8c9db8102c5fec5af977`. Exact main-push checks passed: Required Quality Gate #39216241571 (actual Administrator strict audit and exact acceptance), CI #39216241670, Invariant Tests #39216241779, Docs Deploy #39216241755, Codex CI #39216241758, and Docker #39216241648. Forge Smoke #39216241604 was skipped under its configured condition. Main CI passed canonical self-check, integrated resource-to-cognition validation, canonical planning/execution separation, hosted documentation linkcheck, and Helm/Kubernetes.
 
-Post-merge main-push checks and scheduled Federation Health/nightly executions on this SHA remain unobserved.
+Post-merge scheduled Federation Health and nightly audit/self-check executions on this SHA have not yet been observed.
 
 ## Current construction boundary
 
@@ -18,7 +18,7 @@ The daemon resource observer remains explicitly opt-in and read-only. Startup ha
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `f96372e629c621536571be1eb1cb63514417fe1e`, tree `000248bd345ae7e6eef98d23f4444714f105459a`.
-Latest construction segment: `work/construction/segments/0436-verify-sequence435-merge-main.md`
-Latest segment SHA-256: `f973360ce87341b4ef3593afa234388c1f6ac0e20e512b9bfd19048d69f6471b`
-Sequence: 436 (merge evidence candidate; hosted verification pending)
+Latest verified main: `8a3d72b9b608dbe41753f454d215b5528ef854dd`, tree `c72e9b571212b9776d7e8c9db8102c5fec5af977`.
+Latest construction segment: `work/construction/segments/0437-verify-sequence436-postmerge-main.md`
+Latest segment SHA-256: `dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113`
+Sequence: 437 (post-merge evidence candidate; hosted verification pending)
