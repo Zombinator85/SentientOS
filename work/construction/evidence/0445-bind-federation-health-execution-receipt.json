@@ -1,0 +1,101 @@
+{
+  "authority": {
+    "audit_strictness_weakened": false,
+    "permissions_broadened": false,
+    "protected_workspaces_modified": false
+  },
+  "observation_gap": {
+    "actions_reader": "connected commit workflow reader returns pull-request-triggered runs only",
+    "historical_publisher_policy_example": {
+      "default_github_token_pr_creation": "blocked_by_repository_settings",
+      "pull_request": 2292,
+      "workflow_run_id": 39010139696
+    },
+    "network_fallback": "public_api_request_blocked_by_environment_gateway",
+    "scheduled_or_push_result_claimed": false
+  },
+  "post_merge_federation_health_on_this_sha": "not_claimed",
+  "predecessor_segment_sha256": "ff0105048844dbb74298b5f75dfb3ed0201d0237744984ec003255dab159e3e3",
+  "previous_merge": {
+    "candidate_commit": "acaed2637088df729b61c5463082fa5e18946016",
+    "candidate_tree": "8e735cc88e10cbb262daa56b34fd1227e3fdf980",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39222745976
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39222745864
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 39222746010
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39222745756
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39222746143
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39222745987
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39222745814
+      },
+      "required_quality_gate": {
+        "administrator_finalizer": "passed",
+        "conclusion": "success",
+        "prepublication_metadata_guard": "passed",
+        "run_id": 39222745950
+      }
+    },
+    "merge_commit": "6b4385e58e283783452efd4444581aaa83609be0",
+    "merge_method": "merge",
+    "pull_request": 2409
+  },
+  "receipt_design": {
+    "actions_write_added": false,
+    "allowed_events": [
+      "push",
+      "schedule",
+      "workflow_dispatch"
+    ],
+    "automatic_main_publication_added": false,
+    "contains_peer_or_log_data": false,
+    "fields": [
+      "workflow_run_id",
+      "workflow_run_attempt",
+      "event_name",
+      "ref",
+      "head_sha",
+      "administrator_preflight",
+      "health_generator",
+      "report_sha256"
+    ],
+    "fixture_publication_remains_single_file": true,
+    "health_job_permissions_unchanged": true,
+    "only_main_ref": true,
+    "publisher_permissions_unchanged": true,
+    "schema_version": "sentientos.federation_health_execution:v1"
+  },
+  "sequence": 445,
+  "source_commit": "6b4385e58e283783452efd4444581aaa83609be0",
+  "source_tree": "8e735cc88e10cbb262daa56b34fd1227e3fdf980",
+  "status": "source_candidate_pending_hosted_verification",
+  "title": "Bind Federation Health output to its workflow execution",
+  "verification": {
+    "construction_custody": "pending_until_sequence_445_bindings",
+    "execution_receipt_helper_smoke": "passed",
+    "hosted_admin_strict_gate": "pending",
+    "hosted_canonical_tests": "pending",
+    "local_pytest": "not run; canonical hosted environment is required",
+    "python_compile": "passed",
+    "workflow_yaml_and_permissions": "passed"
+  }
+}
