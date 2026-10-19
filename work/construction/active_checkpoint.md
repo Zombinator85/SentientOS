@@ -2,19 +2,19 @@
 
 ## Latest verified main
 
-PR #2446 added a distinct daemon API to compose the read-only verified transition plan with the canonical campaign owner's active-trial binding. It takes the trial identifier only from the exact request's verified receipt projection, fails closed when the plan or declaration is absent, and delegates to the owner to revalidate the plan and current digest-verified campaign state. Planning does not process requests or execute a stage.
+PR #2448 added a daemon-composed read-only inspection for one explicitly supplied resident cognitive transition stage approval. The controller reconstructs one journal snapshot, verifies exact next-stage and prior-phase bindings plus protocol, installation, serving, history, validity, and synthetic posture, then rejects journal or history drift observed during inspection. The operator and daemon surfaces delegate this candidate inspection without reading or processing the request mailbox. No approval is selected or minted and no stage is executed. An unkeyed digest does not authenticate operator origin.
 
-Exact candidate `bfb25ad31dcd24dec2ec2e775ed7bf68ac49b8df` passed CI, source validation, Mypy, pytest with coverage, docs linkcheck, Helm, Codex CI, Docker, release, invariants, gradient regression, lint, hosted Administrator strict audits, exact acceptance binding, privileged finalizer, and separate metadata guard. PR #2446 merged regularly as `19f202bd0f44352599f0750f58133407256d610a`, tree `689b126c098ca7798626901739177e9003c21ca6`. No separate post-merge workflow run for this merge SHA was returned.
+Candidate dacf03dd9b65aa74658973ccfb952ddde3e8db99 passed local focused tests (56 passed), compilation, whitespace checks, and an exact-base Mypy comparison with zero new or removed diagnostics. The pre-publication hosted quality gate passed Administrator strict audits, pre-commit and landing finalizers, and the separate metadata guard. PR checks passed, including full CI, source acceptance, Mypy, pytest, FastAPI TestClient, docs linkcheck, Helm, Docker, Release, Codex CI, gradient regression, and invariants. PR #2448 merged regularly as 95377ecc940eb4f39bfdf61c92f0681cb3d6560d, tree 4876955c9bdd3a0c73e1344c859711a7e5c8a30a, with ordered parents d5f7e2d86d602e4be500891b964df10c20a2010b and dacf03dd9b65aa74658973ccfb952ddde3e8db99. Post-merge CI, Administrator quality gate, Docs Deploy/Pages, Codex CI, Docker, and invariants all passed. Forge Smoke was skipped by its workflow condition.
 
 ## Open evidence boundaries
 
-- Scheduled Federation Health run #39279382936 completed its privileged update on a pre-merge main head and uploaded execution-bound evidence; its publication job failed because repository policy prohibits Actions-token PR creation. The workflow already declares `contents:write` and `pull-requests:write`. No scheduled execution on current main has been observed.
-- Nightly Self Check #39235681245 and Nightly Audit Integrity #39228761152 succeeded on older heads. The remaining automated publication repair needs an authorized least-privilege GitHub App integration or administrator-approved repository setting.
-- Next developmental dependency: trace the separate stage-approval artifact contract and determine whether a read-only stage-admission plan can consume an explicitly supplied approval while leaving live owner admission as the execution boundary. The planner must not select or mint approvals.
-- Historical test provenance remains `INTEGRITY_BROKEN`; sequence-286 loss remains explicit. Production A→B→A still requires commissioned identities, distinct serving approvals, operator preregistration, and live execution.
+- The live request carries operator_identity and operator_provenance, but those claims are not authenticated by a verifier. The next dependency is a purpose-specific operator-provisioned verification boundary; missing or invalid trust must fail closed.
+- Scheduled Federation Health on current main has not been observed; nightly workflow publication still needs a least-privilege GitHub App or administrator-approved setting.
+- Historical test provenance remains INTEGRITY_BROKEN; sequence-286 loss remains explicit.
+- Production temporal resident transition evidence remains uncollected. Production A-to-B-to-A still requires commissioned identities, distinct serving approvals, operator preregistration, authenticated stage approval provenance, and live execution.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `19f202bd0f44352599f0750f58133407256d610a`, tree `689b126c098ca7798626901739177e9003c21ca6`
-Latest construction segment: `work/construction/segments/0471-compose-daemon-active-trial-binding.md`
-Latest segment SHA-256: 18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b
-Sequence: 471 (daemon planning composes request-declared active-trial binding; no separate post-merge workflow or current-main scheduled Federation Health has been observed)
+Latest verified main: `95377ecc940eb4f39bfdf61c92f0681cb3d6560d`, tree `4876955c9bdd3a0c73e1344c859711a7e5c8a30a`
+Latest construction segment: work/construction/segments/0472-read-only-stage-admission-planning.md
+Latest segment SHA-256: b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b
+Sequence: 472 (daemon-composed read-only transition-stage admission planning)
