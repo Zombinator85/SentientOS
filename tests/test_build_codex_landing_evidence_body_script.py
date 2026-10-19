@@ -215,6 +215,8 @@ def test_solo_generation_without_matrix_is_truthful_and_binds(tmp_path: Path) ->
     assert "Prompt-boundary result: passed by finalizer (exit_code=0)" in body
     assert "Strict audit result: passed by finalizer (exit_code=0)" in body
     assert "Immutability verifier result: passed by finalizer (exit_code=0)" in body
+    assert "Landing Supervisor result: not required by the sealed solo validation profile." in body
+    assert "pending or not yet written at ." not in body
     assert "matrix runner succeeded" not in body.lower()
     assert "matrix passed" not in body.lower()
 

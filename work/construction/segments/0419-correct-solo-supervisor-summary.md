@@ -1,0 +1,7 @@
+# Sequence 419 — Correct solo Landing Supervisor summary
+
+The canonical PR-body builder reported “pending or not yet written at .” when the sealed plan selected the solo profile and no separate Landing Supervisor phase was required. This contradicted the profile disposition already stated elsewhere in the same body. The builder now reports that the phase is not required by the sealed solo profile; exhaustive-profile behavior retains its pending-artifact wording when no result is supplied. A regression assertion covers both the truthful solo statement and rejection of the blank-path placeholder.
+
+The focused `tests/test_build_codex_landing_evidence_body_script.py` suite passed 13/13 with the repository's explicit `SENTIENTOS_ALLOW_NAKED_PYTEST=1` local opt-in. Python compilation and `git diff --check` passed. This opt-in bypasses only the local canonical-install airlock; it is not counted as canonical full-suite validation. The repository-native runner remains blocked before pytest because the sandbox proxy cannot fetch the required setuptools version. Hosted exact-candidate quality gate and CI are required before merge; they are pending for this increment.
+
+This source fix changes generated PR evidence wording only. It does not change validation requirements, tests, authority, runtime behavior, or workflow permissions. Latest verified main remains `9dd0ba01c1ff87b67200c367212e95a71eb370da` tree `cfe1e9a0f04f638ab5287ac7d8f01b7e0e75f0d8`. Sequence 419 is append-only and preserves all prior records, including sequences 382–386.
