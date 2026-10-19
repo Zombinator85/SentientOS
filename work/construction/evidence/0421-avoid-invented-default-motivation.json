@@ -1,0 +1,87 @@
+{
+  "change": {
+    "authority_expansion": false,
+    "behavior": "when --motivation is omitted, generated evidence states that motivation was not supplied instead of claiming unrelated landing-recovery work",
+    "runtime_behavior_changed": false,
+    "source": "scripts/build_codex_landing_evidence_body.py",
+    "test": "tests/test_build_codex_landing_evidence_body_script.py",
+    "workflow_privileges_changed": false
+  },
+  "developmental_evidence": {
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "local_verification": {
+    "canonical_runner": "not_run; direct focused pytest used explicit local airlock opt-in",
+    "focused_suite": {
+      "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 PYTHONPATH=. python -m pytest -q tests/test_build_codex_landing_evidence_body_script.py",
+      "failed": 0,
+      "passed": 14,
+      "scope": "targeted only; bypasses canonical-install airlock for this local focused run"
+    },
+    "git_diff_check": "passed",
+    "hosted_exact_candidate": "pending",
+    "mypy": "python -m mypy scripts/build_codex_landing_evidence_body.py; passed, 1 source file",
+    "py_compile": "passed for changed Python script"
+  },
+  "main_verification_at_checkpoint": {
+    "checks": {
+      "ci": {
+        "active_step": "warning-strict documentation link check",
+        "completed_jobs": [
+          "Source validation (unprivileged)",
+          "self-check",
+          "helm-k8s-test"
+        ],
+        "run_id": 39189952073,
+        "status": "in_progress"
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39189951997
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39189952006
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 39189952107
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_condition",
+        "run_id": 39189952053
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39189952001
+      },
+      "required_quality_gate": {
+        "acceptance_failed": 0,
+        "acceptance_passed": 29,
+        "artifact_id": 12159795801,
+        "artifact_sha256": "f6d9bfe025100ec863f591acf94687c3b4407af34fc272fc80e5429964828efe",
+        "conclusion": "success",
+        "effective_uid": 0,
+        "immutability": "passed",
+        "run_id": 39189952040,
+        "strict_audit": "passed"
+      }
+    },
+    "main_sha": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
+    "merge_pr": 2390,
+    "tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019"
+  },
+  "previous_segment_sha256": "a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
+  "sequence": 421,
+  "source_commit": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
+  "source_tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019",
+  "title": "Avoid invented default motivation in generated landing evidence",
+  "workspace_preservation": {
+    "sequence_411_workspace_modified": false,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false,
+    "stale_sequence_417_workspace_modified": false
+  }
+}

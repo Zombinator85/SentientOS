@@ -1,0 +1,9 @@
+# Sequence 421 — Avoid invented default motivation in generated landing evidence
+
+The canonical landing evidence body generator supplied a hardcoded motivation about hardening landing recovery whenever callers omitted `--motivation`. That statement described a different task and could be copied into a PR body for unrelated work. The generator now emits a neutral factual sentence that motivation was not supplied. A regression test generates a body without the argument and checks both the new statement and absence of the unrelated claim.
+
+Local verification passed: 14 focused tests using `SENTIENTOS_ALLOW_NAKED_PYTEST=1`, targeted mypy for the changed script, Python compilation, and `git diff --check`. The direct pytest opt-in bypasses the local install airlock; the canonical runner and exhaustive matrix have not run for this increment. Exact candidate hosted validation is pending.
+
+The change affects only generated evidence text and its test. It changes no runtime behavior, authority, governance, validation gate, or workflow permissions. Base main is `4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8`, tree `3da90728a7c7276c3cbcd861ec0abb1883e89019`, after the regular merge of PR #2390. Candidate checks for that merge passed. Exact-main Required Quality Gate #39189952040, Docker #39189952006, Invariant Tests #39189952001, Docs Deploy #39189952107, and Codex CI #39189951997 passed; Forge Smoke #39189952053 skipped by condition. Exact-main CI #39189952073 had passed source validation, self-check, and Helm; its warning-strict documentation link check remained in progress at 2026-10-19 02:32 UTC.
+
+This record preserves all earlier construction evidence, sequences 382–386, and the untouched stale sequence-178, sequence-411, and sequence-417 workspaces. Historical test-provenance integrity remains broken at its unanchored start. No production inference or resident A→B→A trial occurred.

@@ -339,7 +339,7 @@ def build_body(
     path_text = str(matrix_json_path) if matrix_json_path else ""
 
     sections = [
-        ("### Motivation", _text(motivation, "Harden Codex landing evidence so late PR metadata/finalizer failures retain canonical, repo-native recovery information instead of relying on hand-written evidence bodies.")),
+        ("### Motivation", _text(motivation, "Motivation was not supplied to the evidence-body generator.")),
         ("### Description", _text(description, f"Title: {title}\nIntended commit title: {intended_commit_title}\nValidation profile: {validation_profile}\nCommit SHA: {commit_binding.get('head_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nTree SHA: {commit_binding.get('tree_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nParent/base SHA: {commit_binding.get('parent_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nChanged-path manifest digest: {commit_binding.get('changed_path_manifest_digest', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nMatrix digest: {artifact_digests.get('matrix', 'not applicable')}\nArtifact digests: {json.dumps(artifact_digests, sort_keys=True)}")),
         ("### Testing", _text(testing, "See exact task acceptance and phase-finalizer checks below; the sealed solo plan did not request an exhaustive matrix." if validation_profile == "solo" else "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.") + ("\n\nExact task acceptance: " + json.dumps(acceptance, sort_keys=True) if isinstance(acceptance, Mapping) else "")),
         ("### Targeted mypy", f"Targeted mypy result: {targeted_mypy_result}"),

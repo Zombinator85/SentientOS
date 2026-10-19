@@ -221,6 +221,20 @@ def test_solo_generation_without_matrix_is_truthful_and_binds(tmp_path: Path) ->
     assert "matrix passed" not in body.lower()
 
 
+def test_unsupplied_motivation_does_not_claim_unrelated_work(tmp_path: Path) -> None:
+    finalizer = _finalizer(tmp_path / "solo-finalizer.json", "solo")
+    output = tmp_path / "body.md"
+    code = main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--landing-supervisor-json-path", "", "--output", str(output),
+        "--pr-metadata-finalizer-json-path", str(finalizer),
+    ])
+    assert code == 0
+    body = output.read_text(encoding="utf-8")
+    assert "Motivation was not supplied to the evidence-body generator." in body
+    assert "Harden Codex landing evidence" not in body
+
+
 def test_solo_rejects_supplied_exhaustive_matrix(tmp_path: Path) -> None:
     output = tmp_path / "body.md"
     code = main([
