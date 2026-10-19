@@ -1,0 +1,121 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 468,
+  "title": "Plan from verified transition receipts without execution",
+  "observed_at": "2026-10-19T17:51:28Z",
+  "predecessor": {
+    "sequence": 467,
+    "segment_path": "work/construction/segments/0467-verify-transition-stage-receipt-projections.md",
+    "segment_sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "92c8bf83e75cb622f7c8380bafcf3e90e6eee127",
+    "first_candidate": "02f0eb787b310b89cdd0a51b026cb967f7ba3a02",
+    "candidate_commit": "f571ffa88f85ddd8bb1996d8be36ca801cce6499",
+    "merge_commit": "2efb378e4548d92209ff1f953393c909e9e2c97a",
+    "tree": "bb86a1a451963624a01d1690144bb7e0545cc995",
+    "parents": [
+      "92c8bf83e75cb622f7c8380bafcf3e90e6eee127",
+      "f571ffa88f85ddd8bb1996d8be36ca801cce6499"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2439,
+    "title": "[codex:construction] import receipt planner regression mapping",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2439",
+    "state": "merged",
+    "head_sha": "f571ffa88f85ddd8bb1996d8be36ca801cce6499"
+  },
+  "behavior": {
+    "files": [
+      "sentientos/production_self_reflection_campaign.py",
+      "tests/test_production_self_reflection_campaign.py",
+      ".github/workflows/ci.yml",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "projection": "read_only_exact_verified_receipt_to_canonical_next_stage_plan",
+    "checks": [
+      "receipt_schema_and_binding_digest",
+      "campaign_and_owner_protocol_identity",
+      "live_phase_and_journal_head",
+      "semantically_verified_completion_entry",
+      "malformed_semantic_entry_fail_closed"
+    ],
+    "authority": {
+      "processes_operator_request": false,
+      "selects_approval": false,
+      "advances_campaign": false,
+      "establishes_campaign_trial_binding": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    }
+  },
+  "candidate_validation": {
+    "first_candidate": {
+      "sha": "02f0eb787b310b89cdd0a51b026cb967f7ba3a02",
+      "source_validation_run": 39296332005,
+      "tests_passed": 1,
+      "tests_failed": 1,
+      "cause": "test fixture omitted MappingProxyType import",
+      "disposition": "fixed_in_follow_up_before_merge"
+    },
+    "fixed_candidate": {
+      "sha": "f571ffa88f85ddd8bb1996d8be36ca801cce6499",
+      "source_validation_run": 39296948694,
+      "source_validation_merge_ref": "b87df258874c7293f2e6484c082d0c6470cb56d2",
+      "source_validation_artifact": 12209241960,
+      "source_validation_artifact_sha256": "sha256:124cf0ca42a19d0746507a1985c312fccb02ccff79a2c5c49b0dde4cf857a635",
+      "tests_passed": 2,
+      "tests_failed": 0,
+      "validation_status": "validation_complete",
+      "acceptance_status": "task_acceptance_ready"
+    }
+  },
+  "quality_gate": {
+    "earlier_stale_title_run": 39296948758,
+    "earlier_stale_title_conclusion": "failure",
+    "current_run": 39296955774,
+    "finalizer_artifact": 12209636661,
+    "finalizer_artifact_sha256": "sha256:156426b764d9884cafeb893671c288af405c1317817dd642c5db0f5a01ff0f89",
+    "finalizer": "ready_to_commit",
+    "metadata_guard": "pr_metadata_guard_ready"
+  },
+  "current_candidate_check_runs": [
+    39296948694,
+    39296948701,
+    39296948712,
+    39296948674,
+    39296948846,
+    39296949171,
+    39296948690,
+    39296955774
+  ],
+  "all_current_candidate_checks_success": true,
+  "self_check": "success",
+  "mypy": "success",
+  "pytest_with_coverage": "success",
+  "docs_linkcheck": "success",
+  "helm": "success",
+  "docker": "success",
+  "post_merge_checks": {
+    "merge_commit": "2efb378e4548d92209ff1f953393c909e9e2c97a",
+    "workflow_runs_returned": [],
+    "all_applicable_success": false,
+    "limitation": "GitHub connector returned no separate post-merge workflow runs for this merge SHA at verification time"
+  },
+  "limitations": {
+    "campaign_execution": false,
+    "production_trial": false,
+    "synthetic_rehearsal": false,
+    "readiness": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "segment_path": "work/construction/segments/0468-plan-from-verified-transition-receipts.md",
+  "segment_sha256": "0c2a7a71f955d1ca94b8309641ac963c28c1cff7d1d1a6be9349c0c8514fa96f",
+  "segment_bytes": 3270
+}
