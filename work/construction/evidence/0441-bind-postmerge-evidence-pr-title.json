@@ -1,0 +1,41 @@
+{
+  "correction": {
+    "failed_run_preserved": true,
+    "final_candidate_commit_subject": "[codex:evidence] record post-merge nightly workflow runs (sequence 440)",
+    "final_candidate_commit_subject_matches_pr_title": true,
+    "previous_commit_history_rewritten": false,
+    "workflow_or_runtime_source_changed": false
+  },
+  "failed_check": {
+    "administrator_strict_audit": "passed",
+    "authority_defect": "not observed",
+    "commit_subject": "[codex:evidence] mark sequence 440 custody complete",
+    "conclusion": "failure",
+    "event": "pull_request",
+    "exact_candidate_acceptance": "passed",
+    "failed_phase": "pre-commit reconstruction step before worktree reconstruction",
+    "pr_metadata_guard": "not run",
+    "pr_title": "[codex:evidence] record post-merge nightly workflow runs (sequence 440)",
+    "precommit_finalizer": "not produced; title contract stopped the step before reconstruction",
+    "root_cause": "PR title did not equal the latest commit subject, as required by the landing workflow",
+    "run_id": 39219718803,
+    "workflow_source_defect": "not observed"
+  },
+  "predecessor_segment_sha256": "422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
+  "prior_candidate": {
+    "commit": "0b75cbe0d9d20f878a44fb2755cbf139dbb74918",
+    "pull_request": 2406,
+    "tree": "14696f4d7e9c88aef1eb0ce73751daf56925b7a1"
+  },
+  "sequence": 441,
+  "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+  "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29",
+  "status": "corrective_candidate_pending_hosted_verification",
+  "title": "Bind the post-merge evidence PR to the hosted title contract",
+  "verification": {
+    "construction_custody": "passed through sequence 441",
+    "git_diff_check": "passed",
+    "hosted_exact_candidate_checks": "pending",
+    "local_pytest": "not run; no runtime/test source changed, canonical hosted checks required"
+  }
+}

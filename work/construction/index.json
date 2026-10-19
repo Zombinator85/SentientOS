@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "05db5be155de3d35346e6792b33f17e61339e8108a2f26119af073c4618a2697",
-    "latest_segment_sequence": 440,
-    "latest_segment_sha256": "422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
-    "latest_sequence": 440,
+    "checkpoint_sha256": "2a2d6998ec9ee000665774b784aa43ef92ad8c83d45ba9e4250d859307a7f7a1",
+    "latest_segment_sequence": 441,
+    "latest_segment_sha256": "8445ab88376c1c0edd129372ad0ad68b3840fd05c491b4c9331c9d1f13e22923",
+    "latest_sequence": 441,
     "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
     "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
   },
-  "checkpoint_sha256": "05db5be155de3d35346e6792b33f17e61339e8108a2f26119af073c4618a2697",
+  "checkpoint_sha256": "2a2d6998ec9ee000665774b784aa43ef92ad8c83d45ba9e4250d859307a7f7a1",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 440,
+  "latest_sequence": 441,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4964,6 +4964,18 @@
       "sha256": "422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
       "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
       "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
+    },
+    {
+      "bytes": 1905,
+      "evidence_bytes": 1916,
+      "evidence_path": "work/construction/evidence/0441-bind-postmerge-evidence-pr-title.json",
+      "evidence_sha256": "221b383a4815e5052c1f33c030ab58efad2f1255610ac761b882fb72d457f994",
+      "path": "work/construction/segments/0441-bind-postmerge-evidence-pr-title.md",
+      "predecessor": "segment-sha256:422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
+      "sequence": 441,
+      "sha256": "8445ab88376c1c0edd129372ad0ad68b3840fd05c491b4c9331c9d1f13e22923",
+      "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+      "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
     }
   ],
   "source_acquisition": {
@@ -4973,6 +4985,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
+  "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

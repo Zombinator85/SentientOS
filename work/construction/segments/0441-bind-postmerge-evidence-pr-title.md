@@ -1,0 +1,9 @@
+# Sequence 441 — Bind the post-merge evidence PR to the hosted title contract
+
+**Construction status: corrective evidence candidate pending hosted verification.** PR #2406 carries sequence 440, which records the successful merge and main-push/nightly results. Its first PR-triggered Required Quality Gate (#39219718803) correctly stopped before pre-commit reconstruction because the latest commit subject `[codex:evidence] mark sequence 440 custody complete` did not exactly match the PR title `[codex:evidence] record post-merge nightly workflow runs (sequence 440)`. The failure is in the metadata contract, not the workflow source, strict audit, or exact candidate acceptance. The PR-triggered run passed hosted Administrator strict audit and exact acceptance; pre-commit finalization and the metadata guard did not run after the title equality check failed. This is preserved, not counted as a pass.
+
+Sequence 441 records that failed gate and corrects the candidate's final commit-title binding while preserving the previous branch commits and source tree content. The required check explicitly compares `PR_TITLE` and `COMMIT_TITLE`; the final commit message will be made byte-for-byte identical to the PR title. No runtime or workflow source is changed. The earlier successful push-triggered gate does not substitute for the separate PR-triggered finalizer.
+
+Local construction custody validates through sequence 441, and local diff checks pass. The corrected exact candidate still requires hosted canonical CI, strict Administrator verification, reconstructed pre-commit finalizer, and the pre-publication metadata guard before merge.
+
+Source base remains verified main `45a512233b1eeb2144cd19fda16ed46dfc03b234`, tree `1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29`. PR #2406's prior evidence candidate was `0b75cbe0d9d20f878a44fb2755cbf139dbb74918`, tree `14696f4d7e9c88aef1eb0ce73751daf56925b7a1`.
