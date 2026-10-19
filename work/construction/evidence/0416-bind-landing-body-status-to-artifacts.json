@@ -1,5 +1,10 @@
 {
   "authority_expansion": false,
+  "body_contract_attempt": {
+    "body_published": false,
+    "reason": "canonical title pattern requires [codex:<subsystem>] prefix",
+    "status": "rejected_without_publication"
+  },
   "candidate_verification": {
     "pr_acceptance_artifact": 12156517064,
     "pr_acceptance_artifact_sha256": "804116dee816e387390ec42eea08ae0306dc5f16e8d127ec3e6ed9a7ac7d479e",
@@ -63,7 +68,7 @@
     "status": "untested"
   },
   "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
-  "hosted_current_status": "fresh_synchronize_pending_after_exact_title_correction",
+  "hosted_current_status": "candidate_subject_correction_pending",
   "hosted_title_binding_attempts": [
     {
       "candidate": "2a5c6114d7b3cc300868eb2134722ae9fa0bc678",

@@ -12,6 +12,8 @@ The focused body-builder suite passed 13/13. Changed source and test modules com
 
 **Construction handoff: [untested] for full repository acceptance.** The focused checks above are recorded, but the full hosted candidate gate and landing lifecycle have not completed.
 
+The first canonical PR-body build was rejected because the title contract requires a `[codex:<subsystem>]` prefix; no body was published with that title. The final candidate subject is being aligned to `[codex:construction] [untested] ...` before a fresh hosted synchronize.
+
 Hosted PR #2386 quality-gate attempt #39183464279 stopped at the exact-title check before finalization because the initial draft title did not equal the commit subject. Attempt #39183917694 used the earlier PR-title snapshot after the head advanced and failed the same check. The draft now carries the current commit subject exactly; neither failed attempt is treated as source verification. A new synchronize run is pending.
 
 No scheduled Federation Health execution on main `944269a771c6f6300d6f8a559866ade9e262a56b` has been observed. The latest prior scheduled run #39175640282 succeeded on earlier main `915cf098c15eed3157dd908763d06c54911390fe`, and does not substitute for exact-main evidence. Current-main Nightly Audit Integrity and Nightly Self Check are also pending. Provenance remains `INTEGRITY_BROKEN` at its unanchored start, including preserved sequence-286 loss. No production resident A→B→A trial or production inference occurred; operator commissioning and separate approvals remain prerequisites.
