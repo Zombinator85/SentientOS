@@ -765,3 +765,124 @@ def test_transition_stage_plan_rejects_tampering_and_stale_owner(tmp_path: Path)
                        match="transition_stage_receipt_stale_or_unbound"):
         ProductionSelfReflectionTransitionBindingObserver(
             campaign, malformed_owner).plan_next_stage(projection["request_id"])
+
+
+
+def test_campaign_binds_verified_transition_plan_to_active_trial_without_authority(
+        tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    active = {**dict(campaign.state()), "in_progress_trial_id": "trial-1"}
+    campaign._write(active)
+    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+    calls = {"process_one": 0}
+
+    owner_protocol = {
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": protocol.transition["protocol_id"],
+        "protocol_digest": protocol.transition["protocol_digest"],
+        "journal_identity": protocol.transition["journal_identity"],
+        "phase_order": protocol.transition["phase_order"],
+    }
+
+    def forbidden_process_one():
+        calls["process_one"] += 1
+        raise AssertionError("campaign stage binding must not process requests")
+
+    owner = SimpleNamespace(
+        config=SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        ),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        inspect_verified_stage_receipt=lambda request_id: MappingProxyType(dict(projection)),
+        status=lambda: {
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "current_phase": PHASES[2],
+            "current_journal_head": "completed-entry-digest",
+            "interrupted": False,
+            "outstanding_stage": None,
+            "replay_forbidden": False,
+            "semantically_verified_stage_entry_digests": ["completed-entry-digest"],
+        },
+        process_one=forbidden_process_one,
+    )
+    request_id = "resident-transition-request-planning"
+    observer = ProductionSelfReflectionTransitionBindingObserver(campaign, owner)
+    plan = observer.plan_next_stage(request_id)
+    before = dict(campaign.state())
+
+    binding = campaign.bind_verified_transition_plan_to_active_trial(
+        plan, request_id=request_id, trial_id="trial-1", transition_owner=owner)
+
+    assert binding["status"] == "active_trial_stage_bound"
+    assert binding["campaign_trial_binding"] == "established_by_canonical_campaign_owner"
+    assert binding["campaign_trial_id"] == "trial-1"
+    assert binding["receipt_request_id"] == request_id
+    assert binding["transition_plan_digest"] == plan["plan_digest"]
+    assert binding["next_stage"] == PHASES[3]
+    assert binding["next_stage_requires_separately_supplied_approval"] is True
+    assert binding["live_transition_owner_revalidation_required"] is True
+    assert binding["read_only"] is True
+    assert binding["effect_performed"] is False
+    assert binding["campaign_advanced"] is False
+    assert binding["grants_authority"] is False
+    assert binding["execution_allowed"] is False
+    assert "approval" not in binding
+    assert calls["process_one"] == 0
+    assert dict(campaign.state()) == before
+
+
+@pytest.mark.parametrize("failure", ["wrong_trial", "interrupted"])
+def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
+        tmp_path: Path, failure: str) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / failure, protocol)
+    active = {**dict(campaign.state()), "in_progress_trial_id": "trial-1"}
+    campaign._write(active)
+    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+    owner_protocol = {
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": protocol.transition["protocol_id"],
+        "protocol_digest": protocol.transition["protocol_digest"],
+        "journal_identity": protocol.transition["journal_identity"],
+        "phase_order": protocol.transition["phase_order"],
+    }
+    owner = SimpleNamespace(
+        config=SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        ),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        inspect_verified_stage_receipt=lambda _request_id: MappingProxyType(dict(projection)),
+        status=lambda: {
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "current_phase": PHASES[2],
+            "current_journal_head": "completed-entry-digest",
+            "interrupted": False,
+            "outstanding_stage": None,
+            "replay_forbidden": False,
+            "semantically_verified_stage_entry_digests": ["completed-entry-digest"],
+        },
+    )
+    request_id = projection["request_id"]
+    observer = ProductionSelfReflectionTransitionBindingObserver(campaign, owner)
+    plan = observer.plan_next_stage(request_id)
+    if failure == "interrupted":
+        campaign._write({**dict(campaign.state()), "validity": "invalid_interrupted",
+                         "failure_reason": "trial_interrupted_no_retry"})
+        expected = "campaign_trial_binding_not_active"
+    else:
+        expected = "transition_stage_plan_not_for_active_trial"
+
+    with pytest.raises(ProductionSelfReflectionError, match=expected):
+        campaign.bind_verified_transition_plan_to_active_trial(
+            plan, request_id=request_id,
+            trial_id="trial-2" if failure == "wrong_trial" else "trial-1",
+            transition_owner=owner)

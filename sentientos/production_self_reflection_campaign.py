@@ -473,6 +473,78 @@ class ProductionSelfReflectionCampaign:
             raise ProductionSelfReflectionError("campaign_state_tampered")
         return tuple(verified_receipts)
 
+    def bind_verified_transition_plan_to_active_trial(
+            self, plan: Mapping[str, Any], *, request_id: str, trial_id: str,
+            transition_owner: Any) -> Mapping[str, Any]:
+        """Bind a verified stage plan to the campaign's live active trial, without authority.
+
+        The transition receipt alone does not identify a campaign trial. This
+        canonical campaign owner adds that binding only when the exact trial is
+        active in its digest-verified progress state. The returned snapshot is
+        informational; stage approval and live owner admission remain separate.
+        """
+        if (not isinstance(plan, Mapping) or not isinstance(request_id, str)
+                or not request_id or not isinstance(trial_id, str) or not trial_id):
+            raise ProductionSelfReflectionError("transition_stage_plan_invalid")
+        supplied_plan = dict(plan)
+        try:
+            canonical_plan = dict(
+                ProductionSelfReflectionTransitionBindingObserver(
+                    self, transition_owner
+                ).plan_next_stage(request_id)
+            )
+        except ProductionSelfReflectionError:
+            raise
+        except Exception as exc:
+            raise ProductionSelfReflectionError(
+                "transition_stage_plan_unavailable"
+            ) from exc
+        if supplied_plan != canonical_plan:
+            raise ProductionSelfReflectionError("transition_stage_plan_tampered_or_stale")
+        if (
+            canonical_plan.get("status") != "next_stage_planned"
+            or canonical_plan.get("receipt_request_id") != request_id
+            or canonical_plan.get("campaign_next_trial_id") != trial_id
+            or canonical_plan.get("campaign_trial_in_progress") is not True
+        ):
+            raise ProductionSelfReflectionError("transition_stage_plan_not_for_active_trial")
+
+        with self._campaign_lock(blocking=False, create=False):
+            state = self.state()
+            self._verify_progress(state)
+            if (
+                state.get("validity") != "valid_incomplete"
+                or state.get("failure_reason") is not None
+                or state.get("in_progress_trial_id") != trial_id
+                or state.get("next_trial_id") != trial_id
+            ):
+                raise ProductionSelfReflectionError("campaign_trial_binding_not_active")
+            if state.get("state_digest") != canonical_plan.get("campaign_state_digest"):
+                raise ProductionSelfReflectionError("campaign_trial_binding_state_stale")
+
+        binding: dict[str, Any] = {
+            "schema_version": "sentientos.production_self_reflection_active_trial_stage_binding:v1",
+            "status": "active_trial_stage_bound",
+            "campaign_trial_binding": "established_by_canonical_campaign_owner",
+            "campaign_protocol_id": self._protocol_snapshot.protocol_id,
+            "campaign_protocol_digest": self._protocol_snapshot.protocol_digest,
+            "campaign_trial_id": trial_id,
+            "campaign_state_digest": state.get("state_digest"),
+            "transition_plan_digest": canonical_plan.get("plan_digest"),
+            "receipt_request_id": request_id,
+            "prior_stage": canonical_plan.get("prior_stage"),
+            "next_stage": canonical_plan.get("next_stage"),
+            "next_stage_requires_separately_supplied_approval": True,
+            "live_transition_owner_revalidation_required": True,
+            "read_only": True,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        binding["binding_digest"] = _digest(binding)
+        return MappingProxyType(binding)
+
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
         with self._campaign_lock():
             state = self.state()
