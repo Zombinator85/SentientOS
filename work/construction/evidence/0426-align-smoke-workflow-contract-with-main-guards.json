@@ -1,0 +1,65 @@
+{
+  "candidate_status": "untested_pending_hosted_validation",
+  "predecessor_segment_sha256": "322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
+  "repair": {
+    "change": "Update the existing contract test to require main-ref plus explicit opt-in for both Forge Smoke and Remote Smoke.",
+    "files": [
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "required_acceptance_node_count_changed": false,
+    "test_skipped": false,
+    "test_weakened": false
+  },
+  "sequence": 426,
+  "sequence_425_hosted_evidence": {
+    "full_ci_failure": {
+      "conclusion": "failure",
+      "run_id": 39205792482,
+      "source_test_failure": true
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39205792435
+    },
+    "required_quality_gate": {
+      "acceptance": "30/30",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "immutability": "passed",
+      "prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "run_id": 39205792302,
+      "strict_audit": "passed"
+    }
+  },
+  "source_commit": "770cafd84e585924992043f204b1e3c7cd602479",
+  "source_failure": {
+    "candidate_commit": "770cafd84e585924992043f204b1e3c7cd602479",
+    "candidate_tree": "d159be57eca8fa584addc3d2fed5c783ef21a56b",
+    "cause": "The test still required the former opt-in-only workflow if condition after sequence 425 added the intended main-ref restriction.",
+    "failed_node": "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts",
+    "failure_was_environmental": false,
+    "run_id": 39205792482,
+    "source_validation": "failed",
+    "tests_failed": 1,
+    "tests_passed": 380
+  },
+  "source_tree": "d159be57eca8fa584addc3d2fed5c783ef21a56b",
+  "title": "Align smoke-workflow contract with main guards",
+  "verification_before_candidate_publication": {
+    "canonical_local_pytest": "not_run; sandbox cannot reach package index for canonical editable bootstrap",
+    "construction_custody": "passed; 426 segments",
+    "direct_tests_passed": [
+      "tests/test_github_hosted_acceptance_workflows.py::test_smoke_job_conditions_use_supported_explicit_opt_in_contexts",
+      "tests/test_github_hosted_acceptance_workflows.py::test_workflow_dispatch_jobs_are_main_bound"
+    ],
+    "git_diff_check": "passed",
+    "py_compile": "passed for tests/test_github_hosted_acceptance_workflows.py",
+    "status": "local_focused_contracts_passed_hosted_validation_pending",
+    "yaml_parse": "passed for capture audit baseline, Forge Smoke, and Remote Smoke workflows"
+  },
+  "workspace_preservation": {
+    "sequence_425_branch_untouched": true,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_touched": false
+  }
+}

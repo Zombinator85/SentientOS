@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "38edc6db18d9f9626a30ea8a16df2a7b6ea73721d0045cd0d2a335f05a769f97",
-    "latest_segment_sequence": 425,
-    "latest_segment_sha256": "322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
-    "latest_sequence": 425,
-    "source_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
-    "source_tree": "38124ee137974910354e1a1f9e38a9a68db6368e"
+    "checkpoint_sha256": "1cda22f98b79350eb2edf458ea20dbc99c56f87ffd77e79f5cccc8746edbbd1c",
+    "latest_segment_sequence": 426,
+    "latest_segment_sha256": "145e1eb2e4925a17930358123be29d5bbc086b0d27d523332766fc22ddf6007a",
+    "latest_sequence": 426,
+    "source_commit": "770cafd84e585924992043f204b1e3c7cd602479",
+    "source_tree": "d159be57eca8fa584addc3d2fed5c783ef21a56b"
   },
-  "checkpoint_sha256": "38edc6db18d9f9626a30ea8a16df2a7b6ea73721d0045cd0d2a335f05a769f97",
+  "checkpoint_sha256": "1cda22f98b79350eb2edf458ea20dbc99c56f87ffd77e79f5cccc8746edbbd1c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 425,
+  "latest_sequence": 426,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4784,6 +4784,18 @@
       "sha256": "322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
       "source_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
       "source_tree": "38124ee137974910354e1a1f9e38a9a68db6368e"
+    },
+    {
+      "bytes": 1722,
+      "evidence_bytes": 2765,
+      "evidence_path": "work/construction/evidence/0426-align-smoke-workflow-contract-with-main-guards.json",
+      "evidence_sha256": "0fef953670f5bdc419702313f6c02c6f73524d1338387d29c7a3a84ffd58856d",
+      "path": "work/construction/segments/0426-align-smoke-workflow-contract-with-main-guards.md",
+      "predecessor": "segment-sha256:322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
+      "sequence": 426,
+      "sha256": "145e1eb2e4925a17930358123be29d5bbc086b0d27d523332766fc22ddf6007a",
+      "source_commit": "770cafd84e585924992043f204b1e3c7cd602479",
+      "source_tree": "d159be57eca8fa584addc3d2fed5c783ef21a56b"
     }
   ],
   "source_acquisition": {
