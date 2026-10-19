@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b213d474804402e3e6398a1cc4cd03f7020bf824626806ea8f55c7435ce209e3",
-    "latest_segment_sequence": 467,
-    "latest_segment_sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
-    "latest_sequence": 467,
-    "source_commit": "9dea3d044cdc2f8a6dde9e0a4d37b2fb37d74a22",
-    "source_tree": "e7ec31c361da63d5a19c3f2d32a1eddea7af8497"
+    "checkpoint_sha256": "7522a815e2296225369b3deae07d69d180d6030867d532771e26183ca5ecd419",
+    "latest_segment_sequence": 468,
+    "latest_segment_sha256": "0c2a7a71f955d1ca94b8309641ac963c28c1cff7d1d1a6be9349c0c8514fa96f",
+    "latest_sequence": 468,
+    "source_commit": "2efb378e4548d92209ff1f953393c909e9e2c97a",
+    "source_tree": "bb86a1a451963624a01d1690144bb7e0545cc995"
   },
-  "checkpoint_sha256": "b213d474804402e3e6398a1cc4cd03f7020bf824626806ea8f55c7435ce209e3",
+  "checkpoint_sha256": "7522a815e2296225369b3deae07d69d180d6030867d532771e26183ca5ecd419",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 467,
+  "latest_sequence": 468,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5288,6 +5288,18 @@
       "sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
       "source_commit": "9dea3d044cdc2f8a6dde9e0a4d37b2fb37d74a22",
       "source_tree": "e7ec31c361da63d5a19c3f2d32a1eddea7af8497"
+    },
+    {
+      "bytes": 3270,
+      "evidence_bytes": 4483,
+      "evidence_path": "work/construction/evidence/0468-plan-from-verified-transition-receipts.json",
+      "evidence_sha256": "63a847d90d1f1762d8d1c04523cdc65b209e64529e58abf28993822a14258967",
+      "path": "work/construction/segments/0468-plan-from-verified-transition-receipts.md",
+      "predecessor": "segment-sha256:f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
+      "sequence": 468,
+      "sha256": "0c2a7a71f955d1ca94b8309641ac963c28c1cff7d1d1a6be9349c0c8514fa96f",
+      "source_commit": "2efb378e4548d92209ff1f953393c909e9e2c97a",
+      "source_tree": "bb86a1a451963624a01d1690144bb7e0545cc995"
     }
   ],
   "source_acquisition": {
@@ -5297,7 +5309,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "2d66f6cf52caf905043c3cbe4d35d8d688067384",
+  "source_tree": "bb86a1a451963624a01d1690144bb7e0545cc995",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
