@@ -41,10 +41,23 @@ jobs:
         run: |
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
             python federation_health_badge.py
+      - name: Bind the report to this successful execution
+        env:
+          FEDERATION_HEALTH_RUN_ID: ${{ github.run_id }}
+          FEDERATION_HEALTH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          FEDERATION_HEALTH_EVENT_NAME: ${{ github.event_name }}
+          FEDERATION_HEALTH_REF: ${{ github.ref }}
+          FEDERATION_HEALTH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          python scripts/federation_health_execution_receipt.py \
+            --report docs/FEDERATION_HEALTH.md \
+            --output docs/FEDERATION_HEALTH_EXECUTION.json
       - uses: actions/upload-artifact@v4
         with:
           name: federation-health-${{ github.run_id }}
-          path: docs/FEDERATION_HEALTH.md
+          path: |
+            docs/FEDERATION_HEALTH.md
+            docs/FEDERATION_HEALTH_EXECUTION.json
           if-no-files-found: error
 
   fixture:
@@ -136,6 +149,7 @@ jobs:
           body: "${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && 'TEST FIXTURE — NOT TELEMETRY. The workflow independently verifies the exact one-file draft PR, then closes it and deletes its branch without merging.' || 'Automated Federation Health output generated after the hosted Administrator preflight.' }}"
           add-paths: |
             docs/FEDERATION_HEALTH.md
+            ${{ (inputs.publication_fixture != true && !(github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture')) && 'docs/FEDERATION_HEALTH_EXECUTION.json' || '' }}
       - name: Verify the changed-output test PR
         id: verify-fixture
         if: ${{ inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture') }}
