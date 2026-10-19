@@ -1,0 +1,134 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 467,
+  "title": "Verify and bind transition-stage receipt projections",
+  "observed_at": "2026-10-19T17:19:45Z",
+  "predecessor": {
+    "sequence": 466,
+    "segment_path": "work/construction/segments/0466-verify-sequence465-and-bind-receipt-projections.md",
+    "segment_sha256": "481fe849ae269bc1a3f64579437538c8990e236f2846a443ff03be0593d1e4c8"
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "7d248f8320da2de7bfe4513afc517de93f47ab05",
+    "candidate_commit": "f3346dcfb689a3f96394c9206dea615ee8b19956",
+    "merge_commit": "9dea3d044cdc2f8a6dde9e0a4d37b2fb37d74a22",
+    "tree": "e7ec31c361da63d5a19c3f2d32a1eddea7af8497",
+    "parents": [
+      "7d248f8320da2de7bfe4513afc517de93f47ab05",
+      "f3346dcfb689a3f96394c9206dea615ee8b19956"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2437,
+    "title": "[codex:construction] fix verified stage receipt journal binding",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2437",
+    "state": "merged",
+    "head_sha": "f3346dcfb689a3f96394c9206dea615ee8b19956"
+  },
+  "behavior": {
+    "files": [
+      "sentientos/resident_cognitive_transition_operator.py",
+      ".github/workflows/ci.yml",
+      "tests/test_resident_cognitive_transition_operator.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "projection": "read_only_exact_request_receipt_journal_and_semantic_stage_binding",
+    "fixes": [
+      "normal_receipt_direct_controller_result_shape",
+      "recovered_completion_phase_binds_to_requested_stage",
+      "recovered_failure_phase_binds_to_attempted_phase"
+    ],
+    "authority": {
+      "consumes_request": false,
+      "recovers_missing_receipt": false,
+      "exposes_approvals": false,
+      "effect_performed": false,
+      "grants_authority": false,
+      "execution_allowed": false
+    }
+  },
+  "candidate_validation": {
+    "failed_initial_candidate": {
+      "sha": "cb93b2d921b9eccd30ee2973f348ca916a0ab112",
+      "run_id": 39267818965,
+      "tests_passed": 1,
+      "tests_failed": 2,
+      "disposition": "corrected_before_pull_request"
+    },
+    "fixed_candidate": {
+      "sha": "f3346dcfb689a3f96394c9206dea615ee8b19956",
+      "source_validation_run": 39291354656,
+      "source_validation_artifact": 12204494581,
+      "artifact_sha256": "sha256:4ee8ad174a7129ed059cadea2069c1c43c5324470911b83e76f1fdb0d16772c5",
+      "tests_passed": 3,
+      "tests_failed": 0,
+      "validation_status": "validation_complete",
+      "acceptance_status": "task_acceptance_ready"
+    },
+    "quality_gate": {
+      "run_id": 39291963006,
+      "finalizer_artifact": 12206475928,
+      "finalizer_artifact_sha256": "sha256:5c1fdc392fa4fad772e41503281eaa6699b6a6ea44038c36b0edc44785a1e209",
+      "finalizer": "ready_to_commit",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "profile": "solo",
+      "exhaustive_matrix": "not_requested"
+    },
+    "pr_check_runs": [
+      39291963001,
+      39291963006,
+      39291963009,
+      39291963046,
+      39291963061,
+      39291963195,
+      39291963077,
+      39291963219
+    ],
+    "all_applicable_pr_checks_success": true
+  },
+  "post_merge_checks": {
+    "quality_gate": 39292586771,
+    "invariants": 39292586769,
+    "build_and_deploy": [
+      39292586801,
+      39292586759
+    ],
+    "cpu_smoke": 39292586802,
+    "docs_helm_self_check_source_validation": 39292586865,
+    "forge_smoke": {
+      "run_id": 39292586800,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    },
+    "all_applicable_success": true
+  },
+  "federation_health": {
+    "scheduled_run": 39279382936,
+    "scheduled_head": "7d248f8320da2de7bfe4513afc517de93f47ab05",
+    "health_update": "success",
+    "publication": "failure",
+    "publication_failure": "repository policy forbids GitHub Actions from creating or approving pull requests",
+    "workflow_token_permissions": [
+      "contents:write",
+      "pull-requests:write"
+    ],
+    "artifact_id": 12200206840,
+    "artifact_sha256": "sha256:a0e5c02b2f9f4a6b89f28a23e7bb02e8b7936fb5b478724c40d59e037ea6fdc0",
+    "scheduled_run_on_current_main_after_merge": false
+  },
+  "limitations": {
+    "campaign_execution": false,
+    "production_trial": false,
+    "synthetic_rehearsal": false,
+    "readiness": false,
+    "authority_grant": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false,
+    "actions_pr_creation_setting_change_unavailable": true
+  },
+  "segment_path": "work/construction/segments/0467-verify-transition-stage-receipt-projections.md",
+  "segment_sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
+  "segment_bytes": 3526
+}
