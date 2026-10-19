@@ -1,0 +1,75 @@
+{
+  "architecture_boundary": {
+    "default_daemon_configured": false,
+    "historical_sha_bound_atlases_rewritten": false,
+    "opt_in_resource_observer_composition": "documented",
+    "production_execution_claimed": false
+  },
+  "candidate_status": "merged_exact_head_checks_passed_post_merge_execution_pending",
+  "exact_candidate_checks": {
+    "ci": {
+      "conclusion": "success",
+      "hosted_docs": "passed",
+      "run_id": 39211279343,
+      "self_check": "passed",
+      "source_validation": "passed"
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39211279390
+    },
+    "docker_image": {
+      "conclusion": "success",
+      "run_id": 39211279369
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39211279430
+    },
+    "invariant_tests": {
+      "conclusion": "success",
+      "run_id": 39211279413
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": 39211279553
+    },
+    "release": {
+      "conclusion": "success",
+      "run_id": 39211279463
+    },
+    "required_quality_gate": {
+      "administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "hosted_finalizer": "passed",
+      "immutability": "passed",
+      "prepublication_metadata_guard": "passed",
+      "run_id": 39211279336
+    }
+  },
+  "post_merge_evidence": {
+    "main_push_checks": "not available at this evidence cut",
+    "nightly_audit_integrity": "pending",
+    "nightly_self_check": "pending",
+    "scheduled_federation_health": "pending"
+  },
+  "predecessor_segment_sha256": "e106d533d724ee8be189d73de3ad2c08db34c329c8da8a7a100647a408197c3b",
+  "sequence": 431,
+  "sequence_430_merge": {
+    "candidate_commit": "9a68dc2a2431655efe6116628fc2d18e5514cd10",
+    "files_changed_after_candidate": 0,
+    "merge_commit": "968d58f8e6ab49b4a6c6b27a02f063b1471cf388",
+    "merge_commit_ahead_by": 1,
+    "method": "regular_two_parent_merge",
+    "pull_request": 2397,
+    "tree_preserved": true
+  },
+  "source_commit": "968d58f8e6ab49b4a6c6b27a02f063b1471cf388",
+  "source_tree": "7dd3bfac51db3584370a956cb09299bbb548b8cc",
+  "title": "Verify sequence 430 merge to main",
+  "verification": {
+    "construction_custody_before_append": 430,
+    "remote_compare": "one merge commit, zero changed files",
+    "remote_pr_status": "merged"
+  }
+}
