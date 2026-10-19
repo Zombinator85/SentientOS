@@ -1,0 +1,84 @@
+{
+  "authority": {
+    "protected_workspaces_modified": false,
+    "strict_audit_weakened": false,
+    "workflow_privilege_changed": false
+  },
+  "historical_provenance": {
+    "reconstructed_or_discarded": false,
+    "status": "INTEGRITY_BROKEN"
+  },
+  "post_merge": {
+    "federation_health_schedule_on_this_sha": "not_observed; GitHub connector exposes PR-triggered runs only",
+    "inference_claimed": false,
+    "main_push_checks": "not_observed; GitHub connector exposes PR-triggered runs only"
+  },
+  "predecessor_segment_sha256": "408e350931a48f1227f451b01656c00fb342d4706460f188a7e3fb3980f113d5",
+  "pull_request": {
+    "candidate_commit": "d265141e263fdce9c5fd30760aad5538203835e9",
+    "candidate_tree": "a54f8127bd9265d2a9e9a3b40c234b69fd639041",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39221190315
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39221190314
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 39221190298
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39221190279
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39221190252
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39221190321
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39221190251
+      },
+      "required_quality_gate": {
+        "administrator_strict_audit": "passed",
+        "conclusion": "success",
+        "precommit_finalizer": "passed",
+        "prepublication_metadata_guard": "passed",
+        "run_id": 39221190258
+      }
+    },
+    "conclusion": "merged",
+    "merge_commit": "0d8b4b578e88ab1b00d624b3cdc7a7b8f99e343d",
+    "merge_method": "merge",
+    "number": 2407,
+    "title": "[codex:evidence] verify sequence 441 evidence merge (sequence 442)"
+  },
+  "readback": {
+    "changed_files": [
+      "README.md",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/evidence/0442-verify-sequence441-evidence-merge.json",
+      "work/construction/segments/0442-verify-sequence441-evidence-merge.md"
+    ],
+    "content_tree": "a54f8127bd9265d2a9e9a3b40c234b69fd639041",
+    "remote_main_blob_sha_matches_candidate": true
+  },
+  "sequence": 443,
+  "source_commit": "0d8b4b578e88ab1b00d624b3cdc7a7b8f99e343d",
+  "source_tree": "a54f8127bd9265d2a9e9a3b40c234b69fd639041",
+  "status": "evidence_merged_postmerge_workflow_and_federation_observation_unavailable",
+  "title": "Verify sequence 442 evidence merge",
+  "verification": {
+    "construction_custody": "passed through sequence 443",
+    "git_diff_check": "passed",
+    "local_pytest": "not run; evidence-only increment"
+  }
+}
