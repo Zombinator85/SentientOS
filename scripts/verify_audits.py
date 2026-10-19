@@ -98,6 +98,18 @@ def _bounded_structured_issues(issues: List[AuditIssue]) -> List[AuditIssue]:
     ]
 
 
+def _has_no_mismatches(
+    *, issue_count: int, stats: Dict[str, int], audit_chain_ok: bool
+) -> bool:
+    """Return whether verification found no issues or repair activity."""
+    no_repair_activity = (
+        stats.get("fixed", 0),
+        stats.get("quarantined", 0),
+        stats.get("unrecoverable", 0),
+    ) == (0, 0, 0)
+    return issue_count == 0 and no_repair_activity and audit_chain_ok
+
+
 def write_result(*, ok: bool, issues: List[str], structured_issues: List[AuditIssue], error: str | None) -> dict[str, object]:
     require_admin_banner()
     require_lumos_approval()
@@ -460,7 +472,11 @@ def main(argv: list[str] | None = None) -> int:
                 all_issues.extend(errors)
         if not args.json:
             print(f"{percent:.1f}% of logs valid")
-            if (stats.get("fixed", 0), stats.get("quarantined", 0), stats.get("unrecoverable", 0)) == (0, 0, 0):
+            if _has_no_mismatches(
+                issue_count=len(all_issues) + len(structured_issues),
+                stats=stats,
+                audit_chain_ok=audit_chain.ok,
+            ):
                 print("✅ No mismatches.")
             print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
 

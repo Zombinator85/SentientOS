@@ -1,0 +1,28 @@
+{
+  "candidate_status": "source_candidate_pending_hosted_verification",
+  "change": {
+    "files": ["scripts/verify_audits.py", "tests/test_verify_audits_runtime_split.py"],
+    "summary_requires": ["zero unstructured and structured issues", "zero fix/quarantine/unrecoverable activity", "audit_chain.ok"],
+    "strict_audit_gate_changed": false,
+    "audit_records_modified": false,
+    "workflow_authority_changed": false,
+    "production_behavior_changed": false
+  },
+  "discovery": {
+    "source_run_id": 39207086986,
+    "finding": "Nightly Audit Integrity reported an optional support_log.jsonl previous-hash mismatch, then printed No mismatches because repair counters were zero.",
+    "repair_or_rewrite": "none"
+  },
+  "predecessor_segment_sha256": "c3aa52217effea8ea967df5db21f12f4802a80159b5f581bbeeb1d758a51e90b",
+  "sequence": 428,
+  "source_commit": "457b0555f8e63d1951104c8db651e12500a8aa77",
+  "source_tree": "7be03edf9023dd97286e1b2e6fd3c59028883803",
+  "title": "Report audit issues accurately in the verifier summary",
+  "verification_before_candidate_publication": {
+    "python_compile": "passed for scripts/verify_audits.py and tests/test_verify_audits_runtime_split.py",
+    "direct_predicate_assertions": "passed: clean, issue present, audit-chain unhealthy, repair activity present",
+    "git_diff_check": "passed",
+    "ruff": "not available in local sandbox",
+    "canonical_pytest": "not run locally; hosted exact-candidate CI pending"
+  }
+}

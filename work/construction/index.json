@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "26a80445b3c43a7167511245e4d8636082ebea9e15d6593752159cb889a5ca8d",
-    "latest_segment_sequence": 427,
-    "latest_segment_sha256": "c3aa52217effea8ea967df5db21f12f4802a80159b5f581bbeeb1d758a51e90b",
-    "latest_sequence": 427,
-    "source_commit": "624e4ee32bb6dca9b45053571034613bb2bdbb0d",
-    "source_tree": "3e6457e82145275aeba048ce5a85093726704f7b"
+    "checkpoint_sha256": "5c0d48446b1b37ffdb1d25c22bafd80eb11af28404a619424cf1cbb992230d46",
+    "latest_segment_sequence": 428,
+    "latest_segment_sha256": "7360d4f267c90b01526d7ce06a0bd6ebd526c6145f6370c0dfe59a72cb7cfa9a",
+    "latest_sequence": 428,
+    "source_commit": "457b0555f8e63d1951104c8db651e12500a8aa77",
+    "source_tree": "7be03edf9023dd97286e1b2e6fd3c59028883803"
   },
-  "checkpoint_sha256": "26a80445b3c43a7167511245e4d8636082ebea9e15d6593752159cb889a5ca8d",
+  "checkpoint_sha256": "5c0d48446b1b37ffdb1d25c22bafd80eb11af28404a619424cf1cbb992230d46",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 427,
+  "latest_sequence": 428,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4808,6 +4808,18 @@
       "sha256": "c3aa52217effea8ea967df5db21f12f4802a80159b5f581bbeeb1d758a51e90b",
       "source_commit": "624e4ee32bb6dca9b45053571034613bb2bdbb0d",
       "source_tree": "3e6457e82145275aeba048ce5a85093726704f7b"
+    },
+    {
+      "bytes": 1941,
+      "evidence_bytes": 1470,
+      "evidence_path": "work/construction/evidence/0428-report-audit-mismatch-summary-accurately.json",
+      "evidence_sha256": "5324422f7330b1ba7c2ded85cf197f5a59f67c28bc0711510122355dc5f33ca3",
+      "path": "work/construction/segments/0428-report-audit-mismatch-summary-accurately.md",
+      "predecessor": "segment-sha256:c3aa52217effea8ea967df5db21f12f4802a80159b5f581bbeeb1d758a51e90b",
+      "sequence": 428,
+      "sha256": "7360d4f267c90b01526d7ce06a0bd6ebd526c6145f6370c0dfe59a72cb7cfa9a",
+      "source_commit": "457b0555f8e63d1951104c8db651e12500a8aa77",
+      "source_tree": "7be03edf9023dd97286e1b2e6fd3c59028883803"
     }
   ],
   "source_acquisition": {
