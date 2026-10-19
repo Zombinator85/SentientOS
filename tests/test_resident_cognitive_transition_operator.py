@@ -177,8 +177,36 @@ def test_operator_provenance_rejects_claim_changes_and_revoked_key() -> None:
 
 def test_missing_operator_trust_fails_closed_before_recovery_or_stage_effect(tmp_path: Path) -> None:
     controller = _Controller()
+    recovery_calls = 0
+
+    def journal_entries():
+        nonlocal recovery_calls
+        recovery_calls += 1
+        return []
+
+    controller.journal.entries = journal_entries
     runtime = _runtime(tmp_path, controller, operator_provenance_verifier=None)
     request = _request()
+    persist_request(tmp_path, request)
+    result = runtime.process_one()
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_provenance_verifier_unavailable"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
+    assert recovery_calls == 0
+
+
+def test_missing_operator_trust_cannot_claim_recovered_journal_success(tmp_path: Path) -> None:
+    controller = _Controller()
+    request = _request()
+    controller.journal.entries = lambda: [
+        {"status": "attempted", "phase": PHASES[0], "entry_digest": "attempt",
+         "evidence": {"attempted_stage": request["requested_stage"],
+                      "approval_digest": request["stage_approval_digest"]}},
+        {"status": "completed", "phase": request["requested_stage"], "entry_digest": "terminal",
+         "evidence": {}},
+    ]
+    runtime = _runtime(tmp_path, controller, operator_provenance_verifier=None)
     persist_request(tmp_path, request)
     result = runtime.process_one()
     assert result["status"] == "rejected"
