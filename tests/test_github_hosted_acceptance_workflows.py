@@ -17,6 +17,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
     )
     for node in nodes:
         assert node in source_validation
+    assert "test_transition_stage_plan_rejects_tampering_and_stale_owner" in source_validation
     assert (
         "cp glow/test_runs/test_run_provenance.json \\\n"
         "            glow/test_runs/transition_receipt_provenance.json"
@@ -935,3 +936,17 @@ def test_post_merge_feedback_uses_only_pull_request_comment_authority() -> None:
     steps = workflow["jobs"]["invite"]["steps"]
     assert len(steps) == 1
     assert steps[0]["uses"] == "actions/github-script@v7"
+
+
+def test_source_validation_runs_transition_receipt_campaign_planning_regression():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify transition receipt informs campaign planning without execution" in source_validation
+    node = (
+        "tests/test_production_self_reflection_campaign.py::"
+        "test_verified_transition_receipt_plans_next_stage_without_execution"
+    )
+    assert node in source_validation
+    assert "transition_stage_planning_provenance.json" in source_validation
+    assert "transition_stage_planning_acceptance.json" in source_validation
+    assert "transition_stage_planning_acceptance_result.json" in source_validation

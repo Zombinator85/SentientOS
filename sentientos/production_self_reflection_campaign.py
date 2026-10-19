@@ -633,3 +633,118 @@ class ProductionSelfReflectionTransitionBindingObserver:
         }
         body["binding_digest"] = _digest(body)
         return MappingProxyType(body)
+
+    def plan_next_stage(self, request_id: str) -> Mapping[str, Any]:
+        """Project the canonical next stage from one exact verified receipt.
+
+        Planning is read-only: this method neither processes an operator request,
+        changes campaign progress, selects approval artifacts, nor grants execution
+        permission. A consumer must obtain each stage's independent approval and
+        submit a separate operator request through the existing live owner.
+        """
+        if not isinstance(request_id, str) or not request_id:
+            raise ProductionSelfReflectionError("transition_stage_receipt_request_id_invalid")
+        protocol = self.campaign._protocol_snapshot
+        protocol.verify()
+        transition = protocol.transition
+        owner = self.transition_owner
+        try:
+            with self.campaign._campaign_lock(blocking=False, create=False):
+                state = self.campaign.state()
+                self.campaign._verify_progress(state)
+                projection = dict(owner.inspect_verified_stage_receipt(request_id))
+                owner_status = dict(owner.status())
+                owner_config = owner.config
+                owner_protocol = owner.controller.protocol.value
+        except Exception as exc:
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_unavailable"
+            ) from exc
+
+        required = {
+            "schema_version", "request_id", "request_digest", "installation_identity",
+            "protocol_id", "protocol_digest", "phase", "operator_receipt_digest",
+            "attempt_entry_digest", "completed_entry_digest", "journal_head_observed",
+            "read_only", "effect_performed", "grants_authority", "execution_allowed",
+            "binding_digest",
+        }
+        body = dict(projection)
+        claimed_binding = body.pop("binding_digest", None)
+        observed_binding = hashlib.sha256(
+            (json.dumps(body, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        ).hexdigest()
+        if (
+            set(projection) != required
+            or claimed_binding != observed_binding
+            or projection.get("schema_version")
+                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v1"
+            or projection.get("request_id") != request_id
+            or any(not isinstance(projection.get(key), str) or not projection.get(key)
+                for key in (
+                    "request_digest", "installation_identity", "protocol_id",
+                    "protocol_digest", "operator_receipt_digest", "attempt_entry_digest",
+                    "completed_entry_digest", "journal_head_observed",
+                ))
+            or projection.get("read_only") is not True
+            or projection.get("effect_performed") is not False
+            or projection.get("grants_authority") is not False
+            or projection.get("execution_allowed") is not False
+        ):
+            raise ProductionSelfReflectionError("transition_stage_receipt_binding_invalid")
+
+        phase = projection["phase"]
+        phase_order = tuple(transition.get("phase_order", ()))
+        semantic_entries = owner_status.get("semantically_verified_stage_entry_digests", ())
+        if (
+            not isinstance(phase, str)
+            or not isinstance(semantic_entries, (list, tuple))
+            or projection.get("installation_identity") != protocol.installation_identity
+            or projection.get("protocol_id") != transition.get("protocol_id")
+            or projection.get("protocol_digest") != transition.get("protocol_digest")
+            or owner_config.installation_identity != protocol.installation_identity
+            or owner_config.protocol_id != transition.get("protocol_id")
+            or owner_config.protocol_digest != transition.get("protocol_digest")
+            or owner_config.journal_identity != transition.get("journal_identity")
+            or owner_protocol.get("installation_identity") != protocol.installation_identity
+            or owner_protocol.get("protocol_id") != transition.get("protocol_id")
+            or owner_protocol.get("protocol_digest") != transition.get("protocol_digest")
+            or owner_protocol.get("journal_identity") != transition.get("journal_identity")
+            or tuple(owner_protocol.get("phase_order", ())) != phase_order
+            or phase_order != PHASES
+            or phase not in phase_order[1:]
+            or owner_status.get("protocol_id") != transition.get("protocol_id")
+            or owner_status.get("protocol_digest") != transition.get("protocol_digest")
+            or owner_status.get("current_phase") != phase
+            or owner_status.get("current_journal_head") != projection.get("journal_head_observed")
+            or owner_status.get("interrupted") is not False
+            or owner_status.get("outstanding_stage") is not None
+            or owner_status.get("replay_forbidden") is not False
+            or projection.get("completed_entry_digest") not in semantic_entries
+        ):
+            raise ProductionSelfReflectionError("transition_stage_receipt_stale_or_unbound")
+
+        phase_index = phase_order.index(phase)
+        next_stage = phase_order[phase_index + 1] if phase_index + 1 < len(phase_order) else None
+        plan: dict[str, Any] = {
+            "schema_version": "sentientos.production_self_reflection_transition_stage_plan:v1",
+            "status": "next_stage_planned" if next_stage is not None else "transition_sequence_complete",
+            "protocol_id": protocol.protocol_id,
+            "protocol_digest": protocol.protocol_digest,
+            "campaign_state_digest": state.get("state_digest"),
+            "campaign_trial_binding": "not_established_by_transition_receipt",
+            "campaign_next_trial_id": state.get("next_trial_id"),
+            "campaign_trial_in_progress": state.get("in_progress_trial_id") is not None,
+            "prior_stage": phase,
+            "next_stage": next_stage,
+            "receipt_request_id": request_id,
+            "receipt_binding_digest": claimed_binding,
+            "completed_entry_digest": projection["completed_entry_digest"],
+            "next_stage_requires_separately_supplied_approval": next_stage is not None,
+            "read_only": True,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        plan["plan_digest"] = _digest(plan)
+        return MappingProxyType(plan)

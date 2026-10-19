@@ -246,6 +246,41 @@ jobs:
             --manifest glow/test_runs/transition_receipt_acceptance.json \
             --provenance glow/test_runs/transition_receipt_provenance.json \
             --output glow/test_runs/transition_receipt_acceptance_result.json
+      - name: Verify transition receipt informs campaign planning without execution
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_production_self_reflection_campaign.py::test_verified_transition_receipt_plans_next_stage_without_execution \
+            tests/test_production_self_reflection_campaign.py::test_transition_stage_plan_rejects_tampering_and_stale_owner
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/transition_stage_planning_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_production_self_reflection_campaign.py::test_verified_transition_receipt_plans_next_stage_without_execution",
+              "tests/test_production_self_reflection_campaign.py::test_transition_stage_plan_rejects_tampering_and_stale_owner",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/transition_stage_planning_provenance.json",
+              "required_nodes": [
+                  {"node_id": node, "rationale": "bind exact verified stage receipts to read-only campaign planning without execution authority"}
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/transition_stage_planning_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/transition_stage_planning_acceptance.json \
+            --provenance glow/test_runs/transition_stage_planning_provenance.json \
+            --output glow/test_runs/transition_stage_planning_acceptance_result.json
       - name: Stage current test-run artifacts
         if: always()
         run: >-
@@ -275,6 +310,9 @@ jobs:
             glow/test_runs/transition_receipt_provenance.json
             glow/test_runs/transition_receipt_acceptance.json
             glow/test_runs/transition_receipt_acceptance_result.json
+            glow/test_runs/transition_stage_planning_provenance.json
+            glow/test_runs/transition_stage_planning_acceptance.json
+            glow/test_runs/transition_stage_planning_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

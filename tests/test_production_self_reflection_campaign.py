@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -614,3 +615,153 @@ def test_daemon_projects_read_only_campaign_transition_binding(tmp_path: Path, m
     assert binding["grants_authority"] is False
     assert binding["execution_allowed"] is False
     assert dict(campaign.state()) == before
+
+
+
+def _verified_transition_stage_projection(protocol, phase: str) -> dict[str, object]:
+    transition = protocol.transition
+    body: dict[str, object] = {
+        "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v1",
+        "request_id": "resident-transition-request-planning",
+        "request_digest": "request-digest",
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": transition["protocol_id"],
+        "protocol_digest": transition["protocol_digest"],
+        "phase": phase,
+        "operator_receipt_digest": "operator-receipt-digest",
+        "attempt_entry_digest": "attempt-entry-digest",
+        "completed_entry_digest": "completed-entry-digest",
+        "journal_head_observed": "completed-entry-digest",
+        "read_only": True,
+        "effect_performed": False,
+        "grants_authority": False,
+        "execution_allowed": False,
+    }
+    body["binding_digest"] = hashlib.sha256(
+        (json.dumps(body, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    ).hexdigest()
+    return body
+
+
+def test_verified_transition_receipt_plans_next_stage_without_execution(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+
+    class TransitionOwner:
+        def __init__(self) -> None:
+            self.config = SimpleNamespace(
+                installation_identity=protocol.installation_identity,
+                protocol_id=protocol.transition["protocol_id"],
+                protocol_digest=protocol.transition["protocol_digest"],
+                journal_identity=protocol.transition["journal_identity"],
+            )
+            self.controller = SimpleNamespace(protocol=SimpleNamespace(value={
+                "installation_identity": protocol.installation_identity,
+                "protocol_id": protocol.transition["protocol_id"],
+                "protocol_digest": protocol.transition["protocol_digest"],
+                "journal_identity": protocol.transition["journal_identity"],
+                "phase_order": protocol.transition["phase_order"],
+            }))
+            self.receipt_requests: list[str] = []
+            self.current_phase = PHASES[2]
+            self.journal_head = "completed-entry-digest"
+
+        def inspect_verified_stage_receipt(self, request_id: str):
+            self.receipt_requests.append(request_id)
+            return MappingProxyType(dict(projection))
+
+        def status(self):
+            return {
+                "protocol_id": protocol.transition["protocol_id"],
+                "protocol_digest": protocol.transition["protocol_digest"],
+                "current_phase": self.current_phase,
+                "current_journal_head": self.journal_head,
+                "interrupted": False,
+                "outstanding_stage": None,
+                "replay_forbidden": False,
+                "semantically_verified_stage_entry_digests": ["completed-entry-digest"],
+            }
+
+    owner = TransitionOwner()
+    before = dict(campaign.state())
+    plan = ProductionSelfReflectionTransitionBindingObserver(
+        campaign, owner).plan_next_stage("resident-transition-request-planning")
+
+    assert plan["status"] == "next_stage_planned"
+    assert plan["prior_stage"] == PHASES[2]
+    assert plan["next_stage"] == PHASES[3]
+    assert plan["campaign_next_trial_id"] == "trial-1"
+    assert plan["campaign_trial_binding"] == "not_established_by_transition_receipt"
+    assert plan["campaign_trial_in_progress"] is False
+    assert plan["next_stage_requires_separately_supplied_approval"] is True
+    assert plan["read_only"] is True
+    assert plan["effect_performed"] is False
+    assert plan["campaign_advanced"] is False
+    assert plan["grants_authority"] is False
+    assert plan["execution_allowed"] is False
+    assert "approval" not in plan
+    assert owner.receipt_requests == ["resident-transition-request-planning"]
+    assert dict(campaign.state()) == before
+
+
+def test_transition_stage_plan_rejects_tampering_and_stale_owner(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+
+    class TransitionOwner:
+        config = SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        )
+        controller = SimpleNamespace(protocol=SimpleNamespace(value={
+            "installation_identity": protocol.installation_identity,
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "journal_identity": protocol.transition["journal_identity"],
+            "phase_order": protocol.transition["phase_order"],
+        }))
+
+        def __init__(self, receipt):
+            self.receipt = receipt
+            self.current_phase = PHASES[2]
+            self.journal_head = "completed-entry-digest"
+            self.semantic_entries = ["completed-entry-digest"]
+
+        def inspect_verified_stage_receipt(self, _request_id):
+            return self.receipt
+
+        def status(self):
+            return {
+                "protocol_id": protocol.transition["protocol_id"],
+                "protocol_digest": protocol.transition["protocol_digest"],
+                "current_phase": self.current_phase,
+                "current_journal_head": self.journal_head,
+                "interrupted": False,
+                "outstanding_stage": None,
+                "replay_forbidden": False,
+                "semantically_verified_stage_entry_digests": self.semantic_entries,
+            }
+
+    tampered = {**projection, "binding_digest": "0" * 64}
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_binding_invalid"):
+        ProductionSelfReflectionTransitionBindingObserver(
+            campaign, TransitionOwner(tampered)).plan_next_stage(projection["request_id"])
+
+    stale_owner = TransitionOwner(projection)
+    stale_owner.current_phase = PHASES[3]
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_stale_or_unbound"):
+        ProductionSelfReflectionTransitionBindingObserver(
+            campaign, stale_owner).plan_next_stage(projection["request_id"])
+
+    malformed_owner = TransitionOwner(projection)
+    malformed_owner.semantic_entries = None
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_stale_or_unbound"):
+        ProductionSelfReflectionTransitionBindingObserver(
+            campaign, malformed_owner).plan_next_stage(projection["request_id"])
