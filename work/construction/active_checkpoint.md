@@ -2,24 +2,25 @@
 
 ## Latest verified main
 
-PR #2419 regular-merged the sequence-452 Federation Health execution receipt as main `5bb3d8e52aff0060cb088ef166d212488e312501`, preserving content tree `00f4bde863d049f4697c88508c3764bf419241c5`. Its exact-head Required Quality Gate, CI, invariants, Codex CI, Docker, lint, release, and gradient regression checks passed. The quality gate passed hosted Administrator strict audit, exact acceptance, hosted finalizer, and separate prepublication metadata guard. The publication PR changed only the execution receipt and preserved the candidate tree.
+PR #2420 regular-merged sequence 453 as main `d8663b42c9b0efa1f1ea10217965e4891f2b1773`, preserving candidate content tree `5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e`. Its exact-head Required Quality Gate, CI, Invariants, Codex CI, Docker, Lint, Release, and Gradient Regression checks passed after correcting the checkpoint's required latest-segment digest. The first custody attempt failed visibly because that digest was missing; the corrected exact head passed custody, Administrator strict audit, acceptance, finalizer, metadata guard, and the full matrix. The merge was regular, with candidate content preserved.
 
-Sequence 452's source hardening is merged as `31248aeb77f9500f28c35c8f21165c76fac1a021`; its exact-head matrix passed. Federation Health push run #39232113653 on that source passed hosted Administrator preflight and emitted a report-bound artifact. The artifact ZIP and report digest were independently matched, then the receipt was published through PR #2419 after the Actions-token publisher was blocked by repository policy.
+The sequence-453 receipt records the successful sequence-452 Federation Health push run and the one-file receipt publication. The report remains a configured local snapshot; no live telemetry is claimed. No scheduled Federation Health run on this main or Nightly Self Check schedule execution has been observed in the queried history. Nightly Audit Integrity passed on preceding main `fd20cf6ccef310a827794fb5956538df89a6598a`, with repair skipped.
 
-Post-merge CI, Required Quality Gate, invariants, Codex CI, Docker, and Docs Deploy for `5bb3d8e52aff0060cb088ef166d212488e312501` all passed. Forge Smoke was skipped by its condition. The report remains a configured local log snapshot with zero recent events; no live telemetry is claimed. No current-main scheduled Federation Health run or Nightly Self Check schedule run was observed. Nightly Audit Integrity passed on preceding main `fd20cf6ccef310a827794fb5956538df89a6598a`, with repair skipped.
+## Current source increment
+
+Sequence 454 reads Federation Health JSONL input record by record, decoding each row independently so invalid UTF-8 input does not abort neighboring valid rows. The source and regression are queued for exact-head hosted verification. This remains a configured local snapshot, not live telemetry.
 
 ## Open evidence boundaries
 
 - Automatic Actions-token PR creation remains blocked by the repository setting; normal connector-created PRs pass the standard check matrix.
-- The report is a configured snapshot, not live telemetry, and shows no recent events.
-- No current-main scheduled Federation Health run was present in queried history.
+- No current-main scheduled Federation Health run was present in the queried history; the next schedule remains unobserved.
 - No Nightly Self Check schedule execution was returned in the queried window.
 - Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved.
 - A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration.
 - No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `5bb3d8e52aff0060cb088ef166d212488e312501`, tree `00f4bde863d049f4697c88508c3764bf419241c5`.
-Latest construction segment: `work/construction/segments/0453-verify-sequence452-merge-and-federation-health-receipt.md`
-Latest segment SHA-256: `145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f`
-Sequence: 453 (verification complete)
+Latest verified main: `d8663b42c9b0efa1f1ea10217965e4891f2b1773`, tree `5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e`.
+Latest construction segment: `work/construction/segments/0454-stream-federation-health-log-utf8.md`
+Latest segment SHA-256: `6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38`
+Sequence: 454 (source and regression pending hosted verification)
