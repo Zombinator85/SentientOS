@@ -574,6 +574,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"' in precommit
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
+    assert 'env["PYTHONPATH"] = workspace' in precommit
     assert 'len(nodes) != 30' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit

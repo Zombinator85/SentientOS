@@ -188,6 +188,7 @@ jobs:
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = os.environ.copy()
+          env["PYTHONPATH"] = workspace
           env["SENTIENTOS_TEST_RUN_DIR"] = str(run_dir)
           result = subprocess.run([sys.executable, "-m", "scripts.run_tests", "-q", *nodes],
                                   cwd=workspace, env=env, check=False)
