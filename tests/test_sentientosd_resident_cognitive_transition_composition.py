@@ -472,3 +472,122 @@ def test_daemon_transition_planning_delegates_without_processing_operator_packet
     assert result["campaign_advanced"] is False
     assert result["grants_authority"] is False
     assert calls == {"planned": ["request-17"], "processed": 0}
+
+def test_daemon_active_trial_binding_uses_request_declared_trial_without_execution(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import production_self_reflection_campaign as campaign_module
+
+    calls = {"planned": [], "bound": [], "processed": 0}
+    campaign = object()
+
+    class Runtime:
+        def process_one(self):
+            calls["processed"] += 1
+            raise AssertionError("binding planning must not process an operator packet")
+
+    class Observer:
+        def __init__(self, observed_campaign, owner):
+            assert observed_campaign is campaign
+            assert owner is runtime
+
+        def plan_next_stage(self, request_id):
+            calls["planned"].append(request_id)
+            return {
+                "status": "next_stage_planned",
+                "transition_request_trial_id": "trial-1",
+                "campaign_next_trial_id": "trial-1",
+                "campaign_trial_in_progress": True,
+                "effect_performed": False,
+                "campaign_advanced": False,
+                "grants_authority": False,
+                "execution_allowed": False,
+            }
+
+    def bind(self, plan, *, request_id, trial_id, transition_owner):
+        calls["bound"].append((plan, request_id, trial_id, transition_owner))
+        return {
+            "status": "active_trial_stage_bound",
+            "campaign_trial_binding": "request_declared_trial_matches_live_campaign_state",
+            "campaign_trial_id": trial_id,
+            "read_only": True,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+
+    runtime = Runtime()
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "open_for_read_only_inspection", staticmethod(lambda root: campaign))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "bind_verified_transition_plan_to_active_trial", bind)
+    monkeypatch.setattr(
+        campaign_module, "ProductionSelfReflectionTransitionBindingObserver", Observer)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = runtime
+
+    result = surfaces.plan_production_self_reflection_transition_active_trial_binding(
+        "request-17")
+
+    assert result["status"] == "active_trial_stage_bound"
+    assert result["campaign_trial_binding"] == (
+        "request_declared_trial_matches_live_campaign_state")
+    assert result["campaign_trial_id"] == "trial-1"
+    assert result["read_only"] is True
+    assert result["effect_performed"] is False
+    assert result["campaign_advanced"] is False
+    assert result["grants_authority"] is False
+    assert result["execution_allowed"] is False
+    assert calls["planned"] == ["request-17"]
+    assert calls["bound"][0][1:] == ("request-17", "trial-1", runtime)
+    assert calls["processed"] == 0
+
+
+def test_daemon_active_trial_binding_fails_closed_without_request_declaration(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import production_self_reflection_campaign as campaign_module
+
+    campaign = object()
+
+    class Runtime:
+        def process_one(self):
+            raise AssertionError("binding planning must not process an operator packet")
+
+    class Observer:
+        def __init__(self, observed_campaign, owner):
+            assert observed_campaign is campaign
+
+        def plan_next_stage(self, request_id):
+            return {"status": "next_stage_planned", "transition_request_trial_id": None}
+
+    def bind(*args, **kwargs):
+        raise AssertionError("a request without declared trial identity must not bind")
+
+    runtime = Runtime()
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "open_for_read_only_inspection", staticmethod(lambda root: campaign))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "bind_verified_transition_plan_to_active_trial", bind)
+    monkeypatch.setattr(
+        campaign_module, "ProductionSelfReflectionTransitionBindingObserver", Observer)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = runtime
+
+    result = surfaces.plan_production_self_reflection_transition_active_trial_binding(
+        "request-17")
+
+    assert result["status"] == "transition_binding_unverified"
+    assert result["reason"] == "request_declared_campaign_trial_unavailable"
+    assert result["effect_performed"] is False
+    assert result["campaign_advanced"] is False
+    assert result["grants_authority"] is False
+    assert result["execution_allowed"] is False
+
