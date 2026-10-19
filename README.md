@@ -57,7 +57,7 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 
 ## Current construction checkpoint (2026-10-19 09:36 UTC)
 
-Sequence 452 adds defensive handling to Federation Health: non-object JSON rows, malformed peer values, and non-positive report windows are rejected without aborting or emitting nonsensical time ranges. Exact-head hosted verification is pending. Sequence 451 verified the merge and publication record for the previous snapshot-scope correction; the latest hourly scheduled Federation Health execution remains pending.
+Sequence 453 verifies sequence 452's defensive Federation Health input handling on exact PR head and records the regular merge. A receipt-bearing hosted push run passed Administrator preflight; its downloaded artifact and report digest matched, and its receipt was published through a normal PR after Actions-token PR creation was blocked by repository policy. The report remains a configured local snapshot, not live telemetry. No current-main scheduled Federation Health run or recent Nightly Self Check schedule run was observed.
 
 ## Read next
 
