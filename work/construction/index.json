@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "fc3bc9aabe4857b238825bcf18c3b19a1469dd86de28b40df7d6b770f13fc012",
-    "latest_segment_sequence": 466,
-    "latest_segment_sha256": "481fe849ae269bc1a3f64579437538c8990e236f2846a443ff03be0593d1e4c8",
-    "latest_sequence": 466,
-    "source_commit": "cb1c5b97e869d9cdd86c18ab9cfceee9fad3ca8f",
-    "source_tree": "2d66f6cf52caf905043c3cbe4d35d8d688067384"
+    "checkpoint_sha256": "b213d474804402e3e6398a1cc4cd03f7020bf824626806ea8f55c7435ce209e3",
+    "latest_segment_sequence": 467,
+    "latest_segment_sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
+    "latest_sequence": 467,
+    "source_commit": "9dea3d044cdc2f8a6dde9e0a4d37b2fb37d74a22",
+    "source_tree": "e7ec31c361da63d5a19c3f2d32a1eddea7af8497"
   },
-  "checkpoint_sha256": "fc3bc9aabe4857b238825bcf18c3b19a1469dd86de28b40df7d6b770f13fc012",
+  "checkpoint_sha256": "b213d474804402e3e6398a1cc4cd03f7020bf824626806ea8f55c7435ce209e3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 466,
+  "latest_sequence": 467,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5276,6 +5276,18 @@
       "sha256": "481fe849ae269bc1a3f64579437538c8990e236f2846a443ff03be0593d1e4c8",
       "source_commit": "cb1c5b97e869d9cdd86c18ab9cfceee9fad3ca8f",
       "source_tree": "2d66f6cf52caf905043c3cbe4d35d8d688067384"
+    },
+    {
+      "bytes": 3526,
+      "evidence_bytes": 4760,
+      "evidence_path": "work/construction/evidence/0467-verify-transition-stage-receipt-projections.json",
+      "evidence_sha256": "20ce88892a22d046c23d84431e54b744bb77af3d45d915fb10589777943dbf52",
+      "path": "work/construction/segments/0467-verify-transition-stage-receipt-projections.md",
+      "predecessor": "segment-sha256:481fe849ae269bc1a3f64579437538c8990e236f2846a443ff03be0593d1e4c8",
+      "sequence": 467,
+      "sha256": "f56ced8a6abaf4097b7a9069d3d701e97a82dff7bef943dd76b4c42e477c83ba",
+      "source_commit": "9dea3d044cdc2f8a6dde9e0a4d37b2fb37d74a22",
+      "source_tree": "e7ec31c361da63d5a19c3f2d32a1eddea7af8497"
     }
   ],
   "source_acquisition": {
