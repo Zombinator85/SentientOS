@@ -1,0 +1,36 @@
+{
+  "candidate_status": "source_candidate_pending_hosted_verification",
+  "change": {
+    "configuration_helper": "_load_resource_observation_configuration",
+    "default_configuration_enabled": false,
+    "effect_authority_added": false,
+    "files": [
+      "sentientosd.py",
+      "tests/test_sentientosd_runtime_closure.py"
+    ],
+    "installation_state_mutated": false,
+    "production_use_claimed": false
+  },
+  "contract": {
+    "complete_selectors": "read_only_owner_source_not_yet_observed_until_tick_read",
+    "incomplete_selectors": "invalid_without_opening_registry",
+    "missing_bundle": "fails_closed",
+    "no_selectors": "disabled_without_opening_registry"
+  },
+  "predecessor_segment_sha256": "89fa1402daf04245857404e3d073dffcc015e2874b2bd20e352aaafb9a9688e7",
+  "sequence": 432,
+  "source_commit": "3d6e050e7caf903614027e666792314470177b66",
+  "source_tree": "96ef34fcc02391609458c439e66a7464dadd6dd9",
+  "title": "Bind resource-observer startup to explicit read-only selection",
+  "verification": {
+    "direct_helper_assertions": "passed for disabled, incomplete, read-only configured, and missing bundle",
+    "focused_pytest": {
+      "exit_code": 4,
+      "pass_claimed": false,
+      "status": "blocked_by_canonical_test_install_guard"
+    },
+    "git_diff_check": "passed",
+    "hosted_checks": "pending",
+    "python_compile": "passed"
+  }
+}

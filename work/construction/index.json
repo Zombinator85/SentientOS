@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b8b8263ed8ac542a8e9d918cd3dd16f9c6c6374fefd91a985bcfbb2dc46e98cf",
-    "latest_segment_sequence": 431,
-    "latest_segment_sha256": "89fa1402daf04245857404e3d073dffcc015e2874b2bd20e352aaafb9a9688e7",
-    "latest_sequence": 431,
-    "source_commit": "968d58f8e6ab49b4a6c6b27a02f063b1471cf388",
-    "source_tree": "7dd3bfac51db3584370a956cb09299bbb548b8cc"
+    "checkpoint_sha256": "ec9297cc5747d02df304972e2a7da56bfa117a90fd1555f6de9cb8122c31242e",
+    "latest_segment_sequence": 432,
+    "latest_segment_sha256": "5c468d71480c2fb2c91055901e0fc38de8a83bdd3011cc84f6626ee7eb239f68",
+    "latest_sequence": 432,
+    "source_commit": "3d6e050e7caf903614027e666792314470177b66",
+    "source_tree": "96ef34fcc02391609458c439e66a7464dadd6dd9"
   },
-  "checkpoint_sha256": "b8b8263ed8ac542a8e9d918cd3dd16f9c6c6374fefd91a985bcfbb2dc46e98cf",
+  "checkpoint_sha256": "ec9297cc5747d02df304972e2a7da56bfa117a90fd1555f6de9cb8122c31242e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 431,
+  "latest_sequence": 432,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4856,6 +4856,18 @@
       "sha256": "89fa1402daf04245857404e3d073dffcc015e2874b2bd20e352aaafb9a9688e7",
       "source_commit": "968d58f8e6ab49b4a6c6b27a02f063b1471cf388",
       "source_tree": "7dd3bfac51db3584370a956cb09299bbb548b8cc"
+    },
+    {
+      "bytes": 1632,
+      "evidence_bytes": 1371,
+      "evidence_path": "work/construction/evidence/0432-test-resource-observer-startup-binding.json",
+      "evidence_sha256": "8a301715ecc12be3674990aa8fbcb1648ef301e1663f837b27d389e7726cfce6",
+      "path": "work/construction/segments/0432-test-resource-observer-startup-binding.md",
+      "predecessor": "segment-sha256:89fa1402daf04245857404e3d073dffcc015e2874b2bd20e352aaafb9a9688e7",
+      "sequence": 432,
+      "sha256": "5c468d71480c2fb2c91055901e0fc38de8a83bdd3011cc84f6626ee7eb239f68",
+      "source_commit": "3d6e050e7caf903614027e666792314470177b66",
+      "source_tree": "96ef34fcc02391609458c439e66a7464dadd6dd9"
     }
   ],
   "source_acquisition": {

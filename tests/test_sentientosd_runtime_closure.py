@@ -40,6 +40,52 @@ from sentientosd import (
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def test_resource_observer_startup_is_explicit_read_only_and_unverified_until_read(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+
+    def forbidden_system_registry(
+            _cls: type[InstallationStateRegistry]) -> InstallationStateRegistry:
+        raise AssertionError("unconfigured selectors must not open installation state")
+
+    monkeypatch.setattr(InstallationStateRegistry, "system",
+        classmethod(forbidden_system_registry))
+    owner, status = sentientosd._load_resource_observation_configuration(None, None)
+    assert owner is None
+    assert status == {"status": "disabled", "read_only": True,
+        "effect_authority": False}
+
+    owner, status = sentientosd._load_resource_observation_configuration(
+        "production", None)
+    assert owner is None
+    assert status["status"] == "invalid"
+    assert status["reason_code"] == "resource_observation_configuration_incomplete"
+    assert status["effect_authority"] is False
+
+    registry = InstallationStateRegistry._for_testing(tmp_path / "state")
+    registry.open(InstallationIdentity.parse("production"), create=True)
+    def test_system_registry(
+            _cls: type[InstallationStateRegistry]) -> InstallationStateRegistry:
+        return registry
+
+    monkeypatch.setattr(InstallationStateRegistry, "system",
+        classmethod(test_system_registry))
+    owner, status = sentientosd._load_resource_observation_configuration(
+        "production", "trial-1")
+    assert owner is not None
+    assert not hasattr(owner._handle, "durable_replace")
+    assert status == {"status": "degraded", "reason_code": "source_not_yet_observed",
+        "installation_identity": "production", "provisioning_id": "trial-1",
+        "read_only": True, "effect_authority": False}
+    # Configuration alone is not source verification. The first read fails
+    # closed because no verified bundle exists, leaving startup unverified.
+    from sentientos.production_chat_resource_observation import (
+        ProductionChatResourceObservationError)
+    with pytest.raises(ProductionChatResourceObservationError,
+            match="resource_bundle_missing"):
+        owner.observe()
+
+
 @dataclass
 class _GovernorDecisionStub:
     allowed: bool

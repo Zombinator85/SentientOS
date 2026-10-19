@@ -147,6 +147,51 @@ RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISI
 INTEGRITY_CONTROLLER_OBSERVATION_ENV = "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION"
 
 
+def _load_resource_observation_configuration(
+        installation_selector: str | None,
+        provisioning_selector: str | None,
+) -> tuple[ProductionChatResourceObservationOwner | None, dict[str, Any]]:
+    """Resolve the explicitly selected read-only chat-resource observer.
+
+    The selectors choose existing installation-scoped custody; they neither
+    create that custody nor imply that the selected bundle has been verified.
+    The first owner read remains part of a daemon tick so its result is bound
+    to the World-State projection that consumes it.
+    """
+    status: dict[str, Any] = {
+        "status": "disabled", "read_only": True, "effect_authority": False,
+    }
+    if installation_selector is None and provisioning_selector is None:
+        return None, status
+    if not installation_selector or not provisioning_selector:
+        return None, {
+            "status": "invalid",
+            "reason_code": "resource_observation_configuration_incomplete",
+            "read_only": True, "effect_authority": False,
+        }
+    try:
+        identity = InstallationIdentity.parse(installation_selector)
+        handle = InstallationStateRegistry.system().open_read_only(identity)
+        owner = ProductionChatResourceObservationOwner(handle, provisioning_selector)
+        return owner, {
+            "status": "degraded", "reason_code": "source_not_yet_observed",
+            "installation_identity": handle.identity.value,
+            "provisioning_id": provisioning_selector,
+            "read_only": True, "effect_authority": False,
+        }
+    except InstallationStateError as exc:
+        return None, {
+            "status": "missing" if exc.code == "installation_state_root_missing" else "invalid",
+            "reason_code": exc.code,
+            "read_only": True, "effect_authority": False,
+        }
+    except Exception as exc:
+        return None, {
+            "status": "invalid", "reason_code": type(exc).__name__,
+            "read_only": True, "effect_authority": False,
+        }
+
+
 def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str) -> dict[str, Any]:
     """Project the actual protective-state owner read, without parsing incident narratives."""
     try:
@@ -4089,41 +4134,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     authority_map = build_local_model_authority_map()
     governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
     genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
-    resource_observation_owner = None
-    resource_observation_configuration_status: dict[str, Any] = {
-        "status": "disabled", "read_only": True, "effect_authority": False,
-    }
-    observation_installation = os.environ.get(RESOURCE_OBSERVATION_INSTALLATION_ENV)
-    observation_provisioning = os.environ.get(RESOURCE_OBSERVATION_PROVISIONING_ENV)
-    if observation_installation is not None or observation_provisioning is not None:
-        if not observation_installation or not observation_provisioning:
-            resource_observation_configuration_status = {
-                "status": "invalid", "reason_code": "resource_observation_configuration_incomplete",
-                "read_only": True, "effect_authority": False,
-            }
-        else:
-            try:
-                handle = InstallationStateRegistry.system().open_read_only(
-                    InstallationIdentity.parse(observation_installation))
-                resource_observation_owner = ProductionChatResourceObservationOwner(
-                    handle, observation_provisioning)
-                resource_observation_configuration_status = {
-                    "status": "degraded", "reason_code": "source_not_yet_observed",
-                    "installation_identity": handle.identity.value,
-                    "provisioning_id": observation_provisioning,
-                    "read_only": True, "effect_authority": False,
-                }
-            except InstallationStateError as exc:
-                resource_observation_configuration_status = {
-                    "status": "missing" if exc.code == "installation_state_root_missing" else "invalid",
-                    "reason_code": exc.code,
-                    "read_only": True, "effect_authority": False,
-                }
-            except Exception as exc:
-                resource_observation_configuration_status = {
-                    "status": "invalid", "reason_code": type(exc).__name__,
-                    "read_only": True, "effect_authority": False,
-                }
+    resource_observation_owner, resource_observation_configuration_status = (
+        _load_resource_observation_configuration(
+            os.environ.get(RESOURCE_OBSERVATION_INSTALLATION_ENV),
+            os.environ.get(RESOURCE_OBSERVATION_PROVISIONING_ENV)))
     resident_serving_controller = None
     resident_serving_slot = None
     resident_serving_config = None
