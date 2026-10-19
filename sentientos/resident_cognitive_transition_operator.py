@@ -390,6 +390,89 @@ class LiveTransitionOperatorRuntime:
             "read_only": True, "effect_performed": False, "request_count": len(observations),
             "receipt_count": len(receipts), "requests": observations}
 
+    def inspect_verified_stage_receipt(self, request_id: str) -> Mapping[str, Any]:
+        """Expose a completed stage receipt only when its journal custody verifies it.
+
+        This read-only projection is intended for later in-process campaign
+        composition. It does not consume requests, reconstruct missing receipts,
+        expose approvals, or grant execution authority.
+        """
+        if not isinstance(request_id, str) or not request_id:
+            raise TransitionError("operator_stage_receipt_request_id_invalid")
+        packet = next((item for item in self._request_packets()
+                       if item.get("request_id") == request_id), None)
+        if packet is None:
+            raise TransitionError("operator_stage_receipt_request_unavailable")
+        if (packet.get("installation_identity") != self.config.installation_identity
+                or packet.get("protocol_id") != self.config.protocol_id
+                or packet.get("protocol_digest") != self.config.protocol_digest
+                or packet.get("transition_id") != self.controller.protocol.value.get("transition_id")):
+            raise TransitionError("operator_stage_receipt_binding_mismatch")
+
+        receipt = next((item for item in self._receipts()
+                        if item.get("request_id") == request_id), None)
+        if receipt is None or receipt.get("result") != "stage_advanced":
+            raise TransitionError("operator_stage_receipt_unavailable")
+
+        request_binding = {"request_id": request_id, "request_digest": packet["request_digest"]}
+        matches = []
+        for entry in self.controller.journal.entries():
+            evidence = entry.get("evidence")
+            if isinstance(evidence, Mapping) and evidence.get("operator_request") == request_binding:
+                matches.append(entry)
+        if len(matches) != 2:
+            raise TransitionError("operator_stage_receipt_journal_lineage_invalid")
+        attempt, terminal = matches
+        requested_stage = packet.get("requested_stage")
+        if (attempt.get("status") != "attempted"
+                or attempt.get("phase") != packet.get("expected_prior_phase")
+                or attempt.get("evidence", {}).get("attempted_stage") != requested_stage
+                or attempt.get("evidence", {}).get("approval_digest") != packet.get("stage_approval_digest")
+                or terminal.get("status") != "completed"
+                or terminal.get("phase") != requested_stage
+                or not isinstance(attempt.get("entry_digest"), str)
+                or not isinstance(terminal.get("entry_digest"), str)):
+            raise TransitionError("operator_stage_receipt_journal_lineage_invalid")
+
+        detail = receipt.get("detail", {})
+        if detail.get("recovered_from_transition_journal") is True:
+            receipt_matches_journal = detail.get("terminal_entry_digest") == terminal["entry_digest"]
+        else:
+            stage_result = detail.get("stage_result")
+            receipt_matches_journal = (
+                isinstance(stage_result, Mapping)
+                and stage_result.get("phase") == requested_stage
+                and stage_result.get("journal_head") == terminal["entry_digest"]
+            )
+        if not receipt_matches_journal:
+            raise TransitionError("operator_stage_receipt_journal_lineage_invalid")
+
+        health = self.controller.health()
+        verified_entries = health.get("semantically_verified_stage_entry_digests", [])
+        if (not isinstance(verified_entries, (list, tuple))
+                or terminal["entry_digest"] not in verified_entries):
+            raise TransitionError("operator_stage_receipt_semantic_verification_unavailable")
+
+        body = {
+            "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v1",
+            "request_id": request_id,
+            "request_digest": packet["request_digest"],
+            "installation_identity": self.config.installation_identity,
+            "protocol_id": self.config.protocol_id,
+            "protocol_digest": self.config.protocol_digest,
+            "phase": requested_stage,
+            "operator_receipt_digest": receipt["receipt_digest"],
+            "attempt_entry_digest": attempt["entry_digest"],
+            "completed_entry_digest": terminal["entry_digest"],
+            "journal_head_observed": health.get("journal_head"),
+            "read_only": True,
+            "effect_performed": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        body["binding_digest"] = _digest_bytes(_canonical(body))
+        return MappingProxyType(body)
+
     def _append_receipt(self, request_id: str, result: str, detail: Mapping[str, Any]) -> dict[str, Any]:
         if os.name != "posix":
             raise TransitionError("operator_receipt_publication_unsupported_platform")
