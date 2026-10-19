@@ -1,0 +1,225 @@
+{
+  "sequence": 451,
+  "title": "Verify sequence 450 merge and Federation Health publication",
+  "source_commit": "4500226be7e9b16077d4e7667701f27c874a07a8",
+  "source_tree": "8dccdb3730292714602d78339310898a9fce6220",
+  "predecessor_segment_sha256": "6cfd9518b07378610fd70355bf36b439a49e02ac13a05427efe9f6739258449c",
+  "pull_requests": [
+    {
+      "number": 2415,
+      "candidate_commit": "5afc4182fddca0a0ccf8c4744e7510c5a5969ee9",
+      "candidate_tree": "51ddd36dac47a93eda405ab283758b1b03a4dea4",
+      "checks": {
+        "required_quality_gate": {
+          "run_id": 39228820076,
+          "conclusion": "success",
+          "administrator_strict_audit": "passed",
+          "exact_acceptance": "passed",
+          "hosted_finalizer": "passed",
+          "prepublication_metadata_guard": "passed"
+        },
+        "ci": {
+          "run_id": 39228820031,
+          "conclusion": "success"
+        },
+        "invariants": {
+          "run_id": 39228819981,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "run_id": 39228820215,
+          "conclusion": "success"
+        },
+        "docker": {
+          "run_id": 39228820086,
+          "conclusion": "success"
+        },
+        "lint": {
+          "run_id": 39228820164,
+          "conclusion": "success"
+        },
+        "release": {
+          "run_id": 39228820135,
+          "conclusion": "success"
+        },
+        "gradient_regression": {
+          "run_id": 39228820094,
+          "conclusion": "success"
+        }
+      },
+      "merge_commit": "9cd0d89cd43c614de070bee0043cdd1df35afdb9",
+      "merge_method": "merge",
+      "candidate_to_merge_comparison": {
+        "ahead_by": 1,
+        "behind_by": 0,
+        "changed_files": 0
+      }
+    },
+    {
+      "number": 2416,
+      "purpose": "publish successful receipt-bearing Federation Health output",
+      "candidate_commit": "b34f7bacc16b088153998f4678bd15eb37410724",
+      "candidate_tree": "8dccdb3730292714602d78339310898a9fce6220",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH.md",
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "checks": {
+        "required_quality_gate": {
+          "run_id": 39229638370,
+          "conclusion": "success",
+          "administrator_strict_audit": "passed",
+          "exact_acceptance": "passed",
+          "hosted_finalizer": "passed",
+          "prepublication_metadata_guard": "passed"
+        },
+        "ci": {
+          "run_id": 39229638415,
+          "conclusion": "success"
+        },
+        "invariants": {
+          "run_id": 39229638454,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "run_id": 39229638448,
+          "conclusion": "success"
+        },
+        "docker": {
+          "run_id": 39229638304,
+          "conclusion": "success"
+        },
+        "lint": {
+          "run_id": 39229638324,
+          "conclusion": "success"
+        },
+        "release": {
+          "run_id": 39229638429,
+          "conclusion": "success"
+        },
+        "gradient_regression": {
+          "run_id": 39229638434,
+          "conclusion": "success"
+        }
+      },
+      "merge_commit": "4500226be7e9b16077d4e7667701f27c874a07a8",
+      "merge_method": "merge",
+      "candidate_to_merge_comparison": {
+        "ahead_by": 1,
+        "behind_by": 0,
+        "changed_files": 0
+      }
+    }
+  ],
+  "readback": {
+    "sequence450_paths": [
+      "README.md",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0450-qualify-federation-health-snapshot-scope.json",
+      "work/construction/index.json",
+      "work/construction/segments/0450-qualify-federation-health-snapshot-scope.md"
+    ],
+    "sequence450_blob_shas": [
+      "03bb50a55e163e9e68fb46ddd80438be540becc7",
+      "e020669d74820a0eb0c5618903cb0752d7455993",
+      "1c86ac2b51553272dc5797c1014fd1706c8c2f0c",
+      "a5e9874c960be76a2c28c31ca0e9c70020cf0168",
+      "fcd9248455df189030a1992556f6be15251620f9",
+      "99c1d39931af725548d0dac39bb2c85fa6689886",
+      "5ea57d7e4676c8e3245ed4a4c5709b4e8420775e"
+    ],
+    "sequence450_all_match": true,
+    "publication_paths": [
+      "docs/FEDERATION_HEALTH.md",
+      "docs/FEDERATION_HEALTH_EXECUTION.json"
+    ],
+    "publication_blob_shas": [
+      "3c94e76fb9a3853980ec20982f73129b44ff15a2",
+      "d524d81c14a7e12f9501a5ae8b01a04f2074e9dd"
+    ],
+    "publication_all_match": true,
+    "final_content_tree": "8dccdb3730292714602d78339310898a9fce6220"
+  },
+  "federation_health": {
+    "run_id": 39229381396,
+    "event_name": "push",
+    "source_head_sha": "9cd0d89cd43c614de070bee0043cdd1df35afdb9",
+    "health_job": "success",
+    "administrator_preflight": "passed",
+    "artifact_id": 12176317340,
+    "artifact_sha256": "70b1a6935ff28772d5431b6c2bc1a7160b39721b0cadb18256f4cdab1035cb17",
+    "receipt_report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9",
+    "downloaded_report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9",
+    "report_readback_match": true,
+    "report": {
+      "nodes_in_configured_log": 1,
+      "events_in_24h": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "status": "quiet",
+      "source": "configured local log snapshot",
+      "live_telemetry": false
+    },
+    "publisher_job": "failed",
+    "publisher_failure": "GitHub Actions is not permitted to create or approve pull requests",
+    "output_branch": "automation/federation-health",
+    "output_pr": 2416,
+    "output_published_by_standard_pr_checks": true,
+    "scheduled_execution_on_current_main": "pending"
+  },
+  "post_merge_main_checks_for_publication_merge": {
+    "head_sha": "4500226be7e9b16077d4e7667701f27c874a07a8",
+    "required_quality_gate": {
+      "run_id": 39230151231,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "run_id": 39230151089,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 39230151168,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 39230150996,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 39230150905,
+      "conclusion": "in_progress_at_checkpoint"
+    },
+    "docker": {
+      "run_id": 39230151016,
+      "conclusion": "in_progress_at_checkpoint"
+    }
+  },
+  "nightly_workflows": {
+    "audit_integrity": {
+      "run_id": 39228761152,
+      "event_name": "schedule",
+      "head_sha": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "conclusion": "success",
+      "repair_job": "skipped"
+    },
+    "self_check": {
+      "scheduled_execution_on_observed_window": "not_found"
+    },
+    "federation_health": {
+      "scheduled_execution_on_current_main": "pending"
+    }
+  },
+  "limitations": {
+    "automatic_actions_pr_creation": "blocked by repository Actions setting; built-in token already has per-job contents:write and pull-requests:write",
+    "historical_test_provenance": "INTEGRITY_BROKEN; sequence-286 loss preserved",
+    "live_federation_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  },
+  "verification": {
+    "canonical_hosted_matrices": "passed for PR #2415 and PR #2416",
+    "local_pytest": "not run",
+    "construction_custody": "passed through sequence 451"
+  }
+}

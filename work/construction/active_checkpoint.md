@@ -2,24 +2,25 @@
 
 ## Latest verified main
 
-PR #2413 regular-merged sequence 448 at main `5f4a94635ee1285f5199054cc37319e1fc1e0626`, preserving candidate content tree `56f7cabd065ec1baba89a171a1bec0d9d6d0d46a`. Exact-head Required Quality Gate #39226214227, CI #39226214317, Invariants #39226214169, Codex CI #39226214309, Docker #39226214244, Lint Benchmark #39226214281, Release #39226214199, and Gradient regression #39226214289 all passed. The gate performed actual Administrator strict audit, exact acceptance, hosted finalization, and the separate metadata guard; candidate-to-merge comparison and four-blob readback passed.
+PR #2415 regular-merged sequence 450 at main `9cd0d89cd43c614de070bee0043cdd1df35afdb9`, preserving tree `51ddd36dac47a93eda405ab283758b1b03a4dea4`. Its exact-head Required Quality Gate #39228820076, CI #39228820031, Invariants #39228819981, Codex CI #39228820215, Docker #39228820086, Lint #39228820164, Release #39228820135 and Gradient regression #39228820094 passed. The gate passed the actual Administrator strict audit, exact acceptance, hosted finalizer, and separate pre-publication metadata guard. Post-merge CI, quality gate, invariants, Codex CI, Docker, and docs deploy all passed. Seven changed blob identities matched the merged tree.
 
-The first receipt-bearing Federation Health execution (run #39224329633, push event on main SHA `3ac7816c381cd5d859e656d76926f7f47fb11631`) passed hosted Administrator preflight and report generation. Artifact #12172743299 receipt and report were independently read back; the report digest matched. The downstream publisher job failed when GitHub rejected GITHUB_TOKEN PR creation, after its docs branch push succeeded. This does not negate health generation. A scheduled run on current main `5f4a94635ee1285f5199054cc37319e1fc1e0626` remains pending. Main-push checks on that SHA are not visible through the connected PR-only reader. Historical test provenance remains `INTEGRITY_BROKEN` at its known unanchored beginning.
+A receipt-bearing Federation Health push run #39229381396 on `9cd0d89cd43c614de070bee0043cdd1df35afdb9` passed Administrator preflight and report generation. Artifact #12176317340, receipt, report hash, and branch readback were independently checked. The report uses the configured local log snapshot and does not claim live telemetry. Its automatic publisher failed because GitHub blocks Actions-token PR creation. PR #2416 published the exact report and receipt through normal checks, regular-merging as `4500226be7e9b16077d4e7667701f27c874a07a8`, tree `8dccdb3730292714602d78339310898a9fce6220`. Its exact-head matrix passed. The subsequent main-push QG, invariants, Codex CI and docs deploy passed; CI and Docker were still running at this checkpoint, although their exact-candidate checks passed.
 
 ## Current construction
 
-Sequence 450 qualifies the Federation Health report as a configured local log snapshot, not live federation telemetry. The report now identifies source scope, observation window, and latest event time, and excludes future-dated events from its recent count. The first scheduled execution on this main remains pending.
+Sequence 451 verifies sequence 450's merge and the receipt-bearing post-merge report publication. The hourly scheduled Federation Health run on main `4500226be7e9b16077d4e7667701f27c874a07a8` remains pending. Nightly Audit Integrity succeeded on the preceding main with no repair needed. A Nightly Self Check schedule run was not observed in the queried schedule history.
 
 ## Open evidence boundaries
 
-- Scheduled Federation Health on `5f4a94635ee1285f5199054cc37319e1fc1e0626` remains pending.
-- Main-push checks on `5f4a94635ee1285f5199054cc37319e1fc1e0626` remain unobserved through the connected reader.
-- Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved and unresolved.
-- A production resident A→B→A trial still requires commissioned identities, distinct serving approvals, and operator preregistration.
+- Automatic Actions-token PR creation remains blocked by the repository Actions setting; this run's output was published by a connected-account PR through the normal checks.
+- Scheduled Federation Health on current main is pending; a successful push-triggered generation is recorded separately.
+- No Nightly Self Check schedule run was returned for the queried window; no failure is inferred.
+- Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved.
+- A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration.
 - No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `fd20cf6ccef310a827794fb5956538df89a6598a`, tree `576805f6e87686afb7042e795fb3b44d084f3e17`.
-Latest construction segment: `work/construction/segments/0450-qualify-federation-health-snapshot-scope.md`
-Latest segment SHA-256: `6cfd9518b07378610fd70355bf36b439a49e02ac13a05427efe9f6739258449c`
-Sequence: 450 (Federation Health source scope qualification pending exact-head verification)
+Latest verified main: `4500226be7e9b16077d4e7667701f27c874a07a8`, tree `8dccdb3730292714602d78339310898a9fce6220`.
+Latest construction segment: `work/construction/segments/0451-verify-sequence450-merge-and-health-publication.md`
+Latest segment SHA-256: `c5c08f269cc7a270292b0f92539777befd1721be0188fb56b93ff573f024fc41`
+Sequence: 451 (sequence 450 merge and report publication verified)
