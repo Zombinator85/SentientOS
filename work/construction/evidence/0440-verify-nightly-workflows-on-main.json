@@ -1,0 +1,110 @@
+{
+  "authority": {
+    "audit_strictness_weakened": false,
+    "new_production_authority": false,
+    "protected_workspaces_modified": false,
+    "repair_permissions_broadened": false,
+    "repair_publication_occurred": false
+  },
+  "federation_health": {
+    "next_scheduled_execution_on_this_sha": "pending",
+    "production_inference_claimed": false
+  },
+  "historical_provenance_boundary": {
+    "cause": "preserved unanchored historical chain including sequence-286 loss",
+    "reconstructed_or_discarded": false,
+    "test_trend": "INTEGRITY_BROKEN",
+    "window_runs": 20
+  },
+  "nightly_audit": {
+    "administrator_preflight": "passed",
+    "conclusion": "success",
+    "head_sha": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+    "repair_job": "skipped_no_repair_findings_or_publication",
+    "run_id": 39218706704,
+    "strict_audit": {
+      "bucket": "healthy_strict",
+      "exit_status": 0,
+      "readiness": "acceptable"
+    }
+  },
+  "nightly_self_check": {
+    "administrator_preflight": "passed",
+    "artifacts": [
+      {
+        "id": 12170339561,
+        "name": "test_run_provenance_39218706559_self-check",
+        "sha256": "4310d04fd786dc86fd011d1a886c8270b3fa3b86600d9b8cb20bd9b7afa1e9ab"
+      },
+      {
+        "id": 12170194964,
+        "name": "test_trend_report_39218706559_self-check",
+        "sha256": "9d1c889d6cd10210f0961cd8ba86f648a46a2e14fa0917db7d49c19833098bc6"
+      },
+      {
+        "id": 12170573457,
+        "name": "router_telemetry_report_39218706559_self-check",
+        "sha256": "fb9564c48d3be92cd3578f34e77be77761dbec111bcbf8c81279278a9f98010d"
+      }
+    ],
+    "conclusion": "success",
+    "head_sha": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+    "mypy": "passed",
+    "privilege_lint": "passed",
+    "pytest": {
+      "failed": 0,
+      "passed": 143,
+      "skipped": 13
+    },
+    "pytest_airlock": "passed",
+    "run_id": 39218706559,
+    "strict_audit": "passed"
+  },
+  "post_merge_main_push": {
+    "checks": {
+      "ci": 39218706721,
+      "codex_ci": 39218706554,
+      "docker_image": 39218706679,
+      "docs_deploy": 39218706514,
+      "forge_smoke": {
+        "conclusion": "skipped_by_configured_condition",
+        "run_id": 39218706548
+      },
+      "invariants": 39218706717,
+      "required_quality_gate": 39218706668
+    },
+    "commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+    "conclusion": "all_configured_main_push_checks_passed",
+    "tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
+  },
+  "predecessor_segment_sha256": "0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
+  "pull_request": {
+    "candidate_commit": "52d296234ae68409b359fb0f9b58ab4f36812542",
+    "candidate_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29",
+    "corrected_candidate_checks": {
+      "all_exact_head_contexts": "passed",
+      "ci_run_id": 39218221668,
+      "invariants_run_id": 39218221663,
+      "quality_gate_run_id": 39218221646
+    },
+    "first_candidate_failure": {
+      "classification": "stale workflow contract assertion only; strict audit and authority checks were not the failure",
+      "run_id": 39217803240
+    },
+    "merge_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+    "merge_method": "merge",
+    "number": 2405
+  },
+  "sequence": 440,
+  "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+  "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29",
+  "status": "post_merge_main_and_nightly_execution_verified_federation_schedule_pending",
+  "title": "Verify nightly audit and self-check on main",
+  "verification": {
+    "artifact_contents": "not independently unpacked; GitHub artifact metadata and job logs were read",
+    "construction_custody": "to verify locally before publication",
+    "hosted_canonical_suite": "passed",
+    "local_pytest": "not claimed; canonical hosted environment used",
+    "source_identity": "main commit/tree verified via GitHub branch and commit API"
+  }
+}

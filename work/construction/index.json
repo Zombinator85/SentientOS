@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "85aeafbcf8b8024c2bae998b4a37855d196e94581afb916e550d84eef34733a2",
-    "latest_segment_sequence": 439,
-    "latest_segment_sha256": "0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
-    "latest_sequence": 439,
-    "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
-    "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
+    "checkpoint_sha256": "05db5be155de3d35346e6792b33f17e61339e8108a2f26119af073c4618a2697",
+    "latest_segment_sequence": 440,
+    "latest_segment_sha256": "422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
+    "latest_sequence": 440,
+    "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+    "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
   },
-  "checkpoint_sha256": "85aeafbcf8b8024c2bae998b4a37855d196e94581afb916e550d84eef34733a2",
+  "checkpoint_sha256": "05db5be155de3d35346e6792b33f17e61339e8108a2f26119af073c4618a2697",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 439,
+  "latest_sequence": 440,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4952,6 +4952,18 @@
       "sha256": "0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
       "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
       "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
+    },
+    {
+      "bytes": 2552,
+      "evidence_bytes": 3926,
+      "evidence_path": "work/construction/evidence/0440-verify-nightly-workflows-on-main.json",
+      "evidence_sha256": "f3a6b34fc17acfd334eb99151c259868d71a828f8cf4c33c7368896392685004",
+      "path": "work/construction/segments/0440-verify-nightly-workflows-on-main.md",
+      "predecessor": "segment-sha256:0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
+      "sequence": 440,
+      "sha256": "422c7db42097358ae68bcd02420c1a4dcdc1f56435c6ab09f858a6cac1f5ef99",
+      "source_commit": "45a512233b1eeb2144cd19fda16ed46dfc03b234",
+      "source_tree": "1b4a3d4d2d628f0cdda052582fbb3fe7db9a1c29"
     }
   ],
   "source_acquisition": {
