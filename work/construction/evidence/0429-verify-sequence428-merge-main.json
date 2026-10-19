@@ -1,0 +1,82 @@
+{
+  "candidate_status": "merged_exact_candidate_checks_passed_post_merge_execution_pending",
+  "exact_candidate_checks": {
+    "branch_push_quality_gate": {
+      "administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "immutability": "passed",
+      "metadata_guard": "passed",
+      "run_id": 39210534494
+    },
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39210538106
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39210538119
+    },
+    "docker_image": {
+      "conclusion": "success",
+      "run_id": 39210538921
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39210538221
+    },
+    "invariant_tests": {
+      "conclusion": "success",
+      "run_id": 39210538155
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": 39210538200
+    },
+    "pr_event_quality_gate": {
+      "administrator_strict_audit": "passed",
+      "conclusion": "success",
+      "immutability": "passed",
+      "metadata_guard": "passed",
+      "run_id": 39210538107
+    },
+    "release": {
+      "conclusion": "success",
+      "run_id": 39210538170
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": 39210538107
+    }
+  },
+  "post_merge_evidence": {
+    "main_push_checks": "not_available_at_evidence_cut",
+    "nightly_audit_integrity": "pending_not_claimed",
+    "nightly_self_check": "pending_not_claimed",
+    "scheduled_federation_health": "pending_not_claimed"
+  },
+  "predecessor_segment_sha256": "7360d4f267c90b01526d7ce06a0bd6ebd526c6145f6370c0dfe59a72cb7cfa9a",
+  "preservation": {
+    "candidate_tree_and_history_preserved": true,
+    "historical_support_log_rewritten": false,
+    "production_authority_changed": false,
+    "strict_gate_weakened": false
+  },
+  "sequence": 429,
+  "sequence_428_merge": {
+    "candidate_commit": "fdbaa10f12d09b598a0c35d1f4b5e599f5d53049",
+    "files_changed_after_candidate": 0,
+    "merge_commit": "b95d26f07a9d1b52bc5e5a0856cd24740a14e610",
+    "merge_commit_ahead_by": 1,
+    "method": "regular_two_parent_merge",
+    "pull_request": 2396,
+    "tree_preserved": true
+  },
+  "source_commit": "b95d26f07a9d1b52bc5e5a0856cd24740a14e610",
+  "source_tree": "5e8b605313e0e64b86321ebdd61ba0c5c1a1e192",
+  "title": "Verify sequence 428 merge to main",
+  "verification": {
+    "construction_custody_before_append": 428,
+    "remote_compare": "one regular merge commit, zero file changes",
+    "remote_pr_status": "merged"
+  }
+}

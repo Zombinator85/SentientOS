@@ -38,7 +38,7 @@ Callable, resident, default-active, authorized, and effectful are additional ind
 | post-adoption observation -> comparison -> later improvement proposal | implemented and production-capable; production benefit/causation is not evidenced |
 | model A -> quiescence -> B -> A with persistent external state | daemon-composed; evidence is synthetic, not production |
 | causal principal -> bounded local-model allocation/debit | explicit local-model allocator and pre-issued chat resource context are implemented; no generalized host scheduling claim |
-| allocation/invocation -> daemon World-State | projection and explicit ledger-injection seam exist; canonical `sentientosd` does not inject the resource ledger, so the complete path is not composed |
+| allocation/invocation -> daemon World-State | an explicitly configured, read-only production-chat observer is composed through verified ledger-image and receipt projection; the default daemon is unconfigured, and no production execution is evidenced |
 | per-invocation physical consumption -> consequence | shared host observations are not invocation measurements; independent per-invocation CPU/GPU/energy evidence is not established |
 | embodiment command -> independent physical observation | experimental machinery implemented; real physical closure projected |
 | federation evidence/candidates -> local review | bounded exchange surfaces exist; authority remains local |
@@ -89,7 +89,7 @@ Genesis provisioning constructs and verifies configuration; it does not create a
 
 Embodiment code distinguishes body identity and generation, artifact inspection, CAS adoption/rollback/lineage, command, renderer report, independent observation, qualifying fulfillment, consequence attribution, and developmental interpretation. Synthetic strategy experiments and avatar/Godot/UDP surfaces do not prove physical embodiment. A renderer is not its own independent observer.
 
-Causal-resource code distinguishes canonical principals, sponsorship, issuer provenance, Ed25519 verification, trusted public-key catalogs, signer custody, authentication, and attribution. A separate bounded local-model resource ledger can debit an explicit, pre-issued allocation in the production-chat path. This is not general CPU/GPU/RAM/VRAM/token/energy/thermal scheduling or enforcement, and the standard resident daemon does not inject the ledger into its resource-consumption World-State projection:
+Causal-resource code distinguishes canonical principals, sponsorship, issuer provenance, Ed25519 verification, trusted public-key catalogs, signer custody, authentication, and attribution. A separate bounded local-model resource ledger can debit an explicit, pre-issued allocation in the production-chat path. When both installation identity and provisioning ID are explicitly configured, `sentientosd` composes a read-only observer that verifies a bounded ledger image and linked receipts, then projects them into World-State before resident cognition. The default daemon remains unconfigured; no production execution is claimed. This is not general CPU/GPU/RAM/VRAM/token/energy/thermal scheduling or enforcement:
 
 ```text
 canonical principal != authenticated provenance != allocation != effect authority
@@ -125,7 +125,7 @@ WHAT HAPPENED** where the supplying owner actually knows them.
 
 ## Exact remaining gaps at the bound source
 
-1. A canonical trusted-owner handoff from production chat allocation/attempt/consumption receipts into the resident daemon's World-State path; the optional projection exists, but the default daemon does not supply its ledger owner.
+1. Production execution evidence for the explicitly configured read-only resource observer and longitudinal outcomes from admitted evidence into later cognition; configuration and source-level composition do not establish production use or learning.
 2. Qualifying production observation adapters and longitudinal epistemic outcomes for the configured evidence-to-state-to-later-cognition path.
 3. Genuine generation-zero commissioning evidence.
 4. A configured sovereign model provider and genuine publication, then separately authorized catalog deployment, acquisition, commissioning, activation, serving, and inference evidence.
