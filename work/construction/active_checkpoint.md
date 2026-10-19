@@ -2,23 +2,22 @@
 
 ## Latest verified main
 
-PR #2423 regular-merged sequence 455 as main `0082e3d9d76337c2f25efb9defb49e40e87dc482`, preserving tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`. Its exact-head CI, Required Quality Gate, invariants, Codex CI, Docker, Lint, Release, and Gradient checks passed. The gate passed hosted Administrator audit, exact acceptance, finalizer, and the separate prepublication metadata guard. Main post-merge CI, Quality Gate, invariants, Codex CI, Docker, and Docs Deploy passed; Forge Smoke was skipped by condition.
+PR #2424 regular-merged sequence 457 as main `f017629039c607cb6b75b85d75c53a4bee214adb`, preserving candidate tree `e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0`. Its exact-head matrix and post-merge CI, Required Quality Gate, invariants, Codex CI, Docker, Lint, Release, Gradient, and Docs Deploy passed. The Quality Gate recorded `ready_to_commit`, `ready_for_pr_metadata`, and `pr_metadata_guard_ready`. CI passed append-only custody, integrated resource-to-cognition, canonical planning/execution separation, docs linkcheck, self-check, and Helm/Kubernetes checks. Forge Smoke was skipped by condition.
 
-Sequence 454's invalid-UTF-8 hardening is present in this tree. Its post-merge Federation Health push execution passed Administrator preflight on `b5912ecc...`; the downloaded artifact and report digest matched. The generated report describes one configured node, zero recent events, and latest historical event `2025-06-05T16:25:13.805813Z`. It is a configured local log snapshot, not live telemetry. Its receipt was integrated through normal PR #2422 because repository policy blocks Actions-token PR creation.
+Sequence 457 made PR title edits retrigger the Required Quality Gate while preserving exact title-to-commit validation. Its first hosted attempts had used a stale pull-request event title and failed before pre-commit reconstruction; those runs are not treated as finalizer evidence. The corrected candidate passed finalization and the separate metadata guard. The active checkpoint path and digest are now bound to sequence 457.
 
-Scheduled Nightly Self Check #39235681245 passed on `b5912ecc...`, including Administrator availability, strict audit, privilege lint, Mypy, pytest airlock, and pytest. This run preceded PR #2423, which changed only construction evidence and preserved the source tree. Nightly Audit Integrity #39228761152 passed on older main `fd20cf6...` with repair skipped.
+Sequence 454's invalid-UTF-8 Federation Health hardening and push-run receipt remain integrated. The report describes a configured local log snapshot and is not live telemetry. Automatic Actions-token PR creation remains blocked by repository policy.
 
 ## Open evidence boundaries
 
-- No scheduled Federation Health execution on current main `0082e3d9...` has been observed. The latest queried scheduled run is #39218331969 on older main `e66ac2f...`. The successful run #39235242309 on `b5912ecc...` was a push event.
-- Automatic Actions-token PR creation remains blocked by repository policy; normal connector-created PRs pass the standard matrix.
-- The configured health report records zero recent events and is not live telemetry.
+- At 2026-10-19 11:23:53 UTC, no scheduled Federation Health execution on current main `f0176290...` was present. The latest scheduled Health run was #39218331969 on older main `e66ac2f...`; push run #39235242309 was not scheduled.
+- Nightly Self Check #39235681245 passed on `b5912ecc...`; Nightly Audit Integrity #39228761152 passed on `fd20cf6...` with repair skipped. Neither is post-merge scheduled evidence for `f0176290...`.
+- The Nightly Audit Integrity repair publication path uses Actions' token, which repository policy blocks from creating PRs. Its repair path was not exercised by the recent successful run. Do not weaken Administrator audit requirements or widen token authority to hide this.
 - Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved.
-- A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration.
-- No production resource-observer execution, longitudinal learning, or benefit is claimed.
+- A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration. No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`.
-Latest construction segment: `work/construction/segments/0457-retrigger-landing-gate-on-pr-title-edit.md`
-Latest segment SHA-256: `bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a`
-Sequence: 457 (title edit retriggers landing gate; exact-head matrix pending)
+Latest verified main: `f017629039c607cb6b75b85d75c53a4bee214adb`, tree `e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0`.
+Latest construction segment: `work/construction/segments/0458-verify-sequence457-merge-and-boundary.md`
+Latest segment SHA-256: `a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e`
+Sequence: 458 (sequence 457 integrated; scheduled Federation Health on current main pending)
