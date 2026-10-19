@@ -1,0 +1,11 @@
+# Sequence 413: verify sequence 412 merge on main
+
+PR #2382 merged sequences 411 and 412 with a regular merge commit, preserving both candidate commits. Exact main is `ed6209634b8f8cf8c12984d37a1268b7fef960f1`, tree `9958cd612d945dd74707c7c05033cc60fabd1ae4`; its first parent is the verified base `5054ad41f600280ef5836c60a0964b38601b04b9`, and its second parent is candidate `a41bf4c9caa0618d76a68cc6d828dc615abb25d4`. The merge tree exactly matches the candidate tree. All 21 PR check runs completed: required checks passed, with only two configured skips and no failures.
+
+Exact-main Required Quality Gate #39178576101, CI #39178576120, Docker #39178576105, Invariant Tests #39178576132, Docs Deploy #39178576086, and Codex CI #39178576145 succeeded. CI self-check, integrated source validation, Helm/Kubernetes, and documentation link-check jobs passed. Forge Smoke #39178576091 was skipped under its configured condition. Independently downloaded QG artifact #12155276532 matched GitHub's SHA-256 `0488f0b4341b4e736aef95f9fe9c406a1910615d2528637cc9a08c84f29766e0`; it binds expected/source SHA and tree to exact main, Administrator UID 0, successful strict audit and immutability, and 29/29 acceptance nodes with zero failures or skips. CI source-validation artifact #12155601728 independently matched SHA-256 `2b84c008444a0f740fd8c9b6416e1a9455ace462e9213ee080dfc5c11dcfdbf4`; exact-main source validation passed 11/11, canonical planning 20/20, and World-State contracts 3/3 with no failed or skipped required nodes.
+
+The QG trend continues to report `INTEGRITY_BROKEN` at an unanchored start; the sequence-286 provenance gap remains preserved. Current-main scheduled Federation Health, Nightly Audit Integrity, and Nightly Self Check executions remain pending. The changed-output Federation Health fixture remains blocked by the repository Actions PR-creation setting. No production A→B→A trial or inference was started; exact commissioned identities, separate serving approvals, and an operator-approved preregistered trial remain necessary.
+
+No verification gate was weakened and no runtime authority was added.
+
+Evidence: `work/construction/evidence/0413-verify-sequence412-merge-main.json` (SHA-256 `448eeb33c2665449b584278a05cb7aae447b4daced74762d905ca21202c1c3df`).

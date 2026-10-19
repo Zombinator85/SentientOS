@@ -1,0 +1,137 @@
+{
+  "append_only": true,
+  "change": {
+    "files": [
+      "README.md",
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0413-verify-sequence412-merge-main.json",
+      "work/construction/index.json",
+      "work/construction/segments/0413-verify-sequence412-merge-main.md"
+    ],
+    "history_repaired_or_discarded": false,
+    "hosted_verification_summary": "Records regular merge of PR #2382 (sequences 411 and 412), exact-main post-merge QG/CI/Docker/Docs/invariants/Codex results, and independently downloaded source-bound acceptance artifacts.",
+    "production_inference": false,
+    "runtime_authority_added": false,
+    "verification_requirements_weakened": false
+  },
+  "developmental_boundary": {
+    "no_production_inference": true,
+    "no_runtime_authority_added": true,
+    "verification_requirements_weakened": false
+  },
+  "hosted_verification": {
+    "main": {
+      "base_commit": "5054ad41f600280ef5836c60a0964b38601b04b9",
+      "candidate_checks": {
+        "failure": 0,
+        "pending": 0,
+        "skipped_by_configured_condition": 2,
+        "success": 19,
+        "total": 21
+      },
+      "candidate_commit": "a41bf4c9caa0618d76a68cc6d828dc615abb25d4",
+      "candidate_parent": "1a32691b6705d94e7e2178d3e4b90f9d576bd7f9",
+      "candidate_tree_matches_merge_tree": true,
+      "merge_commit": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
+      "merge_parent": "5054ad41f600280ef5836c60a0964b38601b04b9",
+      "merge_second_parent": "a41bf4c9caa0618d76a68cc6d828dc615abb25d4",
+      "method": "regular_merge_preserving_commit_history",
+      "pr": 2382,
+      "pr_commits": 2,
+      "tree": "9958cd612d945dd74707c7c05033cc60fabd1ae4"
+    },
+    "post_merge_runs": {
+      "ci": {
+        "conclusion": "success",
+        "docs_link_check": "success",
+        "helm_kubernetes": "success",
+        "run_id": 39178576120,
+        "self_check": "success",
+        "source_validation": "success"
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39178576145
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39178576105
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 39178576086
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_configured_condition",
+        "run_id": 39178576091
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39178576132
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 39178576101
+      }
+    },
+    "provenance": {
+      "history_repaired_or_discarded": false,
+      "quality_gate_trend_status": "INTEGRITY_BROKEN",
+      "reason": "unanchored-start",
+      "sequence_286_gap": "preserved_unresolved"
+    },
+    "quality_gate_artifact": {
+      "acceptance": {
+        "failed": 0,
+        "passed": 29,
+        "required": 29,
+        "skipped": 0
+      },
+      "administrator_uid": 0,
+      "api_sha256": "0488f0b4341b4e736aef95f9fe9c406a1910615d2528637cc9a08c84f29766e0",
+      "artifact_id": 12155276532,
+      "expected_sha": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
+      "immutability": "passed",
+      "independently_downloaded_sha256": "0488f0b4341b4e736aef95f9fe9c406a1910615d2528637cc9a08c84f29766e0",
+      "source_sha": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
+      "source_tree": "9958cd612d945dd74707c7c05033cc60fabd1ae4",
+      "strict_audit": "passed"
+    },
+    "source_validation_artifact": {
+      "api_sha256": "2b84c008444a0f740fd8c9b6416e1a9455ace462e9213ee080dfc5c11dcfdbf4",
+      "artifact_id": 12155601728,
+      "canonical_planning": {
+        "failed": 0,
+        "passed": 20,
+        "required": 20,
+        "skipped": 0
+      },
+      "independently_downloaded_sha256": "2b84c008444a0f740fd8c9b6416e1a9455ace462e9213ee080dfc5c11dcfdbf4",
+      "source_sha": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
+      "source_validation": {
+        "failed": 0,
+        "passed": 11,
+        "required": 11,
+        "skipped": 0
+      },
+      "world_state_contracts": {
+        "failed": 0,
+        "passed": 3,
+        "required": 3,
+        "skipped": 0
+      }
+    }
+  },
+  "unresolved_dependencies": {
+    "current_main_scheduled_federation_health": "pending",
+    "current_main_scheduled_nightly_audit_integrity": "pending",
+    "current_main_scheduled_nightly_self_check": "pending",
+    "federation_changed_output_fixture": "blocked_by_repository_actions_pull_request_creation_setting",
+    "production_temporal_a_to_b_to_a": "not_run",
+    "production_trial_requirements": [
+      "commissioned A/B model identities and receipts",
+      "separately operator-approved serving",
+      "operator-approved preregistered trial"
+    ]
+  }
+}
