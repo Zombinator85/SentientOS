@@ -147,6 +147,14 @@ RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISI
 INTEGRITY_CONTROLLER_OBSERVATION_ENV = "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION"
 
 
+def _plain_transition_projection(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _plain_transition_projection(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_transition_projection(item) for item in value]
+    return value
+
+
 def _load_resource_observation_configuration(
         installation_selector: str | None,
         provisioning_selector: str | None,
@@ -3026,7 +3034,7 @@ class RuntimeMaintenanceSurfaces:
                     "reason": "resident_transition_owner_unavailable", **unavailable}
         try:
             campaign = ProductionSelfReflectionCampaign.open_for_read_only_inspection(campaign_root)
-            return dict(ProductionSelfReflectionTransitionBindingObserver(
+            return _plain_transition_projection(ProductionSelfReflectionTransitionBindingObserver(
                 campaign, transition_owner).plan_next_stage(request_id))
         except ProductionSelfReflectionError as exc:
             return {"status": "transition_plan_unverified", "reason": exc.code, **unavailable}
@@ -3101,7 +3109,7 @@ class RuntimeMaintenanceSurfaces:
             binding = campaign.bind_verified_transition_plan_to_active_trial(
                 plan, request_id=request_id, trial_id=trial_id,
                 transition_owner=transition_owner)
-            return dict(binding)
+            return _plain_transition_projection(binding)
         except ProductionSelfReflectionError as exc:
             return {"status": "transition_binding_unverified", "reason": exc.code, **unavailable}
         except Exception as exc:
