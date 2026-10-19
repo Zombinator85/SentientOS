@@ -1,0 +1,193 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 473,
+  "title": "Authenticate live transition operator requests",
+  "observed_at": "2026-10-19T23:33:38Z",
+  "segment_path": "work/construction/segments/0473-authenticate-live-transition-operator-requests.md",
+  "evidence_path": "work/construction/evidence/0473-authenticate-live-transition-operator-requests.json",
+  "predecessor": {
+    "sequence": 472,
+    "segment_path": "work/construction/segments/0472-read-only-stage-admission-planning.md",
+    "segment_sha256": "b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b"
+  },
+  "behavior": {
+    "projection": "installation-pinned, read-only Ed25519 operator provenance verification for exact live transition request claims before journal recovery and stage execution",
+    "checks": [
+      "domain_separated_signature_binds_exact_canonical_request_claims",
+      "configured_catalog_version_and_digest_bind_installation_trust",
+      "canonical_catalog_rejects_duplicate_keys_and_duplicate_operator_key_tuples",
+      "operator_key_identity_validity_and_current_revocation_are_checked",
+      "missing_or_invalid_operator_trust_fails_before_journal_recovery",
+      "matching_journal_cannot_substitute_for_authenticated_request_origin",
+      "synthetic_rehearsal_uses_ephemeral_private_key_and_public_only_catalog",
+      "live stage approval and independent stage-owner validation remain required"
+    ],
+    "authority": {
+      "authenticated_operator_origin_required_for_live_request": true,
+      "operator_origin_authenticated_for_verified_request": true,
+      "request_grants_authority": false,
+      "stage_approval_minted": false,
+      "stage_approval_selected": false,
+      "independent_stage_owner_validation_required": true,
+      "daemon_private_signing_key": false
+    },
+    "files": [
+      "docs/development/resident_cognitive_transition_live_operator_ingress.md",
+      "sentientos/causal_resource_principal_ed25519.py",
+      "sentientos/resident_cognitive_model_transition_rehearsal.py",
+      "sentientos/resident_cognitive_transition_operator.py",
+      "sentientos/resident_cognitive_transition_operator_authentication.py",
+      "sentientos/resident_cognitive_transition_operator_trust_catalog.py",
+      "sentientosd.py",
+      "tests/test_resident_cognitive_transition_operator.py",
+      "tests/test_resident_cognitive_transition_operator_trust_catalog.py"
+    ]
+  },
+  "limitations": {
+    "production_operator_catalog_provisioned": false,
+    "private_signing_key_shipped": false,
+    "production_request_exercised": false,
+    "production_temporal_transition_evidence": false,
+    "production_inference_initiated": false,
+    "production_campaign_execution_initiated": false,
+    "historical_test_provenance_integrity_broken": true,
+    "sequence_286_loss_resolved": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false,
+    "post_merge_federation_health_execution_observed": false
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "f465a9604272ec91928eb9d9b7ed76c49067b629",
+    "candidate_commit": "99d7c75630b97b756bd1694ad30ecf3b79f478e7",
+    "merge_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
+    "method": "merge",
+    "parents": [
+      "f465a9604272ec91928eb9d9b7ed76c49067b629",
+      "99d7c75630b97b756bd1694ad30ecf3b79f478e7"
+    ],
+    "tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
+  },
+  "pull_request": {
+    "number": 2450,
+    "title": "test: guard operator provenance recovery boundary",
+    "state": "merged",
+    "head_sha": "99d7c75630b97b756bd1694ad30ecf3b79f478e7",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2450"
+  },
+  "validation": {
+    "local": {
+      "affected_test_files": 5,
+      "tests_passed": 86,
+      "compileall": "success",
+      "git_diff_check": "success",
+      "mypy_added_diagnostics": 0,
+      "mypy_retired_baseline_diagnostics": 40
+    },
+    "prepublication": {
+      "hosted_administrator_audits": true,
+      "hosted_precommit_finalizer": true,
+      "hosted_pr_landing_finalizer": true,
+      "separate_metadata_guard": true,
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_head_sha": "99d7c75630b97b756bd1694ad30ecf3b79f478e7",
+      "metadata_guard_tree_sha": "703d7dac7a7130cd0520896a75e12304018f8ced",
+      "validation_profile": "solo",
+      "exhaustive_matrix_requested": false,
+      "push_ci": {
+        "run": 39341102100,
+        "conclusion": "success"
+      },
+      "push_invariants": {
+        "run": 39341102204,
+        "conclusion": "success"
+      },
+      "push_required_quality_gate": {
+        "run": 39341102112,
+        "conclusion": "success"
+      },
+      "pr_required_quality_gate_initial": {
+        "run": 39341106648,
+        "conclusion": "failure",
+        "superseded": true
+      },
+      "pr_required_quality_gate_final": {
+        "run": 39341502176,
+        "conclusion": "success"
+      },
+      "hosted_finalizer_artifact": 12229022321,
+      "exact_candidate_acceptance_artifact": 12228967375,
+      "quality_gate_evidence_artifact": 12228667472
+    },
+    "pull_request": {
+      "ci": {
+        "run": 39341106607,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run": 39341106707,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run": 39341106591,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "run": 39341106664,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run": 39341106594,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run": 39341106633,
+        "conclusion": "success"
+      },
+      "release": {
+        "run": 39341106602,
+        "conclusion": "success"
+      },
+      "required_quality_gate": {
+        "run": 39341502176,
+        "conclusion": "success"
+      }
+    },
+    "post_merge": {
+      "all_applicable_success": true,
+      "merge_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
+      "post_merge_administrator_audits": true,
+      "post_merge_finalizers_and_metadata_guard": "skipped_by_event_condition",
+      "workflow_runs": {
+        "ci": {
+          "run": 39341782092,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "run": 39341782228,
+          "conclusion": "success"
+        },
+        "docker": {
+          "run": 39341782125,
+          "conclusion": "success"
+        },
+        "docs_deploy": {
+          "run": 39341782086,
+          "conclusion": "success"
+        },
+        "forge_smoke": {
+          "run": 39341782109,
+          "conclusion": "skipped"
+        },
+        "invariants": {
+          "run": 39341782133,
+          "conclusion": "success"
+        },
+        "required_quality_gate": {
+          "run": 39341782139,
+          "conclusion": "success"
+        }
+      }
+    }
+  }
+}

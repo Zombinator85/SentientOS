@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "247cafbed66b757d5582f437cef4ac0fb43b50c9b8262146d13ed9cc3714b452",
-    "latest_segment_sequence": 472,
-    "latest_segment_sha256": "b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b",
-    "latest_sequence": 472,
-    "source_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
-    "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a"
+    "checkpoint_sha256": "349ae70a7d497ad18a29dafed1d6ff74d0a4522361ce2ef940f873b4fd8acc06",
+    "latest_segment_sequence": 473,
+    "latest_segment_sha256": "cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
+    "latest_sequence": 473,
+    "source_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
+    "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
   },
-  "checkpoint_sha256": "247cafbed66b757d5582f437cef4ac0fb43b50c9b8262146d13ed9cc3714b452",
+  "checkpoint_sha256": "349ae70a7d497ad18a29dafed1d6ff74d0a4522361ce2ef940f873b4fd8acc06",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 472,
+  "latest_sequence": 473,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5348,6 +5348,18 @@
       "sha256": "b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b",
       "source_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
       "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a"
+    },
+    {
+      "bytes": 4675,
+      "evidence_bytes": 6894,
+      "evidence_path": "work/construction/evidence/0473-authenticate-live-transition-operator-requests.json",
+      "evidence_sha256": "a415dceea6238c03bca37b0f237c9d791c1238255632b627e64fe9e996c24ad2",
+      "path": "work/construction/segments/0473-authenticate-live-transition-operator-requests.md",
+      "predecessor": "segment-sha256:b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b",
+      "sequence": 473,
+      "sha256": "cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
+      "source_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
+      "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
     }
   ],
   "source_acquisition": {
@@ -5357,7 +5369,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a",
+  "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
