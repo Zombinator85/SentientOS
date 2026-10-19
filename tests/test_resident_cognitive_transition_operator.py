@@ -145,6 +145,15 @@ def test_verified_stage_receipt_requires_completed_semantically_verified_journal
     }
     before = runtime.receipt_path.read_bytes()
     calls_before = controller.calls
+    verified_health = controller.health
+    controller.health = lambda: {
+        **verified_health(), "semantically_verified_stage_entry_digests": [],
+    }
+    with pytest.raises(
+        TransitionError, match="operator_stage_receipt_semantic_verification_unavailable"
+    ):
+        runtime.inspect_verified_stage_receipt(packet["request_id"])
+    controller.health = verified_health
 
     projection = runtime.inspect_verified_stage_receipt(packet["request_id"])
 
