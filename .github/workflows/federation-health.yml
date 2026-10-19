@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   health:
-    if: ${{ inputs.publication_fixture != true && github.ref != 'refs/heads/automation/federation-health-publication-fixture' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.publication_fixture != true }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   fixture:
-    if: ${{ inputs.publication_fixture == true || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture') }}
+    if: ${{ (inputs.publication_fixture == true && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/automation/federation-health-publication-fixture') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -103,7 +103,14 @@ jobs:
 
   publish:
     needs: [health, fixture]
-    if: ${{ always() && (needs.health.result == 'success' || needs.fixture.result == 'success') }}
+    if: >-
+      ${{ always() && (
+        (needs.health.result == 'success' && github.ref == 'refs/heads/main') ||
+        (needs.fixture.result == 'success' && (
+          (inputs.publication_fixture == true && github.ref == 'refs/heads/main') ||
+          github.ref == 'refs/heads/automation/federation-health-publication-fixture'
+        ))
+      ) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

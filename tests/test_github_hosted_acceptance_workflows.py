@@ -147,6 +147,10 @@ def test_scheduled_workflows_do_not_collide_by_minute_and_hour() -> None:
 def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audits() -> None:
     workflow = (ROOT / ".github/workflows/nightly-self-check.yml").read_text()
     assert "permissions:\n  contents: read" in workflow
+    import yaml
+
+    parsed = yaml.safe_load(workflow)
+    assert parsed["jobs"]["self-check"]["if"] == "${{ github.ref == 'refs/heads/main' }}"
     audit = workflow.split("- name: Verify audits", 1)[1].split("- name:", 1)[0]
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in audit
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in audit
@@ -205,7 +209,9 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     parsed = yaml.safe_load(workflow)
     assert parsed["jobs"]["audit"]["permissions"] == {"contents": "read"}
     assert parsed["jobs"]["repair"]["permissions"] == {"contents": "write", "pull-requests": "write"}
-    assert "if: needs.audit.outputs.status != '0'" in repair_job
+    assert parsed["jobs"]["audit"]["if"] == "${{ github.ref == 'refs/heads/main' }}"
+    assert parsed["jobs"]["repair"]["if"] == "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"
+    assert "if: needs.audit.outputs.status != '0'" not in repair_job
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in initial
     assert "sudo -n env" in initial
     assert "python -m scripts.plan_audit_repairs logs/ --output \"$plan\"" in repair
@@ -258,10 +264,10 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 29
+    assert selection.count("tests/") == 30
     node_lines = [line for line in selection.splitlines() if "tests/" in line]
     assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
-    assert "len(nodes)==29" in workflow
+    assert "len(nodes)==30" in workflow
     assert "test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator" in selection
     assert "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation" in selection
     assert "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_fails_closed_when_prior_process_generation_is_still_live" in selection
@@ -276,7 +282,7 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
     selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/test_") == 29
+    assert selection.count("tests/test_") == 30
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -542,7 +548,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"' in precommit
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
-    assert 'len(nodes) != 29' in precommit
+    assert 'len(nodes) != 30' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
     assert "--validation-profile solo" in precommit
@@ -575,7 +581,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
     assert 'provenance.get("git_sha") != expected_head' in finalizer
-    assert 'candidate acceptance must contain the exact 29 required nodes' in finalizer
+    assert 'candidate acceptance must contain the exact 30 required nodes' in finalizer
     candidate_verify = finalizer.index(
         'PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py"'
     )
@@ -650,6 +656,31 @@ def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
         assert actual_paths == expected_paths
 
 
+def test_workflow_dispatch_jobs_are_main_bound() -> None:
+    import yaml
+
+    audit = yaml.safe_load((ROOT / ".github/workflows/audit-nightly.yml").read_text())
+    self_check = yaml.safe_load((ROOT / ".github/workflows/nightly-self-check.yml").read_text())
+    federation = yaml.safe_load((ROOT / ".github/workflows/federation-health.yml").read_text())
+    main_guard = "${{ github.ref == 'refs/heads/main' }}"
+    assert audit["jobs"]["audit"]["if"] == main_guard
+    assert audit["jobs"]["repair"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"
+    )
+    assert self_check["jobs"]["self-check"]["if"] == main_guard
+    assert federation["jobs"]["health"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && inputs.publication_fixture != true }}"
+    )
+    fixture_guard = federation["jobs"]["fixture"]["if"]
+    assert "inputs.publication_fixture == true && github.ref == 'refs/heads/main'" in fixture_guard
+    assert "github.event_name == 'push'" in fixture_guard
+    assert "refs/heads/automation/federation-health-publication-fixture" in fixture_guard
+    publish_guard = federation["jobs"]["publish"]["if"]
+    assert "needs.health.result == 'success' && github.ref == 'refs/heads/main'" in publish_guard
+    assert "needs.fixture.result == 'success'" in publish_guard
+    assert "refs/heads/automation/federation-health-publication-fixture" in publish_guard
+
+
 def test_dev_extra_includes_runtime_dependency_used_by_privilege_lint() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text()
     dev = pyproject.split("dev = [", 1)[1].split("]", 1)[0]
@@ -661,6 +692,12 @@ def test_federation_health_fixture_keeps_generator_read_only_and_cleans_up():
     import yaml
 
     parsed = yaml.safe_load(workflow)
+    assert parsed["jobs"]["health"]["if"] == "${{ github.ref == 'refs/heads/main' && inputs.publication_fixture != true }}"
+    assert "inputs.publication_fixture == true && github.ref == 'refs/heads/main'" in parsed["jobs"]["fixture"]["if"]
+    publish_if = parsed["jobs"]["publish"]["if"]
+    assert "needs.health.result == 'success' && github.ref == 'refs/heads/main'" in publish_if
+    assert "needs.fixture.result == 'success'" in publish_if
+    assert "refs/heads/automation/federation-health-publication-fixture" in publish_if
     assert parsed["jobs"]["fixture"]["permissions"] == {"contents": "read"}
     assert parsed["jobs"]["health"]["permissions"] == {"contents": "read"}
     assert parsed["jobs"]["publish"]["permissions"] == {
