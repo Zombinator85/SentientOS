@@ -370,3 +370,17 @@ Latest verified main: `ed6209634b8f8cf8c12984d37a1268b7fef960f1`, tree `9958cd61
 Latest construction segment: `work/construction/segments/0413-verify-sequence412-merge-main.md`
 Latest segment SHA-256: `e5c467c2728814c96a9d3dedd8d67f196bca1250ce298c2516f05eaa13668dea`
 Sequence: 413 (exact-main post-merge checks verified)
+
+## Sequence 414 checkpoint
+
+Sequence 413 regular-merged as PR #2383 at main `1d5cc380052c0260c4f8a9f29a496f080f57be4a`, tree `47b02aba5e99764ef40738b4216d52dbfa3d2fb1`. Exact-main Required Quality Gate, CI, Docker, invariants, Docs Deploy, and Codex CI passed; hosted QG evidence binds Administrator UID 0, strict audit, immutability, and 29/29 acceptance. CI source validation, canonical planning, and World-State contracts passed 11/11, 20/20, and 3/3.
+
+Sequence 414 repairs an integration defect in solo-profile PR metadata validation. Although the validation-evidence library accepted a sealed solo plan, the landing-gate CLI required a matrix and the metadata verifier always applied exhaustive markers. The CLI now accepts a plan path, omits the matrix only when that plan is supplied, and requires an explicit body for solo validation. The verifier uses solo metadata rules only for a valid solo plan, and requires the plan's `pr-metadata` phase, `ready_for_pr_metadata` status, and exact title bindings. Body text alone cannot select the solo profile; exhaustive matrix validation remains in force otherwise. Regression coverage includes successful solo handoff and rejection of body-only profile claims and wrong-phase plans.
+
+The focused canonical suite executed seven relevant tests successfully; fourteen tests carrying the repository's existing legacy-policy skip marker remained skipped. Changed Python files compiled, targeted mypy passed, and `git diff --check` passed. The local mypy-baseline wrapper could not run because its isolated environment excludes the only installed mypy distribution; this is recorded as an environment limitation, not a pass. Hosted exact-candidate verification is pending and must independently establish the privileged gate.
+
+The current-main scheduled Federation Health and nightly executions remain unobserved; prior-source runs are not substituted. Provenance remains `INTEGRITY_BROKEN` at its unanchored start, including preserved sequence-286 loss. The Actions setting that blocks changed-output fixture PR creation remains unchanged. No production inference or authority expansion occurred.
+
+Latest verified main: `1d5cc380052c0260c4f8a9f29a496f080f57be4a`, tree `47b02aba5e99764ef40738b4216d52dbfa3d2fb1`.
+Latest construction segment: `work/construction/segments/0414-bind-solo-validation-plan-to-landing-gate.md`
+Latest segment SHA-256: `32d540b1a90439eaa4f6828f295087250f290c77878391e814a17d875978aa15`

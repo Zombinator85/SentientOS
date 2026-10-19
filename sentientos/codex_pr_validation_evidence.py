@@ -43,14 +43,18 @@ def _lane_ok(matrix: dict[str, Any], label: str) -> bool:
 
 
 def verify_pr_validation_evidence(*, pr_title: str, pr_body: str, intended_commit_title: str | None = None, matrix_json_text: str | None = None, matrix_json_path: str | None = None, validation_plan_json_text: str | None = None, bootstrap_summary_json_text: str | None = None, explicit_rollup_json_text: str | None = None) -> CodexPRValidationEvidenceVerification:
-    base = verify_pr_metadata(pr_title=pr_title, pr_body=pr_body, intended_commit_title=intended_commit_title)
-    normalized_body = _norm(pr_body)
-    findings: list[str] = []
-
     matrix = _read_json_text(matrix_json_text, matrix_json_path)
     plan = _read_json_text(validation_plan_json_text, None)
     plan_ok, plan_reasons = verify_validation_plan(plan) if plan else (False, ())
     solo = bool(plan and plan.get("effective_profile") == "solo")
+    base = verify_pr_metadata(
+        pr_title=pr_title,
+        pr_body=pr_body,
+        intended_commit_title=intended_commit_title,
+        validation_profile="solo" if solo else "exhaustive",
+    )
+    normalized_body = _norm(pr_body)
+    findings: list[str] = []
     evidence_present = bool(matrix) or plan_ok
     if not evidence_present:
         findings.append("validation_evidence_missing")
@@ -60,6 +64,10 @@ def verify_pr_validation_evidence(*, pr_title: str, pr_body: str, intended_commi
 
     if solo:
         findings.extend(plan_reasons)
+        if plan.get("phase") != "pr-metadata":
+            findings.append("validation_plan_phase_not_pr_metadata")
+        if plan.get("overall_status") != "ready_for_pr_metadata":
+            findings.append("validation_plan_not_ready_for_pr_metadata")
         if plan.get("title") != pr_title or (intended_commit_title and plan.get("intended_commit_title") != intended_commit_title):
             findings.append("validation_plan_title_mismatch")
     elif matrix:
