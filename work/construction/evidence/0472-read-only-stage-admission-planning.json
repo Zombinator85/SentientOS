@@ -1,0 +1,168 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "effect_performed": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "journal_appended": false,
+      "live_owner_revalidation_required": true,
+      "operator_origin_authenticated": false,
+      "request_processed": false,
+      "stage_owner_invoked": false
+    },
+    "checks": [
+      "exact_next_stage_and_prior_phase_binding",
+      "protocol_installation_activation_session_and_history_binding",
+      "single_journal_snapshot_with_post_inspection_drift_recheck",
+      "synthetic_approval_rejected_in_production_posture",
+      "daemon_delegates_explicit_approval_without_processing_mailbox",
+      "unkeyed_digest_does_not_authenticate_operator_origin"
+    ],
+    "files": [
+      "docs/development/resident_cognitive_transition_live_operator_ingress.md",
+      "sentientos/resident_cognitive_model_transition_experiment.py",
+      "sentientos/resident_cognitive_transition_operator.py",
+      "sentientosd.py",
+      "tests/test_resident_cognitive_model_transition_experiment.py",
+      "tests/test_resident_cognitive_transition_operator.py",
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py"
+    ],
+    "projection": "read-only inspection of one caller-supplied stage approval against a reconstructed transition state"
+  },
+  "evidence_path": "work/construction/evidence/0472-read-only-stage-admission-planning.json",
+  "limitations": {
+    "approval_minting": false,
+    "authenticated_operator_provenance": false,
+    "authority_grant": false,
+    "campaign_execution": false,
+    "production_inference": false,
+    "production_temporal_transition_evidence": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "observed_at": "2026-10-19T22:54:26Z",
+  "post_merge": {
+    "all_applicable_success": true,
+    "merge_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
+    "post_merge_administrator_audits": true,
+    "post_merge_finalizers_and_metadata_guard": "skipped_by_event_condition",
+    "workflow_runs": {
+      "ci": {
+        "conclusion": "success",
+        "run": 39337745974
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39337746065
+      },
+      "docker": {
+        "conclusion": "success",
+        "run": 39337746061
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run": 39337746025
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "run": 39337746048
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39337745991
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run": 39337746007
+      }
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0471-compose-daemon-active-trial-binding.md",
+    "segment_sha256": "18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
+    "sequence": 471
+  },
+  "pull_request": {
+    "head_sha": "dacf03dd9b65aa74658973ccfb952ddde3e8db99",
+    "number": 2448,
+    "state": "merged",
+    "title": "[codex:resident-transition] add read-only stage admission planning",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2448"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0472-read-only-stage-admission-planning.md",
+  "sequence": 472,
+  "source": {
+    "base_commit": "d5f7e2d86d602e4be500891b964df10c20a2010b",
+    "candidate_commit": "dacf03dd9b65aa74658973ccfb952ddde3e8db99",
+    "merge_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
+    "method": "merge",
+    "parents": [
+      "d5f7e2d86d602e4be500891b964df10c20a2010b",
+      "dacf03dd9b65aa74658973ccfb952ddde3e8db99"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a"
+  },
+  "title": "Add read-only transition-stage admission planning",
+  "validation": {
+    "local": {
+      "affected_test_files": 3,
+      "compileall": "success",
+      "git_diff_check": "success",
+      "mypy_added_diagnostics": 0,
+      "mypy_base_diagnostics": 1069,
+      "mypy_candidate_diagnostics": 1069,
+      "mypy_removed_diagnostics": 0,
+      "tests_passed": 56
+    },
+    "prepublication": {
+      "ci_conclusion": "success",
+      "ci_run": 39336945177,
+      "hosted_administrator_audits": true,
+      "hosted_landing_finalizer": true,
+      "hosted_precommit_finalizer": true,
+      "invariant_conclusion": "success",
+      "invariant_run": 39336945166,
+      "required_quality_gate_conclusion": "success",
+      "required_quality_gate_run": 39336945168,
+      "separate_metadata_guard": true
+    },
+    "pull_request": {
+      "ci": {
+        "conclusion": "success",
+        "run": 39337202033
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39337202064
+      },
+      "docker": {
+        "conclusion": "success",
+        "run": 39337202195
+      },
+      "gradient": {
+        "conclusion": "success",
+        "run": 39337202179
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39337202099
+      },
+      "lint": {
+        "conclusion": "success",
+        "run": 39337202211
+      },
+      "release": {
+        "conclusion": "success",
+        "run": 39337202178
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run": 39337202110
+      }
+    }
+  }
+}

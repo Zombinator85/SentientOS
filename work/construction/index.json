@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a37d319fbde01511acc5f1b5fc766861816b92dc24962a019ebda598eea8b5df",
-    "latest_segment_sequence": 471,
-    "latest_segment_sha256": "18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
-    "latest_sequence": 471,
-    "source_commit": "19f202bd0f44352599f0750f58133407256d610a",
-    "source_tree": "689b126c098ca7798626901739177e9003c21ca6"
+    "checkpoint_sha256": "247cafbed66b757d5582f437cef4ac0fb43b50c9b8262146d13ed9cc3714b452",
+    "latest_segment_sequence": 472,
+    "latest_segment_sha256": "b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b",
+    "latest_sequence": 472,
+    "source_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
+    "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a"
   },
-  "checkpoint_sha256": "a37d319fbde01511acc5f1b5fc766861816b92dc24962a019ebda598eea8b5df",
+  "checkpoint_sha256": "247cafbed66b757d5582f437cef4ac0fb43b50c9b8262146d13ed9cc3714b452",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 471,
+  "latest_sequence": 472,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5336,6 +5336,18 @@
       "sha256": "18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
       "source_commit": "19f202bd0f44352599f0750f58133407256d610a",
       "source_tree": "689b126c098ca7798626901739177e9003c21ca6"
+    },
+    {
+      "bytes": 4694,
+      "evidence_bytes": 5484,
+      "evidence_path": "work/construction/evidence/0472-read-only-stage-admission-planning.json",
+      "evidence_sha256": "d86991741c603121a870a44b755af9c9e43412527739cb0edd79ec64feb6cb14",
+      "path": "work/construction/segments/0472-read-only-stage-admission-planning.md",
+      "predecessor": "segment-sha256:18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
+      "sequence": 472,
+      "sha256": "b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b",
+      "source_commit": "95377ecc940eb4f39bfdf61c92f0681cb3d6560d",
+      "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a"
     }
   ],
   "source_acquisition": {
@@ -5345,7 +5357,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "689b126c098ca7798626901739177e9003c21ca6",
+  "source_tree": "4876955c9bdd3a0c73e1344c859711a7e5c8a30a",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
