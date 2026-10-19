@@ -1,0 +1,125 @@
+{
+  "sequence": 465,
+  "title": "Verify sequence 464 and repair exact-parent hosted finalization",
+  "source_commit": "961255c3c7339ffad8b7a6822f372c94ee8ba0bb",
+  "source_tree": "730b0d23336ff67295a2e2b618489a1d73c039e8",
+  "predecessor_segment_sha256": "68ef737c890f4b634d1796c8abfb92f788b5bfdc023b0417eeb36e75b7909b39",
+  "merge": {
+    "pr": 2433,
+    "merge_commit": "961255c3c7339ffad8b7a6822f372c94ee8ba0bb",
+    "tree": "730b0d23336ff67295a2e2b618489a1d73c039e8",
+    "parents": [
+      "a5874b21da062c0ce2e6a996e2c3aff5cfae9812",
+      "293c4d34d33fe335c15d7165bbb8d62c49744b4c"
+    ],
+    "method": "merge",
+    "merged_at": "2026-10-19T13:20:29Z"
+  },
+  "candidate_history": {
+    "initial_source_commit": "c0b5516701d257d2b18c8c4000fa607d464711a7",
+    "final_candidate_commit": "293c4d34d33fe335c15d7165bbb8d62c49744b4c",
+    "exact_parent_workspace_commit": "c0b5516701d257d2b18c8c4000fa607d464711a7",
+    "workflow_fix": "explicit PYTHONPATH bound to reconstructed parent workspace",
+    "initial_pr_quality_gate_failure": {
+      "run": 39257929440,
+      "failed_stage": "Reconstruct and verify exact hosted pre-commit state",
+      "observed_synthetic_merge_sha": "7b5243f03b694dfe76a4569d651dabd4163013b5",
+      "resolved": true
+    },
+    "hosted_precommit_artifact": {
+      "run": 39258927776,
+      "artifact": 12188727708,
+      "git_sha": "c0b5516701d257d2b18c8c4000fa607d464711a7",
+      "selected_node_count": 30,
+      "validation_status": "validation_complete",
+      "finalizer_status": "ready_to_commit"
+    }
+  },
+  "candidate_gate": {
+    "commit": "293c4d34d33fe335c15d7165bbb8d62c49744b4c",
+    "push_quality_gate_run": 39258473707,
+    "ci_run": 39258473688,
+    "invariants_run": 39258473609,
+    "conclusion": "success",
+    "hosted_administrator_finalizer": "success",
+    "metadata_guard": "success"
+  },
+  "pr_checks": {
+    "ci": 39258480349,
+    "quality_gate": 39258927776,
+    "invariants": 39258480435,
+    "docker": 39258480320,
+    "codex": 39258480341,
+    "release": 39258480372,
+    "gradient_null": 39258480412,
+    "lint_benchmark": 39258480368,
+    "all_conclusion": "success"
+  },
+  "post_merge_checks": [
+    {
+      "workflow": "Required Quality Gate",
+      "run": 39259320252,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "CI",
+      "run": 39259320165,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Invariant Tests",
+      "run": 39259320208,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docker Image",
+      "run": 39259320280,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Codex CI",
+      "run": 39259320206,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docs Deploy",
+      "run": 39259320221,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Forge Smoke",
+      "run": 39259320273,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    }
+  ],
+  "federation_health": {
+    "observed_at": "2026-10-19T13:26:00Z",
+    "scheduled_run_on_main": "not_found",
+    "latest_scheduled_run": 39218331969,
+    "latest_scheduled_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+    "next_expected_cron": "2026-10-19T14:17:00Z"
+  },
+  "nightly_workflows": {
+    "self_check": {
+      "run": 39235681245,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "conclusion": "success"
+    },
+    "audit_integrity": {
+      "run": 39228761152,
+      "head": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "conclusion": "success"
+    },
+    "repair_pr_publication_verified": false,
+    "actions_token_pr_creation_policy_blocks_repair_pr": true
+  },
+  "limitations": {
+    "campaign_execution_claimed": false,
+    "production_trial_claimed": false,
+    "synthetic_rehearsal_claimed": false,
+    "readiness_claimed": false,
+    "authority_grant_claimed": false,
+    "protected_workspace_changed": false
+  }
+}
