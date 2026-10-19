@@ -1,0 +1,91 @@
+{
+  "authority": {
+    "audit_strictness_weakened": false,
+    "production_authority_changed": false,
+    "protected_workspaces_modified": false
+  },
+  "federation_health": {
+    "production_inference_claimed": false,
+    "scheduled_execution_on_this_sha": "pending"
+  },
+  "historical_provenance": {
+    "reconstructed_or_discarded": false,
+    "status": "INTEGRITY_BROKEN"
+  },
+  "main_push_checks": {
+    "conclusion": null,
+    "status": "pending_observation"
+  },
+  "predecessor_segment_sha256": "8445ab88376c1c0edd129372ad0ad68b3840fd05c491b4c9331c9d1f13e22923",
+  "pull_request": {
+    "candidate_commit": "340acbf132dc93b7626e0b173bedc5153c0e4554",
+    "candidate_tree": "b47621403884247cc732812e6896284e259e518c",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39220389436
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39220389411
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 39220389450
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39220389420
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39220389503
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39220389468
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39220389441
+      }
+    },
+    "corrected_qg_conclusion": "success",
+    "corrected_qg_run": 39220389431,
+    "failed_first_qg_run": 39219718803,
+    "merge_commit": "a66f2f64d78a0dfb3cb1600b5417b163b71226e0",
+    "merge_method": "merge",
+    "number": 2406,
+    "prior_failure_preserved": true,
+    "qg_phases": {
+      "administrator_strict_audit": "passed",
+      "evidence_uploads": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "prepublication_metadata_guard": "passed",
+      "privileged_pr_landing_finalizer": "passed"
+    },
+    "title": "[codex:evidence] record post-merge nightly workflow runs (sequence 440)"
+  },
+  "readback": {
+    "changed_files": [
+      "README.md",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/evidence/0441-bind-postmerge-evidence-pr-title.json",
+      "work/construction/segments/0441-bind-postmerge-evidence-pr-title.md"
+    ],
+    "remote_main_blob_sha_matches_candidate": true,
+    "source_tree": "b47621403884247cc732812e6896284e259e518c"
+  },
+  "sequence": 442,
+  "source_commit": "a66f2f64d78a0dfb3cb1600b5417b163b71226e0",
+  "source_tree": "b47621403884247cc732812e6896284e259e518c",
+  "status": "corrective_evidence_merged_postmerge_checks_pending_federation_pending",
+  "title": "Verify sequence 441 evidence merge",
+  "verification": {
+    "construction_custody": "passed through sequence 442",
+    "git_diff_check": "passed",
+    "local_pytest": "not run; evidence-only changes"
+  }
+}
