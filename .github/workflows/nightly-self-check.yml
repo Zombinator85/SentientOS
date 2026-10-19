@@ -26,6 +26,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -e .[dev]
+      - name: Verify hosted Administrator availability
+        run: test "$(sudo -n id -u)" = "0"
       - name: Install canonical test dependencies
         run: |
           python -m pip install --only-binary=:all: -r requirements-codex.txt

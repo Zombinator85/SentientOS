@@ -2,13 +2,13 @@
 
 ## Latest verified main
 
-PR #2403 regular-merged sequence 436 at main `8a3d72b9b608dbe41753f454d215b5528ef854dd`, preserving candidate tree `c72e9b571212b9776d7e8c9db8102c5fec5af977`. Exact main-push checks passed: Required Quality Gate #39216241571 (actual Administrator strict audit and exact acceptance), CI #39216241670, Invariant Tests #39216241779, Docs Deploy #39216241755, Codex CI #39216241758, and Docker #39216241648. Forge Smoke #39216241604 was skipped under its configured condition. Main CI passed canonical self-check, integrated resource-to-cognition validation, canonical planning/execution separation, hosted documentation linkcheck, and Helm/Kubernetes.
+PR #2404 regular-merged sequence 437 at main `e66ac2f937db789380ae3da7f2999e4f2a5cd028`, preserving candidate tree `cf063909f5e4f16b22dae09b1ee7cd5a93f09fec`. Its exact-candidate Required Quality Gate #39217207658, CI #39217207619, Invariants #39217207678, Codex CI #39217207718, Docker #39217207597, Gradient #39217207664, Release #39217207626, and Lint Benchmark #39217207665 passed.
 
-Post-merge scheduled Federation Health and nightly audit/self-check executions on this SHA have not yet been observed.
+Sequence 437 recorded the post-merge main-push checks on the preceding SHA `8a3d72b9b608dbe41753f454d215b5528ef854dd`; those passed, including Required Quality Gate #39216241571 and CI #39216241670. Scheduled Federation Health and nightly runs on that SHA remain unobserved.
 
-## Current construction boundary
+## Current construction
 
-The daemon resource observer remains explicitly opt-in and read-only. Startup handling is covered for disabled, incomplete, malformed, missing-root, configured-but-unverified, and missing-bundle outcomes. No production configuration or source execution is evidenced; hosted simulation does not establish production learning, benefit, or inference.
+Sequence 438 adds explicit noninteractive Administrator preflights to both nightly workflows and prevents `audit-nightly` from starting its write-enabled repair job unless the read-only audit job succeeded. Strict audit requirements and existing narrow permissions remain intact. Hosted checks are pending.
 
 ## Open evidence boundaries
 
@@ -18,7 +18,7 @@ The daemon resource observer remains explicitly opt-in and read-only. Startup ha
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `8a3d72b9b608dbe41753f454d215b5528ef854dd`, tree `c72e9b571212b9776d7e8c9db8102c5fec5af977`.
-Latest construction segment: `work/construction/segments/0437-verify-sequence436-postmerge-main.md`
-Latest segment SHA-256: `dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113`
-Sequence: 437 (post-merge evidence candidate; hosted verification pending)
+Latest verified main: `e66ac2f937db789380ae3da7f2999e4f2a5cd028`, tree `cf063909f5e4f16b22dae09b1ee7cd5a93f09fec`.
+Latest construction segment: `work/construction/segments/0438-gate-nightly-repairs-on-admin-preflight.md`
+Latest segment SHA-256: `2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1`
+Sequence: 438 (workflow source candidate; hosted verification pending)

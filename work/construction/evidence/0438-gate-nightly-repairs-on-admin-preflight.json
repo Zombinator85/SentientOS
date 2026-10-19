@@ -1,0 +1,34 @@
+{
+  "candidate_status": "workflow_source_candidate_pending_hosted_verification",
+  "change": {
+    "audit_strictness_weakened": false,
+    "explicit_administrator_preflight": true,
+    "files": [
+      ".github/workflows/audit-nightly.yml",
+      ".github/workflows/nightly-self-check.yml",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "production_privileges_added": false,
+    "repair_authority_broadened": false,
+    "repair_job_requires_successful_audit_preflight": true
+  },
+  "historical_trigger": {
+    "current_workflow_revision_repaired": true,
+    "nightly_audit_run_id": 38870399436,
+    "nightly_self_check_run_id": 38876666946,
+    "observed_failure": "strict audit invocation emitted Access denied: run as Administrator; old audit workflow continued into commit/push repair path"
+  },
+  "predecessor_segment_sha256": "dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113",
+  "sequence": 438,
+  "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+  "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec",
+  "title": "Gate nightly repairs on Administrator preflight",
+  "verification": {
+    "authority_assertions": "passed",
+    "canonical_pytest": "not run locally; canonical installation guard remains",
+    "git_diff_check": "passed",
+    "hosted_checks": "pending",
+    "python_compile": "passed",
+    "workflow_yaml_parse": "passed"
+  }
+}

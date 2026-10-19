@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "18627e9808238015c93ed9662c4f865ebceaa8a9c71c71e6d39a4cec13479d4b",
-    "latest_segment_sequence": 437,
-    "latest_segment_sha256": "dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113",
-    "latest_sequence": 437,
-    "source_commit": "8a3d72b9b608dbe41753f454d215b5528ef854dd",
-    "source_tree": "c72e9b571212b9776d7e8c9db8102c5fec5af977"
+    "checkpoint_sha256": "2809a007da9c0b20e84b300eba9fe98d238306c708a52616325468842bd13749",
+    "latest_segment_sequence": 438,
+    "latest_segment_sha256": "2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
+    "latest_sequence": 438,
+    "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+    "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
   },
-  "checkpoint_sha256": "18627e9808238015c93ed9662c4f865ebceaa8a9c71c71e6d39a4cec13479d4b",
+  "checkpoint_sha256": "2809a007da9c0b20e84b300eba9fe98d238306c708a52616325468842bd13749",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 437,
+  "latest_sequence": 438,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4928,6 +4928,18 @@
       "sha256": "dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113",
       "source_commit": "8a3d72b9b608dbe41753f454d215b5528ef854dd",
       "source_tree": "c72e9b571212b9776d7e8c9db8102c5fec5af977"
+    },
+    {
+      "bytes": 1620,
+      "evidence_bytes": 1403,
+      "evidence_path": "work/construction/evidence/0438-gate-nightly-repairs-on-admin-preflight.json",
+      "evidence_sha256": "4466d239edcdde26b8f7cf50e8af239a97b48c3324052f7122cf7edc805db191",
+      "path": "work/construction/segments/0438-gate-nightly-repairs-on-admin-preflight.md",
+      "predecessor": "segment-sha256:dda9345b87a0a5f5c70a9a6e35bbdd4ac62e071333dbeacdb2d2100d11db3113",
+      "sequence": 438,
+      "sha256": "2c5752216dfcfbe631ada9e3a6efd3535bd1e7e2bc733f503d01ae8272ead4f1",
+      "source_commit": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+      "source_tree": "cf063909f5e4f16b22dae09b1ee7cd5a93f09fec"
     }
   ],
   "source_acquisition": {
