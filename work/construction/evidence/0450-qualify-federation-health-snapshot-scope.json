@@ -1,0 +1,44 @@
+{
+  "sequence": 450,
+  "title": "Qualify Federation Health snapshot scope",
+  "source_commit": "fd20cf6ccef310a827794fb5956538df89a6598a",
+  "source_tree": "576805f6e87686afb7042e795fb3b44d084f3e17",
+  "predecessor_segment_sha256": "ac15b910eabe8eeac8b6b8055ad60eceb5fbe7367dad39aa44bcbef5850763fb",
+  "federation_health_input": {
+    "path": "logs/federation_log.jsonl",
+    "blob_sha": "9f94d24b70ac83d8736eb8d1de3276b65f47ff8b",
+    "records": 15,
+    "latest_timestamp": "2025-06-05T16:25:13.805813",
+    "latest_hosted_report": {
+      "nodes": 1,
+      "recent_events": 0,
+      "status": "quiet"
+    },
+    "receipt_bearing_run_id": 39224329633,
+    "report_scope": "configured local log snapshot, not live telemetry"
+  },
+  "change": {
+    "source_paths": [
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py"
+    ],
+    "source_claims": {
+      "source_is_explicit": "configured_local_log_snapshot",
+      "live_telemetry": false,
+      "observation_window_included": true,
+      "latest_event_timestamp_included": true,
+      "future_timestamps_excluded_from_recent_count": true
+    },
+    "privilege_requirements_changed": false,
+    "publisher_authority_changed": false
+  },
+  "verification": {
+    "focused_test": "hosted CI pending",
+    "required_quality_gate": "pending",
+    "local_test": "not run"
+  },
+  "limitations": {
+    "no_live_federation_connectivity_claimed": true,
+    "production_inference_claimed": false
+  }
+}

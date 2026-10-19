@@ -40,6 +40,10 @@ def test_compute_health_counts_nested_peers_and_timezone_aware_recent_events(
         "nodes": 2,
         "recent": 1,
         "status": "healthy",
+        "source": "configured_local_log_snapshot",
+        "window_hours": 24,
+        "latest_event_at": now.isoformat().replace("+00:00", "Z"),
+        "live_telemetry": False,
     }
 
 
@@ -50,6 +54,10 @@ def test_compute_health_reports_missing_log(health_badge, tmp_path, monkeypatch)
         "nodes": 0,
         "recent": 0,
         "status": "no log",
+        "source": "configured_local_log_snapshot",
+        "window_hours": 24,
+        "latest_event_at": None,
+        "live_telemetry": False,
     }
 
 
@@ -63,10 +71,11 @@ def test_main_updates_only_requested_health_document(
     readme.write_text(original_readme, encoding="utf-8")
 
     log_path = tmp_path / "federation_log.jsonl"
+    event_at = datetime.now(timezone.utc)
     log_path.write_text(
         json.dumps(
             {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": event_at.isoformat(),
                 "data": {"peer": "alpha"},
             }
         )
@@ -81,9 +90,43 @@ def test_main_updates_only_requested_health_document(
     health_badge.main()
 
     assert (tmp_path / "docs/health.md").read_text(encoding="utf-8") == (
-        "# Federation Health\n\n- Nodes: 1\n- Recent events: 1\n- Status: healthy\n"
+        "# Federation Health\n\n"
+        "- Nodes in configured log: 1\n"
+        "- Events in last 24 hours: 1\n"
+        f"- Latest event in log: {event_at.isoformat().replace('+00:00', 'Z')}\n"
+        "- Data source: configured local log snapshot (not live federation telemetry)\n"
+        "- Status: healthy\n"
     )
     assert readme.read_text(encoding="utf-8") == original_readme
-    assert capsys.readouterr().out.strip() == (
-        '{"nodes": 1, "recent": 1, "status": "healthy"}'
+    assert json.loads(capsys.readouterr().out) == {
+        "nodes": 1,
+        "recent": 1,
+        "status": "healthy",
+        "source": "configured_local_log_snapshot",
+        "window_hours": 24,
+        "latest_event_at": event_at.isoformat().replace("+00:00", "Z"),
+        "live_telemetry": False,
+    }
+
+
+def test_future_log_timestamp_is_not_counted_as_recent(health_badge, tmp_path, monkeypatch):
+    log_path = tmp_path / "federation_log.jsonl"
+    future = datetime.now(timezone.utc) + timedelta(days=1)
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": future.isoformat(),
+                "data": {"peer": "future-clock"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
     )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+
+    assert stats["recent"] == 0
+    assert stats["status"] == "quiet"
+    assert stats["latest_event_at"] == future.isoformat().replace("+00:00", "Z")
+    assert stats["live_telemetry"] is False
