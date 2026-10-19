@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "83a7fac80cd63b6e3aa5fdc350270c195576e5545a0c1311c59eece8bcd835ed",
-    "latest_segment_sequence": 419,
-    "latest_segment_sha256": "2c56ec57d7f7ee002d7b558bfd55f2899914c62479044e6f22b49529e335d988",
-    "latest_sequence": 419,
-    "source_commit": "9dd0ba01c1ff87b67200c367212e95a71eb370da",
-    "source_tree": "cfe1e9a0f04f638ab5287ac7d8f01b7e0e75f0d8"
+    "checkpoint_sha256": "41cdadc20b54e19027c2f64f3956027a539bb91660a1746fcec75f8758c4de2c",
+    "latest_segment_sequence": 420,
+    "latest_segment_sha256": "a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
+    "latest_sequence": 420,
+    "source_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
+    "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d"
   },
-  "checkpoint_sha256": "83a7fac80cd63b6e3aa5fdc350270c195576e5545a0c1311c59eece8bcd835ed",
+  "checkpoint_sha256": "41cdadc20b54e19027c2f64f3956027a539bb91660a1746fcec75f8758c4de2c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 419,
+  "latest_sequence": 420,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4690,28 +4690,40 @@
       "source_tree": "d2ae2319b22a1c38fbe25178d525436e1c21dde3"
     },
     {
-      "sequence": 418,
-      "path": "work/construction/segments/0418-verify-sequence417-merge-main.md",
-      "sha256": "c2167a595a5ca68011f20e11ef8421f1f1e8081885fd9f61462793813f9c51f0",
       "bytes": 2480,
+      "evidence_bytes": 3355,
       "evidence_path": "work/construction/evidence/0418-verify-sequence417-merge-main.json",
       "evidence_sha256": "9fc2f3766cfaeb7e04013ea1c298596fb464429654dd38c5594984ddfd973c9f",
-      "evidence_bytes": 3355,
+      "path": "work/construction/segments/0418-verify-sequence417-merge-main.md",
       "predecessor": "segment-sha256:2c1f35838367dcceac17262548d98eddbc55548d479a64bee8f8474ea20a39a6",
+      "sequence": 418,
+      "sha256": "c2167a595a5ca68011f20e11ef8421f1f1e8081885fd9f61462793813f9c51f0",
       "source_commit": "d310c408b605108bbb017ca97d66d8e8009d8b19",
       "source_tree": "de41b99990ec903f5523dce82b518fe7560f517d"
     },
     {
-      "sequence": 419,
-      "path": "work/construction/segments/0419-correct-solo-supervisor-summary.md",
-      "sha256": "2c56ec57d7f7ee002d7b558bfd55f2899914c62479044e6f22b49529e335d988",
       "bytes": 1560,
+      "evidence_bytes": 1775,
       "evidence_path": "work/construction/evidence/0419-correct-solo-supervisor-summary.json",
       "evidence_sha256": "6d0dd83bc91601230d4a68241b77c0bd6afe0db1fbaa01937563135cdca68ab9",
-      "evidence_bytes": 1775,
+      "path": "work/construction/segments/0419-correct-solo-supervisor-summary.md",
       "predecessor": "segment-sha256:c2167a595a5ca68011f20e11ef8421f1f1e8081885fd9f61462793813f9c51f0",
+      "sequence": 419,
+      "sha256": "2c56ec57d7f7ee002d7b558bfd55f2899914c62479044e6f22b49529e335d988",
       "source_commit": "9dd0ba01c1ff87b67200c367212e95a71eb370da",
       "source_tree": "cfe1e9a0f04f638ab5287ac7d8f01b7e0e75f0d8"
+    },
+    {
+      "bytes": 2658,
+      "evidence_bytes": 3671,
+      "evidence_path": "work/construction/evidence/0420-verify-sequence419-merge-main.json",
+      "evidence_sha256": "e70a0193e029a3ee4cd3da5acbd7e85f68c6d8ea1db6d0a97fce862d30d2929c",
+      "path": "work/construction/segments/0420-verify-sequence419-merge-main.md",
+      "predecessor": "segment-sha256:2c56ec57d7f7ee002d7b558bfd55f2899914c62479044e6f22b49529e335d988",
+      "sequence": 420,
+      "sha256": "a866979a3efaf49817e7c03201d5cbd34acfec0353daee3f2e7546280c566f65",
+      "source_commit": "2489fbf0a8de44a3407e2ce5fd101398ab6cd2d8",
+      "source_tree": "0b33dd00580f39765204d3249331a45b4bfdee2d"
     }
   ],
   "source_acquisition": {
