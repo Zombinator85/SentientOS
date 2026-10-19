@@ -583,7 +583,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert '--workspace-root "$PRECOMMIT_WORKSPACE"' in precommit
     assert "--allow-current-tracked-changes" in precommit
     assert "--allow-current-task-files" in precommit
-    assert 'decision.get("status") != "ready_to_commit"' in precommit
+    assert 'status != "ready_to_commit"' in precommit
     assert 'SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR"' in precommit
     assert 'test "$PRECOMMIT_WORKSPACE" = "$RUNNER_TEMP/sentientos-precommit-workspace"' in precommit
     assert 'sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE"' in precommit
