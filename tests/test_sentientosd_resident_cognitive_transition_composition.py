@@ -426,3 +426,49 @@ def test_production_transition_rejects_missing_frozen_generation_declaration(tmp
     _store, transition = _source_lineage_fixture(tmp_path, generation_identity=None)
     with pytest.raises(TransitionError, match="transition_software_generation_declaration_required"):
         sentientosd._verify_live_resident_transition_source_lineage(transition, tmp_path)
+
+
+
+def test_daemon_transition_planning_delegates_without_processing_operator_packet(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import production_self_reflection_campaign as campaign_module
+
+    calls = {"planned": [], "processed": 0}
+    campaign = object()
+
+    class Runtime:
+        def process_one(self):
+            calls["processed"] += 1
+            raise AssertionError("planning must not process an operator packet")
+
+    class Observer:
+        def __init__(self, observed_campaign, owner):
+            assert observed_campaign is campaign
+            assert owner is runtime
+
+        def plan_next_stage(self, request_id):
+            calls["planned"].append(request_id)
+            return {"status": "planned", "next_phase": "successor_b_epoch",
+                    "effect_performed": False, "execution_allowed": False,
+                    "campaign_advanced": False, "grants_authority": False}
+
+    runtime = Runtime()
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "open_for_read_only_inspection", staticmethod(lambda root: campaign))
+    monkeypatch.setattr(
+        campaign_module, "ProductionSelfReflectionTransitionBindingObserver", Observer)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = runtime
+
+    result = surfaces.plan_production_self_reflection_transition_next_stage("request-17")
+
+    assert result["status"] == "planned"
+    assert result["next_phase"] == "successor_b_epoch"
+    assert result["effect_performed"] is False
+    assert result["execution_allowed"] is False
+    assert result["campaign_advanced"] is False
+    assert result["grants_authority"] is False
+    assert calls == {"planned": ["request-17"], "processed": 0}
