@@ -63,6 +63,21 @@
     "status": "untested"
   },
   "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+  "hosted_current_status": "fresh_synchronize_pending_after_exact_title_correction",
+  "hosted_title_binding_attempts": [
+    {
+      "candidate": "2a5c6114d7b3cc300868eb2134722ae9fa0bc678",
+      "cause": "PR title differed from exact candidate commit subject",
+      "result": "failure_before_finalization",
+      "run_id": 39183464279
+    },
+    {
+      "candidate": "dd1a88e7e4f3ce199015d9739104eb179cf2691c",
+      "cause": "synchronize event retained the prior PR title snapshot",
+      "result": "failure_before_finalization",
+      "run_id": 39183917694
+    }
+  ],
   "next_increment": {
     "candidate_hosted_full_baseline": "pending",
     "compileall": "passed",
