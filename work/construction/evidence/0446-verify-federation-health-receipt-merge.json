@@ -1,0 +1,97 @@
+{
+  "authority": {
+    "audit_strictness_weakened": false,
+    "permissions_broadened": false,
+    "protected_workspaces_modified": false
+  },
+  "historical_provenance": {
+    "reconstructed_or_discarded": false,
+    "status": "INTEGRITY_BROKEN"
+  },
+  "post_merge": {
+    "main_push_checks": "not_observed; connected workflow run reader is PR-event scoped",
+    "production_inference_claimed": false,
+    "scheduled_federation_health_on_this_sha": "pending"
+  },
+  "predecessor_segment_sha256": "d406d48f34de113bd1b2683cfa98cbe2f43a4801d6198d59ed31da74d1bbf0e5",
+  "pull_request": {
+    "candidate_commit": "3a29f2f2b2f945bf421d348f992d2cbcb553c63b",
+    "candidate_tree": "39e3dfd6797a7ccf0dc188134d6750a922b17291",
+    "checks": {
+      "ci": {
+        "canonical_tests": "passed",
+        "conclusion": "success",
+        "integrated_resource_to_cognition_lifecycle": "passed",
+        "run_id": 39223816744
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39223816678
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "run_id": 39223816668
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39223816715
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39223816704
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39223816708
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39223816703
+      },
+      "required_quality_gate": {
+        "administrator_strict_audit": "passed",
+        "conclusion": "success",
+        "precommit_finalizer": "passed",
+        "prepublication_metadata_guard": "passed",
+        "run_id": 39223816700
+      }
+    },
+    "conclusion": "merged",
+    "merge_commit": "3ac7816c381cd5d859e656d76926f7f47fb11631",
+    "merge_method": "merge",
+    "number": 2410,
+    "title": "[codex:workflow] bind Federation Health output to its run (sequence 445)"
+  },
+  "readback": {
+    "changed_paths": [
+      ".github/workflows/federation-health.yml",
+      "README.md",
+      "scripts/federation_health_execution_receipt.py",
+      "tests/test_federation_health_execution_receipt.py",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/evidence/0445-bind-federation-health-execution-receipt.json",
+      "work/construction/segments/0445-bind-federation-health-execution-receipt.md"
+    ],
+    "merged_content_tree": "39e3dfd6797a7ccf0dc188134d6750a922b17291",
+    "remote_main_blob_sha_matches_candidate": true
+  },
+  "receipt_contract": {
+    "automatic_main_publication": "not_added",
+    "fixture": "single_file_test_only",
+    "health_permissions": "contents_read_unchanged",
+    "peer_or_federation_log_data": "excluded",
+    "publisher_permissions": "contents_and_pull_requests_write_unchanged",
+    "workflow_run_id_attempt_event_ref_sha_and_report_digest": "bound"
+  },
+  "sequence": 446,
+  "source_commit": "3ac7816c381cd5d859e656d76926f7f47fb11631",
+  "source_tree": "39e3dfd6797a7ccf0dc188134d6750a922b17291",
+  "status": "receipt_source_merged_first_scheduled_execution_pending",
+  "title": "Verify Federation Health receipt merge",
+  "verification": {
+    "construction_custody": "passed through sequence 446",
+    "git_diff_check": "passed",
+    "local_pytest": "not run; canonical hosted suite passed"
+  }
+}
