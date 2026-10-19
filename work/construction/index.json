@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "16d670ed6559d6d55cfd097db7696261bdfa21fd1f46cf9224517c5a9b0055d6",
-    "latest_segment_sequence": 421,
-    "latest_segment_sha256": "85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
-    "latest_sequence": 421,
-    "source_commit": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
-    "source_tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019"
+    "checkpoint_sha256": "4e08d7c3a1389346f115bcea91f2849d9510d8fea7c111466b20750b6480cf67",
+    "latest_segment_sequence": 422,
+    "latest_segment_sha256": "f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
+    "latest_sequence": 422,
+    "source_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+    "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3"
   },
-  "checkpoint_sha256": "16d670ed6559d6d55cfd097db7696261bdfa21fd1f46cf9224517c5a9b0055d6",
+  "checkpoint_sha256": "4e08d7c3a1389346f115bcea91f2849d9510d8fea7c111466b20750b6480cf67",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 421,
+  "latest_sequence": 422,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4736,6 +4736,18 @@
       "sha256": "85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
       "source_commit": "4c2f9475ab287fa0bd668d9e8ca2340910c3b4d8",
       "source_tree": "3da90728a7c7276c3cbcd861ec0abb1883e89019"
+    },
+    {
+      "bytes": 3807,
+      "evidence_bytes": 4825,
+      "evidence_path": "work/construction/evidence/0422-verify-sequence421-merge-main.json",
+      "evidence_sha256": "413b98e89a08c764f0fe56885522c7c6add213e36e317f145171e52a30352adb",
+      "path": "work/construction/segments/0422-verify-sequence421-merge-main.md",
+      "predecessor": "segment-sha256:85b8c7abb7caca237e3d8f54799c30ae6d548737cf2d30c6a5745133d5e88c24",
+      "sequence": 422,
+      "sha256": "f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
+      "source_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+      "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3"
     }
   ],
   "source_acquisition": {
