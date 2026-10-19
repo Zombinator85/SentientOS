@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c0ca6555ac98d3c1168b1a7df4ec2505580c3fdffda068196ec6e2647819a47e",
-    "latest_segment_sequence": 452,
-    "latest_segment_sha256": "e0bbd9daa4504aa8d7c2aedb7da5dafb535eb631a056696daa2d3bfb3b8412eb",
-    "latest_sequence": 452,
-    "source_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
-    "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51"
+    "checkpoint_sha256": "598d6034a81237280a824e79fbac21097e72d5ebbd38174e6e77085611d6ff50",
+    "latest_segment_sequence": 453,
+    "latest_segment_sha256": "145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
+    "latest_sequence": 453,
+    "source_commit": "5bb3d8e52aff0060cb088ef166d212488e312501",
+    "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5"
   },
-  "checkpoint_sha256": "c0ca6555ac98d3c1168b1a7df4ec2505580c3fdffda068196ec6e2647819a47e",
+  "checkpoint_sha256": "598d6034a81237280a824e79fbac21097e72d5ebbd38174e6e77085611d6ff50",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 452,
+  "latest_sequence": 453,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5108,6 +5108,18 @@
       "sha256": "e0bbd9daa4504aa8d7c2aedb7da5dafb535eb631a056696daa2d3bfb3b8412eb",
       "source_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
       "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51"
+    },
+    {
+      "bytes": 2307,
+      "evidence_bytes": 4635,
+      "evidence_path": "work/construction/evidence/0453-verify-sequence452-merge-and-federation-health-receipt.json",
+      "evidence_sha256": "7810fcb651bda4cc4f2c9353631514113b63ea7e26768005cca0ced894356c43",
+      "path": "work/construction/segments/0453-verify-sequence452-merge-and-federation-health-receipt.md",
+      "predecessor": "segment-sha256:e0bbd9daa4504aa8d7c2aedb7da5dafb535eb631a056696daa2d3bfb3b8412eb",
+      "sequence": 453,
+      "sha256": "145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
+      "source_commit": "5bb3d8e52aff0060cb088ef166d212488e312501",
+      "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5"
     }
   ],
   "source_acquisition": {
@@ -5117,7 +5129,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51",
+  "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
