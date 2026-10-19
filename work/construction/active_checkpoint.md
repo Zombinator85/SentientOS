@@ -384,3 +384,20 @@ The current-main scheduled Federation Health and nightly executions remain unobs
 Latest verified main: `1d5cc380052c0260c4f8a9f29a496f080f57be4a`, tree `47b02aba5e99764ef40738b4216d52dbfa3d2fb1`.
 Latest construction segment: `work/construction/segments/0414-bind-solo-validation-plan-to-landing-gate.md`
 Latest segment SHA-256: `32d540b1a90439eaa4f6828f295087250f290c77878391e814a17d875978aa15`
+
+## Sequence 415 checkpoint
+
+PR #2384 merged sequence 414 by regular merge, preserving candidate `41fc0c44f68847a89e7405eba877cbbfd1a6cc2c` as the second parent. Verified main is `7ae3a52e126f272a3e699376effbeb8f3a3fe8b7`, tree `b9ed0ff3a25bb09fa71fa1ef6564ef8739bcbe3a`; parentage, PR state, and tree were independently read back from GitHub. All configured candidate PR checks succeeded, including Required Quality Gate, CI, Docker, invariants, Release validation, Codex CI, lint, and gradient-null regression. The pre-publication metadata guard passed on the exact candidate; the byte-bound PR body was independently fetched and matched its sealed local bytes.
+
+Exact-main post-merge Required Quality Gate #39181420949, CI #39181421088, Docker Image #39181421079, Invariant Tests #39181420956, Docs Deploy #39181420951, and Codex CI #39181420961 passed; Forge Smoke #39181420952 was skipped by its configured condition. Independently downloaded QG artifact #12156307304 matched GitHub digest `38bbcd78415b7f1574c43444f5c2a5c273b2f16a1f23fab43f0422226dd89c5b`. The artifact binds exact main, Administrator UID 0, strict audit, immutability, and 29/29 acceptance. Independently downloaded CI source-validation artifact #12156865228 matched digest `980a6dc12b2ba0d6e26e2b6ec8e9ffec6978f11ce2b3070b36ed6cea4d3c3397`; resource validation, canonical planning, and World-State contracts passed 11/11, 20/20, and 3/3 on exact main with no failed or skipped required nodes.
+
+The solo landing-gate increment is now integrated. The exact-candidate push QG and PR QG finalizers both returned ready decisions and `pr_metadata_guard_ready`; independent artifact digests and 29/29 candidate acceptance are retained in this segment's evidence. Focused local tests passed seven relevant cases; fourteen tests with the existing legacy-policy skip marker remained skipped. Changed-source compilation and targeted mypy passed. The local baseline wrapper's missing isolated mypy toolchain was resolved by hosted Administrator verification; no local failure is called a pass.
+
+The two nightly workflows' source repairs are already in main and covered by workflow contract tests: Self Check uses strict Administrator audit verification under read-only token scope; Audit Integrity uses safe repair planning, post-repair strict verification, append-only evidence, and write permissions only in its repair job. The latest earlier Audit Integrity scheduled run #39014123936 succeeded on source `50d062baab7f838b1dfeaf9b79ec42c5da0e0a14`, but exact-main scheduled Federation Health, Nightly Audit Integrity, and Nightly Self Check runs remain unobserved. Existing scheduled results are not substituted.
+
+Provenance remains `INTEGRITY_BROKEN` at its unanchored start, including the preserved sequence-286 loss. A production resident A→B→A trial still needs commissioned A/B identities and receipts, distinct serving approvals, and an operator-approved preregistered trial. No production inference or authority expansion occurred.
+
+Latest verified main: `7ae3a52e126f272a3e699376effbeb8f3a3fe8b7`, tree `b9ed0ff3a25bb09fa71fa1ef6564ef8739bcbe3a`.
+Latest construction segment: `work/construction/segments/0415-verify-sequence414-merge-main.md`
+Latest segment SHA-256: `1598da163754df289680a9f9fb4fe462e633b09961654c74d59071c6e6d06c7d`
+Sequence: 415 (regular merge and all post-merge source, quality, Docker, invariants, docs, and Codex checks verified)
