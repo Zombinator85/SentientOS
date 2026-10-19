@@ -55,11 +55,11 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
-## Current construction checkpoint (2026-10-19 11:23 UTC)
+## Current construction checkpoint (2026-10-19 11:35 UTC)
 
-Sequence 458 verifies sequence 457's regular merge as main `f017629039c607cb6b75b85d75c53a4bee214adb`, preserving candidate tree `e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0`. The exact-head matrix passed, including append-only custody, integrated resource-to-cognition, planning/execution separation, the hosted finalizer, and the separate PR metadata guard. All post-merge CI, Required Quality Gate, invariants, Docker, and Docs Deploy checks passed; Forge Smoke was skipped by condition.
+Sequence 459 verifies the nightly workflow repairs already present on main. Historical runs showed Administrator was missing from both audit paths; current definitions require it, keep the initial audit job read-only, and isolate safe repair write permissions to the conditional repair job. Latest scheduled runs passed on older heads, but Audit repair was skipped.
 
-The 11:23 UTC schedule query showed no Federation Health execution on current main. The latest scheduled Health run remains on older main; the successful run on `b5912ecc...` was push-triggered. Nightly Self Check and Audit Integrity passed on older heads before this merge. Audit repair publication still depends on an Actions-token PR creation path blocked by repository policy; the recent successful audit skipped repair. The health report remains a configured snapshot, not live telemetry.
+Main `f37d758e26421b91939930b6fd9ffacc2e110a4b` passed all post-merge checks. The 11:35 UTC schedule query still showed no Federation Health run on current main; the latest scheduled Health execution remains on older main. Actions-token PR creation remains blocked, so the audit repair publication path is unexercised. Health output remains a configured local snapshot, not live telemetry.
 
 ## Read next
 

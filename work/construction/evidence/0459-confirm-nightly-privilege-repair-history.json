@@ -1,0 +1,116 @@
+{
+  "sequence": 459,
+  "title": "Confirm nightly privilege repairs and preserve the publication boundary",
+  "source_commit": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
+  "source_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935",
+  "predecessor_segment_sha256": "a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
+  "historical_failures": {
+    "nightly_self_check": {
+      "run": 38876666946,
+      "job": 116893249234,
+      "head": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "step": "Verify audits",
+      "failure": "Access denied: run as Administrator"
+    },
+    "audit_integrity": {
+      "run": 38870399436,
+      "job": 116872865430,
+      "head": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "step": "Commit and push repairs",
+      "failure": "legacy audit verification ran without Administrator; only untracked audit_output.txt remained, so no repair files were staged"
+    }
+  },
+  "current_workflow_contracts": {
+    "nightly_self_check": {
+      "path": ".github/workflows/nightly-self-check.yml",
+      "permissions": {
+        "contents": "read"
+      },
+      "administrator_before_strict_audit": true,
+      "strict_audit": true,
+      "canonical_test_dependencies": true,
+      "privilege_lint": true,
+      "mypy": true,
+      "pytest_airlock": true,
+      "pytest": true
+    },
+    "audit_nightly": {
+      "path": ".github/workflows/audit-nightly.yml",
+      "audit_job_permissions": {
+        "contents": "read"
+      },
+      "repair_job_permissions": {
+        "contents": "write",
+        "pull-requests": "write"
+      },
+      "administrator_before_initial_and_repair_audits": true,
+      "safe_plan_apply": true,
+      "post_repair_strict_audit": true,
+      "fail_closed_on_remaining_findings": true
+    }
+  },
+  "scheduled_runs": {
+    "self_check": {
+      "run": 39235681245,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "success": true,
+      "administrator": "passed",
+      "strict_audit": "passed",
+      "privilege_lint": "passed",
+      "mypy": "passed",
+      "pytest_airlock": "passed",
+      "pytest": "passed",
+      "evidence_uploads": "passed"
+    },
+    "audit_integrity": {
+      "run": 39228761152,
+      "head": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "success": true,
+      "administrator": "passed",
+      "strict_audit": "passed",
+      "repair": "skipped"
+    }
+  },
+  "sequence458_merge": {
+    "pr": 2425,
+    "candidate": "f0ad110c4f71a2b5f3e40788ca468c4b84b37093",
+    "candidate_tree": "d48c0ee2663b3d21d5d00f2723698cf207b05935",
+    "merge": "f37d758e26421b91939930b6fd9ffacc2e110a4b",
+    "merge_method": "merge",
+    "tree_preserved": true,
+    "post_merge_checks": {
+      "qg": 39245073303,
+      "ci": 39245073406,
+      "invariants": 39245073338,
+      "docker_image": 39245073334,
+      "codex_ci_cpu_smoke": 39245073485,
+      "docs_deploy": 39245073380,
+      "forge_smoke": "39245073352 skipped by condition",
+      "all_required_success": true
+    }
+  },
+  "schedule_observation": {
+    "query_time": "2026-10-19T11:35:57Z",
+    "federation_health_current_main": "not_found",
+    "latest_federation_health": {
+      "run": 39218331969,
+      "head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028",
+      "event": "schedule",
+      "success": true
+    },
+    "latest_successful_push_health": {
+      "run": 39235242309,
+      "head": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "event": "push",
+      "not_scheduled": true
+    }
+  },
+  "limitations": {
+    "actions_token_pr_creation": "blocked by repository setting",
+    "audit_repair_publication_end_to_end": "not_verified_repair_job_skipped",
+    "current_main_scheduled_federation_health": "not_observed",
+    "live_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}
