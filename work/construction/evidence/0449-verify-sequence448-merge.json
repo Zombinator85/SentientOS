@@ -1,0 +1,89 @@
+{
+  "sequence": 449,
+  "title": "Verify sequence 448 merge",
+  "source_commit": "5f4a94635ee1285f5199054cc37319e1fc1e0626",
+  "source_tree": "56f7cabd065ec1baba89a171a1bec0d9d6d0d46a",
+  "predecessor_segment_sha256": "795c5ec5a1090878a43ade07c798beedaa9cce23eca8e92a158cae137b7b6dec",
+  "pull_request": {
+    "number": 2413,
+    "candidate_commit": "1daab1e88676e3794544b04221b1a6fe966a17c6",
+    "candidate_tree": "56f7cabd065ec1baba89a171a1bec0d9d6d0d46a",
+    "checks": {
+      "required_quality_gate": {
+        "run_id": 39226214227,
+        "conclusion": "success",
+        "administrator_strict_audit": "passed",
+        "exact_acceptance": "passed",
+        "hosted_finalizer": "passed",
+        "prepublication_metadata_guard": "passed"
+      },
+      "ci": {
+        "run_id": 39226214317,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39226214169,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39226214309,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39226214244,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39226214281,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39226214199,
+        "conclusion": "success"
+      },
+      "gradient_regression": {
+        "run_id": 39226214289,
+        "conclusion": "success"
+      }
+    },
+    "merge_commit": "5f4a94635ee1285f5199054cc37319e1fc1e0626",
+    "merge_method": "merge",
+    "candidate_to_merge_comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    }
+  },
+  "readback": {
+    "paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json",
+      "work/construction/segments/0448-record-federation-health-execution.md",
+      "work/construction/evidence/0448-record-federation-health-execution.json"
+    ],
+    "candidate_blob_shas": [
+      "09f8b671accaa1a4233737f8ff755851d01476fe",
+      "7dd924c2ff3525fce5060e6ae23b19e4cac03b7a",
+      "1bc01e188924e44854ab24587ff30a1880baf49a",
+      "4be2957d8c4a9d640f5913f9aeda9b3362c76e3a"
+    ],
+    "all_match": true,
+    "content_tree": "56f7cabd065ec1baba89a171a1bec0d9d6d0d46a"
+  },
+  "federation_health": {
+    "run_id": 39224329633,
+    "event_name": "push",
+    "health_job": "success",
+    "publisher_job": "failure_after_successful_docs_branch_push",
+    "scheduled_execution_on_source_sha": "pending",
+    "production_inference_claimed": false
+  },
+  "limitations": {
+    "historical_test_provenance": "INTEGRITY_BROKEN; sequence-286 loss preserved",
+    "main_push_checks_current_sha": "not visible through PR-scoped reader"
+  },
+  "verification": {
+    "construction_custody": "passed through sequence 449",
+    "local_pytest": "not run; canonical hosted matrix passed"
+  }
+}
