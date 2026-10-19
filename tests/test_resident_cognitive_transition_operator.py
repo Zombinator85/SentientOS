@@ -117,6 +117,66 @@ def test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect(tmp_p
     assert controller.calls == 1 and path.exists()
 
 
+def test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding(
+    tmp_path: Path,
+) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    packet = _request()
+    persist_request(tmp_path, packet)
+    result = runtime.process_one()
+    assert result["status"] == "stage_advanced"
+
+    request_binding = {"request_id": packet["request_id"],
+                       "request_digest": packet["request_digest"]}
+    controller.journal.entries = lambda: [
+        {"phase": PHASES[0], "status": "attempted",
+         "evidence": {"attempted_stage": PHASES[1],
+                      "approval_digest": packet["stage_approval_digest"],
+                      "operator_request": request_binding},
+         "entry_digest": "attempt-entry"},
+        {"phase": PHASES[1], "status": "completed",
+         "evidence": {"operator_request": request_binding},
+         "entry_digest": "head-1"},
+    ]
+    controller.health = lambda: {
+        "phase": PHASES[1], "journal_head": "head-1", "status": "in_progress",
+        "semantically_verified_stage_entry_digests": ["head-1"],
+    }
+    before = runtime.receipt_path.read_bytes()
+    calls_before = controller.calls
+
+    projection = runtime.inspect_verified_stage_receipt(packet["request_id"])
+
+    assert projection["phase"] == PHASES[1]
+    assert projection["operator_receipt_digest"] == result["receipt_digest"]
+    assert projection["completed_entry_digest"] == "head-1"
+    assert projection["read_only"] is True
+    assert projection["effect_performed"] is False
+    assert projection["grants_authority"] is False
+    assert projection["execution_allowed"] is False
+    assert "stage_approval" not in projection
+    assert runtime.receipt_path.read_bytes() == before
+    assert controller.calls == calls_before
+
+
+def test_verified_stage_receipt_rejects_missing_or_unverified_custody(tmp_path: Path) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    packet = _request()
+    persist_request(tmp_path, packet)
+    rejected = _request(correlation_id="rejected", operation_id="rejected")
+    persist_request(tmp_path, rejected)
+    controller.advance = lambda **kwargs: (_ for _ in ()).throw(
+        TransitionError("stage_execution_interrupted"))
+    runtime.process_one()
+    with pytest.raises(TransitionError, match="operator_stage_receipt_unavailable"):
+        runtime.inspect_verified_stage_receipt(rejected["request_id"])
+    with pytest.raises(TransitionError, match="operator_stage_receipt_unavailable"):
+        runtime.inspect_verified_stage_receipt(packet["request_id"])
+    assert controller.calls == 0
+
+
 def test_processing_call_never_advances_second_pending_request(tmp_path: Path) -> None:
     controller = _Controller(); runtime = _runtime(tmp_path, controller)
     persist_request(tmp_path, _request())
