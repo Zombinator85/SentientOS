@@ -2,6 +2,7 @@ name: Required Quality Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches:
       - main
@@ -212,6 +213,7 @@ jobs:
                          cwd=workspace, env={**env, "PYTHONPATH": workspace}, check=True)
           PY
           cd "$PRECOMMIT_WORKSPACE"
+          set +e
           sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$PRECOMMIT_WORKSPACE" \
             SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR" \
             python scripts/codex_finalize_landing.py finalize \
@@ -229,12 +231,19 @@ jobs:
               --stage-timeout-seconds 1200 \
               --overall-timeout-seconds 5400 \
               --summary
-          python - "$RUNNER_TEMP/codex-finalizer-pre-commit.json" <<'PY'
+          finalizer_exit_code=$?
+          set -e
+          printf "Pre-commit finalizer process exit code: %s\\n" "$finalizer_exit_code"
+          cat "$RUNNER_TEMP/codex-finalizer-pre-commit.json"
+          python - "$RUNNER_TEMP/codex-finalizer-pre-commit.json" "$finalizer_exit_code" <<'PY'
           import json, sys
           payload=json.load(open(sys.argv[1]))
           decision=payload.get("decision",{})
-          if decision.get("status") != "ready_to_commit":
-              raise SystemExit(f"hosted reconstructed pre-commit finalizer blocked: {decision.get('status')}")
+          status=decision.get("status")
+          reasons=decision.get("reasons",[])
+          print(json.dumps({"finalizer_exit_code": int(sys.argv[2]), "status": status, "reasons": reasons}, sort_keys=True))
+          if int(sys.argv[2]) != 0 or status != "ready_to_commit":
+              raise SystemExit(f"hosted reconstructed pre-commit finalizer blocked: {status}: {reasons}")
           PY
           cd "$GITHUB_WORKSPACE"
           python -m pip install --no-deps --no-build-isolation -e "$GITHUB_WORKSPACE"

@@ -24,6 +24,7 @@ def test_release_pr_validation_installs_project_without_publishing():
     assert "softprops" not in validate and "secrets." not in validate
 def test_required_quality_gate_runs_and_verifies_real_tests():
     text=(ROOT/".github/workflows/required-quality-gate.yml").read_text()
+    assert "types: [opened, synchronize, reopened, edited]" in text
     assert "python -m scripts.run_tests" in text and "verify_task_acceptance.py" in text
     assert "validation_complete" in text and "--require-validation-complete" in text
 def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
@@ -576,11 +577,15 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'len(nodes) != 30' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
+    assert "finalizer_exit_code=$?" in precommit
+    assert "cat \"$RUNNER_TEMP/codex-finalizer-pre-commit.json\"" in precommit
+    assert "set +e" in precommit and "set -e" in precommit
+    assert '"reasons": reasons' in precommit
     assert "--validation-profile solo" in precommit
     assert '--workspace-root "$PRECOMMIT_WORKSPACE"' in precommit
     assert "--allow-current-tracked-changes" in precommit
     assert "--allow-current-task-files" in precommit
-    assert 'decision.get("status") != "ready_to_commit"' in precommit
+    assert 'status != "ready_to_commit"' in precommit
     assert 'SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR"' in precommit
     assert 'test "$PRECOMMIT_WORKSPACE" = "$RUNNER_TEMP/sentientos-precommit-workspace"' in precommit
     assert 'sudo -n git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE"' in precommit

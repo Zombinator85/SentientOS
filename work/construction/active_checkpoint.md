@@ -2,23 +2,23 @@
 
 ## Latest verified main
 
-PR #2422 regular-merged the sequence-454 Federation Health push-run receipt as main `2e47454799bfe483bd04272b4e96cd4a71ee2f6b`, preserving tree `2858a0a4a6807a2d9ae2f06da9cd87d0b317868a`. Its exact-head Quality Gate, CI, invariants, Codex CI, Docker, Lint, Release, and Gradient Regression checks passed. The Quality Gate passed Administrator strict audit, exact acceptance, hosted finalizer, and separate prepublication metadata guard. Main post-merge Quality Gate, CI, invariants, Codex CI, Docker, and Docs Deploy also passed; Forge Smoke was skipped by condition.
+PR #2423 regular-merged sequence 455 as main `0082e3d9d76337c2f25efb9defb49e40e87dc482`, preserving tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`. Its exact-head CI, Required Quality Gate, invariants, Codex CI, Docker, Lint, Release, and Gradient checks passed. The gate passed hosted Administrator audit, exact acceptance, finalizer, and the separate prepublication metadata guard. Main post-merge CI, Quality Gate, invariants, Codex CI, Docker, and Docs Deploy passed; Forge Smoke was skipped by condition.
 
-Sequence 454 changed Federation Health to decode JSONL records independently, skipping invalid UTF-8 without aborting valid neighboring rows. Its source regression and integrated lifecycle passed. Main `b5912ecc...` then ran Federation Health successfully after Administrator preflight. Artifact #12178601264's downloaded ZIP digest matched GitHub metadata, and the receipt-bound report digest matched the report bytes. The report remains a configured local snapshot with one node, zero recent events, and latest historical event `2025-06-05T16:25:13.805813Z`; it is not live telemetry. The receipt was integrated through PR #2422 because repository policy blocks Actions-token PR creation.
+Sequence 454's invalid-UTF-8 hardening is present in this tree. Its post-merge Federation Health push execution passed Administrator preflight on `b5912ecc...`; the downloaded artifact and report digest matched. The generated report describes one configured node, zero recent events, and latest historical event `2025-06-05T16:25:13.805813Z`. It is a configured local log snapshot, not live telemetry. Its receipt was integrated through normal PR #2422 because repository policy blocks Actions-token PR creation.
 
-Scheduled Nightly Self Check #39235681245 passed on `b5912ecc...`, including Administrator availability, strict audit, privilege lint, Mypy, pytest airlock, and pytest. Nightly Audit Integrity #39228761152 passed on preceding main `fd20cf6...` with repair skipped. No scheduled Federation Health run on `b5912ecc...` or `2e474547...` was present in queried history.
+Scheduled Nightly Self Check #39235681245 passed on `b5912ecc...`, including Administrator availability, strict audit, privilege lint, Mypy, pytest airlock, and pytest. This run preceded PR #2423, which changed only construction evidence and preserved the source tree. Nightly Audit Integrity #39228761152 passed on older main `fd20cf6...` with repair skipped.
 
 ## Open evidence boundaries
 
-- Automatic Actions-token PR creation remains blocked by the repository setting; normal connector-created PRs pass the standard matrix.
-- The report is a configured local snapshot, not live telemetry, and records zero recent events.
-- No current-main scheduled Federation Health execution has been observed.
+- No scheduled Federation Health execution on current main `0082e3d9...` has been observed. The latest queried scheduled run is #39218331969 on older main `e66ac2f...`. The successful run #39235242309 on `b5912ecc...` was a push event.
+- Automatic Actions-token PR creation remains blocked by repository policy; normal connector-created PRs pass the standard matrix.
+- The configured health report records zero recent events and is not live telemetry.
 - Historical test provenance remains `INTEGRITY_BROKEN`; the sequence-286 loss is preserved.
 - A production resident A→B→A trial requires commissioned identities, distinct serving approvals, and operator preregistration.
 - No production resource-observer execution, longitudinal learning, or benefit is claimed.
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
-Latest verified main: `2e47454799bfe483bd04272b4e96cd4a71ee2f6b`, tree `2858a0a4a6807a2d9ae2f06da9cd87d0b317868a`.
-Latest construction segment: `work/construction/segments/0455-verify-sequence454-and-health-receipt-publication.md`
-Latest segment SHA-256: `318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a`
-Sequence: 455 (source verified; scheduled Self Check passed; scheduled Health pending)
+Latest verified main: `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`.
+Latest construction segment: `work/construction/segments/0457-retrigger-landing-gate-on-pr-title-edit.md`
+Latest segment SHA-256: `bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a`
+Sequence: 457 (title edit retriggers landing gate; exact-head matrix pending)
