@@ -1,0 +1,9 @@
+# Sequence 446 — Verify Federation Health receipt merge
+
+**Construction status: source-bound execution receipt merged; first scheduled observation on this main SHA remains pending.** PR #2410 regular-merged sequence 445 as `3ac7816c381cd5d859e656d76926f7f47fb11631`, preserving content tree `39e3dfd6797a7ccf0dc188134d6750a922b17291`. The receipt is now part of the production Federation Health workflow path and the existing report publisher; no permission or automatic main publication changed.
+
+Exact candidate `3a29f2f2b2f945bf421d348f992d2cbcb553c63b`, tree `39e3dfd6797a7ccf0dc188134d6750a922b17291`, passed Required Quality Gate #39223816700, CI #39223816744, Invariant Tests #39223816704, Codex CI #39223816678, Docker #39223816668, Lint Benchmark #39223816708, Release #39223816703, and Gradient regression #39223816715. The strict gate completed actual Administrator audit, exact acceptance, pre-commit reconstruction/finalization, and the separate metadata guard. Canonical CI passed the new receipt unit tests and workflow contract assertions, plus the integrated lifecycle and existing suite.
+
+PR #2410 regular-merged as `3ac7816c381cd5d859e656d76926f7f47fb11631`. GitHub readback of all eight changed workflow, helper, test, and custody files matched exact candidate blob identities. The first scheduled Federation Health run on this main SHA has not yet been observed. Main-push check runs are not exposed by the available PR-only workflow run reader. No scheduled outcome is inferred.
+
+The receipt stores only workflow run identity, event/ref/source SHA, success markers for preflight/generation, and the report digest; it does not include peer or federation-log data. The fixture path remains one-file and explicitly test-only. Historical provenance and all protected workspaces remain unchanged.
