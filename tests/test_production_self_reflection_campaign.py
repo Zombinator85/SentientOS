@@ -810,7 +810,7 @@ def test_campaign_binds_verified_transition_plan_to_active_trial_without_authori
         },
         process_one=forbidden_process_one,
     )
-    request_id = "resident-transition-request-active-trial"
+    request_id = "resident-transition-request-planning"
     observer = ProductionSelfReflectionTransitionBindingObserver(campaign, owner)
     plan = observer.plan_next_stage(request_id)
     before = dict(campaign.state())
