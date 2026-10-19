@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b64ee2f92c13197767875423a0bd370e3d397a34dda2a84d26a6ce0cbd7443dc",
-    "latest_segment_sequence": 470,
-    "latest_segment_sha256": "ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e",
-    "latest_sequence": 470,
-    "source_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
-    "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a"
+    "checkpoint_sha256": "a37d319fbde01511acc5f1b5fc766861816b92dc24962a019ebda598eea8b5df",
+    "latest_segment_sequence": 471,
+    "latest_segment_sha256": "18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
+    "latest_sequence": 471,
+    "source_commit": "19f202bd0f44352599f0750f58133407256d610a",
+    "source_tree": "689b126c098ca7798626901739177e9003c21ca6"
   },
-  "checkpoint_sha256": "b64ee2f92c13197767875423a0bd370e3d397a34dda2a84d26a6ce0cbd7443dc",
+  "checkpoint_sha256": "a37d319fbde01511acc5f1b5fc766861816b92dc24962a019ebda598eea8b5df",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 470,
+  "latest_sequence": 471,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5324,6 +5324,18 @@
       "sha256": "ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e",
       "source_commit": "9988e3a0c0fbf35b14f8f5b95ea84752d889e155",
       "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a"
+    },
+    {
+      "bytes": 2648,
+      "evidence_bytes": 3635,
+      "evidence_path": "work/construction/evidence/0471-compose-daemon-active-trial-binding.json",
+      "evidence_sha256": "e38e229597233c441fea63bc9cf9bdd55af905ce5bcc34f089e56ec94dec2e46",
+      "path": "work/construction/segments/0471-compose-daemon-active-trial-binding.md",
+      "predecessor": "segment-sha256:ff0a96aad33ec7c9952125fe148aaf3c80903d9f0475d9eec1f595ef01b9f18e",
+      "sequence": 471,
+      "sha256": "18c393d1f58fabe94231db4895b0529dc4ca8b3e69ee7c5935819d37fbf0655b",
+      "source_commit": "19f202bd0f44352599f0750f58133407256d610a",
+      "source_tree": "689b126c098ca7798626901739177e9003c21ca6"
     }
   ],
   "source_acquisition": {
@@ -5333,7 +5345,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "4c367f215a39532925135d4abfa8a90911b3638a",
+  "source_tree": "689b126c098ca7798626901739177e9003c21ca6",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
