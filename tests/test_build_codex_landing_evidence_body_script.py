@@ -39,7 +39,11 @@ def _matrix(path: Path) -> Path:
 def _finalizer(path: Path, profile: str = "exhaustive") -> Path:
     matrix_status = "matrix_passed" if profile == "exhaustive" else "not_requested_for_solo_profile"
     plan = seal_validation_plan({"requested_profile": profile, "effective_profile": profile, "exhaustive_matrix_status": matrix_status, "required_stage_ids": [], "stage_results": {}})
-    path.write_text(json.dumps({"commit_binding": {}, "landing_validation_plan": plan}, sort_keys=True), encoding="utf-8")
+    commands = [
+        {"stage": stage, "command": stage, "exit_code": 0, "required": True}
+        for stage in ("mypy_baseline", "prompt_boundary", "strict_audits", "audit_immutability")
+    ]
+    path.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}, "report": {"commands": commands}, "commit_binding": {}, "landing_validation_plan": plan}, sort_keys=True), encoding="utf-8")
     return path
 
 
@@ -180,7 +184,7 @@ def test_generated_pr_evidence_includes_bound_acceptance_result(tmp_path: Path) 
     supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}}, sort_keys=True), encoding="utf-8")
     finalizer = tmp_path / "finalizer.json"
     plan = seal_validation_plan({"requested_profile": "exhaustive", "effective_profile": "exhaustive", "exhaustive_matrix_status": "matrix_passed", "required_stage_ids": [], "stage_results": {}})
-    finalizer.write_text(json.dumps({"commit_binding": {}, "landing_validation_plan": plan, "task_acceptance": {"status": "task_acceptance_ready", "manifest_digest": "sha256:manifest", "provenance_digest": "sha256:provenance", "required_node_ids": ["tests/test_x.py::test_ok"], "successful_path_node_ids": ["tests/test_x.py::test_ok"], "node_outcomes": [{"node_id": "tests/test_x.py::test_ok", "outcome": "passed"}]}}, sort_keys=True), encoding="utf-8")
+    finalizer.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}, "commit_binding": {}, "landing_validation_plan": plan, "task_acceptance": {"status": "task_acceptance_ready", "manifest_digest": "sha256:manifest", "provenance_digest": "sha256:provenance", "required_node_ids": ["tests/test_x.py::test_ok"], "successful_path_node_ids": ["tests/test_x.py::test_ok"], "node_outcomes": [{"node_id": "tests/test_x.py::test_ok", "outcome": "passed"}]}}, sort_keys=True), encoding="utf-8")
     output = tmp_path / "body.txt"
     assert main(["--title", TITLE, "--intended-commit-title", TITLE, "--matrix-json-path", str(matrix), "--landing-supervisor-json-path", str(supervisor), "--output", str(output), "--pr-metadata-finalizer-json-path", str(finalizer)]) == 0
     body = output.read_text(encoding="utf-8")
@@ -199,14 +203,18 @@ def test_solo_generation_without_matrix_is_truthful_and_binds(tmp_path: Path) ->
         "--output", str(output),
         "--pr-metadata-finalizer-json-path", str(finalizer),
         "--sidecar-output", str(sidecar), "--verify-body-binding",
-        "--targeted-mypy", "passed", "--baseline", "passed",
-        "--docs-build", "passed", "--prompt-boundary", "passed",
-        "--strict-audit", "passed", "--immutability-verifier", "passed",
     ])
     assert code == 0
     body = output.read_text(encoding="utf-8")
     assert "Validation profile: solo" in body
     assert "not_requested_for_solo_profile" in body
+    assert "See exact task acceptance and phase-finalizer checks below" in body
+    assert "Targeted mypy result: not recorded in matrix or finalizer" in body
+    assert "Docs build result: not recorded in matrix or finalizer" in body
+    assert "Baseline result: passed by finalizer (exit_code=0)" in body
+    assert "Prompt-boundary result: passed by finalizer (exit_code=0)" in body
+    assert "Strict audit result: passed by finalizer (exit_code=0)" in body
+    assert "Immutability verifier result: passed by finalizer (exit_code=0)" in body
     assert "matrix runner succeeded" not in body.lower()
     assert "matrix passed" not in body.lower()
 
@@ -304,6 +312,13 @@ def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_pa
     }), encoding="utf-8")
     guard_path = tmp_path / "guard.json"
     guard_path.write_text(json.dumps({"status": "pr_metadata_guard_ready"}), encoding="utf-8")
+    gate_path = tmp_path / "landing-gate.json"
+    gate_path.write_text(json.dumps({
+        "status": "codex_pr_landing_gate_ready",
+        "decision": "pr_metadata_allowed",
+        "blocker_codes": [],
+        "warning_codes": [],
+    }), encoding="utf-8")
     output = tmp_path / "body.md"
     sidecar = tmp_path / "binding.json"
 
@@ -313,6 +328,7 @@ def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_pa
         "--pre-commit-finalizer-json-path", str(pre_path),
         "--pr-metadata-finalizer-json-path", str(post_path),
         "--pr-metadata-guard-json-path", str(guard_path),
+        "--landing-gate-json-path", str(gate_path),
         "--sidecar-output", str(sidecar), "--verify-body-binding",
     ])
 
@@ -320,6 +336,24 @@ def test_body_builder_accepts_verified_task_acceptance_source_rollforward(tmp_pa
     body = output.read_text(encoding="utf-8")
     assert "task_acceptance_ready" in body
     assert "sha256:post-manifest" in body
+    assert "Finalizer artifact status: ready_to_commit; ready_for_pr_metadata." in body
+    assert "PR metadata guard artifact status: pr_metadata_guard_ready" in body
+    assert "Landing gate artifact decision: pr_metadata_allowed" in body
+    assert "pending standard two-phase finalizer" not in body
+    assert "pending post-commit finalizer evidence" not in body
     binding = json.loads(sidecar.read_text(encoding="utf-8"))
     assert binding["body_sha256"] == hashlib.sha256(body.encode("utf-8")).hexdigest()
     assert binding["body_byte_length"] == len(body.encode("utf-8"))
+
+    for index, claim in enumerate(("blocked", "not pr_metadata_guard_ready")):
+        contradictory_output = tmp_path / f"contradictory-{index}.md"
+        rejected = main([
+            "--title", TITLE, "--intended-commit-title", TITLE,
+            "--landing-supervisor-json-path", "", "--output", str(contradictory_output),
+            "--pre-commit-finalizer-json-path", str(pre_path),
+            "--pr-metadata-finalizer-json-path", str(post_path),
+            "--pr-metadata-guard-json-path", str(guard_path),
+            "--pr-metadata-guard", claim,
+        ])
+        assert rejected == 1
+        assert not contradictory_output.exists()

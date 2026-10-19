@@ -32,7 +32,11 @@ PR metadata evidence must be generated from canonical artifacts because the land
 - the landing supervisor JSON, when already available;
 - explicit result text for targeted mypy, baseline, docs build, prompt-boundary checks, strict audit, immutability verifier, finalizer, PR metadata guard, landing gate, and unresolved risks.
 
-Use `scripts/build_codex_landing_evidence_body.py` to produce the PR body. The script writes the required sections, preserves guard-required marker text, and fails if the matrix JSON is missing, the matrix output path marker is absent, the unresolved risks section is absent, or the body is evidence-light.
+Use `scripts/build_codex_landing_evidence_body.py` to produce the PR body. The script writes the required sections, preserves guard-required marker text, and rejects missing profile-specific evidence, an absent unresolved-risks section, or an evidence-light body.
+
+The builder follows the sealed validation plan's profile. Exhaustive plans require a passing matrix artifact and include its output path and command results. Solo plans state that exhaustive matrix execution was not requested and label unrecorded outcomes explicitly. When finalizer artifacts are supplied, the body derives phase decisions and recorded command outcomes from those artifacts. Supplied PR-metadata-guard and landing-gate artifacts provide their own status and blocker summaries, and conflicting hand-entered status text is rejected. A result absent from both the matrix and finalizer remains explicitly unrecorded.
+
+For source-bound solo metadata, supply `--pre-commit-finalizer-json-path`, `--pr-metadata-finalizer-json-path`, `--pr-metadata-guard-json-path`, and `--landing-gate-json-path` when those artifacts are available. The finalizer plan carries the profile and source-bound acceptance; the guard and gate summaries retain their decisions and reasons. The resulting body remains subject to the exact-title metadata contract and landing gate.
 
 ## Fresh matrix output path
 
