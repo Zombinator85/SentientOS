@@ -654,6 +654,27 @@ class LiveTransitionOperatorRuntime:
                 return {"status": "already_consumed", "request_id": observed_consumed, "effect_performed": False}
             return {"status": "no_request", "effect_performed": False}
 
+    def plan_stage_admission(self, stage_approval: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Inspect the explicitly supplied approval without reading the mailbox."""
+        unavailable = {
+            "schema_version": "sentientos.resident_cognitive_transition_stage_admission_plan:v1",
+            "status": "stage_admission_plan_unavailable",
+            "reason": "resident_transition_controller_unavailable",
+            "effect_performed": False, "execution_allowed": False,
+            "grants_authority": False, "approval_selected": False,
+            "approval_minted": False, "operator_origin_authenticated": False,
+            "exact_operator_approval_evidence_read": False,
+            "live_owner_revalidation_required": True, "read_only": True,
+        }
+        inspector = getattr(self.controller, "plan_stage_admission", None)
+        if not callable(inspector):
+            return MappingProxyType(unavailable)
+        with self._lock:
+            result = inspector(stage_approval)
+        if not isinstance(result, Mapping):
+            return MappingProxyType({**unavailable, "reason": "transition_stage_inspection_invalid"})
+        return MappingProxyType(dict(result))
+
     def status(self) -> dict[str, Any]:
         health = dict(self.controller.health())
         session = self.slot.current_controller.observed_current_session()

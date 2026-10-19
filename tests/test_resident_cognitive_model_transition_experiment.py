@@ -383,6 +383,97 @@ def test_synthetic_approval_rejected_in_production(tmp_path):
         production.advance(approval=approval(production, slot))
 
 
+def test_stage_admission_plan_inspects_only_supplied_approval_without_effects(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = approval(ctl, slot)
+    ctl.advance = lambda **kwargs: (_ for _ in ()).throw(
+        AssertionError("read-only planning must not call advance"))
+
+    plan = ctl.plan_stage_admission(supplied)
+
+    assert plan["status"] == "stage_approval_candidate_state_bound"
+    assert plan["requested_stage"] == supplied["requested_stage"]
+    assert plan["approval_digest"] == supplied["approval_digest"]
+    assert plan["current_phase"] == PHASES[0]
+    assert plan["journal_head_digest"] == "GENESIS"
+    assert plan["approval_posture"] == "caller_supplied_digest_and_state_binding_valid"
+    assert plan["operator_origin_authenticated"] is False
+    assert plan["exact_operator_approval_evidence_read"] is False
+    assert plan["approval_selected"] is False and plan["approval_minted"] is False
+    assert plan["execution_allowed"] is False and plan["grants_authority"] is False
+    assert plan["effect_performed"] is False and plan["read_only"] is True
+    assert plan["live_owner_revalidation_required"] is True
+    assert journal.entries() == [] and not journal.path.exists()
+    assert gate.quiesced is False and ctl.phase == PHASES[0]
+
+
+def test_stage_admission_plan_fails_closed_for_unbound_or_synthetic_candidate(tmp_path):
+    ctl, gate, journal, slot, ops = controller(tmp_path)
+    production = ResidentCognitiveModelTransitionController(protocol=ctl.protocol, journal=journal,
+        gate=gate, slot=slot, history_snapshot=lambda: boundary(slot), operations=ops,
+        clock=lambda: NOW)
+    supplied = approval(production, slot)
+
+    synthetic_plan = production.plan_stage_admission(supplied)
+    assert synthetic_plan["status"] == "stage_admission_plan_unavailable"
+    assert synthetic_plan["reason"] == "synthetic_stage_approval_forbidden"
+    assert synthetic_plan["operator_origin_authenticated"] is False
+    assert synthetic_plan["execution_allowed"] is False
+    assert journal.entries() == [] and gate.quiesced is False
+
+    unbound = dict(supplied)
+    unbound["prior_phase"] = PHASES[1]
+    unsigned_body = {key: value for key, value in unbound.items() if key != "approval_digest"}
+    unbound["approval_digest"] = digest(unsigned_body)
+    production.allow_synthetic_approval_for_tests = True
+    unbound_plan = production.plan_stage_admission(unbound)
+    assert unbound_plan["status"] == "stage_admission_plan_unavailable"
+    assert unbound_plan["reason"] == "stage_approval_binding_mismatch"
+    assert journal.entries() == [] and gate.quiesced is False
+
+
+def test_stage_admission_plan_preserves_interrupted_transition_without_writes(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = approval(ctl, slot)
+    journal.append(PHASES[0], {"attempted_stage": PHASES[1]}, status="attempted")
+    before = journal.path.read_bytes()
+
+    plan = ctl.plan_stage_admission(supplied)
+
+    assert plan["status"] == "stage_admission_plan_unavailable"
+    assert plan["reason"] == "unresolved_attempt"
+    assert plan["current_phase"] == PHASES[0]
+    assert plan["journal_head_digest"] == journal.entries()[-1]["entry_digest"]
+    assert plan["operator_origin_authenticated"] is False
+    assert plan["execution_allowed"] is False and plan["grants_authority"] is False
+    assert plan["effect_performed"] is False and plan["read_only"] is True
+    assert journal.path.read_bytes() == before
+    assert gate.quiesced is False and ctl.phase == PHASES[0]
+
+
+def test_stage_admission_plan_rejects_journal_drift_during_inspection(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = approval(ctl, slot)
+    stable_entries = []
+    changed_entries = [{"entry_digest": "changed-during-inspection"}]
+    observations = 0
+
+    def entries():
+        nonlocal observations
+        observations += 1
+        return stable_entries if observations == 1 else changed_entries
+
+    journal.entries = entries
+
+    plan = ctl.plan_stage_admission(supplied)
+
+    assert plan["status"] == "stage_admission_plan_unavailable"
+    assert plan["reason"] == "transition_state_changed_during_stage_inspection"
+    assert observations == 2
+    assert plan["effect_performed"] is False and plan["execution_allowed"] is False
+    assert gate.quiesced is False and ctl.phase == PHASES[0]
+
+
 def test_stage_binding_grants_no_authority_and_binds_activation_predecessor():
     activation = activation_value("b", 2)
     binding = stage_serving_binding(protocol=protocol(), stage="b_serving_bound",

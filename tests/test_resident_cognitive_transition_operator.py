@@ -117,6 +117,38 @@ def test_one_request_advances_exactly_one_stage_and_duplicate_is_no_effect(tmp_p
     assert controller.calls == 1 and path.exists()
 
 
+def test_stage_admission_plan_delegates_explicit_approval_without_processing(tmp_path: Path) -> None:
+    controller = _Controller()
+    supplied = _approval()
+    observed = []
+
+    def plan_stage_admission(approval):
+        observed.append(approval)
+        return {
+            "status": "stage_approval_candidate_state_bound",
+            "approval_digest": approval["approval_digest"],
+            "operator_origin_authenticated": False,
+            "effect_performed": False, "execution_allowed": False,
+            "grants_authority": False, "read_only": True,
+        }
+
+    controller.plan_stage_admission = plan_stage_admission
+    runtime = _runtime(tmp_path, controller)
+
+    plan = runtime.plan_stage_admission(supplied)
+
+    assert plan["status"] == "stage_approval_candidate_state_bound"
+    assert observed == [supplied]
+    assert observed[0] is supplied
+    assert plan["approval_digest"] == supplied["approval_digest"]
+    assert plan["operator_origin_authenticated"] is False
+    assert plan["effect_performed"] is False and plan["execution_allowed"] is False
+    assert plan["grants_authority"] is False and plan["read_only"] is True
+    assert controller.calls == 0
+    assert not runtime.receipt_path.exists()
+    assert not runtime.request_root.exists()
+
+
 def test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding(
     tmp_path: Path,
 ) -> None:
