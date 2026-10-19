@@ -401,3 +401,16 @@ Latest verified main: `7ae3a52e126f272a3e699376effbeb8f3a3fe8b7`, tree `b9ed0ff3
 Latest construction segment: `work/construction/segments/0415-verify-sequence414-merge-main.md`
 Latest segment SHA-256: `1598da163754df289680a9f9fb4fe462e633b09961654c74d59071c6e6d06c7d`
 Sequence: 415 (regular merge and all post-merge source, quality, Docker, invariants, docs, and Codex checks verified)
+
+## Sequence 416 checkpoint
+
+PR #2385 regular-merged sequence 415 at main `944269a771c6f6300d6f8a559866ade9e262a56b`, tree `02fd3cb362d1e053968640ac1a5ef34410cb5fe8`. GitHub confirms the first parent is `7ae3a52e126f272a3e699376effbeb8f3a3fe8b7` and the second parent is exact candidate `fa1608e14774d8aa3ae198386af1c42b2d818801`. Exact-main QG, CI, Docker, invariants, Docs Deploy, and Codex CI passed. Independently downloaded QG and source-validation artifacts matched GitHub digests and bind strict audit, immutability, 29/29 acceptance, 11/11 source validation, 20/20 canonical planning, and 3/3 World-State checks to exact main. The exact PR body readback matched its 16,335-byte local generation (SHA-256 `5ba0496223b5dba8e3db60e8abfb2c30db863aada4062cbe1fba0d4317700432`).
+
+Sequence 416 carries a focused repair to PR-body evidence generation: finalizer, PR-metadata-guard, and landing-gate states now come from their supplied artifacts; contradictory status text is rejected; solo-profile check summaries use recorded finalizer command outcomes and label unrecorded results explicitly. The recovery guide now explains the profile-specific artifact contract. The focused suite passed 13/13; changed Python source and tests compile, and targeted mypy passed. The local full-baseline wrapper could not import mypy inside its sanitized isolated runtime; no local baseline pass is claimed, and exact-candidate hosted verification is pending.
+
+No exact-main scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check execution has been observed. Historical provenance remains `INTEGRITY_BROKEN` at its unanchored start, including preserved sequence-286 loss. No production resident transition or inference was run; operator commissioning and separate approvals remain prerequisites.
+
+Latest verified main: `944269a771c6f6300d6f8a559866ade9e262a56b`, tree `02fd3cb362d1e053968640ac1a5ef34410cb5fe8`.
+Latest construction segment: `work/construction/segments/0416-bind-landing-body-status-to-artifacts.md`
+Latest segment SHA-256: `72418368cf364a2fadbbf160dd4633c190458ccf8309e8fc50b292995263d4a4`
+Sequence: 416 (sequence 415 regular-merge and exact-main verification recorded; next source increment handed off [untested] for full repository acceptance; focused checks passed and hosted verification is pending)

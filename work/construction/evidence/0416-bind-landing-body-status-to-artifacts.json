@@ -1,0 +1,172 @@
+{
+  "authority_expansion": false,
+  "body_contract_attempt": {
+    "body_published": false,
+    "reason": "canonical title pattern requires [codex:<subsystem>] prefix",
+    "status": "rejected_without_publication"
+  },
+  "candidate_verification": {
+    "pr_acceptance_artifact": 12156517064,
+    "pr_acceptance_artifact_sha256": "804116dee816e387390ec42eea08ae0306dc5f16e8d127ec3e6ed9a7ac7d479e",
+    "pr_checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39182310416
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39182310424
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39182310475
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39182310562
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39182310443
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39182310492
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 39182310485
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 39182310532
+      }
+    },
+    "pr_finalizer_artifact": 12156896029,
+    "pr_finalizer_artifact_sha256": "65fbf83f518b95487f351a2e85a7efb406fd27d6395de76518109f8d328775e3",
+    "pr_qg_artifact": 12156423327,
+    "pr_qg_artifact_sha256": "0cf04ffae35e8e1c26e2ddf84701d72691d35d09698b3cde55fb87f3e38d147f",
+    "pr_qg_run": 39182310532,
+    "pr_task_acceptance_failed": 0,
+    "pr_task_acceptance_passed": 29,
+    "push_canonical_planning_nodes": 20,
+    "push_ci_run": 39181933260,
+    "push_finalizer_artifact": 12156038159,
+    "push_finalizer_artifact_sha256": "7cd64fd1fb78233533414273bb550ba9086358a26009cd30b1c497aeafa07d38",
+    "push_invariants_run": 39181933256,
+    "push_metadata_guard": "pr_metadata_guard_ready",
+    "push_qg_artifact": 12156173873,
+    "push_qg_artifact_sha256": "4565a3f0e2735178bee19f7242754e227d2a0cfc8de5e5c7cc5b023e39e43c2a",
+    "push_qg_run": 39181933249,
+    "push_source_artifact": 12156686370,
+    "push_source_artifact_sha256": "b24259ff60557bed1039b264fd5458c721838459aedf589d872a7fe34149aedb",
+    "push_source_validation_nodes": 11,
+    "push_world_state_nodes": 3
+  },
+  "construction_handoff": {
+    "reason": "focused checks passed; full hosted candidate gate and landing lifecycle pending",
+    "status": "untested"
+  },
+  "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+  "hosted_current_status": "candidate_subject_correction_pending",
+  "hosted_title_binding_attempts": [
+    {
+      "candidate": "2a5c6114d7b3cc300868eb2134722ae9fa0bc678",
+      "cause": "PR title differed from exact candidate commit subject",
+      "result": "failure_before_finalization",
+      "run_id": 39183464279
+    },
+    {
+      "candidate": "dd1a88e7e4f3ce199015d9739104eb179cf2691c",
+      "cause": "synchronize event retained the prior PR title snapshot",
+      "result": "failure_before_finalization",
+      "run_id": 39183917694
+    }
+  ],
+  "next_increment": {
+    "candidate_hosted_full_baseline": "pending",
+    "compileall": "passed",
+    "local_focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_build_codex_landing_evidence_body_script.py",
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    "local_full_mypy_baseline": "environment_blocked_sanitized_runtime_cannot_import_mypy",
+    "paths": [
+      "scripts/build_codex_landing_evidence_body.py",
+      "tests/test_build_codex_landing_evidence_body_script.py",
+      "docs/development/codex_landing_evidence_recovery_rail.md"
+    ],
+    "targeted_mypy": "passed"
+  },
+  "postmerge_verification": {
+    "acceptance_nodes_passed": 29,
+    "administrator_uid": 0,
+    "ci_canonical_planning_nodes": 20,
+    "ci_run": 39182706509,
+    "ci_source_artifact": 12157050864,
+    "ci_source_artifact_sha256": "8caf1458e0cbbad7e6897d4dd606ba67f4fd79897e316701624f46ccfea35c4c",
+    "ci_source_validation_nodes": 11,
+    "ci_validation_executions": 20,
+    "ci_validation_failures": 0,
+    "ci_world_state_nodes": 3,
+    "codex_ci_run": {
+      "conclusion": "success",
+      "run_id": 39182706535
+    },
+    "docker_run": {
+      "conclusion": "success",
+      "run_id": 39182706547
+    },
+    "docs_deploy_run": {
+      "conclusion": "success",
+      "run_id": 39182706530
+    },
+    "forge_smoke_run": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39182706569
+    },
+    "immutability": "passed",
+    "invariants_run": {
+      "conclusion": "success",
+      "run_id": 39182706498
+    },
+    "qg_artifact": 12156284686,
+    "qg_artifact_sha256": "b75521b7f5008ff560d9f4bcea3ac41987b89ea0ad185efeebd7f86978f040ba",
+    "qg_run": 39182706532,
+    "strict_audit": "passed"
+  },
+  "previous_merge": {
+    "candidate": "fa1608e14774d8aa3ae198386af1c42b2d818801",
+    "final_body_gate": {
+      "blockers": [],
+      "decision": "pr_metadata_allowed",
+      "missing_body_markers": [],
+      "status": "codex_pr_landing_gate_ready"
+    },
+    "first_parent": "7ae3a52e126f272a3e699376effbeb8f3a3fe8b7",
+    "merge_commit": "944269a771c6f6300d6f8a559866ade9e262a56b",
+    "method": "merge",
+    "pr_body_bytes": 16335,
+    "pr_body_readback_byte_equal": true,
+    "pr_body_sha256": "5ba0496223b5dba8e3db60e8abfb2c30db863aada4062cbe1fba0d4317700432",
+    "pull_request": 2385,
+    "second_parent": "fa1608e14774d8aa3ae198386af1c42b2d818801",
+    "tree": "02fd3cb362d1e053968640ac1a5ef34410cb5fe8"
+  },
+  "production_resident_transition": "not_run_operator_commissioning_required",
+  "scheduled_workflows": {
+    "current_main_federation_health": "pending",
+    "current_main_nightly_audit_integrity": "pending",
+    "current_main_nightly_self_check": "pending",
+    "latest_prior_audit_nightly_run": 39014123936,
+    "latest_prior_audit_nightly_source": "50d062baab7f838b1dfeaf9b79ec42c5da0e0a14",
+    "latest_prior_federation_run": 39175640282,
+    "latest_prior_federation_source": "915cf098c15eed3157dd908763d06c54911390fe"
+  },
+  "sequence": 416,
+  "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b",
+  "source_tree": "02fd3cb362d1e053968640ac1a5ef34410cb5fe8",
+  "title": "Bind landing-body status summaries to canonical artifacts"
+}

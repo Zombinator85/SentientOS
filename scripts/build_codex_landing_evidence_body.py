@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -88,6 +89,32 @@ def _exit_summary(matrix: Mapping[str, Any], labels: tuple[str, ...], *, default
     return "passed (exit_code=0)" if exit_code == 0 else f"failed (exit_code={exit_code})"
 
 
+def _stage_summary(
+    matrix: Mapping[str, Any],
+    finalizers: Sequence[Mapping[str, Any]],
+    labels: tuple[str, ...],
+) -> str:
+    matrix_code = _row_exit_code(matrix, labels)
+    if matrix_code is not None:
+        return "passed (exit_code=0)" if matrix_code == 0 else f"failed (exit_code={matrix_code})"
+    wanted = set(labels)
+    for payload in finalizers:
+        report = payload.get("report")
+        commands = report.get("commands") if isinstance(report, Mapping) else None
+        if not isinstance(commands, Sequence) or isinstance(commands, (str, bytes)):
+            continue
+        matches = [row for row in commands if isinstance(row, Mapping) and str(row.get("stage", "")) in wanted]
+        if matches:
+            row = matches[-1]
+            try:
+                exit_code = int(row.get("exit_code", 1))
+            except (TypeError, ValueError):
+                exit_code = 1
+            result = "passed" if exit_code == 0 else "failed"
+            return f"{result} by finalizer (exit_code={exit_code})"
+    return "not recorded in matrix or finalizer"
+
+
 def _matrix_command_lines(matrix: Mapping[str, Any]) -> list[str]:
     rows = matrix.get("results", [])
     if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
@@ -124,6 +151,83 @@ def _supervisor_summary(payload: Mapping[str, Any] | None, path_text: str) -> st
     if isinstance(reasons_value, Mapping):
         reasons = reasons_value.get("reasons", [])
     return f"Landing Supervisor result: {status}; reasons={json.dumps(reasons, sort_keys=True)}."
+
+
+def _artifact_status(payload: Mapping[str, Any], *, label: str) -> str:
+    decision = payload.get("decision")
+    if isinstance(decision, Mapping):
+        status = decision.get("status")
+        if isinstance(status, str) and status:
+            return status
+    elif isinstance(decision, str) and decision:
+        return decision
+    status = payload.get("status")
+    if isinstance(status, str) and status:
+        return status
+    plan = payload.get("landing_validation_plan")
+    if isinstance(plan, Mapping):
+        status = plan.get("overall_status")
+        if isinstance(status, str) and status:
+            return status
+    raise ValueError(f"{label} artifact has no authoritative status")
+
+
+def _status_summary_override(value: str, statuses: Sequence[str], *, label: str) -> None:
+    """Do not let free-form body text contradict a supplied decision artifact."""
+    normalized = " ".join(value.lower().replace("_", " ").split())
+    if any(token in normalized for token in ("stale evidence", "stale matrix", "stale-evidence")):
+        raise ValueError(f"{label} text contains stale-evidence markers")
+    for status in statuses:
+        if not status:
+            continue
+        normalized_status = " ".join(status.lower().replace("_", " ").split())
+        negative_claim = re.search(
+            rf"\b(?:not|failed|blocked|denied|without)\s+(?:status\s+)?{re.escape(normalized_status)}\b",
+            normalized,
+        )
+        if negative_claim is not None:
+            raise ValueError(f"{label} text negates artifact status {status}")
+        if normalized_status not in normalized:
+            raise ValueError(f"{label} text does not report artifact status {status}")
+
+
+def _finalizer_summary(
+    supplied: str,
+    pre_payload: Mapping[str, Any],
+    post_payload: Mapping[str, Any],
+) -> str:
+    statuses: list[str] = []
+    if pre_payload:
+        statuses.append(_artifact_status(pre_payload, label="pre-commit finalizer"))
+    if post_payload:
+        statuses.append(_artifact_status(post_payload, label="PR-metadata finalizer"))
+    if not statuses:
+        return _text(supplied, "Finalizer status: pending standard two-phase finalizer.")
+    if supplied.strip():
+        _status_summary_override(supplied, statuses, label="finalizer")
+    summary = "Finalizer artifact status: " + "; ".join(statuses) + "."
+    return summary
+
+
+def _guard_summary(supplied: str, payload: Mapping[str, Any]) -> str:
+    if not payload:
+        return _text(supplied, "PR metadata guard: pending post-commit finalizer evidence.")
+    status = _artifact_status(payload, label="PR metadata guard")
+    if supplied.strip():
+        _status_summary_override(supplied, (status,), label="PR metadata guard")
+    reasons = payload.get("reasons", [])
+    return f"PR metadata guard artifact status: {status}; reasons={json.dumps(reasons, sort_keys=True)}."
+
+
+def _landing_gate_summary(supplied: str, payload: Mapping[str, Any]) -> str:
+    if not payload:
+        return _text(supplied, "Landing gate result: pending until scripts/codex_pr_landing_gate.py verifies this generated body.")
+    decision = _artifact_status(payload, label="landing gate")
+    if supplied.strip():
+        _status_summary_override(supplied, (decision,), label="landing gate")
+    blockers = payload.get("blocker_codes", [])
+    warnings = payload.get("warning_codes", [])
+    return f"Landing gate artifact decision: {decision}; blockers={json.dumps(blockers, sort_keys=True)}; warnings={json.dumps(warnings, sort_keys=True)}."
 
 
 def _text(value: str, fallback: str) -> str:
@@ -213,12 +317,13 @@ def build_body(
     if not isinstance(required_failures, Sequence) or isinstance(required_failures, (str, bytes)):
         required_failures = []
 
-    targeted_mypy_result = _text(targeted_mypy, _exit_summary(matrix, ("targeted_mypy",)))
-    baseline_result = _text(baseline, _exit_summary(matrix, ("mypy_baseline",)))
-    docs_build_result = _text(docs_build, _exit_summary(matrix, ("docs_build",)))
-    prompt_boundary_result = _text(prompt_boundary, _exit_summary(matrix, ("prompt_boundaries", "prompt_boundary")))
-    strict_audit_result = _text(strict_audit, _exit_summary(matrix, ("strict_audits", "strict_audit")))
-    immutability_result = _text(immutability_verifier, _exit_summary(matrix, ("audit_immutability", "immutability_verifier")))
+    finalizer_payloads = (post_payload, pre_payload)
+    targeted_mypy_result = _text(targeted_mypy, _stage_summary(matrix, finalizer_payloads, ("targeted_mypy",)))
+    baseline_result = _text(baseline, _stage_summary(matrix, finalizer_payloads, ("mypy_baseline",)))
+    docs_build_result = _text(docs_build, _stage_summary(matrix, finalizer_payloads, ("docs_build",)))
+    prompt_boundary_result = _text(prompt_boundary, _stage_summary(matrix, finalizer_payloads, ("prompt_boundaries", "prompt_boundary")))
+    strict_audit_result = _text(strict_audit, _stage_summary(matrix, finalizer_payloads, ("strict_audits", "strict_audit")))
+    immutability_result = _text(immutability_verifier, _stage_summary(matrix, finalizer_payloads, ("audit_immutability", "immutability_verifier")))
     unresolved = _text(unresolved_risks, "None known.")
 
     matrix_lines = _matrix_command_lines(matrix)
@@ -228,17 +333,17 @@ def build_body(
     sections = [
         ("### Motivation", _text(motivation, "Harden Codex landing evidence so late PR metadata/finalizer failures retain canonical, repo-native recovery information instead of relying on hand-written evidence bodies.")),
         ("### Description", _text(description, f"Title: {title}\nIntended commit title: {intended_commit_title}\nValidation profile: {validation_profile}\nCommit SHA: {commit_binding.get('head_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nTree SHA: {commit_binding.get('tree_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nParent/base SHA: {commit_binding.get('parent_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nChanged-path manifest digest: {commit_binding.get('changed_path_manifest_digest', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nMatrix digest: {artifact_digests.get('matrix', 'not applicable')}\nArtifact digests: {json.dumps(artifact_digests, sort_keys=True)}")),
-        ("### Testing", _text(testing, "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.") + ("\n\nExact task acceptance: " + json.dumps(acceptance, sort_keys=True) if isinstance(acceptance, Mapping) else "")),
+        ("### Testing", _text(testing, "See exact task acceptance and phase-finalizer checks below; the sealed solo plan did not request an exhaustive matrix." if validation_profile == "solo" else "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.") + ("\n\nExact task acceptance: " + json.dumps(acceptance, sort_keys=True) if isinstance(acceptance, Mapping) else "")),
         ("### Targeted mypy", f"Targeted mypy result: {targeted_mypy_result}"),
         ("### Mypy baseline", f"Baseline result: {baseline_result}"),
         ("### Docs build", f"Docs build result: {docs_build_result}"),
         ("### Prompt-boundary verification", f"Prompt-boundary result: {prompt_boundary_result}"),
         ("### Strict audit", f"Strict audit result: {strict_audit_result}"),
         ("### Immutability verifier", f"Immutability verifier result: {immutability_result}"),
-        ("### Landing gate", _text(landing_gate, "Landing gate result: pending until scripts/codex_pr_landing_gate.py verifies this generated body.")),
+        ("### Landing gate", _landing_gate_summary(landing_gate, parsed_artifacts.get("landing_gate", {}))),
         ("### Landing Supervisor", _supervisor_summary(supervisor, landing_supervisor_json_path)),
-        ("### Finalizer status", _text(finalizer, "Finalizer status: pending standard two-phase finalizer.")),
-        ("### PR metadata guard", _text(pr_metadata_guard, "PR metadata guard: pending post-commit finalizer evidence.")),
+        ("### Finalizer status", _finalizer_summary(finalizer, pre_payload, post_payload)),
+        ("### PR metadata guard", _guard_summary(pr_metadata_guard, parsed_artifacts.get("pr_metadata_guard", {}))),
         ("### Unresolved risks", f"Unresolved risks: {unresolved}"),
     ]
     if validation_profile == "exhaustive":
