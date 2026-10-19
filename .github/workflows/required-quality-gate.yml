@@ -70,6 +70,7 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke \
+            tests/test_github_hosted_acceptance_workflows.py::test_workflow_dispatch_jobs_are_main_bound \
             tests/test_privileged_audit_verification.py::test_audit_result_validation_requires_successful_receipts_and_bound_contracts \
             tests/test_privileged_audit_verification.py::test_audit_result_validation_rejects_failed_receipt_and_stale_digest \
             tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_when_pid_is_reused_by_a_new_process_generation \
@@ -87,7 +88,7 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==29
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==30
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
@@ -181,8 +182,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           candidate = json.loads(Path(source_provenance).read_text())
           nodes = candidate.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 29 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("hosted candidate acceptance must contain the exact 29 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 30 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("hosted candidate acceptance must contain the exact 30 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = os.environ.copy()
@@ -267,8 +268,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           initial = json.loads(Path(source_provenance).read_text())
           nodes = initial.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 29 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("candidate acceptance must contain the exact 29 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 30 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("candidate acceptance must contain the exact 30 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = {**os.environ, "PYTHONPATH": workspace, "SENTIENTOS_TEST_RUN_DIR": str(run_dir)}

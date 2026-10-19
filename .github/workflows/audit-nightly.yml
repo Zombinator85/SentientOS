@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   audit:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,7 +41,7 @@ jobs:
 
   repair:
     needs: audit
-    if: needs.audit.outputs.status != '0'
+    if: ${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

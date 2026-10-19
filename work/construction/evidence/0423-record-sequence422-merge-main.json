@@ -1,0 +1,113 @@
+{
+  "candidate_verification": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39203191640
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39203191496
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39203191609
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 39203191701
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39203191511
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 39203191488
+      },
+      "release": {
+        "publish": "skipped_by_condition",
+        "run_id": 39203191535,
+        "validation": "success"
+      },
+      "required_quality_gate": {
+        "acceptance_failed": 0,
+        "acceptance_passed": 29,
+        "artifact_id": 12164845939,
+        "artifact_sha256": "528d5eaaf5aae9df03e90ff6599064e2c10fe827fe0e9ab2c99e2d96aa6bbf2a",
+        "conclusion": "success",
+        "effective_uid": 0,
+        "immutability": "passed_no_issues",
+        "run_id": 39203191642,
+        "source_unchanged": true,
+        "strict_audit": "passed"
+      }
+    },
+    "postmerge_push_checks": "not independently read back; no success claim",
+    "publication_guard": {
+      "blockers": [],
+      "body_landing_gate": "pr_metadata_allowed",
+      "evidence_alignment_findings": [],
+      "proof_candidate_sha": "52849d21adf8e675f6671a256f0a0faedf772d3b",
+      "proof_tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703",
+      "status": "pr_metadata_guard_ready"
+    },
+    "source_validation": {
+      "artifact_id": 12165035430,
+      "artifact_sha256": "4202be77253466bbee06f88b6f3451793cb279ee51070f29e76b8e00efb4f951",
+      "exact_candidate_sha": "52849d21adf8e675f6671a256f0a0faedf772d3b",
+      "run_id": 39203191640,
+      "tests_failed": 0,
+      "tests_passed": 20
+    }
+  },
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "merge": {
+    "candidate_tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703",
+    "first_parent": "0722b49e30758834e4fc921c60970fe5079e6d3e",
+    "merge_commit": "00cedf9c46a24c268a6867d80c2a3f04da6a05c2",
+    "method": "regular_two_parent_merge",
+    "pull_request": 2392,
+    "remote_compare_candidate_to_merge": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0,
+      "interpretation": "same_tree_as_candidate"
+    },
+    "remote_compare_prior_main_to_merge": {
+      "ahead_by": 2,
+      "behind_by": 0,
+      "changed_paths": [
+        "README.md",
+        "work/construction/active_checkpoint.md",
+        "work/construction/evidence/0422-verify-sequence421-merge-main.json",
+        "work/construction/index.json",
+        "work/construction/segments/0422-verify-sequence421-merge-main.md"
+      ]
+    },
+    "second_parent": "52849d21adf8e675f6671a256f0a0faedf772d3b"
+  },
+  "previous_segment_sha256": "f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
+  "scheduled_workflows": {
+    "as_of": "2026-10-19T05:17:53Z",
+    "current_authority": "sudo_n retained; audit repair contents/pull-requests write scoped to repair job; self-check contents read only",
+    "federation_health_postmerge": "not independently observed; absence or success is not inferred",
+    "nightly_audit_integrity_postmerge": "not observed; next scheduled UTC window is 03:41",
+    "nightly_self_check_postmerge": "not observed; next scheduled UTC window is 04:37"
+  },
+  "sequence": 423,
+  "source_commit": "00cedf9c46a24c268a6867d80c2a3f04da6a05c2",
+  "source_tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703",
+  "title": "Record sequence 422 merge and exact remote lineage",
+  "workspace_preservation": {
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false,
+    "stale_sequence_411_workspace_modified": false,
+    "stale_sequence_417_workspace_modified": false
+  }
+}

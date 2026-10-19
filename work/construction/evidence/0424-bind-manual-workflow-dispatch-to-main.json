@@ -1,0 +1,108 @@
+{
+  "candidate_status": "untested_pending_hosted_validation",
+  "change": {
+    "behavior": "workflow_dispatch jobs that execute repository code or can publish output are restricted to refs/heads/main; the fixture publication path remains available only from main dispatch or the exact disposable sentinel branch",
+    "exact_acceptance_node": "tests/test_github_hosted_acceptance_workflows.py::test_workflow_dispatch_jobs_are_main_bound",
+    "federation_publisher_scope": "main real-health output or exact disposable fixture branch/dispatch only",
+    "files": [
+      ".github/workflows/audit-nightly.yml",
+      ".github/workflows/federation-health.yml",
+      ".github/workflows/nightly-self-check.yml",
+      ".github/workflows/required-quality-gate.yml",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "nightly_privilege_boundary": {
+      "authority_expansion": false,
+      "contents_write_confined_to_audit_repair_job": true,
+      "nightly_self_check_contents_read_only": true,
+      "pull_requests_write_confined_to_audit_repair_job": true,
+      "sudo_n_audits_preserved": true
+    }
+  },
+  "developmental_evidence": {
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "main_commit": "00cedf9c46a24c268a6867d80c2a3f04da6a05c2",
+  "main_tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703",
+  "postmerge_main_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39203567028
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39203566935
+    },
+    "commit": "00cedf9c46a24c268a6867d80c2a3f04da6a05c2",
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39203567090
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39203566933
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39203567110
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39203567041
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": 39203566922
+    },
+    "tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703"
+  },
+  "predecessor_segment_sha256": "f2359502527ccc782869e4344c77cd55b6670bda1aa8c435855a76927c031cb9",
+  "scheduled_execution_evidence": {
+    "as_of": "2026-10-19T05:30:42Z",
+    "federation_health_postmerge": "not_observed; pending",
+    "manual_dispatch": "not_performed; local GH_TOKEN invalid and GitHub connector provides read-only Actions access",
+    "nightly_audit_integrity_postmerge": "not_run; next UTC schedule 2026-10-20T03:41:00Z",
+    "nightly_self_check_postmerge": "not_run; next UTC schedule 2026-10-20T04:37:00Z"
+  },
+  "sequence": 424,
+  "sequence_423_candidate_checks": {
+    "candidate_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
+    "candidate_is_merged": false,
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39204028840
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39204028809
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "effective_uid": 0,
+      "immutability": "passed",
+      "prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "run_id": 39204028812,
+      "strict_audit": "passed"
+    }
+  },
+  "source_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
+  "source_tree": "26d88c5f0f3727d9ae02c1db8652a2ff5ef52c7d",
+  "title": "Bind manual workflow dispatch to verified main",
+  "verification_before_candidate_publication": {
+    "canonical_test_runner": "blocked; editable test install requires setuptools>=78.1.1 and network access is denied by the local sandbox; no local pytest pass is claimed",
+    "direct_workflow_contract_assertions": "passed; invoked exact test functions for dispatch guards, audit privilege contract, self-check privilege contract, and QG exact-node count",
+    "git_diff_check": "passed",
+    "hosted_candidate_verification": "pending",
+    "py_compile": "passed for tests/test_github_hosted_acceptance_workflows.py",
+    "workflow_yaml_parse_and_branch_guard_assertions": "passed"
+  },
+  "workspace_preservation": {
+    "sequence_423_branch_untouched": true,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_touched": false,
+    "stale_sequence_411_workspace_touched": false,
+    "stale_sequence_417_workspace_touched": false
+  }
+}

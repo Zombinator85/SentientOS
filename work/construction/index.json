@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4e08d7c3a1389346f115bcea91f2849d9510d8fea7c111466b20750b6480cf67",
-    "latest_segment_sequence": 422,
-    "latest_segment_sha256": "f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
-    "latest_sequence": 422,
-    "source_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
-    "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3"
+    "checkpoint_sha256": "44fc879f50c387388fe2c6bf6bc185b70f2e9b75a96a0821fc20592223e49391",
+    "latest_segment_sequence": 424,
+    "latest_segment_sha256": "e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
+    "latest_sequence": 424,
+    "source_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
+    "source_tree": "26d88c5f0f3727d9ae02c1db8652a2ff5ef52c7d"
   },
-  "checkpoint_sha256": "4e08d7c3a1389346f115bcea91f2849d9510d8fea7c111466b20750b6480cf67",
+  "checkpoint_sha256": "44fc879f50c387388fe2c6bf6bc185b70f2e9b75a96a0821fc20592223e49391",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 422,
+  "latest_sequence": 424,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4748,6 +4748,30 @@
       "sha256": "f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
       "source_commit": "0722b49e30758834e4fc921c60970fe5079e6d3e",
       "source_tree": "5764cd9bc63373c5c48940e03be672d2d249cee3"
+    },
+    {
+      "bytes": 2274,
+      "evidence_bytes": 4130,
+      "evidence_path": "work/construction/evidence/0423-record-sequence422-merge-main.json",
+      "evidence_sha256": "ff03e75706b5582740e3bb0d6a5c5a2d3fe9c3a320233491ac7eeca63bd04d3f",
+      "path": "work/construction/segments/0423-record-sequence422-merge-main.md",
+      "predecessor": "segment-sha256:f2dc53c573a701fdab92de886d488fc939e9930f922f804c6c7c8e2bba72861f",
+      "sequence": 423,
+      "sha256": "f2359502527ccc782869e4344c77cd55b6670bda1aa8c435855a76927c031cb9",
+      "source_commit": "00cedf9c46a24c268a6867d80c2a3f04da6a05c2",
+      "source_tree": "2bfdb289021e00e9f14449a6c938b45dfe7b9703"
+    },
+    {
+      "bytes": 2767,
+      "evidence_bytes": 4451,
+      "evidence_path": "work/construction/evidence/0424-bind-manual-workflow-dispatch-to-main.json",
+      "evidence_sha256": "8d15f68720ce3c29456cc401f0e41f1c1ada3ca4755f0a82cecbc5a04bd4d81f",
+      "path": "work/construction/segments/0424-bind-manual-workflow-dispatch-to-main.md",
+      "predecessor": "segment-sha256:f2359502527ccc782869e4344c77cd55b6670bda1aa8c435855a76927c031cb9",
+      "sequence": 424,
+      "sha256": "e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
+      "source_commit": "53ba18b4d810510da93a12e30f4e2435d1078be7",
+      "source_tree": "26d88c5f0f3727d9ae02c1db8652a2ff5ef52c7d"
     }
   ],
   "source_acquisition": {
