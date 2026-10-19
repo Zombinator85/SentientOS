@@ -103,6 +103,12 @@ jobs:
           import os
           from pathlib import Path
 
+          import shutil
+          shutil.copyfile(
+              "glow/test_runs/test_run_provenance.json",
+              "glow/test_runs/source_validation_provenance.json",
+          )
+
           nodes = [
               "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
               "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
@@ -120,8 +126,8 @@ jobs:
               "schema_version": "sentientos.task_acceptance:v1",
               "task_classification": "behavior_adding",
               "repository_sha": os.environ["GITHUB_SHA"],
-              "test_provenance_path": "glow/test_runs/test_run_provenance.json",
-          "required_nodes": [{"node_id": node, "rationale": "source-validation must exercise the exact resource-to-cognition and provenance handoff"} for node in nodes],
+              "test_provenance_path": "glow/test_runs/source_validation_provenance.json",
+              "required_nodes": [{"node_id": node, "rationale": "source-validation must exercise the exact resource-to-cognition and provenance handoff"} for node in nodes],
               "successful_path_nodes": nodes,
           }
           Path("glow/test_runs/source_validation_acceptance.json").write_text(
@@ -130,7 +136,7 @@ jobs:
           PYCODE
           python -m scripts.verify_task_acceptance \
             --manifest glow/test_runs/source_validation_acceptance.json \
-            --provenance glow/test_runs/test_run_provenance.json \
+            --provenance glow/test_runs/source_validation_provenance.json \
             --output glow/test_runs/source_validation_acceptance_result.json
       - name: Verify canonical planning and execution separation
         run: |
@@ -203,6 +209,43 @@ jobs:
             --manifest glow/test_runs/canonical_planning_acceptance.json \
             --provenance glow/test_runs/canonical_planning_provenance.json \
             --output glow/test_runs/canonical_planning_acceptance_result.json
+      - name: Verify transition-stage receipt projection
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding \
+            tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_accepts_journal_recovered_completion \
+            tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_rejects_rejected_or_missing_custody
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/transition_receipt_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding",
+              "tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_accepts_journal_recovered_completion",
+              "tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_rejects_rejected_or_missing_custody",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/transition_receipt_provenance.json",
+              "required_nodes": [
+                  {"node_id": node, "rationale": "verify read-only transition receipt custody and recovery bindings"}
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/transition_receipt_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/transition_receipt_acceptance.json \
+            --provenance glow/test_runs/transition_receipt_provenance.json \
+            --output glow/test_runs/transition_receipt_acceptance_result.json
       - name: Stage current test-run artifacts
         if: always()
         run: >-
@@ -220,6 +263,7 @@ jobs:
             glow/test_runs/test_run_provenance.json
             glow/test_runs/provenance/*.json
             ${{ runner.temp }}/sentientos-test-artifacts/*
+            glow/test_runs/source_validation_provenance.json
             glow/test_runs/source_validation_acceptance.json
             glow/test_runs/source_validation_acceptance_result.json
             glow/test_runs/world_state_contracts_provenance.json
@@ -228,6 +272,9 @@ jobs:
             glow/test_runs/canonical_planning_provenance.json
             glow/test_runs/canonical_planning_acceptance.json
             glow/test_runs/canonical_planning_acceptance_result.json
+            glow/test_runs/transition_receipt_provenance.json
+            glow/test_runs/transition_receipt_acceptance.json
+            glow/test_runs/transition_receipt_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

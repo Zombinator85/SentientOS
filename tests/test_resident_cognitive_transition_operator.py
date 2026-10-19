@@ -205,7 +205,7 @@ def test_verified_stage_receipt_accepts_journal_recovered_completion(tmp_path: P
     assert projection["grants_authority"] is False
 
 
-def test_verified_stage_receipt_rejects_missing_or_unverified_custody(tmp_path: Path) -> None:
+def test_verified_stage_receipt_rejects_rejected_or_missing_custody(tmp_path: Path) -> None:
     controller = _Controller()
     runtime = _runtime(tmp_path, controller)
     packet = _request()
