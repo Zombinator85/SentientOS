@@ -62,6 +62,29 @@ def test_resource_observer_startup_is_explicit_read_only_and_unverified_until_re
     assert status["reason_code"] == "resource_observation_configuration_incomplete"
     assert status["effect_authority"] is False
 
+    owner, status = sentientosd._load_resource_observation_configuration(
+        "../outside", "trial-1")
+    assert owner is None
+    assert status["status"] == "invalid"
+    assert status["reason_code"] == "ValueError"
+
+    missing_registry = InstallationStateRegistry._for_testing(
+        tmp_path / "missing-state")
+
+    def missing_system_registry(
+            _cls: type[InstallationStateRegistry]) -> InstallationStateRegistry:
+        return missing_registry
+
+    monkeypatch.setattr(InstallationStateRegistry, "system",
+        classmethod(missing_system_registry))
+    owner, status = sentientosd._load_resource_observation_configuration(
+        "production", "trial-1")
+    assert owner is None
+    assert status["status"] == "missing"
+    assert status["reason_code"] == "installation_state_root_missing"
+    assert not missing_registry.state_root_for(
+        InstallationIdentity.parse("production")).exists()
+
     registry = InstallationStateRegistry._for_testing(tmp_path / "state")
     registry.open(InstallationIdentity.parse("production"), create=True)
     def test_system_registry(
