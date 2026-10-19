@@ -160,6 +160,42 @@ def test_verified_stage_receipt_requires_completed_semantically_verified_journal
     assert controller.calls == calls_before
 
 
+def test_verified_stage_receipt_accepts_journal_recovered_completion(tmp_path: Path) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    packet = _request()
+    request_binding = {"request_id": packet["request_id"],
+                       "request_digest": packet["request_digest"]}
+    terminal_digest = "recovered-terminal"
+    controller.journal.entries = lambda: [
+        {"phase": PHASES[0], "status": "attempted",
+         "evidence": {"attempted_stage": PHASES[1],
+                      "approval_digest": packet["stage_approval_digest"],
+                      "operator_request": request_binding},
+         "entry_digest": "recovered-attempt"},
+        {"phase": PHASES[1], "status": "completed",
+         "evidence": {"operator_request": request_binding},
+         "entry_digest": terminal_digest},
+    ]
+    controller.advance = lambda **kwargs: (_ for _ in ()).throw(
+        TransitionError("response_lost_after_commit"))
+    persist_request(tmp_path, packet)
+    result = runtime.process_one()
+    assert result["status"] == "stage_advanced"
+    assert result["recovered"] is True
+    controller.health = lambda: {
+        "phase": PHASES[1], "journal_head": terminal_digest, "status": "in_progress",
+        "semantically_verified_stage_entry_digests": [terminal_digest],
+    }
+
+    projection = runtime.inspect_verified_stage_receipt(packet["request_id"])
+
+    assert projection["completed_entry_digest"] == terminal_digest
+    assert projection["operator_receipt_digest"] == result["receipt_digest"]
+    assert projection["effect_performed"] is False
+    assert projection["grants_authority"] is False
+
+
 def test_verified_stage_receipt_rejects_missing_or_unverified_custody(tmp_path: Path) -> None:
     controller = _Controller()
     runtime = _runtime(tmp_path, controller)
