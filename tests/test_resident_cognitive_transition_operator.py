@@ -122,7 +122,7 @@ def test_verified_stage_receipt_requires_completed_semantically_verified_journal
 ) -> None:
     controller = _Controller()
     runtime = _runtime(tmp_path, controller)
-    packet = _request()
+    packet = _request(stage_evidence={"campaign_trial_id": "trial-1"})
     persist_request(tmp_path, packet)
     result = runtime.process_one()
     assert result["status"] == "stage_advanced"
@@ -160,6 +160,8 @@ def test_verified_stage_receipt_requires_completed_semantically_verified_journal
     assert projection["phase"] == PHASES[1]
     assert projection["operator_receipt_digest"] == result["receipt_digest"]
     assert projection["completed_entry_digest"] == "head-1"
+    assert projection["campaign_trial_id"] == "trial-1"
+    assert projection["schema_version"] == "sentientos.resident_cognitive_transition_verified_stage_receipt:v2"
     assert projection["read_only"] is True
     assert projection["effect_performed"] is False
     assert projection["grants_authority"] is False

@@ -618,11 +618,13 @@ def test_daemon_projects_read_only_campaign_transition_binding(tmp_path: Path, m
 
 
 
-def _verified_transition_stage_projection(protocol, phase: str) -> dict[str, object]:
+def _verified_transition_stage_projection(
+        protocol, phase: str, *, campaign_trial_id: str | None = "trial-1") -> dict[str, object]:
     transition = protocol.transition
     body: dict[str, object] = {
-        "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v1",
+        "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v2",
         "request_id": "resident-transition-request-planning",
+        "campaign_trial_id": campaign_trial_id,
         "request_digest": "request-digest",
         "installation_identity": protocol.installation_identity,
         "protocol_id": transition["protocol_id"],
@@ -843,7 +845,9 @@ def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
     campaign = ProductionSelfReflectionCampaign.create(tmp_path / failure, protocol)
     active = {**dict(campaign.state()), "in_progress_trial_id": "trial-1"}
     campaign._write(active)
-    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+    projection = _verified_transition_stage_projection(
+        protocol, PHASES[2],
+        campaign_trial_id=None if failure == "unbound_request" else "trial-1")
     owner_protocol = {
         "installation_identity": protocol.installation_identity,
         "protocol_id": protocol.transition["protocol_id"],
