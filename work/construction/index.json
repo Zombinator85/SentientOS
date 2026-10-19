@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "93b31573c9c06f0e936614de73d75b94e2f0d610c1776b730f221f429b0bd7a1",
-    "latest_segment_sequence": 433,
-    "latest_segment_sha256": "29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc",
-    "latest_sequence": 433,
-    "source_commit": "e3752cf923d536d22620799ece595e706903efff",
-    "source_tree": "03bc4ad2b06ce1f2043cddd3a16d5b396772e147"
+    "checkpoint_sha256": "79ed3cec3a0270f8aaeb3176c57f3f4e520f2bfe5a625de526cd02718eaecb85",
+    "latest_segment_sequence": 434,
+    "latest_segment_sha256": "b1436a332898bffb91ee3b380c702609308ecf7160a5960331b8611e193f9f35",
+    "latest_sequence": 434,
+    "source_commit": "ebe00f30ff38d7d78cab0c18c785ba697bb1d01d",
+    "source_tree": "23ff49b8b812bdc112ad612987beeabf1bfe3968"
   },
-  "checkpoint_sha256": "93b31573c9c06f0e936614de73d75b94e2f0d610c1776b730f221f429b0bd7a1",
+  "checkpoint_sha256": "79ed3cec3a0270f8aaeb3176c57f3f4e520f2bfe5a625de526cd02718eaecb85",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 433,
+  "latest_sequence": 434,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4880,6 +4880,18 @@
       "sha256": "29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc",
       "source_commit": "e3752cf923d536d22620799ece595e706903efff",
       "source_tree": "03bc4ad2b06ce1f2043cddd3a16d5b396772e147"
+    },
+    {
+      "bytes": 1311,
+      "evidence_bytes": 1168,
+      "evidence_path": "work/construction/evidence/0434-cover-resource-observer-startup-outcomes.json",
+      "evidence_sha256": "fcad571561b66b572502b97a1bdfde6d70af78567599a8eb6bee60a8de0ac600",
+      "path": "work/construction/segments/0434-cover-resource-observer-startup-outcomes.md",
+      "predecessor": "segment-sha256:29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc",
+      "sequence": 434,
+      "sha256": "b1436a332898bffb91ee3b380c702609308ecf7160a5960331b8611e193f9f35",
+      "source_commit": "ebe00f30ff38d7d78cab0c18c785ba697bb1d01d",
+      "source_tree": "23ff49b8b812bdc112ad612987beeabf1bfe3968"
     }
   ],
   "source_acquisition": {

@@ -2,13 +2,13 @@
 
 ## Latest verified main
 
-PR #2399 regular-merged sequence 432 at main `e3752cf923d536d22620799ece595e706903efff`, preserving candidate tree `03bc4ad2b06ce1f2043cddd3a16d5b396772e147`. Exact-head CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient regression, Release, and Lint Benchmark all passed. CI verified the resource-to-cognition lifecycle, exact acceptance nodes, canonical planning/execution separation, hosted docs, and self-check. The gate verified Administrator strict audit, immutability, hosted finalization, and pre-publication metadata guard.
+PR #2400 regular-merged sequence 433 at main `ebe00f30ff38d7d78cab0c18c785ba697bb1d01d`, preserving candidate tree `23ff49b8b812bdc112ad612987beeabf1bfe3968`. Exact-head CI, Required Quality Gate, Invariant Tests, Codex CI, Docker, Gradient regression, Release, and Lint Benchmark all passed; CI covered source validation, canonical self-check, and hosted documentation/link checks. The gate verified actual Administrator strict audits, immutability, hosted finalization, and pre-publication metadata guard.
 
-Post-merge main push checks and scheduled Federation Health/nightly executions on this SHA remain unobserved; no result is inferred.
+Post-merge main push checks and scheduled Federation Health/nightly executions on this SHA remain unobserved.
 
 ## Current work
 
-Sequence 433 records sequence 432's exact merge and hosted checks. The resource-observer startup path remains explicitly opt-in and read-only; no selectors or operator-provisioned installation are available in this environment, so no production execution is claimed.
+Sequence 434 extends the resource-observer startup test to cover malformed selectors and an installation with no state root. The helper remains opt-in, read-only, and unverified until its first tick read. Local compilation and direct matrix assertions passed; hosted checks are pending.
 
 ## Open evidence boundaries
 
@@ -18,7 +18,7 @@ Sequence 433 records sequence 432's exact merge and hosted checks. The resource-
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 - No production authority or workflow privilege changed.
 
-Latest verified main: `e3752cf923d536d22620799ece595e706903efff`, tree `03bc4ad2b06ce1f2043cddd3a16d5b396772e147`.
-Latest construction segment: `work/construction/segments/0433-verify-sequence432-merge-main.md`
-Latest segment SHA-256: `29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc`
-Sequence: 433 (evidence candidate; hosted verification pending)
+Latest verified main: `ebe00f30ff38d7d78cab0c18c785ba697bb1d01d`, tree `23ff49b8b812bdc112ad612987beeabf1bfe3968`.
+Latest construction segment: `work/construction/segments/0434-cover-resource-observer-startup-outcomes.md`
+Latest segment SHA-256: `b1436a332898bffb91ee3b380c702609308ecf7160a5960331b8611e193f9f35`
+Sequence: 434 (test candidate; hosted verification pending)

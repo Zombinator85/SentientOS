@@ -1,0 +1,32 @@
+{
+  "candidate_status": "test_candidate_pending_hosted_verification",
+  "change": {
+    "authority_changed": false,
+    "files": [
+      "tests/test_sentientosd_runtime_closure.py"
+    ],
+    "installation_state_mutated_by_helper": false,
+    "production_configuration_enabled": false,
+    "runtime_source_changed": false
+  },
+  "predecessor_segment_sha256": "29014d9af4a4888804003b43c5b60dc47eab08612abed1818b6ce8a41d7e60dc",
+  "sequence": 434,
+  "source_commit": "ebe00f30ff38d7d78cab0c18c785ba697bb1d01d",
+  "source_tree": "23ff49b8b812bdc112ad612987beeabf1bfe3968",
+  "test_matrix": [
+    "disabled_without_registry_access",
+    "incomplete_without_registry_access",
+    "malformed_identity_without_registry_access",
+    "missing_root_without_creation",
+    "read_only_owner_pending_first_read",
+    "missing_bundle_fails_closed"
+  ],
+  "title": "Cover resource-observer startup outcomes",
+  "verification": {
+    "canonical_pytest": "not run locally; canonical test-install guard previously refused collection",
+    "direct_startup_matrix_assertions": "passed",
+    "git_diff_check": "passed",
+    "hosted_checks": "pending",
+    "python_compile": "passed"
+  }
+}
