@@ -18,6 +18,8 @@ LOG_PATH = get_log_path("federation_log.jsonl")
 
 def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     """Return basic federation health stats."""
+    if hours <= 0:
+        raise ValueError("hours must be positive")
     source = "configured_local_log_snapshot"
     if not LOG_PATH.exists():
         return {
@@ -37,13 +39,18 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
         try:
             entry = json.loads(line)
-        except Exception:
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict):
             continue
         payload = entry.get("data", entry)
         if not isinstance(payload, dict):
             continue
         peer = payload.get("peer", "unknown")
-        nodes.add(peer)
+        try:
+            nodes.add(peer)
+        except TypeError:
+            continue
         ts = entry.get("timestamp")
         try:
             if isinstance(ts, str) and ts:

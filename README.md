@@ -55,9 +55,9 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
-## Current construction checkpoint (2026-10-19 09:30 UTC)
+## Current construction checkpoint (2026-10-19 09:36 UTC)
 
-Sequence 451 verifies PR #2415 regular-merging sequence 450 and the receipt-bearing Federation Health run on main `9cd0d89cd43c614de070bee0043cdd1df35afdb9`. The health job passed Administrator preflight and generated a report bound by artifact #12176317340; the artifact digest and receipt-bound report hash matched. The report identifies the configured local log snapshot, not live telemetry. Its automatic publisher was blocked by GitHub's Actions-token PR policy; PR #2416 published the report and receipt through the full PR matrix and regular-merged as `4500226be7e9b16077d4e7667701f27c874a07a8`. The scheduled Federation Health run on this main remains pending. The Nightly Audit Integrity schedule passed on the preceding main with repair skipped; no Nightly Self Check schedule run was observed in the queried window.
+Sequence 452 adds defensive handling to Federation Health: non-object JSON rows, malformed peer values, and non-positive report windows are rejected without aborting or emitting nonsensical time ranges. Exact-head hosted verification is pending. Sequence 451 verified the merge and publication record for the previous snapshot-scope correction; the latest hourly scheduled Federation Health execution remains pending.
 
 ## Read next
 

@@ -130,3 +130,42 @@ def test_future_log_timestamp_is_not_counted_as_recent(health_badge, tmp_path, m
     assert stats["status"] == "quiet"
     assert stats["latest_event_at"] == future.isoformat().replace("+00:00", "Z")
     assert stats["live_telemetry"] is False
+
+
+
+def test_compute_health_skips_non_object_and_malformed_peer_rows(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    log_path.write_text(
+        "\n".join(
+            [
+                "null",
+                "[]",
+                "17",
+                json.dumps(
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "data": {"peer": ["not-hashable"]},
+                    }
+                ),
+                json.dumps({"timestamp": "2025-01-01T00:00:00Z", "data": "invalid"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+
+    assert stats["nodes"] == 0
+    assert stats["recent"] == 0
+    assert stats["latest_event_at"] is None
+    assert stats["status"] == "quiet"
+
+
+@pytest.mark.parametrize("hours", [0, -1])
+def test_compute_health_rejects_non_positive_window(health_badge, hours):
+    with pytest.raises(ValueError, match="hours must be positive"):
+        health_badge.compute_health(hours)

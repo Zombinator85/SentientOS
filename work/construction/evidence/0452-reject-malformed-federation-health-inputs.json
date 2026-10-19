@@ -1,0 +1,134 @@
+{
+  "sequence": 452,
+  "title": "Reject malformed Federation Health inputs",
+  "source_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
+  "source_tree": "f2e622a445b87b55e750395cce9974e77695dc51",
+  "predecessor_segment_sha256": "c5c08f269cc7a270292b0f92539777befd1721be0188fb56b93ff573f024fc41",
+  "preceding_merge": {
+    "pull_request": 2417,
+    "candidate_commit": "d4304287a7a9dadee1305bdf4fdc04a3e8d2af90",
+    "candidate_tree": "f2e622a445b87b55e750395cce9974e77695dc51",
+    "merge_commit": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
+    "merge_method": "merge",
+    "candidate_to_merge_comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    },
+    "exact_head_checks": {
+      "required_quality_gate": {
+        "run_id": 39230739543,
+        "conclusion": "success",
+        "administrator_strict_audit": "passed",
+        "exact_acceptance": "passed",
+        "hosted_finalizer": "passed",
+        "prepublication_metadata_guard": "passed"
+      },
+      "ci": {
+        "run_id": 39230739359,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39230739516,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39230739745,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39230739377,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39230739425,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39230739251,
+        "conclusion": "success"
+      },
+      "gradient_regression": {
+        "run_id": 39230739447,
+        "conclusion": "success"
+      }
+    }
+  },
+  "post_merge_checks_snapshot": {
+    "head_sha": "e04374d705de3f6d0e3ea05bfcb631329e8307ec",
+    "runs": [
+      {
+        "id": 39231289463,
+        "name": "Invariant Tests",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 39231289061,
+        "name": "Forge Smoke",
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 39231289335,
+        "name": "Docker Image",
+        "status": "in_progress",
+        "conclusion": null
+      },
+      {
+        "id": 39231289048,
+        "name": "CI",
+        "status": "in_progress",
+        "conclusion": null
+      },
+      {
+        "id": 39231289158,
+        "name": "Required Quality Gate",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 39231288976,
+        "name": "Docs Deploy",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 39231289219,
+        "name": "Codex CI",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "defect": {
+    "non_object_json": "parsed scalar/list JSON values reached mapping access and could abort the report",
+    "malformed_peer": "unhashable peer values could abort node aggregation",
+    "invalid_window": "zero or negative hours produced misleading report windows",
+    "remedy": "skip invalid/non-object rows and rows with malformed peer keys; reject hours <= 0 with ValueError"
+  },
+  "change": {
+    "source_paths": [
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py"
+    ],
+    "new_regressions": [
+      "test_compute_health_skips_non_object_and_malformed_peer_rows",
+      "test_compute_health_rejects_non_positive_window"
+    ],
+    "authority_changed": false,
+    "report_schema_changed": false
+  },
+  "verification": {
+    "local_test": "not run",
+    "hosted_ci": "pending",
+    "canonical_hosted_matrix": "pending",
+    "construction_custody": "passed through sequence 452"
+  },
+  "limitations": {
+    "no_live_federation_telemetry_claimed": true,
+    "no_production_inference_claimed": true,
+    "automatic_publisher_setting_blocker_preserved": true,
+    "protected_workspaces_changed": false
+  }
+}
