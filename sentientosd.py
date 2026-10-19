@@ -2958,8 +2958,48 @@ class RuntimeMaintenanceSurfaces:
         else:
             result = self._resident_transition_runtime.process_one()
             result["live_status"] = self._resident_transition_runtime.status()
+        if os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT"):
+            result["self_reflection_transition_binding"] = (
+                self.inspect_production_self_reflection_transition_binding())
         self._feedback.setdefault("surfaces", {})["resident_cognitive_transition_operator"] = result
         return result
+
+    def inspect_production_self_reflection_transition_binding(self) -> dict[str, Any]:
+        """Project exact campaign binding without recovering or executing a trial."""
+        from sentientos.production_self_reflection_campaign import (
+            ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
+            ProductionSelfReflectionTransitionBindingObserver,
+        )
+
+        configured_root = os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT")
+        if not configured_root:
+            return {"status": "not_configured", "effect_performed": False,
+                    "campaign_advanced": False, "grants_authority": False}
+        campaign_root = Path(configured_root)
+        if not campaign_root.is_absolute():
+            return {"status": "transition_binding_unverified",
+                    "reason": "campaign_root_must_be_absolute",
+                    "effect_performed": False, "campaign_advanced": False,
+                    "grants_authority": False}
+        transition_owner = self._resident_transition_runtime
+        if transition_owner is None:
+            return {"status": "transition_binding_unverified",
+                    "reason": "resident_transition_owner_unavailable",
+                    "effect_performed": False, "campaign_advanced": False,
+                    "grants_authority": False}
+        try:
+            campaign = ProductionSelfReflectionCampaign.open_for_read_only_inspection(campaign_root)
+            return dict(ProductionSelfReflectionTransitionBindingObserver(
+                campaign, transition_owner).inspect())
+        except ProductionSelfReflectionError as exc:
+            return {"status": "transition_binding_unverified", "reason": exc.code,
+                    "effect_performed": False, "campaign_advanced": False,
+                    "grants_authority": False}
+        except Exception as exc:
+            return {"status": "transition_binding_unverified",
+                    "reason": "inspection_failed", "error_class": type(exc).__name__,
+                    "effect_performed": False, "campaign_advanced": False,
+                    "grants_authority": False}
 
     def expand(self) -> list[Any]:
         evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))

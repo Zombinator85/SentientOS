@@ -20,7 +20,12 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .local_model_authority import atomic_write_json, digest_payload
 from .platform_fcntl import fcntl, require_flock
-from .private_file_custody import PrivateFileCustodyError, open_private_directory, publish_immutable_bytes
+from .private_file_custody import (
+    PrivateFileCustodyError,
+    open_private_directory,
+    publish_immutable_bytes,
+    read_private_file_at,
+)
 from .resident_cognitive_model_transition_experiment import PHASES
 from .self_model_intervention_experiment import CONDITION_ORDER, score_assessment
 
@@ -261,18 +266,21 @@ class ProductionSelfReflectionCampaign:
         self.protocol_path = self.root / "protocol.json"; self.state_path = self.root / "state.json"
 
     @contextmanager
-    def _campaign_lock(self) -> Iterator[None]:
-        """Serialize campaign mutation and live trial execution across processes."""
+    def _campaign_lock(self, *, blocking: bool = True, create: bool = True) -> Iterator[None]:
+        """Serialize campaign access, optionally refusing to wait or create custody."""
         if os.name != "posix":
             raise ProductionSelfReflectionError("campaign_lock_unsupported_platform")
         directory_fd: int | None = None
         descriptor: int | None = None
         try:
             require_flock()
-            directory_fd = open_private_directory(self.root, create=True)
+            directory_fd = open_private_directory(self.root, create=create)
+            flags = os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+            if create:
+                flags |= os.O_CREAT
             descriptor = os.open(
                 ".production-self-reflection-campaign.lock",
-                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                flags,
                 0o600,
                 dir_fd=directory_fd,
             )
@@ -280,7 +288,14 @@ class ProductionSelfReflectionCampaign:
             if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
                     or metadata.st_nlink != 1 or metadata.st_mode & 0o077):
                 raise ProductionSelfReflectionError("campaign_lock_invalid")
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            lock_flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+            fcntl.flock(descriptor, lock_flags)
+        except BlockingIOError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise ProductionSelfReflectionError("campaign_busy") from exc
         except ProductionSelfReflectionError:
             if descriptor is not None:
                 os.close(descriptor)
@@ -330,6 +345,32 @@ class ProductionSelfReflectionCampaign:
             return campaign
 
     @classmethod
+    def open_for_read_only_inspection(cls, root: Path) -> "ProductionSelfReflectionCampaign":
+        """Open existing private campaign custody without recovery or creation."""
+        directory_fd: int | None = None
+        try:
+            directory_fd = open_private_directory(Path(root), create=False)
+            encoded = read_private_file_at(
+                directory_fd, "protocol.json", max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES)
+            value = json.loads(encoded.decode("utf-8"))
+            if not isinstance(value, Mapping):
+                raise ProductionSelfReflectionError("campaign_protocol_unavailable")
+            protocol = reconstruct_protocol(value)
+        except ProductionSelfReflectionError:
+            raise
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError,
+                PrivateFileCustodyError) as exc:
+            raise ProductionSelfReflectionError("campaign_protocol_unavailable") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
+        campaign = cls(Path(root), protocol)
+        with campaign._campaign_lock(blocking=False, create=False):
+            state = campaign.state()
+            campaign._verify_progress(state)
+        return campaign
+
+    @classmethod
     def reconstruct(cls, root: Path) -> "ProductionSelfReflectionCampaign":
         try: protocol = reconstruct_protocol(json.loads((Path(root) / "protocol.json").read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_protocol_unavailable") from exc
@@ -355,8 +396,18 @@ class ProductionSelfReflectionCampaign:
         # observed progress snapshot to the protocol before trusting it.
         self.protocol.verify()
         self._protocol_snapshot.verify()
-        try: value = json.loads(self.state_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc: raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
+        directory_fd: int | None = None
+        try:
+            directory_fd = open_private_directory(self.root, create=False)
+            encoded = read_private_file_at(
+                directory_fd, "state.json", max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES)
+            value = json.loads(encoded.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError,
+                PrivateFileCustodyError) as exc:
+            raise ProductionSelfReflectionError("campaign_state_unavailable") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
         if not isinstance(value, dict):
             raise ProductionSelfReflectionError("campaign_state_tampered")
         claimed = value.pop("state_digest", None)
@@ -377,12 +428,19 @@ class ProductionSelfReflectionCampaign:
         for index, row in enumerate(completed):
             if not isinstance(row, Mapping) or row.get("trial_id") != trial_ids[index]:
                 raise ProductionSelfReflectionError("campaign_state_tampered")
+            receipt_directory_fd: int | None = None
             try:
-                raw_receipt = json.loads(
-                    (self.root / "receipts" / f"{trial_ids[index]}.json").read_text(encoding="utf-8")
-                )
-            except (OSError, json.JSONDecodeError) as exc:
+                receipt_directory_fd = open_private_directory(self.root / "receipts", create=False)
+                encoded_receipt = read_private_file_at(
+                    receipt_directory_fd, f"{trial_ids[index]}.json",
+                    max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES)
+                raw_receipt = json.loads(encoded_receipt.decode("utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError,
+                    PrivateFileCustodyError) as exc:
                 raise ProductionSelfReflectionError("campaign_receipt_unavailable") from exc
+            finally:
+                if receipt_directory_fd is not None:
+                    os.close(receipt_directory_fd)
             if not isinstance(raw_receipt, Mapping):
                 raise ProductionSelfReflectionError("trial_receipt_tampered")
             receipt = verify_trial_receipt(raw_receipt)
@@ -498,7 +556,8 @@ def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 __all__ = ["COMPONENTS", "ProductionSelfReflectionCampaign", "ProductionSelfReflectionError",
-           "ProductionSelfReflectionProtocol", "derive_evidence_posture", "make_trial_receipt",
+           "ProductionSelfReflectionProtocol", "ProductionSelfReflectionTransitionBindingObserver",
+           "derive_evidence_posture", "make_trial_receipt",
            "reconstruct_protocol", "verify_production_readiness", "verify_trial_receipt"]
 
 
@@ -520,7 +579,7 @@ class ProductionSelfReflectionTransitionBindingObserver:
         protocol = self.campaign._protocol_snapshot
         protocol.verify()
         transition = protocol.transition
-        with self.campaign._campaign_lock():
+        with self.campaign._campaign_lock(blocking=False, create=False):
             state = self.campaign.state()
             self.campaign._verify_progress(state)
             owner_status = dict(self.transition_owner.status())
