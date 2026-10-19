@@ -1,0 +1,87 @@
+{
+  "candidate_status": "untested_pending_hosted_validation",
+  "change": {
+    "acceptance_node": "tests/test_github_hosted_acceptance_workflows.py::test_workflow_dispatch_jobs_are_main_bound",
+    "authority_expansion": false,
+    "baseline_writer": {
+      "capture_checkout_credentials": false,
+      "capture_contents_permission": "read",
+      "checkout": "triggering github.sha",
+      "commit_contents_permission": "write",
+      "commit_only_when_main_and_requested": true,
+      "push": "explicit fast-forward-only origin HEAD:main"
+    },
+    "federation_disposable_fixture_scope_preserved": true,
+    "files": [
+      ".github/workflows/capture-audit-baseline.yml",
+      ".github/workflows/forge-smoke.yml",
+      ".github/workflows/remote-smoke-ci.yml",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "required_acceptance_node_count_changed": false,
+    "smoke_permissions": {
+      "forge_smoke": {
+        "contents": "read"
+      },
+      "remote_smoke": {
+        "contents": "read"
+      }
+    },
+    "strict_audit_sudo_n_preserved": true,
+    "workflow_dispatch_jobs_bound_to_main": [
+      ".github/workflows/capture-audit-baseline.yml",
+      ".github/workflows/forge-smoke.yml",
+      ".github/workflows/remote-smoke-ci.yml"
+    ]
+  },
+  "federation_health_postmerge_scheduled_run": "not_observed_pending as of 2026-10-19T05:38:47Z",
+  "nightly_audit_and_self_check": "not_run; next scheduled slots 2026-10-20T03:41:00Z and 2026-10-20T04:37:00Z",
+  "predecessor_segment_sha256": "e3c4e3a82a4ff5d3fd2def25e8a914adaa2269aadfa8575620995bb15ed48de6",
+  "sequence": 425,
+  "sequence_424_hosted_checks_at_candidate_start": {
+    "candidate_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+    "status": "in_progress"
+  },
+  "sequence_424_hosted_checks_current": {
+    "candidate_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+    "ci_run": {
+      "conclusion": "success",
+      "id": 39205340638
+    },
+    "invariant_run": {
+      "conclusion": "success",
+      "id": 39205340852
+    },
+    "pr": {
+      "checks": "in_progress",
+      "head_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+      "number": 2393,
+      "state": "open"
+    },
+    "required_quality_gate_run": {
+      "acceptance": "30/30",
+      "conclusion": "success",
+      "id": 39205340764,
+      "immutability": "passed",
+      "prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "strict_audit": "passed"
+    }
+  },
+  "source_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+  "source_tree": "38124ee137974910354e1a1f9e38a9a68db6368e",
+  "title": "Restrict manual workflow execution and scope baseline write authority",
+  "verification_before_candidate_publication": {
+    "canonical_local_pytest": "not_run; sandbox cannot access package index for canonical editable bootstrap",
+    "construction_custody": "passed; 425 segments",
+    "direct_contract_assertions": "passed for exact dispatch guard node, audit privilege contract, self-check privilege contract, and QG exact-node contract",
+    "git_diff_check": "passed",
+    "py_compile": "passed for tests/test_github_hosted_acceptance_workflows.py",
+    "status": "passed_local_contract_checks_pending_hosted_candidate",
+    "yaml_parse": "passed for all seven relevant workflows"
+  },
+  "workspace_preservation": {
+    "sequence_423_branch_untouched": true,
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_touched": false
+  }
+}
