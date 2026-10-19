@@ -1,0 +1,99 @@
+{
+  "sequence": 448,
+  "title": "Record Federation Health execution",
+  "source_commit": "48d17251af4290f6cd56e897855da4012c1c9c03",
+  "source_tree": "a2b8c5c51be9da2b12c672dc23085ccd0f499277",
+  "predecessor_segment_sha256": "a22d5b0f9d2cf451c6fdf0e8ae15102d5f43bafd09f41fbb299d1b4d3b41b581",
+  "pull_request": {
+    "number": 2412,
+    "candidate_commit": "ddca2731c83777b8c04465ec2c1eba5acc6c0998",
+    "candidate_tree": "a2b8c5c51be9da2b12c672dc23085ccd0f499277",
+    "merge_commit": "48d17251af4290f6cd56e897855da4012c1c9c03",
+    "merge_method": "merge",
+    "checks": {
+      "required_quality_gate": {
+        "run_id": 39225230807,
+        "conclusion": "success"
+      },
+      "ci": {
+        "run_id": 39225230769,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run_id": 39225230792,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run_id": 39225230731,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run_id": 39225230773,
+        "conclusion": "success"
+      },
+      "lint": {
+        "run_id": 39225230767,
+        "conclusion": "success"
+      },
+      "release": {
+        "run_id": 39225230843,
+        "conclusion": "success"
+      },
+      "gradient_regression": {
+        "run_id": 39225230922,
+        "conclusion": "success"
+      }
+    },
+    "candidate_to_merge_comparison": {
+      "ahead_by": 1,
+      "behind_by": 0,
+      "changed_files": 0
+    }
+  },
+  "federation_health": {
+    "workflow": "Federation Health Update",
+    "run_id": 39224329633,
+    "attempt": 1,
+    "event_name": "push",
+    "ref": "refs/heads/main",
+    "head_sha": "3ac7816c381cd5d859e656d76926f7f47fb11631",
+    "health_job": {
+      "administrator_preflight": "success",
+      "health_generator": "success",
+      "conclusion": "success"
+    },
+    "publisher_job": {
+      "conclusion": "failure",
+      "docs_branch_push": "success",
+      "pull_request_creation": "rejected",
+      "exact_error": "GitHub Actions is not permitted to create or approve pull requests."
+    },
+    "artifact": {
+      "id": 12172743299,
+      "name": "federation-health-39224329633",
+      "size_bytes": 700,
+      "digest": "sha256:f7695a88d66256ada733c62bb8db49515e352142e5e9d007f0d29a744d44dc77",
+      "receipt_report_sha256": "375ec94f40ce69a229b2a500597aebbaee31fa0e2c12056faee33779b215c24c",
+      "artifact_receipt_matches_remote_branch": true,
+      "report_digest_matches_remote_branch": true
+    },
+    "scheduled_execution_on_current_main": "pending"
+  },
+  "authority": {
+    "health_job_permissions": "contents:read",
+    "publisher_job_permissions": "contents:write,pull-requests:write",
+    "additional_permissions_added": false,
+    "automatic_main_publication": false,
+    "repository_policy_changed": false
+  },
+  "limitations": {
+    "historical_test_provenance": "INTEGRITY_BROKEN; unanchored origin preserved",
+    "main_push_checks_current_sha": "not observed by PR-scoped run reader",
+    "production_inference_claimed": false
+  },
+  "verification": {
+    "source_candidate_exact_head_matrix": "passed",
+    "construction_custody": "hosted_required_quality_gate",
+    "local_pytest": "not run"
+  }
+}
