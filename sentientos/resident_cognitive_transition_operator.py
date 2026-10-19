@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 import threading
 from contextlib import contextmanager
@@ -21,17 +22,22 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 from .resident_cognitive_model_transition_experiment import (
     PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
 )
+from .resident_cognitive_transition_operator_authentication import (
+    TransitionOperatorProvenanceError, TransitionOperatorProvenanceVerifier,
+)
 from .platform_fcntl import fcntl, require_flock
 from .private_file_custody import PrivateFileCustodyError, open_private_directory
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
+CONFIG_SCHEMA_V2 = "sentientos.resident_cognitive_transition_live_config:v2"
 REQUEST_SCHEMA = "sentientos.resident_cognitive_transition_operator_request:v1"
 RECEIPT_SCHEMA = "sentientos.resident_cognitive_transition_operator_request_receipt:v1"
 REQUEST_CUSTODY = "state/resident-cognitive-transition/operator-requests"
 RECEIPT_CUSTODY = "state/resident-cognitive-transition/operator-request-receipts.jsonl"
 JOURNAL_CUSTODY = "state/resident-cognitive-transition/transition.journal.jsonl"
 PROTOCOL_CUSTODY = "state/resident-cognitive-transition/protocol.json"
+OPERATOR_TRUST_CATALOG_CUSTODY = "state/resident-cognitive-transition/operator-trust-catalog.json"
 MAX_TRANSITION_RECEIPTS = 4096
 MAX_TRANSITION_RECEIPT_BYTES = 16_777_216
 MAX_TRANSITION_REQUESTS = 4096
@@ -75,6 +81,8 @@ class LiveTransitionConfig:
     request_custody: str
     journal_custody: str
     journal_identity: str
+    operator_trust_catalog_version: int | None = None
+    operator_trust_catalog_digest: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "LiveTransitionConfig":
@@ -83,15 +91,29 @@ class LiveTransitionConfig:
             value = json.loads(raw.decode("utf-8"))
         except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
             raise TransitionError("live_transition_config_unavailable") from exc
-        required = {"schema_version", "enabled", "installation_identity", "protocol_id",
+        common = {"schema_version", "enabled", "installation_identity", "protocol_id",
                     "protocol_digest", "request_custody", "journal_custody", "journal_identity"}
-        if not isinstance(value, dict) or set(value) != required or value.get("schema_version") != CONFIG_SCHEMA:
+        if not isinstance(value, dict):
             raise TransitionError("live_transition_config_invalid")
-        config = cls(**{key: value[key] for key in required - {"schema_version"}})
+        schema = value.get("schema_version")
+        if schema == CONFIG_SCHEMA and set(value) == common:
+            config = cls(**{key: value[key] for key in common - {"schema_version"}})
+        elif schema == CONFIG_SCHEMA_V2 and set(value) == common | {
+                "operator_trust_catalog_version", "operator_trust_catalog_digest"}:
+            config = cls(**{key: value[key] for key in value if key != "schema_version"})
+        else:
+            raise TransitionError("live_transition_config_invalid")
         if (not isinstance(config.enabled, bool) or not config.installation_identity
                 or config.request_custody != REQUEST_CUSTODY or config.journal_custody != JOURNAL_CUSTODY
                 or not config.journal_identity or config.protocol_id in {"latest", "current", "*"}
-                or len(config.protocol_digest) != 64):
+                or len(config.protocol_digest) != 64
+                or ((config.operator_trust_catalog_version is None)
+                    != (config.operator_trust_catalog_digest is None))
+                or (config.operator_trust_catalog_version is not None
+                    and (type(config.operator_trust_catalog_version) is not int
+                         or config.operator_trust_catalog_version < 1
+                         or not isinstance(config.operator_trust_catalog_digest, str)
+                         or not re.fullmatch(r"sha256:[0-9a-f]{64}", config.operator_trust_catalog_digest)))):
             raise TransitionError("live_transition_config_invalid")
         return config
 
@@ -202,10 +224,12 @@ class LiveTransitionOperatorRuntime:
     def __init__(self, *, config: LiveTransitionConfig, installation_root: Path, controller: Any,
                  slot: Any, gate: Any,
                  subordinate_verifier: Callable[[str, Sequence[Mapping[str, Any]]], None] | None = None,
+                 operator_provenance_verifier: TransitionOperatorProvenanceVerifier | None = None,
                  clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
                  source_lineage_bindings: Mapping[str, Mapping[str, Any]] | None = None) -> None:
         self.config, self.installation_root, self.controller = config, Path(installation_root), controller
         self.slot, self.gate, self.subordinate_verifier, self.clock = slot, gate, subordinate_verifier, clock
+        self.operator_provenance_verifier = operator_provenance_verifier
         self.source_lineage_bindings = _plain(source_lineage_bindings or {})
         self._lock = threading.Lock()
         self._latest: dict[str, Any] | None = None
@@ -530,6 +554,7 @@ class LiveTransitionOperatorRuntime:
         operator receipt was appended, record that already-published outcome
         rather than invoking the stage a second time.
         """
+        self._verify_operator_provenance(packet)
         request = {"request_id": packet.get("request_id"),
                    "request_digest": packet.get("request_digest")}
         matches = []
@@ -573,6 +598,7 @@ class LiveTransitionOperatorRuntime:
 
     def _validate(self, packet: Mapping[str, Any]) -> None:
         self._verify_packet_identity(packet)
+        self._verify_operator_provenance(packet)
         value = dict(packet)
         value.pop("request_digest", None); value.pop("request_id", None)
         health = self.controller.health()
@@ -586,6 +612,17 @@ class LiveTransitionOperatorRuntime:
         if not isinstance(approval, Mapping) or value.get("stage_approval_digest") != approval.get("approval_digest"): raise TransitionError("operator_request_stage_approval_mismatch")
         now = self.clock().astimezone(timezone.utc)
         if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
+
+    def _verify_operator_provenance(self, packet: Mapping[str, Any]) -> None:
+        verifier = self.operator_provenance_verifier
+        if verifier is None:
+            raise TransitionError("operator_provenance_verifier_unavailable")
+        try:
+            verifier.verify(packet, current_time=self.clock())
+        except TransitionOperatorProvenanceError as exc:
+            raise TransitionError(str(exc)) from exc
+        except Exception as exc:
+            raise TransitionError("operator_provenance_verification_failed") from exc
 
     @staticmethod
     def _verify_packet_identity(packet: Mapping[str, Any]) -> None:
@@ -640,7 +677,8 @@ class LiveTransitionOperatorRuntime:
                     code = getattr(exc, "code", type(exc).__name__)
                     if request_id in consumed:
                         raise TransitionError("consumed_operator_request_conflict") from exc
-                    if isinstance(packet, Mapping):
+                    if (isinstance(packet, Mapping)
+                            and not str(code).startswith("operator_provenance")):
                         try:
                             recovered = self._recover_journal_outcome(packet)
                         except Exception as recovery_exc:
@@ -680,6 +718,9 @@ class LiveTransitionOperatorRuntime:
         session = self.slot.current_controller.observed_current_session()
         return {"schema_version": "sentientos.resident_cognitive_transition_live_status:v1",
                 "enabled": self.config.enabled, "configured": True,
+                "operator_provenance_posture": (
+                    "verifier_configured" if self.operator_provenance_verifier is not None
+                    else "unavailable_fail_closed"),
                 "protocol_id": self.config.protocol_id, "protocol_digest": self.config.protocol_digest,
                 "transition_id": self.controller.protocol.value["transition_id"],
                 "model_source_lineage": _plain(self.source_lineage_bindings),

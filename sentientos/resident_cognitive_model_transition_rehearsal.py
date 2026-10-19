@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, cast
@@ -203,17 +205,61 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         from sentientosd import (RuntimeMaintenanceSurfaces, _compose_live_resident_transition,
                                  _run_resident_cognition_and_transition)
         from .resident_cognitive_transition_operator import (
-            JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
+            CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, OPERATOR_TRUST_CATALOG_CUSTODY,
+            REQUEST_CUSTODY, LiveTransitionConfig,
             build_request, journal_identity, persist_protocol, persist_request,
         )
+        from .resident_cognitive_transition_operator_authentication import (
+            OPERATOR_PROVENANCE_SCHEMA, canonical_operator_request_payload,
+            operator_request_claims_digest, provenance_digest_for,
+            seal_request_with_operator_provenance,
+        )
+        from .resident_cognitive_transition_operator_trust_catalog import (
+            CATALOG_SCHEMA, catalog_digest_for,
+        )
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
         persist_protocol(handle.root, protocol)
+        operator_private_key = Ed25519PrivateKey.generate()
+        operator_public_bytes = operator_private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        operator_public_key = base64.urlsafe_b64encode(operator_public_bytes).decode("ascii").rstrip("=")
+        operator_identity = "synthetic-rehearsal-operator"
+        operator_key_id = "ed25519-sha256:" + hashlib.sha256(operator_public_bytes).hexdigest()
+        catalog_body = {"schema": CATALOG_SCHEMA, "catalog_version": 1, "entries": [{
+            "operator_identity": operator_identity, "signing_key_id": operator_key_id,
+            "algorithm": "ed25519", "public_key": operator_public_key,
+            "valid_from": "2026-01-01T00:00:00Z", "valid_until": "2027-01-01T00:00:00Z",
+            "revocation_status": "active",
+        }]}
+        catalog = {**catalog_body, "catalog_digest": catalog_digest_for(catalog_body)}
+        catalog_path = handle.root / OPERATOR_TRUST_CATALOG_CUSTODY
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+        with catalog_path.open("xb") as catalog_file:
+            catalog_file.write((json.dumps(catalog, sort_keys=True, separators=(",", ":")) + "\n").encode())
         live_config = LiveTransitionConfig(
             True, handle.identity.value, str(protocol.value["protocol_id"]),
             str(protocol.value["protocol_digest"]), REQUEST_CUSTODY, JOURNAL_CUSTODY,
-            journal_identity(protocol))
+            journal_identity(protocol), 1, str(catalog["catalog_digest"]))
         config_path = root / "live-transition-config.json"
-        config_path.write_text(json.dumps({"schema_version": "sentientos.resident_cognitive_transition_live_config:v1",
-            **live_config.__dict__}, sort_keys=True), encoding="utf-8")
+        config_path.write_text(json.dumps({"schema_version": CONFIG_SCHEMA_V2,
+            **{key: value for key, value in live_config.__dict__.items() if value is not None}},
+            sort_keys=True), encoding="utf-8")
+
+        def sign_rehearsal_request(request: Mapping[str, Any]) -> dict[str, Any]:
+            signed_at = FIXED.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            claims_digest = operator_request_claims_digest(request)
+            signature = operator_private_key.sign(canonical_operator_request_payload(
+                operator_identity=operator_identity, signing_key_id=operator_key_id,
+                signed_at=signed_at, request_claims_digest=claims_digest))
+            provenance = {"schema": OPERATOR_PROVENANCE_SCHEMA,
+                "operator_identity": operator_identity, "signing_key_id": operator_key_id,
+                "algorithm": "ed25519", "signed_at": signed_at,
+                "request_claims_digest": claims_digest,
+                "signature": base64.urlsafe_b64encode(signature).decode("ascii").rstrip("=")}
+            provenance["provenance_digest"] = provenance_digest_for(provenance)
+            return seal_request_with_operator_provenance(request, provenance)
 
         def transition_serving_factory(handle_arg: Any, kernel_arg: Any) -> ResidentCognitiveModelServingController:
             active = verify_current_activation(handle_arg, allow_synthetic_evidence_for_tests=True)["active_state"]
@@ -264,10 +310,11 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
             requested_stage=target, expected_prior_phase=controller.phase,
             expected_journal_head=str(head), stage_approval=approval,
             subordinate_approvals=subordinate, operation_id=str(approval["operation_identity"]),
-            correlation_id=str(approval["correlation_id"]), operator_identity="synthetic-rehearsal-operator",
-            operator_provenance={"posture": "synthetic_test_seam"},
+            correlation_id=str(approval["correlation_id"]), operator_identity=operator_identity,
+            operator_provenance={},
             created_at="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00",
             stage_evidence=evidence)
+        request = sign_rehearsal_request(request)
         persist_request(handle.root, request); live_requests.append(str(request["request_id"]))
         tick_id = f"transition:{target}"
         if len(live_requests) == 1:
