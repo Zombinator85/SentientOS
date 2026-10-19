@@ -7,6 +7,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,7 +16,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.production_self_reflection_campaign import (
     COMPONENTS, ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
     ProductionSelfReflectionProtocol, reconstruct_protocol, verify_production_readiness,
-    make_trial_receipt, verify_trial_receipt,
+    make_trial_receipt, verify_trial_receipt, ProductionSelfReflectionTransitionBindingObserver,
 )
 from sentientos.resident_cognitive_model_transition_experiment import PHASES
 from sentientos.self_model_intervention_experiment import CONDITION_ORDER
@@ -522,3 +523,38 @@ def test_negative_and_null_scores_are_valid_evidence(tmp_path: Path) -> None:
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, _protocol())
     receipt = campaign.run_one(verify_production_readiness(campaign.protocol, _observed()), lambda *_: evidence)
     assert receipt["status"] == "completed" and all(receipt["condition_scores"][c]["counts"]["supported_correct"] == 0 for c in CONDITION_ORDER)
+
+
+def test_transition_binding_observer_is_read_only_and_exact(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    owner_protocol = {"protocol_id": "transition-1", "protocol_digest": "transition-digest-1",
+        "installation_identity": "installation-1", "journal_identity": "journal-1", "phase_order": PHASES}
+    runtime = SimpleNamespace(
+        config=SimpleNamespace(protocol_id="transition-1", protocol_digest="transition-digest-1",
+            installation_identity="installation-1", journal_identity="journal-1"),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        status=lambda: {"protocol_id": "transition-1", "protocol_digest": "transition-digest-1",
+            "current_phase": PHASES[0], "current_journal_head": "journal-head-1",
+            "interrupted": False, "outstanding_stage": None, "replay_forbidden": False},
+        inspect_custody=lambda: {"read_only": True, "effect_performed": False, "request_count": 0},
+        process_one=lambda: pytest.fail("binding inspection must not process operator requests"),
+    )
+    before = dict(campaign.state())
+    result = ProductionSelfReflectionTransitionBindingObserver(campaign, runtime).inspect()
+    assert result["status"] == "transition_binding_verified"
+    assert all(result["checks"].values())
+    assert result["effect_performed"] is False
+    assert result["campaign_advanced"] is False
+    assert result["grants_authority"] is False
+    assert result["execution_allowed"] is False
+    assert dict(campaign.state()) == before
+
+    mismatched = SimpleNamespace(**vars(runtime))
+    mismatched.config = SimpleNamespace(**vars(runtime.config))
+    mismatched.config.protocol_digest = "different-transition-digest"
+    blocked = ProductionSelfReflectionTransitionBindingObserver(campaign, mismatched).inspect()
+    assert blocked["status"] == "transition_binding_unverified"
+    assert blocked["checks"]["campaign_transition_protocol_digest"] is False
+    assert blocked["execution_allowed"] is False
+    assert dict(campaign.state()) == before

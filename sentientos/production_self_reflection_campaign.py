@@ -500,3 +500,77 @@ def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
 __all__ = ["COMPONENTS", "ProductionSelfReflectionCampaign", "ProductionSelfReflectionError",
            "ProductionSelfReflectionProtocol", "derive_evidence_posture", "make_trial_receipt",
            "reconstruct_protocol", "verify_production_readiness", "verify_trial_receipt"]
+
+
+class ProductionSelfReflectionTransitionBindingObserver:
+    """Read-only binding check between a durable campaign and its live daemon owner.
+
+    This observer never processes operator requests, advances campaign state, or grants
+    execution authority. It reports whether the exact transition owner is bound to the
+    campaign protocol so a later in-process executor can make its own admission decision.
+    """
+
+    def __init__(self, campaign: ProductionSelfReflectionCampaign, transition_owner: Any):
+        self.campaign = campaign
+        self.transition_owner = transition_owner
+
+    def inspect(self) -> Mapping[str, Any]:
+        from .resident_cognitive_model_transition_experiment import PHASES
+
+        protocol = self.campaign._protocol_snapshot
+        protocol.verify()
+        transition = protocol.transition
+        with self.campaign._campaign_lock():
+            state = self.campaign.state()
+            self.campaign._verify_progress(state)
+            owner_status = dict(self.transition_owner.status())
+            custody = dict(self.transition_owner.inspect_custody())
+            config = self.transition_owner.config
+            owner_protocol = self.transition_owner.controller.protocol.value
+            checks = {
+                "campaign_transition_protocol_id": (
+                    transition.get("protocol_id") == config.protocol_id
+                    == owner_status.get("protocol_id") == owner_protocol.get("protocol_id")
+                ),
+                "campaign_transition_protocol_digest": (
+                    transition.get("protocol_digest") == config.protocol_digest
+                    == owner_status.get("protocol_digest") == owner_protocol.get("protocol_digest")
+                ),
+                "installation_identity": (
+                    protocol.installation_identity == config.installation_identity
+                    == owner_protocol.get("installation_identity")
+                ),
+                "journal_identity": (
+                    transition.get("journal_identity") == config.journal_identity
+                    == owner_protocol.get("journal_identity")
+                ),
+                "phase_order": (
+                    tuple(transition.get("phase_order", ())) == PHASES
+                    == tuple(owner_protocol.get("phase_order", ()))
+                ),
+                "campaign_progress_valid": state.get("validity") in {"valid_incomplete", "valid_complete"},
+                "campaign_trial_not_in_progress": state.get("in_progress_trial_id") is None,
+                "transition_at_predecessor_boundary": owner_status.get("current_phase") == PHASES[0],
+                "transition_not_interrupted": owner_status.get("interrupted") is False,
+                "transition_has_no_outstanding_stage": owner_status.get("outstanding_stage") is None,
+                "transition_replay_not_forbidden": owner_status.get("replay_forbidden") is False,
+                "operator_custody_read_only": custody.get("read_only") is True,
+                "operator_custody_effect_free": custody.get("effect_performed") is False,
+            }
+        bound = all(checks.values())
+        body: dict[str, Any] = {
+            "schema_version": "sentientos.production_self_reflection_transition_binding:v1",
+            "protocol_id": protocol.protocol_id,
+            "protocol_digest": protocol.protocol_digest,
+            "campaign_state_digest": state.get("state_digest"),
+            "transition_journal_head": owner_status.get("current_journal_head"),
+            "operator_request_count": custody.get("request_count"),
+            "status": "transition_binding_verified" if bound else "transition_binding_unverified",
+            "checks": checks,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        body["binding_digest"] = _digest(body)
+        return MappingProxyType(body)
