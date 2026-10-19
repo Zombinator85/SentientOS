@@ -6,6 +6,26 @@ pytestmark = pytest.mark.no_legacy_skip
 
 ROOT = Path(__file__).parents[1]
 
+def test_source_validation_runs_verified_transition_receipt_regressions():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify transition-stage receipt projection" in source_validation
+    nodes = (
+        "test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding",
+        "test_verified_stage_receipt_accepts_journal_recovered_completion",
+        "test_verified_stage_receipt_rejects_rejected_or_missing_custody",
+    )
+    for node in nodes:
+        assert node in source_validation
+    assert (
+        "cp glow/test_runs/test_run_provenance.json \\\n"
+        "            glow/test_runs/transition_receipt_provenance.json"
+    ) in source_validation
+    assert "transition_receipt_acceptance.json" in source_validation
+    assert "transition_receipt_acceptance_result.json" in source_validation
+    assert "source_validation_provenance.json" in source_validation
+
+
 def test_devcontainer_uses_private_virtualenv():
     text=(ROOT/".devcontainer/Dockerfile").read_text()
     assert "VIRTUAL_ENV=/opt/venv" in text and "PATH=/opt/venv/bin:$PATH" in text
