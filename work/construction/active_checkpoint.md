@@ -2,19 +2,20 @@
 
 ## Latest verified main
 
-PR #2448 added a daemon-composed read-only inspection for one explicitly supplied resident cognitive transition stage approval. The controller reconstructs one journal snapshot, verifies exact next-stage and prior-phase bindings plus protocol, installation, serving, history, validity, and synthetic posture, then rejects journal or history drift observed during inspection. The operator and daemon surfaces delegate this candidate inspection without reading or processing the request mailbox. No approval is selected or minted and no stage is executed. An unkeyed digest does not authenticate operator origin.
+PR #2450 added an installation-pinned Ed25519 operator provenance boundary to resident transition request processing. Configuration v2 binds the exact version and digest of a fixed, canonical public-key trust catalog. The daemon verifies the exact signed request claims, operator/key identity, key validity and revocation status before journal recovery or stage execution. V1 remains status-readable but cannot process live requests without trust. No private signing key or signing API is present in the daemon. Authenticated provenance does not grant stage authority; separately supplied stage approvals and independent owners still govern execution.
 
-Candidate dacf03dd9b65aa74658973ccfb952ddde3e8db99 passed local focused tests (56 passed), compilation, whitespace checks, and an exact-base Mypy comparison with zero new or removed diagnostics. The pre-publication hosted quality gate passed Administrator strict audits, pre-commit and landing finalizers, and the separate metadata guard. PR checks passed, including full CI, source acceptance, Mypy, pytest, FastAPI TestClient, docs linkcheck, Helm, Docker, Release, Codex CI, gradient regression, and invariants. PR #2448 merged regularly as 95377ecc940eb4f39bfdf61c92f0681cb3d6560d, tree 4876955c9bdd3a0c73e1344c859711a7e5c8a30a, with ordered parents d5f7e2d86d602e4be500891b964df10c20a2010b and dacf03dd9b65aa74658973ccfb952ddde3e8db99. Post-merge CI, Administrator quality gate, Docs Deploy/Pages, Codex CI, Docker, and invariants all passed. Forge Smoke was skipped by its workflow condition.
+Candidate 99d7c75630b97b756bd1694ad30ecf3b79f478e7 passed 86 local affected tests, compilation, whitespace validation, and an exact-base Mypy comparison with zero added diagnostics and 40 retired baseline diagnostics. Push CI, invariants, and the strict hosted quality gate passed. After correcting the PR title to match the tip commit subject, the fresh PR Quality Gate passed hosted Administrator audits, pre-commit and PR landing finalizers, and the separate pre-publication metadata guard on the exact head and tree. Full PR CI, Docker, Codex CI, Release, Gradient, lint, invariants, and QG passed. PR #2450 merged regularly as fb8e54af99f6545ac0760c04d7816bda7fe5008d, tree 703d7dac7a7130cd0520896a75e12304018f8ced, with ordered parents f465a9604272ec91928eb9d9b7ed76c49067b629 and 99d7c75630b97b756bd1694ad30ecf3b79f478e7. Post-merge CI, Administrator quality gate, Docs Deploy/Pages, Codex CI, Docker, and invariants passed. Forge Smoke was skipped by its workflow condition.
 
 ## Open evidence boundaries
 
-- The live request carries operator_identity and operator_provenance, but those claims are not authenticated by a verifier. The next dependency is a purpose-specific operator-provisioned verification boundary; missing or invalid trust must fail closed.
-- Scheduled Federation Health on current main has not been observed; nightly workflow publication still needs a least-privilege GitHub App or administrator-approved setting.
+- The daemon's verified stage-receipt projection does not yet carry the authenticated operator principal into canonical read-only planning. The next dependency is to bind that verified provenance into the receipt projection and plan while retaining read-only, non-authoritative planning.
+- No production operator trust catalog or private signing key is included. No production request or temporal A-to-B-to-A transition has been exercised.
+- The scheduled Federation Health execution on this merged main has not yet been observed. Its publication workflow still requires the repository Actions PR-creation setting or an approved least-privilege GitHub App credential. Audit Nightly and Nightly Self Check schedules remain to be observed.
 - Historical test provenance remains INTEGRITY_BROKEN; sequence-286 loss remains explicit.
-- Production temporal resident transition evidence remains uncollected. Production A-to-B-to-A still requires commissioned identities, distinct serving approvals, operator preregistration, authenticated stage approval provenance, and live execution.
-- Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
+- Sequence-382 through sequence-386 work and protected stale workspaces remain untouched.
 
-Latest verified main: `95377ecc940eb4f39bfdf61c92f0681cb3d6560d`, tree `4876955c9bdd3a0c73e1344c859711a7e5c8a30a`
-Latest construction segment: work/construction/segments/0472-read-only-stage-admission-planning.md
-Latest segment SHA-256: b899099fb553d2d04b558498a57a78ddc8cfcab18622c5f24575685df5b0a08b
-Sequence: 472 (daemon-composed read-only transition-stage admission planning)
+Latest verified main: `fb8e54af99f6545ac0760c04d7816bda7fe5008d`, tree `703d7dac7a7130cd0520896a75e12304018f8ced`
+Latest construction segment: work/construction/segments/0473-authenticate-live-transition-operator-requests.md
+Latest segment SHA-256: cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60
+Sequence: 473 (authenticated live transition operator provenance; authority remains with independent stage owners)
+
