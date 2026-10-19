@@ -36,33 +36,38 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     nodes = set()
     recent = 0
     latest_event_at: datetime | None = None
-    for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(entry, dict):
-            continue
-        payload = entry.get("data", entry)
-        if not isinstance(payload, dict):
-            continue
-        peer = payload.get("peer", "unknown")
-        try:
-            nodes.add(peer)
-        except TypeError:
-            continue
-        ts = entry.get("timestamp")
-        try:
-            if isinstance(ts, str) and ts:
-                parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                if parsed.tzinfo is None:
-                    parsed = parsed.replace(tzinfo=timezone.utc)
-                if latest_event_at is None or parsed > latest_event_at:
-                    latest_event_at = parsed
-                if cutoff <= parsed <= now:
-                    recent += 1
-        except (TypeError, ValueError):
-            continue
+    with LOG_PATH.open("rb") as log_file:
+        for raw_line in log_file:
+            try:
+                line = raw_line.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            payload = entry.get("data", entry)
+            if not isinstance(payload, dict):
+                continue
+            peer = payload.get("peer", "unknown")
+            try:
+                nodes.add(peer)
+            except TypeError:
+                continue
+            ts = entry.get("timestamp")
+            try:
+                if isinstance(ts, str) and ts:
+                    parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=timezone.utc)
+                    if latest_event_at is None or parsed > latest_event_at:
+                        latest_event_at = parsed
+                    if cutoff <= parsed <= now:
+                        recent += 1
+            except (TypeError, ValueError):
+                continue
     status = "healthy" if recent > 0 else "quiet"
     latest = (
         latest_event_at.isoformat().replace("+00:00", "Z")

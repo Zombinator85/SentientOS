@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a507e64e82f98e709be921c18655af0ad3c7a5af8d8f96bdab0a3197366d6fdc",
-    "latest_segment_sequence": 453,
-    "latest_segment_sha256": "145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
-    "latest_sequence": 453,
-    "source_commit": "5bb3d8e52aff0060cb088ef166d212488e312501",
-    "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5"
+    "checkpoint_sha256": "29d6b99d7449b03cfe92028ff065cbaffbe48db4673b22c081ad3ad61d8503e0",
+    "latest_segment_sequence": 454,
+    "latest_segment_sha256": "6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
+    "latest_sequence": 454,
+    "source_commit": "d8663b42c9b0efa1f1ea10217965e4891f2b1773",
+    "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e"
   },
-  "checkpoint_sha256": "a507e64e82f98e709be921c18655af0ad3c7a5af8d8f96bdab0a3197366d6fdc",
+  "checkpoint_sha256": "29d6b99d7449b03cfe92028ff065cbaffbe48db4673b22c081ad3ad61d8503e0",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 453,
+  "latest_sequence": 454,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5120,6 +5120,18 @@
       "sha256": "145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
       "source_commit": "5bb3d8e52aff0060cb088ef166d212488e312501",
       "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5"
+    },
+    {
+      "bytes": 1059,
+      "evidence_bytes": 1282,
+      "evidence_path": "work/construction/evidence/0454-stream-federation-health-log-utf8.json",
+      "evidence_sha256": "f834e62043cee6be6f1e1528b98b20b991fcbd500270c371f1423a37c6708843",
+      "path": "work/construction/segments/0454-stream-federation-health-log-utf8.md",
+      "predecessor": "segment-sha256:145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
+      "sequence": 454,
+      "sha256": "6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
+      "source_commit": "d8663b42c9b0efa1f1ea10217965e4891f2b1773",
+      "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e"
     }
   ],
   "source_acquisition": {
@@ -5129,7 +5141,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "00f4bde863d049f4697c88508c3764bf419241c5",
+  "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

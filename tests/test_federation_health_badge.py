@@ -169,3 +169,30 @@ def test_compute_health_skips_non_object_and_malformed_peer_rows(
 def test_compute_health_rejects_non_positive_window(health_badge, hours):
     with pytest.raises(ValueError, match="hours must be positive"):
         health_badge.compute_health(hours)
+
+
+def test_compute_health_skips_invalid_utf8_record_without_losing_valid_rows(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    before = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": {"peer": "before"},
+    }
+    after = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": {"peer": "after"},
+    }
+    log_path.write_bytes(
+        json.dumps(before).encode("utf-8")
+        + b"\n{\"timestamp\": \"invalid-utf8-\xff\"}\n"
+        + json.dumps(after).encode("utf-8")
+        + b"\n"
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+
+    assert stats["nodes"] == 2
+    assert stats["recent"] == 2
+    assert stats["status"] == "healthy"

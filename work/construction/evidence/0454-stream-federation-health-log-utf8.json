@@ -1,0 +1,32 @@
+{
+  "sequence": 454,
+  "title": "Stream Federation Health logs and isolate invalid UTF-8 rows",
+  "source_commit": "d8663b42c9b0efa1f1ea10217965e4891f2b1773",
+  "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e",
+  "predecessor_segment_sha256": "145946272d657d9d08dde83b221a81dabee13727f94b4d2841c0dd13f666201f",
+  "defect": "The report loader decoded the entire JSONL log at once, so one invalid UTF-8 row could abort processing of other valid records.",
+  "change": {
+    "source_paths": [
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py"
+    ],
+    "strategy": "Read binary records incrementally; skip only records that fail UTF-8 decoding, retaining existing JSON and semantic validation.",
+    "authority_changed": false,
+    "report_schema_changed": false
+  },
+  "regression": {
+    "test": "test_compute_health_skips_invalid_utf8_record_without_losing_valid_rows",
+    "expected_valid_records_preserved": true
+  },
+  "verification": {
+    "local_test": "not run",
+    "hosted_ci": "pending",
+    "canonical_hosted_matrix": "pending",
+    "construction_custody": "pending"
+  },
+  "limitations": {
+    "live_federation_telemetry_claimed": false,
+    "production_inference_claimed": false,
+    "protected_workspaces_changed": false
+  }
+}
