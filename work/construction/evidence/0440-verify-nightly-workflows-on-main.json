@@ -102,7 +102,7 @@
   "title": "Verify nightly audit and self-check on main",
   "verification": {
     "artifact_contents": "not independently unpacked; GitHub artifact metadata and job logs were read",
-    "construction_custody": "to verify locally before publication",
+    "construction_custody": "passed through sequence 440",
     "hosted_canonical_suite": "passed",
     "local_pytest": "not claimed; canonical hosted environment used",
     "source_identity": "main commit/tree verified via GitHub branch and commit API"

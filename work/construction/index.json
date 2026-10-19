@@ -4955,9 +4955,9 @@
     },
     {
       "bytes": 2552,
-      "evidence_bytes": 3926,
+      "evidence_bytes": 3917,
       "evidence_path": "work/construction/evidence/0440-verify-nightly-workflows-on-main.json",
-      "evidence_sha256": "f3a6b34fc17acfd334eb99151c259868d71a828f8cf4c33c7368896392685004",
+      "evidence_sha256": "d744be80b23e78b591d4bcf9bb2631d29631e9a6ff9c03817eb629a88103b284",
       "path": "work/construction/segments/0440-verify-nightly-workflows-on-main.md",
       "predecessor": "segment-sha256:0d1c190b1ca40d30b3645c841efb8dde03e4c8f55104ac94e97696a81d173255",
       "sequence": 440,
