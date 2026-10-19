@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
+import sentientosd
+
 from sentientos import production_self_reflection_campaign as campaign_module
 from sentientos.local_model_authority import digest_payload
 from sentientos.production_self_reflection_campaign import (
@@ -557,4 +559,58 @@ def test_transition_binding_observer_is_read_only_and_exact(tmp_path: Path) -> N
     assert blocked["status"] == "transition_binding_unverified"
     assert blocked["checks"]["campaign_transition_protocol_digest"] is False
     assert blocked["execution_allowed"] is False
+    assert dict(campaign.state()) == before
+
+
+def test_read_only_campaign_open_preserves_pending_trial_and_never_waits(tmp_path: Path) -> None:
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", _protocol())
+    state = dict(campaign.state())
+    campaign._write({**state, "in_progress_trial_id": "trial-1"})
+    before = dict(campaign.state())
+
+    observed = ProductionSelfReflectionCampaign.open_for_read_only_inspection(campaign.root)
+    assert dict(observed.state()) == before
+    assert dict(campaign.state()) == before
+    with campaign._campaign_lock():
+        with pytest.raises(ProductionSelfReflectionError, match="campaign_busy"):
+            ProductionSelfReflectionCampaign.open_for_read_only_inspection(campaign.root)
+
+
+def test_daemon_projects_read_only_campaign_transition_binding(tmp_path: Path, monkeypatch) -> None:
+    campaign_root = tmp_path / "campaign"
+    campaign = ProductionSelfReflectionCampaign.create(campaign_root, _protocol())
+    before = dict(campaign.state())
+    owner_protocol = {"protocol_id": "transition-1", "protocol_digest": "transition-digest-1",
+        "installation_identity": "installation-1", "journal_identity": "journal-1",
+        "phase_order": PHASES}
+    calls = {"process_one": 0}
+
+    def process_one():
+        calls["process_one"] += 1
+        return {"status": "no_request", "effect_performed": False}
+
+    runtime = SimpleNamespace(
+        config=SimpleNamespace(protocol_id="transition-1", protocol_digest="transition-digest-1",
+            installation_identity="installation-1", journal_identity="journal-1"),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        status=lambda: {"protocol_id": "transition-1", "protocol_digest": "transition-digest-1",
+            "current_phase": PHASES[0], "current_journal_head": "journal-head-1",
+            "interrupted": False, "outstanding_stage": None, "replay_forbidden": False},
+        inspect_custody=lambda: {"read_only": True, "effect_performed": False, "request_count": 0},
+        process_one=process_one,
+    )
+    surfaces = sentientosd.RuntimeMaintenanceSurfaces.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_configuration_error = None
+    surfaces._resident_transition_runtime = runtime
+    surfaces._feedback = {}
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT", str(campaign_root))
+
+    result = surfaces.process_resident_cognitive_transition_request(tick_id="tick-1")
+    binding = result["self_reflection_transition_binding"]
+    assert calls["process_one"] == 1
+    assert binding["status"] == "transition_binding_verified"
+    assert binding["effect_performed"] is False
+    assert binding["campaign_advanced"] is False
+    assert binding["grants_authority"] is False
+    assert binding["execution_allowed"] is False
     assert dict(campaign.state()) == before

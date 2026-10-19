@@ -91,4 +91,22 @@ subject to the existing executor and approval rails.
 
 ## Read-only live transition binding
 
-`ProductionSelfReflectionTransitionBindingObserver` checks the durable campaign's exact installation, transition protocol and journal identity against the already-composed in-process `LiveTransitionOperatorRuntime`. It verifies the campaign progress and inspects operator request custody while holding the campaign lock. Its output is a binding report only: it does not process a request, advance a trial, grant readiness, or authorize execution. A mismatched or interrupted transition remains unverified. The daemon owner and subordinate owners remain responsible for any later execution admission.
+`ProductionSelfReflectionTransitionBindingObserver` checks the durable
+campaign's exact installation, transition protocol, and journal identity
+against the already-composed in-process
+`LiveTransitionOperatorRuntime`. It verifies campaign progress and inspects
+operator request custody while holding a nonblocking campaign lock. Its output
+is a binding report only: it does not process a request, advance a trial, grant
+readiness, or authorize execution. A mismatched or interrupted transition
+remains unverified. The daemon owner and subordinate owners remain responsible
+for any later execution admission.
+
+## Daemon observation
+
+Set `SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT` to an absolute path
+for an existing private campaign to include the read-only transition binding
+in the daemon's operator-transition status. The daemon opens only existing
+campaign files and verifies them under a nonblocking lock. A busy or invalid
+campaign is reported as unverified. The daemon does not initialize or recover
+campaign state, submit operator requests, advance a trial, or grant readiness.
+With the setting absent, it performs no campaign inspection.
