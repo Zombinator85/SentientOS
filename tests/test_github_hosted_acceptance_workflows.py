@@ -151,7 +151,12 @@ def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audit
 
     parsed = yaml.safe_load(workflow)
     assert parsed["jobs"]["self-check"]["if"] == "${{ github.ref == 'refs/heads/main' }}"
+    administrator = workflow.split(
+        "- name: Verify hosted Administrator availability", 1
+    )[1].split("- name:", 1)[0]
+    assert 'test "$(sudo -n id -u)" = "0"' in administrator
     audit = workflow.split("- name: Verify audits", 1)[1].split("- name:", 1)[0]
+    assert workflow.index("Verify hosted Administrator availability") < workflow.index("Verify audits")
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in audit
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in audit
     assert "contents: write" not in workflow
@@ -199,7 +204,13 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     audit = workflow.split("  audit:", 1)[1].split("\n  repair:", 1)[0]
     repair_job = workflow.split("  repair:", 1)[1]
     initial = audit.split("- name: Verify audits before repair", 1)[1].split("- name:", 1)[0]
+    administrator = audit.split(
+        "- name: Verify hosted Administrator availability", 1
+    )[1].split("- name:", 1)[0]
     repair = repair_job.split("- name: Plan and apply safe audit repairs", 1)[1].split("- name:", 1)[0]
+    repair_administrator = repair_job.split(
+        "- name: Verify hosted Administrator availability", 1
+    )[1].split("- name:", 1)[0]
     after = repair_job.split("- name: Verify audits after repair", 1)[1].split("- name:", 1)[0]
     stage = repair_job.split("- name: Stage append-only repair evidence", 1)[1].split("- name:", 1)[0]
     assert "permissions:\n      contents: read" in audit
@@ -210,10 +221,18 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     assert parsed["jobs"]["audit"]["permissions"] == {"contents": "read"}
     assert parsed["jobs"]["repair"]["permissions"] == {"contents": "write", "pull-requests": "write"}
     assert parsed["jobs"]["audit"]["if"] == "${{ github.ref == 'refs/heads/main' }}"
-    assert parsed["jobs"]["repair"]["if"] == "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"
+    assert parsed["jobs"]["repair"]["if"] == (
+        "${{ github.ref == 'refs/heads/main' && needs.audit.result == 'success' "
+        "&& needs.audit.outputs.status != '0' }}"
+    )
     assert "if: needs.audit.outputs.status != '0'" not in repair_job
     assert "python -m scripts.verify_audits logs/ --strict --no-input" in initial
+    assert 'test "$(sudo -n id -u)" = "0"' in administrator
     assert "sudo -n env" in initial
+    assert 'test "$(sudo -n id -u)" = "0"' in repair_administrator
+    assert repair_job.index("Verify hosted Administrator availability") < repair_job.index(
+        "Plan and apply safe audit repairs"
+    )
     assert "python -m scripts.plan_audit_repairs logs/ --output \"$plan\"" in repair
     assert "python -m scripts.apply_audit_repairs --plan \"$plan\" --output \"$result\" --apply" in repair
     assert repair.count("sudo -n env") == 2
@@ -693,7 +712,8 @@ def test_workflow_dispatch_jobs_are_main_bound() -> None:
     )
     assert audit["jobs"]["audit"]["if"] == main_guard
     assert audit["jobs"]["repair"]["if"] == (
-        "${{ github.ref == 'refs/heads/main' && needs.audit.outputs.status != '0' }}"
+        "${{ github.ref == 'refs/heads/main' && needs.audit.result == 'success' "
+        "&& needs.audit.outputs.status != '0' }}"
     )
     assert self_check["jobs"]["self-check"]["if"] == main_guard
     assert federation["jobs"]["health"]["if"] == (
