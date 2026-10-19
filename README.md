@@ -55,11 +55,11 @@ Sequence 440 records PR #2405 regular-merging sequence 438 and its sequence 439 
 - **Provenance custody:** Historical test-provenance trends remain `INTEGRITY_BROKEN` at their unanchored start, including the preserved sequence-286 loss. No historical evidence was reconstructed or discarded.
 - **Production developmental evidence:** Hosted verification does not establish production A→B→A, learning, or improvement. A real resident transition still requires commissioned A/B identities, distinct serving approvals, and an operator-approved preregistered trial. No production inference occurred.
 
-## Current construction checkpoint (2026-10-19 11:05 UTC)
+## Current construction checkpoint (2026-10-19 11:23 UTC)
 
-Sequence 457 addresses a Required Quality Gate event-payload race in PR #2424. Runs #39241673948 and its retry carried the earlier PR title after the head commit and current title had advanced. Both failed the exact title check before parent-workspace reconstruction or pre-commit finalization. The workflow change makes title edits retrigger the gate and preserves the exact PR-title/commit-subject requirement.
+Sequence 458 verifies sequence 457's regular merge as main `f017629039c607cb6b75b85d75c53a4bee214adb`, preserving candidate tree `e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0`. The exact-head matrix passed, including append-only custody, integrated resource-to-cognition, planning/execution separation, the hosted finalizer, and the separate PR metadata guard. All post-merge CI, Required Quality Gate, invariants, Docker, and Docs Deploy checks passed; Forge Smoke was skipped by condition.
 
-Sequence 456 records PR #2423's regular merge as main `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`. Its exact-head and post-merge CI passed. The scheduled Federation Health run on current main remains unverified; push-triggered success is not scheduled evidence. Health output remains a configured local snapshot, not live telemetry. Historical provenance gaps and protected workspaces remain unchanged.
+The 11:23 UTC schedule query showed no Federation Health execution on current main. The latest scheduled Health run remains on older main; the successful run on `b5912ecc...` was push-triggered. Nightly Self Check and Audit Integrity passed on older heads before this merge. Audit repair publication still depends on an Actions-token PR creation path blocked by repository policy; the recent successful audit skipped repair. The health report remains a configured snapshot, not live telemetry.
 
 ## Read next
 

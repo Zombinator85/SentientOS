@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8848eac1333e33d8a8907045d87bca1a16a8ef92b1afcd98c1048cbc09feaf9a",
-    "latest_segment_sequence": 457,
-    "latest_segment_sha256": "bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a",
-    "latest_sequence": 457,
-    "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
-    "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
+    "checkpoint_sha256": "c34e48dbaaadbfc9932c29d1ef48ca69c65ed00fa9d81207de1f40121f53d7c0",
+    "latest_segment_sequence": 458,
+    "latest_segment_sha256": "a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
+    "latest_sequence": 458,
+    "source_commit": "f017629039c607cb6b75b85d75c53a4bee214adb",
+    "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0"
   },
-  "checkpoint_sha256": "8848eac1333e33d8a8907045d87bca1a16a8ef92b1afcd98c1048cbc09feaf9a",
+  "checkpoint_sha256": "c34e48dbaaadbfc9932c29d1ef48ca69c65ed00fa9d81207de1f40121f53d7c0",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 457,
+  "latest_sequence": 458,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5168,6 +5168,18 @@
       "sha256": "bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a",
       "source_commit": "0082e3d9d76337c2f25efb9defb49e40e87dc482",
       "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5"
+    },
+    {
+      "bytes": 2734,
+      "evidence_bytes": 3968,
+      "evidence_path": "work/construction/evidence/0458-verify-sequence457-merge-and-boundary.json",
+      "evidence_sha256": "9b565e3b5765880d688940d29ad333a5ec52f1b6b826f87a2df1fd0f61b439f6",
+      "path": "work/construction/segments/0458-verify-sequence457-merge-and-boundary.md",
+      "predecessor": "segment-sha256:bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a",
+      "sequence": 458,
+      "sha256": "a5c0ebe94793764836dae03a14ef6b097cd1335a2b415be982a87e1c88f9958e",
+      "source_commit": "f017629039c607cb6b75b85d75c53a4bee214adb",
+      "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0"
     }
   ],
   "source_acquisition": {
@@ -5177,7 +5189,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5",
+  "source_tree": "e829c68d6e77f94dea2e2efb0f92d9621ec6f6b0",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
