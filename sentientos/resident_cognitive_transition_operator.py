@@ -438,7 +438,9 @@ class LiveTransitionOperatorRuntime:
         if detail.get("recovered_from_transition_journal") is True:
             receipt_matches_journal = detail.get("terminal_entry_digest") == terminal["entry_digest"]
         else:
-            stage_result = detail.get("stage_result")
+            # Initial processing stores the controller result directly in detail;
+            # earlier projected receipts may wrap it as stage_result.
+            stage_result = detail.get("stage_result", detail)
             receipt_matches_journal = (
                 isinstance(stage_result, Mapping)
                 and stage_result.get("phase") == requested_stage
@@ -536,9 +538,16 @@ class LiveTransitionOperatorRuntime:
                 or attempt.get("evidence", {}).get("approval_digest") != packet.get("stage_approval_digest")):
             raise TransitionError("operator_request_journal_lineage_invalid")
         terminal = matches[1] if len(matches) == 2 else None
-        if terminal is not None and terminal.get("phase") != attempt.get("phase"):
-            raise TransitionError("operator_request_journal_lineage_invalid")
-        if terminal is not None and terminal.get("status") == "completed" and terminal.get("phase") == packet.get("requested_stage"):
+        if terminal is not None:
+            expected_terminal_phase = (
+                packet.get("requested_stage")
+                if terminal.get("status") == "completed"
+                else attempt.get("phase")
+            )
+            if (terminal.get("status") not in {"completed", "failed"}
+                    or terminal.get("phase") != expected_terminal_phase):
+                raise TransitionError("operator_request_journal_lineage_invalid")
+        if terminal is not None and terminal.get("status") == "completed":
             result = "stage_advanced"
         else:
             result = "incomplete"
