@@ -1,0 +1,92 @@
+{
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "merge": {
+    "candidate_checks": "all configured checks passed; greeting and publish skipped by configuration",
+    "first_parent": "1ee81c45efcc0565ea294944707e725ffaad3b6c",
+    "landing_gate": "pr_metadata_allowed",
+    "merge_commit": "d310c408b605108bbb017ca97d66d8e8009d8b19",
+    "merged": true,
+    "metadata_guard": "pr_metadata_guard_ready",
+    "method": "merge",
+    "pr_body_readback": "byte_equal",
+    "publication_handoff": "pr_publication_handoff_ready",
+    "pull_request": 2387,
+    "second_parent": "038c889f5e7d9083a9847191360a65983ba307ad",
+    "tree": "de41b99990ec903f5523dce82b518fe7560f517d"
+  },
+  "postmerge_checks": {
+    "ci": {
+      "canonical_planning_passed": 20,
+      "conclusion": "success",
+      "docs_build_and_strict_linkcheck": "passed",
+      "helm_k8s": "passed",
+      "run_id": 39186572640,
+      "self_check_failed": 0,
+      "self_check_passed": 143,
+      "self_check_skipped": 13,
+      "source_artifact_id": 12157889545,
+      "source_artifact_sha256": "23a4fe8c2db0cfd31d0c30f2ca52357a0e04e5e6abc12dce0b75fee6e56df682",
+      "source_sha": "d310c408b605108bbb017ca97d66d8e8009d8b19",
+      "source_validation_passed": 11,
+      "world_state_passed": 3
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39186572686
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39186572624
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39186572634
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39186572673
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39186572614
+    },
+    "required_quality_gate": {
+      "acceptance_failed": 0,
+      "acceptance_passed": 29,
+      "artifact_id": 12158755569,
+      "artifact_sha256": "0f623bb8d86c9f5ecd22571383fb6b16e8f6d056b126451de961745c7d541874",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "immutability": "passed",
+      "run_id": 39186572635,
+      "source_sha": "d310c408b605108bbb017ca97d66d8e8009d8b19",
+      "source_tree": "de41b99990ec903f5523dce82b518fe7560f517d",
+      "strict_audit": "passed"
+    }
+  },
+  "previous_segment_sha256": "2c1f35838367dcceac17262548d98eddbc55548d479a64bee8f8474ea20a39a6",
+  "scheduled_workflows": {
+    "federation_health_on_current_main": "pending_next_hourly_schedule",
+    "latest_federation_health": {
+      "postmerge_current_main": false,
+      "run_id": 39184847466,
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b"
+    },
+    "nightly_audit_integrity_on_current_main": "pending_next_scheduled_window",
+    "nightly_self_check_on_current_main": "pending_next_scheduled_window"
+  },
+  "sequence": 418,
+  "source_commit": "d310c408b605108bbb017ca97d66d8e8009d8b19",
+  "source_tree": "de41b99990ec903f5523dce82b518fe7560f517d",
+  "title": "Verify sequence 417 merge and exact-main gates",
+  "workspace_preservation": {
+    "sequence_382_through_386_preserved": true,
+    "sequence_411_workspace_modified": false,
+    "stale_sequence_178_workspace_modified": false
+  }
+}
