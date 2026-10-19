@@ -13,6 +13,25 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else ""
 
 
+def test_no_mismatches_summary_requires_zero_issues_and_zero_repair_activity() -> None:
+    empty_stats = {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
+
+    assert verify_audits._has_no_mismatches(
+        issue_count=0, stats=empty_stats, audit_chain_ok=True
+    )
+    assert not verify_audits._has_no_mismatches(
+        issue_count=1, stats=empty_stats, audit_chain_ok=True
+    )
+    assert not verify_audits._has_no_mismatches(
+        issue_count=0, stats=empty_stats, audit_chain_ok=False
+    )
+    assert not verify_audits._has_no_mismatches(
+        issue_count=0,
+        stats={"fixed": 0, "quarantined": 1, "unrecoverable": 0},
+        audit_chain_ok=True,
+    )
+
+
 def test_runtime_events_do_not_flag_baseline_drift(tmp_path: Path, monkeypatch) -> None:
     baseline = tmp_path / "logs" / "privileged_audit.jsonl"
     runtime_dir = tmp_path / "pulse" / "audit"
