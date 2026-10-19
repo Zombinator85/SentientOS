@@ -576,6 +576,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'len(nodes) != 30' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
+    assert "finalizer_exit_code=$?" in precommit
+    assert "set +e" in precommit and "set -e" in precommit
+    assert '"reasons": reasons' in precommit
     assert "--validation-profile solo" in precommit
     assert '--workspace-root "$PRECOMMIT_WORKSPACE"' in precommit
     assert "--allow-current-tracked-changes" in precommit
