@@ -232,6 +232,8 @@ jobs:
               --summary
           finalizer_exit_code=$?
           set -e
+          printf "Pre-commit finalizer process exit code: %s\\n" "$finalizer_exit_code"
+          cat "$RUNNER_TEMP/codex-finalizer-pre-commit.json"
           python - "$RUNNER_TEMP/codex-finalizer-pre-commit.json" "$finalizer_exit_code" <<'PY'
           import json, sys
           payload=json.load(open(sys.argv[1]))
