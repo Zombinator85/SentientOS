@@ -1,0 +1,9 @@
+# Sequence 414 — Bind solo validation plans to the landing gate
+
+The prior sequence-413 publication used the repository's solo validation profile, but its local landing-gate CLI rejected that valid profile because it unconditionally required exhaustive matrix evidence. The evidence library already accepted a validation plan, yet its metadata layer defaulted to exhaustive markers. This mismatch made the supported solo workflow impossible to seal consistently.
+
+The landing-gate CLI now accepts a validation-plan JSON path. It allows an omitted matrix only when that plan is supplied and refuses to build a solo handoff without an explicit PR body. Metadata validation chooses solo rules only from a verified plan, then checks that the plan is for `pr-metadata`, is ready for metadata publication, and binds the proposed and intended titles. A body claiming solo status without a plan still follows exhaustive validation and is rejected when its required evidence is absent. No validation requirement is waived based on body text.
+
+Focused canonical tests executed seven relevant cases with zero failures; fourteen existing tests marked by the repository's legacy-policy skip marker were skipped. Changed Python modules compiled; targeted mypy reported no issues; `git diff --check` passed. The local baseline wrapper could not find its required mypy toolchain in its isolated environment, so baseline verification remains unclaimed locally. Exact-candidate hosted validation, including the Administrator quality gate, is pending.
+
+This is source work based on verified main `1d5cc380052c0260c4f8a9f29a496f080f57be4a`, tree `47b02aba5e99764ef40738b4216d52dbfa3d2fb1`. The sequence-414 source candidate is not yet published or hosted-verified. Provenance's unanchored historical start and sequence-286 gap remain preserved; no production inference or runtime authority was introduced.

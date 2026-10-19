@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from sentientos.codex_pr_validation_evidence import build_validation_section_from_matrix, verify_pr_validation_evidence
 
@@ -16,6 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--intended-commit-title")
     verify.add_argument("--matrix-json")
     verify.add_argument("--matrix-json-path")
+    verify.add_argument("--validation-plan-json-path")
     verify.add_argument("--bootstrap-summary-json")
     verify.add_argument("--explicit-rollup-json")
 
@@ -31,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
             intended_commit_title=a.intended_commit_title,
             matrix_json_text=a.matrix_json,
             matrix_json_path=a.matrix_json_path,
+            validation_plan_json_text=Path(a.validation_plan_json_path).read_text(encoding="utf-8") if a.validation_plan_json_path else None,
             bootstrap_summary_json_text=a.bootstrap_summary_json,
             explicit_rollup_json_text=a.explicit_rollup_json,
         )

@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "68ae815881780920d0c3217a279ae134e88af8c7bf43c5be6a2a6ab565152386",
-    "latest_segment_sequence": 413,
-    "latest_segment_sha256": "e5c467c2728814c96a9d3dedd8d67f196bca1250ce298c2516f05eaa13668dea",
-    "latest_sequence": 413,
-    "source_commit": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
-    "source_tree": "9958cd612d945dd74707c7c05033cc60fabd1ae4"
+    "checkpoint_sha256": "12d1316b1c1d680c062d8abbb0d1d16bb5b6001b673bfb67a08a1a7b2b73c2e9",
+    "latest_segment_sequence": 414,
+    "latest_segment_sha256": "32d540b1a90439eaa4f6828f295087250f290c77878391e814a17d875978aa15",
+    "latest_sequence": 414,
+    "source_commit": "1d5cc380052c0260c4f8a9f29a496f080f57be4a",
+    "source_tree": "47b02aba5e99764ef40738b4216d52dbfa3d2fb1"
   },
-  "checkpoint_sha256": "68ae815881780920d0c3217a279ae134e88af8c7bf43c5be6a2a6ab565152386",
+  "checkpoint_sha256": "12d1316b1c1d680c062d8abbb0d1d16bb5b6001b673bfb67a08a1a7b2b73c2e9",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 413,
+  "latest_sequence": 414,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -4640,6 +4640,18 @@
       "sha256": "e5c467c2728814c96a9d3dedd8d67f196bca1250ce298c2516f05eaa13668dea",
       "source_commit": "ed6209634b8f8cf8c12984d37a1268b7fef960f1",
       "source_tree": "9958cd612d945dd74707c7c05033cc60fabd1ae4"
+    },
+    {
+      "bytes": 1888,
+      "evidence_bytes": 1663,
+      "evidence_path": "work/construction/evidence/0414-bind-solo-validation-plan-to-landing-gate.json",
+      "evidence_sha256": "23a0b9e1f98e7f226b00e8fb3cf712de61602fe6184fd39c54b6c9a558cb82b1",
+      "path": "work/construction/segments/0414-bind-solo-validation-plan-to-landing-gate.md",
+      "predecessor": "segment-sha256:e5c467c2728814c96a9d3dedd8d67f196bca1250ce298c2516f05eaa13668dea",
+      "sequence": 414,
+      "sha256": "32d540b1a90439eaa4f6828f295087250f290c77878391e814a17d875978aa15",
+      "source_commit": "1d5cc380052c0260c4f8a9f29a496f080f57be4a",
+      "source_tree": "47b02aba5e99764ef40738b4216d52dbfa3d2fb1"
     }
   ],
   "source_acquisition": {

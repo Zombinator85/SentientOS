@@ -1,0 +1,38 @@
+{
+  "sequence": 414,
+  "title": "Bind solo validation plans to the landing gate",
+  "source_commit": "1d5cc380052c0260c4f8a9f29a496f080f57be4a",
+  "source_tree": "47b02aba5e99764ef40738b4216d52dbfa3d2fb1",
+  "change": {
+    "files": [
+      "scripts/codex_pr_landing_gate.py",
+      "scripts/codex_pr_validation_evidence.py",
+      "sentientos/codex_pr_validation_evidence.py",
+      "tests/test_codex_pr_landing_gate.py",
+      "tests/test_codex_pr_landing_gate_script.py",
+      "tests/test_codex_pr_validation_evidence.py",
+      "tests/test_codex_pr_validation_evidence_script.py"
+    ],
+    "summary": "Bind solo PR metadata validation to a verified pr-metadata-phase plan and exact titles; allow no matrix only when such a plan is supplied; retain exhaustive checks otherwise."
+  },
+  "verification": {
+    "focused_suite": {"relevant_tests_passed": 7, "legacy_policy_skips": 14, "failures": 0},
+    "changed_python_compilation": "passed",
+    "targeted_mypy": "passed",
+    "git_diff_check": "passed",
+    "local_mypy_baseline_wrapper": "not_run_toolchain_unavailable_in_isolated_environment",
+    "hosted_exact_candidate_checks": "pending"
+  },
+  "invariants": {
+    "body_only_solo_profile_inference": false,
+    "exhaustive_matrix_contract_unchanged": true,
+    "production_inference": false,
+    "authority_expansion": false
+  },
+  "open_conditions": [
+    "Exact-candidate hosted privileged quality gate and CI",
+    "Current-main scheduled Federation Health and nightly runs",
+    "Unanchored provenance start and preserved sequence-286 provenance gap",
+    "Changed-output federation fixture blocked by repository Actions PR-creation setting"
+  ]
+}
