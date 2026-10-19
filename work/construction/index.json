@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "29d6b99d7449b03cfe92028ff065cbaffbe48db4673b22c081ad3ad61d8503e0",
-    "latest_segment_sequence": 454,
-    "latest_segment_sha256": "6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
-    "latest_sequence": 454,
-    "source_commit": "d8663b42c9b0efa1f1ea10217965e4891f2b1773",
-    "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e"
+    "checkpoint_sha256": "2f3b0b26ce552954d271eb9ab1e2b53e2a88e654a706ad74f3600bd578c6c419",
+    "latest_segment_sequence": 455,
+    "latest_segment_sha256": "318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
+    "latest_sequence": 455,
+    "source_commit": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
+    "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a"
   },
-  "checkpoint_sha256": "29d6b99d7449b03cfe92028ff065cbaffbe48db4673b22c081ad3ad61d8503e0",
+  "checkpoint_sha256": "2f3b0b26ce552954d271eb9ab1e2b53e2a88e654a706ad74f3600bd578c6c419",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 454,
+  "latest_sequence": 455,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5132,6 +5132,18 @@
       "sha256": "6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
       "source_commit": "d8663b42c9b0efa1f1ea10217965e4891f2b1773",
       "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e"
+    },
+    {
+      "bytes": 2141,
+      "evidence_bytes": 4739,
+      "evidence_path": "work/construction/evidence/0455-verify-sequence454-and-health-receipt-publication.json",
+      "evidence_sha256": "05046171239347cf1f4c8e3c67da6c628de573defe74deae3c1493df5d8b3fdb",
+      "path": "work/construction/segments/0455-verify-sequence454-and-health-receipt-publication.md",
+      "predecessor": "segment-sha256:6dcddbcc7982a5c8f3a0801a6f0bb8e61fb625374c381f303647114667051d38",
+      "sequence": 455,
+      "sha256": "318610ee4721cac68369998f8082ddd90f0afc63b7e9104ed25b7828a596cf2a",
+      "source_commit": "2e47454799bfe483bd04272b4e96cd4a71ee2f6b",
+      "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a"
     }
   ],
   "source_acquisition": {
@@ -5141,7 +5153,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "5a3f33f0e63c118e3de99fb8e5b3e7ee217bbd6e",
+  "source_tree": "2858a0a4a6807a2d9ae2f06da9cd87d0b317868a",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
