@@ -1,0 +1,17 @@
+# Sequence 427 — Record verified main workflow executions and integrations
+
+This evidence-only continuation closes the hosted-execution question for sequence 424 and records the completed integration of sequences 424 through 426.
+
+PR #2393 regular-merged sequence 424. Candidate `266a9a99da41abb0f30c983ec46aa675c6d83bc6` / tree `38124ee137974910354e1a1f9e38a9a68db6368e` is the second parent of main merge `5611dbddc6b4cc55116692833b1b201cd4c149c2`; the merged tree is unchanged. The exact-main push suite passed, including CI, Required Quality Gate, invariants, Docker, Codex CI, Pages, Federation Health, Nightly Audit Integrity, and Nightly Self Check. Forge Smoke was skipped by its guard.
+
+The push-triggered Federation Health run `39207087017` executed on main SHA `5611dbddc6b4cc55116692833b1b201cd4c149c2`. Its job passed the explicit `sudo -n id -u` Administrator preflight, ran the health updater through `sudo -n`, and uploaded artifact `12166157341` (223 bytes; SHA-256 `8145c1e0b2d09128c71315b44aca8c109f6f57fe94b7f417efd38a3f16f0fe8b`). An independent scheduled Federation Health execution, `39184847466`, also completed successfully on main SHA `944269a771c6f6300d6f8a559866ade9e262a56b`; its log records the same Administrator preflight and updater invocation, and its artifact is `12157279094`.
+
+Nightly Audit Integrity run `39207086986` and Nightly Self Check run `39207086970` completed successfully on main SHA `5611dbddc6b4cc55116692833b1b201cd4c149c2`. Both ran the strict audit command with `sudo -n`. Audit repair was skipped because the strict verification returned success. Self Check passed the mypy baseline ratchet, pytest airlock, and full configured pytest run (143 passed, 13 skipped); its provenance and trend artifacts were uploaded.
+
+The audit run also reported one `support_log.jsonl` previous-hash mismatch as optional and non-blocking while the protected privileged-audit baseline/runtime and audit-chain checks passed. This observation is preserved; no audit log was rewritten or repaired by this increment.
+
+PR #2394 regular-merged sequences 425 and 426 at `624e4ee32bb6dca9b45053571034613bb2bdbb0d`, tree `3e6457e82145275aeba048ce5a85093726704f7b`. The candidate `79b3d519a1b315c4cf6696023417b6ef70bffe6a` is the second parent after `5611dbddc6b4cc55116692833b1b201cd4c149c2`. Its PR-event CI, Required Quality Gate, Invariant Tests, Docker, Codex CI, Lint Benchmark, Release validation, and gradient regression all passed. Post-merge main CI, Required Quality Gate, Invariant Tests, Docker, Codex CI, and Docs Deploy also passed on the exact merge SHA; Forge Smoke was skipped by condition.
+
+The manual-dispatch authority fixes now restrict the relevant repository-code and publisher jobs to main, keep audit-baseline capture read-only, and isolate optional writes to the explicitly requested main-only job. The smoke workflow contract test now asserts both main-ref and opt-in conditions. No strict gate was weakened, no write permission was broadened, and no production authority or inference was added.
+
+Scheduled Federation Health on the latest merge SHA remains pending at this checkpoint; the next hourly run is expected at 06:17 UTC. Historical provenance remains `INTEGRITY_BROKEN` at its unanchored start, and production resident A→B→A remains unperformed pending commissioned identities, distinct serving approvals, and operator preregistration. Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.

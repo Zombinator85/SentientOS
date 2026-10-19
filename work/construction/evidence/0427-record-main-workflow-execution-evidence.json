@@ -1,0 +1,207 @@
+{
+  "candidate_status": "evidence_only_candidate_pending_hosted_validation",
+  "developmental_evidence": {
+    "authority_expansion": false,
+    "historical_provenance_integrity": "INTEGRITY_BROKEN_unanchored_start_preserved",
+    "production_inference": "not_run",
+    "production_resident_a_to_b_to_a": "not_run_operator_commissioning_required"
+  },
+  "federation_health": {
+    "post_merge_main_push": {
+      "administrator_preflight": "sudo -n id -u == 0",
+      "artifact": {
+        "bytes": 223,
+        "id": 12166157341,
+        "sha256": "8145c1e0b2d09128c71315b44aca8c109f6f57fe94b7f417efd38a3f16f0fe8b"
+      },
+      "conclusion": "success",
+      "run_id": 39207087017,
+      "source_commit": "5611dbddc6b4cc55116692833b1b201cd4c149c2",
+      "updater": "sudo -n",
+      "workflow_event": "push"
+    },
+    "scheduled_execution_on_latest_merge": "pending_next_hourly_slot_2026-10-19T06:17:00Z",
+    "scheduled_main_execution": {
+      "artifact_id": 12157279094,
+      "conclusion": "success",
+      "run_id": 39184847466,
+      "source_commit": "944269a771c6f6300d6f8a559866ade9e262a56b",
+      "workflow_event": "schedule"
+    }
+  },
+  "main_after_sequence_424": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 39207087029
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 39207087039
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 39207087129
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 39207086968
+      },
+      "federation_health": {
+        "conclusion": "success",
+        "run_id": 39207087017
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_condition",
+        "run_id": 39207087008
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 39207086962
+      },
+      "nightly_audit_integrity": {
+        "conclusion": "success",
+        "run_id": 39207086986
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 39207086970
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 39207086891
+      }
+    },
+    "commit": "5611dbddc6b4cc55116692833b1b201cd4c149c2",
+    "tree": "38124ee137974910354e1a1f9e38a9a68db6368e"
+  },
+  "nightly_workflows": {
+    "audit_integrity": {
+      "conclusion": "success",
+      "repair": "skipped_strict_verification_succeeded",
+      "run_id": 39207086986,
+      "source_commit": "5611dbddc6b4cc55116692833b1b201cd4c149c2",
+      "strict_sudo_n": "passed",
+      "support_log_observation": {
+        "classification": "optional_non_blocking",
+        "finding": "support_log.jsonl:1 prev hash mismatch",
+        "repaired": false
+      }
+    },
+    "self_check": {
+      "artifacts_uploaded": true,
+      "conclusion": "success",
+      "mypy": "baseline_improved",
+      "pytest": {
+        "passed": 143,
+        "skipped": 13
+      },
+      "run_id": 39207086970,
+      "source_commit": "5611dbddc6b4cc55116692833b1b201cd4c149c2",
+      "strict_sudo_n": "passed"
+    }
+  },
+  "predecessor_segment_sha256": "145e1eb2e4925a17930358123be29d5bbc086b0d27d523332766fc22ddf6007a",
+  "preservation": {
+    "sequences_382_through_386_preserved": true,
+    "stale_sequence_178_workspace_modified": false,
+    "stale_sequence_411_workspace_modified": false,
+    "stale_sequence_417_workspace_modified": false
+  },
+  "sequence": 427,
+  "sequence_424_merge": {
+    "candidate_commit": "266a9a99da41abb0f30c983ec46aa675c6d83bc6",
+    "candidate_tree": "38124ee137974910354e1a1f9e38a9a68db6368e",
+    "main_commit": "5611dbddc6b4cc55116692833b1b201cd4c149c2",
+    "method": "regular_two_parent_merge",
+    "pull_request": 2393,
+    "tree_unchanged": true
+  },
+  "sequence_426_main_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39207492221
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39207492177
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39207492289
+    },
+    "docs_deploy": {
+      "conclusion": "success",
+      "run_id": 39207492050
+    },
+    "forge_smoke": {
+      "conclusion": "skipped_by_condition",
+      "run_id": 39207492170
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39207492158
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": 39207492167
+    }
+  },
+  "sequence_426_merge": {
+    "candidate_commit": "79b3d519a1b315c4cf6696023417b6ef70bffe6a",
+    "candidate_tree": "3e6457e82145275aeba048ce5a85093726704f7b",
+    "main_commit": "624e4ee32bb6dca9b45053571034613bb2bdbb0d",
+    "method": "regular_two_parent_merge",
+    "pull_request": 2394,
+    "tree_unchanged": true
+  },
+  "sequence_426_pr_checks": {
+    "ci": {
+      "conclusion": "success",
+      "run_id": 39207131067
+    },
+    "codex_ci": {
+      "conclusion": "success",
+      "run_id": 39207131118
+    },
+    "docker": {
+      "conclusion": "success",
+      "run_id": 39207131034
+    },
+    "gradient_null_regression": {
+      "conclusion": "success",
+      "run_id": 39207131089
+    },
+    "invariants": {
+      "conclusion": "success",
+      "run_id": 39207131058
+    },
+    "lint_benchmark": {
+      "conclusion": "success",
+      "run_id": 39207131289
+    },
+    "release_validation": {
+      "conclusion": "success",
+      "run_id": 39207131187
+    },
+    "required_quality_gate": {
+      "conclusion": "success",
+      "run_id": 39207131155
+    }
+  },
+  "source_commit": "624e4ee32bb6dca9b45053571034613bb2bdbb0d",
+  "source_tree": "3e6457e82145275aeba048ce5a85093726704f7b",
+  "title": "Record main workflow executions and verified integrations",
+  "verification_before_publication": {
+    "change_scope": "append-only evidence, current checkpoint, and repository status summary",
+    "construction_custody": "passed; 426 segments before append",
+    "local_test_execution": {
+      "command": "python -m pytest tests/test_construction_continuation_custody.py -q",
+      "exit_code": 4,
+      "result": "conftest refused collection because the workspace is not the canonical minimal test install; no local test pass claimed",
+      "source_failure": "not_indicated"
+    },
+    "runtime_source_changed": false,
+    "stale_workspaces_touched": false
+  }
+}
