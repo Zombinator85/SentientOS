@@ -19,6 +19,6 @@ Scheduled Nightly Self Check #39235681245 passed on `b5912ecc...`, including Adm
 - Sequences 382–386 and stale sequence-178, sequence-411, and sequence-417 workspaces remain untouched.
 
 Latest verified main: `0082e3d9d76337c2f25efb9defb49e40e87dc482`, tree `4e8cd83f5c0c1e533d7c215157ee4dfe79cbbed5`.
-Latest construction segment: `work/construction/segments/0456-reconcile-integrated-checkpoint-and-schedule.md`
-Latest segment SHA-256: `0e61943da22148de5f31e4a2380df94b214dcf5f181a96332af01540b192c455`
+Latest construction segment: `work/construction/segments/0457-retrigger-landing-gate-on-pr-title-edit.md`
+Latest segment SHA-256: `bf239a131e6b5fef938980e25bff8789ab617c9c4fba6f9b7ade03234526450a`
 Sequence: 457 (title edit retriggers landing gate; exact-head matrix pending)
