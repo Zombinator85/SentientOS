@@ -1,0 +1,9 @@
+# Sequence 435 — Verify sequence 434 merge to main
+
+**Construction status: merged candidate; exact-head hosted checks passed.** PR #2401 regular-merged sequence 434 at main `4973d33b50e5e48ccaea239751787015fb5de894`. GitHub confirms the two-parent merge preserved the exact candidate tree `18de05c0d224871c1c09161e63014d7515f356ad`; changed test and construction custody blobs were independently read back before PR creation.
+
+Exact-candidate hosted checks passed: Required Quality Gate #39214047045 and #39214037145 (actual Administrator strict audit, immutability, finalizer, and metadata guard); canonical self-check #39214046992 rerun and #39214037116; source validation #39214046992 and #39214037116; invariant #39214047338 and #39214037213; lint #39214047047; validation #39214047127; Gradient #39214047110; build and smoke #39214047131 and #39214046999; Helm #39214046992 and #39214037116; docs #39214046992 and #39214037116. Canonical pytest reported 143 passed, 0 failed; Mypy baseline ratchet passed. Hosted source validation exercised the integrated resource-to-cognition lifecycle, exact acceptance nodes, and planning/execution separation.
+
+One initial self-check attempt encountered a transient Docker Hub HTTP 502 while pulling `python:3.11-slim`; its failed job was rerun and passed. A separate exact-head self-check also passed. No source failure was observed. Local pytest remained blocked by the canonical minimal-install guard; no local pytest pass is claimed.
+
+Sequence 434 covers malformed identity and missing installation root. The resource observer remains opt-in, read-only, and unverified until its first read. No production configuration, runtime authority, or inference changed. Post-merge main push and scheduled Federation Health/nightly executions on this SHA have not been observed and remain pending.
