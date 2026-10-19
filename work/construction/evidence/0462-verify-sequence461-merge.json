@@ -1,0 +1,84 @@
+{
+  "sequence": 462,
+  "title": "Verify sequence 461 integration",
+  "source_commit": "2826ba035a8847d3b364340db08775fcf5390cbc",
+  "source_tree": "d541228c3ed7fc000064181c4610c2637ad93f80",
+  "predecessor_segment_sha256": "0b467ede88553d8c422a36f37f489651f2585e1b813fe52aef6ff27b7528f901",
+  "merge": {
+    "pr": 2428,
+    "merge_commit": "2826ba035a8847d3b364340db08775fcf5390cbc",
+    "tree": "d541228c3ed7fc000064181c4610c2637ad93f80",
+    "parents": [
+      "cb1e60ac31e58ec411d431ee21cf530459066a61",
+      "14b6c3f67c043d33f74374aa4dbf9d3479e665a3"
+    ],
+    "method": "merge",
+    "merged_at": "2026-10-19T12:10:00Z"
+  },
+  "candidate_gate": {
+    "commit": "14b6c3f67c043d33f74374aa4dbf9d3479e665a3",
+    "push_quality_gate_run": 39248422898,
+    "conclusion": "success",
+    "metadata_guard": "pr_metadata_guard_ready",
+    "completed_before_pr_creation": true,
+    "pr_event_checks": "all_passed"
+  },
+  "post_merge_checks": [
+    {
+      "workflow": "Required Quality Gate",
+      "run": 39249936703,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "CI",
+      "run": 39249936487,
+      "conclusion": "success",
+      "jobs": {
+        "source_validation": "success",
+        "self_check": "success",
+        "docs_linkcheck": "success",
+        "helm_k8s": "success"
+      }
+    },
+    {
+      "workflow": "Invariant Tests",
+      "run": 39249936495,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docker Image",
+      "run": 39249936496,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Codex CI",
+      "run": 39249936391,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Docs Deploy",
+      "run": 39249936418,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Forge Smoke",
+      "run": 39249937889,
+      "conclusion": "skipped",
+      "reason": "workflow condition"
+    }
+  ],
+  "federation_health": {
+    "observed_at": "2026-10-19T12:17:56Z",
+    "scheduled_run_on_main": "not_found",
+    "latest_scheduled_run": 39218331969,
+    "latest_scheduled_head": "e66ac2f937db789380ae3da7f2999e4f2a5cd028"
+  },
+  "limitations": {
+    "production_self_reflection_trial": false,
+    "synthetic_rehearsal_claimed": false,
+    "audit_integrity_repair_publication_verified": false,
+    "actions_token_pr_creation_policy_blocks_repair_pr": true,
+    "source_behavior_changed": false,
+    "protected_workspace_changed": false
+  }
+}
