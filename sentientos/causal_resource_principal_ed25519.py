@@ -50,7 +50,7 @@ def _decode_canonical(value: object, expected_length: int) -> bytes | None:
 
 
 class CryptographyEd25519RootIssuerSignatureVerifier:
-    """Verify exact signatures with one already-resolved trusted public key."""
+    """Verify exact Ed25519 signatures with one trusted public key."""
 
     def __init__(self, *, backend_loader: Callable[[], Tuple[Any, Any]] = _load_cryptography) -> None:
         self._backend_loader = backend_loader
@@ -75,7 +75,10 @@ class CryptographyEd25519RootIssuerSignatureVerifier:
         return True
 
 
+CryptographyEd25519SignatureVerifier = CryptographyEd25519RootIssuerSignatureVerifier
+
 __all__ = [
     "CryptographyEd25519RootIssuerSignatureVerifier",
+    "CryptographyEd25519SignatureVerifier",
     "Ed25519VerificationBackendUnavailable",
 ]

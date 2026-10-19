@@ -45,7 +45,7 @@ from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
 from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary, digest as _transition_evidence_digest)
-from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
+from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, OPERATOR_TRUST_CATALOG_CUSTODY as RESIDENT_TRANSITION_OPERATOR_TRUST_CATALOG_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 from sentientos.local_model_production_activation import verify_current_activation
 from sentientos.local_runtime_provisioning import semantic_digest
@@ -3585,8 +3585,29 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
     # still the exact process-local token. A restarted quiesced experiment is blocked.
     if controller.health()["status"] == "interrupted":
         raise TransitionError("transition_journal_interrupted_or_unreconstructable")
+    operator_provenance_verifier = None
+    if config.operator_trust_catalog_version is not None:
+        from sentientos.causal_resource_principal_ed25519 import CryptographyEd25519SignatureVerifier
+        from sentientos.resident_cognitive_transition_operator_authentication import TransitionOperatorProvenanceVerifier
+        from sentientos.resident_cognitive_transition_operator_trust_catalog import (
+            ReadOnlyTransitionOperatorTrustCatalog,
+        )
+
+        try:
+            trust_catalog = ReadOnlyTransitionOperatorTrustCatalog.load(
+                installation_handle.root / RESIDENT_TRANSITION_OPERATOR_TRUST_CATALOG_CUSTODY,
+                expected_catalog_version=config.operator_trust_catalog_version,
+                expected_catalog_digest=str(config.operator_trust_catalog_digest),
+            )
+            operator_provenance_verifier = TransitionOperatorProvenanceVerifier(
+                trust_store=trust_catalog,
+                signature_verifier=CryptographyEd25519SignatureVerifier(),
+            )
+        except Exception as exc:
+            raise TransitionError("transition_operator_trust_catalog_unavailable") from exc
     return LiveTransitionOperatorRuntime(config=config,
         installation_root=installation_handle.root, controller=controller, slot=slot, gate=gate,
+        operator_provenance_verifier=operator_provenance_verifier,
         clock=clock, source_lineage_bindings=source_lineage)
 
 

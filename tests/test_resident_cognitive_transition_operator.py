@@ -3,20 +3,51 @@ from __future__ import annotations
 import json
 import multiprocessing
 import time
+import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sentientos.resident_cognitive_model_transition_experiment import PHASES, TransitionError, digest
+from sentientos.causal_resource_principal_ed25519 import CryptographyEd25519SignatureVerifier
+from sentientos.resident_cognitive_transition_operator_authentication import (
+    OPERATOR_PROVENANCE_SCHEMA, TrustedTransitionOperatorKey,
+    TransitionOperatorProvenanceError, TransitionOperatorProvenanceVerifier, canonical_operator_request_payload,
+    operator_request_claims_digest, provenance_digest_for, seal_request_with_operator_provenance,
+)
 from sentientos.resident_cognitive_transition_operator import (
-    CONFIG_SCHEMA, JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
     LiveTransitionOperatorRuntime, build_request, persist_request,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 25, 12, tzinfo=timezone.utc)
+_TEST_OPERATOR_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+_TEST_OPERATOR_PUBLIC_BYTES = _TEST_OPERATOR_PRIVATE_KEY.public_key().public_bytes(
+    encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+_TEST_OPERATOR_PUBLIC_KEY = base64.urlsafe_b64encode(_TEST_OPERATOR_PUBLIC_BYTES).decode().rstrip("=")
+_TEST_OPERATOR_KEY_ID = "ed25519-sha256:" + hashlib.sha256(_TEST_OPERATOR_PUBLIC_BYTES).hexdigest()
+
+
+class _TestOperatorTrustStore:
+    def lookup(self, *, operator_identity: str, signing_key_id: str, algorithm: str):
+        if (operator_identity, signing_key_id, algorithm) != ("operator-1", _TEST_OPERATOR_KEY_ID, "ed25519"):
+            return None
+        return TrustedTransitionOperatorKey(operator_identity, signing_key_id, algorithm,
+            _TEST_OPERATOR_PUBLIC_KEY, "2026-01-01T00:00:00Z", "2027-01-01T00:00:00Z", "active")
+
+
+def _operator_verifier():
+    return TransitionOperatorProvenanceVerifier(trust_store=_TestOperatorTrustStore(),
+        signature_verifier=CryptographyEd25519SignatureVerifier())
+
+
+_DEFAULT_OPERATOR_VERIFIER = object()
 
 
 class _Session:
@@ -88,16 +119,100 @@ def _request(**changes):
         requested_stage=PHASES[1], expected_prior_phase=PHASES[0], expected_journal_head="GENESIS",
         stage_approval=_approval(), subordinate_approvals=[], operation_id="operation-1",
         correlation_id="correlation-1", operator_identity="operator-1",
-        operator_provenance={"source": "local-console"}, created_at="2026-09-25T11:00:00+00:00",
+        operator_provenance={}, created_at="2026-09-25T11:00:00+00:00",
         expires_at="2026-09-25T13:00:00+00:00")
     values.update(changes)
-    return build_request(**values)
+    request = build_request(**values)
+    signed_at = "2026-09-25T11:30:00Z"
+    claims_digest = operator_request_claims_digest(request)
+    signature = _TEST_OPERATOR_PRIVATE_KEY.sign(canonical_operator_request_payload(
+        operator_identity=str(request["operator_identity"]), signing_key_id=_TEST_OPERATOR_KEY_ID,
+        signed_at=signed_at, request_claims_digest=claims_digest))
+    provenance = {"schema": OPERATOR_PROVENANCE_SCHEMA,
+        "operator_identity": request["operator_identity"], "signing_key_id": _TEST_OPERATOR_KEY_ID,
+        "algorithm": "ed25519", "signed_at": signed_at,
+        "request_claims_digest": claims_digest,
+        "signature": base64.urlsafe_b64encode(signature).decode().rstrip("=")}
+    provenance["provenance_digest"] = provenance_digest_for(provenance)
+    return seal_request_with_operator_provenance(request, provenance)
 
 
-def _runtime(tmp_path: Path, controller=None, verifier=None):
+def _runtime(tmp_path: Path, controller=None, verifier=None,
+             operator_provenance_verifier=_DEFAULT_OPERATOR_VERIFIER):
+    provenance_verifier = (_operator_verifier() if operator_provenance_verifier is _DEFAULT_OPERATOR_VERIFIER
+                           else operator_provenance_verifier)
     return LiveTransitionOperatorRuntime(config=_config(), installation_root=tmp_path,
         controller=controller or _Controller(), slot=_Slot(), gate=_Gate(),
-        subordinate_verifier=verifier, clock=lambda: NOW)
+        subordinate_verifier=verifier,
+        operator_provenance_verifier=provenance_verifier,
+        clock=lambda: NOW)
+
+
+def test_operator_provenance_authenticates_exact_request_claims() -> None:
+    request = _request()
+    authenticated = _operator_verifier().verify(request, current_time=NOW)
+    assert authenticated.operator_identity == "operator-1"
+    assert authenticated.signing_key_id == _TEST_OPERATOR_KEY_ID
+    assert authenticated.request_claims_digest == request["operator_provenance"]["request_claims_digest"]
+
+
+def test_operator_provenance_rejects_claim_changes_and_revoked_key() -> None:
+    request = _request()
+    changed = {**request, "correlation_id": "substituted"}
+    with pytest.raises(TransitionOperatorProvenanceError, match="operator_provenance_request_mismatch"):
+        _operator_verifier().verify(changed, current_time=NOW)
+
+    class RevokedTrustStore(_TestOperatorTrustStore):
+        def lookup(self, **kwargs):
+            entry = super().lookup(**kwargs)
+            assert entry is not None
+            return TrustedTransitionOperatorKey(entry.operator_identity, entry.signing_key_id,
+                entry.algorithm, entry.public_key, entry.valid_from, entry.valid_until, "revoked")
+
+    revoked = TransitionOperatorProvenanceVerifier(trust_store=RevokedTrustStore(),
+        signature_verifier=CryptographyEd25519SignatureVerifier())
+    with pytest.raises(TransitionOperatorProvenanceError, match="operator_provenance_key_not_active"):
+        revoked.verify(request, current_time=NOW)
+
+
+def test_missing_operator_trust_fails_closed_before_recovery_or_stage_effect(tmp_path: Path) -> None:
+    controller = _Controller()
+    recovery_calls = 0
+
+    def journal_entries():
+        nonlocal recovery_calls
+        recovery_calls += 1
+        return []
+
+    controller.journal.entries = journal_entries
+    runtime = _runtime(tmp_path, controller, operator_provenance_verifier=None)
+    request = _request()
+    persist_request(tmp_path, request)
+    result = runtime.process_one()
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_provenance_verifier_unavailable"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
+    assert recovery_calls == 0
+
+
+def test_missing_operator_trust_cannot_claim_recovered_journal_success(tmp_path: Path) -> None:
+    controller = _Controller()
+    request = _request()
+    controller.journal.entries = lambda: [
+        {"status": "attempted", "phase": PHASES[0], "entry_digest": "attempt",
+         "evidence": {"attempted_stage": request["requested_stage"],
+                      "approval_digest": request["stage_approval_digest"]}},
+        {"status": "completed", "phase": request["requested_stage"], "entry_digest": "terminal",
+         "evidence": {}},
+    ]
+    runtime = _runtime(tmp_path, controller, operator_provenance_verifier=None)
+    persist_request(tmp_path, request)
+    result = runtime.process_one()
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_provenance_verifier_unavailable"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
 
 
 def _process_one_transition_request(root: str, calls: Any, start: Any, results: Any) -> None:
@@ -360,6 +475,13 @@ def test_config_requires_fixed_installation_relative_custody(tmp_path: Path) -> 
               "journal_identity": "journal-1"}
     path = tmp_path / "config.json"; path.write_text(json.dumps(config), encoding="utf-8")
     assert LiveTransitionConfig.load(path) == _config()
+    config = {**config, "schema_version": CONFIG_SCHEMA_V2,
+              "operator_trust_catalog_version": 3,
+              "operator_trust_catalog_digest": "sha256:" + "b" * 64}
+    path.write_text(json.dumps(config), encoding="utf-8")
+    loaded = LiveTransitionConfig.load(path)
+    assert loaded.operator_trust_catalog_version == 3
+    assert loaded.operator_trust_catalog_digest == "sha256:" + "b" * 64
     config["request_custody"] = "/tmp/arbitrary"; path.write_text(json.dumps(config), encoding="utf-8")
     with pytest.raises(TransitionError, match="live_transition_config_invalid"):
         LiveTransitionConfig.load(path)
