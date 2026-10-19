@@ -3035,6 +3035,52 @@ class RuntimeMaintenanceSurfaces:
                     "reason": "planning_failed", "error_class": type(exc).__name__,
                     **unavailable}
 
+    def plan_production_self_reflection_transition_active_trial_binding(
+            self, request_id: str) -> dict[str, Any]:
+        """Plan a receipt-bound active-trial snapshot without executing its stage."""
+        from sentientos.production_self_reflection_campaign import (
+            ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
+            ProductionSelfReflectionTransitionBindingObserver,
+        )
+
+        unavailable = {
+            "effect_performed": False, "campaign_advanced": False,
+            "grants_authority": False, "execution_allowed": False,
+        }
+        configured_root = os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT")
+        if not configured_root:
+            return {"status": "not_configured", **unavailable}
+        campaign_root = Path(configured_root)
+        if not campaign_root.is_absolute():
+            return {"status": "transition_binding_unverified",
+                    "reason": "campaign_root_must_be_absolute", **unavailable}
+        transition_owner = self._resident_transition_runtime
+        if transition_owner is None:
+            return {"status": "transition_binding_unverified",
+                    "reason": "resident_transition_owner_unavailable", **unavailable}
+        try:
+            campaign = ProductionSelfReflectionCampaign.open_for_read_only_inspection(campaign_root)
+            observer = ProductionSelfReflectionTransitionBindingObserver(campaign, transition_owner)
+            plan = dict(observer.plan_next_stage(request_id))
+            if plan.get("status") != "next_stage_planned":
+                return {"status": "transition_binding_unverified",
+                        "reason": "transition_stage_plan_not_ready",
+                        "plan_status": plan.get("status"), **unavailable}
+            trial_id = plan.get("transition_request_trial_id")
+            if not isinstance(trial_id, str) or not trial_id:
+                return {"status": "transition_binding_unverified",
+                        "reason": "request_declared_campaign_trial_unavailable", **unavailable}
+            binding = campaign.bind_verified_transition_plan_to_active_trial(
+                plan, request_id=request_id, trial_id=trial_id,
+                transition_owner=transition_owner)
+            return dict(binding)
+        except ProductionSelfReflectionError as exc:
+            return {"status": "transition_binding_unverified", "reason": exc.code, **unavailable}
+        except Exception as exc:
+            return {"status": "transition_binding_unverified",
+                    "reason": "binding_planning_failed", "error_class": type(exc).__name__,
+                    **unavailable}
+
     def expand(self) -> list[Any]:
         evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
         genesis_inputs = evaluation.genesis_inputs
