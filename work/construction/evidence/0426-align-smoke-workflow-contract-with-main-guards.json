@@ -33,6 +33,12 @@
   },
   "source_commit": "770cafd84e585924992043f204b1e3c7cd602479",
   "source_failure": {
+    "artifact": {
+      "expired": false,
+      "id": 12165667467,
+      "name": "source-validation-770cafd84e585924992043f204b1e3c7cd602479",
+      "sha256": "6ccc3fa5ab0908470452ebb1750ed9c03d622bc94e1050efed16caed1d8ce1f3"
+    },
     "candidate_commit": "770cafd84e585924992043f204b1e3c7cd602479",
     "candidate_tree": "d159be57eca8fa584addc3d2fed5c783ef21a56b",
     "cause": "The test still required the former opt-in-only workflow if condition after sequence 425 added the intended main-ref restriction.",

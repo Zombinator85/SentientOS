@@ -4787,9 +4787,9 @@
     },
     {
       "bytes": 1722,
-      "evidence_bytes": 2765,
+      "evidence_bytes": 2998,
       "evidence_path": "work/construction/evidence/0426-align-smoke-workflow-contract-with-main-guards.json",
-      "evidence_sha256": "0fef953670f5bdc419702313f6c02c6f73524d1338387d29c7a3a84ffd58856d",
+      "evidence_sha256": "eed39e521fee6ebccdec554ba497602b7b58e322df38b2fbed6e7e26a2b51573",
       "path": "work/construction/segments/0426-align-smoke-workflow-contract-with-main-guards.md",
       "predecessor": "segment-sha256:322d52e98a657b177a75cf16108f254ac3eb94f7ae03991fd851c15c13c6bbae",
       "sequence": 426,
