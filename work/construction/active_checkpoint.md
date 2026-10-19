@@ -358,3 +358,15 @@ Latest verified main remains `5054ad41f600280ef5836c60a0964b38601b04b9`, tree `3
 Latest construction segment: `work/construction/segments/0412-forward-task-acceptance-through-publication-handoff.md`
 Latest segment SHA-256: 20690405cf1b334532e20c78852efa6aec044bf64f2b3ac9fc1bb0633dc4b10d
 Sequence: 412 (local regression verification passed; exact hosted candidate verification pending)
+
+
+## Sequence 413 checkpoint
+
+PR #2382 regular-merged sequences 411 and 412. Exact main is `ed6209634b8f8cf8c12984d37a1268b7fef960f1`, tree `9958cd612d945dd74707c7c05033cc60fabd1ae4`; both parent SHAs and preserved candidate identity are recorded below and in sequence 413 evidence. All exact-main Required Quality Gate, CI, Docker, Invariant Tests, Docs Deploy, and Codex CI runs passed. The QG artifact was independently downloaded and matched GitHub's digest; it binds UID 0, strict audit, immutability, and 29/29 acceptance nodes. CI source-validation evidence was independently downloaded and matched its digest; source validation, canonical planning, and World-State acceptance passed 11/11, 20/20, and 3/3 with no failed or skipped required nodes.
+
+The provenance window still reports `INTEGRITY_BROKEN` with an unanchored start, including the preserved sequence-286 gap. Current-main scheduled Federation Health and both nightly workflows remain pending. The Federation Health changed-output fixture remains blocked by the repository Actions PR-creation setting. No production inference or A→B→A trial occurred; commissioned model identities, separate serving approvals, and an operator-approved preregistered trial remain outstanding.
+
+Latest verified main: `ed6209634b8f8cf8c12984d37a1268b7fef960f1`, tree `9958cd612d945dd74707c7c05033cc60fabd1ae4`.
+Latest construction segment: `work/construction/segments/0413-verify-sequence412-merge-main.md`
+Latest segment SHA-256: `e5c467c2728814c96a9d3dedd8d67f196bca1250ce298c2516f05eaa13668dea`
+Sequence: 413 (exact-main post-merge checks verified)
