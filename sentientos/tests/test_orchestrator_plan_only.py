@@ -1031,10 +1031,11 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     class ServingObserver:
         def __init__(self) -> None:
             self.identity_calls = 0
+            self.current_identity = model_identity
 
         def observed_current_model_identity(self):
             self.identity_calls += 1
-            return model_identity
+            return self.current_identity
 
         def current_session(self):
             raise AssertionError("planning must not acquire a serving session")
@@ -1072,6 +1073,28 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     assert result.allocation.selected_reasons[0]["epistemic_positions"][0][
         "posture"] == "verified_positive_current"
     assert observer.identity_calls == 1
+    assert owner.current_state(proposition.proposition_id) == supported
+    assert recovered_owner.current_state(proposition.proposition_id) == supported
+
+    # A later planning tick observes a different serving model. Previously
+    # supported experience stays visible as evidence but cannot select the goal.
+    observer.current_identity = {"provider": "fixture", "model": "developmental-model-v2"}
+    drifted = surfaces.plan_canonical_goals(tick_id="2026-10-16T10:00:00Z")
+    assert drifted.work_plan is None
+    assert drifted.work_plan_path is None
+    assert drifted.work_plan_evidence_path is None
+    assert {item.goal_id: item.reason for item in drifted.allocation.deferred} == {
+        "g_experienced": "epistemic_applicability_unresolved"}
+    drifted_allocation = json.loads((tmp_path / drifted.allocation_artifact_path).read_text(
+        encoding="utf-8"))
+    assert drifted_allocation["selected_goals"] == []
+    drifted_position = drifted_allocation["deferred_goals"][0][
+        "epistemic_positions"][0]
+    assert drifted_position["posture"] == "verified_positive_current"
+    assert drifted_position["identity"]["state_id"] == supported.state_id
+    assert drifted_allocation["deferred_goals"][0]["reason"] == (
+        "epistemic_applicability_unresolved")
+    assert observer.identity_calls == 2
     assert owner.current_state(proposition.proposition_id) == supported
     assert recovered_owner.current_state(proposition.proposition_id) == supported
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
