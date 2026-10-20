@@ -199,6 +199,7 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     live_runtime = None
     live_surfaces = None
     live_requests: list[str] = []
+    operator_identity = "synthetic-rehearsal-operator"
     transition_workers: list[_Worker] = []
     resume_inference_deltas: list[int] = []
     if live_operator_ingress:
@@ -225,7 +226,6 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         operator_public_bytes = operator_private_key.public_key().public_bytes(
             encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
         operator_public_key = base64.urlsafe_b64encode(operator_public_bytes).decode("ascii").rstrip("=")
-        operator_identity = "synthetic-rehearsal-operator"
         operator_key_id = "ed25519-sha256:" + hashlib.sha256(operator_public_bytes).hexdigest()
         catalog_body = {"schema": CATALOG_SCHEMA, "catalog_version": 1, "entries": [{
             "operator_identity": operator_identity, "signing_key_id": operator_key_id,
@@ -291,7 +291,8 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
             correlation_id=f"transition-stage:{target}",
             current_activation=current_boundary["current_activation"],
             current_session=current_boundary["current_resident_serving_session"],
-            current_boundary=current_boundary, synthetic_test_approval=True,
+            current_boundary=current_boundary, approval_issuer_identity=operator_identity,
+            synthetic_test_approval=True,
             not_before="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00")
         if not live_operator_ingress:
             return controller.advance(approval=approval, evidence=evidence)

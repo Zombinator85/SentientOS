@@ -49,6 +49,17 @@ operator keypair, installs only its public key in its isolated trust catalog, an
 its synthetic requests before sending them through the same verifier. The private key is
 not written to installation custody or exposed to the daemon.
 
+The authenticated operator named by the request is also the issuer of its stage-order
+approval. The canonical approval's `approval_issuer_identity` must match the identity
+returned by signature verification for the exact request that embeds it. The operator's
+signature therefore authenticates the request and its approved stage artifact; an
+unkeyed approval digest alone cannot be submitted by another trusted operator. Membership
+in the installation-pinned operator trust catalog delegates this narrow stage-order
+approval role. It grants no activation, serving, inference, or writeback authority, which
+remain independently admitted by their owners. This ingress does not provide independent
+two-person approval; deployments requiring a separate approval issuer need an additional
+issuer-signature contract.
+
 Receipts form a hash chain at
 `state/resident-cognitive-transition/operator-request-receipts.jsonl`.  Any request ID
 already in that custody returns `already_consumed` without calling the controller.  The
@@ -80,12 +91,12 @@ approval, append a journal entry, consume a request, or invoke the stage owner.
 
 A `stage_approval_candidate_state_bound` result means only that the supplied
 object is internally digest-consistent and bound to the observed state. The
-approval digest is unkeyed, so this inspection does not authenticate the
-operator or prove that an operator issued the object. The result explicitly
+approval digest is unkeyed, so this inspection alone does not authenticate who
+issued the object. The result explicitly
 keeps `operator_origin_authenticated=false`, `execution_allowed=false`, and
-`grants_authority=false`; live stage processing separately verifies signed provenance,
-performs fresh state validation, and leaves all effect owners' independent admissions
-intact.
+`grants_authority=false`; live stage processing separately verifies signed provenance
+and requires the authenticated request operator to match the approval issuer, performs
+fresh state validation, and leaves all effect owners' independent admissions intact.
 
 ## Runtime ordering and status
 

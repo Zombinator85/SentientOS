@@ -134,7 +134,8 @@ def approval(ctl, slot, *, mutate=None):
     value = dict(make_stage_approval(protocol=ctl.protocol, requested_stage=target, prior_phase=ctl.phase,
         journal_head_digest=ctl.health()["journal_head"], correlation_id=f"stage:{target}",
         current_activation=current["current_activation"], current_session=current["current_resident_serving_session"],
-        current_boundary=current, synthetic_test_approval=True,
+        current_boundary=current, approval_issuer_identity="test-operator",
+        synthetic_test_approval=True,
         not_before="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00"))
     if mutate:
         value[mutate] = "tampered"
@@ -362,6 +363,52 @@ def test_stage_skip_is_rejected(tmp_path):
     bad = dict(approval(ctl, slot)); bad["requested_stage"] = "a_quiesced"
     body = {k: v for k, v in bad.items() if k != "approval_digest"}; bad["approval_digest"] = digest(body)
     with pytest.raises(TransitionError, match="stage_approval_binding_mismatch"): ctl.advance(approval=bad)
+
+
+def _redigest_stage_approval(value):
+    body = {key: item for key, item in value.items() if key != "approval_digest"}
+    return {**body, "approval_digest": digest(body)}
+
+
+@pytest.mark.parametrize("status", ["denied", "rejected", "pending", "approved "])
+def test_nonapproved_stage_approval_is_rejected_before_transition_effects(tmp_path, status):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied["approval_status"] = status
+
+    with pytest.raises(TransitionError, match="stage_approval_status_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
+def test_missing_stage_approval_status_is_rejected_as_noncanonical(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied.pop("approval_status")
+
+    with pytest.raises(TransitionError, match="stage_approval_schema_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
+@pytest.mark.parametrize("synthetic", [1, "true", None])
+def test_malformed_stage_approval_synthetic_flag_is_rejected(tmp_path, synthetic):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied["synthetic_test_approval"] = synthetic
+
+    with pytest.raises(TransitionError, match="stage_approval_synthetic_flag_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
 
 
 def test_transition_slot_rejects_bind_without_quiescence():
