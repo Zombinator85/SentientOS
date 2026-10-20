@@ -4,9 +4,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 
 import pytest
 
+import sentientos.work_plan as work_plan_module
 from sentientos.work_plan import (
     MAX_WORK_PLAN_EVIDENCE_INLINE_BINDING_BYTES,
     WORK_PLAN_EVIDENCE_DIR,
@@ -185,4 +187,81 @@ def test_interrupted_evidence_envelope_write_recovers_after_sidecar_publication(
         tmp_path, plan, evidence_binding)
     assert envelope_path == tmp_path / evidence_path
     assert load_work_plan_evidence(tmp_path, plan)["evidence_digest"] == digest
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative symlink custody is POSIX-only")
+@pytest.mark.parametrize(
+    "component",
+    ("glow", "glow/forge", "glow/forge/work_plan_evidence"),
+)
+def test_evidence_persistence_rejects_symlinked_directory_ancestry(
+    tmp_path: Path, component: str,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked_path = tmp_path / component
+    linked_path.parent.mkdir(parents=True, exist_ok=True)
+    linked_path.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(WorkPlanError, match="work_plan_evidence_directory_invalid"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative symlink custody is POSIX-only")
+def test_evidence_loading_rejects_symlinked_directory_ancestry(
+    tmp_path: Path,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+    external = tmp_path / "external"
+    shutil.copytree(tmp_path / "glow", external)
+    shutil.rmtree(tmp_path / "glow")
+    (tmp_path / "glow").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(WorkPlanError, match="work_plan_evidence_directory_invalid"):
+        load_work_plan_evidence(tmp_path, plan)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="symlink custody fixture is POSIX-only")
+def test_path_fallback_rejects_symlinked_directory_before_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / "glow").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(
+        work_plan_module, "_supports_descriptor_relative_evidence_storage", lambda: False)
+
+    with pytest.raises(WorkPlanError, match="work_plan_evidence_directory_invalid"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative symlink custody is POSIX-only")
+def test_evidence_persistence_does_not_follow_parent_swap_after_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    original_directory_open = work_plan_module._open_work_plan_evidence_directory
+
+    def swap_parent_after_open(root: Path, *, create: bool) -> tuple[int | None, Path]:
+        directory_fd, evidence_dir = original_directory_open(root, create=create)
+        if create and directory_fd is not None:
+            (root / "glow").rename(tmp_path / "detached_glow")
+            (root / "glow").symlink_to(outside, target_is_directory=True)
+        return directory_fd, evidence_dir
+
+    monkeypatch.setattr(
+        work_plan_module, "_open_work_plan_evidence_directory", swap_parent_after_open)
+    with pytest.raises(WorkPlanError, match="work_plan_evidence_directory_invalid"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    assert list(outside.iterdir()) == []
 
