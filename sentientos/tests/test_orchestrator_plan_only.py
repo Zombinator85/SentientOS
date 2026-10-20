@@ -975,3 +975,100 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     with pytest.raises(WorkPlanError, match="work_plan_evidence_digest_mismatch"):
         load_work_plan_evidence(tmp_path, with_history.work_plan)
     assert list((tmp_path / "glow/forge/work_runs").glob("run_*.json")) == []
+
+
+def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sentientos.local_model_authority import digest_payload
+    from sentientos.persistent_epistemic_state import make_evidence_binding
+
+    model_identity = {"provider": "fixture", "model": "developmental-model-v1"}
+    identity_digest = "sha256:" + digest_payload(model_identity)
+    proposition = make_proposition(
+        namespace="embodiment", subject="task_family:integer_affine_prediction",
+        predicate="heldout_episode_supported",
+        object_value={"family": "integer_affine_prediction"}, polarity="positive",
+        qualifiers={"fixture": "canonical-plan"},
+        temporal_scope={"kind": "measured_episode"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": identity_digest},
+        proposition_class="causal_hypothesis",
+        statement="A current measured episode supports this model-bound task family.")
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    owner.register_proposition(proposition)
+    support = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="developmental-run:positive-current-episode",
+        source_digest="sha256:" + "b" * 64,
+        source_schema="sentientos.developmental_run:v1",
+        source_class="deterministic_task_family_evaluation",
+        observation_time="2026-10-16T08:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group=None,
+        upstream_binding_ids=(), freshness="current", reliability_posture="supports")
+    owner.bind_evidence(support)
+    supported, event = owner.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="supported", reason="new_evidence",
+        active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
+        correlation_id="positive-current-experience", tick=1,
+        recorded_at="2026-10-16T08:00:00Z")
+    graph = GoalGraph(schema_version=1, goals=(Goal(
+        "g_experienced", "continue the measured task family", 3.0, 20, (),
+        "rule", 1, 1,
+        ("integrity", f"epistemic_proposition:{proposition.proposition_id}",
+            "epistemic_task_family:integer_affine_prediction"), True),))
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    persist_goal_graph(tmp_path, graph)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+
+    class ServingObserver:
+        def __init__(self) -> None:
+            self.identity_calls = 0
+
+        def observed_current_model_identity(self):
+            self.identity_calls += 1
+            return model_identity
+
+        def current_session(self):
+            raise AssertionError("planning must not acquire a serving session")
+
+        def invoke(self, *_args, **_kwargs):
+            raise AssertionError("planning must not invoke a model")
+
+    observer = ServingObserver()
+
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("canonical planning must not execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, epistemic_state_owner=owner,
+        epistemic_state_config={"status": "configured",
+            "cognitive_consumption_enabled": True, "max_cognitive_projection_count": 1},
+        resident_cognitive_invoker=observer)
+    result = surfaces.plan_canonical_goals(tick_id="2026-10-16T09:00:00Z")
+
+    assert result.work_plan is not None
+    assert result.work_plan.selected_goals == ("g_experienced",)
+    assert result.target_active_model_identity_digest == identity_digest
+    assert result.target_identity_observed_at == "2026-10-16T09:00:00Z"
+    assert result.work_plan_evidence_path is not None
+    evidence = json.loads((tmp_path / result.work_plan_evidence_path).read_text(
+        encoding="utf-8"))
+    binding = evidence["evidence_binding"]
+    scope = binding["review_scopes"][proposition.proposition_id]
+    assert scope["position_posture"] == "verified_positive_current"
+    assert scope["position_identity"]["state_id"] == supported.state_id
+    assert scope["position_identity"]["state_digest"] == supported.state_digest
+    assert scope["position_identity"]["update_event_id"] == event.event_id
+    assert binding["goal_applicability"]["g_experienced"] is None
+    assert result.allocation.selected_reasons[0]["epistemic_positions"][0][
+        "posture"] == "verified_positive_current"
+    assert observer.identity_calls == 1
+    assert owner.current_state(proposition.proposition_id) == supported
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
