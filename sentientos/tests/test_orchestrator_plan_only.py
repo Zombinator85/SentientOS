@@ -16,6 +16,7 @@ from sentientos.goal_executor import ExecutorState, GoalExecutor, GoalPlanner
 from sentientos.goal_graph import Goal, GoalGraph, goal_graph_hash, persist_goal_graph
 from sentientos.orchestrator import (GoalPlanningResult,
     _emit_goal_allocation_artifact, _goal_tagged_epistemic_positions,
+    _goal_tagged_epistemic_priority_selection,
     _latest_verified_prior_plan,
     _plan_goal_work, plan_goals)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
@@ -24,7 +25,8 @@ from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
     TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
-    persist_work_plan_evidence, persist_work_run, work_run_id)
+    persist_work_plan_evidence, persist_work_run, work_plan_id_from_evidence,
+    work_run_id)
 from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
     WorkPlanJournalError)
 from sentientos.risk_budget import RiskBudget
@@ -64,6 +66,19 @@ def test_goal_history_priorities_respect_projection_bound_deterministically() ->
         GoalGraph(schema_version=1, goals=goals)) == expected
     assert _goal_tagged_epistemic_positions(
         GoalGraph(schema_version=1, goals=tuple(reversed(goals)))) == expected
+    assert _goal_tagged_epistemic_priority_selection(
+        GoalGraph(schema_version=1, goals=goals)) == (expected, True)
+    assert _goal_tagged_epistemic_priority_selection(
+        GoalGraph(schema_version=1, goals=goals[:512])) == (expected, False)
+    duplicate = Goal("duplicate", "same priority", 1.0, 0, (),
+        "task:forge_propose", 1, 1,
+        (f"epistemic_proposition:{expected[0]}",), True)
+    disabled = Goal("disabled-overflow", "disabled", 1.0, 0, (),
+        "task:forge_propose", 1, 1,
+        ("epistemic_proposition:proposition:" + "f" * 24,), False)
+    assert _goal_tagged_epistemic_priority_selection(
+        GoalGraph(schema_version=1, goals=goals[:512] + (duplicate, disabled))) == (
+            expected, False)
 
 
 def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
@@ -126,8 +141,27 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
         tick_id="2033-05-18T03:33:20+00:00")
     assert feedback["execution_performed"] is False
     assert feedback["authority"] is False
+    assert feedback["prior_epistemic_priority_overflowed"] is True
+    assert feedback["prior_epistemic_priority_limit"] == 512
     evidence = json.loads((tmp_path / feedback[
         "work_plan_evidence_path"]).read_text(encoding="utf-8"))
+    assert evidence["evidence_binding"][
+        "prior_epistemic_priority_admission"] == {
+            "limit": 512, "overflowed": True}
+    binding = evidence["evidence_binding"]
+    changed_admission = {
+        **binding,
+        "prior_epistemic_priority_admission": {
+            "limit": 512, "overflowed": False},
+    }
+    assert work_plan_id_from_evidence(
+        binding["planning_time"], binding["goal_graph_hash"],
+        binding["allocation_artifact_path"], changed_admission,
+    ) != evidence["plan_id"]
+    allocation = json.loads((tmp_path / feedback[
+        "allocation_artifact_path"]).read_text(encoding="utf-8"))
+    assert allocation["prior_epistemic_priority_overflowed"] is True
+    assert allocation["prior_epistemic_priority_limit"] == 512
     manifest = evidence["evidence_binding"]["projection_omission_manifest"]
     assert manifest["prioritized_proposition_ids"] == [admitted.proposition_id]
     [omitted_identity] = manifest["omitted_state_identities"]

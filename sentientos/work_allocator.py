@@ -26,6 +26,8 @@ class AllocationDecision:
     budget_summary: dict[str, int]
     prior_epistemic_projection_digest: str | None = None
     prior_epistemic_projection_omitted_state_count: int | None = None
+    prior_epistemic_priority_overflowed: bool | None = None
+    prior_epistemic_priority_limit: int | None = None
 
 
 _RECOVERY_ALLOWED_TAGS = {"integrity", "stability"}
@@ -42,6 +44,8 @@ def allocate_goals(
     quarantine_active: bool,
     posture: str,
     prior_epistemic_projection: EpistemicCognitiveProjection | None = None,
+    prior_epistemic_priority_overflowed: bool | None = None,
+    prior_epistemic_priority_limit: int | None = None,
     target_active_model_identity_digest: str | None = None,
     target_identity_observed_at: str | None = None,
     planning_time: str | None = None,
@@ -149,6 +153,9 @@ def allocate_goals(
         prior_epistemic_projection_digest=projection_digest,
         prior_epistemic_projection_omitted_state_count=(
             projection_omitted_state_count),
+        prior_epistemic_priority_overflowed=(
+            prior_epistemic_priority_overflowed),
+        prior_epistemic_priority_limit=prior_epistemic_priority_limit,
     )
 
 

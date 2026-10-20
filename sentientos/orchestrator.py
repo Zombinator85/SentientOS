@@ -139,7 +139,12 @@ def plan_goals(
             and prior_epistemic_projection_max_states is not None):
         raise ValueError("epistemic_projection_bound_requires_owner")
     graph = load_goal_graph(root)
-    prioritized_proposition_ids = _goal_tagged_epistemic_positions(graph)
+    if prior_epistemic_projection_owner is None:
+        prioritized_proposition_ids = _goal_tagged_epistemic_positions(graph)
+        priority_overflowed = None
+    else:
+        prioritized_proposition_ids, priority_overflowed = (
+            _goal_tagged_epistemic_priority_selection(graph))
     prior_projection = None
     if prior_epistemic_projection_owner is not None:
         if (not isinstance(prior_epistemic_projection_max_states, int)
@@ -168,6 +173,11 @@ def plan_goals(
         quarantine_active=quarantine.active, posture=posture.posture,
         mutation_allowed=integrity_status.mutation_allowed,
         prior_epistemic_projection=prior_projection,
+        prior_epistemic_priority_overflowed=(
+            priority_overflowed if prior_epistemic_projection_owner is not None else None),
+        prior_epistemic_priority_limit=(
+            MAX_COGNITIVE_PROJECTION_PRIORITIES
+            if prior_epistemic_projection_owner is not None else None),
         target_model_identity_observer=target_model_identity_observer,
         planning_time=current_time, catalog_timestamp=now, context="orchestrator_tick",
     )
@@ -196,6 +206,32 @@ def _goal_tagged_epistemic_positions(graph: GoalGraph) -> tuple[str, ...]:
             if len(priorities) == MAX_COGNITIVE_PROJECTION_PRIORITIES:
                 return tuple(priorities)
     return tuple(priorities)
+
+
+def _goal_tagged_epistemic_priority_selection(
+        graph: GoalGraph) -> tuple[tuple[str, ...], bool]:
+    """Return bounded deterministic priorities and whether a unique tag overflowed."""
+    marker = "epistemic_proposition:"
+    priorities: list[str] = []
+    seen: set[str] = set()
+    for goal in order_goals_deterministic(graph.goals):
+        if not goal.enabled:
+            continue
+        for tag in goal.tags:
+            if not tag.startswith(marker):
+                continue
+            proposition_id = tag[len(marker):]
+            suffix = proposition_id.removeprefix("proposition:")
+            if (not proposition_id.startswith("proposition:")
+                    or len(suffix) != 24
+                    or any(char not in "0123456789abcdef" for char in suffix)
+                    or proposition_id in seen):
+                continue
+            if len(priorities) == MAX_COGNITIVE_PROJECTION_PRIORITIES:
+                return tuple(priorities), True
+            seen.add(proposition_id)
+            priorities.append(proposition_id)
+    return tuple(priorities), False
 
 
 def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
@@ -1088,6 +1124,8 @@ def _plan_goal_work(
     pressure_level: int, quarantine_active: bool, posture: str,
     mutation_allowed: bool,
     prior_epistemic_projection: EpistemicCognitiveProjection | None,
+    prior_epistemic_priority_overflowed: bool | None = None,
+    prior_epistemic_priority_limit: int | None = None,
     target_model_identity_observer: object | None, planning_time: str,
     catalog_timestamp: str, context: str,
     trace: GovernanceTraceRecorder | None = None,
@@ -1117,6 +1155,9 @@ def _plan_goal_work(
         graph=graph, budget=budget, operating_mode=operating_mode,
         integrity_pressure_level=pressure_level, quarantine_active=quarantine_active,
         posture=posture, prior_epistemic_projection=prior_epistemic_projection,
+        prior_epistemic_priority_overflowed=(
+            prior_epistemic_priority_overflowed),
+        prior_epistemic_priority_limit=prior_epistemic_priority_limit,
         target_active_model_identity_digest=target_identity_digest,
         target_identity_observed_at=target_identity_observed_at,
         planning_time=planning_time,
@@ -1346,6 +1387,9 @@ def _emit_goal_allocation_artifact(
         "budget_summary": allocation.budget_summary,
         "target_active_model_identity_digest": target_identity_digest,
         "target_identity_observed_at": target_identity_observed_at,
+        "prior_epistemic_priority_overflowed": (
+            allocation.prior_epistemic_priority_overflowed),
+        "prior_epistemic_priority_limit": allocation.prior_epistemic_priority_limit,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_goal_allocation_once(path, payload)
