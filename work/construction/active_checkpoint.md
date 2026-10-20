@@ -232,3 +232,17 @@ Latest verified source merge: `54c9764b6726a46e6f7d667232e726ba2795007a`, tree `
 Latest construction segment: work/construction/segments/0495-canonical-cli-verified-allocation-identity.md
 Latest segment SHA-256: c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6
 Sequence: 495
+
+
+## Sequence 496 — bind persisted evidence to direct execution
+
+PR #2492 closes the direct GoalExecutor path that could omit a digest while plan evidence existed. The executor now rejects that omission before journal or task effects, and keeps nonpersisted manual plans unchanged. The 84 affected local tests and exact candidate hosted verification passed. The Quality Gate's hosted Administrator audits, acceptance, finalizer, and separate metadata guard passed for candidate a6f6c1eee0bfc8021fc08168662dc050802f0b7a, tree d268c38ca20262fcc14702ebbff11e33b10faa26; the finalizer artifact SHA-256 was independently matched.
+
+PR #2492 merged with history preserved as 020ee1a135f013aa3b395d6f3fd69b5775e5a4ca; remote main readback matched both verified source blobs and tree d268c38ca20262fcc14702ebbff11e33b10faa26.
+
+No production task, inference, campaign, or transition was executed. The validation profile was solo, with exhaustive matrix output not requested.
+
+Latest verified source merge: `020ee1a135f013aa3b395d6f3fd69b5775e5a4ca`, tree `d268c38ca20262fcc14702ebbff11e33b10faa26`
+Latest construction segment: `work/construction/segments/0496-require-persisted-plan-evidence-digest.md`
+Latest segment SHA-256: `9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1`
+Sequence: 496

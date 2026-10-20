@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "dde2b8fd16c4e58ceb4d0a353151f91f5ecffb854902aea62cfb07df486aa236",
-    "latest_segment_sequence": 495,
-    "latest_segment_sha256": "c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
-    "source_commit": "54c9764b6726a46e6f7d667232e726ba2795007a",
-    "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1"
+    "checkpoint_sha256": "6b19e9ac47e4eff5be11a7b5ddc0ca12b8bd95bf50b2cc95e890ea44a72b85be",
+    "latest_segment_sequence": 496,
+    "latest_segment_sha256": "9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1",
+    "source_commit": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
+    "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26"
   },
-  "checkpoint_sha256": "dde2b8fd16c4e58ceb4d0a353151f91f5ecffb854902aea62cfb07df486aa236",
+  "checkpoint_sha256": "6b19e9ac47e4eff5be11a7b5ddc0ca12b8bd95bf50b2cc95e890ea44a72b85be",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 495,
+  "latest_sequence": 496,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5623,6 +5623,18 @@
       "sha256": "c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
       "source_commit": "54c9764b6726a46e6f7d667232e726ba2795007a",
       "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1"
+    },
+    {
+      "sequence": 496,
+      "path": "work/construction/segments/0496-require-persisted-plan-evidence-digest.md",
+      "sha256": "9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1",
+      "bytes": 2057,
+      "predecessor": "segment-sha256:c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+      "evidence_path": "work/construction/evidence/0496-require-persisted-plan-evidence-digest.json",
+      "evidence_sha256": "93e356caafa4b7f8e95d5dac92b979109a7e9b5cf4fab59861b9d0273dbdf5d8",
+      "evidence_bytes": 2468,
+      "source_commit": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
+      "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26"
     }
   ],
   "source_acquisition": {
@@ -5632,7 +5644,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1",
+  "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

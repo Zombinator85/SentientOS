@@ -1,0 +1,60 @@
+{
+  "behavior": {
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    },
+    "checks": [
+      "persisted evidence envelope requires an expected evidence digest",
+      "external binding sidecar also marks a plan as evidence-bound",
+      "missing digest is rejected before journal creation and task invocation",
+      "manual plans without persisted evidence preserve behavior"
+    ],
+    "outcome": "Execution cannot omit the verified evidence digest when persisted plan evidence is present."
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0495-canonical-cli-verified-allocation-identity.md",
+    "segment_sha256": "c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+    "sequence": 495
+  },
+  "pull_request": {
+    "base_commit": "76d71080ba6545dc399f9c392b30e3a7e6e46ebf",
+    "candidate_commit": "a6f6c1eee0bfc8021fc08168662dc050802f0b7a",
+    "candidate_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26",
+    "ci_run_id": 39407788458,
+    "merge_commit": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
+    "number": 2492,
+    "preserved_commit_history": true,
+    "quality_gate_run_id": 39407788516,
+    "status": "merged"
+  },
+  "remote_readback": {
+    "executor_blob": "c85b156d463e566f47e8bb86b55c4f313eb0fba0",
+    "main_head": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
+    "main_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26",
+    "test_blob": "59241fd641123f70c33971047f950c3ea1becbb2"
+  },
+  "source_commit": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
+  "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26",
+  "tests": {
+    "affected_local_tests_passed": 84,
+    "all_candidate_checks": "passed",
+    "compileall": "passed",
+    "diff_check": "passed",
+    "exhaustive_matrix_requested": false,
+    "finalizer_artifact_digest": "sha256:829c3b1ee6117c37936236fd278445643675a22b1a4d7f3b84a9b12caf3fb109",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "profile": "solo",
+    "quality_gate": "passed"
+  },
+  "title": "Require persisted plan evidence digest before execution"
+}
