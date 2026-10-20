@@ -1,0 +1,139 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "canonical allocation artifact digest is bound into plan identity and persisted evidence",
+      "readback verifies bounded allocation bytes against the persisted digest",
+      "daemon feedback exposes allocation digest for planned and deferred outcomes",
+      "legacy evidence without allocation digest remains readable",
+      "tampered allocation bytes and malformed digests fail closed"
+    ],
+    "outcome": "The exact allocation artifact bytes that informed canonical planning now remain linked to plan identity, persisted evidence, and read-only daemon feedback."
+  },
+  "limitations": {
+    "current_main_federation_health_execution_observed": false,
+    "federation_health_publisher_blocked_by_actions_pr_creation_policy": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "artifact_digest": "sha256:276807697b6406c3c65eb6a2443ef4e924ff009f2fa33e33e4428d58e8f7d3cf",
+      "artifact_id": 12243819144,
+      "artifact_inspection": {
+        "administrator_preflight": "passed",
+        "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+        "health_generator": "completed_successfully",
+        "report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9"
+      },
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure:GitHub Actions is not permitted to create or approve pull requests",
+      "run_id": 39378086813
+    },
+    "nightly_audit_integrity_latest_scheduled": {
+      "head_sha": "124de0f9ced349de7342901a2e1338c460c05a00",
+      "run_id": 39396388332,
+      "status": "success"
+    },
+    "nightly_self_check_latest_scheduled": {
+      "head_sha": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "run_id": 39235681245,
+      "status": "success"
+    },
+    "observed_at": "2026-10-20T09:20:24Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md",
+    "segment_sha256": "6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8",
+    "sequence": 491
+  },
+  "pull_request": {
+    "head_sha": "f522ff3a25cc901d4e817f31b5169d9f9c82ec7e",
+    "number": 2486,
+    "state": "merged",
+    "title": "[codex:epistemic] bind goal allocations to persisted plan evidence",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2486"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md",
+  "sequence": 492,
+  "source": {
+    "base_commit": "124de0f9ced349de7342901a2e1338c460c05a00",
+    "base_tree": "af85ec09dee14f61349423a3a97945bbde751ebb",
+    "candidate_commit": "f522ff3a25cc901d4e817f31b5169d9f9c82ec7e",
+    "candidate_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8",
+    "merge_commit": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
+    "method": "merge",
+    "parents": [
+      "124de0f9ced349de7342901a2e1338c460c05a00",
+      "f522ff3a25cc901d4e817f31b5169d9f9c82ec7e"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/goal_planner.py": "f0ad9c909032da2dbaf56bf7f1b937946c00cdb2",
+      "sentientos/orchestrator.py": "88418c6b7fcd40f043f27a26fe6080de483741d5",
+      "sentientos/tests/test_orchestrator_plan_only.py": "801398af86dce0d9a05f5754b8fed397eb11f247",
+      "sentientos/work_plan.py": "7d7e876b16dce84ced617a1d4185e4d0b6e37042",
+      "sentientosd.py": "22757002da6eccdfb688c373871c5ef568c07096"
+    },
+    "candidate_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8",
+    "changed_blobs": 5,
+    "main_ref": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
+    "main_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "124de0f9ced349de7342901a2e1338c460c05a00",
+      "f522ff3a25cc901d4e817f31b5169d9f9c82ec7e"
+    ]
+  },
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "passed",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39398069534,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 26,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {"conclusion": "success", "run": 39398739094},
+        "cpu_smoke": {"conclusion": "success", "run": 39398738960},
+        "deployment": {"conclusion": "success", "run": 39398738990},
+        "docker_builds": [
+          {"conclusion": "success", "run": 39398738769},
+          {"conclusion": "success", "run": 39398738990}
+        ],
+        "forge_smoke": {"conclusion": "skipped_by_condition", "run": 39398739225},
+        "invariants": {"conclusion": "success", "run": 39398739054},
+        "quality_gate": {"conclusion": "success", "run": 39398738886}
+      },
+      "main_head": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
+      "main_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8"
+    }
+  }
+}
