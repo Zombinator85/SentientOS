@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3639bb0424e39adfc14d92edb9e58d9751f599b226d28f061be445cd3407521e",
-    "latest_segment_sequence": 481,
-    "latest_segment_sha256": "824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
-    "latest_sequence": 481,
-    "source_commit": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
-    "source_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629"
+    "checkpoint_sha256": "948c6efed48ac138160d127394802cb725866b2d4db9461afca47e770a05a843",
+    "latest_segment_sequence": 482,
+    "latest_segment_sha256": "185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423",
+    "latest_sequence": 482,
+    "source_commit": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
+    "source_tree": "1db2f349abea0e3058bf6fb14804ea6844866318"
   },
-  "checkpoint_sha256": "3639bb0424e39adfc14d92edb9e58d9751f599b226d28f061be445cd3407521e",
+  "checkpoint_sha256": "948c6efed48ac138160d127394802cb725866b2d4db9461afca47e770a05a843",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 481,
+  "latest_sequence": 482,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5456,6 +5456,18 @@
       "sha256": "824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
       "source_commit": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
       "source_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629"
+    },
+    {
+      "bytes": 2860,
+      "evidence_bytes": 5152,
+      "evidence_path": "work/construction/evidence/0482-bind-prior-projection-identity-to-daemon-planning-feedback.json",
+      "evidence_sha256": "a7bb7baa6acee82dd27a4b8b0d3f681d91ae6614c4e82e9dbe98c2fbbf70ff70",
+      "path": "work/construction/segments/0482-bind-prior-projection-identity-to-daemon-planning-feedback.md",
+      "predecessor": "segment-sha256:824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
+      "sequence": 482,
+      "sha256": "185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423",
+      "source_commit": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
+      "source_tree": "1db2f349abea0e3058bf6fb14804ea6844866318"
     }
   ],
   "source_acquisition": {
