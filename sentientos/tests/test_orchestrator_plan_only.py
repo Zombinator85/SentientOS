@@ -640,6 +640,8 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
         work_plan=plan, work_plan_path="glow/forge/work_plans/plan_g1.json",
         work_plan_evidence_path="glow/forge/work_plan_evidence/evidence_g1.json",
         work_plan_evidence_digest="sha256:fixture",
+        target_active_model_identity_digest="sha256:fixture-model",
+        target_identity_observed_at="2026-10-16T09:00:00Z",
     )
     monkeypatch.setattr(surfaces, "plan_canonical_goals",
         lambda *, tick_id: result)
@@ -656,6 +658,8 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
     assert feedback["prior_epistemic_projection_digest"] == (
         "sha256:prior-projection")
     assert feedback["work_plan_id"] == "plan-g1"
+    assert feedback["target_active_model_identity_digest"] == "sha256:fixture-model"
+    assert feedback["target_identity_observed_at"] == "2026-10-16T09:00:00Z"
     assert feedback["execution_performed"] is False
     assert feedback["model_invoked"] is False
     assert feedback["authority"] is False
@@ -692,6 +696,8 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
         work_plan=plan, work_plan_path="glow/forge/work_plans/plan.json",
         work_plan_evidence_path="glow/forge/work_plan_evidence/evidence.json",
         work_plan_evidence_digest="sha256:fixture",
+        target_active_model_identity_digest=None,
+        target_identity_observed_at=None,
     )
     monkeypatch.setattr(surfaces, "plan_canonical_goals",
         lambda *, tick_id: result)
@@ -702,6 +708,8 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
     assert feedback["selected_goals"] == list(selected[:32])
     assert feedback["selected_goal_count"] == 35
     assert feedback["omitted_selected_goal_count"] == 3
+    assert feedback["target_active_model_identity_digest"] is None
+    assert feedback["target_identity_observed_at"] is None
     assert feedback["deferred_goals"] == [
         {"goal_id": item.goal_id, "reason": item.reason} for item in deferred[:32]]
     assert feedback["deferred_goal_count"] == 41
@@ -1078,15 +1086,25 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
 
     # A later planning tick observes a different serving model. Previously
     # supported experience stays visible as evidence but cannot select the goal.
-    observer.current_identity = {"provider": "fixture", "model": "developmental-model-v2"}
-    drifted = surfaces.plan_canonical_goals(tick_id="2026-10-16T10:00:00Z")
-    assert drifted.work_plan is None
-    assert drifted.work_plan_path is None
-    assert drifted.work_plan_evidence_path is None
-    assert {item.goal_id: item.reason for item in drifted.allocation.deferred} == {
-        "g_experienced": "epistemic_applicability_unresolved"}
-    drifted_allocation = json.loads((tmp_path / drifted.allocation_artifact_path).read_text(
-        encoding="utf-8"))
+    drifted_model_identity = {
+        "provider": "fixture", "model": "developmental-model-v2"}
+    observer.current_identity = drifted_model_identity
+    drift_tick = "2026-10-16T10:00:00Z"
+    drifted = surfaces.run_canonical_goal_planning(tick_id=drift_tick)
+    assert drifted["status"] == "empty"
+    assert drifted["work_plan_id"] is None
+    assert drifted["selected_goals"] == []
+    assert drifted["deferred_goals"] == [{
+        "goal_id": "g_experienced",
+        "reason": "epistemic_applicability_unresolved"}]
+    assert drifted["target_active_model_identity_digest"] == (
+        "sha256:" + digest_payload(drifted_model_identity))
+    assert drifted["target_identity_observed_at"] == drift_tick
+    assert drifted["execution_performed"] is False
+    assert drifted["model_invoked"] is False
+    assert drifted["authority"] is False
+    drifted_allocation = json.loads((tmp_path / drifted[
+        "allocation_artifact_path"]).read_text(encoding="utf-8"))
     assert drifted_allocation["selected_goals"] == []
     drifted_position = drifted_allocation["deferred_goals"][0][
         "epistemic_positions"][0]

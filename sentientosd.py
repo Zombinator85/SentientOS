@@ -2820,6 +2820,9 @@ class RuntimeMaintenanceSurfaces:
                 "work_plan_path": result.work_plan_path,
                 "work_plan_evidence_path": result.work_plan_evidence_path,
                 "work_plan_evidence_digest": result.work_plan_evidence_digest,
+                "target_active_model_identity_digest": (
+                    result.target_active_model_identity_digest),
+                "target_identity_observed_at": result.target_identity_observed_at,
                 "execution_performed": False,
                 "model_invoked": False,
                 "authority": False,
