@@ -6,9 +6,24 @@ on:
       - main
     paths:
       - ".github/workflows/nightly-self-check.yml"
+      - "glow/contracts/canonical_typing_baseline.json"
+      - "mypy.ini"
+      - "privilege_lint_cli.py"
       - "pyproject.toml"
-      - "tests/conftest.py"
-      - "tests/test_runtime_governor.py"
+      - "requirements-codex.txt"
+      - "scripts/analyze_test_provenance.py"
+      - "scripts/check_mypy_baseline.py"
+      - "scripts/mypy_baseline_common.py"
+      - "scripts/pytest_airlock_guard.py"
+      - "scripts/run_tests.py"
+      - "scripts/verify_audits.py"
+      - "sentientos/audit_chain_gate.py"
+      - "sentientos/audit_recovery.py"
+      - "sentientos/audit_sink.py"
+      - "sentientos/audit_strict_status.py"
+      - "sentientos/privilege.py"
+      - "sentientos/runtime_governor.py"
+      - "tests/**
   schedule:
     - cron: '37 4 * * *'
   workflow_dispatch:
