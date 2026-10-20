@@ -1,0 +1,183 @@
+{
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "sequence": 474,
+  "title": "Carry authenticated operator identity into canonical planning",
+  "observed_at": "2026-10-20T00:06:48Z",
+  "segment_path": "work/construction/segments/0474-carry-authenticated-operator-identity-into-canonical-planning.md",
+  "evidence_path": "work/construction/evidence/0474-carry-authenticated-operator-identity-into-canonical-planning.json",
+  "predecessor": {
+    "sequence": 473,
+    "segment_path": "work/construction/segments/0473-authenticate-live-transition-operator-requests.md",
+    "segment_sha256": "cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60"
+  },
+  "behavior": {
+    "projection": "verified live transition receipt projection schema v3 carries authenticated operator principal into canonical read-only planning and active-trial binding",
+    "checks": [
+      "exact request provenance is reverified against installation-pinned trust catalog before projection",
+      "operator identity, signing key, request claims digest, provenance digest, signed time, and trust catalog version/digest are bound into projection",
+      "planner validates the bounded principal shape and includes it in digest-bound plan and active-trial binding",
+      "legacy projections without authenticated identity fail closed",
+      "nested principal data remains recursively immutable",
+      "daemon adapter emits recursive JSON-safe plain snapshots",
+      "planning remains read-only and does not execute goals or mint/select approvals"
+    ],
+    "authority": {
+      "operator_authentication_is_descriptive": true,
+      "planning_grants_authority": false,
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced": false,
+      "mailbox_processed": false,
+      "execution_allowed": false,
+      "independent_stage_owner_validation_required": true
+    }
+  },
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "base_commit": "18e31f5ba893114161dfa3fe5866d18183f720d6",
+    "base_tree": "375156f8441f7159f1106dc121b7e00fbb36fe38",
+    "candidate_commit": "23c37a85ea33a74ca278213d7be9584acfd3abc8",
+    "candidate_tree": "200e043067dd13350d3ec338762e48fade5d7e01",
+    "merge_commit": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
+    "tree": "200e043067dd13350d3ec338762e48fade5d7e01",
+    "parents": [
+      "18e31f5ba893114161dfa3fe5866d18183f720d6",
+      "23c37a85ea33a74ca278213d7be9584acfd3abc8"
+    ],
+    "method": "merge"
+  },
+  "pull_request": {
+    "number": 2452,
+    "title": "[codex:resident-transition] propagate authenticated operator identity to canonical planning",
+    "state": "merged",
+    "head_sha": "23c37a85ea33a74ca278213d7be9584acfd3abc8",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2452"
+  },
+  "validation": {
+    "local": {
+      "affected_test_files": 7,
+      "tests_passed": 200,
+      "canonical_runner": "python -m scripts.run_tests -q",
+      "compileall": "success",
+      "git_diff_check": "success",
+      "mypy_added_diagnostics": 0,
+      "mypy_retired_baseline_diagnostics": 40,
+      "mypy_matched_existing_diagnostics": 1050
+    },
+    "source_readback": {
+      "candidate_tree": "200e043067dd13350d3ec338762e48fade5d7e01",
+      "changed_blobs": 7,
+      "all_blob_contents_match": true
+    },
+    "prepublication": {
+      "quality_gate_run": 39344680427,
+      "quality_gate_conclusion": "success",
+      "hosted_administrator_audits": true,
+      "hosted_audit_immutability": true,
+      "administrator_verified": true,
+      "hosted_precommit_finalizer": true,
+      "hosted_pr_landing_finalizer": true,
+      "separate_metadata_guard": true,
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_head_sha": "23c37a85ea33a74ca278213d7be9584acfd3abc8",
+      "metadata_guard_tree_sha": "200e043067dd13350d3ec338762e48fade5d7e01",
+      "validation_profile": "solo",
+      "exhaustive_matrix_requested": false,
+      "artifacts": {
+        "finalizer": 12231055391,
+        "evidence": 12230596190,
+        "exact_acceptance": 12229879056
+      }
+    },
+    "pull_request_checks": {
+      "ci": {
+        "run": 39344664200,
+        "conclusion": "success"
+      },
+      "docker": {
+        "run": 39344664179,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "run": 39344664191,
+        "conclusion": "success"
+      },
+      "release": {
+        "run": 39344664199,
+        "conclusion": "success"
+      },
+      "gradient_null_regression": {
+        "run": 39344664206,
+        "conclusion": "success"
+      },
+      "lint_benchmark": {
+        "run": 39344664258,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "run": 39344664188,
+        "conclusion": "success"
+      },
+      "quality_gate": {
+        "run": 39344680427,
+        "conclusion": "success"
+      }
+    },
+    "post_merge": {
+      "main_head": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
+      "runs": {
+        "required_quality_gate": {
+          "run": 39345078877,
+          "conclusion": "success"
+        },
+        "invariants": {
+          "run": 39345078909,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "run": 39345078938,
+          "conclusion": "success"
+        },
+        "docs_deploy": {
+          "run": 39345078941,
+          "conclusion": "success"
+        },
+        "docker": {
+          "run": 39345078856,
+          "conclusion": "success"
+        },
+        "ci": {
+          "run": 39345078875,
+          "conclusion": "success"
+        }
+      },
+      "ci_jobs": {
+        "source_validation": "success",
+        "helm_integration": "success",
+        "self_check": "success",
+        "sphinx_linkcheck": "success"
+      }
+    },
+    "evidence_publication_attempts": [
+      {
+        "pr_number": 2453,
+        "head_sha": "33c304a6de6204ec756739a7f64de875442ec46f",
+        "source_validation_run": 39345891304,
+        "conclusion": "failure",
+        "reason": "active_checkpoint_sha256_mismatch; active_checkpoint_latest_segment_contradiction; active_checkpoint_segment_reference_digest_mismatch",
+        "resolution": "rebuild the exact checkpoint blob and update its index binding; re-run custody and all exact-candidate hosted checks"
+      }
+    ]
+  },
+  "limitations": {
+    "production_operator_catalog_provisioned": false,
+    "private_signing_key_shipped": false,
+    "production_request_exercised": false,
+    "production_campaign_execution_initiated": false,
+    "post_merge_federation_health_execution_observed": false,
+    "historical_test_provenance_integrity_broken": true,
+    "sequence_286_loss_resolved": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  }
+}
