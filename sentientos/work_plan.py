@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import stat
 import tempfile
 from typing import Any, Mapping
@@ -227,23 +228,33 @@ def persist_work_plan_evidence(
     root = repo_root.resolve()
     plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
     path = root / WORK_PLAN_EVIDENCE_DIR / f"evidence_{plan_key}.json"
-    if binding_is_external:
-        sidecar_path = root / WORK_PLAN_EVIDENCE_DIR / f"binding_{plan_key}.json"
-        _write_bytes_once(sidecar_path, binding_bytes)
-        payload: dict[str, object] = {
-            "schema_version": 2,
-            "plan_id": plan.plan_id,
-            "plan_digest": plan.identity_digest(),
-            "evidence_binding_reference": {
-                "schema_version": "sentientos.work_plan_evidence_binding_reference:v1",
-                "sha256": hashlib.sha256(binding_bytes).hexdigest(),
-                "byte_count": len(binding_bytes),
-            },
-            "evidence_digest": evidence_digest,
-        }
-    else:
-        payload = {**basis, "evidence_digest": evidence_digest}
-    _write_json_evidence_once(path, payload)
+    directory_fd, evidence_dir = _open_work_plan_evidence_directory(root, create=True)
+    try:
+        if binding_is_external:
+            sidecar_name = f"binding_{plan_key}.json"
+            _write_bytes_once(
+                evidence_dir / sidecar_name, binding_bytes,
+                directory_fd=directory_fd, name=sidecar_name)
+            payload: dict[str, object] = {
+                "schema_version": 2,
+                "plan_id": plan.plan_id,
+                "plan_digest": plan.identity_digest(),
+                "evidence_binding_reference": {
+                    "schema_version": "sentientos.work_plan_evidence_binding_reference:v1",
+                    "sha256": hashlib.sha256(binding_bytes).hexdigest(),
+                    "byte_count": len(binding_bytes),
+                },
+                "evidence_digest": evidence_digest,
+            }
+        else:
+            payload = {**basis, "evidence_digest": evidence_digest}
+        _write_json_evidence_once(
+            path, payload, directory_fd=directory_fd,
+            name=f"evidence_{plan_key}.json")
+        _verify_work_plan_evidence_directory_binding(root, directory_fd)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
     return str(path.relative_to(root)), evidence_digest
 
 
@@ -340,7 +351,103 @@ def _read_bounded_regular_file(path: Path, *, maximum: int, error_prefix: str) -
     return bytes(raw)
 
 
-def _write_bytes_once(path: Path, value: bytes) -> bool:
+def _supports_descriptor_relative_evidence_storage() -> bool:
+    required = (os.open, os.mkdir, os.link, os.unlink)
+    return bool(
+        os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY")
+        and all(function in os.supports_dir_fd for function in required)
+        and os.link in os.supports_follow_symlinks
+    )
+
+
+def _open_work_plan_evidence_directory(
+    root: Path, *, create: bool,
+) -> tuple[int | None, Path]:
+    """Open the evidence directory without traversing symlinked ancestors."""
+    path = root / WORK_PLAN_EVIDENCE_DIR
+    if _supports_descriptor_relative_evidence_storage():
+        descriptor: int | None = None
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        try:
+            descriptor = os.open(os.sep, flags)
+            for component in (*root.parts[1:], *WORK_PLAN_EVIDENCE_DIR.parts):
+                if create:
+                    try:
+                        os.mkdir(component, 0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                    os.close(next_descriptor)
+                    raise WorkPlanError("work_plan_evidence_directory_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor, path
+        except WorkPlanError:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if isinstance(exc, FileNotFoundError) and not create:
+                raise WorkPlanError("work_plan_evidence_unreadable") from exc
+            raise WorkPlanError("work_plan_evidence_directory_invalid") from exc
+
+    try:
+        current = root
+        for component in WORK_PLAN_EVIDENCE_DIR.parts:
+            child = current / component
+            try:
+                metadata = child.lstat()
+            except FileNotFoundError:
+                if not create:
+                    raise
+                try:
+                    child.mkdir(mode=0o700)
+                except FileExistsError:
+                    pass
+                metadata = child.lstat()
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise WorkPlanError("work_plan_evidence_directory_invalid")
+            resolved = child.resolve(strict=True)
+            if not resolved.is_relative_to(root):
+                raise WorkPlanError("work_plan_evidence_directory_invalid")
+            current = child
+        resolved = current.resolve(strict=True)
+        if not resolved.is_relative_to(root):
+            raise WorkPlanError("work_plan_evidence_directory_invalid")
+    except WorkPlanError:
+        raise
+    except (OSError, ValueError) as exc:
+        if isinstance(exc, FileNotFoundError) and not create:
+            raise WorkPlanError("work_plan_evidence_unreadable") from exc
+        raise WorkPlanError("work_plan_evidence_directory_invalid") from exc
+    return None, path
+
+
+def _verify_work_plan_evidence_directory_binding(
+    root: Path, directory_fd: int | None,
+) -> None:
+    if directory_fd is None:
+        return
+    current_fd, _ = _open_work_plan_evidence_directory(root, create=False)
+    if current_fd is None:
+        return
+    try:
+        opened = os.fstat(directory_fd)
+        current = os.fstat(current_fd)
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            raise WorkPlanError("work_plan_evidence_directory_invalid")
+    finally:
+        os.close(current_fd)
+
+
+def _write_bytes_once(
+    path: Path, value: bytes, *, directory_fd: int | None = None,
+    name: str | None = None,
+) -> bool:
     """Atomically publish one immutable evidence sidecar without following links."""
     return _write_atomic_bytes_once(
         path, value,
@@ -348,10 +455,14 @@ def _write_bytes_once(path: Path, value: bytes) -> bool:
         error_prefix="work_plan_evidence_binding_sidecar",
         identity_conflict_error="work_plan_evidence_binding_sidecar_identity_conflict",
         write_failed_error="work_plan_evidence_binding_sidecar_write_failed",
+        directory_fd=directory_fd, name=name,
     )
 
 
-def _write_json_evidence_once(path: Path, value: dict[str, object]) -> bool:
+def _write_json_evidence_once(
+    path: Path, value: dict[str, object], *, directory_fd: int | None = None,
+    name: str | None = None,
+) -> bool:
     """Atomically publish one immutable canonical work-plan evidence envelope."""
     encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
     return _write_atomic_bytes_once(
@@ -360,14 +471,24 @@ def _write_json_evidence_once(path: Path, value: dict[str, object]) -> bool:
         error_prefix="work_plan_evidence",
         identity_conflict_error="work_plan_artifact_identity_conflict",
         write_failed_error="work_plan_artifact_write_failed",
+        directory_fd=directory_fd, name=name,
     )
 
 
 def _write_atomic_bytes_once(
     path: Path, value: bytes, *, maximum: int, error_prefix: str,
     identity_conflict_error: str, write_failed_error: str,
+    directory_fd: int | None = None, name: str | None = None,
 ) -> bool:
     """Publish immutable bytes through a synced temporary and atomic no-overwrite link."""
+    if directory_fd is not None:
+        if not name:
+            raise WorkPlanError(write_failed_error)
+        return _write_atomic_bytes_at(
+            directory_fd, name, value, maximum=maximum, error_prefix=error_prefix,
+            identity_conflict_error=identity_conflict_error,
+            write_failed_error=write_failed_error,
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -410,9 +531,80 @@ def _write_atomic_bytes_once(
                 temporary.unlink()
             except FileNotFoundError:
                 pass
+
+
+def _read_bounded_regular_file_at(
+    directory_fd: int, name: str, *, maximum: int, error_prefix: str,
+) -> bytes:
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0),
+            dir_fd=directory_fd)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum:
+            raise WorkPlanError(f"{error_prefix}_bounds_invalid")
+        raw = bytearray()
+        while len(raw) <= maximum:
+            chunk = os.read(descriptor, min(65_536, maximum + 1 - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+    except WorkPlanError:
+        raise
+    except (OSError, ValueError) as exc:
+        raise WorkPlanError(f"{error_prefix}_unreadable") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(raw) > maximum:
+        raise WorkPlanError(f"{error_prefix}_bounds_invalid")
+    return bytes(raw)
+
+
+def _write_atomic_bytes_at(
+    directory_fd: int, name: str, value: bytes, *, maximum: int,
+    error_prefix: str, identity_conflict_error: str, write_failed_error: str,
+) -> bool:
+    temporary_name = f".{name}.{secrets.token_hex(12)}.tmp"
+    descriptor: int | None = None
+    temporary_created = False
+    try:
+        descriptor = os.open(
+            temporary_name,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+            0o600, dir_fd=directory_fd)
+        temporary_created = True
+        with os.fdopen(descriptor, "wb") as handle:
+            descriptor = None
+            handle.write(value)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary_name, name, src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd, follow_symlinks=False)
+        except FileExistsError:
+            existing = _read_bounded_regular_file_at(
+                directory_fd, name, maximum=maximum, error_prefix=error_prefix)
+            if existing != value:
+                raise WorkPlanError(identity_conflict_error)
+            created = False
+        else:
+            created = True
+        os.fsync(directory_fd)
+        return created
+    except WorkPlanError:
+        raise
+    except OSError as exc:
+        raise WorkPlanError(write_failed_error) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
             except OSError:
-                # The immutable published sidecar remains authoritative. An
-                # orphan temporary file is never read as canonical evidence.
+                # Temporary files are never canonical evidence.
                 pass
 
 
@@ -420,12 +612,34 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
     """Read back and verify the immutable plan and rationale binding."""
     if not isinstance(plan, WorkPlan):
         raise WorkPlanError("work_plan_evidence_plan_invalid")
+    root = repo_root.resolve()
     plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
-    evidence_dir = repo_root.resolve() / WORK_PLAN_EVIDENCE_DIR
+    directory_fd, evidence_dir = _open_work_plan_evidence_directory(
+        root, create=False)
+    try:
+        payload = _load_work_plan_evidence_payload(
+            repo_root, plan, plan_key, directory_fd, evidence_dir)
+        _verify_work_plan_evidence_directory_binding(root, directory_fd)
+        return payload
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
+def _load_work_plan_evidence_payload(
+    repo_root: Path, plan: WorkPlan, plan_key: str,
+    directory_fd: int | None, evidence_dir: Path,
+) -> dict[str, object]:
     path = evidence_dir / f"evidence_{plan_key}.json"
-    raw = _read_bounded_regular_file(
-        path, maximum=MAX_WORK_PLAN_EVIDENCE_FILE_BYTES,
-        error_prefix="work_plan_evidence")
+    if directory_fd is None:
+        raw = _read_bounded_regular_file(
+            path, maximum=MAX_WORK_PLAN_EVIDENCE_FILE_BYTES,
+            error_prefix="work_plan_evidence")
+    else:
+        raw = _read_bounded_regular_file_at(
+            directory_fd, f"evidence_{plan_key}.json",
+            maximum=MAX_WORK_PLAN_EVIDENCE_FILE_BYTES,
+            error_prefix="work_plan_evidence")
     try:
         stored_payload = json.loads(raw)
     except (UnicodeError, json.JSONDecodeError) as exc:
@@ -449,10 +663,17 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
                 or reference["byte_count"] >
                     MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES):
             raise WorkPlanError("work_plan_evidence_binding_reference_invalid")
-        sidecar_path = evidence_dir / f"binding_{plan_key}.json"
-        sidecar = _read_bounded_regular_file(
-            sidecar_path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
-            error_prefix="work_plan_evidence_binding_sidecar")
+        if directory_fd is None:
+            sidecar_path = evidence_dir / f"binding_{plan_key}.json"
+            sidecar = _read_bounded_regular_file(
+                sidecar_path,
+                maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+                error_prefix="work_plan_evidence_binding_sidecar")
+        else:
+            sidecar = _read_bounded_regular_file_at(
+                directory_fd, f"binding_{plan_key}.json",
+                maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+                error_prefix="work_plan_evidence_binding_sidecar")
         if (len(sidecar) != reference["byte_count"]
                 or hashlib.sha256(sidecar).hexdigest() != reference["sha256"]):
             raise WorkPlanError("work_plan_evidence_binding_sidecar_digest_mismatch")
