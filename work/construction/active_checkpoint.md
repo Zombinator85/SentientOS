@@ -91,3 +91,19 @@ Latest verified source merge: `ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3`, tree `
 Latest construction segment: `work/construction/segments/0483-expose-prior-projection-omission-count.md`
 Latest segment SHA-256: `a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020`
 Sequence: 483
+
+
+## Sequence 484 — goal-relevant prior projection
+
+PR #2471 prioritizes verified epistemic histories tagged by enabled canonical goals under deterministic goal precedence. Versioned selection and omission evidence preserve omitted identities and positive/adverse outcomes. The increment passed 147 affected local tests, exact-node acceptance, targeted Mypy, zero-delta full Mypy, compilation, and the exact-candidate hosted Administrator Quality Gate with strict audits, immutable audit evidence, and the separate metadata guard.
+
+Regular merge `800dcef026b32c45c5668282b260ca2e39ab4c24` preserves ordered parents `c684e425d9ddb80f91215eef7c244c55a4be4681` and `a59a211ab2d852ef69c1f1fe87988b6f456766fe`; tree `61078b4c3347b7940136cfffe008f3f9640780cb`. Post-merge Quality Gate, CI/build, source validation, self-check, Docker/CPU smoke, invariants, deployment, Helm, and docs passed on the merge SHA; Forge smoke was skipped by condition.
+
+At 2026-10-20T05:58:51Z, no scheduled Federation Health or nightly audit/self-check run was present on this main head. Federation Health publication remains blocked by repository policy denying Actions-token PR creation; no current-main scheduled success is claimed. No production inference, campaign, or transition execution occurred.
+
+Next, continue connecting bounded, provenance-bound retained experience to canonical decisions while preserving planning/execution separation and authority boundaries.
+
+Latest verified source merge: `800dcef026b32c45c5668282b260ca2e39ab4c24`, tree `61078b4c3347b7940136cfffe008f3f9640780cb`
+Latest construction segment: `work/construction/segments/0484-prior-projection-goal-relevance-ranking.md`
+Latest segment SHA-256: `b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc`
+Sequence: 484

@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "30172ca9e3d3f52c02b3cd14da870615de9004ccf0cc892558122aa083efc433",
-    "latest_segment_sequence": 483,
-    "latest_segment_sha256": "a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
-    "latest_sequence": 483,
-    "source_commit": "ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3",
-    "source_tree": "99167a5be065e00a421a2f410996c83905146b3"
+    "checkpoint_sha256": "38a8ed7d09feb1a5ef763474fc4c36477ace75c8f38bbdc5c79562bad6239605",
+    "latest_segment_sequence": 484,
+    "latest_segment_sha256": "b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
+    "latest_sequence": 484,
+    "source_commit": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+    "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
   },
-  "checkpoint_sha256": "30172ca9e3d3f52c02b3cd14da870615de9004ccf0cc892558122aa083efc433",
+  "checkpoint_sha256": "38a8ed7d09feb1a5ef763474fc4c36477ace75c8f38bbdc5c79562bad6239605",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 483,
+  "latest_sequence": 484,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5480,6 +5480,18 @@
       "sha256": "a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
       "source_commit": "ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3",
       "source_tree": "99167a5be065e00a421a2f410996c83905146b3"
+    },
+    {
+      "bytes": 3427,
+      "evidence_bytes": 5799,
+      "evidence_path": "work/construction/evidence/0484-prior-projection-goal-relevance-ranking.json",
+      "evidence_sha256": "eade6303c43c760b5eecde02a3d6a7dd1df77e406b140ad0708c68eb4b814ae9",
+      "path": "work/construction/segments/0484-prior-projection-goal-relevance-ranking.md",
+      "predecessor": "segment-sha256:a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
+      "sequence": 484,
+      "sha256": "b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
+      "source_commit": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
     }
   ],
   "source_acquisition": {
@@ -5489,7 +5501,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "99167a5be065e00a421a2f410996c83905146b3",
+  "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
