@@ -987,3 +987,28 @@ def test_source_validation_requires_verified_transition_receipts_for_new_outcome
     assert "verified_trial_outcome_provenance.json" in source_validation
     assert "verified_trial_outcome_acceptance.json" in source_validation
     assert "verified_trial_outcome_acceptance_result.json" in source_validation
+
+
+def test_source_validation_indexes_verified_trial_provenance_in_reports():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert (
+        "- name: Verify completed campaign reports retain verified trial provenance"
+        in source_validation
+    )
+    assert (
+        "tests/test_production_self_reflection_campaign.py::"
+        "test_v2_campaign_report_indexes_verified_trial_provenance"
+        in source_validation
+    )
+    assert (
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_verified_trial_provenance_in_reports"
+        in source_validation
+    )
+    for artifact in (
+        "trial_report_provenance.json",
+        "trial_report_provenance_acceptance.json",
+        "trial_report_provenance_acceptance_result.json",
+    ):
+        assert artifact in source_validation

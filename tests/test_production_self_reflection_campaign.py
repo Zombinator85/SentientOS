@@ -459,6 +459,121 @@ def test_completed_campaign_report_succeeds_after_lineage_revalidation(tmp_path:
     assert report["unsupported_inferences"] == [
         "consciousness", "identity", "learning", "sentience", "guaranteed_improvement",
     ]
+    assert "trial_provenance" not in report
+    assert report["schema_version"] == campaign_module.LEGACY_REPORT_SCHEMA
+
+
+def test_v2_campaign_report_indexes_verified_trial_provenance(tmp_path: Path) -> None:
+    protocol = _protocol(historical=False)
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    receipts = []
+
+    for trial_id in protocol.campaign_policy["trial_ids"]:
+        evidence = _evidence()
+        request_ids = [f"{trial_id}-transition-{index}" for index in range(len(PHASES[1:]))]
+        evidence["transition_stage_receipts"] = [
+            {"phase": phase, "request_id": request_id}
+            for phase, request_id in zip(PHASES[1:], request_ids)
+        ]
+        projections = {
+            request_id: _verified_transition_stage_projection(
+                protocol, phase, campaign_trial_id=trial_id, request_id=request_id)
+            for phase, request_id in zip(PHASES[1:], request_ids)
+        }
+        completed_entry_digests = [
+            projection["completed_entry_digest"] for projection in projections.values()]
+        owner_protocol = {
+            "installation_identity": protocol.installation_identity,
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "journal_identity": protocol.transition["journal_identity"],
+            "phase_order": protocol.transition["phase_order"],
+        }
+        owner = SimpleNamespace(
+            config=SimpleNamespace(
+                installation_identity=protocol.installation_identity,
+                protocol_id=protocol.transition["protocol_id"],
+                protocol_digest=protocol.transition["protocol_digest"],
+                journal_identity=protocol.transition["journal_identity"],
+            ),
+            controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+            inspect_verified_stage_receipt=lambda request_id: MappingProxyType(
+                dict(projections[request_id])),
+            status=lambda: {
+                "protocol_id": protocol.transition["protocol_id"],
+                "protocol_digest": protocol.transition["protocol_digest"],
+                "current_phase": PHASES[-1],
+                "current_journal_head": "completed-entry-digest",
+                "interrupted": False,
+                "outstanding_stage": None,
+                "replay_forbidden": False,
+                "semantically_verified_stage_entry_digests": completed_entry_digests,
+            },
+        )
+        receipts.append(campaign.run_one(readiness, lambda *_: evidence,
+                                         transition_owner=owner))
+
+    report = campaign.report()
+    provenance = report["trial_provenance"]
+    assert report["schema_version"] == campaign_module.REPORT_SCHEMA
+    assert report["campaign_protocol_digest"] == protocol.protocol_digest
+    assert report["trial_provenance_schema"] == campaign_module.TRIAL_PROVENANCE_SCHEMA
+    assert [row["trial_id"] for row in provenance] == list(protocol.campaign_policy["trial_ids"])
+    assert [row["receipt_digest"] for row in provenance] == [
+        receipt["receipt_digest"] for receipt in receipts]
+    assert [row["receipt_id"] for row in provenance] == [
+        receipt["receipt_id"] for receipt in receipts]
+    assert all(row["verified_transition_stage_provenance"]["status"]
+               == "verified_transition_stages_bound_to_trial_outcome" for row in provenance)
+    assert all(row["verified_transition_stage_provenance"]["binding_digest"]
+               == receipt["transition_stage_receipt_binding"]["binding_digest"]
+               for row, receipt in zip(provenance, receipts))
+    assert all(row["verified_transition_stage_provenance"]["phase_order"]
+               == list(PHASES[1:]) for row in provenance)
+    assert all(row["verified_transition_stage_provenance"]["transition_protocol_id"]
+               == protocol.transition["protocol_id"] for row in provenance)
+    assert all(row["verified_transition_stage_provenance"]["transition_protocol_digest"]
+               == protocol.transition["protocol_digest"] for row in provenance)
+    assert all(row["verified_transition_stage_provenance"]["stage_receipt_count"]
+               == len(PHASES[1:]) for row in provenance)
+    serialized_provenance = json.dumps(provenance)
+    assert all(field not in serialized_provenance for field in (
+        "operator_authentication", "operator_identity", "signing_key_id"))
+    assert report["descriptive_only"] is True
+    assert report["unsupported_inferences"] == [
+        "consciousness", "identity", "learning", "sentience", "guaranteed_improvement",
+    ]
+    report_body = dict(report)
+    claimed = report_body.pop("report_digest")
+    assert claimed == _d(report_body)
+
+    legacy_report = dict(report)
+    legacy_report.pop("campaign_protocol_digest")
+    legacy_report.pop("trial_provenance_schema")
+    legacy_report.pop("trial_provenance")
+    legacy_report["schema_version"] = campaign_module.LEGACY_REPORT_SCHEMA
+    legacy_report.pop("report_digest")
+    legacy_report["report_digest"] = _d(legacy_report)
+    report_path = tmp_path / "campaign" / "report.json"
+    legacy_bytes = (json.dumps(legacy_report, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    report_path.write_bytes(legacy_bytes)
+
+    compatible_report = campaign.report()
+
+    assert dict(compatible_report) == legacy_report
+    assert report_path.read_bytes() == legacy_bytes
+
+    forged_legacy_report = json.loads(json.dumps(legacy_report))
+    forged_legacy_report["condition_scores"][CONDITION_ORDER[0]][0]["supported_correct"] = 99
+    forged_legacy_report.pop("report_digest")
+    forged_legacy_report["report_digest"] = _d(forged_legacy_report)
+    report_path.write_text(
+        json.dumps(forged_legacy_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_collision"):
+        campaign.report()
 
 
 def test_interrupted_campaign_is_no_retry(tmp_path: Path) -> None:

@@ -74,6 +74,17 @@ written when that lineage fails verification.
 Report scoring consumes the receipt mappings returned by that verification
 pass. It does not reopen receipt paths after custody validation, so a later
 on-disk replacement cannot change the outcomes summarized by that report.
+For new protocols with verified transition-stage receipts, the descriptive
+report also includes the exact campaign protocol digest and a compact per-trial
+provenance inventory. Each row binds its trial ID and immutable receipt digest
+to the verified transition binding digest, transition protocol identity, phase
+order, and stage count. It omits operator
+authentication details and grants no execution or scoring authority. Reports
+with verified trial provenance use report schema v2; reports from historical v1
+receipts retain their v1 schema and prior field set.
+An already-published report from before the provenance inventory was added is
+returned unchanged when it exactly matches the currently revalidated receipt
+lineage; immutable report bytes are never upgraded in place.
 The durable campaign owner uses a private POSIX interprocess lock while it
 claims and executes a trial, updates progress, reconstructs interrupted state,
 and emits a report. Concurrent owners therefore cannot execute the same trial
