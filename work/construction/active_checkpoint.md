@@ -32,3 +32,17 @@ Latest verified source merge: `5164520ece5820b525942e3b57e56ebbbd0b24f3`, tree `
 Latest construction segment: work/construction/segments/0479-verify-persisted-campaign-reports-without-mutation.md
 Latest segment SHA-256: `7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c`
 Sequence: 479
+
+
+## Sequence 480 — verified campaign report observation in daemon feedback
+
+PR #2463 composes read-only persisted campaign report verification into daemon transition feedback. The observation requires the configured absolute campaign root, verifies only the existing persisted report, performs no recovery or creation, and does not invoke planning, execution, or authority. The integrated candidate passed 112 focused local tests, compilation, custody verification, and the Mypy baseline with zero new errors. Hosted exact-candidate checks, actual Administrator strict audits, immutability, acceptance, and the separate metadata guard passed. Regular merge `3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a` preserves main and candidate as ordered parents; post-merge CI, Quality Gate, Codex CI, Docker, docs, and invariants passed.
+
+At 2026-10-20T03:46:00Z, no scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run was present on this main head. The latest Federation Health report-generation job succeeded on older head `b69d75884bcf3e33c6a877d0bcdd454311a87f53`, but PR publication failed because the repository disallows Actions-created PRs. The last Nightly Audit Integrity and Nightly Self Check runs both passed on older heads. These do not establish post-merge schedule evidence.
+
+Next, retain exact allocation references while making bounded daemon planning feedback disclose list omissions. No production campaign, inference, or transition execution is claimed; stale and protected workspaces remain untouched.
+
+Latest verified source merge: `3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a`, tree `34a68f8edb8321eb7353ef17fcaeb3a591416824`
+Latest construction segment: work/construction/segments/0480-expose-verified-campaign-report-observations-in-daemon-feedback.md
+Latest segment SHA-256: `bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459`
+Sequence: 480

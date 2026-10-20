@@ -1,0 +1,143 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "campaign_advanced": false,
+      "effect_performed": false,
+      "execution_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "configured campaign root must be absolute",
+      "existing persisted report is verified by the canonical read-only verifier",
+      "feedback explicitly records false effect, advancement, execution, and authority fields",
+      "daemon observation does not invoke canonical planning or goal execution"
+    ],
+    "outcome": "Adds a read-only existing campaign report observation to daemon transition feedback. It exposes persisted verification state while avoiding recovery, report creation, planning, execution, and authority effects."
+  },
+  "limitations": {
+    "current_main_scheduled_runs_observed": false,
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0479-verify-persisted-campaign-reports-without-mutation.md",
+    "segment_sha256": "7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c",
+    "sequence": 479
+  },
+  "pull_request": {
+    "head_sha": "b407e137c53a6f4cc28a2f2b0259b643dbbe9d63",
+    "number": 2463,
+    "state": "merged",
+    "title": "feat: expose verified campaign report observations in daemon feedback",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2463"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0480-expose-verified-campaign-report-observations-in-daemon-feedback.md",
+  "sequence": 480,
+  "source": {
+    "base_commit": "304407770d97af9138653a77111686910ded73d0",
+    "base_tree": "ea0d455b2331664789a808ea345fcc60859163d2",
+    "candidate_commit": "b407e137c53a6f4cc28a2f2b0259b643dbbe9d63",
+    "candidate_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824",
+    "merge_commit": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
+    "method": "merge",
+    "parents": [
+      "304407770d97af9138653a77111686910ded73d0",
+      "b407e137c53a6f4cc28a2f2b0259b643dbbe9d63"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      ".github/workflows/ci.yml": "2e3ae2b2ded3d77aa1ef3287666997365ba9db54",
+      "docs/development/production_self_reflection_campaign.md": "cb9d8636a97bca0398b1fe1742b14cbab99c1d58",
+      "sentientosd.py": "8c4c0be4a58edeebf70cabcc4582340666b12299",
+      "tests/test_github_hosted_acceptance_workflows.py": "099beb81a82864d1f2a1d7309fa7cb4686d96113",
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py": "48eb39eabbd143dc0f844cade9823bd240bc3731"
+    },
+    "candidate_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824",
+    "changed_blobs": 5,
+    "main_ref": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
+    "main_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824",
+    "ordered_parents": [
+      "304407770d97af9138653a77111686910ded73d0",
+      "b407e137c53a6f4cc28a2f2b0259b643dbbe9d63"
+    ]
+  },
+  "title": "Expose verified campaign report observations in daemon feedback",
+  "validation": {
+    "hosted_candidate": {
+      "acceptance_artifact": 12239062660,
+      "administrator_audits": true,
+      "audit_immutability": true,
+      "ci": "success",
+      "codex_ci": "success",
+      "docker": "success",
+      "docs_linkcheck": "success",
+      "effective_uid": 0,
+      "invariants": "success",
+      "lint": "success",
+      "metadata_guard": "passed",
+      "quality_gate_runs": [
+        39364886014,
+        39364904580
+      ],
+      "self_check_artifact": 12239415405,
+      "self_check_failures": 0,
+      "self_check_passed": 143,
+      "self_check_skipped": 13,
+      "source_validation": "success",
+      "task_acceptance": true
+    },
+    "local": {
+      "canonical_runner_focused_tests_passed": 112,
+      "compileall": "success",
+      "construction_custody_segments": 479,
+      "failures": 0,
+      "git_diff_check": "success",
+      "mypy_baseline_existing_errors": 1050,
+      "mypy_baseline_new_errors": 0,
+      "mypy_baseline_retired_errors": 40,
+      "skipped": 0
+    },
+    "post_merge": {
+      "ci": {
+        "conclusion": "success",
+        "run": 39365773782
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39365774108
+      },
+      "docker": {
+        "conclusion": "success",
+        "run": 39365775284
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run": 39365773940
+      },
+      "forge_smoke": "skipped_by_condition",
+      "invariants": {
+        "conclusion": "success",
+        "run": 39365773799
+      },
+      "main_head": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
+      "quality_gate": {
+        "administrator_verified": true,
+        "artifact": 12238873105,
+        "audit_immutability": true,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "run": 39365773902
+      }
+    }
+  }
+}
