@@ -15,7 +15,8 @@ from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.goal_executor import ExecutorState, GoalExecutor, GoalPlanner
 from sentientos.goal_graph import Goal, GoalGraph, goal_graph_hash, persist_goal_graph
 from sentientos.orchestrator import (GoalPlanningResult,
-    _emit_goal_allocation_artifact, _latest_verified_prior_plan,
+    _emit_goal_allocation_artifact, _goal_tagged_epistemic_positions,
+    _latest_verified_prior_plan,
     _plan_goal_work, plan_goals)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition)
@@ -30,6 +31,24 @@ from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_goal_history_priorities_follow_enabled_deterministic_goal_precedence() -> None:
+    first = "proposition:" + "a" * 24
+    second = "proposition:" + "b" * 24
+    disabled = "proposition:" + "c" * 24
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("lower", "lower precedence", 1.0, 1, (), "task:forge_propose", 1, 1,
+            (f"epistemic_proposition:{first}",
+                "epistemic_proposition:malformed", f"epistemic_proposition:{second}"), True),
+        Goal("higher", "higher precedence", 1.0, 9, (), "task:forge_propose", 1, 1,
+            (f"epistemic_proposition:{second}",
+                f"epistemic_proposition:{first}"), True),
+        Goal("disabled", "disabled", 1.0, 99, (), "task:forge_propose", 1, 1,
+            (f"epistemic_proposition:{disabled}",), False),
+    ))
+
+    assert _goal_tagged_epistemic_positions(graph) == (second, first)
 
 
 def test_canonical_plan_import_and_composition_do_not_load_goal_executor(
@@ -395,11 +414,13 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
 
     class ProjectionOwner:
         def __init__(self) -> None:
-            self.calls: list[tuple[int, int | None]] = []
+            self.calls: list[tuple[int, int | None, tuple[str, ...]]] = []
 
         def cognitive_projection(self, *, max_states: int,
-                                 current_tick: int | None = None):
-            self.calls.append((max_states, current_tick))
+                                 current_tick: int | None = None,
+                                 prioritized_proposition_ids: tuple[str, ...] = ()):
+            self.calls.append((max_states, current_tick,
+                prioritized_proposition_ids))
             return None
 
     class ServingObserver:
@@ -451,7 +472,8 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
     assert evidence["plan_digest"] == result.work_plan.identity_digest()
     assert evidence["evidence_digest"] == result.work_plan_evidence_digest
     assert load_work_plan_evidence(tmp_path, result.work_plan) == evidence
-    assert owner.calls == [(7, int(datetime.fromisoformat(tick_id).timestamp()))]
+    assert owner.calls == [(
+        7, int(datetime.fromisoformat(tick_id).timestamp()), ())]
     assert observer.calls == 1
     assert result.target_active_model_identity_digest is not None
     assert list((tmp_path / "glow/forge/work_runs").glob("run_*.json")) == []

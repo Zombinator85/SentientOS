@@ -30,9 +30,11 @@ LEGACY_CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v1"
 CALIBRATION_SCHEMA = "sentientos.epistemic_calibration_event:v1"
 COGNITIVE_PROJECTION_SCHEMA_V2 = "sentientos.epistemic_cognitive_projection:v2"
 COGNITIVE_PROJECTION_SCHEMA_V3 = "sentientos.epistemic_cognitive_projection:v3"
+COGNITIVE_PROJECTION_SCHEMA_V4 = "sentientos.epistemic_cognitive_projection:v4"
 COGNITIVE_PACKET_SCHEMA = "sentientos.epistemic_cognitive_packet:v1"
 MAX_COGNITIVE_PROJECTION_STATES = 128
 MAX_COGNITIVE_PROJECTION_OMISSIONS = 16_384
+MAX_COGNITIVE_PROJECTION_PRIORITIES = 512
 PROPOSITION_CLASSES = frozenset({"descriptive", "predictive", "causal_hypothesis", "capability", "environmental", "relational", "system_hypothesis"})
 RELATIONS = frozenset({"refines", "narrows", "broadens", "supersedes", "contradicts", "related_to"})
 EVIDENCE_RELATIONS = frozenset({"supports", "contradicts", "undercuts", "contextualizes", "resolves", "predictive_outcome", "reliability_evidence"})
@@ -226,8 +228,13 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
     if any(len(rows) != len(ordered) for rows in
             (semantic_rows, active_rows, removed_rows, event_rows)):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
-    schema = (COGNITIVE_PROJECTION_SCHEMA_V3 if omission_manifest is not None
-        else COGNITIVE_PROJECTION_SCHEMA_V2)
+    if omission_manifest is None:
+        schema = COGNITIVE_PROJECTION_SCHEMA_V2
+    elif omission_manifest.get("schema_version") == (
+            "sentientos.epistemic_projection_omission_manifest:v2"):
+        schema = COGNITIVE_PROJECTION_SCHEMA_V4
+    else:
+        schema = COGNITIVE_PROJECTION_SCHEMA_V3
     semantic_payload = {**payload, "schema_version": schema,
         "current_tick": current_tick, "propositions": semantic_rows,
         "active_evidence_bindings": active_rows,
@@ -316,7 +323,8 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                         (state.state_id, state.state_digest)):
                 raise EpistemicStateError("epistemic_state_digest_mismatch")
         return
-    if schema not in {COGNITIVE_PROJECTION_SCHEMA_V2, COGNITIVE_PROJECTION_SCHEMA_V3}:
+    if schema not in {COGNITIVE_PROJECTION_SCHEMA_V2,
+            COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}:
         raise EpistemicStateError("epistemic_projection_schema_unsupported")
     omission_manifest = raw.get("omission_manifest")
     if schema == COGNITIVE_PROJECTION_SCHEMA_V2 and omission_manifest is not None:
@@ -348,16 +356,40 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
     if len({item.proposition_id for item in normalized_states}) != len(normalized_states):
         raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
-        required_manifest_fields = {"schema_version", "selection_policy",
-            "selection_limit", "available_prior_state_count", "selected_state_count",
-            "omitted_state_count", "omitted_identity_digest", "omitted_state_identities"}
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}:
+        common_manifest_fields = {"selection_limit", "available_prior_state_count",
+            "selected_state_count", "omitted_state_count", "omitted_identity_digest",
+            "omitted_state_identities"}
+        if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
+            required_manifest_fields = common_manifest_fields | {
+                "schema_version", "selection_policy"}
+            valid_manifest_version = (
+                isinstance(omission_manifest, Mapping)
+                and omission_manifest.get("schema_version") ==
+                    "sentientos.epistemic_projection_omission_manifest:v1"
+                and omission_manifest.get("selection_policy") ==
+                    "latest_prior_state_by_proposition_id_ascending")
+            priority_ids: tuple[str, ...] = ()
+        else:
+            required_manifest_fields = common_manifest_fields | {
+                "schema_version", "selection_policy", "prioritized_proposition_ids"}
+            raw_priority_ids = (omission_manifest.get("prioritized_proposition_ids")
+                if isinstance(omission_manifest, Mapping) else None)
+            valid_manifest_version = (
+                isinstance(omission_manifest, Mapping)
+                and omission_manifest.get("schema_version") ==
+                    "sentientos.epistemic_projection_omission_manifest:v2"
+                and omission_manifest.get("selection_policy") ==
+                    "goal_tagged_prior_state_then_proposition_id_ascending"
+                and isinstance(raw_priority_ids, (list, tuple))
+                and len(raw_priority_ids) <= MAX_COGNITIVE_PROJECTION_PRIORITIES
+                and all(_valid_identity(item, "proposition") for item in raw_priority_ids)
+                and len(raw_priority_ids) == len(set(raw_priority_ids)))
+            priority_ids = (tuple(raw_priority_ids)
+                if isinstance(raw_priority_ids, (list, tuple)) else ())
         if (not isinstance(omission_manifest, Mapping)
                 or set(omission_manifest) != required_manifest_fields
-                or omission_manifest.get("schema_version") !=
-                    "sentientos.epistemic_projection_omission_manifest:v1"
-                or omission_manifest.get("selection_policy") !=
-                    "latest_prior_state_by_proposition_id_ascending"
+                or not valid_manifest_version
                 or type(omission_manifest.get("selection_limit")) is not int
                 or not 1 <= omission_manifest["selection_limit"] <=
                     MAX_COGNITIVE_PROJECTION_STATES
@@ -402,15 +434,19 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
             PersistentEpistemicStateOwner.validate_update_timestamp(
                 tick=row["update_tick"], recorded_at=row["updated_at"])
             omitted_ids.append(str(row["proposition_id"]))
+        all_ids = {item.proposition_id for item in normalized_states} | set(omitted_ids)
+        if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
+            ranked_ids = sorted(all_ids)
+        else:
+            if not set(priority_ids) <= all_ids:
+                raise EpistemicStateError("epistemic_projection_omission_priority_invalid")
+            ranked_ids = list(priority_ids) + sorted(all_ids - set(priority_ids))
+        expected_selected_ids = set(ranked_ids[:omission_manifest["selection_limit"]])
         if (omitted_ids != sorted(omitted_ids)
                 or len(omitted_ids) != len(set(omitted_ids))
                 or set(omitted_ids) & {item.proposition_id for item in normalized_states}
-                or tuple(item.proposition_id for item in normalized_states) != tuple(
-                    sorted([item.proposition_id for item in normalized_states] + omitted_ids)[
-                        :omission_manifest["selection_limit"]])
-                or tuple(omitted_ids) != tuple(sorted(
-                    [item.proposition_id for item in normalized_states] + omitted_ids)[
-                        omission_manifest["selection_limit"]:])
+                or {item.proposition_id for item in normalized_states} != expected_selected_ids
+                or set(omitted_ids) != set(ranked_ids[omission_manifest["selection_limit"]:])
                 or omission_manifest.get("omitted_identity_digest") != digest(list(omitted_rows))):
             raise EpistemicStateError("epistemic_projection_omission_identity_mismatch")
     elif omission_manifest is not None:
@@ -499,7 +535,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         PersistentEpistemicStateOwner.validate_update_timestamp(
             tick=event.tick, recorded_at=state.updated_at)
     source_ticks = list(event_ticks)
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}:
         if not isinstance(omission_manifest, Mapping):
             raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
         omitted_identities = omission_manifest.get("omitted_state_identities")
@@ -519,7 +555,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         "removed_evidence_bindings": removed_raw, "update_events": events_raw,
         "evidence_only": False, "prior_position_only": True, "current_truth": False,
         "authority": False, "policy": False, "goal": False})
-    if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
+    if schema in {COGNITIVE_PROJECTION_SCHEMA_V3, COGNITIVE_PROJECTION_SCHEMA_V4}:
         if not isinstance(omission_manifest, Mapping):
             raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
         payload["omission_manifest"] = dict(omission_manifest)
@@ -1056,7 +1092,8 @@ class PersistentEpistemicStateOwner:
         self._verified_mutation_bound_state_digests = verified
 
     def cognitive_projection(self, *, max_states: int,
-                             current_tick: int | None = None) -> EpistemicCognitiveProjection | None:
+                             current_tick: int | None = None,
+                             prioritized_proposition_ids: Sequence[str] = ()) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
 
         The update files visible in the first inventory are the chronology boundary:
@@ -1071,6 +1108,15 @@ class PersistentEpistemicStateOwner:
         if current_tick is not None and (not isinstance(current_tick, int)
                 or isinstance(current_tick, bool) or current_tick < 0):
             raise EpistemicStateError("epistemic_projection_tick_invalid")
+        if (not isinstance(prioritized_proposition_ids, Sequence)
+                or isinstance(prioritized_proposition_ids, (str, bytes))
+                or len(prioritized_proposition_ids) > MAX_COGNITIVE_PROJECTION_PRIORITIES
+                or any(not _valid_identity(item, "proposition")
+                    for item in prioritized_proposition_ids)
+                or len(prioritized_proposition_ids) !=
+                    len(set(prioritized_proposition_ids))):
+            raise EpistemicStateError("epistemic_projection_priority_invalid")
+        requested_priorities = tuple(prioritized_proposition_ids)
         self.verify()
         if (self._published_mutation_bound_state_digests
                 - self._verified_mutation_bound_state_digests):
@@ -1117,11 +1163,17 @@ class PersistentEpistemicStateOwner:
             latest = {proposition_id: state for proposition_id, state in latest.items()
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
-        ordered_latest = tuple(sorted(latest.values(), key=lambda item: item.proposition_id))
-        selected = ordered_latest[:max_states]
+        available_by_id = {item.proposition_id: item for item in latest.values()}
+        active_priorities = tuple(item for item in requested_priorities
+            if item in available_by_id)
+        ranked_ids = active_priorities + tuple(sorted(
+            set(available_by_id) - set(active_priorities)))
+        ranked_latest = tuple(available_by_id[item] for item in ranked_ids)
+        selected = ranked_latest[:max_states]
         if not selected:
             return None
-        omitted_states = ordered_latest[max_states:]
+        omitted_states = tuple(sorted(ranked_latest[max_states:],
+            key=lambda item: item.proposition_id))
         if len(omitted_states) > MAX_COGNITIVE_PROJECTION_OMISSIONS:
             raise EpistemicStateError("epistemic_projection_omission_bound_exceeded")
         omission_manifest: dict[str, Any] | None = None
@@ -1147,15 +1199,23 @@ class PersistentEpistemicStateOwner:
                     "omission_reason": "projection_state_bound",
                 })
             omission_manifest = {
-                "schema_version": "sentientos.epistemic_projection_omission_manifest:v1",
-                "selection_policy": "latest_prior_state_by_proposition_id_ascending",
+                "schema_version": (
+                    "sentientos.epistemic_projection_omission_manifest:v2"
+                    if active_priorities else
+                    "sentientos.epistemic_projection_omission_manifest:v1"),
+                "selection_policy": (
+                    "goal_tagged_prior_state_then_proposition_id_ascending"
+                    if active_priorities else
+                    "latest_prior_state_by_proposition_id_ascending"),
                 "selection_limit": max_states,
-                "available_prior_state_count": len(ordered_latest),
+                "available_prior_state_count": len(ranked_latest),
                 "selected_state_count": len(selected),
                 "omitted_state_count": len(omitted_rows),
                 "omitted_identity_digest": digest(omitted_rows),
                 "omitted_state_identities": tuple(omitted_rows),
             }
+            if active_priorities:
+                omission_manifest["prioritized_proposition_ids"] = active_priorities
         event_histories_by_state = {state.proposition_id: tuple(sorted((item for item in
             events_by_proposition.get(state.proposition_id, ()) if item.generation <= state.generation),
             key=lambda item: item.generation)) for state in selected}
