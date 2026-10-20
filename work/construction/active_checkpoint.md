@@ -107,3 +107,19 @@ Latest verified source merge: `800dcef026b32c45c5668282b260ca2e39ab4c24`, tree `
 Latest construction segment: `work/construction/segments/0484-prior-projection-goal-relevance-ranking.md`
 Latest segment SHA-256: `b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc`
 Sequence: 484
+
+
+## Sequence 485 — bounded goal-relevance priority admission
+
+PR #2473 caps deterministic goal-tagged prior-projection priorities at the verified owner’s existing bound of 512. Local staging, canonical planning, progression, and integrated history-comparison tests passed (146 passed, 2 existing skips); targeted Mypy and compilation passed, and the baseline added no diagnostics. Exact-candidate hosted acceptance, Administrator strict audits, audit immutability, metadata guard, and all PR checks passed.
+
+Regular merge `f145c4aa26f192e04c03bb09e49e40dc917725fd` has tree `4be51b499a7d4996ffa79a98a7065fc4b69e355d` and ordered parents `0877b2e8cf293d5b15fcc9d7ce6235b032e5ed7e` and `d644be0662a72516bb8558a9eacb2152c8eeac2f`; GitHub reports a valid signature. Post-merge Quality Gate, CI/source validation/self-check/Helm/docs, Codex CI/CPU smoke, Docker, invariants, and docs deployment passed. Forge Smoke was skipped by condition.
+
+Federation Health run #39378086813 successfully generated a report on ancestor main SHA `800dcef026b32c45c5668282b260ca2e39ab4c24` under hosted Administrator preflight and retained source-bound artifact #12243819144. Its report publisher failed because repository Actions policy denies Actions-token PR creation. No schedule run on exact current main `f145c4aa26f192e04c03bb09e49e40dc917725fd` was observed at 2026-10-20T06:20:10Z; current-head nightly audit and self-check evidence also remain outstanding. Production inference, campaign, or transition execution was not performed; protected and stale workspaces remain untouched.
+
+Next, prove that goal history beyond the 512-priority bound remains represented in omission evidence and keeps its daemon-planned goal review-required. Continue preserving deterministic ranking, append-only history, planning/execution separation, and authority boundaries while pursuing a least-privilege publisher path.
+
+Latest verified source merge: `f145c4aa26f192e04c03bb09e49e40dc917725fd`, tree `4be51b499a7d4996ffa79a98a7065fc4b69e355d`
+Latest construction segment: `work/construction/segments/0485-bound-goal-relevance-priority-admission.md`
+Latest segment SHA-256: `ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4`
+Sequence: 485

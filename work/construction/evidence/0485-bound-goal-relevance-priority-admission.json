@@ -1,0 +1,143 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "campaign_advanced": false,
+      "effect_performed": false,
+      "execution_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "goal-tagged prior projection priorities never exceed the owner bound of 512",
+      "the bound preserves deterministic enabled-goal precedence independent of graph input order",
+      "planning passes bounded priorities to the verified owner without executing goals or invoking inference"
+    ],
+    "outcome": "Canonical daemon planning remains within the verified projection owner’s priority bound for oversized goal graphs, while deterministic goal precedence and plan-only behavior remain intact."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "artifact_digest": "sha256:276807697b6406c3c65eb6a2443ef4e924ff009f2fa33e33e4428d58e8f7d3cf",
+      "artifact_id": 12243819144,
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9",
+      "run_id": 39378086813
+    },
+    "main_head": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T06:20:10Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0484-prior-projection-goal-relevance-ranking.md",
+    "segment_sha256": "b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
+    "sequence": 484
+  },
+  "pull_request": {
+    "head_sha": "d644be0662a72516bb8558a9eacb2152c8eeac2f",
+    "number": 2473,
+    "state": "merged",
+    "title": "[codex:cognition] bound goal-relevance priority admission [untested]",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2473"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0485-bound-goal-relevance-priority-admission.md",
+  "sequence": 485,
+  "source": {
+    "base_commit": "0877b2e8cf293d5b15fcc9d7ce6235b032e5ed7e",
+    "base_tree": "39e79a32bfe3eb7bba2bcd12186aac770ffc7067",
+    "candidate_commit": "d644be0662a72516bb8558a9eacb2152c8eeac2f",
+    "candidate_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d",
+    "merge_commit": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+    "method": "merge",
+    "parents": [
+      "0877b2e8cf293d5b15fcc9d7ce6235b032e5ed7e",
+      "d644be0662a72516bb8558a9eacb2152c8eeac2f"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/orchestrator.py": "3a12113a5b31fa3af5782ae9f8e2a805c79b8d6f",
+      "sentientos/tests/test_orchestrator_plan_only.py": "e1a6cb991d6a9a047e2ef343c4d6174f58b67ef1"
+    },
+    "candidate_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d",
+    "changed_blobs": 2,
+    "main_ref": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+    "main_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "0877b2e8cf293d5b15fcc9d7ce6235b032e5ed7e",
+      "d644be0662a72516bb8558a9eacb2152c8eeac2f"
+    ]
+  },
+  "title": "Bound goal relevance priority admission",
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "postmerge_checks": "passed",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39378821285,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_passed": 146,
+      "focused_affected_tests_skipped": 2,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "targeted_mypy": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci_build": {
+          "conclusion": "success",
+          "run": 39379225560
+        },
+        "codex_ci_cpu_smoke": {
+          "conclusion": "success",
+          "run": 39379225518
+        },
+        "deploy": {
+          "conclusion": "success",
+          "run": 39379225438
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39379225573
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39379225500
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39379225466
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39379225484
+        }
+      },
+      "main_head": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+      "main_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
+    }
+  }
+}
