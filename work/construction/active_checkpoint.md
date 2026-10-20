@@ -2,12 +2,14 @@
 
 ## Latest verified main
 
-Sequence 498 closes the interrupted-write gap for external work-plan evidence bindings. The writer stages bytes privately, synchronizes them, atomically publishes the immutable sidecar without replacement, and synchronizes the parent directory. A regression proves interrupted pre-publication writes leave no canonical partial file and that a retry succeeds. PR #2496 passed exact-candidate CI, strict hosted Administrator audits, acceptance, the privileged finalizer, and the separate pre-publication metadata guard, then merged with history preserved. The exact candidate and main trees match at `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`; all post-merge required checks passed except Forge Smoke, skipped by workflow condition.
+Sequences 499 and 500 record two verified work-plan evidence increments now integrated in main. Sequence 499 makes canonical evidence-envelope publication atomic and recoverable after interruption. Sequence 500 prevents evidence access from traversing symlinked directory ancestry and verifies descriptor identity around reads and writes.
 
-Latest verified source merge: `803f4d004dbc853424a507beba9980c706c9266c`, tree `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`
-Latest construction segment: `work/construction/segments/0498-atomic-work-plan-sidecar-publication.md`
-Latest segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
-Sequence: 498
+Latest verified source merge: `d2b987d23cdc86a371a15d096feda08024f9c3db`, tree `ff75349ab29030665b259ef742b3603d92e8d099`
+Latest construction segment: `work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md`
+Latest segment SHA-256: `1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7`
+Sequence: 500
+
+
 
 ## Operational observation
 
@@ -277,3 +279,39 @@ Latest verified source merge: `803f4d004dbc853424a507beba9980c706c9266c`, tree `
 Latest construction segment: `work/construction/segments/0498-atomic-work-plan-sidecar-publication.md`
 Latest segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
 Sequence: 498
+
+
+## Sequence 499 — atomically publish work-plan evidence envelopes
+
+PR #2498 closes the interruption window after an external work-plan binding sidecar has been published but before the canonical evidence envelope is fully written. The envelope is now written and synchronized in a private same-directory temporary, atomically linked into place without replacement, and followed by a directory sync. Exact retries remain idempotent and conflicting contents fail closed.
+
+The regression injects an envelope fsync failure after the sidecar is durable, verifies the complete sidecar remains while the canonical envelope and temporary are absent, then retries and validates the persisted evidence digest. The affected local suites passed (24 tests), targeted Mypy and compilation passed, and all exact-candidate hosted checks passed. The Quality Gate's strict Administrator audits, acceptance, privileged finalizer, and separate pre-publication metadata guard passed. Downloaded gate artifacts were independently checked against GitHub's SHA-256 digests; validation used the solo profile without requesting an exhaustive matrix.
+
+PR #2498 merged with history preserved as `d7219eb7673fe627412383b0e041506ed961ceab`. The signed merge preserves base `e70d952579bbe8d5a5257f52ad6ba8f024ee61d7` and candidate `6bef514f1d4f530d5b478fce7bb6f7d4b6367aaf` as ordered parents, with tree `58837c6b924d0c39fd03e33a36cc4689c85af0e8`, identical to the candidate tree. Post-merge checks passed; Forge Smoke was skipped by its workflow condition.
+
+No production task, inference, campaign, or transition was executed. Authority boundaries and append-only construction history were preserved.
+
+Latest source merge: `d7219eb7673fe627412383b0e041506ed961ceab`, tree `58837c6b924d0c39fd03e33a36cc4689c85af0e8`
+Latest segment: `work/construction/segments/0499-atomic-work-plan-evidence-envelope-publication.md`
+Latest segment SHA-256: `a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f`
+Predecessor segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
+Sequence: 499
+
+
+## Sequence 500 — guard work-plan evidence directory ancestry
+
+PR #2499 closes the directory-ancestry gap in immutable work-plan evidence storage. On platforms with descriptor-relative APIs, the writer and reader traverse the canonical evidence directory without following symlinks, operate through the opened descriptor, and verify that the descriptor still names the canonical directory after access. The fallback validates each path component without accepting symlinks.
+
+Regression tests reject symlinks at each ancestry level for both writes and reads, exercise the fallback rejection path, and swap an ancestor after secure open to prove the operation does not redirect evidence into the external target and fails its final directory identity check.
+
+Seven affected work-plan, executor, journal, and orchestration suites passed (92 tests); targeted Mypy and compilation passed. All exact-candidate checks passed, including hosted Administrator audits, acceptance, privileged finalization, and the separate pre-publication metadata guard. The three hosted artifacts were independently downloaded and matched their GitHub SHA-256 digests. The finalizer bound candidate `69271640d8159832d761402cf187c32f52e5c004` and tree `ff75349ab29030665b259ef742b3603d92e8d099`; validation used the solo profile without requesting an exhaustive matrix.
+
+PR #2499 merged with history preserved as signed merge `d2b987d23cdc86a371a15d096feda08024f9c3db`, preserving base `d7219eb7673fe627412383b0e041506ed961ceab` and candidate `69271640d8159832d761402cf187c32f52e5c004` as ordered parents. Remote main resolves to the merge and its tree matches the exact candidate tree. Post-merge Quality Gate, source validation, self-check, build, CPU smoke, invariants, Helm, and deployment passed; Forge Smoke was skipped by its workflow condition. The strict docs link check passed after the longer Sphinx external-link phase completed.
+
+No production task, inference, campaign, or transition was executed. Authority boundaries and append-only construction history were preserved.
+
+Latest source merge: `d2b987d23cdc86a371a15d096feda08024f9c3db`, tree `ff75349ab29030665b259ef742b3603d92e8d099`
+Latest segment: `work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md`
+Latest segment SHA-256: `1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7`
+Predecessor segment SHA-256: `a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f`
+Sequence: 500
