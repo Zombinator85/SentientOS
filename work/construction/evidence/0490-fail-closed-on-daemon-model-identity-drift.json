@@ -1,0 +1,138 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "exact model identity selects goal from recovered positive history",
+      "changed serving model defers goal as epistemic_applicability_unresolved",
+      "positive posture and state identity remain visible in allocation artifact",
+      "changed model identity produces no work plan",
+      "planning remains non executing and leaves persistent owner unchanged"
+    ],
+    "outcome": "A serving model identity change preserves historical evidence but prevents the old model bound positive position from selecting a goal."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "run_id": 39378086813
+    },
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T07:55:27Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0489-verify-positive-history-in-recovered-daemon-planning.md",
+    "segment_sha256": "72eea69e3c53a65a4cb16ab6f0bd60bda8f4ef52d84a56b3414b997f90fe1a5e",
+    "sequence": 489
+  },
+  "pull_request": {
+    "head_sha": "71b3ef8064a5521cede91a49a8fc2e2799932913",
+    "number": 2481,
+    "state": "merged",
+    "title": "[codex:epistemic] verify daemon planning fails closed on model drift",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2481"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0490-fail-closed-on-daemon-model-identity-drift.md",
+  "sequence": 490,
+  "source": {
+    "base_commit": "405f620e06285d99f81fdaa1189bd8df443d9320",
+    "base_tree": "034e2daed0795337ac4e50a350a31380c1ede85a",
+    "candidate_commit": "71b3ef8064a5521cede91a49a8fc2e2799932913",
+    "candidate_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8",
+    "merge_commit": "d7db09da4567f2977575a17d3356dc0ac128fab2",
+    "method": "merge",
+    "parents": [
+      "405f620e06285d99f81fdaa1189bd8df443d9320",
+      "71b3ef8064a5521cede91a49a8fc2e2799932913"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "71872aa0a18ac80af1648e5358d0af0d855583c8"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "52071e04e1b0cbfa26340a525001da8191944994"
+    },
+    "candidate_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8",
+    "changed_blobs": 1,
+    "main_ref": "d7db09da4567f2977575a17d3356dc0ac128fab2",
+    "main_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "405f620e06285d99f81fdaa1189bd8df443d9320",
+      "71b3ef8064a5521cede91a49a8fc2e2799932913"
+    ]
+  },
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39387847033,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 62,
+      "focused_affected_tests_skipped": 4,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39388637622
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39388637628
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39388637610
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39388637693
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39388637584
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39388637641
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39388637609
+        }
+      },
+      "main_head": "d7db09da4567f2977575a17d3356dc0ac128fab2",
+      "main_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8"
+    }
+  }
+}

@@ -170,3 +170,28 @@ Latest verified source merge: `0b6f97752ce2da7229661174dd75fda61ae267f0`, tree `
 Latest construction segment: `work/construction/segments/0488-verify-persisted-priority-admission-readback.md`
 Latest segment SHA-256: `59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e`
 Sequence: 488
+
+## Sequence 489 — positive history in recovered daemon planning
+
+PR #2480 verifies that a supported model bound proposition reaches canonical daemon planning after reconstructing the persistent epistemic owner. The exact model identity selects the goal and binds position state/event identity into plan evidence. The 66 test affected suite passed (62 passed, 4 existing skips), compile and Mypy baseline passed, and exact candidate hosted checks passed.
+
+Regular merge `405f620e06285d99f81fdaa1189bd8df443d9320`, tree `034e2daed0795337ac4e50a350a31380c1ede85a`, ordered parents `0c0030fc0e5f6c602c94e3a40dbbd357c9a63adb` and `af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b`; signature verified. Post merge required workflows passed.
+
+## Sequence 490 — fail closed on model identity drift
+
+PR #2481 verifies that a changed serving model defers the previously supported model bound goal as `epistemic_applicability_unresolved`, retaining positive state identity in allocation evidence. The affected 66 tests passed (62 passed, 4 existing skips), compile and Mypy baseline passed, and exact candidate hosted checks passed.
+
+Regular merge `d7db09da4567f2977575a17d3356dc0ac128fab2`, tree `71872aa0a18ac80af1648e5358d0af0d855583c8`, ordered parents `405f620e06285d99f81fdaa1189bd8df443d9320` and `71b3ef8064a5521cede91a49a8fc2e2799932913`; signature verified. Post merge required workflows passed.
+
+## Sequence 491 — model identity in daemon feedback
+
+PR #2482 surfaces the already bound target model digest and observation time in canonical daemon planning feedback. The integration regression verifies these values across model drift and retains the no inference, no execution, and no authority guarantees. The affected 66 tests passed (62 passed, 4 existing skips); compile and Mypy baseline passed; exact hosted acceptance and metadata guard passed.
+
+Regular merge `6046002357a51cf5f96fa5ec4b067155b3024040`, tree `00d600c2cb55c41e3829b9cba02efb4c821ff87b`, ordered parents `d7db09da4567f2977575a17d3356dc0ac128fab2` and `e26d85082c19b9c5ced1bc924ece184556883602`; signature verified. Post merge required workflows passed.
+
+No scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run on this exact main head was observed at 2026-10-20T07:55:27Z. The latest scheduled Federation Health report generation succeeded on ancestor `800dcef026b32c45c5668282b260ca2e39ab4c24`, but its publisher failed because repository policy denies Actions token PR creation. No current head scheduled success is claimed.
+
+Latest verified source merge: `6046002357a51cf5f96fa5ec4b067155b3024040`, tree `00d600c2cb55c41e3829b9cba02efb4c821ff87b`
+Latest construction segment: `work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md`
+Latest segment SHA-256: `6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8`
+Sequence: 491

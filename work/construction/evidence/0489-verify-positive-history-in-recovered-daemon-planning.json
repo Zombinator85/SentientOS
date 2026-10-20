@@ -1,0 +1,138 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "reconstruct persistent epistemic owner before daemon canonical planning",
+      "select supported positive goal only at exact active model identity",
+      "bind verified position state, digest, and update event identity into persisted plan evidence",
+      "planning opens no serving session and invokes neither inference nor executor",
+      "no work run artifact; recovered owner state remains unchanged"
+    ],
+    "outcome": "Daemon canonical planning consumes independently supported positive model bound history after persistent owner reconstruction, while retaining the non execution boundary."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "run_id": 39378086813
+    },
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T07:55:27Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0488-verify-persisted-priority-admission-readback.md",
+    "segment_sha256": "59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
+    "sequence": 488
+  },
+  "pull_request": {
+    "head_sha": "af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b",
+    "number": 2480,
+    "state": "merged",
+    "title": "[codex:epistemic] verify positive history in daemon planning",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2480"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0489-verify-positive-history-in-recovered-daemon-planning.md",
+  "sequence": 489,
+  "source": {
+    "base_commit": "0c0030fc0e5f6c602c94e3a40dbbd357c9a63adb",
+    "base_tree": "ad425753b01bdc3ba0a11e35b0c372d57402e553",
+    "candidate_commit": "af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b",
+    "candidate_tree": "034e2daed0795337ac4e50a350a31380c1ede85a",
+    "merge_commit": "405f620e06285d99f81fdaa1189bd8df443d9320",
+    "method": "merge",
+    "parents": [
+      "0c0030fc0e5f6c602c94e3a40dbbd357c9a63adb",
+      "af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "034e2daed0795337ac4e50a350a31380c1ede85a"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "75ae33ccd2c1351b40c338ddacf8ea8dc6cb140f"
+    },
+    "candidate_tree": "034e2daed0795337ac4e50a350a31380c1ede85a",
+    "changed_blobs": 1,
+    "main_ref": "405f620e06285d99f81fdaa1189bd8df443d9320",
+    "main_tree": "034e2daed0795337ac4e50a350a31380c1ede85a",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "0c0030fc0e5f6c602c94e3a40dbbd357c9a63adb",
+      "af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b"
+    ]
+  },
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39386815332,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 62,
+      "focused_affected_tests_skipped": 4,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39387485440
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39387485371
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39387485336
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39387485335
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39387485321
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39387485331
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39387485290
+        }
+      },
+      "main_head": "405f620e06285d99f81fdaa1189bd8df443d9320",
+      "main_tree": "034e2daed0795337ac4e50a350a31380c1ede85a"
+    }
+  }
+}
