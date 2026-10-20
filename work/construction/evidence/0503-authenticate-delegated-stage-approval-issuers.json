@@ -139,5 +139,5 @@
     "Repository administrator action or a separately provisioned, least-privilege GitHub App credential is still required to enable unattended Federation Health PR publication.",
     "Native Windows canonical evidence writing remains unsupported and was outside this POSIX transition-approval increment."
   ],
-  "segment_sha256": "21fc5203949617b7ea35e54b276853794264232e70d47575340a2c7054cc88a3"
+  "segment_sha256": "54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8"
 }
