@@ -2,9 +2,12 @@
 
 ## Latest verified main
 
-Sequence 477 binds live, verified transition-stage provenance into immutable production self-reflection trial outcomes. New protocol v2 runs require a live transition owner before trial start and revalidate submitted stage receipts against active-trial identity, protocol, authenticated operator provenance, journal entries, and current owner state after execution returns. Receipt reads verify the nested stage and aggregate digests, identity uniqueness, phase order, and journal identity. Historical v1 protocols and receipts remain readable. The binding grants no authority and performs no transition execution.
+Sequence 492 binds the exact canonical goal-allocation bytes to deterministic plan identity, persisted work-plan evidence, and read-only daemon feedback. Evidence persistence and readback validate the linked file digest; pre-digest historical evidence remains readable. PR #2486 passed the exact-candidate hosted Quality Gate and all PR checks, then merged normally as `2adf59db661779ba8d62d5d8417381f442fdbaf0` with tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8` and valid signature. The ordered parents are verified main `124de0f9ced349de7342901a2e1338c460c05a00` and candidate `f522ff3a25cc901d4e817f31b5169d9f9c82ec7e`. Post-merge Quality Gate, CI, source validation, Mypy, docs, Helm, Docker, CPU smoke, invariants, and deployment passed; Forge Smoke was skipped by workflow condition.
 
-Candidate `6b69f98f40640dd7c1c1f6ed2f70008d43dcc311` (tree `02e0100f8da2b9a748b2d55d8790e362a0779c99`) was based on `a0bebb27e7ee63a30a2ed06c88deced820423a00`. PR #2458 preserved its three commits through a regular merge as `d3420704c90796d16fe4e393170f7fb1076eb10f`, with tree `02e0100f8da2b9a748b2d55d8790e362a0779c99` and ordered parents `a0bebb27e7ee63a30a2ed06c88deced820423a00` and `6b69f98f40640dd7c1c1f6ed2f70008d43dcc311`. Exact candidate checks, hosted Administrator audits, audit immutability, acceptance, metadata guard, CI/source validation, Mypy ratchet, Docker, CPU smoke, Helm, docs, invariants, and the post-merge Quality Gate passed. Post-merge feedback invitation run #39353777705 passed.
+Latest verified source merge: `2adf59db661779ba8d62d5d8417381f442fdbaf0`, tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8`
+Latest construction segment: `work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md`
+Latest segment SHA-256: `206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781`
+Sequence: 492
 
 ## Operational observation
 
@@ -195,3 +198,17 @@ Latest verified source merge: `6046002357a51cf5f96fa5ec4b067155b3024040`, tree `
 Latest construction segment: `work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md`
 Latest segment SHA-256: `6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8`
 Sequence: 491
+
+
+## Sequence 492 — bind allocation content to persisted plan evidence
+
+PR #2486 carries a SHA-256 digest of exact canonical allocation bytes through deterministic plan identity, persisted plan evidence, and read-only daemon feedback. Persistence and readback verify the bounded linked artifact, while older evidence lacking the field remains readable. Local affected tests passed, compilation passed, and the full Mypy ratchet added zero errors and retired 40. Exact candidate checks, hosted Administrator audits, immutability, acceptance, and metadata guard passed. Regular merge `2adf59db661779ba8d62d5d8417381f442fdbaf0` preserves main and candidate as ordered parents; the exact tree and all five changed blobs were independently read back. Post-merge required checks passed.
+
+As of 2026-10-20T09:20:24Z, a scheduled Federation Health run on this main head and a current-head Nightly Self Check were not observed. Federation Health run #8680 passed its Administrator health/report job on older head `800dcef026b32c45c5668282b260ca2e39ab4c24` and uploaded an artifact bound to that head, but its publisher failed because Actions-token pull request creation is denied by repository policy. Nightly Audit Integrity #501 succeeded on prior main `124de0f9ced349de7342901a2e1338c460c05a00`; Nightly Self Check #507 succeeded on older head `b5912ecc8f25cebcb5338f623bae8d829261f6ce`. These do not establish scheduled execution on current main.
+
+Next, verify the allocation identity once more at the executor boundary so a mismatched executor envelope or replaced allocation cannot create a task journal or run artifact. Production campaign, inference, and transition execution remain unclaimed; protected and stale workspaces remain untouched.
+
+Latest verified source merge: `2adf59db661779ba8d62d5d8417381f442fdbaf0`, tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8`
+Latest construction segment: `work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md`
+Latest segment SHA-256: `206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781`
+Sequence: 492
