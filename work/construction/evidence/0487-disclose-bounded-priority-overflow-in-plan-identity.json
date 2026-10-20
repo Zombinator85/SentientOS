@@ -1,0 +1,143 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "512-position deterministic priority capacity remains bounded",
+      "unique valid enabled overflow is explicitly recorded; duplicates and disabled or malformed tags do not count",
+      "overflow flag and priority limit are bound into canonical plan evidence and plan identity",
+      "omitted adverse history remains identified and review-required",
+      "planning performs no execution, inference, work-run emission, or authority grant"
+    ],
+    "outcome": "Canonical planning records bounded-priority overflow in plan identity, allocation, and daemon feedback while preserving omitted adverse history and the no-execution boundary."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "run_id": 39378086813
+    },
+    "main_head": "598663bb85e423072391a9e0befe24c4836af7ac",
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T07:09:00Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0486-overflowed-priority-history-remains-review-required.md",
+    "segment_sha256": "28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
+    "sequence": 486
+  },
+  "pull_request": {
+    "head_sha": "0e968e7014e4929b441a922e1c2a78f85bfdfeeb",
+    "number": 2477,
+    "state": "merged",
+    "title": "[codex:epistemic] disclose bounded priority overflow [untested]",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2477"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0487-disclose-bounded-priority-overflow-in-plan-identity.md",
+  "sequence": 487,
+  "source": {
+    "base_commit": "157450c562dbd062ed271172f1330fa0b2df002c",
+    "base_tree": "7dbd7646a6b7e45235c964785d7fec2f51c9117f",
+    "candidate_commit": "0e968e7014e4929b441a922e1c2a78f85bfdfeeb",
+    "candidate_tree": "e945a199d023fcabc64d93bb5982fef08de324f7",
+    "merge_commit": "598663bb85e423072391a9e0befe24c4836af7ac",
+    "method": "merge",
+    "parents": [
+      "157450c562dbd062ed271172f1330fa0b2df002c",
+      "0e968e7014e4929b441a922e1c2a78f85bfdfeeb"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "e945a199d023fcabc64d93bb5982fef08de324f7"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/goal_planner.py": "7243cf8e14294dc1c61182e4e02a4e20dab4531d",
+      "sentientos/orchestrator.py": "53f36d109dacc2c0fd135d1e295e4cd906b7614c",
+      "sentientos/tests/test_orchestrator_plan_only.py": "a9777b6632c27149ec3adb1ce06c332500502730",
+      "sentientos/work_allocator.py": "1f57fc85dcac956bc7e6d3016973ce6758625a6d",
+      "sentientosd.py": "83712aea3012715982b1e4e2760ba237c03024b6"
+    },
+    "candidate_tree": "e945a199d023fcabc64d93bb5982fef08de324f7",
+    "changed_blobs": 5,
+    "main_ref": "598663bb85e423072391a9e0befe24c4836af7ac",
+    "main_tree": "e945a199d023fcabc64d93bb5982fef08de324f7",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "157450c562dbd062ed271172f1330fa0b2df002c",
+      "0e968e7014e4929b441a922e1c2a78f85bfdfeeb"
+    ]
+  },
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39383538468,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 61,
+      "focused_affected_tests_skipped": 2,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39384093190
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39384093158
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39384093138
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39384093098
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39384093187
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39384093116
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39384093120
+        }
+      },
+      "main_head": "598663bb85e423072391a9e0befe24c4836af7ac",
+      "main_tree": "e945a199d023fcabc64d93bb5982fef08de324f7"
+    }
+  }
+}

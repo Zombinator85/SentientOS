@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c8f021907360e96ccebb40d2370f6b508a80eba101d7765bfdefc6262642e4dd",
-    "latest_segment_sequence": 486,
-    "latest_segment_sha256": "28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
-    "latest_sequence": 486,
-    "source_commit": "9d5bd2787e00c702e988c54df2860cc38176b86e",
-    "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
+    "checkpoint_sha256": "6bc29d3c31057ba3f66769d87c14ff50daa7cd6fe4214b52732bbda6b6fc6733",
+    "latest_segment_sequence": 488,
+    "latest_segment_sha256": "59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
+    "latest_sequence": 488,
+    "source_commit": "0b6f97752ce2da7229661174dd75fda61ae267f0",
+    "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1"
   },
-  "checkpoint_sha256": "c8f021907360e96ccebb40d2370f6b508a80eba101d7765bfdefc6262642e4dd",
+  "checkpoint_sha256": "6bc29d3c31057ba3f66769d87c14ff50daa7cd6fe4214b52732bbda6b6fc6733",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 486,
+  "latest_sequence": 488,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5516,6 +5516,30 @@
       "sha256": "28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
       "source_commit": "9d5bd2787e00c702e988c54df2860cc38176b86e",
       "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
+    },
+    {
+      "bytes": 3707,
+      "evidence_bytes": 5464,
+      "evidence_path": "work/construction/evidence/0487-disclose-bounded-priority-overflow-in-plan-identity.json",
+      "evidence_sha256": "2e27f628d9674c5ca87e01447e3875a617a739f48c9403028f41948999942018",
+      "path": "work/construction/segments/0487-disclose-bounded-priority-overflow-in-plan-identity.md",
+      "predecessor": "segment-sha256:28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
+      "sequence": 487,
+      "sha256": "26c48af56e4e0ba1be4083de12609e36947a5fce4d69a415edbd0906b3d2881f",
+      "source_commit": "598663bb85e423072391a9e0befe24c4836af7ac",
+      "source_tree": "e945a199d023fcabc64d93bb5982fef08de324f7"
+    },
+    {
+      "bytes": 3355,
+      "evidence_bytes": 5005,
+      "evidence_path": "work/construction/evidence/0488-verify-persisted-priority-admission-readback.json",
+      "evidence_sha256": "be91a75aad977374033871504efe22131707317415038976140bb9e697980d27",
+      "path": "work/construction/segments/0488-verify-persisted-priority-admission-readback.md",
+      "predecessor": "segment-sha256:26c48af56e4e0ba1be4083de12609e36947a5fce4d69a415edbd0906b3d2881f",
+      "sequence": 488,
+      "sha256": "59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
+      "source_commit": "0b6f97752ce2da7229661174dd75fda61ae267f0",
+      "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1"
     }
   ],
   "source_acquisition": {
@@ -5525,7 +5549,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb",
+  "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

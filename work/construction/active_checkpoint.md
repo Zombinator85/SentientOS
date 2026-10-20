@@ -139,3 +139,34 @@ Latest verified source merge: `9d5bd2787e00c702e988c54df2860cc38176b86e`, tree `
 Latest construction segment: work/construction/segments/0486-overflowed-priority-history-remains-review-required.md
 Latest segment SHA-256: `28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718`
 Sequence: 486
+
+## Sequence 487 — bounded priority overflow in canonical plan identity
+
+PR #2477 records whether a further unique valid enabled prior proposition exceeded the 512-position relevance bound, and includes the flag and limit in canonical plan evidence and plan identity, allocation artifacts, and daemon feedback. The no-owner path remains unchanged. Local affected verification passed 61 tests with two existing skips, compilation passed, and the Mypy baseline added zero errors. Exact-candidate hosted acceptance, actual Administrator strict audits, audit immutability, the separate metadata guard, and all PR checks passed.
+
+Regular merge `598663bb85e423072391a9e0befe24c4836af7ac` preserves ordered parents `157450c562dbd062ed271172f1330fa0b2df002c` and `0e968e7014e4929b441a922e1c2a78f85bfdfeeb`; tree `e945a199d023fcabc64d93bb5982fef08de324f7`, signature valid. Post-merge Quality Gate, CI (including docs, source validation, self-check, and Helm), invariants, Codex CI, Docker, and Docs Deploy passed; Forge Smoke was skipped by condition.
+
+No scheduled Federation Health or nightly audit/self-check execution on exact main `598663bb85e423072391a9e0befe24c4836af7ac` was observed at 2026-10-20T07:09:00Z. Federation Health publication remains blocked by repository Actions-token PR policy; no current-head scheduled success is claimed.
+
+Next, verify persisted plan and evidence readback retains the priority-overflow flag and bound after recovery. Draft PR #2478 adds this integrated regression; local affected suite passed 63 tests with two existing skips, compilation passed, and Mypy added zero errors. Exact candidate hosted verification is in progress.
+
+Latest verified source merge: `598663bb85e423072391a9e0befe24c4836af7ac`, tree `e945a199d023fcabc64d93bb5982fef08de324f7`
+Latest construction segment: `work/construction/segments/0487-disclose-bounded-priority-overflow-in-plan-identity.md`
+Latest segment SHA-256: `26c48af56e4e0ba1be4083de12609e36947a5fce4d69a415edbd0906b3d2881f`
+Sequence: 487
+
+
+## Sequence 488 — verify persisted priority admission readback
+
+PR #2478 extends the overflow regression to reopen the persisted canonical plan and its evidence binding. It verifies `overflowed=true` and `limit=512` survive readback, while omission identity, adverse review status, and non-execution remain asserted. This is a test-only change. The affected local suite passed 61 tests with two existing skips; compilation passed; the full Mypy baseline added zero errors. Exact-candidate hosted Administrator audits, immutability, acceptance, metadata guard, and all PR checks passed.
+
+Regular merge `0b6f97752ce2da7229661174dd75fda61ae267f0` preserves ordered parents `598663bb85e423072391a9e0befe24c4836af7ac` and `325f3f6397378697196ea6a5df5f267fc3d92aa5`; tree `a0b20e55bcae4940cb2697dadf2b1d54d4f980a1`, signature valid. Post-merge CI, self-check, source validation, Helm, docs, Quality Gate, invariants, Codex CI, Docker, and CPU smoke passed. Forge Smoke was skipped by condition.
+
+At 2026-10-20T07:17:11Z, no scheduled Federation Health or nightly audit/self-check run on exact main `0b6f97752ce2da7229661174dd75fda61ae267f0` was observed. Federation Health publication remains blocked by repository Actions policy denying Actions-token pull request creation.
+
+Next, reassess the retained-experience to canonical-planning dependency and continue seeking actual current-head scheduled Federation Health evidence.
+
+Latest verified source merge: `0b6f97752ce2da7229661174dd75fda61ae267f0`, tree `a0b20e55bcae4940cb2697dadf2b1d54d4f980a1`
+Latest construction segment: `work/construction/segments/0488-verify-persisted-priority-admission-readback.md`
+Latest segment SHA-256: `59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e`
+Sequence: 488
