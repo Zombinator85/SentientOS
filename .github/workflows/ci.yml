@@ -285,6 +285,7 @@ jobs:
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
             tests/test_production_self_reflection_campaign.py::test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution \
+            tests/test_production_self_reflection_campaign.py::test_campaign_binds_final_verified_stage_receipt_to_active_trial_without_execution \
             tests/test_production_self_reflection_campaign.py::test_campaign_stage_receipt_binding_rejects_changed_live_owner
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/active_trial_stage_receipt_provenance.json
@@ -295,6 +296,7 @@ jobs:
 
           nodes = [
               "tests/test_production_self_reflection_campaign.py::test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution",
+              "tests/test_production_self_reflection_campaign.py::test_campaign_binds_final_verified_stage_receipt_to_active_trial_without_execution",
               "tests/test_production_self_reflection_campaign.py::test_campaign_stage_receipt_binding_rejects_changed_live_owner",
           ]
           manifest = {

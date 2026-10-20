@@ -884,8 +884,7 @@ def test_campaign_binds_verified_transition_plan_to_active_trial_without_authori
     assert dict(campaign.state()) == before
 
 
-@pytest.mark.parametrize("phase", [PHASES[2], PHASES[-1]])
-def test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution(
+def _assert_campaign_binds_verified_stage_receipt_to_active_trial(
         tmp_path: Path, phase: str) -> None:
     protocol = _protocol()
     campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
@@ -961,6 +960,16 @@ def test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution
     assert calls["process_one"] == 0
     assert calls["inspect"] >= 2
     assert dict(campaign.state()) == before
+
+
+def test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution(
+        tmp_path: Path) -> None:
+    _assert_campaign_binds_verified_stage_receipt_to_active_trial(tmp_path, PHASES[2])
+
+
+def test_campaign_binds_final_verified_stage_receipt_to_active_trial_without_execution(
+        tmp_path: Path) -> None:
+    _assert_campaign_binds_verified_stage_receipt_to_active_trial(tmp_path, PHASES[-1])
 
 
 def test_campaign_stage_receipt_binding_rejects_changed_live_owner(

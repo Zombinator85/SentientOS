@@ -961,6 +961,7 @@ def test_source_validation_runs_active_trial_transition_receipt_binding_regressi
     )
     for node in (
         "test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution",
+        "test_campaign_binds_final_verified_stage_receipt_to_active_trial_without_execution",
         "test_campaign_stage_receipt_binding_rejects_changed_live_owner",
     ):
         assert node in source_validation
