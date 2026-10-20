@@ -947,71 +947,154 @@ class ProductionSelfReflectionCampaign:
                          "failure_reason": None})
             return MappingProxyType(receipt)
 
+    def _completed_report_bodies(
+            self, receipts: Sequence[Mapping[str, Any]]
+            ) -> tuple[dict[str, Any], dict[str, Any]]:
+        scores = {
+            condition: [receipt["condition_scores"][condition]["counts"]
+                        for receipt in receipts]
+            for condition in CONDITION_ORDER
+        }
+        has_verified_transition_provenance = any(
+            "transition_stage_receipt_binding" in receipt for receipt in receipts)
+        body: dict[str, Any] = {
+            "schema_version": (REPORT_SCHEMA if has_verified_transition_provenance
+                               else LEGACY_REPORT_SCHEMA),
+            "protocol_id": self._protocol_snapshot.protocol_id,
+            "planned_trial_count": len(receipts),
+            "valid_completed_trials": len(receipts),
+            "interrupted_trials": 0,
+            "condition_scores": scores,
+            "restoration_results": [receipt["restoration_result"]
+                                    for receipt in receipts],
+            "descriptive_only": True,
+            "negative_null_unstable_retained": True,
+            "unsupported_inferences": [
+                "consciousness", "identity", "learning", "sentience",
+                "guaranteed_improvement",
+            ],
+        }
+        if has_verified_transition_provenance:
+            body["campaign_protocol_digest"] = self._protocol_snapshot.protocol_digest
+            body["trial_provenance_schema"] = TRIAL_PROVENANCE_SCHEMA
+            body["trial_provenance"] = [
+                {
+                    "trial_id": receipt["trial_id"],
+                    "receipt_id": receipt["receipt_id"],
+                    "receipt_digest": receipt["receipt_digest"],
+                    "verified_transition_stage_provenance": (
+                        {
+                            "status": receipt["transition_stage_receipt_binding"]["status"],
+                            "binding_digest": receipt["transition_stage_receipt_binding"]["binding_digest"],
+                            "transition_protocol_id": receipt["transition_stage_receipt_binding"]["transition_protocol_id"],
+                            "transition_protocol_digest": receipt["transition_stage_receipt_binding"]["transition_protocol_digest"],
+                            "phase_order": list(receipt["transition_stage_receipt_binding"]["phase_order"]),
+                            "stage_receipt_count": len(receipt["transition_stage_receipt_binding"]["stage_receipts"]),
+                        }
+                        if "transition_stage_receipt_binding" in receipt
+                        else {"status": "not_recorded_historical_receipt"}
+                    ),
+                }
+                for receipt in receipts
+            ]
+        body["report_digest"] = _digest(body)
+
+        legacy_body = dict(body)
+        legacy_body.pop("campaign_protocol_digest", None)
+        legacy_body.pop("trial_provenance_schema", None)
+        legacy_body.pop("trial_provenance", None)
+        legacy_body["schema_version"] = LEGACY_REPORT_SCHEMA
+        legacy_body.pop("report_digest", None)
+        legacy_body["report_digest"] = _digest(legacy_body)
+        return body, legacy_body
+
+    def _read_report_bytes(self) -> bytes:
+        directory_fd: int | None = None
+        try:
+            directory_fd = open_private_directory(self.root, create=False)
+            return read_private_file_at(
+                directory_fd, "report.json",
+                max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES,
+            )
+        except (OSError, PrivateFileCustodyError) as exc:
+            raise ProductionSelfReflectionError(
+                "campaign_report_unavailable") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
+
+    def verify_report(self) -> Mapping[str, Any]:
+        """Verify an existing completed report without creating or changing files."""
+        with self._campaign_lock(blocking=False, create=False):
+            state = self.state()
+            receipts = self._verify_progress(state)
+            if state["validity"] != "valid_complete":
+                raise ProductionSelfReflectionError("campaign_incomplete")
+
+            current_body, legacy_body = self._completed_report_bodies(receipts)
+            report_bytes = self._read_report_bytes()
+            try:
+                report = json.loads(report_bytes.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ProductionSelfReflectionError(
+                    "immutable_artifact_tampered") from exc
+            if not isinstance(report, dict):
+                raise ProductionSelfReflectionError("immutable_artifact_tampered")
+            report_without_digest = dict(report)
+            claimed_digest = report_without_digest.pop("report_digest", None)
+            if claimed_digest != _digest(report_without_digest):
+                raise ProductionSelfReflectionError("immutable_artifact_tampered")
+
+            current_bytes = (
+                json.dumps(current_body, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8")
+            legacy_bytes = (
+                json.dumps(legacy_body, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8")
+            if report_bytes == current_bytes:
+                report_format = "current"
+            elif report_bytes == legacy_bytes:
+                report_format = "legacy_compatible"
+            else:
+                raise ProductionSelfReflectionError("campaign_report_mismatch")
+
+            provenance_count = sum(
+                "transition_stage_receipt_binding" in receipt
+                for receipt in receipts
+            )
+            return MappingProxyType({
+                "status": "campaign_report_verified",
+                "report_schema_version": report["schema_version"],
+                "report_digest": claimed_digest,
+                "campaign_protocol_digest": self._protocol_snapshot.protocol_digest,
+                "planned_trial_count": len(receipts),
+                "verified_transition_provenance_trial_count": provenance_count,
+                "report_format": report_format,
+                "read_only": True,
+                "effect_performed": False,
+                "campaign_advanced": False,
+                "grants_authority": False,
+                "execution_allowed": False,
+            })
+
     def report(self) -> Mapping[str, Any]:
         with self._campaign_lock():
             state = self.state()
             receipts = self._verify_progress(state)
-            if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
-            scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}
-            has_verified_transition_provenance = any(
-                "transition_stage_receipt_binding" in receipt for receipt in receipts)
-            body: dict[str, Any] = {
-                "schema_version": (REPORT_SCHEMA if has_verified_transition_provenance
-                                   else LEGACY_REPORT_SCHEMA),
-                "protocol_id": self._protocol_snapshot.protocol_id,
-                "planned_trial_count": len(receipts), "valid_completed_trials": len(receipts), "interrupted_trials": 0,
-                "condition_scores": scores, "restoration_results": [r["restoration_result"] for r in receipts],
-                "descriptive_only": True, "negative_null_unstable_retained": True,
-                "unsupported_inferences": ["consciousness", "identity", "learning", "sentience", "guaranteed_improvement"]}
-            if has_verified_transition_provenance:
-                body["campaign_protocol_digest"] = self._protocol_snapshot.protocol_digest
-                body["trial_provenance_schema"] = TRIAL_PROVENANCE_SCHEMA
-                body["trial_provenance"] = [
-                    {
-                        "trial_id": receipt["trial_id"],
-                        "receipt_id": receipt["receipt_id"],
-                        "receipt_digest": receipt["receipt_digest"],
-                        "verified_transition_stage_provenance": (
-                            {
-                                "status": receipt["transition_stage_receipt_binding"]["status"],
-                                "binding_digest": receipt["transition_stage_receipt_binding"]["binding_digest"],
-                                "transition_protocol_id": receipt["transition_stage_receipt_binding"]["transition_protocol_id"],
-                                "transition_protocol_digest": receipt["transition_stage_receipt_binding"]["transition_protocol_digest"],
-                                "phase_order": list(receipt["transition_stage_receipt_binding"]["phase_order"]),
-                                "stage_receipt_count": len(receipt["transition_stage_receipt_binding"]["stage_receipts"]),
-                            }
-                            if "transition_stage_receipt_binding" in receipt
-                            else {"status": "not_recorded_historical_receipt"}
-                        ),
-                    }
-                    for receipt in receipts
-                ]
-            body["report_digest"] = _digest(body)
+            if state["validity"] != "valid_complete":
+                raise ProductionSelfReflectionError("campaign_incomplete")
+            body, legacy_body = self._completed_report_bodies(receipts)
             report_path = self.root / "report.json"
-            legacy_body = dict(body)
-            legacy_body.pop("campaign_protocol_digest", None)
-            legacy_body.pop("trial_provenance_schema", None)
-            legacy_body.pop("trial_provenance", None)
-            legacy_body["schema_version"] = LEGACY_REPORT_SCHEMA
-            legacy_body.pop("report_digest", None)
-            legacy_body["report_digest"] = _digest(legacy_body)
-            legacy_bytes = (json.dumps(legacy_body, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            legacy_bytes = (
+                json.dumps(legacy_body, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8")
             try:
                 _immutable(report_path, body)
             except ProductionSelfReflectionError as exc:
                 if exc.code != "immutable_artifact_collision" or legacy_bytes == (
                         json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8"):
                     raise
-                directory_fd: int | None = None
-                try:
-                    directory_fd = open_private_directory(self.root, create=False)
-                    prior_bytes = read_private_file_at(
-                        directory_fd, "report.json", max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES)
-                except (OSError, PrivateFileCustodyError):
-                    raise exc
-                finally:
-                    if directory_fd is not None:
-                        os.close(directory_fd)
+                prior_bytes = self._read_report_bytes()
                 if prior_bytes != legacy_bytes:
                     raise exc
                 prior_report = json.loads(prior_bytes.decode("utf-8"))
