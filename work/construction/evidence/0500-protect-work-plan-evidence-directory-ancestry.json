@@ -1,0 +1,80 @@
+{
+  "title": "Guard work-plan evidence directory ancestry",
+  "pull_request": {
+    "number": 2499,
+    "status": "merged",
+    "base_commit": "d7219eb7673fe627412383b0e041506ed961ceab",
+    "candidate_commit": "69271640d8159832d761402cf187c32f52e5c004",
+    "candidate_tree": "ff75349ab29030665b259ef742b3603d92e8d099",
+    "merge_commit": "d2b987d23cdc86a371a15d096feda08024f9c3db",
+    "preserved_commit_history": true
+  },
+  "remote_readback": {
+    "main_head": "d2b987d23cdc86a371a15d096feda08024f9c3db",
+    "main_tree": "ff75349ab29030665b259ef742b3603d92e8d099",
+    "candidate_tree": "ff75349ab29030665b259ef742b3603d92e8d099",
+    "signed_merge_commit": true
+  },
+  "behavior": {
+    "outcome": "Evidence reads and immutable writes reject symlinked directory ancestry, use descriptor-relative operations where available, and verify the canonical directory binding after access.",
+    "checks": [
+      "writes reject symlinks at glow, glow/forge, and the evidence directory",
+      "reads reject symlinked directory ancestry",
+      "fallback checks reject a symlink before creating evidence",
+      "a parent swapped after descriptor open does not redirect the write and fails the final identity check"
+    ],
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    }
+  },
+  "tests": {
+    "affected_local_test_command": "python -m pytest -q sentientos/tests/test_work_plan_cli.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_plan_only.py sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_work_plan_load.py",
+    "affected_local_tests": "passed (92 tests)",
+    "targeted_mypy_command": "python -m mypy sentientos/work_plan.py",
+    "targeted_mypy": "passed",
+    "compileall_command": "python -m compileall -q sentientos/work_plan.py sentientos/tests/test_work_plan_evidence_bounds.py",
+    "compileall": "passed",
+    "candidate_checks": "passed",
+    "candidate_check_runs": [
+      39452686695,
+      39452686658,
+      39452686782,
+      39452686647,
+      39452686713,
+      39452686659,
+      39452686620,
+      39452687139,
+      39452678374,
+      39452678312
+    ],
+    "strict_administrator_audits": "passed",
+    "acceptance": "passed",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "validation_profile": "solo",
+    "exhaustive_matrix_requested": false,
+    "quality_gate_evidence_artifact_sha256": "7fe77cd236238953b14ca700feedc536f7aff43b5e09512c5659e73760c7839d",
+    "quality_gate_evidence_artifact_sha256_independently_verified": true,
+    "acceptance_artifact_sha256": "2c58d0380cea43800648b3f153e6478572eee437318e7e2749f6dbfa152e7051",
+    "acceptance_artifact_sha256_independently_verified": true,
+    "finalizer_artifact_sha256": "d47d4252c7dcfc8a167836b8b22860b0648a46c84285896901748c4801932519",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "post_merge_checks": {
+      "ci": "passed",
+      "quality_gate": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "invariants": "passed",
+      "docs": "passed",
+      "helm": "passed",
+      "deployment": "passed",
+      "forge_smoke": "skipped_by_workflow_condition"
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0499-atomic-work-plan-evidence-envelope-publication.md",
+    "segment_sha256": "a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f",
+    "sequence": 499
+  }
+}

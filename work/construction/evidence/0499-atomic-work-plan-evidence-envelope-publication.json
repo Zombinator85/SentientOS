@@ -1,0 +1,75 @@
+{
+  "title": "Atomically publish work-plan evidence envelopes",
+  "pull_request": {
+    "number": 2498,
+    "status": "merged",
+    "base_commit": "e70d952579bbe8d5a5257f52ad6ba8f024ee61d7",
+    "candidate_commit": "6bef514f1d4f530d5b478fce7bb6f7d4b6367aaf",
+    "candidate_tree": "58837c6b924d0c39fd03e33a36cc4689c85af0e8",
+    "merge_commit": "d7219eb7673fe627412383b0e041506ed961ceab",
+    "preserved_commit_history": true
+  },
+  "remote_readback": {
+    "main_head": "d7219eb7673fe627412383b0e041506ed961ceab",
+    "main_tree": "58837c6b924d0c39fd03e33a36cc4689c85af0e8",
+    "candidate_tree": "58837c6b924d0c39fd03e33a36cc4689c85af0e8",
+    "signed_merge_commit": true
+  },
+  "behavior": {
+    "outcome": "Canonical work-plan evidence envelopes now use atomic immutable publication like their sidecars; an interrupted envelope write leaves only the complete sidecar and a retry can recover.",
+    "checks": [
+      "write the envelope to a private same-directory temporary file and fsync it before publication",
+      "publish with an atomic no-overwrite link and fsync the directory",
+      "exact replays remain idempotent and conflicting content fails closed",
+      "injected envelope fsync failure leaves no partial canonical envelope or temporary and retry succeeds"
+    ],
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    }
+  },
+  "tests": {
+    "affected_local_test_command": "python -m pytest -q sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_goal_executor_run.py",
+    "affected_local_tests": "passed (24 tests)",
+    "targeted_mypy_command": "python -m mypy sentientos/work_plan.py",
+    "targeted_mypy": "passed",
+    "compileall_command": "python -m compileall -q sentientos/work_plan.py sentientos/tests/test_work_plan_evidence_bounds.py",
+    "compileall": "passed",
+    "candidate_checks": "passed",
+    "strict_administrator_audits": "passed",
+    "acceptance": "passed",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "validation_profile": "solo",
+    "exhaustive_matrix_requested": false,
+    "quality_gate_evidence_artifact_sha256": "50a200eef41077ea92a6f690b28bcfd235ea9314ca30bcde811f8088a0266bf8",
+    "quality_gate_evidence_artifact_sha256_independently_verified": true,
+    "acceptance_artifact_sha256": "ea0b8090332e31889184f47cc969fc4414aa1e6535f7f3292114408333fb51c0",
+    "acceptance_artifact_sha256_independently_verified": true,
+    "finalizer_artifact_sha256": "5596afab933c1713d24d21b171a4dfda5ccbbb1f9726cdeafad24ac84c7d3fd3",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "post_merge_checks": {
+      "ci": "passed",
+      "quality_gate": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "invariants": "passed",
+      "docs": "passed",
+      "helm": "passed",
+      "deployment": "passed",
+      "forge_smoke": "skipped_by_workflow_condition"
+    }
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0498-atomic-work-plan-sidecar-publication.md",
+    "segment_sha256": "3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8",
+    "sequence": 498
+  }
+}
