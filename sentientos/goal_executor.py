@@ -31,6 +31,13 @@ class GoalExecutor:
             evidence = load_work_plan_evidence(self.repo_root, plan)
             if evidence.get("evidence_digest") != expected_evidence_digest:
                 raise WorkPlanError("work_plan_evidence_digest_mismatch")
+            evidence_binding = evidence.get("evidence_binding")
+            if (not isinstance(evidence_binding, dict)
+                    or evidence_binding.get("allocation_artifact_path") != state.allocation_id
+                    or evidence_binding.get("allocation_artifact_digest")
+                        != state.allocation_artifact_digest):
+                raise WorkPlanError(
+                    "work_plan_execution_allocation_binding_mismatch")
         # Reject a mismatched execution envelope before opening journals or
         # invoking any task. The run-id helper enforces the plan timestamp as
         # part of the durable identity; waiting until the end could otherwise
