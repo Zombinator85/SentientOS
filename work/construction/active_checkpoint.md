@@ -18,3 +18,17 @@ Latest verified source merge: `d3420704c90796d16fe4e393170f7fb1076eb10f`, tree `
 Latest construction segment: work/construction/segments/0477-bind-live-stage-receipts-to-immutable-trial-outcomes.md
 Latest segment SHA-256: `7426e036b3578a2447396ec8bccda8973e76ec7fa28d03d8d41d000bfa87dece`
 Sequence: 477 (verified live transition-stage provenance is bound to immutable trial outcomes)
+
+
+## Recovered append-only history
+
+Sequences 478 and 479 restore the already merged campaign-report provenance and read-only persisted-report verification milestones. Their source candidates, regular merge parents, remote tree and blob readbacks, local and hosted verification, and operational limits are recorded in the append-only evidence files. Main is now `5164520ece5820b525942e3b57e56ebbbd0b24f3` with tree `118dc8d56abb4536b3499a104a009561e5dfdd0d`. The post-merge Quality Gate, Codex CI, Docker, and docs deployment passed; standard CI and scheduled operational runs were pending at capture.
+
+## Next developmental dependency
+
+Continue connecting retained verified experience to canonical planning through read-only, provenance-bound inputs. Planning must remain separate from goal execution and must not turn experimental scores into generic truth or authority.
+
+Latest verified source merge: `5164520ece5820b525942e3b57e56ebbbd0b24f3`, tree `118dc8d56abb4536b3499a104a009561e5dfdd0d`
+Latest construction segment: work/construction/segments/0479-verify-persisted-campaign-reports-without-mutation.md
+Latest segment SHA-256: `7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c`
+Sequence: 479

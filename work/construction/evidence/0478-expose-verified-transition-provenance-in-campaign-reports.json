@@ -1,0 +1,141 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "mailbox_processed": false,
+      "read_only": true
+    },
+    "checks": [
+      "campaign report protocol digest is exact",
+      "per-trial provenance is minimal and tied to retained trial identity",
+      "historical v1 output remains byte-stable",
+      "no scoring, authority, approval, inference, or transition behavior is added"
+    ],
+    "outcome": "New v2 campaign reports carry the exact campaign protocol digest and minimal per-trial provenance, including the verified transition binding. Historical v1 report output remains byte-stable. This is descriptive provenance only; it does not score outcomes, authorize or approve execution, or alter transition behavior."
+  },
+  "limitations": {
+    "historical_test_provenance_integrity_broken": true,
+    "operational_note": "At capture time 2026-10-20T03:22:03Z, the latest main is 5164520ece5820b525942e3b57e56ebbbd0b24f; no post-merge scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run on that exact head is present. Historical schedule runs are not current-head evidence.",
+    "operational_observations_pending": true,
+    "private_signing_key_shipped": false,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_operator_catalog_provisioned": false,
+    "production_request_exercised": false,
+    "protected_workspace_modified": false,
+    "sequence_286_loss_resolved": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0477-bind-live-stage-receipts-to-immutable-trial-outcomes.md",
+    "segment_sha256": "7426e036b3578a2447396ec8bccda8973e76ec7fa28d03d8d41d000bfa87dece",
+    "sequence": 477
+  },
+  "pull_request": {
+    "head_sha": "3367e9f8f858d73d4b5d2be420afd705cf3dbd6e",
+    "number": 2460,
+    "state": "merged",
+    "title": "feat: expose verified transition provenance in campaign reports",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2460"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0478-expose-verified-transition-provenance-in-campaign-reports.md",
+  "sequence": 478,
+  "source": {
+    "base_commit": "d3420704c90796d16fe4e393170f7fb1076eb10f",
+    "base_tree": "02e0100f8da2b9a748b2d55d8790e362a0779c99",
+    "candidate_commit": "3367e9f8f858d73d4b5d2be420afd705cf3dbd6e",
+    "candidate_tree": "7641acfa3e8f7d719cd3707693425f4b8278fd90",
+    "merge_commit": "1baef37e6ac608f018b595123c86930d1f616a7c",
+    "method": "merge",
+    "parents": [
+      "3831b0f0c377d7d7a00ede2be388593810b1ab00",
+      "3367e9f8f858d73d4b5d2be420afd705cf3dbd6e"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "b0bbd779fcd9e803b2b6cdbebe82eb50f6cd1f68"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      ".github/workflows/ci.yml": "3a94c53daaaf74d641281a8c1629ae0df2638336",
+      "docs/development/production_self_reflection_campaign.md": "5016887149a38ebeabcbd073e7e730ffd5730206",
+      "sentientos/production_self_reflection_campaign.py": "7c9428c98bc0bbb7e44ec99e70b32060582fcf27",
+      "tests/test_github_hosted_acceptance_workflows.py": "79fcaee8f5ee064d4eb3101cb28d4a75d1a1d02f",
+      "tests/test_production_self_reflection_campaign.py": "26d6ea45a2be4f8ee7913683a000ca5ef7b5065f"
+    },
+    "candidate_tree": "7641acfa3e8f7d719cd3707693425f4b8278fd90",
+    "changed_blobs": 5,
+    "main_ref": "1baef37e6ac608f018b595123c86930d1f616a7c",
+    "main_tree": "b0bbd779fcd9e803b2b6cdbebe82eb50f6cd1f68",
+    "ordered_parents": [
+      "3831b0f0c377d7d7a00ede2be388593810b1ab00",
+      "3367e9f8f858d73d4b5d2be420afd705cf3dbd6e"
+    ]
+  },
+  "title": "Expose verified transition provenance in campaign reports",
+  "validation": {
+    "hosted": {
+      "administrator_audits": true,
+      "audit_immutability": true,
+      "ci": {
+        "conclusion": "success",
+        "run": 39356604130
+      },
+      "metadata_guard": "passed",
+      "post_merge": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39358969522
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39358969442
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39358969449
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39358969493
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39358969561
+        },
+        "main_head": "1baef37e6ac608f018b595123c86930d1f616a7c",
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39358969436
+        }
+      },
+      "quality_gate": {
+        "conclusion": "success",
+        "run": 39356604291
+      },
+      "source_validation": {
+        "conclusion": "success",
+        "run": 39356590855
+      },
+      "task_acceptance": true
+    },
+    "local": {
+      "compileall": "success",
+      "errors": 0,
+      "failures": 0,
+      "mypy_baseline": {
+        "matched_existing_errors": 1050,
+        "new_errors": 0,
+        "retired_errors": 40
+      },
+      "skipped": 0,
+      "tests_passed": 75,
+      "workflow_yaml_parse": "success"
+    }
+  }
+}
