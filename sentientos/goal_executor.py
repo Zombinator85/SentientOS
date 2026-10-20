@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -14,9 +15,24 @@ from sentientos.goal_planner import ExecutorState, GoalPlanDraft, GoalPlanner
 from sentientos.goal_completion import CompletionContext, eval_check, persist_completion_result
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
 from sentientos.work_plan import (Task, TaskRun, WorkPlan, WorkPlanError,
-    WorkPlanRun, load_work_plan_evidence, load_work_run,
+    WORK_PLAN_EVIDENCE_DIR, WorkPlanRun, load_work_plan_evidence, load_work_run,
     work_plan_id_from_evidence, work_run_id)
 from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
+
+
+def _persisted_work_plan_evidence_present(repo_root: Path, plan: WorkPlan) -> bool:
+    """Detect persisted evidence envelopes without following filesystem links."""
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_dir = repo_root.resolve() / WORK_PLAN_EVIDENCE_DIR
+    for name in (f"evidence_{plan_key}.json", f"binding_{plan_key}.json"):
+        try:
+            (evidence_dir / name).lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise WorkPlanError("work_plan_evidence_presence_unreadable") from exc
+        return True
+    return False
 
 
 class GoalExecutor:
@@ -27,6 +43,9 @@ class GoalExecutor:
         self, plan: WorkPlan, state: ExecutorState, *,
         expected_evidence_digest: str | None = None,
     ) -> WorkPlanRun:
+        if (expected_evidence_digest is None
+                and _persisted_work_plan_evidence_present(self.repo_root, plan)):
+            raise WorkPlanError("work_plan_evidence_digest_required")
         if expected_evidence_digest is not None:
             evidence = load_work_plan_evidence(self.repo_root, plan)
             if evidence.get("evidence_digest") != expected_evidence_digest:

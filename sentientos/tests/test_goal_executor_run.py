@@ -193,6 +193,34 @@ def test_execute_rejects_changed_canonical_evidence_before_task_effect(
     assert not (tmp_path / "glow/forge/work_plan_journals").exists()
 
 
+def test_execute_requires_digest_for_persisted_plan_evidence_before_task_effect(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    created_at = "2026-01-01T00:00:00Z"
+    evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a"}
+    plan = WorkPlan(
+        1,
+        work_plan_id_from_evidence(created_at, "h", "a", evidence_binding),
+        created_at,
+        "canonical",
+        ("g1",),
+        (Task(1, "t1", "g1", "forge_propose", (), None, 0, 0, {}, (), False),),
+    )
+    persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    calls: list[str] = []
+    executor = GoalExecutor(repo_root=tmp_path)
+    monkeypatch.setattr(executor, "_execute_task",
+        lambda task: calls.append(task.task_id) or ("success", None, ()))
+    with pytest.raises(goal_executor.WorkPlanError,
+                       match="work_plan_evidence_digest_required"):
+        executor.execute_plan(plan, _state(tmp_path))
+
+    assert calls == []
+    assert not (tmp_path / "glow/forge/work_plan_journals").exists()
+    assert not (tmp_path / "glow/forge/work_runs").exists()
+
+
 def test_execution_run_persists_exact_verified_plan_evidence_digest(
     tmp_path: Path, monkeypatch,
 ) -> None:
