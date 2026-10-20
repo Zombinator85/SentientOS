@@ -643,3 +643,188 @@ def test_daemon_active_trial_binding_fails_closed_without_request_declaration(
     assert result["grants_authority"] is False
     assert result["execution_allowed"] is False
 
+
+def test_daemon_correlates_transition_plan_with_explicit_stage_approval_read_only(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import production_self_reflection_campaign as campaign_module
+
+    campaign = object.__new__(campaign_module.ProductionSelfReflectionCampaign)
+    calls = {"planned": [], "bound": [], "admission": [], "processed": 0}
+    operator_authentication = MappingProxyType({
+        "schema_version":
+            "sentientos.resident_cognitive_transition_operator_authentication_binding:v1",
+        "operator_identity": "operator-1",
+        "signing_key_id": "ed25519-sha256:" + "a" * 64,
+        "request_claims_digest": "b" * 64,
+        "provenance_digest": "c" * 64,
+        "signed_at": "2026-10-20T00:00:00Z",
+        "trust_catalog_version": 2,
+        "trust_catalog_digest": "d" * 64,
+    })
+    plan_digest: str | None = "f" * 64
+
+    class Runtime:
+        def process_one(self):
+            calls["processed"] += 1
+            raise AssertionError("read-only planning must not process requests")
+
+        def plan_stage_admission(self, approval):
+            calls["admission"].append(approval)
+            return {
+                "status": "stage_approval_candidate_state_bound",
+                "current_phase": "a_to_b_transition_requested",
+                "requested_stage": "a_quiesced",
+                "approval_digest": "e" * 64,
+                "approval_posture":
+                    "caller_supplied_digest_and_state_binding_valid",
+                "effect_performed": False, "execution_allowed": False,
+                "grants_authority": False, "approval_selected": False,
+                "approval_minted": False, "operator_origin_authenticated": False,
+                "read_only": True,
+            }
+
+    class Observer:
+        def __init__(self, observed_campaign, owner):
+            assert observed_campaign is campaign
+            assert owner is runtime
+
+        def plan_next_stage(self, request_id):
+            calls["planned"].append(request_id)
+            return {
+                "status": "next_stage_planned",
+                "receipt_request_id": request_id,
+                "transition_request_trial_id": "trial-1",
+                "campaign_next_trial_id": "trial-1",
+                "campaign_trial_in_progress": True,
+                "prior_stage": "a_to_b_transition_requested",
+                "next_stage": "a_quiesced",
+                "plan_digest": plan_digest,
+                "operator_authentication": operator_authentication,
+                "effect_performed": False, "execution_allowed": False,
+                "campaign_advanced": False, "grants_authority": False,
+            }
+
+    def bind(self, plan, *, request_id, trial_id, transition_owner):
+        calls["bound"].append((plan, request_id, trial_id, transition_owner))
+        return {
+            "status": "active_trial_stage_bound",
+            "transition_plan_digest": plan["plan_digest"],
+            "binding_digest": "1" * 64,
+            "operator_authentication": plan["operator_authentication"],
+            "effect_performed": False, "execution_allowed": False,
+            "campaign_advanced": False, "grants_authority": False,
+            "read_only": True,
+        }
+
+    runtime = Runtime()
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "open_for_read_only_inspection", staticmethod(lambda root: campaign))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "bind_verified_transition_plan_to_active_trial", bind)
+    monkeypatch.setattr(
+        campaign_module, "ProductionSelfReflectionTransitionBindingObserver", Observer)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = runtime
+    approval = {"requested_stage": "a_quiesced", "approval_digest": "e" * 64}
+
+    result = surfaces.plan_production_self_reflection_transition_stage_admission(
+        "request-17", approval)
+
+    assert result["status"] == "stage_admission_candidate_aligned", result
+    assert result["campaign_trial_id"] == "trial-1"
+    assert result["planned_stage"] == "a_quiesced"
+    assert result["transition_plan_digest"] == "f" * 64
+    assert result["active_trial_binding_digest"] == "1" * 64
+    assert result["stage_approval_digest"] == "e" * 64
+    assert result["transition_request_origin_authenticated"] is True
+    assert result["stage_approval_origin_authenticated"] is False
+    assert result["approval_selected"] is False and result["approval_minted"] is False
+    assert result["effect_performed"] is False and result["execution_allowed"] is False
+    assert result["campaign_advanced"] is False and result["grants_authority"] is False
+    assert result["live_owner_revalidation_required"] is True
+    assert result["read_only"] is True
+    assert json.loads(json.dumps(result))["operator_authentication"]["operator_identity"] == "operator-1"
+    assert calls["planned"] == ["request-17", "request-17"]
+    assert calls["bound"][0][1:] == ("request-17", "trial-1", runtime)
+    assert calls["admission"] == [approval]
+    assert calls["processed"] == 0
+
+    plan_digest = None
+    incomplete_identity = surfaces.plan_production_self_reflection_transition_stage_admission(
+        "request-17", approval)
+    assert incomplete_identity["status"] == "transition_stage_admission_unavailable"
+    assert incomplete_identity["reason"] == "transition_stage_plan_identity_unverified"
+    assert incomplete_identity["transition_request_origin_authenticated"] is False
+    assert calls["planned"] == ["request-17", "request-17", "request-17"]
+    assert len(calls["bound"]) == 1
+
+
+def test_daemon_stage_admission_plan_rejects_approval_for_different_planned_stage(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import production_self_reflection_campaign as campaign_module
+
+    campaign = object.__new__(campaign_module.ProductionSelfReflectionCampaign)
+    operator_authentication = {"operator_identity": "operator-1"}
+
+    class Runtime:
+        def plan_stage_admission(self, approval):
+            return {
+                "status": "stage_approval_candidate_state_bound",
+                "current_phase": "a_to_b_transition_requested",
+                "requested_stage": approval["requested_stage"],
+                "approval_digest": approval["approval_digest"],
+            }
+
+    class Observer:
+        def __init__(self, observed_campaign, owner):
+            pass
+
+        def plan_next_stage(self, request_id):
+            return {
+                "status": "next_stage_planned",
+                "receipt_request_id": request_id,
+                "transition_request_trial_id": "trial-1",
+                "campaign_next_trial_id": "trial-1",
+                "campaign_trial_in_progress": True,
+                "prior_stage": "a_to_b_transition_requested",
+                "next_stage": "a_quiesced",
+                "plan_digest": "f" * 64,
+                "operator_authentication": operator_authentication,
+            }
+
+    def bind(self, plan, **kwargs):
+        return {
+            "status": "active_trial_stage_bound",
+            "transition_plan_digest": plan["plan_digest"],
+            "binding_digest": "1" * 64,
+            "operator_authentication": plan["operator_authentication"],
+        }
+
+    runtime = Runtime()
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "open_for_read_only_inspection", staticmethod(lambda root: campaign))
+    monkeypatch.setattr(
+        campaign_module.ProductionSelfReflectionCampaign,
+        "bind_verified_transition_plan_to_active_trial", bind)
+    monkeypatch.setattr(
+        campaign_module, "ProductionSelfReflectionTransitionBindingObserver", Observer)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = runtime
+
+    result = surfaces.plan_production_self_reflection_transition_stage_admission(
+        "request-17", {"requested_stage": "b_activation_committed",
+                       "approval_digest": "e" * 64})
+
+    assert result["status"] == "transition_stage_admission_unavailable"
+    assert result["reason"] == "stage_approval_not_bound_to_plan"
+    assert result["approval_selected"] is False and result["approval_minted"] is False
+    assert result["effect_performed"] is False and result["execution_allowed"] is False
+    assert result["campaign_advanced"] is False and result["grants_authority"] is False
+
