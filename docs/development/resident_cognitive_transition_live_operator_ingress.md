@@ -54,6 +54,19 @@ Receipts form a hash chain at
 already in that custody returns `already_consumed` without calling the controller.  The
 request file is never deleted or rewritten.
 
+## Authenticated operator in canonical planning
+
+When a completed stage receipt is projected for canonical campaign planning, the owner
+re-verifies the exact request provenance against its configured trust verifier and emits
+the authenticated operator identity, signing-key ID, claims and provenance digests, signed
+time, and pinned trust-catalog version and digest in the v3 verified-stage projection.
+The campaign planner validates the bounded shape and digest formats, then carries this
+record into both the next-stage plan and any active-trial binding. It remains descriptive
+provenance: it does not choose an approval, bind a request to a campaign trial by itself,
+grant authority, or permit execution. Missing, revoked, or otherwise unverifiable operator
+provenance prevents planning; existing v2 projections without authenticated identity are
+not promoted into canonical plans.
+
 ## Supplied stage-approval inspection
 
 `RuntimeMaintenanceSurfaces.plan_resident_cognitive_transition_stage_admission`

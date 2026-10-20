@@ -448,9 +448,13 @@ def test_daemon_transition_planning_delegates_without_processing_operator_packet
 
         def plan_next_stage(self, request_id):
             calls["planned"].append(request_id)
-            return {"status": "planned", "next_phase": "successor_b_epoch",
+            return MappingProxyType({"status": "planned", "next_phase": "successor_b_epoch",
+                    "operator_authentication": MappingProxyType({
+                        "operator_identity": "operator-1",
+                        "signing_key_id": "ed25519-sha256:" + "a" * 64,
+                    }),
                     "effect_performed": False, "execution_allowed": False,
-                    "campaign_advanced": False, "grants_authority": False}
+                    "campaign_advanced": False, "grants_authority": False})
 
     runtime = Runtime()
     monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
@@ -471,6 +475,7 @@ def test_daemon_transition_planning_delegates_without_processing_operator_packet
     assert result["execution_allowed"] is False
     assert result["campaign_advanced"] is False
     assert result["grants_authority"] is False
+    assert json.loads(json.dumps(result))["operator_authentication"]["operator_identity"] == "operator-1"
     assert calls == {"planned": ["request-17"], "processed": 0}
 
 
@@ -530,16 +535,20 @@ def test_daemon_active_trial_binding_uses_request_declared_trial_without_executi
 
         def plan_next_stage(self, request_id):
             calls["planned"].append(request_id)
-            return {
+            return MappingProxyType({
                 "status": "next_stage_planned",
                 "transition_request_trial_id": "trial-1",
                 "campaign_next_trial_id": "trial-1",
                 "campaign_trial_in_progress": True,
+                "operator_authentication": MappingProxyType({
+                    "operator_identity": "operator-1",
+                    "signing_key_id": "ed25519-sha256:" + "a" * 64,
+                }),
                 "effect_performed": False,
                 "campaign_advanced": False,
                 "grants_authority": False,
                 "execution_allowed": False,
-            }
+            })
 
     def bind(self, plan, *, request_id, trial_id, transition_owner):
         calls["bound"].append((plan, request_id, trial_id, transition_owner))
@@ -547,6 +556,10 @@ def test_daemon_active_trial_binding_uses_request_declared_trial_without_executi
             "status": "active_trial_stage_bound",
             "campaign_trial_binding": "request_declared_trial_matches_live_campaign_state",
             "campaign_trial_id": trial_id,
+            "operator_authentication": MappingProxyType({
+                "operator_identity": "operator-1",
+                "signing_key_id": "ed25519-sha256:" + "a" * 64,
+            }),
             "read_only": True,
             "effect_performed": False,
             "campaign_advanced": False,
@@ -580,6 +593,7 @@ def test_daemon_active_trial_binding_uses_request_declared_trial_without_executi
     assert result["campaign_advanced"] is False
     assert result["grants_authority"] is False
     assert result["execution_allowed"] is False
+    assert json.loads(json.dumps(result))["operator_authentication"]["operator_identity"] == "operator-1"
     assert calls["planned"] == ["request-17"]
     assert calls["bound"][0][1:] == ("request-17", "trial-1", runtime)
     assert calls["processed"] == 0
