@@ -103,7 +103,7 @@ class _CrossProcessController(_Controller):
 
 
 def _approval(stage: str = PHASES[1]) -> dict[str, object]:
-    body: dict[str, object] = {"schema_version": "sentientos.resident_cognitive_transition_stage_operator_approval:v1",
+    body: dict[str, object] = {"schema_version": "sentientos.resident_cognitive_transition_stage_operator_approval:v2",
                               "requested_stage": stage,
                               "approval_issuer_identity": "operator-1"}
     return {**body, "approval_digest": digest(body)}
