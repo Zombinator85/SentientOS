@@ -20,6 +20,7 @@ jobs:
       - name: Check out exact candidate
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -30,11 +31,13 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
       - name: Run strict audits with actual Administrator authority
+        env:
+          QUALITY_GATE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           test "$(sudo -n id -u)" = "0"
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
             python scripts/run_privileged_audit_verification.py \
-              --expected-sha "$GITHUB_SHA" \
+              --expected-sha "$QUALITY_GATE_SOURCE_SHA" \
               --output glow/audits/privileged_audit_verification.json
       - name: Bootstrap minimal documentation tooling with hosted Administrator authority
         run: |
@@ -132,11 +135,13 @@ jobs:
             --output "$RUNNER_TEMP/sentientos-landing-acceptance/acceptance-result.json"
       - name: Restore generated test-run residue after evidence capture
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')
+        env:
+          QUALITY_GATE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           python - <<'PY'
           import os, subprocess
           from pathlib import Path
-          source=os.environ["GITHUB_SHA"]
+          source=os.environ["QUALITY_GATE_SOURCE_SHA"]
           tracked="glow/test_runs/test_run_provenance.json"
           status=subprocess.run(
               ["git","status","--porcelain","--untracked-files=all","--",tracked,"glow/test_runs/provenance"],

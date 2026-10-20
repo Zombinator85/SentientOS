@@ -25,6 +25,7 @@ class AllocationDecision:
     selected_reasons: tuple[dict[str, object], ...]
     budget_summary: dict[str, int]
     prior_epistemic_projection_digest: str | None = None
+    prior_epistemic_projection_omitted_state_count: int | None = None
 
 
 _RECOVERY_ALLOWED_TAGS = {"integrity", "stability"}
@@ -55,10 +56,18 @@ def allocate_goals(
     completed_evidence = dict(verified_completion_evidence or {})
     verified_completed_ids = set(completed_evidence)
     projection_digest: str | None = None
+    projection_omitted_state_count: int | None = None
     review_scopes: dict[str, dict[str, object]] = {}
     if prior_epistemic_projection is not None:
         projection_digest, review_scopes = review_required_applicability(
             prior_epistemic_projection)
+        # Older projections lack the omission manifest, so absence cannot prove zero.
+        omission_manifest = getattr(prior_epistemic_projection,
+            "omission_manifest", None)
+        if isinstance(omission_manifest, Mapping):
+            omitted_count = omission_manifest.get("omitted_state_count")
+            if type(omitted_count) is int:
+                projection_omitted_state_count = omitted_count
 
     for goal in order_goals_deterministic(graph.goals):
         positions = _epistemic_positions_for_goal(goal, review_scopes)
@@ -138,6 +147,8 @@ def allocate_goals(
             "throughput_cap": int(max(0, budget.router_m_max)),
         },
         prior_epistemic_projection_digest=projection_digest,
+        prior_epistemic_projection_omitted_state_count=(
+            projection_omitted_state_count),
     )
 
 

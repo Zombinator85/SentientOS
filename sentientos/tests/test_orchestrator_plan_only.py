@@ -601,6 +601,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         tmp_path, planning_time="2026-10-16T09:00:00+00:00")
     assert "g_experienced" in without_history.allocation.selected
     assert without_history.allocation.prior_epistemic_projection_digest is None
+    assert without_history.allocation.prior_epistemic_projection_omitted_state_count is None
 
     owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=["embodiment"])
@@ -680,6 +681,9 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     assert evidence["evidence_binding"]["projection_digest"]
     assert with_history.allocation.prior_epistemic_projection_digest == (
         evidence["evidence_binding"]["projection_digest"])
+    assert evidence["evidence_binding"]["projection_omission_manifest"][
+        "omitted_state_count"] == 1
+    assert with_history.allocation.prior_epistemic_projection_omitted_state_count == 1
     daemon_root = tmp_path / "daemon-plan"
     (daemon_root / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (daemon_root / "glow/contracts/ci_baseline.json").write_text(
@@ -700,6 +704,10 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         "work_plan_evidence_path"]).read_text(encoding="utf-8"))
     assert daemon_feedback["prior_epistemic_projection_digest"] == (
         daemon_evidence["evidence_binding"]["projection_digest"])
+    assert daemon_feedback[
+        "prior_epistemic_projection_omitted_state_count"] == (
+            daemon_evidence["evidence_binding"][
+                "projection_omission_manifest"]["omitted_state_count"])
     assert daemon_feedback["execution_performed"] is False
     assert daemon_feedback["authority"] is False
     assert evidence["evidence_binding"]["review_scopes"]
@@ -757,6 +765,8 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     after_reconstruction = complete_surfaces.plan_canonical_goals(
         tick_id="2026-10-16T09:02:00+00:00")
     assert "g_omitted" not in after_reconstruction.allocation.selected
+    assert (after_reconstruction.allocation
+        .prior_epistemic_projection_omitted_state_count is None)
     assert {item.goal_id: item.reason for item in after_reconstruction.allocation.deferred}[
         "g_omitted"] == "epistemic_review_required"
     assert after_reconstruction.work_plan is not None

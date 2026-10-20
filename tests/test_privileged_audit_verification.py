@@ -35,7 +35,10 @@ def test_required_quality_gate_binds_root_audits_to_exact_checkout() -> None:
     assert 'test "$(sudo -n id -u)" = "0"' in workflow
     assert "sudo -n env" in workflow
     assert "run_privileged_audit_verification.py" in workflow
-    assert '"$GITHUB_SHA"' in workflow
+    exact_source = "${{ github.event.pull_request.head.sha || github.sha }}"
+    assert f"ref: {exact_source}" in workflow
+    assert f"QUALITY_GATE_SOURCE_SHA: {exact_source}" in workflow
+    assert '"$QUALITY_GATE_SOURCE_SHA"' in workflow
     assert workflow.index("Run strict audits with actual Administrator authority") < workflow.index(
         "python -m scripts.run_tests")
     assert "verify_audits.py\", \"--strict" in implementation
