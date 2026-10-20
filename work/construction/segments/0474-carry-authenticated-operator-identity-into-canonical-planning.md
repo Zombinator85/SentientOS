@@ -22,6 +22,8 @@ PR #2452 passed CI #39344664200, Docker #39344664179, Codex CI #39344664191, Rel
 
 Main now points to merge commit `37497cb07803b250b6370d35ac4e14b7115aa7c9`, tree `200e043067dd13350d3ec338762e48fade5d7e01`, with ordered parents `18e31f5ba893114161dfa3fe5866d18183f720d6` and `23c37a85ea33a74ca278213d7be9584acfd3abc8`. Post-merge Required Quality Gate #39345078877, Invariant Tests #39345078909, Codex CI #39345078938, Docs Deploy #39345078941, Docker #39345078856, and CI #39345078875 all succeeded. The CI source-validation, Helm integration, self-check, and Sphinx external link-check jobs passed. Forge Smoke #39345078997 was skipped by its workflow condition.
 
+The first sequence-evidence candidate's CI #39345891304 correctly rejected an out-of-sync checkpoint blob after the checkpoint text was refreshed but its stored GitHub content was stale. The checkpoint and index are being corrected together; the failed guard was preserved and not waived.
+
 ## Next dependency and limits
 
 The authenticated principal is now carried into planning, but no production operator catalog, private signing key, live production request, or production campaign execution is present. A later increment should establish how this provenance is retained in append-only stage outcome evidence without turning operator identity into authority or exposing unnecessary personal data.

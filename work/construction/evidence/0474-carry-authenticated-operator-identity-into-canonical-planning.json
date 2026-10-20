@@ -157,7 +157,17 @@
         "self_check": "success",
         "sphinx_linkcheck": "success"
       }
-    }
+    },
+    "evidence_publication_attempts": [
+      {
+        "pr_number": 2453,
+        "head_sha": "33c304a6de6204ec756739a7f64de875442ec46f",
+        "source_validation_run": 39345891304,
+        "conclusion": "failure",
+        "reason": "active_checkpoint_sha256_mismatch; active_checkpoint_latest_segment_contradiction; active_checkpoint_segment_reference_digest_mismatch",
+        "resolution": "rebuild the exact checkpoint blob and update its index binding; re-run custody and all exact-candidate hosted checks"
+      }
+    ]
   },
   "limitations": {
     "production_operator_catalog_provisioned": false,

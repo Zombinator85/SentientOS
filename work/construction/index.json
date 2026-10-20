@@ -1,14 +1,14 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e90ac23f0e8b7547d82a3be6f580459b371ee9e27d168600514e5c1d3dffacee",
+    "checkpoint_sha256": "467cdd9d74e15152107d0d157abb3136edee510b06bab2b7f3d9254150a6f844",
     "latest_segment_sequence": 474,
-    "latest_segment_sha256": "bc5e27797cadc53e0a256bd04696d85dc45c0eda2ea8f82f6ffb2562f7aa6c72",
+    "latest_segment_sha256": "c872b76685dca0d26181cd1cd854a8f1ae3c85d251cf177589978bc0f353b4dc",
     "latest_sequence": 474,
     "source_commit": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
     "source_tree": "200e043067dd13350d3ec338762e48fade5d7e01"
   },
-  "checkpoint_sha256": "e90ac23f0e8b7547d82a3be6f580459b371ee9e27d168600514e5c1d3dffacee",
+  "checkpoint_sha256": "467cdd9d74e15152107d0d157abb3136edee510b06bab2b7f3d9254150a6f844",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -5362,14 +5362,14 @@
       "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
     },
     {
-      "bytes": 4152,
-      "evidence_bytes": 6223,
+      "bytes": 4442,
+      "evidence_bytes": 6752,
       "evidence_path": "work/construction/evidence/0474-carry-authenticated-operator-identity-into-canonical-planning.json",
-      "evidence_sha256": "c24a576fe89ba6ba43143d273bc9a83a1c64c3b3980240a558d2466df83d271c",
+      "evidence_sha256": "27bce912260e1ebc95a58b62f3ad33e25cda6ed6359c42d4a1f390800b6bc7fe",
       "path": "work/construction/segments/0474-carry-authenticated-operator-identity-into-canonical-planning.md",
       "predecessor": "segment-sha256:cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
       "sequence": 474,
-      "sha256": "bc5e27797cadc53e0a256bd04696d85dc45c0eda2ea8f82f6ffb2562f7aa6c72",
+      "sha256": "c872b76685dca0d26181cd1cd854a8f1ae3c85d251cf177589978bc0f353b4dc",
       "source_commit": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
       "source_tree": "200e043067dd13350d3ec338762e48fade5d7e01"
     }
