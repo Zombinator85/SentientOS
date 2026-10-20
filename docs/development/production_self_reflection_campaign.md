@@ -85,6 +85,15 @@ receipts retain their v1 schema and prior field set.
 An already-published report from before the provenance inventory was added is
 returned unchanged when it exactly matches the currently revalidated receipt
 lineage; immutable report bytes are never upgraded in place.
+Use python scripts/verify_campaign_report.py --campaign-root PATH to verify an
+already-persisted completed report without generating one. The read-only API and
+CLI revalidate campaign progress and receipts, verify the report digest, then
+require the stored bytes to match either the current canonical report or the
+exact v1 compatibility form retained for historical reports. They open only
+existing campaign custody, take a nonblocking lock without creating it, and
+return a minimal verification summary. A missing, incomplete, busy, corrupted,
+or lineage-mismatched campaign fails closed. Verification does not write a
+report, change campaign state, execute a trial, or grant authority.
 The durable campaign owner uses a private POSIX interprocess lock while it
 claims and executes a trial, updates progress, reconstructs interrupted state,
 and emits a report. Concurrent owners therefore cannot execute the same trial

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -20,6 +21,9 @@ from sentientos.production_self_reflection_campaign import (
     COMPONENTS, ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
     ProductionSelfReflectionProtocol, reconstruct_protocol, verify_production_readiness,
     make_trial_receipt, verify_trial_receipt, ProductionSelfReflectionTransitionBindingObserver,
+)
+from sentientos.read_only_campaign_report_verification import (
+    verify_persisted_campaign_report,
 )
 from sentientos.resident_cognitive_model_transition_experiment import PHASES
 from sentientos.self_model_intervention_experiment import CONDITION_ORDER
@@ -463,6 +467,62 @@ def test_completed_campaign_report_succeeds_after_lineage_revalidation(tmp_path:
     assert report["schema_version"] == campaign_module.LEGACY_REPORT_SCHEMA
 
 
+def test_campaign_report_verification_is_read_only(tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign_root = tmp_path / "campaign"
+    campaign = ProductionSelfReflectionCampaign.create(campaign_root, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.run_one(readiness, lambda *_: _evidence())
+    campaign.report()
+
+    def snapshot():
+        return {
+            path.relative_to(campaign_root): (
+                path.read_bytes(),
+                path.stat().st_mode,
+                path.stat().st_mtime_ns,
+                path.stat().st_dev,
+                path.stat().st_ino,
+            )
+            for path in campaign_root.rglob("*")
+            if path.is_file()
+        }
+
+    before = snapshot()
+    result = verify_persisted_campaign_report(campaign_root)
+
+    assert result["status"] == "campaign_report_verified"
+    assert result["report_schema_version"] == campaign_module.LEGACY_REPORT_SCHEMA
+    assert result["report_format"] == "current"
+    assert result["planned_trial_count"] == 2
+    assert result["verified_transition_provenance_trial_count"] == 0
+    assert result["read_only"] is True
+    assert result["effect_performed"] is False
+    assert result["campaign_advanced"] is False
+    assert result["grants_authority"] is False
+    assert result["execution_allowed"] is False
+
+    repository = Path(__file__).resolve().parents[1]
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/verify_campaign_report.py",
+            "--campaign-root",
+            str(campaign_root),
+        ],
+        cwd=repository,
+        env={**os.environ, "PYTHONPATH": str(repository)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert cli.returncode == 0, cli.stderr
+    cli_result = json.loads(cli.stdout)
+    assert cli_result == dict(result)
+    assert snapshot() == before
+
+
 def test_v2_campaign_report_indexes_verified_trial_provenance(tmp_path: Path) -> None:
     protocol = _protocol(historical=False)
     campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
@@ -515,6 +575,10 @@ def test_v2_campaign_report_indexes_verified_trial_provenance(tmp_path: Path) ->
                                          transition_owner=owner))
 
     report = campaign.report()
+    verified_report = campaign.verify_report()
+    assert verified_report["status"] == "campaign_report_verified"
+    assert verified_report["report_format"] == "current"
+    assert verified_report["verified_transition_provenance_trial_count"] == len(receipts)
     provenance = report["trial_provenance"]
     assert report["schema_version"] == campaign_module.REPORT_SCHEMA
     assert report["campaign_protocol_digest"] == protocol.protocol_digest
@@ -563,6 +627,10 @@ def test_v2_campaign_report_indexes_verified_trial_provenance(tmp_path: Path) ->
 
     assert dict(compatible_report) == legacy_report
     assert report_path.read_bytes() == legacy_bytes
+    verified_legacy = campaign.verify_report()
+    assert verified_legacy["status"] == "campaign_report_verified"
+    assert verified_legacy["report_format"] == "legacy_compatible"
+    assert report_path.read_bytes() == legacy_bytes
 
     forged_legacy_report = json.loads(json.dumps(legacy_report))
     forged_legacy_report["condition_scores"][CONDITION_ORDER[0]][0]["supported_correct"] = 99
@@ -572,6 +640,8 @@ def test_v2_campaign_report_indexes_verified_trial_provenance(tmp_path: Path) ->
         json.dumps(forged_legacy_report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    with pytest.raises(ProductionSelfReflectionError, match="campaign_report_mismatch"):
+        campaign.verify_report()
     with pytest.raises(ProductionSelfReflectionError, match="immutable_artifact_collision"):
         campaign.report()
 

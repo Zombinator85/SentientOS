@@ -1012,3 +1012,33 @@ def test_source_validation_indexes_verified_trial_provenance_in_reports():
         "trial_report_provenance_acceptance_result.json",
     ):
         assert artifact in source_validation
+
+
+def test_source_validation_indexes_read_only_campaign_report_verification():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert (
+        "- name: Verify persisted campaign reports without mutation"
+        in source_validation
+    )
+    assert (
+        "tests/test_production_self_reflection_campaign.py::"
+        "test_campaign_report_verification_is_read_only"
+        in source_validation
+    )
+    assert (
+        "tests/test_production_self_reflection_campaign.py::"
+        "test_v2_campaign_report_indexes_verified_trial_provenance"
+        in source_validation
+    )
+    assert (
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_read_only_campaign_report_verification"
+        in source_validation
+    )
+    for artifact in (
+        "campaign_report_verification.json",
+        "campaign_report_verification_acceptance.json",
+        "campaign_report_verification_acceptance_result.json",
+    ):
+        assert artifact in source_validation
