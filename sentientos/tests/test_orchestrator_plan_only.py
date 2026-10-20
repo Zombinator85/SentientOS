@@ -23,7 +23,8 @@ from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner
     make_proposition)
 from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.work_allocator import AllocationDecision
-from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
+from sentientos.work_plan import (WorkPlanError, load_work_plan,
+    load_work_plan_evidence,
     TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
     persist_work_plan_evidence, persist_work_run, work_plan_id_from_evidence,
     work_run_id)
@@ -146,6 +147,11 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
     evidence = json.loads((tmp_path / feedback[
         "work_plan_evidence_path"]).read_text(encoding="utf-8"))
     assert evidence["evidence_binding"][
+        "prior_epistemic_priority_admission"] == {
+            "limit": 512, "overflowed": True}
+    persisted_plan = load_work_plan(tmp_path / feedback["work_plan_path"])
+    recovered_evidence = load_work_plan_evidence(tmp_path, persisted_plan)
+    assert recovered_evidence["evidence_binding"][
         "prior_epistemic_priority_admission"] == {
             "limit": 512, "overflowed": True}
     binding = evidence["evidence_binding"]
