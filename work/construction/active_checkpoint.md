@@ -259,3 +259,5 @@ Latest source-bearing main commit: `50c1d9ab99d8d81b0a28ba58185c8a99349b17ca`, t
 Latest construction segment: `work/construction/segments/0497-partial-plan-evidence-sidecar-fail-closed.md`
 Latest segment SHA-256: `3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699`
 Sequence: 497
+
+The sequence-497 record is additive; prior construction segments and the frozen legacy continuation journal remain unchanged.
