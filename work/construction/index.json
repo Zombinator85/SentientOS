@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0069225ed49df63a6e11b6e6b51019a82db62b886b578e37e941527c2f01d90e",
-    "latest_segment_sequence": 475,
-    "latest_segment_sha256": "1230dfb9bef46f0a47dd62ff8d434648cbc3739c0ca4480d9c5c023658f0d655",
-    "latest_sequence": 475,
-    "source_commit": "7cfd381c531f979a5f38277fbad1da952b8093c6",
-    "source_tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1"
+    "checkpoint_sha256": "68a3f92777b0abb8b0d7681e9930f01c07d6bb0f144ff0ab28cc12732f06111a",
+    "latest_segment_sequence": 476,
+    "latest_segment_sha256": "f577d9b638526e339d6c859f6b34922cfc3f1ee4347d3b2eb64fa738d076af80",
+    "latest_sequence": 476,
+    "source_commit": "9c28410a1341949c4cf89249e7c87f73902ac1a4",
+    "source_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32"
   },
-  "checkpoint_sha256": "0069225ed49df63a6e11b6e6b51019a82db62b886b578e37e941527c2f01d90e",
+  "checkpoint_sha256": "68a3f92777b0abb8b0d7681e9930f01c07d6bb0f144ff0ab28cc12732f06111a",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 475,
+  "latest_sequence": 476,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5384,6 +5384,18 @@
       "sha256": "1230dfb9bef46f0a47dd62ff8d434648cbc3739c0ca4480d9c5c023658f0d655",
       "source_commit": "7cfd381c531f979a5f38277fbad1da952b8093c6",
       "source_tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1"
+    },
+    {
+      "bytes": 4152,
+      "evidence_bytes": 6790,
+      "evidence_path": "work/construction/evidence/0476-bind-verified-stage-receipts-to-trial-outcomes.json",
+      "evidence_sha256": "c050c1e432ee23b16e55074d57e2b2e5b1fa6de26ef9b04352b83e403e2e14b3",
+      "path": "work/construction/segments/0476-bind-verified-stage-receipts-to-trial-outcomes.md",
+      "predecessor": "segment-sha256:1230dfb9bef46f0a47dd62ff8d434648cbc3739c0ca4480d9c5c023658f0d655",
+      "sequence": 476,
+      "sha256": "f577d9b638526e339d6c859f6b34922cfc3f1ee4347d3b2eb64fa738d076af80",
+      "source_commit": "9c28410a1341949c4cf89249e7c87f73902ac1a4",
+      "source_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32"
     }
   ],
   "source_acquisition": {
@@ -5393,7 +5405,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1",
+  "source_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
