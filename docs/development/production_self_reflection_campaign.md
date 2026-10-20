@@ -94,6 +94,12 @@ existing campaign custody, take a nonblocking lock without creating it, and
 return a minimal verification summary. A missing, incomplete, busy, corrupted,
 or lineage-mismatched campaign fails closed. Verification does not write a
 report, change campaign state, execute a trial, or grant authority.
+When `SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT` is configured, the
+daemon's resident transition feedback also carries this read-only result under
+`self_reflection_campaign_report`. The daemon requires an absolute campaign
+root, reuses the verifier without requiring the live transition owner, and
+reports verification failure without recovering campaign state. This status
+is observational and does not authorize campaign execution or planning.
 The durable campaign owner uses a private POSIX interprocess lock while it
 claims and executes a trial, updates progress, reconstructs interrupted state,
 and emits a report. Concurrent owners therefore cannot execute the same trial
