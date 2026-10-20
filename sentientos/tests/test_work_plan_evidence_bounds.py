@@ -146,3 +146,43 @@ def test_interrupted_sidecar_write_leaves_no_partial_canonical_evidence(
     assert digest == load_work_plan_evidence(tmp_path, plan)["evidence_digest"]
     assert (tmp_path / evidence_path).is_file()
 
+
+def test_interrupted_evidence_envelope_write_recovers_after_sidecar_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    original_fsync = os.fsync
+    fsync_calls = 0
+
+    def fail_before_envelope_publication(descriptor: int) -> None:
+        nonlocal fsync_calls
+        fsync_calls += 1
+        if fsync_calls == 3:
+            raise OSError("simulated interruption before evidence envelope publication")
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", fail_before_envelope_publication)
+    with pytest.raises(WorkPlanError, match="work_plan_artifact_write_failed"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_dir = tmp_path / WORK_PLAN_EVIDENCE_DIR
+    sidecar_path = evidence_dir / f"binding_{plan_key}.json"
+    envelope_path = evidence_dir / f"evidence_{plan_key}.json"
+    assert fsync_calls == 3
+    assert sidecar_path.is_file()
+    assert not envelope_path.exists()
+    assert not list(evidence_dir.glob(f".binding_{plan_key}.json.*.tmp"))
+    assert not list(evidence_dir.glob(f".evidence_{plan_key}.json.*.tmp"))
+
+    expected_sidecar = json.dumps(
+        evidence_binding, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    assert sidecar_path.read_bytes() == expected_sidecar
+
+    monkeypatch.setattr(os, "fsync", original_fsync)
+    evidence_path, digest = persist_work_plan_evidence(
+        tmp_path, plan, evidence_binding)
+    assert envelope_path == tmp_path / evidence_path
+    assert load_work_plan_evidence(tmp_path, plan)["evidence_digest"] == digest
+

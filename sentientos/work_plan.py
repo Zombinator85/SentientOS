@@ -243,7 +243,7 @@ def persist_work_plan_evidence(
         }
     else:
         payload = {**basis, "evidence_digest": evidence_digest}
-    _write_json_once(path, payload)
+    _write_json_evidence_once(path, payload)
     return str(path.relative_to(root)), evidence_digest
 
 
@@ -342,6 +342,32 @@ def _read_bounded_regular_file(path: Path, *, maximum: int, error_prefix: str) -
 
 def _write_bytes_once(path: Path, value: bytes) -> bool:
     """Atomically publish one immutable evidence sidecar without following links."""
+    return _write_atomic_bytes_once(
+        path, value,
+        maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+        error_prefix="work_plan_evidence_binding_sidecar",
+        identity_conflict_error="work_plan_evidence_binding_sidecar_identity_conflict",
+        write_failed_error="work_plan_evidence_binding_sidecar_write_failed",
+    )
+
+
+def _write_json_evidence_once(path: Path, value: dict[str, object]) -> bool:
+    """Atomically publish one immutable canonical work-plan evidence envelope."""
+    encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return _write_atomic_bytes_once(
+        path, encoded,
+        maximum=MAX_WORK_PLAN_EVIDENCE_FILE_BYTES,
+        error_prefix="work_plan_evidence",
+        identity_conflict_error="work_plan_artifact_identity_conflict",
+        write_failed_error="work_plan_artifact_write_failed",
+    )
+
+
+def _write_atomic_bytes_once(
+    path: Path, value: bytes, *, maximum: int, error_prefix: str,
+    identity_conflict_error: str, write_failed_error: str,
+) -> bool:
+    """Publish immutable bytes through a synced temporary and atomic no-overwrite link."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -361,11 +387,9 @@ def _write_bytes_once(path: Path, value: bytes) -> bool:
             os.link(temporary, path)
         except FileExistsError:
             existing = _read_bounded_regular_file(
-                path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
-                error_prefix="work_plan_evidence_binding_sidecar")
+                path, maximum=maximum, error_prefix=error_prefix)
             if existing != value:
-                raise WorkPlanError(
-                    "work_plan_evidence_binding_sidecar_identity_conflict")
+                raise WorkPlanError(identity_conflict_error)
             created = False
         else:
             created = True
@@ -379,7 +403,7 @@ def _write_bytes_once(path: Path, value: bytes) -> bool:
     except WorkPlanError:
         raise
     except OSError as exc:
-        raise WorkPlanError("work_plan_evidence_binding_sidecar_write_failed") from exc
+        raise WorkPlanError(write_failed_error) from exc
     finally:
         if temporary is not None:
             try:
