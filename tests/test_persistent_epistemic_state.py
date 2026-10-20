@@ -140,6 +140,63 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
 
 
+def test_owner_projection_prioritizes_goal_relevant_history_and_binds_omissions(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    propositions = [proposition(index=str(i)) for i in range(3)]
+    states = {}
+    for i, item in enumerate(propositions, start=1):
+        owner.register_proposition(item)
+        state, _ = owner.commit_update(
+            proposition_id=item.proposition_id,
+            expected_predecessor_digest=None,
+            stance=("provisionally_contradicted" if i == 3 else
+                "provisionally_supported"),
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"priority-{i}", tick=i,
+            recorded_at=f"2026-01-01T00:00:0{i}Z",
+        )
+        states[item.proposition_id] = state
+
+    lexicographically_last = max(item.proposition_id for item in propositions)
+    projection = owner.cognitive_projection(
+        max_states=1, current_tick=4,
+        prioritized_proposition_ids=(lexicographically_last,),
+    )
+
+    assert projection is not None
+    assert projection.proposition_ids == (lexicographically_last,)
+    assert projection.states[0]["state_digest"] == (
+        states[lexicographically_last].state_digest)
+    assert projection.states[0]["stance"] == "provisionally_contradicted"
+    manifest = projection.omission_manifest
+    assert manifest is not None
+    assert manifest["schema_version"] == (
+        "sentientos.epistemic_projection_omission_manifest:v2")
+    assert manifest["selection_policy"] == (
+        "goal_tagged_prior_state_then_proposition_id_ascending")
+    assert manifest["prioritized_proposition_ids"] == (lexicographically_last,)
+    assert manifest["omitted_state_count"] == 2
+    assert [row["proposition_id"] for row in manifest[
+        "omitted_state_identities"]] == sorted(set(states) - {lexicographically_last})
+    assert {row["stance"] for row in manifest[
+        "omitted_state_identities"]} == {"provisionally_supported"}
+    validate_cognitive_projection(projection, require_meaning=True)
+
+    tampered_manifest = dict(manifest)
+    tampered_manifest["prioritized_proposition_ids"] = (
+        min(item.proposition_id for item in propositions),)
+    with pytest.raises(EpistemicStateError, match="omission.*identity"):
+        validate_cognitive_projection(replace(projection,
+            omission_manifest=tampered_manifest), require_meaning=True)
+
+    with pytest.raises(EpistemicStateError,
+                       match="epistemic_projection_priority_invalid"):
+        owner.cognitive_projection(max_states=1,
+            prioritized_proposition_ids=(lexicographically_last,
+                lexicographically_last))
+
+
 def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(tmp_path):
     from sentientos.epistemic_planning import (
         epistemic_review_reason_for_goal, review_required_applicability,

@@ -23,7 +23,8 @@ from sentientos.attestation import canonical_json_bytes, write_json
 from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_publish_snapshot_witness, maybe_sign_snapshot, should_emit_snapshot, verify_recent_snapshots
 from sentientos.integrity_controller import IntegrityBudget, IntegrityStatus, evaluate_integrity
 from sentientos.policy_fingerprint import emit_policy_fingerprint
-from sentientos.goal_graph import GOAL_GRAPH_PATH, GoalGraph, goal_graph_hash, load_goal_graph
+from sentientos.goal_graph import (GOAL_GRAPH_PATH, GoalGraph,
+    goal_graph_hash, load_goal_graph, order_goals_deterministic)
 from sentientos.goal_graph import load_goal_state, persist_goal_state
 from sentientos.goal_planner import ExecutorState, GoalPlanner
 from sentientos.goal_completion import CompletionContext, eval_check
@@ -137,6 +138,8 @@ def plan_goals(
     if (prior_epistemic_projection_owner is None
             and prior_epistemic_projection_max_states is not None):
         raise ValueError("epistemic_projection_bound_requires_owner")
+    graph = load_goal_graph(root)
+    prioritized_proposition_ids = _goal_tagged_epistemic_positions(graph)
     prior_projection = None
     if prior_epistemic_projection_owner is not None:
         if (not isinstance(prior_epistemic_projection_max_states, int)
@@ -144,7 +147,8 @@ def plan_goals(
             raise ValueError("epistemic_projection_bound_required")
         prior_projection = prior_epistemic_projection_owner.cognitive_projection(
             max_states=prior_epistemic_projection_max_states,
-            current_tick=int(instant.timestamp()))
+            current_tick=int(instant.timestamp()),
+            prioritized_proposition_ids=prioritized_proposition_ids)
 
     now = _iso_now()
     quarantine = load_quarantine_state(root)
@@ -159,7 +163,7 @@ def plan_goals(
     policy_fingerprint = emit_policy_fingerprint(root, ts=now)
     integrity_status = evaluate_integrity(root, policy_hash=policy_fingerprint.policy_hash)
     return _plan_goal_work(
-        root=root, graph=load_goal_graph(root), budget=budget,
+        root=root, graph=graph, budget=budget,
         operating_mode=throughput.mode, pressure_level=pressure.level,
         quarantine_active=quarantine.active, posture=posture.posture,
         mutation_allowed=integrity_status.mutation_allowed,
@@ -167,6 +171,29 @@ def plan_goals(
         target_model_identity_observer=target_model_identity_observer,
         planning_time=current_time, catalog_timestamp=now, context="orchestrator_tick",
     )
+
+
+def _goal_tagged_epistemic_positions(graph: GoalGraph) -> tuple[str, ...]:
+    """Order valid epistemic proposition tags by deterministic goal precedence."""
+    marker = "epistemic_proposition:"
+    priorities: list[str] = []
+    seen: set[str] = set()
+    for goal in order_goals_deterministic(graph.goals):
+        if not goal.enabled:
+            continue
+        for tag in goal.tags:
+            if not tag.startswith(marker):
+                continue
+            proposition_id = tag[len(marker):]
+            suffix = proposition_id.removeprefix("proposition:")
+            if (not proposition_id.startswith("proposition:")
+                    or len(suffix) != 24
+                    or any(char not in "0123456789abcdef" for char in suffix)
+                    or proposition_id in seen):
+                continue
+            seen.add(proposition_id)
+            priorities.append(proposition_id)
+    return tuple(priorities)
 
 
 def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
