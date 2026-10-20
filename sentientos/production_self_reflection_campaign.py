@@ -1028,6 +1028,9 @@ def _verify_transition_stage_outcome_binding_record(
                 != raw_projection.get("binding_digest")
         ):
             raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
+        assert isinstance(request_id, str)
+        assert isinstance(attempt_entry_digest, str)
+        assert isinstance(completed_entry_digest, str)
         request_ids.add(request_id)
         attempt_entry_digests.add(attempt_entry_digest)
         completed_entry_digests.add(completed_entry_digest)
