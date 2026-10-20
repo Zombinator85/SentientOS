@@ -2789,15 +2789,25 @@ class RuntimeMaintenanceSurfaces:
         try:
             result = self.plan_canonical_goals(tick_id=tick_id)
             plan = result.work_plan
+            selected_goals = result.allocation.selected
+            deferred_goals = result.allocation.deferred
+            goal_decision_limit = 32
             feedback: dict[str, Any] = {
                 "status": "planned" if plan is not None else "empty",
                 "tick_id": tick_id,
                 "allocation_artifact_path": result.allocation_artifact_path,
-                "selected_goals": list(result.allocation.selected[:32]),
+                "selected_goals": list(selected_goals[:goal_decision_limit]),
+                "selected_goal_count": len(selected_goals),
+                "omitted_selected_goal_count": max(
+                    0, len(selected_goals) - goal_decision_limit),
                 "deferred_goals": [
                     {"goal_id": item.goal_id, "reason": item.reason}
-                    for item in result.allocation.deferred[:32]
+                    for item in deferred_goals[:goal_decision_limit]
                 ],
+                "deferred_goal_count": len(deferred_goals),
+                "omitted_deferred_goal_count": max(
+                    0, len(deferred_goals) - goal_decision_limit),
+                "goal_decision_listing_limit": goal_decision_limit,
                 "work_plan_id": plan.plan_id if plan is not None else None,
                 "work_plan_path": result.work_plan_path,
                 "work_plan_evidence_path": result.work_plan_evidence_path,

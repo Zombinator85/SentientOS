@@ -505,6 +505,55 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
         "canonical_goal_planning"] == feedback
 
 
+def test_daemon_goal_feedback_reports_bounded_listing_omissions(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+    )
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        runtime_state_root=tmp_path / "runtime",
+        host_resource_runtime=HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path / "runtime"),
+    )
+    selected = tuple(f"selected-{index:02d}" for index in range(35))
+    deferred = tuple(SimpleNamespace(goal_id=f"deferred-{index:02d}", reason="fixture")
+        for index in range(41))
+    allocation = AllocationDecision(
+        selected=selected, deferred=deferred, selected_reasons=(),
+        budget_summary={"risk_spent": 0, "risk_cap": 1,
+            "throughput_spent": 0, "throughput_cap": 1},
+    )
+    plan = WorkPlan(1, "plan-bounded", "2026-10-16T09:00:00Z",
+        "orchestrator_tick", selected, ())
+    result = SimpleNamespace(
+        allocation=allocation, allocation_artifact_path="glow/allocation.json",
+        work_plan=plan, work_plan_path="glow/forge/work_plans/plan.json",
+        work_plan_evidence_path="glow/forge/work_plan_evidence/evidence.json",
+        work_plan_evidence_digest="sha256:fixture",
+    )
+    monkeypatch.setattr(surfaces, "plan_canonical_goals",
+        lambda *, tick_id: result)
+
+    feedback = surfaces.run_canonical_goal_planning(
+        tick_id="2026-10-16T09:00:00+00:00")
+
+    assert feedback["selected_goals"] == list(selected[:32])
+    assert feedback["selected_goal_count"] == 35
+    assert feedback["omitted_selected_goal_count"] == 3
+    assert feedback["deferred_goals"] == [
+        {"goal_id": item.goal_id, "reason": item.reason} for item in deferred[:32]]
+    assert feedback["deferred_goal_count"] == 41
+    assert feedback["omitted_deferred_goal_count"] == 9
+    assert feedback["goal_decision_listing_limit"] == 32
+    assert feedback["allocation_artifact_path"] == "glow/allocation.json"
+    assert feedback["execution_performed"] is False
+    assert feedback["authority"] is False
+
+
 def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     tmp_path: Path, monkeypatch,
 ) -> None:
