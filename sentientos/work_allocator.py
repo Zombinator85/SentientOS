@@ -24,6 +24,7 @@ class AllocationDecision:
     deferred: tuple[DeferredGoal, ...]
     selected_reasons: tuple[dict[str, object], ...]
     budget_summary: dict[str, int]
+    prior_epistemic_projection_digest: str | None = None
 
 
 _RECOVERY_ALLOWED_TAGS = {"integrity", "stability"}
@@ -136,6 +137,7 @@ def allocate_goals(
             "throughput_spent": spent_throughput,
             "throughput_cap": int(max(0, budget.router_m_max)),
         },
+        prior_epistemic_projection_digest=projection_digest,
     )
 
 

@@ -2796,6 +2796,8 @@ class RuntimeMaintenanceSurfaces:
                 "status": "planned" if plan is not None else "empty",
                 "tick_id": tick_id,
                 "allocation_artifact_path": result.allocation_artifact_path,
+                "prior_epistemic_projection_digest": (
+                    result.allocation.prior_epistemic_projection_digest),
                 "selected_goals": list(selected_goals[:goal_decision_limit]),
                 "selected_goal_count": len(selected_goals),
                 "omitted_selected_goal_count": max(
