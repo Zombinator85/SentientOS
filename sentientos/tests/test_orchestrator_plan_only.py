@@ -51,6 +51,21 @@ def test_goal_history_priorities_follow_enabled_deterministic_goal_precedence() 
     assert _goal_tagged_epistemic_positions(graph) == (second, first)
 
 
+def test_goal_history_priorities_respect_projection_bound_deterministically() -> None:
+    goals = tuple(
+        Goal(f"g{index:04d}", "bounded priority", 1.0, 513 - index, (),
+            "task:forge_propose", 1, 1,
+            (f"epistemic_proposition:proposition:{index:024x}",), True)
+        for index in range(513)
+    )
+    expected = tuple(f"proposition:{index:024x}" for index in range(512))
+
+    assert _goal_tagged_epistemic_positions(
+        GoalGraph(schema_version=1, goals=goals)) == expected
+    assert _goal_tagged_epistemic_positions(
+        GoalGraph(schema_version=1, goals=tuple(reversed(goals)))) == expected
+
+
 def test_canonical_plan_import_and_composition_do_not_load_goal_executor(
     tmp_path: Path,
 ) -> None:
@@ -404,13 +419,14 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
 ) -> None:
     (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
-    persist_goal_graph(
-        tmp_path,
-        GoalGraph(schema_version=1, goals=(
-            Goal("g1", "diagnostic", 1.0, 5, (), "task:forge_propose", 1, 1,
-                ("integrity",), True),
-        )),
+    goals = tuple(
+        Goal(f"g{index:04d}", "diagnostic", 1.0, 513 - index, (),
+            "task:forge_propose", 1, 1,
+            ("integrity", f"epistemic_proposition:proposition:{index:024x}"),
+            True)
+        for index in range(513)
     )
+    persist_goal_graph(tmp_path, GoalGraph(schema_version=1, goals=goals))
 
     class ProjectionOwner:
         def __init__(self) -> None:
@@ -473,7 +489,9 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
     assert evidence["evidence_digest"] == result.work_plan_evidence_digest
     assert load_work_plan_evidence(tmp_path, result.work_plan) == evidence
     assert owner.calls == [(
-        7, int(datetime.fromisoformat(tick_id).timestamp()), ())]
+        7, int(datetime.fromisoformat(tick_id).timestamp()),
+        tuple(f"proposition:{index:024x}" for index in range(512)),
+    )]
     assert observer.calls == 1
     assert result.target_active_model_identity_digest is not None
     assert list((tmp_path / "glow/forge/work_runs").glob("run_*.json")) == []
