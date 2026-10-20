@@ -76,3 +76,18 @@ Latest verified source merge: `81fc2c3d2385f3185397682e55e78bd84371e2ca`, tree `
 Latest construction segment: work/construction/segments/0482-bind-prior-projection-identity-to-daemon-planning-feedback.md
 Latest segment SHA-256: `185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423`
 Sequence: 482
+
+## Sequence 483 — prior-projection omission count
+
+PR #2469 exposes the validated omission count from the verified prior projection in allocation and daemon planning feedback. Missing legacy manifests remain unknown (`null`), and the full manifest remains bound in work-plan evidence. No planning or authority behavior changes.
+
+The source PR passed exact-candidate Administrator audits, immutability, metadata guard, 30-node acceptance, and all hosted checks. It merged regularly as `ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3`, tree `99167a5be065e00a421a2f410996c83905146b3`, with ordered parents `7ba5c69b71b74ae358fd754942ae320810c75e64` and `582ed1f0d5398822946bfad271250387c9677bfd`. Post-merge Quality Gate, CI, Codex CI, source validation, self-check, invariants, docs deployment, Docker, Helm, and CPU smoke passed; Forge smoke was skipped by condition.
+
+At 2026-10-20T05:25:28Z, no scheduled workflow had run on this current main head. Federation Health publication remains blocked because repository settings deny Actions-token PR creation. Production inference, campaign, and transition execution were not performed; protected and stale workspaces remain untouched.
+
+Next, use this bounded prior-projection omission feedback in canonical planning while preserving evidence identity and non-execution. Continue seeking a narrowly scoped publication authority for scheduled Federation Health.
+
+Latest verified source merge: `ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3`, tree `99167a5be065e00a421a2f410996c83905146b3`
+Latest construction segment: `work/construction/segments/0483-expose-prior-projection-omission-count.md`
+Latest segment SHA-256: `a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020`
+Sequence: 483

@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "948c6efed48ac138160d127394802cb725866b2d4db9461afca47e770a05a843",
-    "latest_segment_sequence": 482,
-    "latest_segment_sha256": "185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423",
-    "latest_sequence": 482,
-    "source_commit": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
-    "source_tree": "1db2f349abea0e3058bf6fb14804ea6844866318"
+    "checkpoint_sha256": "30172ca9e3d3f52c02b3cd14da870615de9004ccf0cc892558122aa083efc433",
+    "latest_segment_sequence": 483,
+    "latest_segment_sha256": "a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
+    "latest_sequence": 483,
+    "source_commit": "ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3",
+    "source_tree": "99167a5be065e00a421a2f410996c83905146b3"
   },
-  "checkpoint_sha256": "948c6efed48ac138160d127394802cb725866b2d4db9461afca47e770a05a843",
+  "checkpoint_sha256": "30172ca9e3d3f52c02b3cd14da870615de9004ccf0cc892558122aa083efc433",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 482,
+  "latest_sequence": 483,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5468,6 +5468,18 @@
       "sha256": "185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423",
       "source_commit": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
       "source_tree": "1db2f349abea0e3058bf6fb14804ea6844866318"
+    },
+    {
+      "bytes": 3960,
+      "evidence_bytes": 6125,
+      "evidence_path": "work/construction/evidence/0483-expose-prior-projection-omission-count.json",
+      "evidence_sha256": "a47fd72d6634e3bc6e7d285e4540457fe468662c51c469cc75a8b5eb7d3ba4b5",
+      "path": "work/construction/segments/0483-expose-prior-projection-omission-count.md",
+      "predecessor": "segment-sha256:185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423",
+      "sequence": 483,
+      "sha256": "a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
+      "source_commit": "ce9ebd9afa81ee9d0ed365b1ee376437b4c539f3",
+      "source_tree": "99167a5be065e00a421a2f410996c83905146b3"
     }
   ],
   "source_acquisition": {
@@ -5477,7 +5489,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824",
+  "source_tree": "99167a5be065e00a421a2f410996c83905146b3",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
