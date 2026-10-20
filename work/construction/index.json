@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b05d5fbf963f4170e8b4ac260912dd25b8f93ec71a4f11cb0f8dfbd3afda11f5",
-    "latest_segment_sequence": 497,
-    "latest_segment_sha256": "3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699",
-    "source_commit": "50c1d9ab99d8d81b0a28ba58185c8a99349b17ca",
-    "source_tree": "03da01b4f4d39d592c32d210f3bed990a609dd4a"
+    "checkpoint_sha256": "e616b10bb03fdedbd86cfafb5440a2cfbaea78aeb1420fd6343556c242d4d4a8",
+    "latest_segment_sequence": 498,
+    "latest_segment_sha256": "3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8",
+    "source_commit": "803f4d004dbc853424a507beba9980c706c9266c",
+    "source_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8"
   },
-  "checkpoint_sha256": "b05d5fbf963f4170e8b4ac260912dd25b8f93ec71a4f11cb0f8dfbd3afda11f5",
+  "checkpoint_sha256": "e616b10bb03fdedbd86cfafb5440a2cfbaea78aeb1420fd6343556c242d4d4a8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 497,
+  "latest_sequence": 498,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5647,6 +5647,18 @@
       "sha256": "3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699",
       "source_commit": "50c1d9ab99d8d81b0a28ba58185c8a99349b17ca",
       "source_tree": "03da01b4f4d39d592c32d210f3bed990a609dd4a"
+    },
+    {
+      "bytes": 2223,
+      "evidence_bytes": 3986,
+      "evidence_path": "work/construction/evidence/0498-atomic-work-plan-sidecar-publication.json",
+      "evidence_sha256": "77d6b5fc92a22c59f107b13c744f1cac28f5c1ee175e825e26b48632f7aaa95c",
+      "path": "work/construction/segments/0498-atomic-work-plan-sidecar-publication.md",
+      "predecessor": "segment-sha256:3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699",
+      "sequence": 498,
+      "sha256": "3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8",
+      "source_commit": "803f4d004dbc853424a507beba9980c706c9266c",
+      "source_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8"
     }
   ],
   "source_acquisition": {
@@ -5656,7 +5668,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26",
+  "source_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
