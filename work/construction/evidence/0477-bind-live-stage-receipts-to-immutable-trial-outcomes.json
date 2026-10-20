@@ -1,0 +1,234 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced_by_binding": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "mailbox_processed": false,
+      "read_only_receipt_binding": true,
+      "transition_stage_executed_by_binding": false
+    },
+    "checks": [
+      "new v2 protocols require the live transition owner before a trial starts",
+      "submitted receipts are revalidated after execution against the active trial and exact transition protocol",
+      "operator authentication, owner status, and semantic journal entries are checked before outcome creation",
+      "nested projections and aggregate outcome binding are reverified on every v2 receipt read",
+      "request and journal entry identities are unique across attempt and completion records",
+      "top-level and bound transition journal identities must match",
+      "historical v1 protocols and v1 receipts remain valid"
+    ],
+    "outcome": "verified live-owner stage provenance is bound into the immutable trial receipt"
+  },
+  "limitations": {
+    "federation_health_on_sequence_477_main_observed": false,
+    "historical_test_provenance_integrity_broken": true,
+    "nightly_audit_on_sequence_477_main_observed": false,
+    "nightly_self_check_on_sequence_477_main_observed": false,
+    "private_signing_key_shipped": false,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_operator_catalog_provisioned": false,
+    "production_request_exercised": false,
+    "protected_workspace_modified": false,
+    "sequence_286_loss_resolved": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observations": {
+    "captured_at_utc": "2026-10-20T01:39:57Z",
+    "federation_health_latest": {
+      "administrator_preflight": "success",
+      "current_head_evidence": false,
+      "head_sha": "b69d75884bcf3e33c6a877d0bcdd454311a87f53",
+      "health_job": "success",
+      "publish_failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "publish_job": "failure",
+      "report_binding": "success",
+      "run": 39347148781
+    },
+    "main_head": "d3420704c90796d16fe4e393170f7fb1076eb10f",
+    "nightly_audit_integrity_latest": {
+      "conclusion": "success",
+      "current_head_evidence": false,
+      "head_sha": "fd20cf6ccef310a827794fb5956538df89a6598a",
+      "run": 39228761152
+    },
+    "nightly_self_check_latest": {
+      "conclusion": "success",
+      "current_head_evidence": false,
+      "head_sha": "b5912ecc8f25cebcb5338f623bae8d829261f6ce",
+      "run": 39235681245
+    },
+    "scheduled_runs_on_main_head": []
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0476-bind-verified-stage-receipts-to-trial-outcomes.md",
+    "segment_sha256": "f577d9b638526e339d6c859f6b34922cfc3f1ee4347d3b2eb64fa738d076af80",
+    "sequence": 476
+  },
+  "pull_request": {
+    "head_sha": "6b69f98f40640dd7c1c1f6ed2f70008d43dcc311",
+    "number": 2458,
+    "state": "merged",
+    "title": "[codex:construction] require live owner for verified trial outcomes",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2458"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0477-bind-live-stage-receipts-to-immutable-trial-outcomes.md",
+  "sequence": 477,
+  "source": {
+    "base_commit": "a0bebb27e7ee63a30a2ed06c88deced820423a00",
+    "base_tree": "3211cb8c42da0ee4a3f398d00a6c96704bbbb259",
+    "candidate_commit": "6b69f98f40640dd7c1c1f6ed2f70008d43dcc311",
+    "candidate_tree": "02e0100f8da2b9a748b2d55d8790e362a0779c99",
+    "merge_commit": "d3420704c90796d16fe4e393170f7fb1076eb10f",
+    "method": "merge",
+    "parents": [
+      "a0bebb27e7ee63a30a2ed06c88deced820423a00",
+      "6b69f98f40640dd7c1c1f6ed2f70008d43dcc311"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "02e0100f8da2b9a748b2d55d8790e362a0779c99"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      ".github/workflows/ci.yml": "7a152c66c8a7d385b80c28d083c7f947c5b06ed0",
+      "sentientos/production_self_reflection_campaign.py": "0ccc85719598fca9bd047b986aecbf76f205b9bc",
+      "tests/test_github_hosted_acceptance_workflows.py": "ccd27a5fbf55887aa98c8ad238261bea3643d3ac",
+      "tests/test_production_self_reflection_campaign.py": "73dfd84db62f8e90f206c97d3d208130421c70f5"
+    },
+    "candidate_tree": "02e0100f8da2b9a748b2d55d8790e362a0779c99",
+    "changed_blobs": 4,
+    "commit_signature_verified": true,
+    "main_ref": "d3420704c90796d16fe4e393170f7fb1076eb10f",
+    "main_tree": "02e0100f8da2b9a748b2d55d8790e362a0779c99",
+    "ordered_parents": [
+      "a0bebb27e7ee63a30a2ed06c88deced820423a00",
+      "6b69f98f40640dd7c1c1f6ed2f70008d43dcc311"
+    ]
+  },
+  "title": "Bind live transition stage receipts to immutable trial outcomes",
+  "validation": {
+    "local": {
+      "affected_test_files": 3,
+      "canonical_runner": "python -m scripts.run_tests",
+      "compileall": "success",
+      "mypy_baseline": {
+        "matched_existing_errors": 1050,
+        "new_errors": 0,
+        "status": "mypy_baseline_improved"
+      },
+      "tests_passed": 114,
+      "workflow_yaml_parse": "success"
+    },
+    "post_merge": {
+      "ci_jobs": {
+        "active_trial_stage_receipt_binding": "success",
+        "docs_linkcheck": "success",
+        "helm_integration": "success",
+        "integrated_resource_to_cognition_lifecycle": "success",
+        "mypy_baseline_ratchet": "success",
+        "self_check": "success",
+        "source_validation": "success",
+        "trial_outcome_stage_receipt_binding": "success"
+      },
+      "main_head": "d3420704c90796d16fe4e393170f7fb1076eb10f",
+      "quality_gate_artifact": 12234052641,
+      "runs": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39353777690
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39353777652
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39353777696
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39353777643
+        },
+        "forge_smoke": {
+          "conclusion": "skipped",
+          "run": 39353777723
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39353777712
+        },
+        "required_quality_gate": {
+          "conclusion": "success",
+          "run": 39353777700
+        }
+      },
+      "source_validation_artifact": 12234113437
+    },
+    "prepublication": {
+      "artifacts": {
+        "evidence": 12234540897,
+        "exact_acceptance": 12233619506,
+        "finalizer": 12234301760
+      },
+      "exact_acceptance": true,
+      "hosted_administrator_audits": true,
+      "hosted_audit_immutability": true,
+      "hosted_pr_landing_finalizer": true,
+      "metadata_guard_status": "passed",
+      "post_merge_feedback_invitation": {
+        "conclusion": "success",
+        "run": 39353777705
+      },
+      "pull_request_checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39353390223
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39353390254
+        },
+        "conditional_publish": "skipped",
+        "docker": {
+          "conclusion": "success",
+          "run": 39353390352
+        },
+        "docs": {
+          "conclusion": "success",
+          "run": 39353390223
+        },
+        "gradient_null_tests": {
+          "conclusion": "success",
+          "run": 39353392482
+        },
+        "helm": {
+          "conclusion": "success",
+          "run": 39353390223
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39353390216
+        },
+        "lint": {
+          "conclusion": "success",
+          "run": 39353390455
+        },
+        "release_validation": {
+          "conclusion": "success",
+          "run": 39353390476
+        }
+      },
+      "quality_gate_conclusion": "success",
+      "quality_gate_runs": [
+        39353386408,
+        39353390155,
+        39353402908
+      ],
+      "separate_metadata_guard": true
+    }
+  }
+}
