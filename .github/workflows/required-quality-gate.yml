@@ -169,6 +169,14 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          PRECOMMIT_PHASE=preflight
+          precommit_failure() {
+            local status=$?
+            printf '::error title=Pre-commit reconstruction failed::phase=%s line=%s exit=%s\n' \
+              "$PRECOMMIT_PHASE" "$LINENO" "$status"
+            exit "$status"
+          }
+          trap precommit_failure ERR
           test "$(sudo -n id -u)" = "0"
           COMMIT_REF="${PR_HEAD_SHA:-$GITHUB_SHA}"
           COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
@@ -178,9 +186,12 @@ jobs:
           PRECOMMIT_WORKSPACE="$RUNNER_TEMP/sentientos-precommit-workspace"
           PRECOMMIT_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-tests"
           PRECOMMIT_FINALIZER_TEST_RUN_DIR="$RUNNER_TEMP/sentientos-precommit-finalizer-tests"
+          PRECOMMIT_PHASE=workspace_reconstruction
           GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT"
           git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF" | git -C "$PRECOMMIT_WORKSPACE" apply --index
+          PRECOMMIT_PHASE=package_install
           python -m pip install --no-deps --no-build-isolation -e "$PRECOMMIT_WORKSPACE"
+          PRECOMMIT_PHASE=precommit_acceptance
           python - "$RUNNER_TEMP/sentientos-landing-acceptance/provenance.json" \
             "$PRECOMMIT_WORKSPACE" "$PRECOMMIT_PARENT" "$PRECOMMIT_TEST_RUN_DIR" <<'PY'
           import json, os, subprocess, sys
@@ -219,6 +230,7 @@ jobs:
                          cwd=workspace, env={**env, "PYTHONPATH": workspace}, check=True)
           PY
           cd "$PRECOMMIT_WORKSPACE"
+          PRECOMMIT_PHASE=privileged_finalizer
           set +e
           sudo -n env "HOME=$HOME" "PATH=$PATH" "PYTHONPATH=$PRECOMMIT_WORKSPACE" \
             SENTIENTOS_TEST_RUN_DIR="$PRECOMMIT_FINALIZER_TEST_RUN_DIR" \
@@ -239,6 +251,7 @@ jobs:
               --summary
           finalizer_exit_code=$?
           set -e
+          PRECOMMIT_PHASE=finalizer_result_validation
           printf "Pre-commit finalizer process exit code: %s\\n" "$finalizer_exit_code"
           cat "$RUNNER_TEMP/codex-finalizer-pre-commit.json"
           python - "$RUNNER_TEMP/codex-finalizer-pre-commit.json" "$finalizer_exit_code" <<'PY'
