@@ -239,7 +239,8 @@ def test_execute_requires_digest_when_external_binding_sidecar_exists(
     evidence_dir.mkdir(parents=True)
     # Persistence writes the sidecar before the envelope. A crash in between
     # must still be detected before the executor can create effects.
-    (evidence_dir / f"binding_{plan_key}.json").write_bytes(b"partial-binding")
+    sidecar_path = evidence_dir / f"binding_{plan_key}.json"
+    sidecar_path.write_bytes(b"partial-binding")
 
     calls: list[str] = []
     executor = GoalExecutor(repo_root=tmp_path)
@@ -254,6 +255,7 @@ def test_execute_requires_digest_when_external_binding_sidecar_exists(
         executor.execute_plan(plan, _state(tmp_path))
 
     assert calls == []
+    assert sidecar_path.read_bytes() == b"partial-binding"
     assert not (tmp_path / "glow/forge/work_plan_journals").exists()
     assert not (tmp_path / "glow/forge/work_runs").exists()
 
