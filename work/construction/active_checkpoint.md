@@ -123,3 +123,19 @@ Latest verified source merge: `f145c4aa26f192e04c03bb09e49e40dc917725fd`, tree `
 Latest construction segment: `work/construction/segments/0485-bound-goal-relevance-priority-admission.md`
 Latest segment SHA-256: `ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4`
 Sequence: 485
+
+
+## Sequence 486 — overflowed priority history remains review-required
+
+PR #2475 adds an integrated daemon-planning regression showing that a goal-tagged adverse history beyond the 512-priority bound remains in omission evidence and its goal stays review-required. The change is test-only and guards the planning/execution boundary. The affected suite passed 147 tests with two existing skips; targeted Mypy, compilation, and the full Mypy baseline passed with zero new diagnostics. Exact-candidate hosted checks, actual-Administrator strict audits, audit immutability, acceptance, and the separate metadata guard passed.
+
+Regular merge `9d5bd2787e00c702e988c54df2860cc38176b86e` has tree `bd470a5539e6c5c5145ffd49d4eda9b1da3843fb` and ordered parents `c681b0663fe88ae580c179ba6633588d4960cd31` and `f6f21be5e34e7423789e4ed145c106ccf70a0739`; its signature is valid. Post-merge Quality Gate, CI/source validation/self-check/Helm/docs, Codex CI, Docker, invariants, and Docs Deploy passed. Forge Smoke was skipped by condition.
+
+At 2026-10-20T06:42:17Z, no scheduled Federation Health or nightly audit/self-check run on this exact main head was observed. Federation Health succeeded through hosted Administrator report generation on ancestor `800dcef026b32c45c5668282b260ca2e39ab4c24`, then publication failed because repository policy denies Actions-token PR creation. No current-head success is claimed. No production inference, campaign, or transition execution was performed; protected and stale workspaces remain untouched.
+
+Next, trace bounded prioritized-history admission through canonical plan identity and persisted readback, retaining the complete omission manifest and adverse state identity.
+
+Latest verified source merge: `9d5bd2787e00c702e988c54df2860cc38176b86e`, tree `bd470a5539e6c5c5145ffd49d4eda9b1da3843fb`
+Latest construction segment: work/construction/segments/0486-overflowed-priority-history-remains-review-required.md
+Latest segment SHA-256: `28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718`
+Sequence: 486

@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "9018951617cf88f187c985726bf081d6c44c0762f771b18079c543677dc29bfd",
-    "latest_segment_sequence": 485,
-    "latest_segment_sha256": "ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
-    "latest_sequence": 485,
-    "source_commit": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
-    "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
+    "checkpoint_sha256": "c8f021907360e96ccebb40d2370f6b508a80eba101d7765bfdefc6262642e4dd",
+    "latest_segment_sequence": 486,
+    "latest_segment_sha256": "28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
+    "latest_sequence": 486,
+    "source_commit": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+    "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
   },
-  "checkpoint_sha256": "9018951617cf88f187c985726bf081d6c44c0762f771b18079c543677dc29bfd",
+  "checkpoint_sha256": "c8f021907360e96ccebb40d2370f6b508a80eba101d7765bfdefc6262642e4dd",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 485,
+  "latest_sequence": 486,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5504,6 +5504,18 @@
       "sha256": "ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
       "source_commit": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
       "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
+    },
+    {
+      "bytes": 3223,
+      "evidence_bytes": 5120,
+      "evidence_path": "work/construction/evidence/0486-overflowed-priority-history-remains-review-required.json",
+      "evidence_sha256": "3cf26a6fa624b7a3da979fd9465176c13a4ecf5bdd5d64c8ae80e69592ae8aeb",
+      "path": "work/construction/segments/0486-overflowed-priority-history-remains-review-required.md",
+      "predecessor": "segment-sha256:ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
+      "sequence": 486,
+      "sha256": "28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718",
+      "source_commit": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+      "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
     }
   ],
   "source_acquisition": {
@@ -5513,7 +5525,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d",
+  "source_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
