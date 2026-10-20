@@ -968,3 +968,22 @@ def test_source_validation_runs_active_trial_transition_receipt_binding_regressi
     assert "active_trial_stage_receipt_provenance.json" in source_validation
     assert "active_trial_stage_receipt_acceptance.json" in source_validation
     assert "active_trial_stage_receipt_acceptance_result.json" in source_validation
+
+
+def test_source_validation_requires_verified_transition_receipts_for_new_outcomes():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert (
+        "- name: Verify transition stage receipts are required for new trial outcomes"
+        in source_validation
+    )
+    for node in (
+        "test_run_one_records_verified_transition_stage_provenance_in_immutable_outcome",
+        "test_new_protocol_requires_live_transition_owner_before_trial_start",
+        "test_v2_protocol_rejects_disabled_transition_receipt_policy",
+        "test_historical_protocol_without_owner_policy_keeps_v1_receipt_compatibility",
+    ):
+        assert node in source_validation
+    assert "verified_trial_outcome_provenance.json" in source_validation
+    assert "verified_trial_outcome_acceptance.json" in source_validation
+    assert "verified_trial_outcome_acceptance_result.json" in source_validation
