@@ -1,13 +1,11 @@
-# Active construction checkpoint
-
 ## Latest verified main
 
-Sequence 492 binds the exact canonical goal-allocation bytes to deterministic plan identity, persisted work-plan evidence, and read-only daemon feedback. Evidence persistence and readback validate the linked file digest; pre-digest historical evidence remains readable. PR #2486 passed the exact-candidate hosted Quality Gate and all PR checks, then merged normally as `2adf59db661779ba8d62d5d8417381f442fdbaf0` with tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8` and valid signature. The ordered parents are verified main `124de0f9ced349de7342901a2e1338c460c05a00` and candidate `f522ff3a25cc901d4e817f31b5169d9f9c82ec7e`. Post-merge Quality Gate, CI, source validation, Mypy, docs, Helm, Docker, CPU smoke, invariants, and deployment passed; Forge Smoke was skipped by workflow condition.
+Sequence 498 closes the interrupted-write gap for external work-plan evidence bindings. The writer stages bytes privately, synchronizes them, atomically publishes the immutable sidecar without replacement, and synchronizes the parent directory. A regression proves interrupted pre-publication writes leave no canonical partial file and that a retry succeeds. PR #2496 passed exact-candidate CI, strict hosted Administrator audits, acceptance, the privileged finalizer, and the separate pre-publication metadata guard, then merged with history preserved. The exact candidate and main trees match at `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`; all post-merge required checks passed except Forge Smoke, skipped by workflow condition.
 
-Latest verified source merge: `2adf59db661779ba8d62d5d8417381f442fdbaf0`, tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8`
-Latest construction segment: `work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md`
-Latest segment SHA-256: `206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781`
-Sequence: 492
+Latest verified source merge: `803f4d004dbc853424a507beba9980c706c9266c`, tree `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`
+Latest construction segment: `work/construction/segments/0498-atomic-work-plan-sidecar-publication.md`
+Latest segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
+Sequence: 498
 
 ## Operational observation
 
@@ -261,3 +259,19 @@ Latest segment SHA-256: `3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803
 Sequence: 497
 
 The sequence-497 record is additive; prior construction segments and the frozen legacy continuation journal remain unchanged.
+
+
+## Sequence 498 — atomically publish work-plan evidence sidecars
+
+PR #2496 closes the interrupted-write gap in immutable work-plan evidence bindings. The writer uses a private same-directory temporary file, flushes and synchronizes its bytes, publishes with an atomic no-overwrite hard link, and synchronizes the containing directory. Exact existing bytes remain idempotent; conflicting bytes still fail closed.
+
+The regression injects an `fsync` failure before publication, verifies that neither the canonical sidecar nor its envelope exists and that the temporary is removed, then retries and confirms successful canonical readback. Focused evidence-bound and executor tests, targeted Mypy, compilation, all exact-candidate checks, and all post-merge checks passed. Hosted finalizer, acceptance, and quality-gate artifacts were downloaded and independently matched to their GitHub-published SHA-256 digests. The separate metadata guard reported `pr_metadata_guard_ready`; validation used the solo profile and did not request an exhaustive matrix.
+
+Regular merge `803f4d004dbc853424a507beba9980c706c9266c` preserves verified main `a20f300d3639539df977be67452f0eedde39b890` and candidate `a43018f58e796367ece41e4a85e98419e0f8bf37` as ordered parents. The signed merge commit's tree is `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`, matching the exact candidate tree. Post-merge Quality Gate, CI, build, CPU smoke, invariants, docs, Helm, and deployment passed; Forge Smoke was skipped by its workflow condition.
+
+No production task, inference, campaign, or transition was executed. No authority boundary or append-only history was changed.
+
+Latest verified source merge: `803f4d004dbc853424a507beba9980c706c9266c`, tree `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`
+Latest construction segment: `work/construction/segments/0498-atomic-work-plan-sidecar-publication.md`
+Latest segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
+Sequence: 498

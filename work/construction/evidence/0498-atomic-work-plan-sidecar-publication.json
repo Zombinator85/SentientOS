@@ -1,0 +1,90 @@
+{
+  "behavior": {
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    },
+    "checks": [
+      "sidecar bytes are written and fsynced in a private same-directory temporary file",
+      "atomic no-overwrite publication prevents readers from observing a partial canonical sidecar",
+      "directory metadata is fsynced after publication",
+      "exact existing bytes remain idempotent and conflicting bytes fail closed",
+      "injected interruption before publication leaves neither canonical sidecar nor envelope",
+      "the temporary file is removed after interruption and a retry succeeds with canonical readback"
+    ],
+    "outcome": "Interrupted work-plan evidence writes cannot leave a partial canonical sidecar; retries preserve immutable identity."
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0497-partial-plan-evidence-sidecar-fail-closed.md",
+    "segment_sha256": "3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699",
+    "sequence": 497
+  },
+  "pull_request": {
+    "base_commit": "a20f300d3639539df977be67452f0eedde39b890",
+    "candidate_commit": "a43018f58e796367ece41e4a85e98419e0f8bf37",
+    "candidate_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8",
+    "number": 2496,
+    "merge_commit": "803f4d004dbc853424a507beba9980c706c9266c",
+    "preserved_commit_history": true,
+    "status": "merged"
+  },
+  "remote_readback": {
+    "main_head": "803f4d004dbc853424a507beba9980c706c9266c",
+    "main_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8",
+    "candidate_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8",
+    "signed_merge_commit": true
+  },
+  "source_commit": "803f4d004dbc853424a507beba9980c706c9266c",
+  "source_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8",
+  "tests": {
+    "affected_local_test_command": "python -m pytest -q sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_goal_executor_run.py",
+    "affected_local_tests": "passed",
+    "compileall_command": "python -m compileall -q sentientos/work_plan.py sentientos/tests/test_work_plan_evidence_bounds.py",
+    "compileall": "passed",
+    "targeted_mypy_command": "python -m mypy sentientos/work_plan.py",
+    "targeted_mypy": "passed",
+    "all_candidate_checks": "passed",
+    "candidate_check_runs": {
+      "ci": 39412607602,
+      "codex_ci": 39412607498,
+      "docker": 39412607637,
+      "gradient": 39412607544,
+      "invariants": 39412607632,
+      "lint": 39412607514,
+      "quality_gate": 39412607581,
+      "release": 39412607551
+    },
+    "quality_gate": "passed",
+    "strict_administrator_audits": "passed",
+    "acceptance": "passed",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "validation_profile": "solo",
+    "exhaustive_matrix_requested": false,
+    "finalizer_artifact_sha256": "56d50a7042763e8b239b6204533af57f5f8456978c31ead5ac113db477796093",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "acceptance_artifact_sha256": "10431104326f148b4d65dd4ef61b5fec6b4f79576f610c834c273779e9dc14fd",
+    "acceptance_artifact_sha256_independently_verified": true,
+    "quality_gate_evidence_artifact_sha256": "b83bc679c4ada3c7594d184142d565e347c3e8ce19b0f6e5b8a8195e243d74de",
+    "quality_gate_evidence_artifact_sha256_independently_verified": true,
+    "post_merge_checks": {
+      "ci": "passed",
+      "quality_gate": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "invariants": "passed",
+      "docs": "passed",
+      "helm": "passed",
+      "deployment": "passed",
+      "forge_smoke": "skipped_by_workflow_condition"
+    }
+  },
+  "title": "Atomically publish work-plan evidence sidecars"
+}
