@@ -36,7 +36,9 @@ READINESS_SCHEMA = "sentientos.production_self_reflection_readiness:v1"
 CAMPAIGN_SCHEMA = "sentientos.production_self_reflection_campaign_state:v1"
 RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v1"
 VERIFIED_RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v2"
-REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
+LEGACY_REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
+REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v2"
+TRIAL_PROVENANCE_SCHEMA = "sentientos.production_self_reflection_trial_provenance:v1"
 SCORER = "deterministic_exact_evidence_key:v1"
 MIN_TRIALS, MAX_TRIALS = 2, 32
 MAX_IMMUTABLE_ARTIFACT_BYTES = 16 * 1024 * 1024
@@ -951,12 +953,76 @@ class ProductionSelfReflectionCampaign:
             receipts = self._verify_progress(state)
             if state["validity"] != "valid_complete": raise ProductionSelfReflectionError("campaign_incomplete")
             scores = {condition: [r["condition_scores"][condition]["counts"] for r in receipts] for condition in CONDITION_ORDER}
-            body: dict[str, Any] = {"schema_version": REPORT_SCHEMA, "protocol_id": self._protocol_snapshot.protocol_id,
+            has_verified_transition_provenance = any(
+                "transition_stage_receipt_binding" in receipt for receipt in receipts)
+            body: dict[str, Any] = {
+                "schema_version": (REPORT_SCHEMA if has_verified_transition_provenance
+                                   else LEGACY_REPORT_SCHEMA),
+                "protocol_id": self._protocol_snapshot.protocol_id,
                 "planned_trial_count": len(receipts), "valid_completed_trials": len(receipts), "interrupted_trials": 0,
                 "condition_scores": scores, "restoration_results": [r["restoration_result"] for r in receipts],
                 "descriptive_only": True, "negative_null_unstable_retained": True,
                 "unsupported_inferences": ["consciousness", "identity", "learning", "sentience", "guaranteed_improvement"]}
-            body["report_digest"] = _digest(body); _immutable(self.root / "report.json", body); return MappingProxyType(body)
+            if has_verified_transition_provenance:
+                body["campaign_protocol_digest"] = self._protocol_snapshot.protocol_digest
+                body["trial_provenance_schema"] = TRIAL_PROVENANCE_SCHEMA
+                body["trial_provenance"] = [
+                    {
+                        "trial_id": receipt["trial_id"],
+                        "receipt_id": receipt["receipt_id"],
+                        "receipt_digest": receipt["receipt_digest"],
+                        "verified_transition_stage_provenance": (
+                            {
+                                "status": receipt["transition_stage_receipt_binding"]["status"],
+                                "binding_digest": receipt["transition_stage_receipt_binding"]["binding_digest"],
+                                "transition_protocol_id": receipt["transition_stage_receipt_binding"]["transition_protocol_id"],
+                                "transition_protocol_digest": receipt["transition_stage_receipt_binding"]["transition_protocol_digest"],
+                                "phase_order": list(receipt["transition_stage_receipt_binding"]["phase_order"]),
+                                "stage_receipt_count": len(receipt["transition_stage_receipt_binding"]["stage_receipts"]),
+                            }
+                            if "transition_stage_receipt_binding" in receipt
+                            else {"status": "not_recorded_historical_receipt"}
+                        ),
+                    }
+                    for receipt in receipts
+                ]
+            body["report_digest"] = _digest(body)
+            report_path = self.root / "report.json"
+            legacy_body = dict(body)
+            legacy_body.pop("campaign_protocol_digest", None)
+            legacy_body.pop("trial_provenance_schema", None)
+            legacy_body.pop("trial_provenance", None)
+            legacy_body["schema_version"] = LEGACY_REPORT_SCHEMA
+            legacy_body.pop("report_digest", None)
+            legacy_body["report_digest"] = _digest(legacy_body)
+            legacy_bytes = (json.dumps(legacy_body, indent=2, sort_keys=True) + "\n").encode("utf-8")
+            try:
+                _immutable(report_path, body)
+            except ProductionSelfReflectionError as exc:
+                if exc.code != "immutable_artifact_collision" or legacy_bytes == (
+                        json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8"):
+                    raise
+                directory_fd: int | None = None
+                try:
+                    directory_fd = open_private_directory(self.root, create=False)
+                    prior_bytes = read_private_file_at(
+                        directory_fd, "report.json", max_bytes=MAX_IMMUTABLE_ARTIFACT_BYTES)
+                except (OSError, PrivateFileCustodyError):
+                    raise exc
+                finally:
+                    if directory_fd is not None:
+                        os.close(directory_fd)
+                if prior_bytes != legacy_bytes:
+                    raise exc
+                prior_report = json.loads(prior_bytes.decode("utf-8"))
+                if not isinstance(prior_report, dict):
+                    raise exc
+                prior_digest = prior_report.pop("report_digest", None)
+                if prior_digest != _digest(prior_report):
+                    raise ProductionSelfReflectionError("immutable_artifact_tampered") from exc
+                prior_report["report_digest"] = prior_digest
+                return MappingProxyType(prior_report)
+            return MappingProxyType(body)
 
 
 def _verify_transition_stage_outcome_binding_record(

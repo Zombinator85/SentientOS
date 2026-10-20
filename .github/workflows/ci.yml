@@ -357,6 +357,47 @@ jobs:
             --manifest glow/test_runs/verified_trial_outcome_acceptance.json \
             --provenance glow/test_runs/verified_trial_outcome_provenance.json \
             --output glow/test_runs/verified_trial_outcome_acceptance_result.json
+      - name: Verify completed campaign reports retain verified trial provenance
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_production_self_reflection_campaign.py::test_v2_campaign_report_indexes_verified_trial_provenance \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_verified_trial_provenance_in_reports
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/trial_report_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_production_self_reflection_campaign.py::test_v2_campaign_report_indexes_verified_trial_provenance",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_verified_trial_provenance_in_reports",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/trial_report_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": nodes[0],
+                      "rationale": "retain digest-bound transition provenance in new descriptive reports while preserving historical report shape and authority boundaries",
+                  },
+                  {
+                      "node_id": nodes[1],
+                      "rationale": "require hosted source validation to execute and archive the report provenance regression evidence",
+                  },
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/trial_report_provenance_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/trial_report_provenance_acceptance.json \
+            --provenance glow/test_runs/trial_report_provenance.json \
+            --output glow/test_runs/trial_report_provenance_acceptance_result.json
       - name: Stage current test-run artifacts
         if: always()
         run: >-
@@ -395,6 +436,9 @@ jobs:
             glow/test_runs/verified_trial_outcome_provenance.json
             glow/test_runs/verified_trial_outcome_acceptance.json
             glow/test_runs/verified_trial_outcome_acceptance_result.json
+            glow/test_runs/trial_report_provenance.json
+            glow/test_runs/trial_report_provenance_acceptance.json
+            glow/test_runs/trial_report_provenance_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:
