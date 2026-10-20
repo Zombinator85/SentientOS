@@ -117,6 +117,7 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
         epistemic_state_config={
             "status": "configured", "cognitive_consumption_enabled": True,
             "max_cognitive_projection_count": 1})
+
     def forbidden_execute(*_args, **_kwargs):
         raise AssertionError("planning must not execute goals")
 
