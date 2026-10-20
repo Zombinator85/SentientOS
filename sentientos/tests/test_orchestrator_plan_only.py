@@ -1014,6 +1014,8 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
         active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
         correlation_id="positive-current-experience", tick=1,
         recorded_at="2026-10-16T08:00:00Z")
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
     graph = GoalGraph(schema_version=1, goals=(Goal(
         "g_experienced", "continue the measured task family", 3.0, 20, (),
         "rule", 1, 1,
@@ -1047,7 +1049,7 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
     surfaces = RuntimeMaintenanceSurfaces(
-        tmp_path, epistemic_state_owner=owner,
+        tmp_path, epistemic_state_owner=recovered_owner,
         epistemic_state_config={"status": "configured",
             "cognitive_consumption_enabled": True, "max_cognitive_projection_count": 1},
         resident_cognitive_invoker=observer)
@@ -1071,4 +1073,5 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
         "posture"] == "verified_positive_current"
     assert observer.identity_calls == 1
     assert owner.current_state(proposition.proposition_id) == supported
+    assert recovered_owner.current_state(proposition.proposition_id) == supported
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
