@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "349ae70a7d497ad18a29dafed1d6ff74d0a4522361ce2ef940f873b4fd8acc06",
-    "latest_segment_sequence": 473,
-    "latest_segment_sha256": "cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
-    "latest_sequence": 473,
-    "source_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
-    "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
+    "checkpoint_sha256": "e90ac23f0e8b7547d82a3be6f580459b371ee9e27d168600514e5c1d3dffacee",
+    "latest_segment_sequence": 474,
+    "latest_segment_sha256": "bc5e27797cadc53e0a256bd04696d85dc45c0eda2ea8f82f6ffb2562f7aa6c72",
+    "latest_sequence": 474,
+    "source_commit": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
+    "source_tree": "200e043067dd13350d3ec338762e48fade5d7e01"
   },
-  "checkpoint_sha256": "349ae70a7d497ad18a29dafed1d6ff74d0a4522361ce2ef940f873b4fd8acc06",
+  "checkpoint_sha256": "e90ac23f0e8b7547d82a3be6f580459b371ee9e27d168600514e5c1d3dffacee",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 473,
+  "latest_sequence": 474,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5360,6 +5360,18 @@
       "sha256": "cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
       "source_commit": "fb8e54af99f6545ac0760c04d7816bda7fe5008d",
       "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced"
+    },
+    {
+      "bytes": 4152,
+      "evidence_bytes": 6223,
+      "evidence_path": "work/construction/evidence/0474-carry-authenticated-operator-identity-into-canonical-planning.json",
+      "evidence_sha256": "c24a576fe89ba6ba43143d273bc9a83a1c64c3b3980240a558d2466df83d271c",
+      "path": "work/construction/segments/0474-carry-authenticated-operator-identity-into-canonical-planning.md",
+      "predecessor": "segment-sha256:cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60",
+      "sequence": 474,
+      "sha256": "bc5e27797cadc53e0a256bd04696d85dc45c0eda2ea8f82f6ffb2562f7aa6c72",
+      "source_commit": "37497cb07803b250b6370d35ac4e14b7115aa7c9",
+      "source_tree": "200e043067dd13350d3ec338762e48fade5d7e01"
     }
   ],
   "source_acquisition": {
@@ -5369,7 +5381,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "703d7dac7a7130cd0520896a75e12304018f8ced",
+  "source_tree": "200e043067dd13350d3ec338762e48fade5d7e01",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

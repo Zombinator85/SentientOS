@@ -2,20 +2,23 @@
 
 ## Latest verified main
 
-PR #2450 added an installation-pinned Ed25519 operator provenance boundary to resident transition request processing. Configuration v2 binds the exact version and digest of a fixed, canonical public-key trust catalog. The daemon verifies the exact signed request claims, operator/key identity, key validity and revocation status before journal recovery or stage execution. V1 remains status-readable but cannot process live requests without trust. No private signing key or signing API is present in the daemon. Authenticated provenance does not grant stage authority; separately supplied stage approvals and independent owners still govern execution.
+PR #2452 carried installation-verified operator identity from the live resident-transition request and verified stage receipt into the canonical read-only campaign plan and active-trial binding. The v3 receipt projection re-verifies exact signed request provenance against the installation-pinned trust catalog. The plan validates and digest-binds the bounded principal record, including operator/key identifiers, request and provenance digests, signed time, and pinned catalog version/digest. Nested identity data remains immutable; daemon adapters return JSON-safe snapshots; legacy projections without authenticated identity fail closed.
 
-Candidate 99d7c75630b97b756bd1694ad30ecf3b79f478e7 passed 86 local affected tests, compilation, whitespace validation, and an exact-base Mypy comparison with zero added diagnostics and 40 retired baseline diagnostics. Push CI, invariants, and the strict hosted quality gate passed. After correcting the PR title to match the tip commit subject, the fresh PR Quality Gate passed hosted Administrator audits, pre-commit and PR landing finalizers, and the separate pre-publication metadata guard on the exact head and tree. Full PR CI, Docker, Codex CI, Release, Gradient, lint, invariants, and QG passed. PR #2450 merged regularly as fb8e54af99f6545ac0760c04d7816bda7fe5008d, tree 703d7dac7a7130cd0520896a75e12304018f8ced, with ordered parents f465a9604272ec91928eb9d9b7ed76c49067b629 and 99d7c75630b97b756bd1694ad30ecf3b79f478e7. Post-merge CI, Administrator quality gate, Docs Deploy/Pages, Codex CI, Docker, and invariants passed. Forge Smoke was skipped by its workflow condition.
+This provenance remains descriptive. Planning does not execute goals, mint or select approvals, advance campaign state, process request mailboxes, or grant authority. Independent stage-owner validation and separately supplied approvals remain required. No production trust catalog or key material was provisioned.
+
+Candidate `23c37a85ea33a74ca278213d7be9584acfd3abc8` (tree `200e043067dd13350d3ec338762e48fade5d7e01`) passed 200 local affected tests, compilation, whitespace checks, and exact-base Mypy comparison with zero new diagnostics and 40 retired baseline diagnostics. All seven changed GitHub blobs were independently read back. Exact-candidate hosted Quality Gate #39344680427 passed Administrator strict audits and immutability verification, both finalizers, exact candidate acceptance, and the separate metadata guard bound to the candidate head/tree. The guard returned `pr_metadata_guard_ready`; the solo profile was used and exhaustive matrix execution was not requested. Full PR CI, Docker, Codex CI, Release, Gradient, lint, invariants, and Quality Gate passed.
+
+PR #2452 merged regularly as `37497cb07803b250b6370d35ac4e14b7115aa7c9`, tree `200e043067dd13350d3ec338762e48fade5d7e01`, ordered parents `18e31f5ba893114161dfa3fe5866d18183f720d6` and `23c37a85ea33a74ca278213d7be9584acfd3abc8`. Post-merge Quality Gate #39345078877, invariants #39345078909, Codex CI #39345078938, Docs Deploy #39345078941, and Docker #39345078856 passed. CI #39345078875 is still running its Sphinx external link check; its source validation, Helm integration, and self-check jobs passed. Forge Smoke #39345078997 was skipped by its workflow condition.
 
 ## Open evidence boundaries
 
-- The daemon's verified stage-receipt projection does not yet carry the authenticated operator principal into canonical read-only planning. The next dependency is to bind that verified provenance into the receipt projection and plan while retaining read-only, non-authoritative planning.
-- No production operator trust catalog or private signing key is included. No production request or temporal A-to-B-to-A transition has been exercised.
-- The scheduled Federation Health execution on this merged main has not yet been observed. Its publication workflow still requires the repository Actions PR-creation setting or an approved least-privilege GitHub App credential. Audit Nightly and Nightly Self Check schedules remain to be observed.
+- Authenticated operator identity is now carried into canonical planning. A useful next increment is to retain appropriately minimized provenance in append-only stage outcome evidence, without turning identity into authority.
+- No production operator trust catalog or private signing key is included. No production request, production campaign execution, or temporal A-to-B-to-A transition has been exercised.
+- The scheduled Federation Health execution on the new main has not yet been observed. Its publication job may still require the Actions PR-creation setting or an approved least-privilege GitHub App credential. Audit Nightly and Nightly Self Check schedules remain to be observed.
 - Historical test provenance remains INTEGRITY_BROKEN; sequence-286 loss remains explicit.
 - Sequence-382 through sequence-386 work and protected stale workspaces remain untouched.
 
-Latest verified main: `fb8e54af99f6545ac0760c04d7816bda7fe5008d`, tree `703d7dac7a7130cd0520896a75e12304018f8ced`
-Latest construction segment: work/construction/segments/0473-authenticate-live-transition-operator-requests.md
-Latest segment SHA-256: cbb5d7429cfe6c8ed993ed549ff5a82aa8498ccfd0ffd760dbeb2f9027d1de60
-Sequence: 473 (authenticated live transition operator provenance; authority remains with independent stage owners)
-
+Latest verified main: `37497cb07803b250b6370d35ac4e14b7115aa7c9`, tree `200e043067dd13350d3ec338762e48fade5d7e01`
+Latest construction segment: work/construction/segments/0474-carry-authenticated-operator-identity-into-canonical-planning.md
+Latest segment SHA-256: `155a1825391a9c1d60a1e4f1acbfdc79178afbb2b855cf69f35c11f0e5c2edca`
+Sequence: 474 (verified operator identity is bound into canonical planning; authority remains with independent stage owners)
