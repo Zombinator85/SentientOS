@@ -207,10 +207,13 @@ def persist_work_plan_evidence(
         raise WorkPlanError("work_plan_evidence_bounds_invalid")
     graph_hash = evidence_binding.get("goal_graph_hash")
     allocation_id = evidence_binding.get("allocation_artifact_path")
+    allocation_digest = evidence_binding.get("allocation_artifact_digest")
     if (not isinstance(graph_hash, str) or not isinstance(allocation_id, str)
+            or not _optional_sha256_digest(allocation_digest)
             or work_plan_id_from_evidence(plan.created_at, graph_hash,
                 allocation_id, evidence_binding) != plan.plan_id):
         raise WorkPlanError("work_plan_evidence_identity_mismatch")
+    _verify_allocation_artifact_digest(repo_root, allocation_id, allocation_digest)
     basis: dict[str, object] = {
         "schema_version": 1,
         "plan_id": plan.plan_id,
@@ -440,9 +443,13 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
     graph_hash = evidence_binding.get("goal_graph_hash")
     allocation_id = evidence_binding.get("allocation_artifact_path")
     if (not isinstance(graph_hash, str) or not isinstance(allocation_id, str)
+            or not _optional_sha256_digest(
+                evidence_binding.get("allocation_artifact_digest"))
             or work_plan_id_from_evidence(plan.created_at, graph_hash,
                 allocation_id, evidence_binding) != plan.plan_id):
         raise WorkPlanError("work_plan_evidence_identity_mismatch")
+    _verify_allocation_artifact_digest(repo_root, allocation_id,
+        evidence_binding.get("allocation_artifact_digest"))
     basis = {key: payload[key] for key in fields if key != "evidence_digest"}
     expected_digest = hashlib.sha256(json.dumps(
         basis, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -450,6 +457,37 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
     if payload["evidence_digest"] != expected_digest:
         raise WorkPlanError("work_plan_evidence_digest_mismatch")
     return payload
+
+
+def _optional_sha256_digest(value: object) -> bool:
+    """Validate an optional digest while keeping pre-digest evidence readable."""
+    return (value is None or (
+        isinstance(value, str) and len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value[7:])))
+
+
+def _verify_allocation_artifact_digest(
+        repo_root: Path, relative_path: str, digest: object) -> None:
+    if digest is None:
+        return
+    root = repo_root.resolve()
+    relative = Path(relative_path)
+    if (relative.is_absolute() or any(part in {".", ".."} for part in relative.parts)):
+        raise WorkPlanError("work_plan_allocation_artifact_digest_mismatch")
+    path = root / relative
+    try:
+        resolved = path.resolve(strict=True)
+        if not resolved.is_relative_to(root):
+            raise WorkPlanError("work_plan_allocation_artifact_digest_mismatch")
+        raw = _read_bounded_regular_file(
+            path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+            error_prefix="work_plan_allocation_artifact")
+    except (OSError, ValueError) as exc:
+        raise WorkPlanError("work_plan_allocation_artifact_digest_mismatch") from exc
+    observed = "sha256:" + hashlib.sha256(raw).hexdigest()
+    if observed != digest:
+        raise WorkPlanError("work_plan_allocation_artifact_digest_mismatch")
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:

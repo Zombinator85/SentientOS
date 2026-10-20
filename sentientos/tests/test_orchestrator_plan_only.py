@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -224,9 +225,11 @@ def test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwri
     }
 
     path = _emit_goal_allocation_artifact(**arguments)
-    artifact = tmp_path / path
+    artifact_path, artifact_digest = path
+    artifact = tmp_path / artifact_path
     original = artifact.read_bytes()
 
+    assert artifact_digest == "sha256:" + hashlib.sha256(original).hexdigest()
     assert _emit_goal_allocation_artifact(**arguments) == path
     assert artifact.read_bytes() == original
     with pytest.raises(WorkPlanError,
@@ -637,6 +640,7 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
         "orchestrator_tick", ("g1",), ())
     result = SimpleNamespace(
         allocation=allocation, allocation_artifact_path="glow/allocation.json",
+        allocation_artifact_digest="sha256:fixture-allocation",
         work_plan=plan, work_plan_path="glow/forge/work_plans/plan_g1.json",
         work_plan_evidence_path="glow/forge/work_plan_evidence/evidence_g1.json",
         work_plan_evidence_digest="sha256:fixture",
@@ -655,6 +659,7 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
 
     assert feedback["status"] == "planned"
     assert feedback["selected_goals"] == ["g1"]
+    assert feedback["allocation_artifact_digest"] == "sha256:fixture-allocation"
     assert feedback["prior_epistemic_projection_digest"] == (
         "sha256:prior-projection")
     assert feedback["work_plan_id"] == "plan-g1"
@@ -693,6 +698,7 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
         "orchestrator_tick", selected, ())
     result = SimpleNamespace(
         allocation=allocation, allocation_artifact_path="glow/allocation.json",
+        allocation_artifact_digest="sha256:fixture-allocation",
         work_plan=plan, work_plan_path="glow/forge/work_plans/plan.json",
         work_plan_evidence_path="glow/forge/work_plan_evidence/evidence.json",
         work_plan_evidence_digest="sha256:fixture",
@@ -716,6 +722,7 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
     assert feedback["omitted_deferred_goal_count"] == 9
     assert feedback["goal_decision_listing_limit"] == 32
     assert feedback["allocation_artifact_path"] == "glow/allocation.json"
+    assert feedback["allocation_artifact_digest"] == "sha256:fixture-allocation"
     assert feedback["execution_performed"] is False
     assert feedback["authority"] is False
 
@@ -832,6 +839,9 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     assert with_history.work_plan_evidence_path is not None
     evidence_path = tmp_path / with_history.work_plan_evidence_path
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    allocation_bytes = (tmp_path / with_history.allocation_artifact_path).read_bytes()
+    expected_allocation_digest = "sha256:" + hashlib.sha256(allocation_bytes).hexdigest()
+    assert with_history.allocation_artifact_digest == expected_allocation_digest
     assert evidence["plan_id"] == with_history.work_plan.plan_id
     assert evidence["plan_digest"] == with_history.work_plan.identity_digest()
     assert evidence["evidence_binding"]["planning_time"] == (
@@ -840,6 +850,8 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         with_history.goal_graph_hash)
     assert evidence["evidence_binding"]["allocation_artifact_path"] == (
         with_history.allocation_artifact_path)
+    assert evidence["evidence_binding"]["allocation_artifact_digest"] == (
+        with_history.allocation_artifact_digest)
     assert evidence["evidence_binding"]["risk_budget"]["router_k_max"] > 0
     assert evidence["evidence_binding"]["projection_digest"]
     assert with_history.allocation.prior_epistemic_projection_digest == (
@@ -865,6 +877,13 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         tick_id="2026-10-16T09:02:00+00:00")
     daemon_evidence = json.loads((daemon_root / daemon_feedback[
         "work_plan_evidence_path"]).read_text(encoding="utf-8"))
+    daemon_allocation_bytes = (daemon_root / daemon_feedback[
+        "allocation_artifact_path"]).read_bytes()
+    daemon_allocation_digest = "sha256:" + hashlib.sha256(
+        daemon_allocation_bytes).hexdigest()
+    assert daemon_feedback["allocation_artifact_digest"] == daemon_allocation_digest
+    assert daemon_evidence["evidence_binding"][
+        "allocation_artifact_digest"] == daemon_allocation_digest
     assert daemon_feedback["prior_epistemic_projection_digest"] == (
         daemon_evidence["evidence_binding"]["projection_digest"])
     assert daemon_feedback[
@@ -965,9 +984,18 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     assert persist_work_plan_evidence(tmp_path, with_history.work_plan,
         evidence_binding) == (with_history.work_plan_evidence_path,
             with_history.work_plan_evidence_digest)
+    allocation_path = tmp_path / with_history.allocation_artifact_path
+    allocation_path.write_bytes(allocation_bytes + b"tampered")
+    with pytest.raises(WorkPlanError,
+            match="work_plan_allocation_artifact_digest_mismatch"):
+        load_work_plan_evidence(tmp_path, with_history.work_plan)
+    allocation_path.write_bytes(allocation_bytes)
     with pytest.raises(WorkPlanError, match="work_plan_evidence_identity_mismatch"):
         persist_work_plan_evidence(tmp_path, with_history.work_plan,
             {**evidence_binding, "selected_reasons": ["tampered"]})
+    with pytest.raises(WorkPlanError, match="work_plan_evidence_identity_mismatch"):
+        persist_work_plan_evidence(tmp_path, with_history.work_plan,
+            {**evidence_binding, "allocation_artifact_digest": "sha256:invalid"})
     evidence["evidence_binding"]["selected_reasons"] = ["tampered"]
     evidence_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
@@ -1105,6 +1133,11 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     assert drifted["authority"] is False
     drifted_allocation = json.loads((tmp_path / drifted[
         "allocation_artifact_path"]).read_text(encoding="utf-8"))
+    drifted_allocation_bytes = (tmp_path / drifted[
+        "allocation_artifact_path"]).read_bytes()
+    drifted_allocation_digest = "sha256:" + hashlib.sha256(
+        drifted_allocation_bytes).hexdigest()
+    assert drifted["allocation_artifact_digest"] == drifted_allocation_digest
     assert drifted_allocation["selected_goals"] == []
     drifted_position = drifted_allocation["deferred_goals"][0][
         "epistemic_positions"][0]

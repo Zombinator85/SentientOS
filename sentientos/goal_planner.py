@@ -44,6 +44,7 @@ class ExecutorState:
     target_identity_observed_at: str | None = None
     prior_run_outcome_unknown: bool = False
     prior_run_journal_digest: str | None = None
+    allocation_artifact_digest: str | None = None
 
 
 class GoalPlanner:
@@ -85,6 +86,14 @@ class GoalPlanner:
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
         epistemic_review_scopes: dict[str, dict[str, object]] = {}
+        allocation_digest = state.allocation_artifact_digest
+        if (allocation_digest is not None and (
+                not isinstance(allocation_digest, str)
+                or not allocation_digest.startswith("sha256:")
+                or len(allocation_digest) != 71
+                or any(character not in "0123456789abcdef"
+                    for character in allocation_digest[7:]))):
+            raise WorkPlanError("allocation_artifact_digest_invalid")
         if state.prior_epistemic_projection is not None:
             try:
                 epistemic_projection_digest, epistemic_review_scopes = review_required_applicability(
@@ -140,10 +149,11 @@ class GoalPlanner:
                 + state.target_active_model_identity_digest)
             context_parts.append("target_identity_observed_at="
                 + str(state.target_identity_observed_at))
-        epistemic_binding = {
+        epistemic_binding: dict[str, object] = {
             "planning_time": state.created_at,
             "goal_graph_hash": state.goal_graph_hash,
             "allocation_artifact_path": state.allocation_id,
+            "allocation_artifact_digest": state.allocation_artifact_digest,
             "operating_mode": state.operating_mode,
             "pressure_level": state.pressure_level,
             "quarantine_active": state.quarantine_active,

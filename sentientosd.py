@@ -2796,6 +2796,7 @@ class RuntimeMaintenanceSurfaces:
                 "status": "planned" if plan is not None else "empty",
                 "tick_id": tick_id,
                 "allocation_artifact_path": result.allocation_artifact_path,
+                "allocation_artifact_digest": result.allocation_artifact_digest,
                 "prior_epistemic_projection_digest": (
                     result.allocation.prior_epistemic_projection_digest),
                 "prior_epistemic_projection_omitted_state_count": (

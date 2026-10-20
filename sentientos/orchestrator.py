@@ -101,6 +101,7 @@ class GoalPlanningResult:
 
     allocation: AllocationDecision
     allocation_artifact_path: str
+    allocation_artifact_digest: str
     goal_graph_hash: str
     planning_time: str
     target_active_model_identity_digest: str | None
@@ -360,6 +361,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
             allocation_id=allocation_artifact_path or "allocation_missing",
             risk_budget=budget, pressure_level=pressure.level, posture=posture.posture,
             prior_epistemic_projection=prior_epistemic_projection,
+            allocation_artifact_digest=planning.allocation_artifact_digest,
             target_active_model_identity_digest=(
                 planning.target_active_model_identity_digest),
             target_identity_observed_at=planning.target_identity_observed_at,
@@ -1163,7 +1165,7 @@ def _plan_goal_work(
         planning_time=planning_time,
         verified_completion_evidence=verified_completion_evidence,
     )
-    allocation_path = _emit_goal_allocation_artifact(
+    allocation_path, allocation_digest = _emit_goal_allocation_artifact(
         root=root, generated_at=planning_time, operating_mode=operating_mode,
         pressure_level=pressure_level, posture=posture,
         goal_graph_hash_value=graph_digest, allocation=allocation,
@@ -1199,6 +1201,7 @@ def _plan_goal_work(
             allocation_id=allocation_path, risk_budget=budget,
             pressure_level=pressure_level, posture=posture,
             prior_epistemic_projection=prior_epistemic_projection,
+            allocation_artifact_digest=allocation_digest,
             target_active_model_identity_digest=target_identity_digest,
             target_identity_observed_at=target_identity_observed_at,
             prior_plan=prior_plan,
@@ -1228,6 +1231,7 @@ def _plan_goal_work(
         )
     return GoalPlanningResult(
         allocation=allocation, allocation_artifact_path=allocation_path,
+        allocation_artifact_digest=allocation_digest,
         goal_graph_hash=graph_digest, planning_time=planning_time,
         target_active_model_identity_digest=target_identity_digest,
         target_identity_observed_at=target_identity_observed_at,
@@ -1369,7 +1373,7 @@ def _emit_goal_allocation_artifact(
     allocation: AllocationDecision,
     target_identity_digest: str | None = None,
     target_identity_observed_at: str | None = None,
-) -> str:
+) -> tuple[str, str]:
     path = root / "glow/forge/goal_allocations" / f"allocation_{_safe_ts(generated_at)}.json"
     payload = {
         "schema_version": 1,
@@ -1392,18 +1396,18 @@ def _emit_goal_allocation_artifact(
         "prior_epistemic_priority_limit": allocation.prior_epistemic_priority_limit,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    _write_goal_allocation_once(path, payload)
-    return str(path.relative_to(root))
+    artifact_digest = _write_goal_allocation_once(path, payload)
+    return str(path.relative_to(root)), artifact_digest
 
 
-def _write_goal_allocation_once(path: Path, payload: dict[str, object]) -> None:
+def _write_goal_allocation_once(path: Path, payload: dict[str, object]) -> str:
     """Keep a timestamped allocation artifact immutable across retries."""
     encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
     try:
         with path.open("xb") as handle:
             handle.write(encoded)
             handle.flush()
-        return
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
     except FileExistsError:
         pass
     except OSError as exc:
@@ -1433,6 +1437,7 @@ def _write_goal_allocation_once(path: Path, payload: dict[str, object]) -> None:
         raise WorkPlanError("goal_allocation_artifact_unreadable") from exc
     if bytes(existing) != encoded:
         raise WorkPlanError("goal_allocation_artifact_identity_conflict")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _observe_target_model_identity_digest(observer: object | None) -> str | None:
