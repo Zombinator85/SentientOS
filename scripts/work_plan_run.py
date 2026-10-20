@@ -14,6 +14,7 @@ from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.work_plan import (
     WORK_PLAN_DIR,
+    WorkPlanError,
     load_work_plan,
     load_work_plan_evidence,
 )
@@ -29,14 +30,31 @@ def main() -> int:
     plan_path = Path(args.plan_path).resolve()
     plan = load_work_plan(plan_path)
     expected_evidence_digest: str | None = None
+    goal_graph_hash = "manual"
+    allocation_id = "manual"
+    allocation_artifact_digest: str | None = None
     if plan_path.parent == root / WORK_PLAN_DIR:
         # Persisted canonical plans carry a separately validated rationale.
         # Verify it before reading execution policy or opening executor state.
         evidence = load_work_plan_evidence(root, plan)
         digest = evidence.get("evidence_digest")
-        if not isinstance(digest, str):
-            raise ValueError("canonical_work_plan_evidence_digest_missing")
+        binding = evidence.get("evidence_binding")
+        binding_goal_graph_hash = (
+            binding.get("goal_graph_hash") if isinstance(binding, dict) else None)
+        binding_allocation_id = (
+            binding.get("allocation_artifact_path") if isinstance(binding, dict) else None)
+        binding_allocation_digest = (
+            binding.get("allocation_artifact_digest") if isinstance(binding, dict) else None)
+        if (not isinstance(digest, str) or not isinstance(binding, dict)
+                or not isinstance(binding_goal_graph_hash, str)
+                or not isinstance(binding_allocation_id, str)
+                or (binding_allocation_digest is not None
+                    and not isinstance(binding_allocation_digest, str))):
+            raise WorkPlanError("canonical_work_plan_evidence_identity_missing")
         expected_evidence_digest = digest
+        goal_graph_hash = binding_goal_graph_hash
+        allocation_id = binding_allocation_id
+        allocation_artifact_digest = binding_allocation_digest
     quarantine = load_quarantine_state(root)
     pressure = compute_integrity_pressure(root)
     throughput = derive_throughput_policy(
@@ -57,8 +75,9 @@ def main() -> int:
             and throughput.allow_forge_mutation
             and integrity.mutation_allowed
             and budget.forge_max_files_changed > 0),
-        goal_graph_hash="manual",
-        allocation_id="manual",
+        goal_graph_hash=goal_graph_hash,
+        allocation_id=allocation_id,
+        allocation_artifact_digest=allocation_artifact_digest,
         risk_budget=budget,
         pressure_level=pressure.level,
         posture=posture.posture,

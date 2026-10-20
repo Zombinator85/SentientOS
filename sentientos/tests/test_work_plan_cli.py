@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -33,6 +34,8 @@ def _canonical_plan() -> tuple[WorkPlan, dict[str, object]]:
     evidence_binding: dict[str, object] = {
         "goal_graph_hash": "graph-digest",
         "allocation_artifact_path": "glow/forge/allocations/allocation.json",
+        "allocation_artifact_digest": "sha256:" + hashlib.sha256(
+            b'{"selected":["g1"]}\n').hexdigest(),
     }
     plan = WorkPlan(
         schema_version=1,
@@ -49,6 +52,13 @@ def _canonical_plan() -> tuple[WorkPlan, dict[str, object]]:
             0, 0, {}, (), False),),
     )
     return plan, evidence_binding
+
+
+def _persist_allocation_artifact(
+        root: Path, evidence_binding: dict[str, object]) -> None:
+    allocation_path = root / str(evidence_binding["allocation_artifact_path"])
+    allocation_path.parent.mkdir(parents=True, exist_ok=True)
+    allocation_path.write_bytes(b'{"selected":["g1"]}\n')
 
 
 def test_canonical_cli_plan_without_evidence_fails_before_execution_policy(
@@ -70,6 +80,7 @@ def test_canonical_cli_passes_verified_evidence_digest_to_executor(
 ) -> None:
     plan, evidence_binding = _canonical_plan()
     relative_path = persist_work_plan(tmp_path, plan)
+    _persist_allocation_artifact(tmp_path, evidence_binding)
     _, expected_digest = persist_work_plan_evidence(
         tmp_path, plan, evidence_binding)
     monkeypatch.setattr(work_plan_run, "load_quarantine_state",
@@ -87,11 +98,11 @@ def test_canonical_cli_passes_verified_evidence_digest_to_executor(
     monkeypatch.setattr(work_plan_run, "evaluate_integrity",
         lambda _root, *, policy_hash: SimpleNamespace(
             mutation_allowed=True, policy_hash=policy_hash))
-    observed: list[str | None] = []
+    observed: list[tuple[str | None, object]] = []
 
-    def execute(_executor: object, _plan: WorkPlan, _state: object, *,
+    def execute(_executor: object, _plan: WorkPlan, state: object, *,
                 expected_evidence_digest: str | None = None) -> SimpleNamespace:
-        observed.append(expected_evidence_digest)
+        observed.append((expected_evidence_digest, state))
         return SimpleNamespace(to_dict=lambda: {"status": "ok"})
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", execute)
@@ -99,7 +110,11 @@ def test_canonical_cli_passes_verified_evidence_digest_to_executor(
         "work_plan_run", str(tmp_path / relative_path), "--repo-root", str(tmp_path)])
 
     assert work_plan_run.main() == 0
-    assert observed == [expected_digest]
+    assert observed[0][0] == expected_digest
+    state = observed[0][1]
+    assert state.goal_graph_hash == evidence_binding["goal_graph_hash"]  # type: ignore[attr-defined]
+    assert state.allocation_id == evidence_binding["allocation_artifact_path"]  # type: ignore[attr-defined]
+    assert state.allocation_artifact_digest == evidence_binding["allocation_artifact_digest"]  # type: ignore[attr-defined]
 
 
 def test_cli_execution_uses_current_integrity_pressure_to_bound_mutation(
@@ -107,6 +122,7 @@ def test_cli_execution_uses_current_integrity_pressure_to_bound_mutation(
 ) -> None:
     plan, evidence_binding = _canonical_plan()
     relative_path = persist_work_plan(tmp_path, plan)
+    _persist_allocation_artifact(tmp_path, evidence_binding)
     persist_work_plan_evidence(tmp_path, plan, evidence_binding)
     observed_pressure: list[int] = []
     observed_state: list[object] = []
@@ -149,3 +165,5 @@ def test_cli_execution_uses_current_integrity_pressure_to_bound_mutation(
     assert state.operating_mode == "lockdown"  # type: ignore[attr-defined]
     assert state.allow_mutation is False  # type: ignore[attr-defined]
     assert state.pressure_level == 3  # type: ignore[attr-defined]
+    assert state.allocation_id == evidence_binding["allocation_artifact_path"]  # type: ignore[attr-defined]
+    assert state.allocation_artifact_digest == evidence_binding["allocation_artifact_digest"]  # type: ignore[attr-defined]
