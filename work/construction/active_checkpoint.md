@@ -1,3 +1,5 @@
+# Active construction checkpoint
+
 ## Latest verified main
 
 Sequence 498 closes the interrupted-write gap for external work-plan evidence bindings. The writer stages bytes privately, synchronizes them, atomically publishes the immutable sidecar without replacement, and synchronizes the parent directory. A regression proves interrupted pre-publication writes leave no canonical partial file and that a retry succeeds. PR #2496 passed exact-candidate CI, strict hosted Administrator audits, acceptance, the privileged finalizer, and the separate pre-publication metadata guard, then merged with history preserved. The exact candidate and main trees match at `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`; all post-merge required checks passed except Forge Smoke, skipped by workflow condition.
