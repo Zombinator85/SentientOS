@@ -1,0 +1,226 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "live_owner_revalidation_required": true,
+      "mailbox_processed": false,
+      "projection_is_read_only": true,
+      "stage_approval_origin_authenticated": false,
+      "transition_request_origin_authenticated": true
+    },
+    "checks": [
+      "request and receipt identities match the ready canonical plan",
+      "request-declared trial equals the active in-progress campaign trial",
+      "canonical transition plan has a digest and bounded authenticated operator principal",
+      "campaign binding returns a digest for the exact transition plan and authenticated principal",
+      "explicit stage approval matches the planned prior phase and next stage",
+      "transition plan is reread and compared before returning the aligned candidate",
+      "absent plan digest and other missing owner evidence fail closed"
+    ],
+    "projection": "read-only daemon projection composes the canonical authenticated transition plan, verified active-trial campaign binding, and one explicitly supplied state-bound stage approval"
+  },
+  "evidence_path": "work/construction/evidence/0475-correlate-stage-admission-with-authenticated-planning.json",
+  "limitations": {
+    "federation_health_publisher_permission_resolved": false,
+    "historical_test_provenance_integrity_broken": true,
+    "nightly_audit_on_sequence_475_head_observed": false,
+    "nightly_self_check_on_sequence_475_head_observed": false,
+    "post_merge_federation_health_on_sequence_475_head_observed": false,
+    "private_signing_key_shipped": false,
+    "production_campaign_execution_initiated": false,
+    "production_operator_catalog_provisioned": false,
+    "production_request_exercised": false,
+    "protected_workspace_modified": false,
+    "sequence_286_loss_resolved": false,
+    "stage_approval_origin_authenticated": false,
+    "stale_workspace_modified": false
+  },
+  "observed_at": "2026-10-20T00:39:40Z",
+  "operational_observation": {
+    "administrator_preflight": "passed",
+    "artifact_id": 12231432566,
+    "artifact_sha256": "a882aab65dd2abb697ba515378a09787aec9e2442b28afbce7551c164d0a59bd",
+    "current_main_execution_observed": false,
+    "event": "schedule",
+    "federation_health_run": 39347148781,
+    "head_sha": "b69d75884bcf3e33c6a877d0bcdd454311a87f53",
+    "health_generator": "completed_successfully",
+    "health_job_conclusion": "success",
+    "publisher_failure": "repository Actions setting does not permit GITHUB_TOKEN to create pull requests",
+    "publisher_job_conclusion": "failure",
+    "report_scope": "configured local log snapshot; not live federation telemetry",
+    "report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0474-carry-authenticated-operator-identity-into-canonical-planning.md",
+    "segment_sha256": "c872b76685dca0d26181cd1cd854a8f1ae3c85d251cf177589978bc0f353b4dc",
+    "sequence": 474
+  },
+  "pull_request": {
+    "head_sha": "5b52e3b943267bec02db41d526cd2976991eba82",
+    "number": 2454,
+    "state": "merged",
+    "title": "[codex:resident-transition] correlate stage admission with authenticated trial planning",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2454"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0475-correlate-stage-admission-with-authenticated-planning.md",
+  "sequence": 475,
+  "source": {
+    "base_commit": "b69d75884bcf3e33c6a877d0bcdd454311a87f53",
+    "base_tree": "e2ec5e214f6cd25002145210a0238201632f971f",
+    "candidate_commit": "5b52e3b943267bec02db41d526cd2976991eba82",
+    "candidate_tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1",
+    "merge_commit": "7cfd381c531f979a5f38277fbad1da952b8093c6",
+    "method": "merge",
+    "parents": [
+      "b69d75884bcf3e33c6a877d0bcdd454311a87f53",
+      "5b52e3b943267bec02db41d526cd2976991eba82"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1"
+  },
+  "title": "Correlate stage admission with authenticated planning",
+  "validation": {
+    "local": {
+      "affected_test_files": 4,
+      "canonical_runner": "python -m scripts.run_tests -q",
+      "compileall": "success",
+      "focused_composition_tests_passed": 15,
+      "git_diff_check": "success",
+      "mypy_note": "local comparison tree was not exact and is not treated as a result; exact-candidate hosted Mypy baseline ratchet passed",
+      "tests_passed": 101
+    },
+    "post_merge": {
+      "ci_jobs": {
+        "helm_integration": "success",
+        "mypy_baseline_ratchet": "success",
+        "planning_execution_separation": "success",
+        "resource_to_cognition_lifecycle": "success",
+        "self_check": "success",
+        "source_validation": "success",
+        "sphinx_linkcheck": "success",
+        "transition_receipt_campaign_planning_without_execution": "success",
+        "transition_stage_receipt_projection": "success"
+      },
+      "main_head": "7cfd381c531f979a5f38277fbad1da952b8093c6",
+      "runs": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39348523276
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39348523405
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39348523459
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39348523967
+        },
+        "forge_smoke": {
+          "conclusion": "skipped",
+          "run": 39348523468
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39348523275
+        },
+        "required_quality_gate": {
+          "conclusion": "success",
+          "run": 39348523496
+        }
+      },
+      "self_check_provenance": {
+        "artifact": 12231813649,
+        "git_sha": "7cfd381c531f979a5f38277fbad1da952b8093c6",
+        "new_stage_admission_tests_selected": false,
+        "tests_failed": 0,
+        "tests_passed": 143,
+        "tests_selected": 156,
+        "tests_skipped": 13
+      }
+    },
+    "prepublication": {
+      "administrator_verified": true,
+      "artifacts": {
+        "evidence": 12232375210,
+        "exact_acceptance": 12231099298,
+        "finalizer": 12231423772
+      },
+      "exhaustive_matrix_requested": false,
+      "hosted_administrator_audits": true,
+      "hosted_audit_immutability": true,
+      "hosted_pr_landing_finalizer": true,
+      "hosted_precommit_finalizer": true,
+      "metadata_guard_head_sha": "5b52e3b943267bec02db41d526cd2976991eba82",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_tree_sha": "7da13862f09ecd7e75bcbe77699d53b82f321df1",
+      "quality_gate_conclusion": "success",
+      "quality_gate_run": 39347874691,
+      "separate_metadata_guard": true,
+      "validation_profile": "solo"
+    },
+    "pull_request_checks": {
+      "ci": {
+        "conclusion": "success",
+        "run": 39347874759
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39347874793
+      },
+      "conditional_jobs_skipped": [
+        "first PR welcome",
+        "publisher"
+      ],
+      "docker": {
+        "conclusion": "success",
+        "run": 39347874790
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run": 39347874897
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39347874905
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run": 39347874921
+      },
+      "quality_gate": {
+        "conclusion": "success",
+        "run": 39347874691
+      },
+      "release": {
+        "conclusion": "success",
+        "run": 39347874975
+      }
+    },
+    "source_readback": {
+      "all_blob_contents_match": true,
+      "blob_shas": {
+        "sentientosd.py": "08e99ad4467d56511a97704defbb6e2a82b4911d",
+        "tests/test_sentientosd_resident_cognitive_transition_composition.py": "47ace299dae4f73edd78357b3b0fc39662e81084"
+      },
+      "candidate_tree": "7da13862f09ecd7e75bcbe77699d53b82f321df1",
+      "changed_blobs": 2
+    },
+    "test_iterations": {
+      "initial_local_failures": [
+        "failure projection lacked campaign_advanced=false",
+        "campaign double did not support the canonical binding owner call until corrected"
+      ],
+      "resolution": "failure projection and test fixtures were corrected; final focused and integrated local suites passed"
+    }
+  }
+}
