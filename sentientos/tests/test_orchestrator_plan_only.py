@@ -476,6 +476,7 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
         selected=("g1",), deferred=(), selected_reasons=(),
         budget_summary={"risk_spent": 0, "risk_cap": 1,
             "throughput_spent": 0, "throughput_cap": 1},
+        prior_epistemic_projection_digest="sha256:prior-projection",
     )
     plan = WorkPlan(1, "plan-g1", "2026-10-16T09:00:00Z",
         "orchestrator_tick", ("g1",), ())
@@ -497,6 +498,8 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
 
     assert feedback["status"] == "planned"
     assert feedback["selected_goals"] == ["g1"]
+    assert feedback["prior_epistemic_projection_digest"] == (
+        "sha256:prior-projection")
     assert feedback["work_plan_id"] == "plan-g1"
     assert feedback["execution_performed"] is False
     assert feedback["model_invoked"] is False
@@ -578,7 +581,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     )
     proposition, omitted_proposition = sorted(
         (proposition, additional_proposition), key=lambda item: item.proposition_id)
-    persist_goal_graph(tmp_path, GoalGraph(schema_version=1, goals=(
+    goal_graph = GoalGraph(schema_version=1, goals=(
         Goal("g_experienced", "history-scoped goal", 10.0, 100, (),
             "task:forge_propose", 1, 1,
             ("integrity", f"epistemic_proposition:{proposition.proposition_id}"), True),
@@ -587,7 +590,8 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
             ("integrity", f"epistemic_proposition:{omitted_proposition.proposition_id}"), True),
         Goal("g_baseline", "unscoped goal", 1.0, 1, (),
             "task:forge_propose", 1, 1, ("integrity",), True),
-    )))
+    ))
+    persist_goal_graph(tmp_path, goal_graph)
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
     monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
@@ -596,6 +600,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     without_history = plan_goals(
         tmp_path, planning_time="2026-10-16T09:00:00+00:00")
     assert "g_experienced" in without_history.allocation.selected
+    assert without_history.allocation.prior_epistemic_projection_digest is None
 
     owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=["embodiment"])
@@ -673,6 +678,30 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         with_history.allocation_artifact_path)
     assert evidence["evidence_binding"]["risk_budget"]["router_k_max"] > 0
     assert evidence["evidence_binding"]["projection_digest"]
+    assert with_history.allocation.prior_epistemic_projection_digest == (
+        evidence["evidence_binding"]["projection_digest"])
+    daemon_root = tmp_path / "daemon-plan"
+    (daemon_root / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (daemon_root / "glow/contracts/ci_baseline.json").write_text(
+        "{}\n", encoding="utf-8")
+    persist_goal_graph(daemon_root, goal_graph)
+    daemon_surfaces = RuntimeMaintenanceSurfaces(
+        daemon_root,
+        epistemic_state_owner=owner,
+        epistemic_state_config={
+            "status": "configured", "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1,
+        },
+        resident_cognitive_invoker=observer,
+    )
+    daemon_feedback = daemon_surfaces.run_canonical_goal_planning(
+        tick_id="2026-10-16T09:02:00+00:00")
+    daemon_evidence = json.loads((daemon_root / daemon_feedback[
+        "work_plan_evidence_path"]).read_text(encoding="utf-8"))
+    assert daemon_feedback["prior_epistemic_projection_digest"] == (
+        daemon_evidence["evidence_binding"]["projection_digest"])
+    assert daemon_feedback["execution_performed"] is False
+    assert daemon_feedback["authority"] is False
     assert evidence["evidence_binding"]["review_scopes"]
     assert evidence["evidence_binding"]["goal_applicability"]["g_experienced"] == (
         "epistemic_review_required")
@@ -707,7 +736,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     allocation_deferred = {item["goal_id"]: item["epistemic_positions"]
         for item in allocation_artifact["deferred_goals"]}
     assert allocation_deferred == deferred_evidence
-    assert observer.calls == 1
+    assert observer.calls == 2
     state_after_planning = owner.current_state(proposition.proposition_id)
     assert state_after_planning == state_before_planning
     assert owner.current_state(omitted_proposition.proposition_id) == (
@@ -757,7 +786,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         omitted_state_before_planning)
     assert reconstructed_owner.current_state(omitted_proposition.proposition_id) == (
         omitted_state_before_planning)
-    assert observer.calls == 2
+    assert observer.calls == 3
 
     evidence_binding = dict(evidence["evidence_binding"])
     assert persist_work_plan_evidence(tmp_path, with_history.work_plan,
