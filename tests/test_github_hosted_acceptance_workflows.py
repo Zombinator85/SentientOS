@@ -950,3 +950,21 @@ def test_source_validation_runs_transition_receipt_campaign_planning_regression(
     assert "transition_stage_planning_provenance.json" in source_validation
     assert "transition_stage_planning_acceptance.json" in source_validation
     assert "transition_stage_planning_acceptance_result.json" in source_validation
+
+
+def test_source_validation_runs_active_trial_transition_receipt_binding_regression():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert (
+        "- name: Verify active-trial transition stage receipt binding without execution"
+        in source_validation
+    )
+    for node in (
+        "test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution",
+        "test_campaign_binds_final_verified_stage_receipt_to_active_trial_without_execution",
+        "test_campaign_stage_receipt_binding_rejects_changed_live_owner",
+    ):
+        assert node in source_validation
+    assert "active_trial_stage_receipt_provenance.json" in source_validation
+    assert "active_trial_stage_receipt_acceptance.json" in source_validation
+    assert "active_trial_stage_receipt_acceptance_result.json" in source_validation
