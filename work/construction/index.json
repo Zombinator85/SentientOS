@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "38a8ed7d09feb1a5ef763474fc4c36477ace75c8f38bbdc5c79562bad6239605",
-    "latest_segment_sequence": 484,
-    "latest_segment_sha256": "b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
-    "latest_sequence": 484,
-    "source_commit": "800dcef026b32c45c5668282b260ca2e39ab4c24",
-    "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
+    "checkpoint_sha256": "9018951617cf88f187c985726bf081d6c44c0762f771b18079c543677dc29bfd",
+    "latest_segment_sequence": 485,
+    "latest_segment_sha256": "ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
+    "latest_sequence": 485,
+    "source_commit": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+    "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
   },
-  "checkpoint_sha256": "38a8ed7d09feb1a5ef763474fc4c36477ace75c8f38bbdc5c79562bad6239605",
+  "checkpoint_sha256": "9018951617cf88f187c985726bf081d6c44c0762f771b18079c543677dc29bfd",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 484,
+  "latest_sequence": 485,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5492,6 +5492,18 @@
       "sha256": "b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
       "source_commit": "800dcef026b32c45c5668282b260ca2e39ab4c24",
       "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
+    },
+    {
+      "bytes": 3396,
+      "evidence_bytes": 5394,
+      "evidence_path": "work/construction/evidence/0485-bound-goal-relevance-priority-admission.json",
+      "evidence_sha256": "9d6269f45304622459442f5078ae98ea1f2bd74a00a97eb160c0b124bdeeda27",
+      "path": "work/construction/segments/0485-bound-goal-relevance-priority-admission.md",
+      "predecessor": "segment-sha256:b12f1a76c6c7922d14933bb27e6247a94c4ae49d3badcb30f8bb7a079964d1bc",
+      "sequence": 485,
+      "sha256": "ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
+      "source_commit": "f145c4aa26f192e04c03bb09e49e40dc917725fd",
+      "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d"
     }
   ],
   "source_acquisition": {
@@ -5501,7 +5513,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "61078b4c3347b7940136cfffe008f3f9640780cb",
+  "source_tree": "4be51b499a7d4996ffa79a98a7065fc4b69e355d",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
