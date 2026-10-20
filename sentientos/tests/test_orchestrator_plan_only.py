@@ -66,6 +66,80 @@ def test_goal_history_priorities_respect_projection_bound_deterministically() ->
         GoalGraph(schema_version=1, goals=tuple(reversed(goals)))) == expected
 
 
+def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    admitted = make_proposition(
+        namespace="embodiment", subject="goal:admitted",
+        predicate="historical_outcome", object_value={"result": "unknown"},
+        polarity="positive", qualifiers={}, temporal_scope={"kind": "bounded_trial"},
+        context_scope={}, proposition_class="predictive")
+    overflowed = make_proposition(
+        namespace="embodiment", subject="goal:overflowed",
+        predicate="historical_outcome", object_value={"result": "unknown"},
+        polarity="positive", qualifiers={}, temporal_scope={"kind": "bounded_trial"},
+        context_scope={}, proposition_class="predictive")
+    priorities = [f"proposition:{index:024x}" for index in range(513)]
+    priorities[0] = admitted.proposition_id
+    priorities[-1] = overflowed.proposition_id
+    goals = tuple(
+        Goal(f"g{index:04d}", "bounded priority", 1.0, 513 - index, (),
+            "task:forge_propose", 1, 1,
+            (f"epistemic_proposition:{priorities[index]}",), True)
+        for index in range(513)
+    )
+    graph = GoalGraph(schema_version=1, goals=goals)
+    admitted_priorities = _goal_tagged_epistemic_positions(graph)
+    assert len(admitted_priorities) == 512
+    assert admitted_priorities[0] == admitted.proposition_id
+    assert overflowed.proposition_id not in admitted_priorities
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text(
+        "{}\n", encoding="utf-8")
+    persist_goal_graph(tmp_path, graph)
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    for index, proposition in enumerate((admitted, overflowed)):
+        owner.register_proposition(proposition)
+        owner.commit_update(
+            proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="provisionally_contradicted",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"overflow-{index}", tick=index + 1,
+            recorded_at="2026-01-01T00:00:00Z")
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, epistemic_state_owner=owner,
+        epistemic_state_config={
+            "status": "configured", "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1})
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("planning must not execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    feedback = surfaces.run_canonical_goal_planning(
+        tick_id="2033-05-18T03:33:20+00:00")
+    assert feedback["execution_performed"] is False
+    assert feedback["authority"] is False
+    evidence = json.loads((tmp_path / feedback[
+        "work_plan_evidence_path"]).read_text(encoding="utf-8"))
+    manifest = evidence["evidence_binding"]["projection_omission_manifest"]
+    assert manifest["prioritized_proposition_ids"] == [admitted.proposition_id]
+    [omitted_identity] = manifest["omitted_state_identities"]
+    assert omitted_identity["proposition_id"] == overflowed.proposition_id
+    assert omitted_identity["stance"] == "provisionally_contradicted"
+    assert omitted_identity["omission_reason"] == "projection_state_bound"
+    assert omitted_identity["state_digest"] == owner.current_state(
+        overflowed.proposition_id).state_digest
+    assert evidence["evidence_binding"]["goal_applicability"]["g0512"] == (
+        "epistemic_applicability_unresolved")
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+
+
 def test_canonical_plan_import_and_composition_do_not_load_goal_executor(
     tmp_path: Path,
 ) -> None:
