@@ -809,8 +809,7 @@ class ProductionSelfReflectionCampaign:
 
         projections: list[dict[str, Any]] = []
         request_ids: set[str] = set()
-        attempt_entry_digests: set[str] = set()
-        completed_entry_digests: set[str] = set()
+        journal_entry_digests: set[str] = set()
         for expected_phase, submitted in zip(PHASES[1:], submitted_receipts):
             if not isinstance(submitted, Mapping):
                 raise ProductionSelfReflectionError(
@@ -836,12 +835,12 @@ class ProductionSelfReflectionCampaign:
                     "transition_stage_receipt_phase_mismatch")
             attempt_entry_digest = projection["attempt_entry_digest"]
             completed_entry_digest = projection["completed_entry_digest"]
-            if (attempt_entry_digest in attempt_entry_digests
-                    or completed_entry_digest in completed_entry_digests):
+            if (attempt_entry_digest in journal_entry_digests
+                    or completed_entry_digest in journal_entry_digests
+                    or attempt_entry_digest == completed_entry_digest):
                 raise ProductionSelfReflectionError(
                     "transition_stage_receipt_journal_entry_reused")
-            attempt_entry_digests.add(attempt_entry_digest)
-            completed_entry_digests.add(completed_entry_digest)
+            journal_entry_digests.update((attempt_entry_digest, completed_entry_digest))
             projections.append(projection)
 
         try:
@@ -991,8 +990,7 @@ def _verify_transition_stage_outcome_binding_record(
     ):
         raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
     request_ids: set[str] = set()
-    attempt_entry_digests: set[str] = set()
-    completed_entry_digests: set[str] = set()
+    journal_entry_digests: set[str] = set()
     for phase, row, raw_projection in zip(phase_order, rows, projections):
         if not isinstance(row, Mapping) or not isinstance(raw_projection, Mapping):
             raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
@@ -1008,8 +1006,9 @@ def _verify_transition_stage_outcome_binding_record(
             or any(not isinstance(value, str) or not value for value in (
                 request_id, attempt_entry_digest, completed_entry_digest))
             or request_id in request_ids
-            or attempt_entry_digest in attempt_entry_digests
-            or completed_entry_digest in completed_entry_digests
+            or attempt_entry_digest in journal_entry_digests
+            or completed_entry_digest in journal_entry_digests
+            or attempt_entry_digest == completed_entry_digest
             or raw_projection.get("phase") != phase
             or raw_projection.get("campaign_trial_id") != trial_id
             or row.get("phase") != phase
@@ -1032,8 +1031,7 @@ def _verify_transition_stage_outcome_binding_record(
         assert isinstance(attempt_entry_digest, str)
         assert isinstance(completed_entry_digest, str)
         request_ids.add(request_id)
-        attempt_entry_digests.add(attempt_entry_digest)
-        completed_entry_digests.add(completed_entry_digest)
+        journal_entry_digests.update((attempt_entry_digest, completed_entry_digest))
 
 
 def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str, evidence: Mapping[str, Any]) -> dict[str, Any]:
@@ -1059,6 +1057,10 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
             outcome_binding, protocol_id=protocol.protocol_id,
             protocol_digest=protocol.protocol_digest, trial_id=trial_id,
             projections=evidence["transition_stage_receipts"])
+        if evidence["transition_journal_identity"] != outcome_binding.get(
+                "transition_journal_identity"):
+            raise ProductionSelfReflectionError(
+                "transition_stage_outcome_journal_identity_mismatch")
     projections = evidence["self_model_projections"]
     if any(not item.get("prior_tick_proven") for item in projections): raise ProductionSelfReflectionError("prior_tick_firewall_breached")
     answer_key = evidence.get("answer_key")
@@ -1093,12 +1095,16 @@ def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
         raise ProductionSelfReflectionError("trial_receipt_tampered")
     if body.get("schema_version") == VERIFIED_RECEIPT_SCHEMA:
         try:
+            binding = body["transition_stage_receipt_binding"]
             _verify_transition_stage_outcome_binding_record(
-                body["transition_stage_receipt_binding"],
-                protocol_id=str(body["protocol_id"]),
+                binding, protocol_id=str(body["protocol_id"]),
                 protocol_digest=str(body["protocol_digest"]),
                 trial_id=str(body["trial_id"]),
                 projections=body["transition_stage_receipts"])
+            if body.get("transition_journal_identity") != binding.get(
+                    "transition_journal_identity"):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_outcome_journal_identity_mismatch")
         except ProductionSelfReflectionError as exc:
             raise ProductionSelfReflectionError("trial_receipt_tampered") from exc
         except (KeyError, TypeError) as exc:

@@ -609,6 +609,13 @@ def test_run_one_records_verified_transition_stage_provenance_in_immutable_outco
     stored = json.loads((tmp_path / "campaign" / "receipts" / "trial-1.json")
                         .read_text(encoding="utf-8"))
     assert verify_trial_receipt(stored)["receipt_digest"] == receipt["receipt_digest"]
+    mismatched_journal = _evidence()
+    mismatched_journal["transition_stage_receipts"] = receipt["transition_stage_receipts"]
+    mismatched_journal["transition_stage_receipt_binding"] = binding
+    mismatched_journal["transition_journal_identity"] = "different-journal"
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_outcome_journal_identity_mismatch"):
+        make_trial_receipt(protocol, "trial-1", mismatched_journal)
     forged = dict(stored)
     forged_projections = [dict(item) for item in forged["transition_stage_receipts"]]
     forged_projections[0]["completed_entry_digest"] = "substituted-completed-entry"
@@ -637,6 +644,25 @@ def test_run_one_records_verified_transition_stage_provenance_in_immutable_outco
     reused["receipt_digest"] = _d(reused)
     with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
         verify_trial_receipt(reused)
+
+    cross_type_reused = json.loads(json.dumps(stored))
+    cross_projection = cross_type_reused["transition_stage_receipts"][1]
+    cross_projection["attempt_entry_digest"] = stored["transition_stage_receipts"][0][
+        "completed_entry_digest"]
+    cross_projection_body = dict(cross_projection)
+    cross_projection_body.pop("binding_digest")
+    cross_projection["binding_digest"] = _d(cross_projection_body)
+    cross_binding = cross_type_reused["transition_stage_receipt_binding"]
+    cross_binding["stage_receipts"][1]["attempt_entry_digest"] = (
+        cross_projection["attempt_entry_digest"])
+    cross_binding["stage_receipts"][1]["receipt_binding_digest"] = (
+        cross_projection["binding_digest"])
+    cross_binding.pop("binding_digest")
+    cross_binding["binding_digest"] = _d(cross_binding)
+    cross_type_reused.pop("receipt_digest")
+    cross_type_reused["receipt_digest"] = _d(cross_type_reused)
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        verify_trial_receipt(cross_type_reused)
 
 
 def test_new_protocol_requires_live_transition_owner_before_trial_start(
