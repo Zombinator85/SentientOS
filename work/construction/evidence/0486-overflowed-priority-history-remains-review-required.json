@@ -1,0 +1,140 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "512-position deterministic priority bound remains unchanged",
+      "omitted adverse state identity and digest are present in the projection omission manifest",
+      "overflowed goal remains epistemically unresolved and is not selected",
+      "canonical planning does not execute goals, emit work-run artifacts, or grant authority"
+    ],
+    "outcome": "The overflowed adverse historical proposition remains identified in projection omission evidence and its daemon-planned goal remains deferred for review."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "run_id": 39378086813
+    },
+    "main_head": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T06:42:17Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0485-bound-goal-relevance-priority-admission.md",
+    "segment_sha256": "ca219b2801fb646c4cdf658fef0e3d53981f5011c77b7d28049107eed649bdd4",
+    "sequence": 485
+  },
+  "pull_request": {
+    "head_sha": "f6f21be5e34e7423789e4ed145c106ccf70a0739",
+    "number": 2475,
+    "state": "merged",
+    "title": "[codex:epistemic] preserve bounded priority overflow review [untested]",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2475"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0486-overflowed-priority-history-remains-review-required.md",
+  "sequence": 486,
+  "source": {
+    "base_commit": "c681b0663fe88ae580c179ba6633588d4960cd31",
+    "base_tree": "753865a312364ae1cf2aa561e36d04f68877dfb",
+    "candidate_commit": "f6f21be5e34e7423789e4ed145c106ccf70a0739",
+    "candidate_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb",
+    "merge_commit": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+    "method": "merge",
+    "parents": [
+      "c681b0663fe88ae580c179ba6633588d4960cd31",
+      "f6f21be5e34e7423789e4ed145c106ccf70a0739"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "ee71c524ff36fe104b6c4fb3cd0e608d684558b6"
+    },
+    "candidate_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb",
+    "changed_blobs": 1,
+    "main_ref": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+    "main_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "c681b0663fe88ae580c179ba6633588d4960cd31",
+      "f6f21be5e34e7423789e4ed145c106ccf70a0739"
+    ]
+  },
+  "title": "Overflowed priority history remains review-required",
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39381168613,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 147,
+      "focused_affected_tests_skipped": 2,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed",
+      "targeted_mypy": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39381721873
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39381721804
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39381721803
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39381721731
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39381721834
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39381721817
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39381721796
+        }
+      },
+      "main_head": "9d5bd2787e00c702e988c54df2860cc38176b86e",
+      "main_tree": "bd470a5539e6c5c5145ffd49d4eda9b1da3843fb"
+    }
+  }
+}
