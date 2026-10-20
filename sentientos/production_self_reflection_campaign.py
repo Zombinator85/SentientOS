@@ -557,6 +557,141 @@ class ProductionSelfReflectionCampaign:
         binding["operator_authentication"] = MappingProxyType(binding["operator_authentication"])
         return MappingProxyType(binding)
 
+    def bind_verified_transition_stage_receipt_to_active_trial(
+            self, *, request_id: str, trial_id: str,
+            transition_owner: Any) -> Mapping[str, Any]:
+        """Bind one owner's verified completed-stage receipt to the active trial.
+
+        This is an evidence projection only. It revalidates the live plan and
+        campaign state, then carries the minimized journal and authenticated
+        operator provenance needed by a later immutable outcome receipt. It
+        never processes a transition request or grants stage authority.
+        """
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(trial_id, str) or not trial_id):
+            raise ProductionSelfReflectionError("transition_stage_receipt_binding_invalid")
+        try:
+            observer = ProductionSelfReflectionTransitionBindingObserver(
+                self, transition_owner)
+            plan = dict(observer.plan_next_stage(request_id))
+            if plan.get("status") not in {
+                    "next_stage_planned", "transition_sequence_complete"}:
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_binding_plan_unavailable")
+            if (plan.get("receipt_request_id") != request_id
+                    or plan.get("transition_request_trial_id") != trial_id
+                    or plan.get("campaign_next_trial_id") != trial_id
+                    or plan.get("campaign_trial_in_progress") is not True):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_binding_not_for_active_trial")
+            if plan["status"] == "next_stage_planned":
+                active_binding = dict(self.bind_verified_transition_plan_to_active_trial(
+                    plan, request_id=request_id, trial_id=trial_id,
+                    transition_owner=transition_owner))
+            else:
+                with self._campaign_lock(blocking=False, create=False):
+                    terminal_state = self.state()
+                    self._verify_progress(terminal_state)
+                    if (terminal_state.get("validity") != "valid_incomplete"
+                            or terminal_state.get("failure_reason") is not None
+                            or terminal_state.get("in_progress_trial_id") != trial_id
+                            or terminal_state.get("next_trial_id") != trial_id
+                            or terminal_state.get("state_digest")
+                                != plan.get("campaign_state_digest")):
+                        raise ProductionSelfReflectionError(
+                            "transition_stage_receipt_binding_campaign_state_stale")
+                active_binding = {
+                    "campaign_state_digest": terminal_state.get("state_digest"),
+                    "transition_plan_digest": plan.get("plan_digest"),
+                }
+            projection = dict(transition_owner.inspect_verified_stage_receipt(request_id))
+            with self._campaign_lock(blocking=False, create=False):
+                current_state = self.state()
+                self._verify_progress(current_state)
+                status = dict(transition_owner.status())
+        except ProductionSelfReflectionError:
+            raise
+        except Exception as exc:
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_binding_unavailable") from exc
+
+        body = dict(projection)
+        claimed_receipt_binding = body.pop("binding_digest", None)
+        observed_receipt_binding = hashlib.sha256(
+            (json.dumps(_json_value(body), sort_keys=True, separators=(",", ":"))
+             + "\n").encode("utf-8")
+        ).hexdigest()
+        phase = projection.get("phase")
+        if (
+            claimed_receipt_binding != observed_receipt_binding
+            or projection.get("schema_version")
+                != "sentientos.resident_cognitive_transition_verified_stage_receipt:v3"
+            or projection.get("request_id") != request_id
+            or projection.get("campaign_trial_id") != trial_id
+            or projection.get("installation_identity")
+                != self._protocol_snapshot.installation_identity
+            or projection.get("protocol_id")
+                != self._protocol_snapshot.transition.get("protocol_id")
+            or projection.get("protocol_digest")
+                != self._protocol_snapshot.transition.get("protocol_digest")
+            or phase != plan.get("prior_stage")
+            or projection.get("completed_entry_digest")
+                != plan.get("completed_entry_digest")
+            or projection.get("operator_authentication")
+                != plan.get("operator_authentication")
+            or projection.get("binding_digest") != plan.get("receipt_binding_digest")
+            or active_binding.get("campaign_state_digest")
+                != current_state.get("state_digest")
+            or current_state.get("validity") != "valid_incomplete"
+            or current_state.get("in_progress_trial_id") != trial_id
+            or current_state.get("next_trial_id") != trial_id
+            or current_state.get("failure_reason") is not None
+            or status.get("protocol_id")
+                != self._protocol_snapshot.transition.get("protocol_id")
+            or status.get("protocol_digest")
+                != self._protocol_snapshot.transition.get("protocol_digest")
+            or status.get("current_phase") != phase
+            or status.get("current_journal_head")
+                != projection.get("journal_head_observed")
+            or status.get("interrupted") is not False
+            or status.get("outstanding_stage") is not None
+            or status.get("replay_forbidden") is not False
+            or not isinstance(status.get("semantically_verified_stage_entry_digests"),
+                               (list, tuple))
+            or projection.get("completed_entry_digest") not in
+                status.get("semantically_verified_stage_entry_digests", ())
+        ):
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_binding_stale_or_unbound")
+
+        binding: dict[str, Any] = {
+            "schema_version":
+                "sentientos.production_self_reflection_active_trial_stage_receipt_binding:v1",
+            "status": "active_trial_stage_receipt_bound",
+            "campaign_protocol_id": self._protocol_snapshot.protocol_id,
+            "campaign_protocol_digest": self._protocol_snapshot.protocol_digest,
+            "campaign_trial_id": trial_id,
+            "campaign_state_digest": current_state.get("state_digest"),
+            "transition_plan_digest": active_binding.get("transition_plan_digest"),
+            "receipt_request_id": request_id,
+            "receipt_binding_digest": claimed_receipt_binding,
+            "operator_receipt_digest": projection.get("operator_receipt_digest"),
+            "attempt_entry_digest": projection.get("attempt_entry_digest"),
+            "completed_entry_digest": projection.get("completed_entry_digest"),
+            "phase": phase,
+            "operator_authentication": dict(projection["operator_authentication"]),
+            "live_transition_owner_revalidation_required": True,
+            "read_only": True,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        binding["binding_digest"] = _digest(binding)
+        binding["operator_authentication"] = MappingProxyType(
+            binding["operator_authentication"])
+        return MappingProxyType(binding)
+
     def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
         with self._campaign_lock():
             state = self.state()

@@ -884,6 +884,133 @@ def test_campaign_binds_verified_transition_plan_to_active_trial_without_authori
     assert dict(campaign.state()) == before
 
 
+@pytest.mark.parametrize("phase", [PHASES[2], PHASES[-1]])
+def test_campaign_binds_verified_stage_receipt_to_active_trial_without_execution(
+        tmp_path: Path, phase: str) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    campaign._write({**dict(campaign.state()), "in_progress_trial_id": "trial-1"})
+    projection = _verified_transition_stage_projection(protocol, phase)
+    owner_protocol = {
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": protocol.transition["protocol_id"],
+        "protocol_digest": protocol.transition["protocol_digest"],
+        "journal_identity": protocol.transition["journal_identity"],
+        "phase_order": protocol.transition["phase_order"],
+    }
+    calls = {"inspect": 0, "process_one": 0}
+
+    class TransitionOwner:
+        config = SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        )
+        controller = SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol))
+
+        def inspect_verified_stage_receipt(self, request_id):
+            calls["inspect"] += 1
+            assert request_id == projection["request_id"]
+            return MappingProxyType(dict(projection))
+
+        def status(self):
+            return {
+                "protocol_id": protocol.transition["protocol_id"],
+                "protocol_digest": protocol.transition["protocol_digest"],
+                "current_phase": phase,
+                "current_journal_head": "completed-entry-digest",
+                "interrupted": False,
+                "outstanding_stage": None,
+                "replay_forbidden": False,
+                "semantically_verified_stage_entry_digests": [
+                    "completed-entry-digest"],
+            }
+
+        def process_one(self):
+            calls["process_one"] += 1
+            raise AssertionError("binding must not process transition requests")
+
+    owner = TransitionOwner()
+    before = dict(campaign.state())
+    binding = campaign.bind_verified_transition_stage_receipt_to_active_trial(
+        request_id=projection["request_id"], trial_id="trial-1",
+        transition_owner=owner)
+
+    assert binding["status"] == "active_trial_stage_receipt_bound"
+    assert binding["campaign_trial_id"] == "trial-1"
+    assert binding["receipt_request_id"] == projection["request_id"]
+    assert binding["receipt_binding_digest"] == projection["binding_digest"]
+    assert binding["operator_receipt_digest"] == projection["operator_receipt_digest"]
+    assert binding["attempt_entry_digest"] == projection["attempt_entry_digest"]
+    assert binding["completed_entry_digest"] == projection["completed_entry_digest"]
+    assert binding["phase"] == phase
+    assert binding["operator_authentication"] == projection["operator_authentication"]
+    with pytest.raises(TypeError):
+        binding["operator_authentication"]["operator_identity"] = "substituted"
+    assert binding["live_transition_owner_revalidation_required"] is True
+    assert binding["read_only"] is True
+    assert binding["effect_performed"] is False
+    assert binding["campaign_advanced"] is False
+    assert binding["grants_authority"] is False
+    assert binding["execution_allowed"] is False
+    assert binding["binding_digest"] == _d(campaign_module._json_value({
+        key: value for key, value in binding.items() if key != "binding_digest"}))
+    with pytest.raises(TypeError):
+        binding["status"] = "substituted"
+    assert calls["process_one"] == 0
+    assert calls["inspect"] >= 2
+    assert dict(campaign.state()) == before
+
+
+def test_campaign_stage_receipt_binding_rejects_changed_live_owner(
+        tmp_path: Path) -> None:
+    protocol = _protocol()
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    campaign._write({**dict(campaign.state()), "in_progress_trial_id": "trial-1"})
+    projection = _verified_transition_stage_projection(protocol, PHASES[2])
+    owner_protocol = {
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": protocol.transition["protocol_id"],
+        "protocol_digest": protocol.transition["protocol_digest"],
+        "journal_identity": protocol.transition["journal_identity"],
+        "phase_order": protocol.transition["phase_order"],
+    }
+    owner = SimpleNamespace(
+        config=SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        ),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        inspect_verified_stage_receipt=lambda _request_id: MappingProxyType(dict(projection)),
+    )
+    status_calls = {"count": 0}
+
+    def changing_status():
+        status_calls["count"] += 1
+        return {
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "current_phase": PHASES[2],
+            "current_journal_head": (
+                "changed-journal-head" if status_calls["count"] >= 3
+                else "completed-entry-digest"),
+            "interrupted": False,
+            "outstanding_stage": None,
+            "replay_forbidden": False,
+            "semantically_verified_stage_entry_digests": ["completed-entry-digest"],
+        }
+
+    owner.status = changing_status
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_binding_stale_or_unbound"):
+        campaign.bind_verified_transition_stage_receipt_to_active_trial(
+            request_id=projection["request_id"], trial_id="trial-1",
+            transition_owner=owner)
+
+
 @pytest.mark.parametrize("failure", ["wrong_trial", "interrupted"])
 def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
         tmp_path: Path, failure: str) -> None:
