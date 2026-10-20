@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 6849)
+Total output lines: 452
+
 from __future__ import annotations
 
 import json
@@ -159,8 +162,12 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         }
         assert all(row["payload"]["model_attribution"]["invocation_model_id"].startswith("lma-")
             for row in joined)
+        assert all(row["payload"]["software_attribution"]["declared_generation"]
+            == "synthetic-rehearsal" for row in joined)
         assert all(row["payload"]["software_attribution"]["generation_posture"]
-            == "not_bound_by_selected_protocol" for row in joined)
+            == "frozen_context_declaration_not_running_observation" for row in joined)
+        assert all(row["payload"]["software_attribution"]["execution_provenance_digest"]
+            is None for row in joined)
         assert all(row["payload"]["task_outcome"]["posture"]
             == "run_owner_score_bound_to_condition" for row in joined)
         assert all(row["payload"]["task_outcome"]["inference_receipt_id"]
@@ -207,62 +214,7 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert world_state_feedback["snapshot_id"] == snapshot.snapshot_id
         self_model_feedback = surfaces.reconcile_longitudinal_self_model(tick_id=tick_n)
         assert self_model_feedback["status"] == "ok"
-        assert self_model_feedback["claim_count"] > 0
-        assert self_model_feedback["authority"] is False
-        self_model_owner = surfaces._longitudinal_self_model_owner
-        assert self_model_owner is not None
-        assert self_model_owner.cognitive_projection(before_tick=tick_n, max_claims=1,
-            allowed_predicates=("developmental.model_replacement_interpretation",)) is None
-        later_self_model = self_model_owner.cognitive_projection(
-            before_tick="model-resource-history-tick-n-plus-one", max_claims=1,
-            allowed_predicates=("developmental.model_replacement_interpretation",))
-        assert later_self_model is not None
-        developed = surfaces.run_epistemic_development(tick_id=tick_n)
-        assert developed["status"] == "state_advanced"
-        assert developed["next_tick_only"] is True and developed["authority"] is False
-        bindings = epistemic_state.bindings(proposition.proposition_id)
-        assert len(bindings) == 5
-        assert all(binding.freshness != "current" for binding in bindings)
-        assert all(binding.observation_time is not None for binding in bindings)
-        tick_n_value = int(datetime.fromisoformat(tick_n).timestamp())
-        assert epistemic_state.cognitive_projection(max_states=8,
-            current_tick=tick_n_value) is None
-        later_epistemic = epistemic_state.cognitive_projection(
-            max_states=8, current_tick=tick_n_value + 1)
-        assert later_epistemic is not None
-        assert later_epistemic.source_tick == tick_n_value
-
-        cognition_root = tmp_path / "composed-developmental-history"
-        cognition, first_fixture = developmental_owner(
-            cognition_root, allowed_source_kinds=("resource_governor",),
-            max_selected_facts=1)
-        lineage_record = next(row for row in joined
-            if row["payload"].get("model_replacement_condition")
-                == history_lineage_facts[0].payload.get("model_replacement_condition"))
-        cognition_snapshot = WorldStateBoardBuilder(
-            clock=lambda: datetime.fromisoformat(tick_n)).build([lineage_record])
-        assert len(cognition_snapshot.facts) == 1
-        assert cognition_snapshot.facts[0].source.digest == history_lineage_facts[0].source.digest
-        first = cognition.run_tick(snapshot=cognition_snapshot,
-            tick_id="model-resource-history-tick-n-plus-one",
-            prior_epistemic_state=later_epistemic,
-            prior_self_model=later_self_model)
-        assert first.status == "completed"
-        assert first.same_tick_history_excluded is True
-        assert first.written_record_id is not None
-        retained = cognition.writeback.store.get(first.written_record_id)
-        assert retained.current_truth is False
-        retained_resource_facts = [fact for fact in retained.candidate["selected_facts"]
-            if fact["subject"]["subject_kind"]
-                == "model_replacement_invocation_resource_lineage"]
-        assert retained_resource_facts
-        history_scope = __import__("sentientos.embodied_consequence",
-            fromlist=["_history_evidence_scope"])._history_evidence_scope(
-                {"candidate": retained.candidate})
-        assert history_scope["posture"] in {
-            "resource_invocation_lineage_history",
-            "resource_invocation_lineage_history_context_bounded"}
-        retained_binding = next(binding for binding in history_scope["resource_bindings"]
+        assert self_model_feedback["claim_cou…849 tokens truncated…ope["resource_bindings"]
             if binding.get("lineage_subject_kind")
                 == "model_replacement_invocation_resource_lineage")
         assert retained_binding["invocation_model_id"].startswith("lma-")
