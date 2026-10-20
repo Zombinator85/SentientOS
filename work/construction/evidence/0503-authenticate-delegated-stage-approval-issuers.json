@@ -1,0 +1,143 @@
+{
+  "title": "Authenticate delegated stage-approval issuers",
+  "predecessor": {
+    "sequence": 502,
+    "segment_path": "work/construction/segments/0502-hosted-windows-handle-custody-verification.md",
+    "segment_sha256": "0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249"
+  },
+  "source_merges": [
+    {
+      "pull_request": 2506,
+      "status": "merged",
+      "base_commit": "1e49c9287b7c0c143b7b530a9bf36c8691955350",
+      "candidate_commit": "c79634a0ad060367c8dea57717bf10570845b4e0",
+      "candidate_tree": "9d4c661742e2d57d6a8c8a36caae6f3cc3d9257f",
+      "merge_commit": "e416730084c4b9f35b160e0a889c311bbdc59a90",
+      "ordered_parents": [
+        "1e49c9287b7c0c143b7b530a9bf36c8691955350",
+        "c79634a0ad060367c8dea57717bf10570845b4e0"
+      ],
+      "preserved_commit_history": true
+    },
+    {
+      "pull_request": 2507,
+      "status": "merged",
+      "base_commit": "e416730084c4b9f35b160e0a889c311bbdc59a90",
+      "candidate_commit": "991842bbe152e6567252e682f8de1c0dab6c029f",
+      "candidate_tree": "16366dc901b19f19796af53db828a67eeec159c8",
+      "merge_commit": "385f425ad118e15dde85eb5b6b2c39cdabb9b401",
+      "ordered_parents": [
+        "e416730084c4b9f35b160e0a889c311bbdc59a90",
+        "991842bbe152e6567252e682f8de1c0dab6c029f"
+      ],
+      "preserved_commit_history": true,
+      "signed_merge_verified": true
+    }
+  ],
+  "remote_readback": {
+    "main_head": "385f425ad118e15dde85eb5b6b2c39cdabb9b401",
+    "main_tree": "16366dc901b19f19796af53db828a67eeec159c8",
+    "branch_ref_matches": true,
+    "merge_tree_matches_candidate": true,
+    "merge_signature_verified": true
+  },
+  "behavior": {
+    "approval_validation": [
+      "Require canonical schema v2, exact approval fields, and a valid digest",
+      "Require approval_status exactly approved; deny rejected, pending, missing, malformed, or whitespace status",
+      "Validate synthetic approval flags as actual booleans and enforce the production prohibition",
+      "Bind the approval issuer identity to the authenticated operator identity in the signed request",
+      "Reject issuer/signer mismatch before transition state mutation"
+    ],
+    "delegation": "The pinned operator trust catalog delegates the narrow stage-order approval role to authenticated transition operators. This is explicit and enforced at ingress; it does not grant model activation, serving, inference, or writeback authority. No separate two-person approval mechanism was added.",
+    "schema": "Adding approval_issuer_identity changes the canonical payload; the follow-up PR bumps the approval schema to v2 so v1 artifacts cannot be reinterpreted."
+  },
+  "tests": {
+    "focused_local": {
+      "result": "174 passed",
+      "suites": 5,
+      "source_binding": "supplemental only; local provenance wrapper SHA cbc7ceb5fdfac969ae160b15925ec0747ba46bb7 is not the remote candidate"
+    },
+    "candidate_checks": {
+      "candidate": "991842bbe152e6567252e682f8de1c0dab6c029f",
+      "workflow_runs": [
+        39479337050,
+        39479337147,
+        39479336998,
+        39479337048,
+        39479337246,
+        39479337181,
+        39479337062,
+        39479337055
+      ],
+      "result": "all completed successfully; source CI included integrated resource-to-cognition lifecycle and transition/planning receipt acceptance"
+    },
+    "quality_gate": {
+      "run": 39479337147,
+      "strict_administrator_audits": "passed with actual Administrator authority",
+      "immutability": "passed",
+      "exact_candidate_acceptance": "passed",
+      "separate_prepublication_metadata_guard": "passed"
+    },
+    "mypy": {
+      "result": "zero new errors against baseline; unrelated pre-existing baseline drift remains"
+    }
+  },
+  "post_merge_checks": {
+    "main_head": "385f425ad118e15dde85eb5b6b2c39cdabb9b401",
+    "checks": [
+      {
+        "workflow": "Required Quality Gate",
+        "run": 39480186816,
+        "result": "success"
+      },
+      {
+        "workflow": "CI (integrated lifecycle, source validation, docs, self-check, Helm)",
+        "run": 39480186636,
+        "result": "success"
+      },
+      {
+        "workflow": "Codex CI self-check",
+        "run": 39480186764,
+        "result": "success"
+      },
+      {
+        "workflow": "Release/build",
+        "run": 39480186734,
+        "result": "success"
+      },
+      {
+        "workflow": "Docker build/deploy",
+        "run": 39480186677,
+        "result": "success"
+      },
+      {
+        "workflow": "CPU build and smoke",
+        "run": 39480186722,
+        "result": "success"
+      },
+      {
+        "workflow": "Invariant Tests",
+        "run": 39480186715,
+        "result": "success"
+      },
+      {
+        "workflow": "Docs deployment",
+        "run": 39480186677,
+        "result": "success"
+      },
+      {
+        "workflow": "Forge Smoke",
+        "run": 39480186662,
+        "result": "skipped by workflow condition"
+      }
+    ]
+  },
+  "operational_observation": "No claim is made that a scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check execution occurred on this main head. Federation Health report publication remains blocked when repository Actions settings disallow pull requests created by GITHUB_TOKEN.",
+  "limitations": [
+    "No production model transition or inference was provisioned or run.",
+    "Repository administrator action or a separately provisioned, least-privilege GitHub App credential is still required to enable unattended Federation Health PR publication.",
+    "Native Windows canonical evidence writing remains unsupported and was outside this POSIX transition-approval increment."
+  ],
+  "segment_sha256": "21fc5203949617b7ea35e54b276853794264232e70d47575340a2c7054cc88a3"
+}
