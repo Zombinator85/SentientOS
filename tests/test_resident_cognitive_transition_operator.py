@@ -104,7 +104,8 @@ class _CrossProcessController(_Controller):
 
 def _approval(stage: str = PHASES[1]) -> dict[str, object]:
     body: dict[str, object] = {"schema_version": "sentientos.resident_cognitive_transition_stage_operator_approval:v1",
-                              "requested_stage": stage}
+                              "requested_stage": stage,
+                              "approval_issuer_identity": "operator-1"}
     return {**body, "approval_digest": digest(body)}
 
 
@@ -444,6 +445,21 @@ def test_bound_request_faults_are_consumed_without_effect(tmp_path: Path, mutati
     persist_request(tmp_path, _request(**mutation))
     result = runtime.process_one()
     assert result["status"] == "rejected" and result["reason"] == reason
+    assert controller.calls == 0
+
+
+def test_authenticated_request_operator_must_match_stage_approval_issuer(tmp_path: Path) -> None:
+    controller = _Controller(); runtime = _runtime(tmp_path, controller)
+    approval = _approval()
+    approval["approval_issuer_identity"] = "operator-2"
+    approval = {**{key: value for key, value in approval.items() if key != "approval_digest"}}
+    approval["approval_digest"] = digest(approval)
+    persist_request(tmp_path, _request(stage_approval=approval))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_request_stage_approval_issuer_mismatch"
     assert controller.calls == 0
 
 

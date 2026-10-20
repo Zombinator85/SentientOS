@@ -620,7 +620,7 @@ class LiveTransitionOperatorRuntime:
 
     def _validate(self, packet: Mapping[str, Any]) -> None:
         self._verify_packet_identity(packet)
-        self._verify_operator_provenance(packet)
+        authenticated_operator = self._verify_operator_provenance(packet)
         value = dict(packet)
         value.pop("request_digest", None); value.pop("request_id", None)
         health = self.controller.health()
@@ -632,6 +632,8 @@ class LiveTransitionOperatorRuntime:
         if value.get("requested_stage") != expected_stage: raise TransitionError("operator_request_stage_skipped")
         approval = value.get("stage_approval")
         if not isinstance(approval, Mapping) or value.get("stage_approval_digest") != approval.get("approval_digest"): raise TransitionError("operator_request_stage_approval_mismatch")
+        if approval.get("approval_issuer_identity") != authenticated_operator.operator_identity:
+            raise TransitionError("operator_request_stage_approval_issuer_mismatch")
         now = self.clock().astimezone(timezone.utc)
         if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
 

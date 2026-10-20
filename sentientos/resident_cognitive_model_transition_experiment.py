@@ -26,6 +26,16 @@ SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
 LEGACY_BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
 BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v3"
 APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
+_STAGE_APPROVAL_FIELDS = frozenset({
+    "schema_version", "approval_status", "capability", "principal", "protocol_id",
+    "protocol_digest", "transition_id", "requested_stage", "prior_phase",
+    "journal_head_digest", "installation_identity", "predecessor_identity",
+    "successor_identity", "restored_identity", "current_activation", "current_session",
+    "current_boundary", "correlation_id", "operation_identity", "approval_issuer_identity",
+    "not_before", "expires_at", "synthetic_test_approval", "grants_activation", "grants_model_serving",
+    "grants_inference",
+})
+_STAGE_APPROVAL_ENVELOPE_FIELDS = _STAGE_APPROVAL_FIELDS | {"approval_digest"}
 JOURNAL_SCHEMA = "sentientos.resident_cognitive_model_transition_journal_entry:v1"
 CAPABILITY = "resident_cognitive_model_transition_experiment"
 PRINCIPAL = "deterministic_resident_cognitive_model_transition_controller"
@@ -466,6 +476,7 @@ class TransitionStageExecutionContext:
 
 def make_stage_approval(*, protocol: TransitionProtocol, requested_stage: str, prior_phase: str,
                         journal_head_digest: str, correlation_id: str,
+                        approval_issuer_identity: str,
                         current_activation: Mapping[str, Any] | None,
                         current_session: Mapping[str, Any] | None,
                         current_boundary: Mapping[str, Any] | None,
@@ -481,6 +492,7 @@ def make_stage_approval(*, protocol: TransitionProtocol, requested_stage: str, p
             "restored_identity": _plain(protocol.value["restored_a"]),
             "current_activation": _plain(current_activation), "current_session": _plain(current_session),
             "current_boundary": _plain(current_boundary), "correlation_id": correlation_id,
+            "approval_issuer_identity": approval_issuer_identity,
             "operation_identity": (protocol.value["b_serving_operation_id"] if requested_stage == "b_serving_bound"
                                    else protocol.value["restored_a_serving_operation_id"]
                                    if requested_stage == "restored_a_serving_bound" else correlation_id),
@@ -492,10 +504,24 @@ def make_stage_approval(*, protocol: TransitionProtocol, requested_stage: str, p
 
 def verify_stage_approval(approval: Mapping[str, Any], *, expected: Mapping[str, Any],
                           observation_time: datetime, allow_synthetic_for_tests: bool) -> None:
+    if not isinstance(approval, Mapping):
+        raise TransitionError("stage_approval_invalid")
+    if type(allow_synthetic_for_tests) is not bool:
+        raise TransitionError("stage_approval_test_policy_invalid")
     value = dict(approval)
     claimed = value.pop("approval_digest", None)
-    if value.get("schema_version") != APPROVAL_SCHEMA or digest(value) != claimed:
+    if (not isinstance(claimed, str) or value.get("schema_version") != APPROVAL_SCHEMA
+            or digest(value) != claimed):
         raise TransitionError("stage_approval_tamper")
+    if set(approval) != _STAGE_APPROVAL_ENVELOPE_FIELDS:
+        raise TransitionError("stage_approval_schema_invalid")
+    if value.get("approval_status") != "approved":
+        raise TransitionError("stage_approval_status_invalid")
+    if (not isinstance(value.get("approval_issuer_identity"), str)
+            or not value["approval_issuer_identity"]):
+        raise TransitionError("stage_approval_issuer_invalid")
+    if type(value.get("synthetic_test_approval")) is not bool:
+        raise TransitionError("stage_approval_synthetic_flag_invalid")
     for key, expected_value in expected.items():
         if value.get(key) != _plain(expected_value):
             raise TransitionError("stage_approval_binding_mismatch")
@@ -507,7 +533,7 @@ def verify_stage_approval(approval: Mapping[str, Any], *, expected: Mapping[str,
     now = observation_time.astimezone(timezone.utc)
     if not start <= now <= end:
         raise TransitionError("stage_approval_not_current")
-    if value.get("synthetic_test_approval") is True and not allow_synthetic_for_tests:
+    if value["synthetic_test_approval"] and not allow_synthetic_for_tests:
         raise TransitionError("synthetic_stage_approval_forbidden")
     if any(value.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference")):
         raise TransitionError("stage_approval_grants_subordinate_authority")
