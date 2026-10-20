@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "607bf4de202b13008ba217185d49c362803c134864f51fb1f561be1eb6434cb0",
-    "latest_segment_sequence": 479,
-    "latest_segment_sha256": "7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c",
-    "latest_sequence": 479,
-    "source_commit": "5164520ece5820b525942e3b57e56ebbbd0b24f3",
-    "source_tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d"
+    "checkpoint_sha256": "615bf578db79fcd3afcb3136eb3833d371b6b87061b1de0ab767c5affc31c3a2",
+    "latest_segment_sequence": 480,
+    "latest_segment_sha256": "bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
+    "latest_sequence": 480,
+    "source_commit": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
+    "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824"
   },
-  "checkpoint_sha256": "607bf4de202b13008ba217185d49c362803c134864f51fb1f561be1eb6434cb0",
+  "checkpoint_sha256": "615bf578db79fcd3afcb3136eb3833d371b6b87061b1de0ab767c5affc31c3a2",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 479,
+  "latest_sequence": 480,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5432,6 +5432,18 @@
       "sha256": "7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c",
       "source_commit": "5164520ece5820b525942e3b57e56ebbbd0b24f3",
       "source_tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d"
+    },
+    {
+      "bytes": 3399,
+      "evidence_bytes": 5299,
+      "evidence_path": "work/construction/evidence/0480-expose-verified-campaign-report-observations-in-daemon-feedback.json",
+      "evidence_sha256": "c0510400d1f9679cf46a4aa1c667b283152620c24829a502464262d5c09b228c",
+      "path": "work/construction/segments/0480-expose-verified-campaign-report-observations-in-daemon-feedback.md",
+      "predecessor": "segment-sha256:7f87e18ca3588cf662ef81ad44c7178b02eeb54697508b582ed6e102c7e1013c",
+      "sequence": 480,
+      "sha256": "bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
+      "source_commit": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
+      "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824"
     }
   ],
   "source_acquisition": {
@@ -5441,7 +5453,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "118dc8d56abb4536d3499a104a009561e5dfdd0d",
+  "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
