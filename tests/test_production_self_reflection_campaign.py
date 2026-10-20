@@ -42,8 +42,9 @@ def _model(name: str) -> dict[str, object]:
         "inference_authority_map_id": f"authority-{name}"}
 
 
-def _protocol(software_generation: str = "generation-1") -> ProductionSelfReflectionProtocol:
-    return ProductionSelfReflectionProtocol.create(installation_identity="installation-1", software_generation=software_generation,
+def _protocol(software_generation: str = "generation-1", *,
+              historical: bool = True) -> ProductionSelfReflectionProtocol:
+    protocol = ProductionSelfReflectionProtocol.create(installation_identity="installation-1", software_generation=software_generation,
         runtime_configuration={"backend": "real-local"}, model_a=_model("a"), model_b=_model("b"),
         persistent_state={"developmental_history_boundary_digest": "history-1", "composition_state_digest": "composition-1",
             "initial_reconciliation_id": "reconcile-1", "initial_reconciliation_digest": "reconcile-digest-1",
@@ -60,6 +61,17 @@ def _protocol(software_generation: str = "generation-1") -> ProductionSelfReflec
             "installation_relative_custody": True, "quiescence_semantics": "no-inflight-token-bound",
             "subordinate_activation_approvals": ("activation-b", "activation-a"), "failure_posture": "interrupt_no_retry_no_rollback"},
         trial_ids=("trial-1", "trial-2"))
+    if not historical:
+        return protocol
+    legacy = asdict(protocol)
+    legacy["campaign_policy"].pop("require_verified_transition_stage_receipts")
+    legacy["schema_version"] = "sentientos.production_self_reflection_protocol:v1"
+    legacy.pop("protocol_id")
+    legacy.pop("protocol_digest")
+    digest = campaign_module._digest(legacy)
+    legacy["protocol_id"] = "production-self-reflection-" + digest[7:31]
+    legacy["protocol_digest"] = digest
+    return reconstruct_protocol(legacy)
 
 
 def _observed(**changes) -> dict[str, object]:
@@ -528,6 +540,176 @@ def test_negative_and_null_scores_are_valid_evidence(tmp_path: Path) -> None:
     assert receipt["status"] == "completed" and all(receipt["condition_scores"][c]["counts"]["supported_correct"] == 0 for c in CONDITION_ORDER)
 
 
+def test_run_one_records_verified_transition_stage_provenance_in_immutable_outcome(
+        tmp_path: Path) -> None:
+    protocol = _protocol(historical=False)
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    evidence = _evidence()
+    evidence["transition_stage_receipts"] = [
+        {"phase": phase, "request_id": f"transition-request-{index}"}
+        for index, phase in enumerate(PHASES[1:])
+    ]
+    projections = {
+        f"transition-request-{index}": _verified_transition_stage_projection(
+            protocol, phase, request_id=f"transition-request-{index}")
+        for index, phase in enumerate(PHASES[1:])
+    }
+    completed_entry_digests = [
+        projection["completed_entry_digest"] for projection in projections.values()]
+    owner_protocol = {
+        "installation_identity": protocol.installation_identity,
+        "protocol_id": protocol.transition["protocol_id"],
+        "protocol_digest": protocol.transition["protocol_digest"],
+        "journal_identity": protocol.transition["journal_identity"],
+        "phase_order": protocol.transition["phase_order"],
+    }
+    owner = SimpleNamespace(
+        config=SimpleNamespace(
+            installation_identity=protocol.installation_identity,
+            protocol_id=protocol.transition["protocol_id"],
+            protocol_digest=protocol.transition["protocol_digest"],
+            journal_identity=protocol.transition["journal_identity"],
+        ),
+        controller=SimpleNamespace(protocol=SimpleNamespace(value=owner_protocol)),
+        inspect_verified_stage_receipt=lambda request_id: MappingProxyType(
+            dict(projections[request_id])),
+        status=lambda: {
+            "protocol_id": protocol.transition["protocol_id"],
+            "protocol_digest": protocol.transition["protocol_digest"],
+            "current_phase": PHASES[-1],
+            "current_journal_head": "completed-entry-digest",
+            "interrupted": False,
+            "outstanding_stage": None,
+            "replay_forbidden": False,
+            "semantically_verified_stage_entry_digests": completed_entry_digests,
+        },
+    )
+
+    receipt = campaign.run_one(
+        verify_production_readiness(protocol, _observed()),
+        lambda *_: evidence, transition_owner=owner)
+
+    assert receipt["schema_version"] == campaign_module.VERIFIED_RECEIPT_SCHEMA
+    binding = receipt["transition_stage_receipt_binding"]
+    assert binding["status"] == "verified_transition_stages_bound_to_trial_outcome"
+    assert binding["phase_order"] == list(PHASES[1:])
+    assert binding["campaign_trial_id"] == receipt["trial_id"] == "trial-1"
+    assert binding["live_transition_owner_revalidated"] is True
+    assert binding["read_only"] is True
+    assert binding["effect_performed"] is False
+    assert binding["campaign_advanced"] is False
+    assert binding["grants_authority"] is False
+    assert binding["execution_allowed"] is False
+    assert [item["request_id"] for item in receipt["transition_stage_receipts"]] == [
+        f"transition-request-{index}" for index in range(len(PHASES[1:]))]
+    assert len({item["attempt_entry_digest"]
+                for item in receipt["transition_stage_receipts"]}) == len(PHASES[1:])
+    assert len({item["completed_entry_digest"]
+                for item in receipt["transition_stage_receipts"]}) == len(PHASES[1:])
+    stored = json.loads((tmp_path / "campaign" / "receipts" / "trial-1.json")
+                        .read_text(encoding="utf-8"))
+    assert verify_trial_receipt(stored)["receipt_digest"] == receipt["receipt_digest"]
+    mismatched_journal = _evidence()
+    mismatched_journal["transition_stage_receipts"] = receipt["transition_stage_receipts"]
+    mismatched_journal["transition_stage_receipt_binding"] = binding
+    mismatched_journal["transition_journal_identity"] = "different-journal"
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_outcome_journal_identity_mismatch"):
+        make_trial_receipt(protocol, "trial-1", mismatched_journal)
+    forged = dict(stored)
+    forged_projections = [dict(item) for item in forged["transition_stage_receipts"]]
+    forged_projections[0]["completed_entry_digest"] = "substituted-completed-entry"
+    forged["transition_stage_receipts"] = forged_projections
+    forged.pop("receipt_digest")
+    forged["receipt_digest"] = _d(forged)
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        verify_trial_receipt(forged)
+
+    reused = json.loads(json.dumps(stored))
+    reused_projections = reused["transition_stage_receipts"]
+    reused_projections[1]["completed_entry_digest"] = (
+        reused_projections[0]["completed_entry_digest"])
+    second_projection = reused_projections[1]
+    second_projection_body = dict(second_projection)
+    second_projection_body.pop("binding_digest")
+    second_projection["binding_digest"] = _d(second_projection_body)
+    reused_binding = reused["transition_stage_receipt_binding"]
+    reused_binding["stage_receipts"][1]["completed_entry_digest"] = (
+        reused_projections[0]["completed_entry_digest"])
+    reused_binding["stage_receipts"][1]["receipt_binding_digest"] = (
+        second_projection["binding_digest"])
+    reused_binding.pop("binding_digest")
+    reused_binding["binding_digest"] = _d(reused_binding)
+    reused.pop("receipt_digest")
+    reused["receipt_digest"] = _d(reused)
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        verify_trial_receipt(reused)
+
+    cross_type_reused = json.loads(json.dumps(stored))
+    cross_projection = cross_type_reused["transition_stage_receipts"][1]
+    cross_projection["attempt_entry_digest"] = stored["transition_stage_receipts"][0][
+        "completed_entry_digest"]
+    cross_projection_body = dict(cross_projection)
+    cross_projection_body.pop("binding_digest")
+    cross_projection["binding_digest"] = _d(cross_projection_body)
+    cross_binding = cross_type_reused["transition_stage_receipt_binding"]
+    cross_binding["stage_receipts"][1]["attempt_entry_digest"] = (
+        cross_projection["attempt_entry_digest"])
+    cross_binding["stage_receipts"][1]["receipt_binding_digest"] = (
+        cross_projection["binding_digest"])
+    cross_binding.pop("binding_digest")
+    cross_binding["binding_digest"] = _d(cross_binding)
+    cross_type_reused.pop("receipt_digest")
+    cross_type_reused["receipt_digest"] = _d(cross_type_reused)
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        verify_trial_receipt(cross_type_reused)
+
+
+def test_new_protocol_requires_live_transition_owner_before_trial_start(
+        tmp_path: Path) -> None:
+    protocol = _protocol(historical=False)
+    assert protocol.schema_version == "sentientos.production_self_reflection_protocol:v2"
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_owner_required"):
+        make_trial_receipt(protocol, "trial-1", _evidence())
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    before = dict(campaign.state())
+    calls = {"executor": 0}
+
+    def executor(*_args):
+        calls["executor"] += 1
+        return _evidence()
+
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_owner_required"):
+        campaign.run_one(readiness, executor)
+    assert calls["executor"] == 0
+    assert dict(campaign.state()) == before
+
+
+def test_v2_protocol_rejects_disabled_transition_receipt_policy() -> None:
+    disabled = asdict(_protocol(historical=False))
+    disabled["campaign_policy"]["require_verified_transition_stage_receipts"] = False
+    disabled.pop("protocol_id")
+    disabled.pop("protocol_digest")
+    digest = campaign_module._digest(disabled)
+    disabled["protocol_id"] = "production-self-reflection-" + digest[7:31]
+    disabled["protocol_digest"] = digest
+    candidate = ProductionSelfReflectionProtocol(**disabled)
+    with pytest.raises(ProductionSelfReflectionError,
+                       match="transition_stage_receipt_policy_invalid"):
+        candidate._validate_bindings()
+
+
+def test_historical_protocol_without_owner_policy_keeps_v1_receipt_compatibility() -> None:
+    protocol = _protocol()
+    assert protocol.schema_version == "sentientos.production_self_reflection_protocol:v1"
+    receipt = make_trial_receipt(protocol, "trial-1", _evidence())
+    assert receipt["schema_version"] == campaign_module.RECEIPT_SCHEMA
+    assert verify_trial_receipt(receipt)["receipt_digest"] == receipt["receipt_digest"]
+
+
 def test_transition_binding_observer_is_read_only_and_exact(tmp_path: Path) -> None:
     protocol = _protocol()
     campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
@@ -619,11 +801,12 @@ def test_daemon_projects_read_only_campaign_transition_binding(tmp_path: Path, m
 
 
 def _verified_transition_stage_projection(
-        protocol, phase: str, *, campaign_trial_id: str | None = "trial-1") -> dict[str, object]:
+        protocol, phase: str, *, campaign_trial_id: str | None = "trial-1",
+        request_id: str = "resident-transition-request-planning") -> dict[str, object]:
     transition = protocol.transition
     body: dict[str, object] = {
         "schema_version": "sentientos.resident_cognitive_transition_verified_stage_receipt:v3",
-        "request_id": "resident-transition-request-planning",
+        "request_id": request_id,
         "campaign_trial_id": campaign_trial_id,
         "request_digest": "request-digest",
         "installation_identity": protocol.installation_identity,
@@ -631,8 +814,12 @@ def _verified_transition_stage_projection(
         "protocol_digest": transition["protocol_digest"],
         "phase": phase,
         "operator_receipt_digest": "operator-receipt-digest",
-        "attempt_entry_digest": "attempt-entry-digest",
-        "completed_entry_digest": "completed-entry-digest",
+        "attempt_entry_digest": (
+            "attempt-entry-digest" if request_id == "resident-transition-request-planning"
+            else f"attempt-entry-{request_id}"),
+        "completed_entry_digest": (
+            "completed-entry-digest" if request_id == "resident-transition-request-planning"
+            else f"completed-entry-{request_id}"),
         "journal_head_observed": "completed-entry-digest",
         "operator_authentication": {
             "schema_version": "sentientos.resident_cognitive_transition_operator_authentication_binding:v1",

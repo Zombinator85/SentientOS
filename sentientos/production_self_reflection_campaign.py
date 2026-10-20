@@ -30,10 +30,12 @@ from .private_file_custody import (
 from .resident_cognitive_model_transition_experiment import PHASES
 from .self_model_intervention_experiment import CONDITION_ORDER, score_assessment
 
-PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v1"
+LEGACY_PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v1"
+PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v2"
 READINESS_SCHEMA = "sentientos.production_self_reflection_readiness:v1"
 CAMPAIGN_SCHEMA = "sentientos.production_self_reflection_campaign_state:v1"
 RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v1"
+VERIFIED_RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v2"
 REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
 SCORER = "deterministic_exact_evidence_key:v1"
 MIN_TRIALS, MAX_TRIALS = 2, 32
@@ -70,6 +72,77 @@ def _json_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_value(item) for item in value]
     return value
+
+
+def _verified_stage_receipt_projection(
+        value: Mapping[str, Any], *, protocol: ProductionSelfReflectionProtocol,
+        trial_id: str, request_id: str) -> dict[str, Any]:
+    """Check the transition owner's exact, minimized completed-stage projection."""
+    required = {
+        "schema_version", "request_id", "request_digest", "campaign_trial_id",
+        "installation_identity", "protocol_id", "protocol_digest", "phase",
+        "operator_receipt_digest", "attempt_entry_digest", "completed_entry_digest",
+        "journal_head_observed", "operator_authentication", "read_only",
+        "effect_performed", "grants_authority", "execution_allowed", "binding_digest",
+    }
+    if set(value) != required:
+        raise ProductionSelfReflectionError("transition_stage_receipt_binding_invalid")
+    projection = _json_value(value)
+    claimed = projection.pop("binding_digest", None)
+    observed = hashlib.sha256(
+        (json.dumps(projection, sort_keys=True, separators=(",", ":"))
+         + "\n").encode("utf-8")
+    ).hexdigest()
+    authentication = projection.get("operator_authentication")
+    auth_fields = {
+        "schema_version", "operator_identity", "signing_key_id",
+        "request_claims_digest", "provenance_digest", "signed_at",
+        "trust_catalog_version", "trust_catalog_digest",
+    }
+    if (
+        claimed != observed
+        or projection.get("schema_version")
+            != "sentientos.resident_cognitive_transition_verified_stage_receipt:v3"
+        or projection.get("request_id") != request_id
+        or projection.get("campaign_trial_id") != trial_id
+        or projection.get("installation_identity") != protocol.installation_identity
+        or projection.get("protocol_id") != protocol.transition.get("protocol_id")
+        or projection.get("protocol_digest") != protocol.transition.get("protocol_digest")
+        or any(not isinstance(projection.get(key), str) or not projection.get(key)
+               for key in ("request_digest", "phase", "operator_receipt_digest",
+                           "attempt_entry_digest", "completed_entry_digest",
+                           "journal_head_observed"))
+        or projection.get("read_only") is not True
+        or projection.get("effect_performed") is not False
+        or projection.get("grants_authority") is not False
+        or projection.get("execution_allowed") is not False
+        or not isinstance(authentication, Mapping)
+        or set(authentication) != auth_fields
+        or authentication.get("schema_version")
+            != "sentientos.resident_cognitive_transition_operator_authentication_binding:v1"
+        or any(not isinstance(authentication.get(key), str)
+               or not authentication.get(key)
+               for key in ("operator_identity", "signing_key_id",
+                           "request_claims_digest", "provenance_digest",
+                           "signed_at", "trust_catalog_digest"))
+        or re.fullmatch(r"[a-z0-9][a-z0-9._:/-]{0,127}",
+                        str(authentication.get("operator_identity"))) is None
+        or re.fullmatch(r"ed25519-sha256:[0-9a-f]{64}",
+                        str(authentication.get("signing_key_id"))) is None
+        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        str(authentication.get("request_claims_digest"))) is None
+        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        str(authentication.get("provenance_digest"))) is None
+        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        str(authentication.get("trust_catalog_digest"))) is None
+        or re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+                        str(authentication.get("signed_at"))) is None
+        or type(authentication.get("trust_catalog_version")) is not int
+        or authentication.get("trust_catalog_version", 0) < 1
+    ):
+        raise ProductionSelfReflectionError("transition_stage_receipt_binding_invalid")
+    projection["binding_digest"] = claimed
+    return projection
 
 
 def _exact(value: object, label: str) -> str:
@@ -121,7 +194,8 @@ class ProductionSelfReflectionProtocol:
             raise ProductionSelfReflectionError("trial_inventory_invalid")
         policy = {"planned_trial_count": len(ids), "trial_ids": ids, "silent_retries": False,
                   "trial_replacement": False, "cherry_picking": False,
-                  "retain_negative_null_unstable_interrupted": True, "autonomous_repetition": False}
+                  "retain_negative_null_unstable_interrupted": True, "autonomous_repetition": False,
+                  "require_verified_transition_stage_receipts": True}
         raw = cls("", "", _exact(installation_identity, "installation_identity"),
                   _exact(software_generation, "software_generation"), dict(runtime_configuration),
                   requested_evidence_posture, dict(model_a), dict(model_b), dict(persistent_state),
@@ -132,6 +206,19 @@ class ProductionSelfReflectionProtocol:
         return replace(raw, protocol_id="production-self-reflection-" + digest[7:31], protocol_digest=digest)
 
     def _validate_bindings(self) -> None:
+        if not isinstance(self.campaign_policy, Mapping):
+            raise ProductionSelfReflectionError("transition_stage_receipt_policy_invalid")
+        if self.schema_version not in {LEGACY_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+            raise ProductionSelfReflectionError("protocol_schema_version_invalid")
+        has_receipt_policy = (
+            "require_verified_transition_stage_receipts" in self.campaign_policy)
+        require_stage_receipts = self.campaign_policy.get(
+            "require_verified_transition_stage_receipts", False)
+        if (type(require_stage_receipts) is not bool
+                or (self.schema_version == PROTOCOL_SCHEMA and require_stage_receipts is not True)
+                or (self.schema_version == LEGACY_PROTOCOL_SCHEMA and has_receipt_policy
+                    and require_stage_receipts is not True)):
+            raise ProductionSelfReflectionError("transition_stage_receipt_policy_invalid")
         required_model = {"commissioning_receipt_id", "commissioning_receipt_digest", "cognitive_identity",
             "artifact_digest", "artifact_size", "development_provenance_digest", "serving_configuration_digest",
             "activation_approval_id", "serving_approval_id", "inference_authority_map_id"}
@@ -164,7 +251,7 @@ class ProductionSelfReflectionProtocol:
         self._validate_bindings()
         semantic = asdict(self); semantic.pop("protocol_id"); semantic.pop("protocol_digest")
         digest = _digest(semantic)
-        if self.schema_version != PROTOCOL_SCHEMA or self.grants_authority or self.protocol_digest != digest \
+        if self.schema_version not in {LEGACY_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA} or self.grants_authority or self.protocol_digest != digest \
                 or self.protocol_id != "production-self-reflection-" + digest[7:31]:
             raise ProductionSelfReflectionError("protocol_tampered")
 
@@ -692,19 +779,160 @@ class ProductionSelfReflectionCampaign:
             binding["operator_authentication"])
         return MappingProxyType(binding)
 
-    def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]]) -> Mapping[str, Any]:
+    def _verified_transition_stage_outcome(
+            self, *, trial_id: str, transition_owner: Any,
+            submitted_receipts: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        if (not isinstance(submitted_receipts, (list, tuple))
+                or len(submitted_receipts) != len(PHASES) - 1):
+            raise ProductionSelfReflectionError("transition_stage_receipt_inventory_invalid")
+        protocol = self._protocol_snapshot
+        transition = protocol.transition
+        try:
+            config = transition_owner.config
+            owner_protocol = transition_owner.controller.protocol.value
+        except Exception as exc:
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_owner_unavailable") from exc
+        if (
+            config.installation_identity != protocol.installation_identity
+            or config.protocol_id != transition.get("protocol_id")
+            or config.protocol_digest != transition.get("protocol_digest")
+            or config.journal_identity != transition.get("journal_identity")
+            or owner_protocol.get("installation_identity") != protocol.installation_identity
+            or owner_protocol.get("protocol_id") != transition.get("protocol_id")
+            or owner_protocol.get("protocol_digest") != transition.get("protocol_digest")
+            or owner_protocol.get("journal_identity") != transition.get("journal_identity")
+            or tuple(owner_protocol.get("phase_order", ())) != PHASES
+        ):
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_owner_binding_mismatch")
+
+        projections: list[dict[str, Any]] = []
+        request_ids: set[str] = set()
+        journal_entry_digests: set[str] = set()
+        for expected_phase, submitted in zip(PHASES[1:], submitted_receipts):
+            if not isinstance(submitted, Mapping):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_inventory_invalid")
+            request_id = submitted.get("request_id")
+            if (not isinstance(request_id, str) or not request_id
+                    or request_id.casefold() in ALIASES
+                    or "*" in request_id or "/" in request_id or "\\" in request_id
+                    or request_id in request_ids
+                    or submitted.get("phase") != expected_phase):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_inventory_invalid")
+            request_ids.add(request_id)
+            try:
+                raw = transition_owner.inspect_verified_stage_receipt(request_id)
+            except Exception as exc:
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_owner_verification_failed") from exc
+            projection = _verified_stage_receipt_projection(
+                raw, protocol=protocol, trial_id=trial_id, request_id=request_id)
+            if projection.get("phase") != expected_phase:
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_phase_mismatch")
+            attempt_entry_digest = projection["attempt_entry_digest"]
+            completed_entry_digest = projection["completed_entry_digest"]
+            if (attempt_entry_digest in journal_entry_digests
+                    or completed_entry_digest in journal_entry_digests
+                    or attempt_entry_digest == completed_entry_digest):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_receipt_journal_entry_reused")
+            journal_entry_digests.update((attempt_entry_digest, completed_entry_digest))
+            projections.append(projection)
+
+        try:
+            status = dict(transition_owner.status())
+        except Exception as exc:
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_owner_status_unavailable") from exc
+        semantic_entries = status.get("semantically_verified_stage_entry_digests")
+        if (
+            status.get("protocol_id") != transition.get("protocol_id")
+            or status.get("protocol_digest") != transition.get("protocol_digest")
+            or status.get("current_phase") != PHASES[-1]
+            or not isinstance(status.get("current_journal_head"), str)
+            or not status.get("current_journal_head")
+            or status.get("interrupted") is not False
+            or status.get("outstanding_stage") is not None
+            or status.get("replay_forbidden") is not False
+            or not isinstance(semantic_entries, (list, tuple))
+            or any(projection.get("journal_head_observed")
+                   != status.get("current_journal_head")
+                   or projection.get("completed_entry_digest") not in semantic_entries
+                   for projection in projections)
+        ):
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_owner_state_stale")
+
+        state = self.state()
+        self._verify_progress(state)
+        if (state.get("validity") != "valid_incomplete"
+                or state.get("failure_reason") is not None
+                or state.get("in_progress_trial_id") != trial_id
+                or state.get("next_trial_id") != trial_id):
+            raise ProductionSelfReflectionError(
+                "transition_stage_receipt_campaign_trial_not_active")
+        rows = [{
+            "request_id": projection["request_id"],
+            "request_digest": projection["request_digest"],
+            "phase": projection["phase"],
+            "operator_receipt_digest": projection["operator_receipt_digest"],
+            "attempt_entry_digest": projection["attempt_entry_digest"],
+            "completed_entry_digest": projection["completed_entry_digest"],
+            "journal_head_observed": projection["journal_head_observed"],
+            "operator_authentication": projection["operator_authentication"],
+            "receipt_binding_digest": projection["binding_digest"],
+        } for projection in projections]
+        binding: dict[str, Any] = {
+            "schema_version":
+                "sentientos.production_self_reflection_transition_stage_outcome_binding:v1",
+            "status": "verified_transition_stages_bound_to_trial_outcome",
+            "campaign_protocol_id": protocol.protocol_id,
+            "campaign_protocol_digest": protocol.protocol_digest,
+            "campaign_trial_id": trial_id,
+            "campaign_state_digest": state.get("state_digest"),
+            "transition_protocol_id": transition.get("protocol_id"),
+            "transition_protocol_digest": transition.get("protocol_digest"),
+            "transition_journal_identity": transition.get("journal_identity"),
+            "stage_receipts": rows,
+            "phase_order": list(PHASES[1:]),
+            "live_transition_owner_revalidated": True,
+            "read_only": True,
+            "effect_performed": False,
+            "campaign_advanced": False,
+            "grants_authority": False,
+            "execution_allowed": False,
+        }
+        binding["binding_digest"] = _digest(binding)
+        return projections, binding
+
+    def run_one(self, readiness: Mapping[str, Any], executor: Callable[[str, ProductionSelfReflectionProtocol], Mapping[str, Any]],
+                *, transition_owner: Any | None = None) -> Mapping[str, Any]:
         with self._campaign_lock():
             state = self.state()
             self._verify_progress(state)
             _verify_readiness_binding(self._protocol_snapshot, readiness)
             if state["validity"] != "valid_incomplete" or state["in_progress_trial_id"] or not state["next_trial_id"]:
                 raise ProductionSelfReflectionError("campaign_not_runnable")
+            if (self._protocol_snapshot.campaign_policy.get(
+                    "require_verified_transition_stage_receipts", False)
+                    and transition_owner is None):
+                raise ProductionSelfReflectionError("transition_stage_receipt_owner_required")
             trial_id = str(state["next_trial_id"]); self._write({**state, "in_progress_trial_id": trial_id})
             try:
                 self._protocol_snapshot.verify()
                 execution_protocol = reconstruct_protocol(asdict(self._protocol_snapshot))
                 evidence = dict(executor(trial_id, execution_protocol))
                 execution_protocol.verify()
+                if transition_owner is not None:
+                    projections, binding = self._verified_transition_stage_outcome(
+                        trial_id=trial_id, transition_owner=transition_owner,
+                        submitted_receipts=evidence.get("transition_stage_receipts"))
+                    evidence["transition_stage_receipts"] = projections
+                    evidence["transition_stage_receipt_binding"] = binding
                 receipt = make_trial_receipt(self._protocol_snapshot, trial_id, evidence)
             except Exception:
                 self._write({**self.state(), "validity": "invalid_interrupted", "failure_reason": "trial_interrupted_no_retry"})
@@ -731,6 +959,81 @@ class ProductionSelfReflectionCampaign:
             body["report_digest"] = _digest(body); _immutable(self.root / "report.json", body); return MappingProxyType(body)
 
 
+def _verify_transition_stage_outcome_binding_record(
+        binding: Mapping[str, Any], *, protocol_id: str, protocol_digest: str,
+        trial_id: str, projections: Any) -> None:
+    body = _json_value(binding)
+    claimed = body.pop("binding_digest", None)
+    phase_order = list(PHASES[1:])
+    rows = binding.get("stage_receipts")
+    if (
+        claimed != _digest(body)
+        or binding.get("schema_version")
+            != "sentientos.production_self_reflection_transition_stage_outcome_binding:v1"
+        or binding.get("status") != "verified_transition_stages_bound_to_trial_outcome"
+        or binding.get("campaign_protocol_id") != protocol_id
+        or binding.get("campaign_protocol_digest") != protocol_digest
+        or binding.get("campaign_trial_id") != trial_id
+        or any(not isinstance(binding.get(key), str) or not binding.get(key)
+               for key in ("campaign_state_digest", "transition_protocol_id",
+                           "transition_protocol_digest", "transition_journal_identity"))
+        or binding.get("phase_order") != phase_order
+        or not isinstance(rows, list) or len(rows) != len(phase_order)
+        or not isinstance(projections, (list, tuple))
+        or len(projections) != len(phase_order)
+        or binding.get("live_transition_owner_revalidated") is not True
+        or binding.get("read_only") is not True
+        or binding.get("effect_performed") is not False
+        or binding.get("campaign_advanced") is not False
+        or binding.get("grants_authority") is not False
+        or binding.get("execution_allowed") is not False
+    ):
+        raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
+    request_ids: set[str] = set()
+    journal_entry_digests: set[str] = set()
+    for phase, row, raw_projection in zip(phase_order, rows, projections):
+        if not isinstance(row, Mapping) or not isinstance(raw_projection, Mapping):
+            raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
+        projection = _json_value(raw_projection)
+        projection_digest = projection.pop("binding_digest", None)
+        request_id = raw_projection.get("request_id")
+        attempt_entry_digest = raw_projection.get("attempt_entry_digest")
+        completed_entry_digest = raw_projection.get("completed_entry_digest")
+        if (
+            projection_digest != hashlib.sha256(
+                (json.dumps(projection, sort_keys=True, separators=(",", ":"))
+                 + "\n").encode("utf-8")).hexdigest()
+            or any(not isinstance(value, str) or not value for value in (
+                request_id, attempt_entry_digest, completed_entry_digest))
+            or request_id in request_ids
+            or attempt_entry_digest in journal_entry_digests
+            or completed_entry_digest in journal_entry_digests
+            or attempt_entry_digest == completed_entry_digest
+            or raw_projection.get("phase") != phase
+            or raw_projection.get("campaign_trial_id") != trial_id
+            or row.get("phase") != phase
+            or row.get("request_id") != raw_projection.get("request_id")
+            or row.get("request_digest") != raw_projection.get("request_digest")
+            or row.get("operator_receipt_digest")
+                != raw_projection.get("operator_receipt_digest")
+            or row.get("attempt_entry_digest") != raw_projection.get("attempt_entry_digest")
+            or row.get("completed_entry_digest")
+                != raw_projection.get("completed_entry_digest")
+            or row.get("journal_head_observed")
+                != raw_projection.get("journal_head_observed")
+            or row.get("operator_authentication")
+                != raw_projection.get("operator_authentication")
+            or row.get("receipt_binding_digest")
+                != raw_projection.get("binding_digest")
+        ):
+            raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
+        assert isinstance(request_id, str)
+        assert isinstance(attempt_entry_digest, str)
+        assert isinstance(completed_entry_digest, str)
+        request_ids.add(request_id)
+        journal_entry_digests.update((attempt_entry_digest, completed_entry_digest))
+
+
 def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str, evidence: Mapping[str, Any]) -> dict[str, Any]:
     required = {"installation_identity", "software_generation_before", "software_generation_after", "transition_stage_receipts",
         "transition_journal_identity", "world_state_identities", "self_model_reconciliations", "self_model_projections",
@@ -743,13 +1046,28 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
         raise ProductionSelfReflectionError("restored_a_identity_mismatch")
     stages = tuple(x["phase"] for x in evidence["transition_stage_receipts"])
     if stages != PHASES[1:]: raise ProductionSelfReflectionError("transition_stage_order_mismatch")
+    outcome_binding = evidence.get("transition_stage_receipt_binding")
+    if (protocol.campaign_policy.get("require_verified_transition_stage_receipts", False)
+            and outcome_binding is None):
+        raise ProductionSelfReflectionError("transition_stage_receipt_owner_required")
+    if outcome_binding is not None:
+        if not isinstance(outcome_binding, Mapping):
+            raise ProductionSelfReflectionError("transition_stage_outcome_binding_invalid")
+        _verify_transition_stage_outcome_binding_record(
+            outcome_binding, protocol_id=protocol.protocol_id,
+            protocol_digest=protocol.protocol_digest, trial_id=trial_id,
+            projections=evidence["transition_stage_receipts"])
+        if evidence["transition_journal_identity"] != outcome_binding.get(
+                "transition_journal_identity"):
+            raise ProductionSelfReflectionError(
+                "transition_stage_outcome_journal_identity_mismatch")
     projections = evidence["self_model_projections"]
     if any(not item.get("prior_tick_proven") for item in projections): raise ProductionSelfReflectionError("prior_tick_firewall_breached")
     answer_key = evidence.get("answer_key")
     if not isinstance(answer_key, Mapping) or _digest(answer_key) != protocol.assessment["answer_key_digest"]:
         raise ProductionSelfReflectionError("external_scorer_custody_mismatch")
     scores = {condition: score_assessment(answer_key=answer_key, answers=evidence["condition_answers"][condition]) for condition in CONDITION_ORDER}
-    body: dict[str, Any] = {"schema_version": RECEIPT_SCHEMA, "protocol_id": protocol.protocol_id,
+    body: dict[str, Any] = {"schema_version": VERIFIED_RECEIPT_SCHEMA if outcome_binding is not None else RECEIPT_SCHEMA, "protocol_id": protocol.protocol_id,
         "protocol_digest": protocol.protocol_digest, "trial_id": trial_id, "installation_identity": evidence["installation_identity"],
         "software_generation_before": evidence["software_generation_before"], "software_generation_after": evidence["software_generation_after"],
         "model_a_commissioning": {k: protocol.model_a[k] for k in ("commissioning_receipt_id", "commissioning_receipt_digest")},
@@ -763,14 +1081,34 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
         "restoration_result": evidence["restoration_result"], "evidence_posture": posture, "synthetic_components": seams,
         "status": "completed", "production_evidence_collected": True, "failure_or_interruption": None,
         "autonomous_repetition_performed": False, "model_output_has_scoring_authority": False}
+    if outcome_binding is not None:
+        body["transition_stage_receipt_binding"] = outcome_binding
     body["receipt_id"] = "production-self-reflection-trial-" + _digest(body)[7:31]
     body["receipt_digest"] = _digest(body); return body
 
 
 def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
     body = dict(value); claimed = body.pop("receipt_digest", None)
-    if body.get("schema_version") != RECEIPT_SCHEMA or claimed != _digest(body) or body.get("evidence_posture") != "production_experimental_evidence":
+    if (body.get("schema_version") not in {RECEIPT_SCHEMA, VERIFIED_RECEIPT_SCHEMA}
+            or claimed != _digest(body)
+            or body.get("evidence_posture") != "production_experimental_evidence"):
         raise ProductionSelfReflectionError("trial_receipt_tampered")
+    if body.get("schema_version") == VERIFIED_RECEIPT_SCHEMA:
+        try:
+            binding = body["transition_stage_receipt_binding"]
+            _verify_transition_stage_outcome_binding_record(
+                binding, protocol_id=str(body["protocol_id"]),
+                protocol_digest=str(body["protocol_digest"]),
+                trial_id=str(body["trial_id"]),
+                projections=body["transition_stage_receipts"])
+            if body.get("transition_journal_identity") != binding.get(
+                    "transition_journal_identity"):
+                raise ProductionSelfReflectionError(
+                    "transition_stage_outcome_journal_identity_mismatch")
+        except ProductionSelfReflectionError as exc:
+            raise ProductionSelfReflectionError("trial_receipt_tampered") from exc
+        except (KeyError, TypeError) as exc:
+            raise ProductionSelfReflectionError("trial_receipt_tampered") from exc
     return MappingProxyType(dict(value))
 
 
