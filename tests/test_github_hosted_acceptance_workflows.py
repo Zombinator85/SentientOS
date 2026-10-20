@@ -715,9 +715,52 @@ def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
             for line in path_lines
             if line.strip().startswith("- ")
         }
-        expected_paths = {path}
-        if path == ".github/workflows/nightly-self-check.yml":
-            expected_paths.update({"pyproject.toml", "tests/conftest.py", "tests/test_runtime_governor.py"})
+        expected_paths = {
+            ".github/workflows/audit-nightly.yml": {
+                ".github/workflows/audit-nightly.yml",
+                "audit_chain.py",
+                "audit_immutability.py",
+                "config/master_files.json",
+                "logs/**",
+                "scripts/apply_audit_repairs.py",
+                "scripts/cli_common.py",
+                "scripts/plan_audit_repairs.py",
+                "scripts/provenance_hash_chain.py",
+                "scripts/tooling_status.py",
+                "scripts/verify_audits.py",
+                "sentientos/audit_chain_gate.py",
+                "sentientos/audit_recovery.py",
+                "sentientos/audit_sink.py",
+                "sentientos/audit_strict_status.py",
+                "sentientos/privilege.py",
+                "sentientos/recovery_tasks.py",
+            },
+            ".github/workflows/nightly-self-check.yml": {
+                ".github/workflows/nightly-self-check.yml",
+                "audit_chain.py",
+                "audit_immutability.py",
+                "glow/contracts/canonical_typing_baseline.json",
+                "mypy.ini",
+                "privilege_lint_cli.py",
+                "pyproject.toml",
+                "requirements-codex.txt",
+                "scripts/analyze_test_provenance.py",
+                "scripts/check_mypy_baseline.py",
+                "scripts/cli_common.py",
+                "scripts/mypy_baseline_common.py",
+                "scripts/provenance_hash_chain.py",
+                "scripts/pytest_airlock_guard.py",
+                "scripts/run_tests.py",
+                "scripts/verify_audits.py",
+                "sentientos/audit_chain_gate.py",
+                "sentientos/audit_recovery.py",
+                "sentientos/audit_sink.py",
+                "sentientos/audit_strict_status.py",
+                "sentientos/privilege.py",
+                "sentientos/runtime_governor.py",
+                "tests/**",
+            },
+        }[path]
         assert actual_paths == expected_paths
 
 
