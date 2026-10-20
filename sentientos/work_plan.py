@@ -404,11 +404,8 @@ def _open_work_plan_evidence_directory(
             except FileNotFoundError:
                 if not create:
                     raise
-                try:
-                    child.mkdir(mode=0o700)
-                except FileExistsError:
-                    pass
-                metadata = child.lstat()
+                raise WorkPlanError(
+                    "work_plan_evidence_descriptor_relative_required")
             if not stat.S_ISDIR(metadata.st_mode):
                 raise WorkPlanError("work_plan_evidence_directory_invalid")
             resolved = child.resolve(strict=True)
@@ -424,7 +421,7 @@ def _open_work_plan_evidence_directory(
         if isinstance(exc, FileNotFoundError) and not create:
             raise WorkPlanError("work_plan_evidence_unreadable") from exc
         raise WorkPlanError("work_plan_evidence_directory_invalid") from exc
-    return None, path
+    raise WorkPlanError("work_plan_evidence_descriptor_relative_required")
 
 
 def _verify_work_plan_evidence_directory_binding(

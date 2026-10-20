@@ -242,6 +242,37 @@ def test_path_fallback_rejects_symlinked_directory_before_creation(
     assert list(outside.iterdir()) == []
 
 
+@pytest.mark.skipif(os.name != "posix", reason="fallback support is mocked on POSIX")
+def test_path_fallback_fails_closed_before_creating_evidence_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    monkeypatch.setattr(
+        work_plan_module, "_supports_descriptor_relative_evidence_storage", lambda: False)
+
+    with pytest.raises(
+            WorkPlanError,
+            match="work_plan_evidence_descriptor_relative_required"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    assert not (tmp_path / "glow").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="fallback support is mocked on POSIX")
+def test_path_fallback_fails_closed_before_reading_existing_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+    monkeypatch.setattr(
+        work_plan_module, "_supports_descriptor_relative_evidence_storage", lambda: False)
+
+    with pytest.raises(
+            WorkPlanError,
+            match="work_plan_evidence_descriptor_relative_required"):
+        load_work_plan_evidence(tmp_path, plan)
+
+
 @pytest.mark.skipif(os.name != "posix", reason="descriptor-relative symlink custody is POSIX-only")
 def test_evidence_persistence_does_not_follow_parent_swap_after_open(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
