@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "f3e891254c184de93afc19fc7734f36c7851ecd39417f31278a21850ed37ec0a",
-    "latest_segment_sequence": 492,
-    "latest_segment_sha256": "206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781",
-    "source_commit": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
-    "source_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8"
+    "checkpoint_sha256": "dde2b8fd16c4e58ceb4d0a353151f91f5ecffb854902aea62cfb07df486aa236",
+    "latest_segment_sequence": 495,
+    "latest_segment_sha256": "c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+    "source_commit": "54c9764b6726a46e6f7d667232e726ba2795007a",
+    "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1"
   },
-  "checkpoint_sha256": "c6086db5c8ecefdb3ca24e30e07bf8d09c15505dab39756329487784ecc9bba7",
+  "checkpoint_sha256": "dde2b8fd16c4e58ceb4d0a353151f91f5ecffb854902aea62cfb07df486aa236",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 491,
+  "latest_sequence": 495,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5587,6 +5587,42 @@
       "sha256": "206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781",
       "source_commit": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
       "source_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8"
+    },
+    {
+      "bytes": 1194,
+      "evidence_bytes": 1896,
+      "evidence_path": "work/construction/evidence/0493-executor-allocation-identity-before-effects.json",
+      "evidence_sha256": "5361081c1c4dbd5bf7262726bbea603094c1e044e1d6cc344f08ed4b8884b2e9",
+      "path": "work/construction/segments/0493-executor-allocation-identity-before-effects.md",
+      "predecessor": "segment-sha256:206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781",
+      "sequence": 493,
+      "sha256": "fb80f2d4ab411ad8d4d6221f66544e5bf1afa705b89567c50121097d632ff914",
+      "source_commit": "0f735ff5eb2fddee934f220aec4262beb3d1cb86",
+      "source_tree": "87ae91ae4c3ad9d3ffcfc46a1a838bdc75c0397b"
+    },
+    {
+      "bytes": 1519,
+      "evidence_bytes": 2789,
+      "evidence_path": "work/construction/evidence/0494-repair-nightly-audit-trigger-coverage.json",
+      "evidence_sha256": "1019cab16f0a2d4cc92df3a83319541313122ae02e86d699464280a42c17dcbc",
+      "path": "work/construction/segments/0494-repair-nightly-audit-trigger-coverage.md",
+      "predecessor": "segment-sha256:fb80f2d4ab411ad8d4d6221f66544e5bf1afa705b89567c50121097d632ff914",
+      "sequence": 494,
+      "sha256": "e9bc3a280dece4698166d93a8b7a2c292535cf9c23fcb364419f9cfcb1d7286c",
+      "source_commit": "0ac5125cafd104df0b72d40207bae19eecf6faba",
+      "source_tree": "f5e2dff52fd1c54478e01d0bb38ceff5cfc08cae"
+    },
+    {
+      "bytes": 2383,
+      "evidence_bytes": 2616,
+      "evidence_path": "work/construction/evidence/0495-canonical-cli-verified-allocation-identity.json",
+      "evidence_sha256": "5513e56ec6cad74a7d5f6577f2f0070350da81154e28be9c1e725cc35177fe83",
+      "path": "work/construction/segments/0495-canonical-cli-verified-allocation-identity.md",
+      "predecessor": "segment-sha256:e9bc3a280dece4698166d93a8b7a2c292535cf9c23fcb364419f9cfcb1d7286c",
+      "sequence": 495,
+      "sha256": "c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+      "source_commit": "54c9764b6726a46e6f7d667232e726ba2795007a",
+      "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1"
     }
   ],
   "source_acquisition": {
@@ -5596,7 +5632,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b",
+  "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

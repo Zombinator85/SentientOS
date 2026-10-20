@@ -212,3 +212,23 @@ Latest verified source merge: `2adf59db661779ba8d62d5d8417381f442fdbaf0`, tree `
 Latest construction segment: `work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md`
 Latest segment SHA-256: `206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781`
 Sequence: 492
+
+
+## Sequence 493 — executor allocation identity before effects
+
+PR #2488 merged the executor allocation-binding check, verifying persisted evidence path and digest against ExecutorState before journal creation or task invocation. Its post-merge CLI omission was found by callsite review and fixed in sequence 495.
+
+## Sequence 494 — nightly workflow triggers and evidence
+
+PR #2489 merged the expanded nightly input paths and exact path-set contract. Nightly Audit Integrity #502 (run 39403772754) and Nightly Self Check #510 (run 39403773009) then passed on exact main 0ac5125cafd104df0b72d40207bae19eecf6faba. Both were push-triggered runs; they do not establish scheduled Federation Health success. The Federation Health publisher remains blocked by the Actions-token PR-creation setting.
+
+## Sequence 495 — canonical CLI allocation binding
+
+PR #2490 fixed the canonical work-plan runner to pass the graph hash, allocation artifact path, optional digest, and verified evidence digest to GoalExecutor. The 49 affected local tests passed. Exact-candidate hosted CI, Quality Gate, Administrator audits, immutability, acceptance, and the separate metadata guard passed. Regular merge 54c9764b6726a46e6f7d667232e726ba2795007a preserves the candidate commit and exact main tree 60e57156e3aa646e4aa1610db4fee934e97d3be1. The main-branch source and test blobs independently match the verified candidate blobs.
+
+At 2026-10-20T10:10:27Z, no scheduled Federation Health run on the new main head had been observed. The latest known scheduled report run remained on older head 800dcef026b32c45c5668282b260ca2e39ab4c24 and failed only in its PR publisher after report generation succeeded. The current Actions connector lists PR-triggered workflow runs only; no claim of a post-merge scheduled run is made.
+
+Latest verified source merge: `54c9764b6726a46e6f7d667232e726ba2795007a`, tree `60e57156e3aa646e4aa1610db4fee934e97d3be1`
+Latest construction segment: work/construction/segments/0495-canonical-cli-verified-allocation-identity.md
+Latest segment SHA-256: c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6
+Sequence: 495

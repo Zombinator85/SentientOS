@@ -1,0 +1,72 @@
+{
+  "behavior": {
+    "authority": {
+      "administrator_gate_weakened": false,
+      "workflow_permissions_broadened": false
+    },
+    "checks": [
+      "Nightly Audit Integrity path filters include the audit verifier and repair inputs",
+      "Nightly Self Check path filters include tests, dependencies, audit and privilege-lint inputs",
+      "contract test pins exact trigger path sets",
+      "current-main Nightly Audit Integrity ran strict hosted Administrator audit successfully",
+      "current-main Nightly Self Check ran full hosted verification successfully"
+    ],
+    "outcome": "Changes to the covered audit inputs now trigger the strict nightly workflows; exact current-main push runs succeeded."
+  },
+  "limitations": {
+    "federation_health_current_main_scheduled_run_observed": false,
+    "federation_health_publisher_actions_token_pr_creation_blocked": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false
+  },
+  "operational_observations": {
+    "federation_health_latest_known_scheduled": {
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "publisher_status": "failure: Actions token cannot create pull requests",
+      "report_generation_status": "success",
+      "run_id": 39378086813
+    },
+    "main_head": "0ac5125cafd104df0b72d40207bae19eecf6faba",
+    "nightly_audit_integrity": {
+      "event": "push",
+      "repair_job": "skipped_after_successful_audit",
+      "run_id": 39403772754,
+      "status": "success"
+    },
+    "nightly_self_check": {
+      "event": "push",
+      "pytest": {
+        "failed": 0,
+        "passed": 143,
+        "skipped": 13
+      },
+      "run_id": 39403773009,
+      "status": "success"
+    },
+    "observed_at": "2026-10-20T10:06:00Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0493-executor-allocation-identity-before-effects.md",
+    "segment_sha256": "fb80f2d4ab411ad8d4d6221f66544e5bf1afa705b89567c50121097d632ff914",
+    "sequence": 493
+  },
+  "pull_request": {
+    "candidate_commit": "cc8691ea8c46b35b4889f677dfccf078c577a4af",
+    "candidate_tree": "f5e2dff52fd1c54478e01d0bb38ceff5cfc08cae",
+    "merge_commit": "0ac5125cafd104df0b72d40207bae19eecf6faba",
+    "number": 2489,
+    "preserved_commit_history": true,
+    "status": "merged"
+  },
+  "source_commit": "0ac5125cafd104df0b72d40207bae19eecf6faba",
+  "source_tree": "f5e2dff52fd1c54478e01d0bb38ceff5cfc08cae",
+  "tests": {
+    "contract_test": "passed",
+    "hosted_administrator_audit": "passed",
+    "nightly_audit_run_id": 39403772754,
+    "nightly_self_check_run_id": 39403773009,
+    "pull_request_checks": "passed"
+  },
+  "title": "Nightly audit triggers and actual main-head workflow evidence"
+}
