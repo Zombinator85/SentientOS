@@ -1,0 +1,33 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "675d7478a51c23b86c067e863b220d25b8ed29ef",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_windows_handle_custody.py::test_explicit_file_reader_returns_bounded_regular_file",
+      "rationale": "The explicit reader returns bounded regular-file bytes and rejects oversize evidence."
+    },
+    {
+      "node_id": "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
+      "rationale": "Native Windows handle reads preserve the selected-file boundary and deterministic order."
+    },
+    {
+      "node_id": "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_hard_linked_evidence",
+      "rationale": "Native Windows reads reject evidence aliases with multiple filesystem links."
+    },
+    {
+      "node_id": "sentientos/tests/test_windows_handle_custody.py::test_work_plan_evidence_storage_fails_closed_without_dirfd",
+      "rationale": "Unsupported Windows work-plan evidence persistence fails before writing canonical state."
+    },
+    {
+      "node_id": "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_verifies_private_acl_on_open_handle",
+      "rationale": "Private ACL verification is exercised against the handle used for the bounded read."
+    }
+  ],
+  "successful_path_nodes": [
+    "sentientos/tests/test_windows_handle_custody.py::test_explicit_file_reader_returns_bounded_regular_file",
+    "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
+    "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_verifies_private_acl_on_open_handle"
+  ]
+}
