@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "615bf578db79fcd3afcb3136eb3833d371b6b87061b1de0ab767c5affc31c3a2",
-    "latest_segment_sequence": 480,
-    "latest_segment_sha256": "bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
-    "latest_sequence": 480,
-    "source_commit": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
-    "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824"
+    "checkpoint_sha256": "3639bb0424e39adfc14d92edb9e58d9751f599b226d28f061be445cd3407521e",
+    "latest_segment_sequence": 481,
+    "latest_segment_sha256": "824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
+    "latest_sequence": 481,
+    "source_commit": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
+    "source_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629"
   },
-  "checkpoint_sha256": "615bf578db79fcd3afcb3136eb3833d371b6b87061b1de0ab767c5affc31c3a2",
+  "checkpoint_sha256": "3639bb0424e39adfc14d92edb9e58d9751f599b226d28f061be445cd3407521e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 480,
+  "latest_sequence": 481,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5444,6 +5444,18 @@
       "sha256": "bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
       "source_commit": "3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a",
       "source_tree": "34a68f8edb8321eb7353ef17fcaeb3a591416824"
+    },
+    {
+      "bytes": 2987,
+      "evidence_bytes": 5203,
+      "evidence_path": "work/construction/evidence/0481-report-bounded-canonical-planning-omissions.json",
+      "evidence_sha256": "b935cb4600646938c6104b24919b247265648a56787780f37a6af5a540f2a288",
+      "path": "work/construction/segments/0481-report-bounded-canonical-planning-omissions.md",
+      "predecessor": "segment-sha256:bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
+      "sequence": 481,
+      "sha256": "824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
+      "source_commit": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
+      "source_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629"
     }
   ],
   "source_acquisition": {

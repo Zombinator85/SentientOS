@@ -1,0 +1,156 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "campaign_advanced": false,
+      "effect_performed": false,
+      "execution_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "daemon feedback reports the complete selected and deferred decision counts",
+      "the first-32 listing bound and omission counts are deterministic",
+      "allocation and work-plan evidence remain available for the complete result",
+      "planning does not execute goals or invoke a model"
+    ],
+    "outcome": "Exposes bounded canonical-planning list omissions in daemon feedback while preserving existing allocation evidence and authority boundaries."
+  },
+  "limitations": {
+    "current_main_scheduled_runs_observed": false,
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0480-expose-verified-campaign-report-observations-in-daemon-feedback.md",
+    "segment_sha256": "bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459",
+    "sequence": 480
+  },
+  "pull_request": {
+    "head_sha": "103fa019701d9b701d1c46b786a6b987c946ea0c",
+    "number": 2465,
+    "state": "merged",
+    "title": "fix: report bounded canonical planning omissions",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2465"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0481-report-bounded-canonical-planning-omissions.md",
+  "sequence": 481,
+  "source": {
+    "base_commit": "da65110d599b0a9b38ac0c57b1892724b8bd1c1b",
+    "base_tree": "ecbe81fe6f657fd15911d79d7cd0873d83366d5d",
+    "candidate_commit": "103fa019701d9b701d1c46b786a6b987c946ea0c",
+    "candidate_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629",
+    "merge_commit": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
+    "method": "merge",
+    "parents": [
+      "da65110d599b0a9b38ac0c57b1892724b8bd1c1b",
+      "103fa019701d9b701d1c46b786a6b987c946ea0c"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "b6f19e83139293c0bd83ba572fe42602fd9d79c2",
+      "sentientosd.py": "6843e919abaa011ee3e0b992a61305757c2c9e93"
+    },
+    "candidate_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629",
+    "changed_blobs": 2,
+    "main_ref": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
+    "main_tree": "f17a159f6ff06f554bf137f6d0e12b3579bf2629",
+    "ordered_parents": [
+      "da65110d599b0a9b38ac0c57b1892724b8bd1c1b",
+      "103fa019701d9b701d1c46b786a6b987c946ea0c"
+    ]
+  },
+  "title": "Report bounded canonical planning omissions",
+  "validation": {
+    "hosted_candidate": {
+      "acceptance_artifact": 12240181586,
+      "administrator_audits": true,
+      "audit_immutability": true,
+      "ci": "success",
+      "codex_ci": "success",
+      "docker": "success",
+      "effective_uid": 0,
+      "finalizer_artifact": 12239957069,
+      "invariants": "success",
+      "metadata_guard": "passed",
+      "quality_gate_artifact": 12239463691,
+      "quality_gate_run": 39366915257,
+      "source_validation": "success",
+      "task_acceptance_passed": 30,
+      "task_acceptance_total": 30
+    },
+    "local": {
+      "canonical_runner_focused_tests_passed": 10,
+      "compileall": "success",
+      "failures": 0,
+      "git_diff_check": "success",
+      "mypy_baseline_existing_errors": 1050,
+      "mypy_baseline_new_errors": 0,
+      "mypy_baseline_retired_errors": 40,
+      "skipped": 0
+    },
+    "post_merge": {
+      "build": {
+        "conclusion": "success",
+        "run": 39370355919
+      },
+      "ci": {
+        "conclusion": "success",
+        "run": 39370355966
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39370356017
+      },
+      "cpu_smoke": {
+        "conclusion": "success",
+        "run": 39370356008
+      },
+      "docker": {
+        "conclusion": "success",
+        "run": 39370355919
+      },
+      "docs": {
+        "conclusion": "success",
+        "run": 39370355966
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run": 39370355966
+      },
+      "forge_smoke": "skipped_by_condition",
+      "helm": {
+        "conclusion": "success",
+        "run": 39370355966
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39370355905
+      },
+      "main_head": "33058fd29d80b5f5ea89fcf46a4c2cce55de867f",
+      "quality_gate": {
+        "administrator_verified": true,
+        "artifact": 12241330817,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "run": 39370355903
+      },
+      "self_check": {
+        "conclusion": "success",
+        "run": 39370355966
+      },
+      "source_validation": {
+        "conclusion": "success",
+        "run": 39370355966
+      }
+    }
+  }
+}

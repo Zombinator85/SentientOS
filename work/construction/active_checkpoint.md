@@ -46,3 +46,18 @@ Latest verified source merge: `3b5be5a549fc3d1b4be1967d5f3a23d5f2136b2a`, tree `
 Latest construction segment: work/construction/segments/0480-expose-verified-campaign-report-observations-in-daemon-feedback.md
 Latest segment SHA-256: `bbe32402b2b3389a0e44f49eef9d66a43c5f2dafb45bcfd8c99258a15da8e459`
 Sequence: 480
+
+## Sequence 481 — bounded canonical-planning omission reporting
+
+PR #2465 reports complete selected/deferred counts, listing bound, and deterministic omission counts in daemon planning feedback. The full allocation remains available through existing evidence. Exact-candidate acceptance, metadata guard, hosted Administrator strict audits and immutability, local focused tests, compilation, Mypy baseline, and all candidate checks passed. Regular merge `33058fd29d80b5f5ea89fcf46a4c2cce55de867f` preserves ordered parents `da65110d599b0a9b38ac0c57b1892724b8bd1c1b` and `103fa019701d9b701d1c46b786a6b987c946ea0c`; GitHub reports a valid signature. Post-merge CI, Quality Gate, source validation, self-check, invariants, docs, Docker, Helm, and CPU smoke passed.
+
+At 2026-10-20T04:38:49Z, no scheduled Federation Health or nightly audit/self-check execution was present on this main head. Federation Health publication remains blocked by the repository Actions-token PR setting; prior nightly passes are bound to older heads. See the sequence evidence for run IDs and limits.
+
+Next, expose the verified prior-epistemic projection digest in daemon planning feedback and prove it matches same-tick work-plan evidence. No production inference, campaign, or transition execution is claimed. Protected and stale workspaces remain untouched.
+
+Latest verified source merge: `33058fd29d80b5f5ea89fcf46a4c2cce55de867f`, tree `f17a159f6ff06f554bf137f6d0e12b3579bf2629`
+Latest construction segment: work/construction/segments/0481-report-bounded-canonical-planning-omissions.md
+Latest segment SHA-256: `824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78`
+Sequence: 481
+Latest construction segment: work/construction/segments/0481-report-bounded-canonical-planning-omissions.md
+Latest segment SHA-256: `824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78`
