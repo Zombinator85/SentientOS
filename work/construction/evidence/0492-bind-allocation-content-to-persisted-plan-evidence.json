@@ -121,16 +121,34 @@
     },
     "post_merge": {
       "checks": {
-        "ci": {"conclusion": "success", "run": 39398739094},
-        "cpu_smoke": {"conclusion": "success", "run": 39398738960},
-        "deployment": {"conclusion": "success", "run": 39398738990},
-        "docker_builds": [
-          {"conclusion": "success", "run": 39398738769},
-          {"conclusion": "success", "run": 39398738990}
-        ],
-        "forge_smoke": {"conclusion": "skipped_by_condition", "run": 39398739225},
-        "invariants": {"conclusion": "success", "run": 39398739054},
-        "quality_gate": {"conclusion": "success", "run": 39398738886}
+        "ci": {
+          "conclusion": "success",
+          "run": 39398739094
+        },
+        "cpu_smoke": {
+          "conclusion": "success",
+          "run": 39398738960
+        },
+        "deployment": {
+          "conclusion": "success",
+          "run": 39398738990
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39398738769
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39398739225
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39398739054
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39398738886
+        }
       },
       "main_head": "2adf59db661779ba8d62d5d8417381f442fdbaf0",
       "main_tree": "04ad88a8f5a002e10409f721c3f5f0947dc7ebe8"

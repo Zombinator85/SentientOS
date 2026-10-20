@@ -5578,9 +5578,9 @@
     },
     {
       "bytes": 3416,
-      "evidence_bytes": 5843,
+      "evidence_bytes": 5967,
       "evidence_path": "work/construction/evidence/0492-bind-allocation-content-to-persisted-plan-evidence.json",
-      "evidence_sha256": "97c92bbed3bec63fcf9f71642d92de5d911a10f6b56ce6b5b246002578c56114",
+      "evidence_sha256": "9be0c2ec3aeb9fb76e928846363542d6ec44b8c41ed506036bbd9f13e203dc87",
       "path": "work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md",
       "predecessor": "segment-sha256:6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8",
       "sequence": 492,
