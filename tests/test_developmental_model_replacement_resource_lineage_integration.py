@@ -159,8 +159,12 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         }
         assert all(row["payload"]["model_attribution"]["invocation_model_id"].startswith("lma-")
             for row in joined)
+        assert all(row["payload"]["software_attribution"]["declared_generation"]
+            == "synthetic-rehearsal" for row in joined)
         assert all(row["payload"]["software_attribution"]["generation_posture"]
-            == "not_bound_by_selected_protocol" for row in joined)
+            == "frozen_context_declaration_not_running_observation" for row in joined)
+        assert all(row["payload"]["software_attribution"]["execution_provenance_digest"]
+            is None for row in joined)
         assert all(row["payload"]["task_outcome"]["posture"]
             == "run_owner_score_bound_to_condition" for row in joined)
         assert all(row["payload"]["task_outcome"]["inference_receipt_id"]
