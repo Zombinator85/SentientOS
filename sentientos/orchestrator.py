@@ -43,7 +43,7 @@ from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 from sentientos.work_allocator import AllocationDecision, allocate_goals
 from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
-    PersistentEpistemicStateOwner)
+    MAX_COGNITIVE_PROJECTION_PRIORITIES, PersistentEpistemicStateOwner)
 from sentientos.local_model_authority import digest_payload
 from sentientos.work_plan import (WorkPlan, WorkPlanError, load_work_plan,
     load_work_plan_evidence, load_work_run, persist_work_plan,
@@ -193,6 +193,8 @@ def _goal_tagged_epistemic_positions(graph: GoalGraph) -> tuple[str, ...]:
                 continue
             seen.add(proposition_id)
             priorities.append(proposition_id)
+            if len(priorities) == MAX_COGNITIVE_PROJECTION_PRIORITIES:
+                return tuple(priorities)
     return tuple(priorities)
 
 
