@@ -1,0 +1,49 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "persisted plan evidence binds allocation path and digest to ExecutorState",
+      "mismatched allocation path or digest is rejected before journal creation and task invocation",
+      "tampered allocation bytes are rejected before execution effects",
+      "existing mutation authority checks remain intact"
+    ],
+    "outcome": "The executor verifies canonical allocation identity before opening journals or invoking tasks."
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md",
+    "segment_sha256": "206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781",
+    "sequence": 492
+  },
+  "pull_request": {
+    "candidate_commit": "634fb566840e2470866eaab289ba2035ac3665c7",
+    "candidate_tree": "87ae91ae4c3ad9d3ffcfc46a1a838bdc75c0397b",
+    "merge_commit": "0f735ff5eb2fddee934f220aec4262beb3d1cb86",
+    "number": 2488,
+    "preserved_commit_history": true,
+    "status": "merged"
+  },
+  "source_commit": "0f735ff5eb2fddee934f220aec4262beb3d1cb86",
+  "source_tree": "87ae91ae4c3ad9d3ffcfc46a1a838bdc75c0397b",
+  "tests": {
+    "affected_local_tests_passed": 46,
+    "compileall": "passed",
+    "diff_check": "passed",
+    "hosted_acceptance": "passed",
+    "hosted_candidate_checks": "passed",
+    "hosted_immutability": "passed",
+    "hosted_privileged_audit": "passed"
+  },
+  "title": "Executor enforces canonical allocation identity before effects"
+}
