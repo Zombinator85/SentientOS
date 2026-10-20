@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - ".github/workflows/nightly-self-check.yml"
+      - "audit_chain.py"
+      - "audit_immutability.py"
       - "glow/contracts/canonical_typing_baseline.json"
       - "mypy.ini"
       - "privilege_lint_cli.py"
@@ -13,7 +15,9 @@ on:
       - "requirements-codex.txt"
       - "scripts/analyze_test_provenance.py"
       - "scripts/check_mypy_baseline.py"
+      - "scripts/cli_common.py"
       - "scripts/mypy_baseline_common.py"
+      - "scripts/provenance_hash_chain.py"
       - "scripts/pytest_airlock_guard.py"
       - "scripts/run_tests.py"
       - "scripts/verify_audits.py"
