@@ -3117,6 +3117,115 @@ class RuntimeMaintenanceSurfaces:
                     "reason": "binding_planning_failed", "error_class": type(exc).__name__,
                     **unavailable}
 
+    def plan_production_self_reflection_transition_stage_admission(
+            self, request_id: str,
+            stage_approval: Mapping[str, Any]) -> dict[str, Any]:
+        """Correlate a verified transition plan with one supplied approval, read-only."""
+        from sentientos.production_self_reflection_campaign import (
+            ProductionSelfReflectionCampaign, ProductionSelfReflectionError,
+            ProductionSelfReflectionTransitionBindingObserver,
+        )
+
+        unavailable = {
+            "schema_version":
+                "sentientos.production_self_reflection_transition_stage_admission_plan:v1",
+            "status": "transition_stage_admission_unavailable",
+            "effect_performed": False, "execution_allowed": False,
+            "campaign_advanced": False,
+            "grants_authority": False, "approval_selected": False,
+            "approval_minted": False,
+            "transition_request_origin_authenticated": False,
+            "stage_approval_origin_authenticated": False,
+            "live_owner_revalidation_required": True, "read_only": True,
+        }
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(stage_approval, Mapping)):
+            return {**unavailable, "reason": "request_or_stage_approval_invalid"}
+        configured_root = os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT")
+        if not configured_root:
+            return {**unavailable, "status": "not_configured"}
+        campaign_root = Path(configured_root)
+        if not campaign_root.is_absolute():
+            return {**unavailable, "reason": "campaign_root_must_be_absolute"}
+        transition_owner = self._resident_transition_runtime
+        if transition_owner is None:
+            return {**unavailable, "reason": "resident_transition_owner_unavailable"}
+        admission_planner = getattr(transition_owner, "plan_stage_admission", None)
+        if not callable(admission_planner):
+            return {**unavailable, "reason": "stage_admission_planner_unavailable"}
+        try:
+            campaign = ProductionSelfReflectionCampaign.open_for_read_only_inspection(
+                campaign_root)
+            observer = ProductionSelfReflectionTransitionBindingObserver(
+                campaign, transition_owner)
+            transition_plan = dict(observer.plan_next_stage(request_id))
+            if (transition_plan.get("status") != "next_stage_planned"
+                    or transition_plan.get("receipt_request_id") != request_id):
+                return {**unavailable, "reason": "transition_stage_plan_not_ready",
+                        "plan_status": transition_plan.get("status")}
+            trial_id = transition_plan.get("transition_request_trial_id")
+            if (not isinstance(trial_id, str) or not trial_id
+                    or transition_plan.get("campaign_next_trial_id") != trial_id
+                    or transition_plan.get("campaign_trial_in_progress") is not True):
+                return {**unavailable, "reason": "transition_stage_plan_trial_unbound"}
+            plan_digest = transition_plan.get("plan_digest")
+            operator_authentication = transition_plan.get("operator_authentication")
+            if (not isinstance(plan_digest, str) or not plan_digest
+                    or not isinstance(operator_authentication, Mapping)):
+                return {**unavailable, "reason": "transition_stage_plan_identity_unverified"}
+            binding = dict(campaign.bind_verified_transition_plan_to_active_trial(
+                transition_plan, request_id=request_id, trial_id=trial_id,
+                transition_owner=transition_owner))
+            if (binding.get("status") != "active_trial_stage_bound"
+                    or not isinstance(binding.get("binding_digest"), str)
+                    or not binding.get("binding_digest")
+                    or binding.get("transition_plan_digest") != plan_digest
+                    or binding.get("operator_authentication") != operator_authentication):
+                return {**unavailable, "reason": "active_trial_binding_unverified"}
+            approval_plan = admission_planner(stage_approval)
+            if (not isinstance(approval_plan, Mapping)
+                    or approval_plan.get("status")
+                        != "stage_approval_candidate_state_bound"):
+                return {**unavailable, "reason": "stage_approval_candidate_unverified",
+                        "approval_plan_status": (
+                            approval_plan.get("status")
+                            if isinstance(approval_plan, Mapping) else None)}
+            planned_stage = transition_plan.get("next_stage")
+            approval_digest = approval_plan.get("approval_digest")
+            if (not isinstance(planned_stage, str) or not planned_stage
+                    or approval_plan.get("requested_stage") != planned_stage
+                    or approval_plan.get("current_phase")
+                        != transition_plan.get("prior_stage")):
+                return {**unavailable, "reason": "stage_approval_not_bound_to_plan",
+                        "planned_stage": planned_stage,
+                        "approval_stage": approval_plan.get("requested_stage"),
+                        "approval_current_phase": approval_plan.get("current_phase")}
+            if not isinstance(approval_digest, str) or not approval_digest:
+                return {**unavailable, "reason": "stage_approval_digest_unavailable"}
+            current_plan = dict(observer.plan_next_stage(request_id))
+            if current_plan != transition_plan:
+                return {**unavailable, "reason": "transition_stage_plan_changed_during_inspection"}
+            result = {
+                **unavailable,
+                "status": "stage_admission_candidate_aligned",
+                "request_id": request_id,
+                "campaign_trial_id": trial_id,
+                "transition_plan_digest": plan_digest,
+                "active_trial_binding_digest": binding.get("binding_digest"),
+                "planned_stage": planned_stage,
+                "stage_approval_digest": approval_digest,
+                "approval_posture": approval_plan.get("approval_posture"),
+                "operator_authentication": transition_plan.get("operator_authentication"),
+                "transition_request_origin_authenticated": True,
+                "stage_approval_origin_authenticated": False,
+            }
+            return _plain_transition_projection(result)
+        except ProductionSelfReflectionError as exc:
+            return {**unavailable, "reason": exc.code}
+        except Exception as exc:
+            return {**unavailable, "reason": "stage_admission_inspection_failed",
+                    "error_class": type(exc).__name__}
+
     def expand(self) -> list[Any]:
         evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
         genesis_inputs = evaluation.genesis_inputs
