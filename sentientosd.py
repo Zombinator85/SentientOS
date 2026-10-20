@@ -2798,6 +2798,8 @@ class RuntimeMaintenanceSurfaces:
                 "allocation_artifact_path": result.allocation_artifact_path,
                 "prior_epistemic_projection_digest": (
                     result.allocation.prior_epistemic_projection_digest),
+                "prior_epistemic_projection_omitted_state_count": (
+                    result.allocation.prior_epistemic_projection_omitted_state_count),
                 "selected_goals": list(selected_goals[:goal_decision_limit]),
                 "selected_goal_count": len(selected_goals),
                 "omitted_selected_goal_count": max(
