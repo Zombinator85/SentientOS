@@ -1,0 +1,39 @@
+name: Windows Custody
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-custody.yml"
+      - "requirements-codex.txt"
+      - "sentientos/windows_handle_custody.py"
+      - "sentientos/work_plan.py"
+      - "sentientos/tests/test_windows_handle_custody.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/windows-custody.yml"
+      - "requirements-codex.txt"
+      - "sentientos/windows_handle_custody.py"
+      - "sentientos/work_plan.py"
+      - "sentientos/tests/test_windows_handle_custody.py"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-custody:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install canonical test dependencies
+        run: "python -m pip install --only-binary=:all: -r requirements-codex.txt"
+      - name: Install this checkout as the tested package
+        run: python -m pip install --no-deps -e .
+      - name: Run Windows custody regressions
+        run: python -m scripts.run_tests sentientos/tests/test_windows_handle_custody.py -q
