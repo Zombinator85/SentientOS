@@ -1,0 +1,138 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "daemon feedback exposes target model identity digest and observation time",
+      "changed model leaves prior positive evidence visible but defers selection",
+      "allocation artifact records unresolved applicability and position identity",
+      "no serving session, model invocation, execution, authority, or work run artifact"
+    ],
+    "outcome": "Daemon feedback now reports the bound model identity digest and observation time used for a model specific historical decision."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "health_report_job": "success",
+      "publish_job": "failure",
+      "run_id": 39378086813
+    },
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T07:55:27Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0490-fail-closed-on-daemon-model-identity-drift.md",
+    "segment_sha256": "443159edb29800aa9ca2e2329b4c99d28414801d116f5b64ad00f772dfbda25c",
+    "sequence": 490
+  },
+  "pull_request": {
+    "head_sha": "e26d85082c19b9c5ced1bc924ece184556883602",
+    "number": 2482,
+    "state": "merged",
+    "title": "[codex:epistemic] expose model identity in planning feedback",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2482"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md",
+  "sequence": 491,
+  "source": {
+    "base_commit": "d7db09da4567f2977575a17d3356dc0ac128fab2",
+    "base_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8",
+    "candidate_commit": "e26d85082c19b9c5ced1bc924ece184556883602",
+    "candidate_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b",
+    "merge_commit": "6046002357a51cf5f96fa5ec4b067155b3024040",
+    "method": "merge",
+    "parents": [
+      "d7db09da4567f2977575a17d3356dc0ac128fab2",
+      "e26d85082c19b9c5ced1bc924ece184556883602"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "080c45c755bf73a329a91ee567d616c843d85918",
+      "sentientosd.py": "c4bb4736818d31382493862afbe2371fed3b8091"
+    },
+    "candidate_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b",
+    "changed_blobs": 2,
+    "main_ref": "6046002357a51cf5f96fa5ec4b067155b3024040",
+    "main_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "d7db09da4567f2977575a17d3356dc0ac128fab2",
+      "e26d85082c19b9c5ced1bc924ece184556883602"
+    ]
+  },
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39388875162,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "focused_affected_tests_failed": 0,
+      "focused_affected_tests_passed": 62,
+      "focused_affected_tests_skipped": 4,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 1050,
+      "full_mypy_retired": 40,
+      "new_regression": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39389343072
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39389343098
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39389343140
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39389343113
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39389343043
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39389343039
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39389343040
+        }
+      },
+      "main_head": "6046002357a51cf5f96fa5ec4b067155b3024040",
+      "main_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b"
+    }
+  }
+}

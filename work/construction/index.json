@@ -1,21 +1,21 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "6bc29d3c31057ba3f66769d87c14ff50daa7cd6fe4214b52732bbda6b6fc6733",
-    "latest_segment_sequence": 488,
-    "latest_segment_sha256": "59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
-    "latest_sequence": 488,
-    "source_commit": "0b6f97752ce2da7229661174dd75fda61ae267f0",
-    "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1"
+    "checkpoint_sha256": "c6086db5c8ecefdb3ca24e30e07bf8d09c15505dab39756329487784ecc9bba7",
+    "latest_segment_sequence": 491,
+    "latest_segment_sha256": "6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8",
+    "latest_sequence": 491,
+    "source_commit": "6046002357a51cf5f96fa5ec4b067155b3024040",
+    "source_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b"
   },
-  "checkpoint_sha256": "6bc29d3c31057ba3f66769d87c14ff50daa7cd6fe4214b52732bbda6b6fc6733",
+  "checkpoint_sha256": "c6086db5c8ecefdb3ca24e30e07bf8d09c15505dab39756329487784ecc9bba7",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 488,
+  "latest_sequence": 491,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5540,6 +5540,42 @@
       "sha256": "59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
       "source_commit": "0b6f97752ce2da7229661174dd75fda61ae267f0",
       "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1"
+    },
+    {
+      "bytes": 2342,
+      "evidence_bytes": 5047,
+      "evidence_path": "work/construction/evidence/0489-verify-positive-history-in-recovered-daemon-planning.json",
+      "evidence_sha256": "f63427efd6d634522befe1ea4c6448a7939a4e8c4f026850c53c51f800065d56",
+      "path": "work/construction/segments/0489-verify-positive-history-in-recovered-daemon-planning.md",
+      "predecessor": "segment-sha256:59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e",
+      "sequence": 489,
+      "sha256": "72eea69e3c53a65a4cb16ab6f0bd60bda8f4ef52d84a56b3414b997f90fe1a5e",
+      "source_commit": "405f620e06285d99f81fdaa1189bd8df443d9320",
+      "source_tree": "034e2daed0795337ac4e50a350a31380c1ede85a"
+    },
+    {
+      "bytes": 2214,
+      "evidence_bytes": 4973,
+      "evidence_path": "work/construction/evidence/0490-fail-closed-on-daemon-model-identity-drift.json",
+      "evidence_sha256": "a7ca1fac8e25d5682cb25e8c28259169f7a13198f38cc31b6dafa4ef34a30ce0",
+      "path": "work/construction/segments/0490-fail-closed-on-daemon-model-identity-drift.md",
+      "predecessor": "segment-sha256:72eea69e3c53a65a4cb16ab6f0bd60bda8f4ef52d84a56b3414b997f90fe1a5e",
+      "sequence": 490,
+      "sha256": "443159edb29800aa9ca2e2329b4c99d28414801d116f5b64ad00f772dfbda25c",
+      "source_commit": "d7db09da4567f2977575a17d3356dc0ac128fab2",
+      "source_tree": "71872aa0a18ac80af1648e5358d0af0d855583c8"
+    },
+    {
+      "bytes": 2477,
+      "evidence_bytes": 4992,
+      "evidence_path": "work/construction/evidence/0491-surface-model-identity-in-daemon-planning-feedback.json",
+      "evidence_sha256": "9f635e7ae247a66e0ea727b59db4ccfd0ec2a81e2963f4eb2113244e80626f7d",
+      "path": "work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md",
+      "predecessor": "segment-sha256:443159edb29800aa9ca2e2329b4c99d28414801d116f5b64ad00f772dfbda25c",
+      "sequence": 491,
+      "sha256": "6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8",
+      "source_commit": "6046002357a51cf5f96fa5ec4b067155b3024040",
+      "source_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b"
     }
   ],
   "source_acquisition": {
@@ -5549,7 +5585,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "a0b20e55bcae4940cb2697dadf2b1d54d4f980a1",
+  "source_tree": "00d600c2cb55c41e3829b9cba02efb4c821ff87b",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
