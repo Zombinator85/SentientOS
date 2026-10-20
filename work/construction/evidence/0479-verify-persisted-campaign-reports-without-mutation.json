@@ -1,0 +1,162 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "mailbox_processed": false,
+      "read_only": true
+    },
+    "checks": [
+      "existing completed report is verified against canonical campaign state",
+      "immutable trial receipt, protocol, and transition-stage bindings are checked",
+      "exact bytes and digests are checked",
+      "historical v1 report support is preserved",
+      "verification has no create, recovery, repair, trial, execution, or authority effects"
+    ],
+    "outcome": "Adds a read-only API and CLI that verifies an existing completed report against canonical campaign state and immutable trial receipt, protocol, and transition-stage bindings. Verification checks exact bytes and digests and supports historical v1 reports. It does not create, recover, repair, run a trial, execute, or grant authority."
+  },
+  "limitations": {
+    "historical_test_provenance_integrity_broken": true,
+    "operational_note": "At capture time 2026-10-20T03:22:03Z, the standard post-merge CI run #39363578405 is still in progress and no scheduled workflow run on main head 5164520ece5820b525942e3b57e56ebbbd0b24f is present.",
+    "operational_observations_pending": true,
+    "private_signing_key_shipped": false,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_operator_catalog_provisioned": false,
+    "production_request_exercised": false,
+    "protected_workspace_modified": false,
+    "sequence_286_loss_resolved": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0478-expose-verified-transition-provenance-in-campaign-reports.md",
+    "segment_sha256": "a12309fe58266011bd45f261673b719ad8cd31bdb0212e63fd74b6b3cf073198",
+    "sequence": 478
+  },
+  "pull_request": {
+    "head_sha": "fa697b515176e9ceab02de8f81520b554cd71d77",
+    "number": 2461,
+    "state": "merged",
+    "title": "[codex:campaign] verify persisted reports without mutation",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2461"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0479-verify-persisted-campaign-reports-without-mutation.md",
+  "sequence": 479,
+  "source": {
+    "base_commit": "1baef37e6ac608f018b595123c86930d1f616a7c",
+    "base_tree": "b0bbd779fcd9e803b2b6cdbebe82eb50f6cd1f68",
+    "candidate_commit": "fa697b515176e9ceab02de8f81520b554cd71d77",
+    "candidate_tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d",
+    "merge_commit": "5164520ece5820b525942e3b57e56ebbbd0b24f3",
+    "method": "merge",
+    "parents": [
+      "1baef37e6ac608f018b595123c86930d1f616a7c",
+      "fa697b515176e9ceab02de8f81520b554cd71d77"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      ".github/workflows/ci.yml": "9bd5ea833cfe116b9bffcb92b804111e0126b1fd",
+      "docs/development/production_self_reflection_campaign.md": "a1ac1c73872f823c2dbb2a82e70ebb3ae7119d6a",
+      "scripts/verify_campaign_report.py": "a618f13f5d68654fdd20f01d922ccb9471311434",
+      "sentientos/production_self_reflection_campaign.py": "d1c6ebeda80a4d05865a763b9d2bd9cdbecbb3a9",
+      "sentientos/read_only_campaign_report_verification.py": "40d9dc570b4e607e6866f5c505f860d16bc59318",
+      "tests/test_github_hosted_acceptance_workflows.py": "590032f8835ad868bc542adbe3301278a2254dc9",
+      "tests/test_production_self_reflection_campaign.py": "938453366856db0724e6e5589d7f2a1fca4fbaed",
+      "tests/test_production_self_reflection_campaign_cli.py": "d55a7b5482feedef7eaa65b9992c88da0f017787"
+    },
+    "candidate_tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d",
+    "changed_blobs": 8,
+    "main_ref": "5164520ece5820b525942e3b57e56ebbbd0b24f3",
+    "main_tree": "118dc8d56abb4536b3499a104a009561e5dfdd0d",
+    "ordered_parents": [
+      "1baef37e6ac608f018b595123c86930d1f616a7c",
+      "fa697b515176e9ceab02de8f81520b554cd71d77"
+    ]
+  },
+  "title": "Verify persisted campaign reports without mutation",
+  "validation": {
+    "hosted": {
+      "administrator_audits": true,
+      "audit_immutability": true,
+      "ci": {
+        "conclusion": "success",
+        "run": 39361357650
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run": 39361357527
+      },
+      "docker": {
+        "conclusion": "success",
+        "run": 39361357585
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39361357568
+      },
+      "lint": {
+        "conclusion": "success",
+        "run": 39361357551
+      },
+      "metadata_guard": "passed",
+      "post_merge": {
+        "ci": {
+          "run": 39363578405,
+          "status": "in_progress"
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39363578420
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39363578433
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39363578480
+        },
+        "main_head": "5164520ece5820b525942e3b57e56ebbbd0b24f3",
+        "quality_gate": {
+          "administrator_verified": true,
+          "artifact": 12237793684,
+          "audit_immutability": true,
+          "conclusion": "success",
+          "effective_uid": 0,
+          "run": 39363578335
+        }
+      },
+      "quality_gate": {
+        "conclusion": "success",
+        "run": 39361357524
+      },
+      "release_validation": {
+        "conclusion": "success",
+        "run": 39361357648
+      },
+      "self_check": {
+        "artifact": 12237237726,
+        "failures": 0,
+        "skipped": 13,
+        "tests_passed": 143
+      },
+      "task_acceptance": true
+    },
+    "local": {
+      "compileall": "success",
+      "failures": 0,
+      "focused_tests_passed": 95,
+      "full_suite": "not claimed; local larger suite was interrupted",
+      "mypy_baseline_new_errors": 0,
+      "workflow_yaml_parse": "success"
+    }
+  }
+}
