@@ -2800,6 +2800,10 @@ class RuntimeMaintenanceSurfaces:
                     result.allocation.prior_epistemic_projection_digest),
                 "prior_epistemic_projection_omitted_state_count": (
                     result.allocation.prior_epistemic_projection_omitted_state_count),
+                "prior_epistemic_priority_overflowed": (
+                    result.allocation.prior_epistemic_priority_overflowed),
+                "prior_epistemic_priority_limit": (
+                    result.allocation.prior_epistemic_priority_limit),
                 "selected_goals": list(selected_goals[:goal_decision_limit]),
                 "selected_goal_count": len(selected_goals),
                 "omitted_selected_goal_count": max(

@@ -176,6 +176,11 @@ class GoalPlanner:
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }
+        if allocation.prior_epistemic_priority_overflowed is not None:
+            epistemic_binding["prior_epistemic_priority_admission"] = {
+                "overflowed": allocation.prior_epistemic_priority_overflowed,
+                "limit": allocation.prior_epistemic_priority_limit,
+            }
         omission_manifest = (getattr(state.prior_epistemic_projection,
             "omission_manifest", None) if state.prior_epistemic_projection is not None else None)
         if omission_manifest is not None:
