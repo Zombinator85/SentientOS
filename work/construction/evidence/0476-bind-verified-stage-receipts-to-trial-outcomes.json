@@ -1,0 +1,196 @@
+{
+  "behavior": {
+    "authority": {
+      "approval_minted": false,
+      "approval_selected": false,
+      "campaign_advanced": false,
+      "execution_allowed": false,
+      "grants_authority": false,
+      "live_owner_revalidation_required": true,
+      "mailbox_processed": false,
+      "read_only": true,
+      "stage_approval_origin_authenticated": false
+    },
+    "checks": [
+      "canonical transition plan and campaign state digest are revalidated",
+      "request, active trial, phase, and receipt identity match",
+      "operator authentication, semantic journal entry, and live transition owner are revalidated",
+      "intermediate and final stage boundaries are supported",
+      "changed owner and stale state fail closed"
+    ],
+    "projection": "read-only binding of a verified completed-stage receipt to its active trial"
+  },
+  "limitations": {
+    "historical_test_provenance_integrity_broken": true,
+    "nightly_audit_on_sequence_476_head_observed": false,
+    "nightly_self_check_on_sequence_476_head_observed": false,
+    "post_merge_federation_health_on_sequence_476_head_observed": false,
+    "private_signing_key_shipped": false,
+    "production_campaign_execution_initiated": false,
+    "production_operator_catalog_provisioned": false,
+    "production_request_exercised": false,
+    "protected_workspace_modified": false,
+    "sequence_286_loss_resolved": false,
+    "stage_approval_origin_authenticated": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0475-correlate-stage-admission-with-authenticated-planning.md",
+    "segment_sha256": "1230dfb9bef46f0a47dd62ff8d434648cbc3739c0ca4480d9c5c023658f0d655",
+    "sequence": 475
+  },
+  "pull_request": {
+    "head_sha": "8a34683b0fcab0d42ccc3fe19ca3c40dcb495a05",
+    "number": 2456,
+    "state": "merged",
+    "title": "[codex:construction] bind verified stage receipts to active trial",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2456"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0476-bind-verified-stage-receipts-to-trial-outcomes.md",
+  "sequence": 476,
+  "source": {
+    "base_commit": "c1466a0d9a9d081d0d03d7d13a929a117626239d",
+    "base_tree": "d5fb721cb4e91a999bb7e5ee56548b252a7ce78c",
+    "candidate_commit": "8a34683b0fcab0d42ccc3fe19ca3c40dcb495a05",
+    "candidate_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32",
+    "merge_commit": "9c28410a1341949c4cf89249e7c87f73902ac1a4",
+    "method": "merge",
+    "parents": [
+      "c1466a0d9a9d081d0d03d7d13a929a117626239d",
+      "8a34683b0fcab0d42ccc3fe19ca3c40dcb495a05"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      ".github/workflows/ci.yml": "87c06a89e447ebd4927fb58b77a2bda038a3f229",
+      "sentientos/production_self_reflection_campaign.py": "db554e7d518d46cf1e8e53cbb25bdb3f70a9894e",
+      "tests/test_github_hosted_acceptance_workflows.py": "6b65345116ad536244f23faa9fe6ac3eae6be3c1",
+      "tests/test_production_self_reflection_campaign.py": "2e7b66a59936aee1f9ca6f6c384b38ba18e809a5"
+    },
+    "candidate_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32",
+    "changed_blobs": 4,
+    "commit_signature_verified": true,
+    "main_ref": "9c28410a1341949c4cf89249e7c87f73902ac1a4",
+    "main_tree": "84c766b72db3081e2a04b7a9a2e6cc367c727d32",
+    "ordered_parents": [
+      "c1466a0d9a9d081d0d03d7d13a929a117626239d",
+      "8a34683b0fcab0d42ccc3fe19ca3c40dcb495a05"
+    ]
+  },
+  "title": "Bind verified stage receipts to the active trial",
+  "validation": {
+    "local": {
+      "affected_test_files": 3,
+      "canonical_runner": "python -m scripts.run_tests",
+      "compileall": "success",
+      "mypy_note": "local baseline comparison had no new errors; hosted exact-candidate baseline ratchet passed",
+      "tests_passed": 66
+    },
+    "post_merge": {
+      "ci_jobs": {
+        "active_trial_stage_receipt_binding": "success",
+        "helm_integration": "success",
+        "integrated_resource_to_cognition_lifecycle": "success",
+        "mypy_baseline_ratchet": "success",
+        "planning_execution_separation": "success",
+        "pytest_with_coverage": "success",
+        "self_check": "success",
+        "source_validation": "success",
+        "sphinx_linkcheck": "success"
+      },
+      "main_head": "9c28410a1341949c4cf89249e7c87f73902ac1a4",
+      "runs": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39351144135
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39351144171
+        },
+        "docker": {
+          "conclusion": "success",
+          "run": 39351144120
+        },
+        "docs_deploy": {
+          "conclusion": "success",
+          "run": 39351144088
+        },
+        "forge_smoke": {
+          "conclusion": "skipped",
+          "run": 39351144107
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39351144106
+        },
+        "required_quality_gate": {
+          "conclusion": "success",
+          "run": 39351144165
+        }
+      },
+      "source_validation_artifact": 12233750291
+    },
+    "prepublication": {
+      "artifacts": {
+        "evidence": 12233246503,
+        "exact_acceptance": 12232274230,
+        "finalizer": 12233326519
+      },
+      "exact_acceptance": true,
+      "hosted_administrator_audits": true,
+      "hosted_audit_immutability": true,
+      "hosted_pr_landing_finalizer": true,
+      "metadata_guard_status": "passed",
+      "pull_request_checks": {
+        "ci": {
+          "conclusion": "success",
+          "run": 39350622605
+        },
+        "codex_ci": {
+          "conclusion": "success",
+          "run": 39350622646
+        },
+        "conditional_publish": "skipped",
+        "docker": {
+          "conclusion": "success",
+          "run": 39350622604
+        },
+        "docs": {
+          "conclusion": "success",
+          "run": 39350622605
+        },
+        "gradient_null_tests": {
+          "conclusion": "success",
+          "run": 39350622642
+        },
+        "helm": {
+          "conclusion": "success",
+          "run": 39350622605
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39350622564
+        },
+        "lint": {
+          "conclusion": "success",
+          "run": 39350622646
+        },
+        "release_validation": {
+          "conclusion": "success",
+          "run": 39350622572
+        }
+      },
+      "quality_gate_conclusion": "success",
+      "quality_gate_runs": [
+        39350622631,
+        39350617019
+      ],
+      "separate_metadata_guard": true
+    }
+  }
+}
