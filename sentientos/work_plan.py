@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import tempfile
 from typing import Any, Mapping
 
 
@@ -340,32 +341,55 @@ def _read_bounded_regular_file(path: Path, *, maximum: int, error_prefix: str) -
 
 
 def _write_bytes_once(path: Path, value: bytes) -> bool:
-    """Publish one immutable evidence binding sidecar without following links."""
+    """Atomically publish one immutable evidence sidecar without following links."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    temporary: Path | None = None
     try:
-        descriptor = os.open(path, flags, 0o600)
-    except FileExistsError:
-        existing = _read_bounded_regular_file(
-            path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
-            error_prefix="work_plan_evidence_binding_sidecar")
-        if existing != value:
-            raise WorkPlanError("work_plan_evidence_binding_sidecar_identity_conflict")
-        return False
-    except OSError as exc:
-        raise WorkPlanError("work_plan_evidence_binding_sidecar_write_failed") from exc
-    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+        temporary = Path(temporary_name)
         remaining = memoryview(value)
-        while remaining:
-            written = os.write(descriptor, remaining)
-            if written <= 0:
-                raise OSError("short_write")
-            remaining = remaining[written:]
+        with os.fdopen(descriptor, "wb") as handle:
+            while remaining:
+                written = handle.write(remaining)
+                if written <= 0:
+                    raise OSError("short_write")
+                remaining = remaining[written:]
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            existing = _read_bounded_regular_file(
+                path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+                error_prefix="work_plan_evidence_binding_sidecar")
+            if existing != value:
+                raise WorkPlanError(
+                    "work_plan_evidence_binding_sidecar_identity_conflict")
+            created = False
+        else:
+            created = True
+        directory_fd = os.open(
+            path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        return created
+    except WorkPlanError:
+        raise
     except OSError as exc:
         raise WorkPlanError("work_plan_evidence_binding_sidecar_write_failed") from exc
     finally:
-        os.close(descriptor)
-    return True
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                # The immutable published sidecar remains authoritative. An
+                # orphan temporary file is never read as canonical evidence.
+                pass
 
 
 def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -118,3 +119,30 @@ def test_large_epistemic_evidence_sidecar_tampering_fails_closed(tmp_path: Path)
 
     with pytest.raises(WorkPlanError, match="work_plan_evidence_binding_sidecar_digest_mismatch"):
         load_work_plan_evidence(tmp_path, plan)
+
+def test_interrupted_sidecar_write_leaves_no_partial_canonical_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, evidence_binding = _large_projection_bound_plan()
+    original_fsync = os.fsync
+
+    def fail_before_sidecar_publication(_descriptor: int) -> None:
+        raise OSError("simulated interruption before atomic sidecar publication")
+
+    monkeypatch.setattr(os, "fsync", fail_before_sidecar_publication)
+    with pytest.raises(WorkPlanError,
+            match="work_plan_evidence_binding_sidecar_write_failed"):
+        persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_dir = tmp_path / WORK_PLAN_EVIDENCE_DIR
+    assert not (evidence_dir / f"binding_{plan_key}.json").exists()
+    assert not (evidence_dir / f"evidence_{plan_key}.json").exists()
+    assert not list(evidence_dir.glob(f".binding_{plan_key}.json.*.tmp"))
+
+    monkeypatch.setattr(os, "fsync", original_fsync)
+    evidence_path, digest = persist_work_plan_evidence(
+        tmp_path, plan, evidence_binding)
+    assert digest == load_work_plan_evidence(tmp_path, plan)["evidence_digest"]
+    assert (tmp_path / evidence_path).is_file()
+
