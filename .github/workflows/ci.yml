@@ -445,6 +445,59 @@ jobs:
             --manifest glow/test_runs/campaign_report_verification_acceptance.json \
             --provenance glow/test_runs/campaign_report_verification.json \
             --output glow/test_runs/campaign_report_verification_acceptance_result.json
+      - name: Verify daemon campaign report inspection is read-only
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_sentientosd_resident_cognitive_transition_composition.py::test_daemon_campaign_report_inspection_is_read_only_and_owner_independent \
+            tests/test_sentientosd_resident_cognitive_transition_composition.py::test_daemon_campaign_report_inspection_fails_closed_without_configured_root \
+            tests/test_sentientosd_resident_cognitive_transition_composition.py::test_transition_feedback_includes_verified_campaign_report_projection \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_daemon_campaign_report_verification
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/daemon_campaign_report_inspection.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_daemon_campaign_report_inspection_is_read_only_and_owner_independent",
+              "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_daemon_campaign_report_inspection_fails_closed_without_configured_root",
+              "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_transition_feedback_includes_verified_campaign_report_projection",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_daemon_campaign_report_verification",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/daemon_campaign_report_inspection.json",
+              "required_nodes": [
+                  {
+                      "node_id": nodes[0],
+                      "rationale": "expose verification of persisted campaign reports through the daemon while proving it does not recover or mutate campaign state and does not require a live execution owner",
+                  },
+                  {
+                      "node_id": nodes[1],
+                      "rationale": "prove missing campaign configuration fails closed before the daemon reads campaign state",
+                  },
+                  {
+                      "node_id": nodes[2],
+                      "rationale": "prove the daemon includes the read-only report result in transition feedback without changing request processing outcome",
+                  },
+                  {
+                      "node_id": nodes[3],
+                      "rationale": "require hosted source validation to execute and archive the exact daemon report-verification acceptance nodes",
+                  },
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/daemon_campaign_report_inspection_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/daemon_campaign_report_inspection_acceptance.json \
+            --provenance glow/test_runs/daemon_campaign_report_inspection.json \
+            --output glow/test_runs/daemon_campaign_report_inspection_acceptance_result.json
       - name: Stage current test-run artifacts
         if: always()
         run: >-
@@ -489,6 +542,9 @@ jobs:
             glow/test_runs/campaign_report_verification.json
             glow/test_runs/campaign_report_verification_acceptance.json
             glow/test_runs/campaign_report_verification_acceptance_result.json
+            glow/test_runs/daemon_campaign_report_inspection.json
+            glow/test_runs/daemon_campaign_report_inspection_acceptance.json
+            glow/test_runs/daemon_campaign_report_inspection_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:
