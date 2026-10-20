@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c37cb076361574e7ff71104899f96d79d54a15f92c082681b0d060fabbc70845",
-    "latest_segment_sequence": 501,
-    "latest_segment_sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
-    "source_commit": "de26ab3847a09edbc42def8133603052ab192599",
-    "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b"
+    "checkpoint_sha256": "d99556bd0d7025a4e1f8edee70d758f395f003aa6e226d73ac6b8f1139d50f4f",
+    "latest_segment_sequence": 502,
+    "latest_segment_sha256": "0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
+    "source_commit": "ff37f74eca914153cc7435ad528aa844258cabcf",
+    "source_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99"
   },
-  "checkpoint_sha256": "c37cb076361574e7ff71104899f96d79d54a15f92c082681b0d060fabbc70845",
+  "checkpoint_sha256": "d99556bd0d7025a4e1f8edee70d758f395f003aa6e226d73ac6b8f1139d50f4f",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 501,
+  "latest_sequence": 502,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5695,6 +5695,18 @@
       "evidence_bytes": 3698,
       "source_commit": "de26ab3847a09edbc42def8133603052ab192599",
       "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b"
+    },
+    {
+      "sequence": 502,
+      "path": "work/construction/segments/0502-hosted-windows-handle-custody-verification.md",
+      "sha256": "0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
+      "bytes": 3472,
+      "predecessor": "segment-sha256:3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+      "evidence_path": "work/construction/evidence/0502-hosted-windows-handle-custody-verification.json",
+      "evidence_sha256": "d16014cc6bea90f28154efa6707cfda028a9b1a201a6fc0d8e4668f029aaa23d",
+      "evidence_bytes": 6555,
+      "source_commit": "ff37f74eca914153cc7435ad528aa844258cabcf",
+      "source_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99"
     }
   ],
   "source_acquisition": {
@@ -5704,7 +5716,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b",
+  "source_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

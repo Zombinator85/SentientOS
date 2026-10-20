@@ -1,0 +1,177 @@
+{
+  "title": "Hosted Windows handle-custody verification",
+  "predecessor": {
+    "segment_path": "work/construction/segments/0501-fail-closed-work-plan-evidence-storage-without-dirfd.md",
+    "segment_sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+    "sequence": 501
+  },
+  "pull_request": {
+    "number": 2504,
+    "status": "merged",
+    "base_commit": "675d7478a51c23b86c067e863b220d25b8ed29ef",
+    "candidate_commit": "64f34d8dd81ca0dbbb6914258d387f4ec6ec1c65",
+    "candidate_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99",
+    "merge_commit": "ff37f74eca914153cc7435ad528aa844258cabcf",
+    "preserved_commit_history": true,
+    "ordered_parents": [
+      "675d7478a51c23b86c067e863b220d25b8ed29ef",
+      "64f34d8dd81ca0dbbb6914258d387f4ec6ec1c65"
+    ]
+  },
+  "remote_readback": {
+    "main_head": "ff37f74eca914153cc7435ad528aa844258cabcf",
+    "main_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99",
+    "candidate_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99",
+    "signed_merge_commit": true,
+    "verified_blobs": {
+      ".github/workflows/windows-custody.yml": "c6799da0457db94efa6d2451f0150627213ea8c1",
+      "docs/development/windows_handle_custody_runtime_acceptance.json": "4eca6785900a8c0bdee01c71eaa89c7c5132dc22",
+      "sentientos/tests/test_windows_handle_custody.py": "a5b47d428cfedbd1e70672c23ac6f0d86e313878"
+    }
+  },
+  "behavior": {
+    "outcome": "Native Windows runtime verification covers the existing bounded custody reader and the Windows fail-closed evidence-storage boundary; no Windows write implementation was introduced.",
+    "authority": {
+      "planning_performed": false,
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    },
+    "fixture_repair": "A disposable temporary directory and file are assigned to the current user with private ACLs; production ownership and ACL validation is unchanged."
+  },
+  "tests": {
+    "local_test_command": "python -m scripts.run_tests sentientos/tests/test_windows_handle_custody.py -q",
+    "local_linux_result": "passed (1 portable node); skipped (4 native-Windows-only nodes)",
+    "native_windows_pr_run_id": 39462829664,
+    "native_windows_candidate_sha": "64f34d8dd81ca0dbbb6914258d387f4ec6ec1c65",
+    "native_windows_result": "passed (5 nodes on Windows Server 2025)",
+    "native_windows_main_run_id": 39463466026,
+    "native_windows_main_result": "passed (5 nodes)",
+    "targeted_mypy": "passed",
+    "compileall": "passed",
+    "workflow_yaml_validation": "passed",
+    "source_blob_identity_checks": "passed",
+    "git_diff_check": "passed",
+    "exact_candidate_runs": {
+      "ci": {
+        "id": 39462829591,
+        "conclusion": "success"
+      },
+      "windows_custody": {
+        "id": 39462829664,
+        "conclusion": "success"
+      },
+      "required_quality_gate": {
+        "id": 39462829685,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "id": 39462829669,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "id": 39462829673,
+        "conclusion": "success"
+      },
+      "gradient_null_regression": {
+        "id": 39462829759,
+        "conclusion": "success"
+      },
+      "release": {
+        "id": 39462829675,
+        "conclusion": "success"
+      },
+      "docker": {
+        "id": 39462829621,
+        "conclusion": "success"
+      },
+      "lint_benchmark": {
+        "id": 39462829635,
+        "conclusion": "success"
+      }
+    },
+    "strict_administrator_audits": "passed",
+    "audit_immutability": "passed",
+    "acceptance": "passed",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "validation_profile": "solo",
+    "exhaustive_matrix_requested": false,
+    "independently_verified_artifact_sha256": {
+      "required-quality-gate-evidence": "215898cfb4866baf6ad70eda733db466e72039fc284bfb714b8ef9b1ed8f8c3d",
+      "hosted-privileged-pr-landing-finalizer": "ea07a15fc1b2a7cb908263c27d3ac714322b2576fd0e12e158725f72fad36a89",
+      "exact-pr-candidate-acceptance": "205060b53ddf6599fcefdb3f230578ad7fe03b5a85ae06942910dcbde979edd9"
+    }
+  },
+  "post_merge_checks": {
+    "ci": {
+      "id": 39463466956,
+      "conclusion": "success"
+    },
+    "required_quality_gate": {
+      "id": 39463466369,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "id": 39463466128,
+      "conclusion": "success"
+    },
+    "invariants": {
+      "id": 39463466230,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "id": 39463466181,
+      "conclusion": "success"
+    },
+    "docker_image": {
+      "id": 39463466367,
+      "conclusion": "success"
+    },
+    "windows_custody": {
+      "id": 39463466026,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "id": 39463466290,
+      "conclusion": "skipped_by_workflow_condition"
+    }
+  },
+  "operational_observation": {
+    "federation_health_run_id": 39463524054,
+    "head_sha": "ff37f74eca914153cc7435ad528aa844258cabcf",
+    "administrator_preflight": "passed",
+    "health_generation": "passed",
+    "artifact_id": 12283547907,
+    "artifact_sha256": "8d22a886211a170b0332a3410a67a96402bab75ffa3e5e06bc46d16393065346",
+    "report_sha256": "e16a5a4ac85b5c0f3dead86466a0fc6666b47e23b7e1bca2b0689527d0ceb3e9",
+    "report_semantics": "configured local-log snapshot, not live federation telemetry; one node, zero events in last 24 hours, latest event 2025-06-05T16:25:13.805813Z",
+    "publication_job": "failed",
+    "publication_failure": "GitHub Actions is not permitted to create or approve pull requests.",
+    "nightly_audit_integrity": {
+      "run_id": 39396388332,
+      "head_sha": "124de0f9ced349de7342901a2e1338c460c05a00",
+      "conclusion": "success",
+      "administrator_preflight": "passed",
+      "strict_audit": "passed",
+      "repair": "skipped",
+      "current_main_evidence": false
+    },
+    "nightly_self_check": {
+      "run_id": 39401781661,
+      "head_sha": "5a3df4c811e07aa7a038c2ab48c4d25f521b1095",
+      "conclusion": "success",
+      "administrator_preflight": "passed",
+      "strict_audit": "passed",
+      "current_main_evidence": false
+    }
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_sequence_178_workspace_modified": false,
+    "current_head_nightly_schedule_evidence_present": false,
+    "federation_health_publication_succeeded": false
+  }
+}
