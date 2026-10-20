@@ -221,6 +221,43 @@ def test_execute_requires_digest_for_persisted_plan_evidence_before_task_effect(
     assert not (tmp_path / "glow/forge/work_runs").exists()
 
 
+def test_execute_requires_digest_when_external_binding_sidecar_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_at = "2026-01-01T00:00:00Z"
+    evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a"}
+    plan = WorkPlan(
+        1,
+        work_plan_id_from_evidence(created_at, "h", "a", evidence_binding),
+        created_at,
+        "canonical",
+        ("g1",),
+        (Task(1, "t1", "g1", "forge_propose", (), None, 0, 0, {}, (), False),),
+    )
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_dir = tmp_path / "glow/forge/work_plan_evidence"
+    evidence_dir.mkdir(parents=True)
+    # Persistence writes the sidecar before the envelope. A crash in between
+    # must still be detected before the executor can create effects.
+    (evidence_dir / f"binding_{plan_key}.json").write_bytes(b"partial-binding")
+
+    calls: list[str] = []
+    executor = GoalExecutor(repo_root=tmp_path)
+
+    def record_task(task: Task) -> tuple[str, str | None, tuple[str, ...]]:
+        calls.append(task.task_id)
+        return "success", None, ()
+
+    monkeypatch.setattr(executor, "_execute_task", record_task)
+    with pytest.raises(goal_executor.WorkPlanError,
+                       match="work_plan_evidence_digest_required"):
+        executor.execute_plan(plan, _state(tmp_path))
+
+    assert calls == []
+    assert not (tmp_path / "glow/forge/work_plan_journals").exists()
+    assert not (tmp_path / "glow/forge/work_runs").exists()
+
+
 def test_execution_run_persists_exact_verified_plan_evidence_digest(
     tmp_path: Path, monkeypatch,
 ) -> None:
