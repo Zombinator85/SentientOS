@@ -6,6 +6,22 @@ on:
       - main
     paths:
       - ".github/workflows/audit-nightly.yml"
+      - "audit_chain.py"
+      - "audit_immutability.py"
+      - "config/master_files.json"
+      - "logs/**"
+      - "scripts/apply_audit_repairs.py"
+      - "scripts/cli_common.py"
+      - "scripts/plan_audit_repairs.py"
+      - "scripts/provenance_hash_chain.py"
+      - "scripts/tooling_status.py"
+      - "scripts/verify_audits.py"
+      - "sentientos/audit_chain_gate.py"
+      - "sentientos/audit_recovery.py"
+      - "sentientos/audit_sink.py"
+      - "sentientos/audit_strict_status.py"
+      - "sentientos/privilege.py"
+      - "sentientos/recovery_tasks.py"
   schedule:
     - cron: '41 3 * * *'
   workflow_dispatch:
