@@ -355,3 +355,18 @@ Latest segment: work/construction/segments/0502-hosted-windows-handle-custody-ve
 Latest segment SHA-256: `0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249`
 Predecessor segment SHA-256: 3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390
 Sequence: 502
+
+## Sequence 503 — authenticated delegated stage approvals
+
+PR #2506 requires explicit approved status, strict canonical schema/digest and boolean validation, and binds the approval issuer to the authenticated Ed25519 operator identity. The pinned operator trust catalog explicitly delegates the narrow stage-order approval role; it does not grant activation, serving, inference, or writeback. PR #2507 versions the changed payload as schema v2. Both source increments passed exact-candidate hosted checks and merged with history preserved. Main is `385f425ad118e15dde85eb5b6b2c39cdabb9b401`, tree `16366dc901b19f19796af53db828a67eeec159c8`; the signed merge parents are the prior main and candidate in that order. The full evidence records exact candidate identities, run IDs, and validation limits.
+
+Five focused local suites passed (174 tests; supplemental provenance only). Candidate CI, Quality Gate, exact acceptance, Administrator strict audits, immutability, and separate pre-publication metadata guard passed. Post-merge CI (including integrated resource-to-cognition lifecycle), Quality Gate, Codex CI, Release, Docker, CPU smoke, invariants, Helm, and docs deployment passed. Forge Smoke skipped by condition. No production transition or inference was run.
+
+Federation Health publication remains an infrastructure dependency: the workflow report path runs, but repository Actions settings reject PR creation with GITHUB_TOKEN. No current-head scheduled Federation Health or nightly audit/self-check execution is claimed. Unattended publication needs the repository Actions PR-creation setting enabled by an administrator or a separately provisioned least-privilege GitHub App credential.
+
+Next, test delegated approval binding and denial at the experiment boundary with synthetic inputs only. Maintain the no-activation/no-inference boundary; keep the publisher configuration issue visible.
+
+Latest verified source merge: `385f425ad118e15dde85eb5b6b2c39cdabb9b401`, tree `16366dc901b19f19796af53db828a67eeec159c8`
+Latest construction segment: work/construction/segments/0503-authenticate-delegated-stage-approval-issuers.md
+Latest segment SHA-256: `54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8`
+Sequence: 503
