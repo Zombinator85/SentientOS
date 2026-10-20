@@ -1,0 +1,156 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "campaign_advanced": false,
+      "effect_performed": false,
+      "execution_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "prioritized projection schema and omission manifest validate exact deterministic ranking",
+      "enabled canonical goal precedence determines relevance priority",
+      "bounded selection preserves omitted identity and positive/adverse outcome evidence",
+      "same-tick prior history changes canonical allocation",
+      "canonical planning does not execute goals or invoke inference"
+    ],
+    "outcome": "Verified prior projections rank proposition histories tagged by enabled canonical goals before lexicographic fallback selection, while all unselected history identities and outcome postures remain bound by the omission manifest."
+  },
+  "limitations": {
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "operational_observation": {
+    "current_main_scheduled_runs": [],
+    "latest_federation_health_run": {
+      "failure": "GitHub Actions is not permitted to create or approve pull requests",
+      "head_sha": "b69d75884bcf3e33c6a877d0bcdd454311a87f53",
+      "health_report_job": "success",
+      "publication_job": "failure",
+      "run_id": 39347148781
+    },
+    "main_head": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+    "nightly_audit_integrity_current_head": "not_observed",
+    "nightly_self_check_current_head": "not_observed",
+    "observed_at": "2026-10-20T05:58:51Z"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0483-expose-prior-projection-omission-count.md",
+    "segment_sha256": "a2af5eb0fa6ae94a6bfe5713be40aa9be198102b485a0eec4c5022602b6ad020",
+    "sequence": 483
+  },
+  "pull_request": {
+    "head_sha": "a59a211ab2d852ef69c1f1fe87988b6f456766fe",
+    "number": 2471,
+    "state": "merged",
+    "title": "[codex:epistemic] prioritize goal-relevant prior projection [untested]",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2471"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0484-prior-projection-goal-relevance-ranking.md",
+  "sequence": 484,
+  "source": {
+    "base_commit": "c684e425d9ddb80f91215eef7c244c55a4be4681",
+    "base_tree": "3df66606f21e6952d6f8562f72b289f9f3b0d5f0",
+    "candidate_commit": "a59a211ab2d852ef69c1f1fe87988b6f456766fe",
+    "candidate_tree": "61078b4c3347b7940136cfffe008f3f9640780cb",
+    "merge_commit": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+    "method": "merge",
+    "parents": [
+      "c684e425d9ddb80f91215eef7c244c55a4be4681",
+      "a59a211ab2d852ef69c1f1fe87988b6f456766fe"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/orchestrator.py": "fd504a880ad4aef0a47dcb1d94e6268853359468",
+      "sentientos/persistent_epistemic_state.py": "b811ed436f37bf2779f7ce629a8f11eddfca7bee",
+      "sentientos/tests/test_orchestrator_plan_only.py": "ebb8d59c94a960a36e467625f15c8f3f4ded7303",
+      "tests/test_persistent_epistemic_state.py": "e06d55af624083ee21962a9b606403b4d3754dc7"
+    },
+    "candidate_tree": "61078b4c3347b7940136cfffe008f3f9640780cb",
+    "changed_blobs": 4,
+    "main_ref": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+    "main_tree": "61078b4c3347b7940136cfffe008f3f9640780cb",
+    "merge_signature_verified": true,
+    "ordered_parents": [
+      "c684e425d9ddb80f91215eef7c244c55a4be4681",
+      "a59a211ab2d852ef69c1f1fe87988b6f456766fe"
+    ]
+  },
+  "title": "Prior projection goal relevance ranking",
+  "validation": {
+    "hosted_candidate": {
+      "actual_administrator_uid": 0,
+      "audit_immutability": true,
+      "exact_candidate_acceptance": true,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "postmerge_checks": "passed",
+      "pr_checks": "all_passed",
+      "required_quality_gate_run": 39376929695,
+      "strict_audits": true
+    },
+    "local": {
+      "compileall": "passed",
+      "exact_node_acceptance": "passed",
+      "focused_affected_tests_passed": 147,
+      "full_mypy_added": 0,
+      "full_mypy_baseline_diagnostics": 2698,
+      "full_mypy_retired": 0,
+      "targeted_mypy": "passed"
+    },
+    "post_merge": {
+      "checks": {
+        "ci_build": {
+          "conclusion": "success",
+          "run": 39377358087
+        },
+        "deploy": {
+          "conclusion": "success",
+          "run": 39377357939
+        },
+        "docker_cpu_smoke": {
+          "conclusion": "success",
+          "run": 39377357897
+        },
+        "docs": {
+          "conclusion": "success",
+          "run": 39377357958
+        },
+        "forge_smoke": {
+          "conclusion": "skipped_by_condition",
+          "run": 39377357921
+        },
+        "helm_k8s_test": {
+          "conclusion": "success",
+          "run": 39377357958
+        },
+        "invariants": {
+          "conclusion": "success",
+          "run": 39377358041
+        },
+        "quality_gate": {
+          "conclusion": "success",
+          "run": 39377357918
+        },
+        "self_check": {
+          "conclusion": "success",
+          "run": 39377357958
+        },
+        "source_validation": {
+          "conclusion": "success",
+          "run": 39377357958
+        }
+      },
+      "main_head": "800dcef026b32c45c5668282b260ca2e39ab4c24",
+      "main_tree": "61078b4c3347b7940136cfffe008f3f9640780cb"
+    }
+  }
+}
