@@ -25,7 +25,7 @@ SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
 SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
 LEGACY_BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
 BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v3"
-APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
+APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v2"
 _STAGE_APPROVAL_FIELDS = frozenset({
     "schema_version", "approval_status", "capability", "principal", "protocol_id",
     "protocol_digest", "transition_id", "requested_stage", "prior_phase",
