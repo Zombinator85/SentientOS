@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "eee0e25a55c727594f3d78818485f1adc2c7917e3f0b013aba67822f62e04900",
-    "latest_segment_sequence": 500,
-    "latest_segment_sha256": "1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
-    "source_commit": "d2b987d23cdc86a371a15d096feda08024f9c3db",
-    "source_tree": "ff75349ab29030665b259ef742b3603d92e8d099"
+    "checkpoint_sha256": "c37cb076361574e7ff71104899f96d79d54a15f92c082681b0d060fabbc70845",
+    "latest_segment_sequence": 501,
+    "latest_segment_sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+    "source_commit": "de26ab3847a09edbc42def8133603052ab192599",
+    "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b"
   },
-  "checkpoint_sha256": "eee0e25a55c727594f3d78818485f1adc2c7917e3f0b013aba67822f62e04900",
+  "checkpoint_sha256": "c37cb076361574e7ff71104899f96d79d54a15f92c082681b0d060fabbc70845",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 500,
+  "latest_sequence": 501,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5683,6 +5683,18 @@
       "evidence_bytes": 3599,
       "source_commit": "d2b987d23cdc86a371a15d096feda08024f9c3db",
       "source_tree": "ff75349ab29030665b259ef742b3603d92e8d099"
+    },
+    {
+      "sequence": 501,
+      "path": "work/construction/segments/0501-fail-closed-work-plan-evidence-storage-without-dirfd.md",
+      "sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+      "bytes": 2434,
+      "predecessor": "segment-sha256:1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
+      "evidence_path": "work/construction/evidence/0501-fail-closed-work-plan-evidence-storage-without-dirfd.json",
+      "evidence_sha256": "0216811b36c73a307dc9937affe49369b23133257c79d2429803940e680269a9",
+      "evidence_bytes": 3698,
+      "source_commit": "de26ab3847a09edbc42def8133603052ab192599",
+      "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b"
     }
   ],
   "source_acquisition": {
@@ -5692,7 +5704,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "ff75349ab29030665b259ef742b3603d92e8d099",
+  "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

@@ -1,0 +1,77 @@
+{
+  "title": "Fail closed without descriptor-relative work-plan evidence storage",
+  "predecessor": {
+    "segment_path": "work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md",
+    "segment_sha256": "1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
+    "sequence": 500
+  },
+  "pull_request": {
+    "number": 2501,
+    "status": "merged",
+    "base_commit": "a1e7241b1935a895ffc49e97acb06da9e5a9a1d7",
+    "candidate_commit": "f462991ee6b8df3f1b9f85dffee020519a90d46f",
+    "candidate_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b",
+    "merge_commit": "de26ab3847a09edbc42def8133603052ab192599",
+    "preserved_commit_history": true
+  },
+  "remote_readback": {
+    "main_head": "de26ab3847a09edbc42def8133603052ab192599",
+    "main_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b",
+    "candidate_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b",
+    "signed_merge_commit": true
+  },
+  "behavior": {
+    "outcome": "Evidence reads and writes fail closed when filesystem APIs cannot pin the canonical directory; no path-based fallback access is allowed.",
+    "checks": [
+      "a regression reproduced the path-fallback ancestor-swap race before the fix",
+      "unsupported fallback rejects before creating evidence directories",
+      "unsupported fallback rejects before reading already-persisted evidence",
+      "symlinked ancestry remains rejected before fallback refusal"
+    ],
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    }
+  },
+  "tests": {
+    "affected_local_test_command": "python -m pytest -q sentientos/tests/test_work_plan_cli.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_plan_only.py sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_work_plan_evidence_bounds.py sentientos/tests/test_work_plan_load.py",
+    "affected_local_tests": "passed (93 tests)",
+    "fallback_regressions": "passed (3 tests)",
+    "targeted_mypy_command": "python -m mypy sentientos/work_plan.py",
+    "targeted_mypy": "passed",
+    "compileall_command": "python -m compileall -q sentientos/work_plan.py sentientos/tests/test_work_plan_evidence_bounds.py",
+    "compileall": "passed",
+    "candidate_checks": "passed",
+    "quality_gate_run_id": 39457449609,
+    "strict_administrator_audits": "passed",
+    "acceptance": "passed",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "validation_profile": "solo",
+    "exhaustive_matrix_requested": false,
+    "quality_gate_evidence_artifact_sha256": "91df3012bb6cea577938707384d4bb99baf7820d42bdb98e356c56dc8e6eff8f",
+    "quality_gate_evidence_artifact_sha256_independently_verified": true,
+    "acceptance_artifact_sha256": "3e42a47f25f7942c3406edbb335d22c64b43821ef131c2b1fa6e42f5af00267e",
+    "acceptance_artifact_sha256_independently_verified": true,
+    "finalizer_artifact_sha256": "5617478f7fa009770e4a86b34a3a388dcf62a6f112aecebcf99f716fec7ba123",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "post_merge_checks": {
+      "ci": "passed",
+      "quality_gate": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "invariants": "passed",
+      "docs": "passed",
+      "helm": "passed",
+      "deployment": "passed",
+      "forge_smoke": "skipped_by_workflow_condition"
+    }
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  }
+}
