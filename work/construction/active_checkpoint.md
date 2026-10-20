@@ -246,3 +246,18 @@ Latest verified source merge: `020ee1a135f013aa3b395d6f3fd69b5775e5a4ca`, tree `
 Latest construction segment: `work/construction/segments/0496-require-persisted-plan-evidence-digest.md`
 Latest segment SHA-256: `9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1`
 Sequence: 496
+
+## Sequence 497 — partial plan evidence sidecar fails closed
+
+PR #2494 adds a regression for a crash between writing the external evidence-binding sidecar and its envelope. A sidecar alone marks the persisted plan as evidence-bound: direct execution without the expected digest raises `work_plan_evidence_digest_required` before task invocation, journal creation, or run artifact creation. The test also confirms the partial sidecar bytes remain unchanged.
+
+The affected executor, CLI, evidence bounds, journal, plan loading, and orchestration tests passed locally (85 tests), and `git diff --check` passed. Exact-candidate hosted CI, Required Quality Gate (hosted strict audit, acceptance, privileged finalizer, and separate pre-publication metadata guard), invariants, Gradient, Codex CI, Release, Docker, and Lint passed. The solo profile did not request an exhaustive matrix.
+
+PR #2494 merged with commit history preserved as `50c1d9ab99d8d81b0a28ba58185c8a99349b17ca`; main readback returned the exact test source. No production task, inference, campaign, or transition execution occurred.
+
+Latest source-bearing main commit: `50c1d9ab99d8d81b0a28ba58185c8a99349b17ca`, tree `03da01b4f4d39d592c32d210f3bed990a609dd4a`
+Latest construction segment: `work/construction/segments/0497-partial-plan-evidence-sidecar-fail-closed.md`
+Latest segment SHA-256: `3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699`
+Sequence: 497
+
+The sequence-497 record is additive; prior construction segments and the frozen legacy continuation journal remain unchanged.

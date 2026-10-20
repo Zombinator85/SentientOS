@@ -1,0 +1,59 @@
+{
+  "behavior": {
+    "authority": {
+      "execution_performed": false,
+      "inference_performed": false,
+      "mutation_authority_broadened": false
+    },
+    "checks": [
+      "external binding sidecar without envelope still marks plan evidence as persisted",
+      "omitted expected evidence digest is rejected before task invocation",
+      "no execution journal or run artifact is created",
+      "partial sidecar bytes are preserved"
+    ],
+    "outcome": "A partial external evidence-binding sidecar cannot be used to execute a plan without the expected evidence digest."
+  },
+  "limitations": {
+    "production_campaign_execution_performed": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0496-require-persisted-plan-evidence-digest.md",
+    "segment_sha256": "9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1",
+    "sequence": 496
+  },
+  "pull_request": {
+    "base_commit": "c43cd5db8ab7871623f12f9c7c934ca96fe22d6e",
+    "candidate_commit": "822432e2d35c4be140db6727265c105588409981",
+    "candidate_tree": "03da01b4f4d39d592c32d210f3bed990a609dd4a",
+    "ci_run_id": 39409641671,
+    "merge_commit": "50c1d9ab99d8d81b0a28ba58185c8a99349b17ca",
+    "number": 2494,
+    "preserved_commit_history": true,
+    "quality_gate_run_id": 39409641654,
+    "status": "merged"
+  },
+  "remote_readback": {
+    "main_head": "50c1d9ab99d8d81b0a28ba58185c8a99349b17ca",
+    "main_tree": "03da01b4f4d39d592c32d210f3bed990a609dd4a",
+    "test_blob": "6624dfd70bdf40cc22a4810db3557f6003d0a3c7"
+  },
+  "source_commit": "50c1d9ab99d8d81b0a28ba58185c8a99349b17ca",
+  "source_tree": "03da01b4f4d39d592c32d210f3bed990a609dd4a",
+  "tests": {
+    "affected_local_tests_passed": 85,
+    "all_candidate_checks": "passed",
+    "compileall": "passed",
+    "diff_check": "passed",
+    "exhaustive_matrix_requested": false,
+    "finalizer_artifact_digest": "sha256:8ea6faae967843212963f04ffa99f8cf4d1672e371dcfbe2f4149cb0e6b21335",
+    "finalizer_artifact_sha256_independently_verified": true,
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "profile": "solo",
+    "quality_gate": "passed"
+  },
+  "title": "Fail closed on partial plan evidence sidecar"
+}
