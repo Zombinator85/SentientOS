@@ -23,7 +23,7 @@ on:
       - "sentientos/audit_strict_status.py"
       - "sentientos/privilege.py"
       - "sentientos/runtime_governor.py"
-      - "tests/**
+      - "tests/**"
   schedule:
     - cron: '37 4 * * *'
   workflow_dispatch:
