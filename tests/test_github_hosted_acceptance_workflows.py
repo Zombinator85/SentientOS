@@ -54,7 +54,10 @@ def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
     assert "- main" in push
     assert "- 'codex/construct-sentientos*'" in push
     assert "sudo -n id -u" in workflow
-    assert '--expected-sha "$GITHUB_SHA"' in workflow
+    source_sha = "${{ github.event.pull_request.head.sha || github.sha }}"
+    assert f"ref: {source_sha}" in workflow
+    assert f"QUALITY_GATE_SOURCE_SHA: {source_sha}" in workflow
+    assert '--expected-sha "$QUALITY_GATE_SOURCE_SHA"' in workflow
 
 
 def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope() -> None:
