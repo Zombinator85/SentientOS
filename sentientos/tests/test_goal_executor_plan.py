@@ -2,16 +2,63 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from sentientos.goal_executor import ExecutorState, GoalPlanner
+from sentientos.goal_executor import ExecutorState, GoalExecutor, GoalPlanner
 from sentientos.goal_graph import Goal, GoalGraph
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (TaskRun, WorkPlanRun, load_work_plan,
-    persist_work_plan, persist_work_run, work_run_id)
+    WorkPlanError, persist_work_plan, persist_work_plan_evidence,
+    persist_work_run, work_run_id)
+
+
+def test_executor_rejects_allocation_identity_drift_before_journaling(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    allocation_path = "glow/forge/goal_allocations/allocation_2026-01-01.json"
+    path = tmp_path / allocation_path
+    path.parent.mkdir(parents=True)
+    allocation_bytes = b'{"selected":["g1"]}\n'
+    path.write_bytes(allocation_bytes)
+    allocation_digest = "sha256:" + hashlib.sha256(allocation_bytes).hexdigest()
+    state = ExecutorState(repo_root=tmp_path,
+        created_at="2026-01-01T00:00:00Z", context="manual",
+        operating_mode="cautious", quarantine_active=False,
+        allow_mutation=False, goal_graph_hash="abcd" * 16,
+        allocation_id=allocation_path, allocation_artifact_digest=allocation_digest,
+        risk_budget=RiskBudget(router_k_max=8, router_m_max=8,
+            forge_max_files_changed=0))
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("g1", "verified allocation", 1.0, 1, (), "always", 2, 1,
+            ("integrity",), True),))
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        allocation, state, graph)
+    _, evidence_digest = persist_work_plan_evidence(
+        tmp_path, draft.work_plan, draft.evidence_binding)
+    monkeypatch.setattr(GoalExecutor, "_execute_task",
+        lambda *_args, **_kwargs: pytest.fail("allocation drift reached task execution"))
+
+    executor = GoalExecutor(repo_root=tmp_path)
+    for mismatched_state in (
+            replace(state, allocation_id="glow/forge/goal_allocations/other.json"),
+            replace(state, allocation_artifact_digest="sha256:" + "0" * 64)):
+        with pytest.raises(WorkPlanError,
+                match="work_plan_execution_allocation_binding_mismatch"):
+            executor.execute_plan(draft.work_plan, mismatched_state,
+                expected_evidence_digest=evidence_digest)
+
+    path.write_bytes(allocation_bytes + b"tampered")
+    with pytest.raises(WorkPlanError,
+            match="work_plan_allocation_artifact_digest_mismatch"):
+        executor.execute_plan(draft.work_plan, state,
+            expected_evidence_digest=evidence_digest)
+    assert not (tmp_path / "glow/forge/work_plan_journals").exists()
+    assert not (tmp_path / "glow/forge/work_runs").exists()
 
 
 def test_build_plan_is_deterministic_and_budgeted(tmp_path: Path) -> None:
