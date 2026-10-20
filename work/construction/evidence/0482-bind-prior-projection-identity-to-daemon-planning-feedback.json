@@ -1,0 +1,150 @@
+{
+  "behavior": {
+    "authority": {
+      "authority": false,
+      "campaign_advanced": false,
+      "effect_performed": false,
+      "execution_performed": false,
+      "read_only": true
+    },
+    "checks": [
+      "allocation carries the verified prior projection digest when one is configured",
+      "daemon feedback digest matches same-tick work-plan evidence",
+      "feedback reports null projection identity when no prior projection is configured",
+      "planning does not execute goals, invoke a model, or grant authority"
+    ],
+    "outcome": "Makes the verified prior-projection identity directly visible in canonical-planning feedback without changing selection or execution behavior."
+  },
+  "limitations": {
+    "current_main_scheduled_runs_observed": false,
+    "federation_health_publication_blocked_by_repository_actions_pr_setting": true,
+    "production_campaign_execution_initiated": false,
+    "production_inference_performed": false,
+    "production_transition_execution_performed": false,
+    "protected_workspace_modified": false,
+    "stale_workspace_modified": false
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0481-report-bounded-canonical-planning-omissions.md",
+    "segment_sha256": "824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78",
+    "sequence": 481
+  },
+  "pull_request": {
+    "head_sha": "149e64a4eb0637cb0a034e546afa24757c1fc49b",
+    "number": 2467,
+    "state": "merged",
+    "title": "feat: expose prior projection identity in planning feedback",
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2467"
+  },
+  "schema_version": "sentientos.construction_sequence_evidence:v1",
+  "segment_path": "work/construction/segments/0482-bind-prior-projection-identity-to-daemon-planning-feedback.md",
+  "sequence": 482,
+  "source": {
+    "base_commit": "913e274fbfe23a7a93d919c7ae2faa8ddd57aa52",
+    "base_tree": "8853497c7a74c5a5cc72978f25abffbde80784ce",
+    "candidate_commit": "149e64a4eb0637cb0a034e546afa24757c1fc49b",
+    "candidate_tree": "1db2f349abea0e3058bf6fb14804ea6844866318",
+    "merge_commit": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
+    "method": "merge",
+    "parents": [
+      "913e274fbfe23a7a93d919c7ae2faa8ddd57aa52",
+      "149e64a4eb0637cb0a034e546afa24757c1fc49b"
+    ],
+    "repository": "Zombinator85/SentientOS",
+    "tree": "1db2f349abea0e3058bf6fb14804ea6844866318"
+  },
+  "source_readback": {
+    "all_blob_contents_match": true,
+    "blob_shas": {
+      "sentientos/tests/test_orchestrator_plan_only.py": "28461e583474a7014dbc25f5e129639cfc4afd05",
+      "sentientos/work_allocator.py": "7b3dcf42e4c3b0282abb9cdc329918857b7f8cc7",
+      "sentientosd.py": "d65b19e084ce75247bdc940650ba493a61cee636"
+    },
+    "candidate_tree": "1db2f349abea0e3058bf6fb14804ea6844866318",
+    "changed_blobs": 3,
+    "main_ref": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
+    "main_tree": "1db2f349abea0e3058bf6fb14804ea6844866318",
+    "ordered_parents": [
+      "913e274fbfe23a7a93d919c7ae2faa8ddd57aa52",
+      "149e64a4eb0637cb0a034e546afa24757c1fc49b"
+    ]
+  },
+  "title": "Bind prior projection identity to daemon planning feedback",
+  "validation": {
+    "hosted_candidate": {
+      "acceptance_artifact": 12241940807,
+      "administrator_audits": true,
+      "audit_immutability": true,
+      "ci": "success",
+      "docker": "success",
+      "effective_uid": 0,
+      "metadata_guard": "pr_metadata_guard_ready",
+      "quality_gate_artifacts": [
+        12241900617,
+        12241915527
+      ],
+      "quality_gate_runs": [
+        39371366332,
+        39371383135
+      ],
+      "source_validation": "success",
+      "task_acceptance_passed": 30,
+      "task_acceptance_total": 30
+    },
+    "local": {
+      "compileall": "success",
+      "failures": 0,
+      "focused_tests_passed": 17,
+      "git_diff_check": "success",
+      "mypy_baseline_existing_errors": 1050,
+      "mypy_baseline_new_errors": 0,
+      "mypy_baseline_retired_errors": 40,
+      "skipped": 0
+    },
+    "post_merge": {
+      "ci": {
+        "conclusion": "success",
+        "run": 39371770543
+      },
+      "cpu_smoke": {
+        "conclusion": "success",
+        "run": 39371770518
+      },
+      "docker_build": {
+        "conclusion": "success",
+        "run": 39371770539
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run": 39371770543
+      },
+      "forge_smoke": "skipped_by_condition",
+      "helm": {
+        "conclusion": "success",
+        "run": 39371770543
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run": 39371770542
+      },
+      "main_head": "81fc2c3d2385f3185397682e55e78bd84371e2ca",
+      "main_tree": "1db2f349abea0e3058bf6fb14804ea6844866318",
+      "quality_gate": {
+        "administrator_verified": true,
+        "artifact": 12241538143,
+        "conclusion": "success",
+        "effective_uid": 0,
+        "run": 39371770556
+      },
+      "self_check": {
+        "artifact": 12241588413,
+        "conclusion": "success",
+        "run": 39371770543
+      },
+      "source_validation": {
+        "conclusion": "success",
+        "run": 39371770543
+      }
+    }
+  }
+}

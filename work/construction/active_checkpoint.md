@@ -61,3 +61,18 @@ Latest segment SHA-256: `824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce
 Sequence: 481
 Latest construction segment: work/construction/segments/0481-report-bounded-canonical-planning-omissions.md
 Latest segment SHA-256: `824584ec8dfdfeba4d06d1887b0307b49b69002270e480ef610c5ce358f09b78`
+
+## Sequence 482 — prior-projection identity in daemon planning feedback
+
+PR #2467 exposes the verified prior-epistemic projection digest in canonical allocation and daemon planning feedback. Same-tick tests prove it matches the work-plan evidence digest; no-projection mode remains null. The increment does not change selection, execution, model invocation, or authority. Seventeen focused local tests, compilation, Mypy baseline, exact-candidate hosted acceptance, Administrator Quality Gate, immutability audit, metadata guard, and all PR checks passed.
+
+Regular merge `81fc2c3d2385f3185397682e55e78bd84371e2ca` preserves ordered parents `913e274fbfe23a7a93d919c7ae2faa8ddd57aa52` and `149e64a4eb0637cb0a034e546afa24757c1fc49b`, and GitHub reports a valid signature. Post-merge CI, source validation, self-check, Quality Gate, invariants, docs, Docker, Helm, and CPU smoke passed; Forge smoke was skipped by condition.
+
+At 2026-10-20T04:55:11Z, no scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run was present on this main head. The prior Federation Health publisher remains blocked by repository Actions-token PR settings. No production inference, campaign, or transition execution is claimed.
+
+Next, expose a bounded prior-projection omission count alongside its digest while retaining the full manifest in work-plan evidence. Protected and stale workspaces remain untouched.
+
+Latest verified source merge: `81fc2c3d2385f3185397682e55e78bd84371e2ca`, tree `1db2f349abea0e3058bf6fb14804ea6844866318`
+Latest construction segment: work/construction/segments/0482-bind-prior-projection-identity-to-daemon-planning-feedback.md
+Latest segment SHA-256: `185f6c80c4af4a1cdf38788bfe6ed2860f0629ef35a6cfe2430ea04bed1eb423`
+Sequence: 482
