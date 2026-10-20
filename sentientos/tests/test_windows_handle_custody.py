@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,33 @@ from sentientos.work_plan import (
 
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def _make_current_user_private(path: Path, *, directory: bool) -> None:
+    if os.name != "nt":
+        raise RuntimeError("private_windows_acl_fixture_requires_windows")
+    identity = subprocess.check_output(
+        ["whoami", "/user", "/fo", "csv", "/nh"], text=True,
+    )
+    user_sid = next(csv.reader([identity]))[1]
+    inheritance = "(OI)(CI)(F)" if directory else "(F)"
+    grants = [
+        f"*{user_sid}:{inheritance}",
+        f"*S-1-5-18:{inheritance}",
+        f"*S-1-5-32-544:{inheritance}",
+    ]
+    subprocess.run(
+        ["icacls", str(path), "/grant:r", *grants],
+        check=True, capture_output=True, text=True,
+    )
+    subprocess.run(
+        ["icacls", str(path), "/inheritance:r"],
+        check=True, capture_output=True, text=True,
+    )
+    subprocess.run(
+        ["icacls", str(path), "/setowner", f"*{user_sid}"],
+        check=True, capture_output=True, text=True,
+    )
 
 
 def test_explicit_file_reader_returns_bounded_regular_file(tmp_path: Path) -> None:
@@ -83,7 +112,9 @@ def test_work_plan_evidence_storage_fails_closed_without_dirfd(tmp_path: Path) -
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows handle ACL inspection")
 def test_windows_reader_verifies_private_acl_on_open_handle(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
     path = tmp_path / "private.json"
     path.write_bytes(b'{"private":true}')
+    _make_current_user_private(path, directory=False)
 
     assert read_explicit_file(path, max_bytes=32, require_private_acl=True) == path.read_bytes()
