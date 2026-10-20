@@ -2969,6 +2969,8 @@ class RuntimeMaintenanceSurfaces:
         if os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT"):
             result["self_reflection_transition_binding"] = (
                 self.inspect_production_self_reflection_transition_binding())
+            result["self_reflection_campaign_report"] = (
+                self.inspect_production_self_reflection_campaign_report())
         self._feedback.setdefault("surfaces", {})["resident_cognitive_transition_operator"] = result
         return result
 
@@ -3008,6 +3010,39 @@ class RuntimeMaintenanceSurfaces:
                     "reason": "inspection_failed", "error_class": type(exc).__name__,
                     "effect_performed": False, "campaign_advanced": False,
                     "grants_authority": False}
+
+    def inspect_production_self_reflection_campaign_report(self) -> dict[str, Any]:
+        """Verify an existing campaign report without recovering campaign state."""
+        from sentientos.production_self_reflection_campaign import ProductionSelfReflectionError
+        from sentientos.read_only_campaign_report_verification import (
+            verify_persisted_campaign_report,
+        )
+
+        unavailable = {
+            "effect_performed": False, "campaign_advanced": False,
+            "grants_authority": False, "execution_allowed": False,
+            "report_created": False, "campaign_recovered": False,
+        }
+        configured_root = os.environ.get("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT")
+        if not configured_root:
+            return {"status": "not_configured", **unavailable}
+        campaign_root = Path(configured_root)
+        if not campaign_root.is_absolute():
+            return {"status": "campaign_report_unverified",
+                    "reason": "campaign_root_must_be_absolute", **unavailable}
+        try:
+            result = verify_persisted_campaign_report(campaign_root)
+            if not isinstance(result, Mapping):
+                return {"status": "campaign_report_unverified",
+                        "reason": "verification_result_invalid", **unavailable}
+            return {**dict(result), **unavailable}
+        except ProductionSelfReflectionError as exc:
+            return {"status": "campaign_report_unverified", "reason": exc.code,
+                    **unavailable}
+        except Exception as exc:
+            return {"status": "campaign_report_unverified",
+                    "reason": "verification_failed", "error_class": type(exc).__name__,
+                    **unavailable}
 
     def plan_production_self_reflection_transition_next_stage(
             self, request_id: str) -> dict[str, Any]:

@@ -1042,3 +1042,26 @@ def test_source_validation_indexes_read_only_campaign_report_verification():
         "campaign_report_verification_acceptance_result.json",
     ):
         assert artifact in source_validation
+
+
+def test_source_validation_indexes_daemon_campaign_report_verification():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify daemon campaign report inspection is read-only" in source_validation
+    for node in (
+        "tests/test_sentientosd_resident_cognitive_transition_composition.py::"
+        "test_daemon_campaign_report_inspection_is_read_only_and_owner_independent",
+        "tests/test_sentientosd_resident_cognitive_transition_composition.py::"
+        "test_daemon_campaign_report_inspection_fails_closed_without_configured_root",
+        "tests/test_sentientosd_resident_cognitive_transition_composition.py::"
+        "test_transition_feedback_includes_verified_campaign_report_projection",
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_daemon_campaign_report_verification",
+    ):
+        assert node in source_validation
+    for artifact in (
+        "daemon_campaign_report_inspection.json",
+        "daemon_campaign_report_inspection_acceptance.json",
+        "daemon_campaign_report_inspection_acceptance_result.json",
+    ):
+        assert artifact in source_validation

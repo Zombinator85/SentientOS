@@ -479,6 +479,95 @@ def test_daemon_transition_planning_delegates_without_processing_operator_packet
     assert calls == {"planned": ["request-17"], "processed": 0}
 
 
+def test_daemon_campaign_report_inspection_is_read_only_and_owner_independent(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import read_only_campaign_report_verification as verification_module
+
+    calls = []
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+
+    def verify(root):
+        calls.append(root)
+        return MappingProxyType({"status": "campaign_report_verified",
+                                 "report_digest": "sha256:" + "a" * 64,
+                                 "effect_performed": True,
+                                 "report_created": True,
+                                 "grants_authority": True})
+
+    monkeypatch.setattr(verification_module, "verify_persisted_campaign_report", verify)
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    result = surfaces.inspect_production_self_reflection_campaign_report()
+
+    assert result["status"] == "campaign_report_verified"
+    assert result["report_digest"] == "sha256:" + "a" * 64
+    assert result["effect_performed"] is False
+    assert result["report_created"] is False
+    assert result["campaign_recovered"] is False
+    assert result["execution_allowed"] is False
+    assert result["grants_authority"] is False
+    assert calls == [tmp_path / "campaign"]
+
+
+def test_daemon_campaign_report_inspection_fails_closed_without_configured_root(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import read_only_campaign_report_verification as verification_module
+
+    monkeypatch.delenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT", raising=False)
+    monkeypatch.setattr(
+        verification_module, "verify_persisted_campaign_report",
+        lambda _root: pytest.fail("unconfigured inspection must not read a campaign"))
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+
+    result = surfaces.inspect_production_self_reflection_campaign_report()
+
+    assert result["status"] == "not_configured"
+    assert result["effect_performed"] is False
+    assert result["report_created"] is False
+    assert result["campaign_recovered"] is False
+    assert result["execution_allowed"] is False
+    assert result["grants_authority"] is False
+
+
+def test_transition_feedback_includes_verified_campaign_report_projection(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import read_only_campaign_report_verification as verification_module
+
+    processed = []
+    monkeypatch.setenv("SENTIENTOS_PRODUCTION_SELF_REFLECTION_CAMPAIGN_ROOT",
+                       str(tmp_path / "campaign"))
+    monkeypatch.setattr(
+        verification_module, "verify_persisted_campaign_report",
+        lambda root: {"status": "campaign_report_verified", "report_digest": "sha256:" + "b" * 64},
+    )
+
+    class Runtime:
+        def process_one(self):
+            processed.append("one")
+            return {"status": "idle", "effect_performed": False}
+
+        def status(self):
+            return {"status": "ready", "effect_performed": False}
+
+    surfaces = object.__new__(sentientosd.RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_configuration_error = None
+    surfaces._resident_transition_runtime = Runtime()
+    surfaces._feedback = {"surfaces": {}}
+    surfaces._refresh_feedback = lambda: None
+
+    result = surfaces.process_resident_cognitive_transition_request(tick_id="tick-1")
+
+    assert result["status"] == "idle"
+    assert result["self_reflection_campaign_report"]["status"] == "campaign_report_verified"
+    assert result["self_reflection_campaign_report"]["report_digest"] == "sha256:" + "b" * 64
+    assert result["self_reflection_campaign_report"]["effect_performed"] is False
+    assert result["self_reflection_campaign_report"]["execution_allowed"] is False
+    assert processed == ["one"]
+    assert surfaces.governance_feedback()["surfaces"][
+        "resident_cognitive_transition_operator"]["self_reflection_campaign_report"] == (
+            result["self_reflection_campaign_report"])
+
+
 def test_daemon_stage_admission_plan_uses_explicit_approval_without_processing_request():
     supplied = {"requested_stage": "a_to_b_transition_requested",
                 "approval_digest": "d" * 64}
