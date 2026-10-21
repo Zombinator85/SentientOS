@@ -88,13 +88,18 @@ def _subordinate_approval_bindings(
 
 
 def _time(value: object) -> datetime:
-    try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise TransitionError("operator_request_validity_invalid") from exc
-    if parsed.tzinfo is None:
+    if not isinstance(value, str) or not value or value.endswith("-00:00"):
         raise TransitionError("operator_request_validity_invalid")
-    return parsed.astimezone(timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise TransitionError("operator_request_validity_invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise TransitionError("operator_request_validity_invalid")
+    try:
+        return parsed.astimezone(timezone.utc)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise TransitionError("operator_request_validity_invalid") from exc
 
 
 @dataclass(frozen=True)
