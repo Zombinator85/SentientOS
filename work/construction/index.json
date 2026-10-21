@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "08d266809d077945314a74444020f033f21d4f009cc9350f60f89f3498f551da",
-    "latest_segment_sequence": 555,
-    "latest_segment_sha256": "9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8b4017fb6a",
-    "source_commit": "289438aed7d2f1258e20c1939d6195f1840725ca",
-    "source_tree": "e9c1726f14aa630f86cc1daad0a4b359ee8e3d47"
+    "checkpoint_sha256": "bec8ec5517ab0fd1dd7619e4c1d5bccd3fa87a8d893c0618488e0254b5a1a9a0",
+    "latest_segment_sequence": 556,
+    "latest_segment_sha256": "d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
+    "source_commit": "287188335576efb45c2ab94d7f7ade7c004c2b77",
+    "source_tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
   },
-  "checkpoint_sha256": "08d266809d077945314a74444020f033f21d4f009cc9350f60f89f3498f551da",
+  "checkpoint_sha256": "bec8ec5517ab0fd1dd7619e4c1d5bccd3fa87a8d893c0618488e0254b5a1a9a0",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 555,
+  "latest_sequence": 556,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6386,6 +6386,19 @@
       "source_candidate_commit": "d0669621538e929ec84ee9d2e2ec433863be3917",
       "source_commit": "289438aed7d2f1258e20c1939d6195f1840725ca",
       "source_tree": "e9c1726f14aa630f86cc1daad0a4b359ee8e3d47"
+    },
+    {
+      "bytes": 2297,
+      "evidence_bytes": 5220,
+      "evidence_path": "work/construction/evidence/0556-windows-subprocess-termination-semantics.json",
+      "evidence_sha256": "4f6e3af6e1c40edfc72e9c27718ca841ef87f29246632476b4e9ad6b2dc186d2",
+      "path": "work/construction/segments/0556-windows-subprocess-termination-semantics.md",
+      "predecessor": "segment-sha256:9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8b4017fb6a",
+      "sequence": 556,
+      "sha256": "d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
+      "source_candidate_commit": "6e9d65e073fda487c4da55dfe712c7a443fcd8d5",
+      "source_commit": "287188335576efb45c2ab94d7f7ade7c004c2b77",
+      "source_tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
     }
   ],
   "source_acquisition": {
