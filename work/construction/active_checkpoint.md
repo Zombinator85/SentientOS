@@ -503,3 +503,14 @@ Implementation candidate: `2d3539f462b5e6eb6acac5710001dc1b831ed2ce`, tree `833c
 Latest construction segment: `work/construction/segments/0514-validate-transition-context-constructor-shape.md`
 Latest segment SHA-256: `b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0`
 Sequence: 514 (candidate pending hosted verification)
+
+
+## Sequence 515 — bound recursive transition context freezing
+
+Recursive approval freezing now rejects cycles and limits container nesting to 64 levels, while snapshotting mapping items once for validation and freezing. Sequence 514 merged via PR #2521 as `b480dff1219e53ea0280b44b82c53053c92c0b42`, tree `6215482f905b5dc888b2dfddf41810f6ac9eab6f`. Its exact-candidate privileged gate and distinct metadata guard passed, along with all configured CI checks. Post-merge Quality Gate, CI, docs, self-check, Helm, Docker, Docs Deploy, CPU smoke, and invariants passed; Forge Smoke was conditionally skipped. Supplemental sequence 515 verification passed 92 affected tests, targeted Mypy, compilation, YAML, diff, and custody checks. Candidate checks are pending.
+
+Latest verified source merge: `b480dff1219e53ea0280b44b82c53053c92c0b42`, tree `6215482f905b5dc888b2dfddf41810f6ac9eab6f`
+Implementation candidate: `534050c1572280ed65d0a13f3663a9cca770880f`, tree `0202678592db9e1bb2b18f4f2a1ab5bec5e1f7ee`
+Latest construction segment: `work/construction/segments/0515-bound-recursive-transition-context-freezing.md`
+Latest segment SHA-256: `fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66`
+Sequence: 515 (candidate pending hosted verification)

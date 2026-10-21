@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c04ac0433bf7e95b9cbf9bb2eb34c5c2ee85ae6356d5f67c8c7e985f684dc0d3",
-    "latest_segment_sequence": 514,
-    "latest_segment_sha256": "b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
-    "source_commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
-    "source_tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5"
+    "checkpoint_sha256": "01fef4b73a2ca415b567cde45f23da370c72b366d5f9f128641676cd1f2b43fc",
+    "latest_segment_sequence": 515,
+    "latest_segment_sha256": "fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
+    "source_commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
+    "source_tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f"
   },
-  "checkpoint_sha256": "c04ac0433bf7e95b9cbf9bb2eb34c5c2ee85ae6356d5f67c8c7e985f684dc0d3",
+  "checkpoint_sha256": "01fef4b73a2ca415b567cde45f23da370c72b366d5f9f128641676cd1f2b43fc",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 514,
+  "latest_sequence": 515,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5855,6 +5855,19 @@
       "source_candidate_commit": "2d3539f462b5e6eb6acac5710001dc1b831ed2ce",
       "source_commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
       "source_tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5"
+    },
+    {
+      "bytes": 1857,
+      "evidence_bytes": 4022,
+      "evidence_path": "work/construction/evidence/0515-bound-recursive-transition-context-freezing.json",
+      "evidence_sha256": "a9f212393101d27bb91ce34e25cf10d8a9fa023e23af32d9111729ddfaefb446",
+      "path": "work/construction/segments/0515-bound-recursive-transition-context-freezing.md",
+      "predecessor": "segment-sha256:b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
+      "sequence": 515,
+      "sha256": "fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
+      "source_candidate_commit": "534050c1572280ed65d0a13f3663a9cca770880f",
+      "source_commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
+      "source_tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f"
     }
   ],
   "source_acquisition": {
