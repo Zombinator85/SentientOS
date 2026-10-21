@@ -148,6 +148,30 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
     assert "EndBug/add-and-commit@v9" not in workflow
     assert "peter-evans/create-pull-request@v7" in publisher
     assert "automation/federation-health" in publisher
+    app_token = next(
+        step for step in parsed["jobs"]["publish"]["steps"]
+        if step.get("id") == "app-token"
+    )
+    assert app_token["if"] == "${{ vars.SENTIENTOS_FEDERATION_HEALTH_USE_APP == '1' }}"
+    assert app_token["uses"] == (
+        "actions/create-github-app-token@"
+        "64ab729a6294000f5aa4a4bc0b73d1f32bc45510"
+    )
+    assert app_token["with"] == {
+        "app-id": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}",
+        "private-key": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY }}",
+        "owner": "Zombinator85",
+        "repositories": "SentientOS",
+        "permission-contents": "write",
+        "permission-pull-requests": "write",
+    }
+    create_pr = next(
+        step for step in parsed["jobs"]["publish"]["steps"]
+        if step.get("id") == "create-pr"
+    )
+    assert create_pr["with"]["token"] == (
+        "${{ steps.app-token.outputs.token || github.token }}"
+    )
     assert "format('automation/federation-health-fixture-{0}', github.run_id)" in publisher
     assert "add-paths: |\n            docs/FEDERATION_HEALTH.md" in publisher
     assert 'DELETE_TRIGGER_BRANCH:' in publisher

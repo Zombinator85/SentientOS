@@ -10,6 +10,7 @@
 - [Project Thesis](architecture/sentientos_project_thesis.md) — developmental ambition, philosophy, and invariants.
 - [Roadmap and Research Trajectory](architecture/sentientos_trajectory_and_missing_organs.md) — deferred organs and research horizons.
 - [Reviewer Release Readiness](architecture/reviewer_release_readiness_index.md) — subsystem proof and historical landing evidence.
+- [Federation Health publication](federation_health_publication.md) — optional repository-scoped App configuration for unattended report PR checks.
 
 SentientOS aims to become a continuing, world-coupled developmental operating
 environment in which experience can affect later cognition, strategy, procedure,

@@ -7,6 +7,7 @@ nav:
   - Whole-System Maturity: architecture/whole_system_maturity_report.md
   - Roadmap and Research Trajectory: architecture/sentientos_trajectory_and_missing_organs.md
   - Reviewer Readiness: architecture/reviewer_release_readiness_index.md
+  - Federation Health publication: federation_health_publication.md
   - Historical Surface Dispositions: architecture/historical_surface_disposition_registry.md
   - Relationship to Established Terminology: architecture/relationship_to_existing_terminology.md
   - Installation: INSTALL.md
