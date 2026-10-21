@@ -374,10 +374,10 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 37
+    assert selection.count("tests/") == 38
     node_lines = [line for line in selection.splitlines() if "tests/" in line]
     assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
-    assert "len(nodes)==37" in workflow
+    assert "len(nodes)==38" in workflow
     assert "tests/test_experiment_chain.py::test_pending_nondeterministic_adapter_waits_for_approval" in selection
     assert "tests/test_experiment_chain.py::test_nondeterministic_adapter_runs_after_consensus_approval" in selection
     assert "tests/test_experiment_chain.py::test_pending_deterministic_adapter_keeps_existing_execution_behavior" in selection
@@ -391,6 +391,7 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     assert "tests/test_storymaker.py::test_image_command_keeps_prompt_and_output_as_single_arguments" in selection
     assert "tests/test_bootstrap_cathedral_entrypoints.py::test_bootstrap_command_runner_never_interprets_shell_syntax" in selection
     assert "tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_descendant_held_output_pipes" in selection
+    assert "tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_unterminated_partial_output" in selection
 
 
 def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
@@ -399,7 +400,7 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
     selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/test_") == 37
+    assert selection.count("tests/test_") == 38
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -682,7 +683,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
     assert 'env["PYTHONPATH"] = workspace' in precommit
-    assert 'len(nodes) != 37' in precommit
+    assert 'len(nodes) != 38' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
     assert "finalizer_exit_code=$?" in precommit
@@ -719,7 +720,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
     assert 'provenance.get("git_sha") != expected_head' in finalizer
-    assert 'candidate acceptance must contain the exact 37 required nodes' in finalizer
+    assert 'candidate acceptance must contain the exact 38 required nodes' in finalizer
     candidate_verify = finalizer.index(
         'PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py"'
     )

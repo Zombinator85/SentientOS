@@ -84,3 +84,26 @@ def test_stage_timeout_covers_descendant_held_output_pipes(tmp_path: Path) -> No
     assert result.status == "timed_out"
     assert duration < .75
     assert not marker.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX nonblocking pipe timeout proof")
+def test_stage_timeout_covers_unterminated_partial_output() -> None:
+    lines: list[str] = []
+    started = time.monotonic()
+    result = run_supervised(
+        [
+            sys.executable,
+            "-c",
+            "import os,time;os.write(1,b'progress\\r');time.sleep(0.05);os.write(1,b'\\npartial output');time.sleep(5)",
+        ],
+        stage_id="partial-line",
+        timeout_seconds=0.2,
+        termination_grace_seconds=0.1,
+        emit=lines.append,
+    )
+
+    assert result.status == "timed_out"
+    assert result.stdout_tail == "progress\npartial output"
+    assert time.monotonic() - started < 0.75
+    assert any("[partial-line][stdout] progress" in line for line in lines)
+    assert any("[partial-line][stdout] partial output" in line for line in lines)
