@@ -94,7 +94,7 @@ def test_stage_timeout_covers_unterminated_partial_output() -> None:
         [
             sys.executable,
             "-c",
-            "import os,time;os.write(1,b'partial output');time.sleep(5)",
+            "import os,time;os.write(1,b'progress\\rpartial output');time.sleep(5)",
         ],
         stage_id="partial-line",
         timeout_seconds=0.2,
@@ -103,6 +103,7 @@ def test_stage_timeout_covers_unterminated_partial_output() -> None:
     )
 
     assert result.status == "timed_out"
-    assert result.stdout_tail == "partial output"
+    assert result.stdout_tail == "progress\npartial output"
     assert time.monotonic() - started < 0.75
+    assert any("[partial-line][stdout] progress" in line for line in lines)
     assert any("[partial-line][stdout] partial output" in line for line in lines)

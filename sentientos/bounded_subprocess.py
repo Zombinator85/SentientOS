@@ -123,6 +123,7 @@ def run_supervised(
         output_streams[file_descriptor] = output_stream
         selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
     pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
+    skip_lf_after_cr = {"stdout": False, "stderr": False}
     max_line_bytes = 65536
     last_output = started
     termination_reason: str | None = None
@@ -187,15 +188,28 @@ def run_supervised(
                         buffered.clear()
                     selector.unregister(file_descriptor)
                     continue
+                if skip_lf_after_cr[stream_name]:
+                    if chunk.startswith(b"\n"):
+                        chunk = chunk[1:]
+                    skip_lf_after_cr[stream_name] = False
+                if not chunk:
+                    continue
                 buffered = pending_lines[stream_name]
                 buffered.extend(chunk)
                 while True:
-                    try:
-                        newline = buffered.index(10)
-                    except ValueError:
+                    carriage_return = buffered.find(13)
+                    newline = buffered.find(10)
+                    delimiters = [position for position in (carriage_return, newline) if position >= 0]
+                    if not delimiters:
                         break
-                    raw_line = bytes(buffered[:newline])
-                    del buffered[: newline + 1]
+                    delimiter = min(delimiters)
+                    raw_line = bytes(buffered[:delimiter])
+                    is_carriage_return = buffered[delimiter] == 13
+                    del buffered[: delimiter + 1]
+                    if is_carriage_return and buffered.startswith(b"\\n"):
+                        del buffered[:1]
+                    elif is_carriage_return and not buffered:
+                        skip_lf_after_cr[stream_name] = True
                     if len(raw_line) > max_line_bytes:
                         raw_line = raw_line[:max_line_bytes] + b" [line truncated]"
                     record_line(stream_name, raw_line)
