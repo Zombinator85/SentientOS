@@ -375,13 +375,19 @@ def run_supervised(
             selector.close()
     duration = time.monotonic() - started
     status = "timed_out" if termination_reason == "timeout" else "cancelled" if termination_reason else "passed" if return_code == 0 else "failed"
-    # On POSIX wait() plus process-group signalling is the strongest portable
-    # repository-level confirmation. Windows cannot independently enumerate descendants.
-    confirmed = os.name == "posix" and not _process_group_exists(pgid)
+    # An escaped child can leave the original process group and continue to
+    # run, so process-group disappearance cannot prove descendant termination.
+    process_group_terminated = os.name == "posix" and not _process_group_exists(pgid)
+    confirmed = False
+    supervision_status = (
+        "process_group_terminated_descendants_unconfirmed"
+        if process_group_terminated
+        else "platform_limited_termination_evidence"
+    )
     writer(f"[finalizer] stage end: {stage_id} status={status} exit_code={return_code} duration={duration:.3f}s")
     return SupervisedProcessResult(
         tuple(argv) if not isinstance(argv, str) else (argv,), process.pid, pgid, return_code,
         status, duration, "\n".join(tails["stdout"]), "\n".join(tails["stderr"]),
         termination_reason, graceful, forced, confirmed,
-        "descendants_confirmed_terminated" if confirmed else "platform_limited_termination_evidence",
+        supervision_status,
     )

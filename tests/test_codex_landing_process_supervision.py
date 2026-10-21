@@ -74,6 +74,65 @@ def test_stage_timeout_terminates_child_and_grandchild(tmp_path: Path) -> None:
     result = run_supervised([sys.executable, "-c", _tree_script(tmp_path)], stage_id="tree", timeout_seconds=.3, termination_grace_seconds=.2, emit=lambda _: None)
     time.sleep(.8)
     assert result.termination_reason == "timeout" and not (tmp_path / "marker").exists()
+    assert result.descendants_confirmed_terminated is False
+    assert result.supervision_status in {
+        "process_group_terminated_descendants_unconfirmed",
+        "platform_limited_termination_evidence",
+    }
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX escaped-descendant evidence proof")
+def test_escaped_descendant_is_not_reported_as_confirmed_terminated(
+    tmp_path: Path,
+) -> None:
+    ready, pid_file, marker = (
+        tmp_path / "detached-ready",
+        tmp_path / "detached-pid",
+        tmp_path / "detached-marker",
+    )
+    detached_child = (
+        "import os,time\n"
+        "from pathlib import Path\n"
+        "os.setsid()\n"
+        f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+        f"Path({str(ready)!r}).write_text('ready')\n"
+        "time.sleep(.8)\n"
+        f"Path({str(marker)!r}).write_text('survived')\n"
+        "time.sleep(2)\n"
+    )
+    parent = (
+        "import subprocess,sys,time\n"
+        "from pathlib import Path\n"
+        "subprocess.Popen([sys.executable,'-c',sys.argv[1]])\n"
+        "deadline=time.monotonic()+2\n"
+        f"ready=Path({str(ready)!r})\n"
+        "while not ready.exists() and time.monotonic()<deadline: time.sleep(.01)\n"
+        "print('detached-ready' if ready.exists() else 'detached-missing',flush=True)\n"
+        "time.sleep(5)\n"
+    )
+
+    result = run_supervised(
+        [sys.executable, "-c", parent, detached_child],
+        stage_id="escaped-descendant",
+        timeout_seconds=0.3,
+        termination_grace_seconds=0.1,
+        emit=lambda _: None,
+    )
+    detached_pid = int(pid_file.read_text())
+    try:
+        assert "detached-ready" in result.stdout_tail
+        assert result.descendants_confirmed_terminated is False
+        assert (
+            result.supervision_status
+            == "process_group_terminated_descendants_unconfirmed"
+        )
+        time.sleep(0.9)
+        assert marker.read_text() == "survived"
+    finally:
+        try:
+            os.kill(detached_pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX signal lifecycle proof")
