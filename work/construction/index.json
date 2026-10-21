@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4f6faaf8d5cbc4d6d5caedb59c2d719310d27521d9ae77bbb1f48d6c60fd725d",
-    "latest_segment_sequence": 553,
-    "latest_segment_sha256": "af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
-    "source_commit": "a18ae26a9cd5a0440d5e9a654cf45ab5245626ad",
-    "source_tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
+    "checkpoint_sha256": "a4387d6c79972c76a625a399435ea4f2f7cdaef43083dfd926e50e59427ed5ad",
+    "latest_segment_sequence": 554,
+    "latest_segment_sha256": "ed116854381f15228171712a588061990514a9092ccbacdc2444dfcf75469ebd",
+    "source_commit": "3e435dd8db0a4ada125cdf7433a8744f3ddb9eee",
+    "source_tree": "68e40fe10352fb958ae778d4fe3f08e0adaf1f46"
   },
-  "checkpoint_sha256": "4f6faaf8d5cbc4d6d5caedb59c2d719310d27521d9ae77bbb1f48d6c60fd725d",
+  "checkpoint_sha256": "a4387d6c79972c76a625a399435ea4f2f7cdaef43083dfd926e50e59427ed5ad",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 553,
+  "latest_sequence": 554,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6360,6 +6360,19 @@
       "source_candidate_commit": "15173d47a45de1d2a8977c4448cba85b393146cf",
       "source_commit": "a18ae26a9cd5a0440d5e9a654cf45ab5245626ad",
       "source_tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
+    },
+    {
+      "bytes": 2506,
+      "evidence_bytes": 4669,
+      "evidence_path": "work/construction/evidence/0554-windows-subprocess-pipe-draining.json",
+      "evidence_sha256": "28181fc3b53cf56b1644f602142f0a82ce5ce281f19daaa1def345c362187b81",
+      "path": "work/construction/segments/0554-windows-subprocess-pipe-draining.md",
+      "predecessor": "segment-sha256:af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
+      "sequence": 554,
+      "sha256": "ed116854381f15228171712a588061990514a9092ccbacdc2444dfcf75469ebd",
+      "source_candidate_commit": "5759e87c686d4e5cecafcc6d4012fdd950a2632f",
+      "source_commit": "3e435dd8db0a4ada125cdf7433a8744f3ddb9eee",
+      "source_tree": "68e40fe10352fb958ae778d4fe3f08e0adaf1f46"
     }
   ],
   "source_acquisition": {
