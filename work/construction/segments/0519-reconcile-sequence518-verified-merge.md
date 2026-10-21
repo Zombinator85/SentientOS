@@ -1,0 +1,12 @@
+# Sequence 519 — reconcile sequence 518 verified merge
+
+PR #2525 merged regularly as `56ce661de59577527a33eab112662360b606302e`, tree `77338048326f48bf98fe3a4fb8d83d4b1cabe876`, preserving ordered parents `45d49ec2e2cab9a9158686f9bf7536801b642883` and `2e329f4832d98d68103d4de9f1e7caac2991c24a`. Its exact-candidate CI, Release, Codex CI, invariants, Gradient, Docker, lint, and Required Quality Gate passed. The gate passed exact-source acceptance, actual-Administrator strict audits and immutability, hosted finalization, and the separate metadata guard.
+
+Post-merge checks passed on the exact main SHA: CI and its integrated source validation, main Quality Gate, invariants, docs build and link check, self-check, standalone Nightly Self Check, Helm, Docker/CPU smoke, and Pages deployment. Federation Health run #39556678412 also passed its hosted Administrator preflight and report binding on this SHA. Independent inspection of artifact #12325393187 (artifact digest `sha256:804e3a3631713b4cd25ca5c6b79233702dd21ae4e69e7d1bbac646f15dec1ac4`) confirmed the report status is `stale`, the data source is a configured local snapshot and not live telemetry, and its receipt binds run #39556678412, event `push`, ref `refs/heads/main`, and this exact SHA. Nightly Self Check run #39556678373 succeeded on the same SHA and includes its hosted Administrator and strict-audit steps. The separate scheduled Nightly Audit Integrity workflow has no scheduled run on this SHA in the inspected Actions history; its latest observed schedule (#39396388332) is bound to older main `124de0f9ced349de7342901a2e1338c460c05a00`.
+
+The Federation Health publisher succeeded and updated automation PR #2511 with the stale report and exact-run receipt. That PR remains open at head `46fee12719a5007927502be8211fc6e17b1b593a`; no PR check runs were attached at inspection, so it was not merged. No production transition, activation, serving, inference, or writeback was performed. The dedicated current-head Nightly Audit Integrity execution and approval of checks for the automated report PR remain outstanding.
+
+Latest verified main: `56ce661de59577527a33eab112662360b606302e`, tree `77338048326f48bf98fe3a4fb8d83d4b1cabe876`
+Implementation candidate: `9357dede0d6fc6c5a829f084cf5905f77f2fc4aa`, tree `a25269c3e6ec480343b8cd7fa3607617ead0f41e`
+Latest construction segment: work/construction/segments/0519-reconcile-sequence518-verified-merge.md
+Sequence: 519 (verified reconciliation)
