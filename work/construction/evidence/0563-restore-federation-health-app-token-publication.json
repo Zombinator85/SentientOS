@@ -1,0 +1,293 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 563,
+  "title": "Restore the configured Federation Health App token path",
+  "status": "verified_reconciliation",
+  "predecessor": {
+    "sequence": 562,
+    "segment_sha256": "f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393"
+  },
+  "source_candidate": {
+    "pull_request": 2585,
+    "commit": "2f958d0177fa11fecb558cb6ed0ac8762031184a",
+    "tree": "b2a551cf9feeed2c9fda35e839afc02ee7aeaec3"
+  },
+  "source_blobs": {
+    ".github/workflows/federation-health.yml": "5852007d863657259ffc9698f2631698893d6642",
+    "tests/test_github_hosted_acceptance_workflows.py": "977d0794cf7fade7366acd59e910db1f6ca87556",
+    ".github/workflows/ci.yml": "97659a6fae834c1a705a23b3948189ee20b19518",
+    "prior_client_id_candidate": {
+      ".github/workflows/federation-health.yml": "099a7b6b38b36f82b3a005f4f83ea81ac66ce1dd",
+      "tests/test_github_hosted_acceptance_workflows.py": "650295f77534b7868e0fa17fd6184f30a4f2154a"
+    }
+  },
+  "source_recovery": {
+    "remote_readback": "The initial Client ID candidate, corrective App ID candidate, PR heads, merge commits, current blobs, and candidate-to-merge comparisons were independently read back from GitHub.",
+    "protected_workspaces_touched": false,
+    "local_runtime_tests": "not run; exact hosted CI and source-bound Quality Gate were used"
+  },
+  "candidate_hosted_verification": {
+    "CI": {
+      "run_id": 39675571216,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "run_id": 39675571173,
+      "conclusion": "success",
+      "exact_source_bound_nodes": 47,
+      "passed_nodes": 47,
+      "failed_nodes": 0,
+      "strict_administrator_audits": true,
+      "hosted_precommit_finalizer": "ready_to_commit",
+      "candidate_finalizer": "ready_for_pr_metadata",
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready"
+    },
+    "Invariants": {
+      "run_id": 39675571223,
+      "conclusion": "success"
+    },
+    "Lint_Benchmark": {
+      "run_id": 39675571220,
+      "conclusion": "success"
+    },
+    "Release": {
+      "run_id": 39675571206,
+      "conclusion": "success"
+    },
+    "Gradient_null_regression": {
+      "run_id": 39675571140,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "run_id": 39675571144,
+      "conclusion": "success"
+    },
+    "Codex_CI": {
+      "run_id": 39675571114,
+      "conclusion": "success"
+    }
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "artifact_id": 12382720674,
+      "artifact_sha256": "bc9a8288511c5a2d3a07bbdf32f6a552ca6b187534066285316c6de562c67edc"
+    },
+    "finalizer": {
+      "artifact_id": 12381367342,
+      "artifact_sha256": "51283fd26fd08af439311e8cb51f9d3b8646632143241be94f723314d57d8d4a"
+    },
+    "gate_evidence": {
+      "artifact_id": 12381161502,
+      "artifact_sha256": "430656d1a3bc02c7eac09c3c8dc9e9ea009fea6c37b3ce4a7545f20398d74b2d"
+    }
+  },
+  "integration": {
+    "initial_client_id_attempt": {
+      "pull_request": 2584,
+      "candidate": "f13e6ee621ef937c18bd01940991eac28078c3e7",
+      "tree": "5475602d622e98d425cd1b33c94c8df5a2df057d",
+      "merge_commit": "ef1f5cd4cba2a5dbe55cf1b6c545c770dd4a1dea",
+      "candidate_workflows": "all required workflows succeeded",
+      "post_merge_federation_run": {
+        "run_id": 39675117577,
+        "conclusion": "failure",
+        "health_job": "success",
+        "publish_job": "failure",
+        "failed_step": "actions/create-github-app-token",
+        "cause": "SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID was unavailable; the client-id input was empty"
+      }
+    },
+    "corrective_app_id_path": {
+      "pull_request": 2585,
+      "candidate": "2f958d0177fa11fecb558cb6ed0ac8762031184a",
+      "tree": "b2a551cf9feeed2c9fda35e839afc02ee7aeaec3",
+      "merge_method": "merge",
+      "merge_commit": "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+      "candidate_to_merge_changed_files": 0,
+      "post_merge_checks": {
+        "CI": {
+          "run_id": 39676106635,
+          "conclusion": "success"
+        },
+        "Required_Quality_Gate": {
+          "run_id": 39676106902,
+          "conclusion": "success"
+        },
+        "Invariants": {
+          "run_id": 39676106569,
+          "conclusion": "success"
+        },
+        "Docs_Deploy": {
+          "run_id": 39676106795,
+          "conclusion": "success"
+        },
+        "Codex_CI": {
+          "run_id": 39676106600,
+          "conclusion": "success"
+        },
+        "Docker_Image": {
+          "run_id": 39676106916,
+          "conclusion": "success"
+        },
+        "Nightly_Self_Check": {
+          "run_id": 39676106438,
+          "conclusion": "success"
+        },
+        "Forge_Smoke": {
+          "run_id": 39676106452,
+          "conclusion": "skipped_condition"
+        }
+      }
+    },
+    "current_main_federation_execution": {
+      "run_id": 39676106433,
+      "conclusion": "success",
+      "event_name": "push",
+      "head_sha": "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "app_token_creation": "success",
+      "pull_request_publication": "success",
+      "artifact": {
+        "artifact_id": 12382586678,
+        "artifact_sha256": "44b1e00dd74a498277697bbf9c8ab43b26c6e314fcd63eb277cd8c9db738280f"
+      },
+      "receipt": {
+        "schema_version": "sentientos.federation_health_execution:v1",
+        "workflow_run_id": 39676106433,
+        "event_name": "push",
+        "head_sha": "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+        "administrator_preflight": "passed",
+        "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c"
+      }
+    },
+    "generated_report_pr": {
+      "pull_request": 2511,
+      "candidate": "77e2314f0b407e9f923333e27a70a975758e14da",
+      "base": "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH.md",
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "report_posture": "stale configured local log snapshot; explicitly not live telemetry",
+      "acceptance": {
+        "artifact_id": 12382227028,
+        "artifact_sha256": "53a15a740f74c7d56eb245ab5f96dac756dc93a5ab09376031699def74d249ad",
+        "source_bound_nodes": 47,
+        "passed_nodes": 47,
+        "failed_nodes": 0
+      },
+      "required_quality_gate": {
+        "run_id": 39676179994,
+        "conclusion": "success",
+        "strict_administrator_audits": true,
+        "privileged_finalizer": "success",
+        "separate_metadata_guard": "success"
+      },
+      "other_candidate_runs": {
+        "CI": {
+          "run_id": 39676175219,
+          "conclusion": "success"
+        },
+        "Invariants": {
+          "run_id": 39676175187,
+          "conclusion": "success"
+        },
+        "Lint_Benchmark": {
+          "run_id": 39676175118,
+          "conclusion": "success"
+        },
+        "Release": {
+          "run_id": 39676175113,
+          "conclusion": "success"
+        },
+        "Gradient_null_regression": {
+          "run_id": 39676175135,
+          "conclusion": "success"
+        },
+        "Docker_Image": {
+          "run_id": 39676175192,
+          "conclusion": "success"
+        },
+        "Codex_CI": {
+          "run_id": 39676175114,
+          "conclusion": "success"
+        }
+      },
+      "merge_method": "merge",
+      "merge_commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
+      "merge_parents": [
+        "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+        "77e2314f0b407e9f923333e27a70a975758e14da"
+      ],
+      "candidate_to_merge_changed_files": 0,
+      "tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
+    },
+    "final_main_post_merge_checks": {
+      "CI": {
+        "run_id": 39676840536,
+        "conclusion": "success"
+      },
+      "Required_Quality_Gate": {
+        "run_id": 39676841062,
+        "conclusion": "success"
+      },
+      "Invariants": {
+        "run_id": 39676840651,
+        "conclusion": "success"
+      },
+      "Docs_Deploy": {
+        "run_id": 39676840619,
+        "conclusion": "success"
+      },
+      "Codex_CI": {
+        "run_id": 39676840603,
+        "conclusion": "success"
+      },
+      "Docker_Image": {
+        "run_id": 39676840631,
+        "conclusion": "success"
+      },
+      "Forge_Smoke": {
+        "run_id": 39676840620,
+        "conclusion": "skipped_condition"
+      }
+    }
+  },
+  "nightly_workflow_observations": {
+    "audit_nightly_scheduled": {
+      "run_id": 39572356700,
+      "head_sha": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "conclusion": "success",
+      "administrator_preflight": "success",
+      "strict_audit_verification": "success",
+      "repair_job": "skipped_no_repair_needed"
+    },
+    "self_check_scheduled": {
+      "run_id": 39577727254,
+      "head_sha": "0acc244d158618a827a34fbbfb5c80a876a137c7",
+      "conclusion": "success"
+    },
+    "self_check_current_main_push": {
+      "run_id": 39676106438,
+      "head_sha": "6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5",
+      "conclusion": "success",
+      "administrator_preflight": "success",
+      "strict_audit": "success",
+      "mypy": "success",
+      "pytest": "success"
+    },
+    "audit_repair_write_path": "not exercised because strict scheduled audit was clean; current workflow keeps writes in its separate repair job"
+  },
+  "verified_main": {
+    "commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
+    "tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
+  },
+  "remaining_limitations": [
+    "The distinct SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID secret remains unavailable; the proven numeric App ID path is active with the deprecated app-id alias, so the upstream deprecation warning remains.",
+    "The Nightly Audit repair write path was not exercised because the current scheduled audit passed without requiring a repair."
+  ],
+  "segment_path": "work/construction/segments/0563-restore-federation-health-app-token-publication.md",
+  "segment_bytes": 2514,
+  "segment_sha256": "434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89"
+}

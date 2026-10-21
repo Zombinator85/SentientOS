@@ -415,3 +415,18 @@ Latest segment SHA-256: `f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17ce
 Sequence: 562 (verified merge reconciliation)
 
 Next: update Federation Health's GitHub App token input from the deprecated `app-id` alias to `client-id`, then verify the updated publisher contract and hosted execution.
+
+## Sequence 563 — restore the configured Federation Health App token path
+
+The Client ID migration in PR #2584 passed its source-bound candidate checks, but the first main push exposed the missing `SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID` secret at App token creation. The health job passed; publication did not run. PR #2585 restored the configured numeric App ID input. Its 47-node strict hosted Quality Gate, separate metadata guard, CI, and companion candidate checks passed, and it merged normally.
+
+The next main push run passed Administrator preflight, health generation, report receipt binding, App token creation, and PR publication. The receipt binds run 39676106433 to source main `6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5`; its report explicitly marks the configured local log snapshot stale. PR #2511 passed its 47-node candidate Quality Gate and all companion checks, then merged as `2e260c4d46b0727a352effd27424eb580fdecce0`. Its post-merge CI, Quality Gate, Docker, docs, invariants, and Codex CI passed; Forge Smoke was conditionally skipped.
+
+Recent scheduled Nightly Audit and Nightly Self Check runs passed. The current-main push Self Check also passed strict audits, Mypy, and pytest. The Audit repair write path was not exercised because no repair was needed. The Client ID secret is still unavailable, so the deprecated `app-id` alias and its warning remain while the known configured App ID path is active.
+
+Verified main: `2e260c4d46b0727a352effd27424eb580fdecce0`, tree `cdd340d181bebcb05bcd87a8216486cc64ce4b69`
+Latest construction segment: `work/construction/segments/0563-restore-federation-health-app-token-publication.md`
+Latest segment SHA-256: `434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89`
+Sequence: 563 (verified operational reconciliation)
+
+Next: continue developmental cognition construction by tracing verified goal execution outcomes into later epistemic planning inputs, preserving read-only planning, exact provenance, and distinct positive and adverse history.

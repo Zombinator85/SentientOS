@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "41d79716bb66496052a3152615ea9f067602666629ae2c10739264cc2badd286",
-    "latest_segment_sequence": 562,
-    "latest_segment_sha256": "f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393",
-    "source_commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
-    "source_tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
+    "checkpoint_sha256": "29b134438a1c7feedee07fae7132e5b2ce998c214856b8bb4a0328dda79d9083",
+    "latest_segment_sequence": 563,
+    "latest_segment_sha256": "434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89",
+    "source_commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
+    "source_tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
   },
-  "checkpoint_sha256": "41d79716bb66496052a3152615ea9f067602666629ae2c10739264cc2badd286",
+  "checkpoint_sha256": "29b134438a1c7feedee07fae7132e5b2ce998c214856b8bb4a0328dda79d9083",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 562,
+  "latest_sequence": 563,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6477,6 +6477,19 @@
       "source_candidate_commit": "ef88af8f8b49f85c858ea1086d614648dfdec403",
       "source_commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
       "source_tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
+    },
+    {
+      "bytes": 2514,
+      "evidence_bytes": 10121,
+      "evidence_path": "work/construction/evidence/0563-restore-federation-health-app-token-publication.json",
+      "evidence_sha256": "8857632cd0ea43a1dcfe009431451819f7f87b562ce7a885ced179554528d1b0",
+      "path": "work/construction/segments/0563-restore-federation-health-app-token-publication.md",
+      "predecessor": "segment-sha256:f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393",
+      "sequence": 563,
+      "sha256": "434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89",
+      "source_candidate_commit": "2f958d0177fa11fecb558cb6ed0ac8762031184a",
+      "source_commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
+      "source_tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
     }
   ],
   "source_acquisition": {
