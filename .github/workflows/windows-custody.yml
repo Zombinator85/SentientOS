@@ -8,6 +8,8 @@ on:
       - "sentientos/windows_handle_custody.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
+      - "sentientos/bounded_subprocess.py"
+      - "tests/test_codex_landing_process_supervision.py"
   push:
     branches:
       - main
@@ -17,6 +19,8 @@ on:
       - "sentientos/windows_handle_custody.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
+      - "sentientos/bounded_subprocess.py"
+      - "tests/test_codex_landing_process_supervision.py"
 
 permissions:
   contents: read
@@ -37,3 +41,5 @@ jobs:
         run: python -m pip install --no-deps -e .
       - name: Run Windows custody regressions
         run: python -m scripts.run_tests sentientos/tests/test_windows_handle_custody.py -q
+      - name: Run bounded subprocess supervision regressions
+        run: python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q

@@ -33,6 +33,7 @@ def _tree_script(tmp_path: Path) -> str:
     return f"import os,subprocess,sys,time;open({str(pids)!r},'a').write(str(os.getpid())+'\\n');subprocess.Popen([sys.executable,'-c',{grandchild!r}]);time.sleep(5)"
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group timeout proof")
 def test_stage_timeout_terminates_child_and_grandchild(tmp_path: Path) -> None:
     result = run_supervised([sys.executable, "-c", _tree_script(tmp_path)], stage_id="tree", timeout_seconds=.3, termination_grace_seconds=.2, emit=lambda _: None)
     time.sleep(.8)
@@ -168,3 +169,29 @@ def test_explicit_empty_environment_does_not_inherit_parent(monkeypatch: pytest.
 
     assert result.status == "passed"
     assert result.stdout_tail == "<missing>"
+
+
+def test_supervisor_drains_stdout_and_stderr_without_deadlock() -> None:
+    result = run_supervised(
+        [
+            sys.executable,
+            "-c",
+            "import os, threading\n"
+            "def write_all(fd, byte):\n"
+            "    data = byte * 262144\n"
+            "    while data:\n"
+            "        written = os.write(fd, data)\n"
+            "        data = data[written:]\n"
+            "threads = [threading.Thread(target=write_all, args=(fd, byte)) "
+            "for fd, byte in ((1, b'o'), (2, b'e'))]\n"
+            "for thread in threads: thread.start()\n"
+            "for thread in threads: thread.join()",
+        ],
+        stage_id="both-streams",
+        timeout_seconds=5,
+        emit=lambda _: None,
+    )
+
+    assert result.status == "passed"
+    assert "line continues" in result.stdout_tail
+    assert "line continues" in result.stderr_tail
