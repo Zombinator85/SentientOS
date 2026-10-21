@@ -422,7 +422,7 @@ The Client ID migration in PR #2584 passed its source-bound candidate checks, bu
 
 The next main push run passed Administrator preflight, health generation, report receipt binding, App token creation, and PR publication. The receipt binds run 39676106433 to source main `6a574adb72ddaf6d6c9dcbef6e9ef88695c738a5`; its report explicitly marks the configured local log snapshot stale. PR #2511 passed its 47-node candidate Quality Gate and all companion checks, then merged as `2e260c4d46b0727a352effd27424eb580fdecce0`. Its post-merge CI, Quality Gate, Docker, docs, invariants, and Codex CI passed; Forge Smoke was conditionally skipped.
 
-Recent scheduled Nightly Audit and Nightly Self Check runs passed. The current-main push Self Check also passed strict audits, Mypy, and pytest. The Audit repair write path was not exercised because no repair was needed. The Client ID secret is still unavailable, so the deprecated `app-id` alias and its warning remain while the known configured App ID path is active.
+Recent scheduled Nightly Audit and Nightly Self Check runs passed. The current-main push Self Check also passed strict audits, Mypy, and pytest. The Audit repair write path was not exercised because no repair was needed. At sequence 563 capture time, the Client ID secret was unavailable. The repository owner subsequently configured it; sequence 564 records the verified `client-id` execution and removes the deprecated `app-id` limitation.
 
 Verified main: `2e260c4d46b0727a352effd27424eb580fdecce0`, tree `cdd340d181bebcb05bcd87a8216486cc64ce4b69`
 Latest construction segment: `work/construction/segments/0563-restore-federation-health-app-token-publication.md`
@@ -430,3 +430,22 @@ Latest segment SHA-256: `434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a
 Sequence: 563 (verified operational reconciliation)
 
 Next: continue developmental cognition construction by tracing verified goal execution outcomes into later epistemic planning inputs, preserving read-only planning, exact provenance, and distinct positive and adverse history.
+
+## Sequence 564 — verify Federation Health publication with the configured Client ID
+
+The repository owner added `SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID`. PR #2587 restored the supported `client-id` input and updated the workflow contract test. The first refreshed candidate was correctly rejected by strict preflight because its merge-commit subject did not match the PR title. The repaired candidate preserves the earlier candidate as a second parent, uses verified main as first parent, and satisfies the exact title and delta reconstruction contract.
+
+The final PR #2587 candidate passed CI, strict hosted Administrator Quality Gate and pre-publication metadata guard, Invariants, Docker, Release, Lint Benchmark, Gradient regression, and Codex CI. It merged normally as `18fb9c7030945c2a5341d510d283e0ced47b709f`.
+
+Federation Health push run 39679872709 passed hosted Administrator preflight and report generation. The pinned GitHub App token action accepted the newly configured Client ID; the publisher created PR #2588 automatically as `sentientos-federation-publisher[bot]`, and checks started without manual workflow approval. Its receipt binds the run to source main `18fb9c7030945c2a5341d510d283e0ced47b709f` and report digest `e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c`. PR #2588 changed only the run receipt and passed its strict hosted finalizer, metadata guard, and all companion checks before normal merge.
+
+Final main `66b7a6e7852e4044dc754fc31bb489b94be434f8` with tree `8ee175e584bad31fc9dfbbf19ceadd71cbf124b4` passed CI, Quality Gate, Invariants, Docker, Docs Deploy, and Codex CI; Forge Smoke was conditionally skipped.
+
+Publication mechanics are verified. The report still reflects a stale configured local log snapshot, not live federation telemetry. No production model transition or inference was run.
+
+Verified main: `66b7a6e7852e4044dc754fc31bb489b94be434f8`, tree `8ee175e584bad31fc9dfbbf19ceadd71cbf124b4`
+Latest construction segment: `work/construction/segments/0564-verify-federation-health-client-id-publication.md`
+Latest segment SHA-256: `ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9`
+Sequence: 564 (verified operational integration)
+
+Next: continue connecting verified goal execution outcomes to later epistemic planning inputs, preserving read-only planning, exact provenance, and distinct positive and adverse history.

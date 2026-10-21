@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "29b134438a1c7feedee07fae7132e5b2ce998c214856b8bb4a0328dda79d9083",
-    "latest_segment_sequence": 563,
-    "latest_segment_sha256": "434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89",
-    "source_commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
-    "source_tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
+    "checkpoint_sha256": "7df1c7fba1b427f4ad351a129f9e5e98b2c2cdda222f04f8f9113575b1623795",
+    "latest_segment_sequence": 564,
+    "latest_segment_sha256": "ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9",
+    "source_commit": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
+    "source_tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4"
   },
-  "checkpoint_sha256": "29b134438a1c7feedee07fae7132e5b2ce998c214856b8bb4a0328dda79d9083",
+  "checkpoint_sha256": "7df1c7fba1b427f4ad351a129f9e5e98b2c2cdda222f04f8f9113575b1623795",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 563,
+  "latest_sequence": 564,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6490,6 +6490,19 @@
       "source_candidate_commit": "2f958d0177fa11fecb558cb6ed0ac8762031184a",
       "source_commit": "2e260c4d46b0727a352effd27424eb580fdecce0",
       "source_tree": "cdd340d181bebcb05bcd87a8216486cc64ce4b69"
+    },
+    {
+      "bytes": 2577,
+      "evidence_bytes": 4839,
+      "evidence_path": "work/construction/evidence/0564-verify-federation-health-client-id-publication.json",
+      "evidence_sha256": "ec948bfada88b08d3c216879a52f18198dd41af08f61d86a2f2a79c31c7a64ec",
+      "path": "work/construction/segments/0564-verify-federation-health-client-id-publication.md",
+      "predecessor": "segment-sha256:434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89",
+      "sequence": 564,
+      "sha256": "ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9",
+      "source_candidate_commit": "6a0b58691d42c416e7a9fdb7228c28e4f2c9969b",
+      "source_commit": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
+      "source_tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4"
     }
   ],
   "source_acquisition": {
