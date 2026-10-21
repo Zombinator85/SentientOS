@@ -19,7 +19,7 @@ def test_source_validation_runs_federation_health_freshness_regression():
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
-    assert "- name: Verify transition-stage receipt projection" in source_validation
+    assert "- name: Verify transition operator ingress and receipt projection" in source_validation
     nodes = (
         "test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding",
         "test_verified_stage_receipt_accepts_journal_recovered_completion",
@@ -36,6 +36,9 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_transition_stage_execution_context_rejects_non_finite_numbers",
         "test_transition_stage_execution_context_rejects_malformed_constructor_shape",
         "test_transition_stage_execution_context_rejects_cycles_and_excessive_nesting",
+        "test_request_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
+        "test_request_publication_rejects_noncanonical_request_id_without_path_escape",
+        "test_request_publication_rejects_oversized_packet_without_publishing",
     )
     for node in nodes:
         assert node in source_validation

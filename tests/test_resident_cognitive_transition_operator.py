@@ -23,9 +23,11 @@ from sentientos.resident_cognitive_transition_operator_authentication import (
     operator_request_claims_digest, provenance_digest_for, seal_request_with_operator_provenance,
 )
 from sentientos.resident_cognitive_transition_operator import (
-    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, MAX_TRANSITION_REQUEST_BYTES,
+    REQUEST_CUSTODY, LiveTransitionConfig,
     LiveTransitionOperatorRuntime, build_request, persist_request,
 )
+from sentientos import private_file_custody
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 25, 12, tzinfo=timezone.utc)
@@ -149,6 +151,53 @@ def _request(**changes):
         "signature": base64.urlsafe_b64encode(signature).decode().rstrip("=")}
     provenance["provenance_digest"] = provenance_digest_for(provenance)
     return seal_request_with_operator_provenance(request, provenance)
+
+
+def test_request_publication_keeps_partial_bytes_invisible_and_retries_short_writes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request = _request()
+    root = tmp_path / REQUEST_CUSTODY
+    target = root / f"{request['request_id']}.json"
+    original_write = private_file_custody.os.write
+    observed_partial_writes = 0
+
+    def short_write(descriptor: int, data: Any) -> int:
+        nonlocal observed_partial_writes
+        written = original_write(descriptor, data[:11])
+        observed_partial_writes += 1
+        assert not target.exists()
+        return written
+
+    monkeypatch.setattr(private_file_custody.os, "write", short_write)
+    path = persist_request(tmp_path, request)
+
+    assert path == target
+    assert observed_partial_writes > 1
+    assert json.loads(path.read_text()) == request
+    assert list(root.glob(".pending-*")) == []
+
+
+def test_request_publication_rejects_noncanonical_request_id_without_path_escape(
+        tmp_path: Path) -> None:
+    request = _request()
+    request["request_id"] = "resident-transition-request-../../escaped"
+
+    with pytest.raises(TransitionError, match="operator_request_id_invalid"):
+        persist_request(tmp_path, request)
+
+    assert not (tmp_path / "escaped.json").exists()
+    assert not (tmp_path / REQUEST_CUSTODY).exists()
+
+
+def test_request_publication_rejects_oversized_packet_without_publishing(tmp_path: Path) -> None:
+    request = _request(stage_evidence={"payload": "x" * MAX_TRANSITION_REQUEST_BYTES})
+
+    with pytest.raises(TransitionError, match="operator_request_publication_failed"):
+        persist_request(tmp_path, request)
+
+    root = tmp_path / REQUEST_CUSTODY
+    assert not list(root.glob("*.json"))
+    assert not list(root.glob(".pending-*"))
 
 
 def _resign_request(request):
