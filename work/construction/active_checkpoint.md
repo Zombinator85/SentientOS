@@ -226,3 +226,17 @@ Latest segment SHA-256: `7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f40
 Sequence: 548 (verified merge reconciliation)
 
 Next: inspect remaining process launch paths for concrete shell-string boundaries and platform-specific argument risks. Preserve read-only canonical planning and the separate goal execution and authority boundaries.
+
+
+## Sequence 549 — reconcile argv-only cathedral bootstrap commands
+
+The bootstrap command runner now validates argv and always invokes with `shell=False`. Its adversarial regression is bound into the exact hosted acceptance set, now 36 nodes with zero failed or skipped. PR #2557 passed the hosted strict Administrator Quality Gate, privileged finalizer, separate PR metadata guard, full CI, Docker, docs, Helm, invariants, Release, lint, Gradient, and Codex checks; the push-triggered CI, QG, and invariants also passed. No local pytest or installation was run.
+
+PR #2557 merged normally as `c4f3c9fd7413c108f12998632e58034e42ab8c5c`, tree `733f8c5e823fbf4793e9b815e14eaf004c63f89b`, with parents `27139334d2dcb86d69a3b3314d6a4bc4de3ef170` and `e7c57210aef6fd2162865175ed701a189874c0b3`. Post-merge CI, QG, Docker, docs, Nightly Self Check, invariants, and Codex CI passed; Forge Smoke was skipped by condition.
+
+Latest verified main: `c4f3c9fd7413c108f12998632e58034e42ab8c5c`, tree `733f8c5e823fbf4793e9b815e14eaf004c63f89b`
+Latest construction segment: `work/construction/segments/0549-reconcile-bootstrap-argv-merge.md`
+Latest segment SHA-256: 2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b
+Sequence: 549 (verified merge reconciliation)
+
+Next: investigate the bounded subprocess supervisor's pipe-drain deadline when a child exits but a descendant retains inherited output pipes. Add a focused regression only if the lifecycle contract confirms the timeout should cover that drain; preserve process-tree custody and platform limits.

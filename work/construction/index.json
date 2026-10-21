@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3e7e99159bd8f2ab0a111f607ddf7613dc149fc6e6df76d82012fff5c2948803",
-    "latest_segment_sequence": 548,
-    "latest_segment_sha256": "7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f4055456a8df",
-    "source_commit": "607f6517ae15ee9fb254daa587519c5c8572d34c",
-    "source_tree": "059b5f5b9a0638f16983d3f57758305d99a851ba"
+    "checkpoint_sha256": "f9f002e329f6a80dc4690245904589658e700b9d46bcc66fc4bfb0414618dc25",
+    "latest_segment_sequence": 549,
+    "latest_segment_sha256": "2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b",
+    "source_commit": "c4f3c9fd7413c108f12998632e58034e42ab8c5c",
+    "source_tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
   },
-  "checkpoint_sha256": "3e7e99159bd8f2ab0a111f607ddf7613dc149fc6e6df76d82012fff5c2948803",
+  "checkpoint_sha256": "f9f002e329f6a80dc4690245904589658e700b9d46bcc66fc4bfb0414618dc25",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 548,
+  "latest_sequence": 549,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6295,6 +6295,19 @@
       "source_candidate_commit": "a6404f7f81b44cd59d17f4073057712499fa35b9",
       "source_commit": "607f6517ae15ee9fb254daa587519c5c8572d34c",
       "source_tree": "059b5f5b9a0638f16983d3f57758305d99a851ba"
+    },
+    {
+      "bytes": 2662,
+      "evidence_bytes": 4771,
+      "evidence_path": "work/construction/evidence/0549-reconcile-bootstrap-argv-merge.json",
+      "evidence_sha256": "236a8292acc490dff4c121a4b31273b3ecd3dce88b8ccaef90e3c3d311e8ef20",
+      "path": "work/construction/segments/0549-reconcile-bootstrap-argv-merge.md",
+      "predecessor": "segment-sha256:7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f4055456a8df",
+      "sequence": 549,
+      "sha256": "2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b",
+      "source_candidate_commit": "e7c57210aef6fd2162865175ed701a189874c0b3",
+      "source_commit": "c4f3c9fd7413c108f12998632e58034e42ab8c5c",
+      "source_tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
     }
   ],
   "source_acquisition": {
