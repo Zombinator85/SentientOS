@@ -1,0 +1,104 @@
+{
+  "evidence_path": "work/construction/evidence/0526-reconcile-sequence525-stage-approval-timezone-fix.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "append_only_custody": "passed_525_segments",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only construction evidence and exact source bindings are preserved.",
+    "Authority boundaries and strict audit and metadata gates remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "automated_federation_health_pr": {
+      "checks": "not_attached",
+      "merged": false,
+      "number": 2511,
+      "state": "open"
+    },
+    "current_main_ci_self_check": {
+      "conclusion": "success",
+      "run_id": 39572304072
+    },
+    "federation_health_current_main": "not_observed",
+    "federation_health_latest_scheduled_run": {
+      "commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+      "conclusion": "success",
+      "run_id": 39546186159
+    },
+    "nightly_audit_integrity_current_main": {
+      "commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "conclusion": "success",
+      "event": "schedule",
+      "run_id": 39572356700
+    },
+    "nightly_audit_integrity_repair": "skipped_no_repair_needed",
+    "nightly_self_check_current_main": {
+      "conclusion": "success",
+      "event": "push",
+      "run_id": 39572304029
+    }
+  },
+  "postmerge_checks": {
+    "audit_nightly_exact_main": "passed",
+    "ci": "passed",
+    "codex_ci": "passed",
+    "cpu_smoke": "passed",
+    "deploy": "passed",
+    "docker": "passed",
+    "docs_linkcheck": "passed",
+    "forge_smoke": "skipped_by_condition",
+    "helm": "passed",
+    "integrated_source_validation": "passed",
+    "invariants": "passed",
+    "quality_gate": "passed",
+    "self_check": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0525-reconcile-sequence524-evidence-merge.md",
+    "segment_sha256": "c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9",
+    "sequence": 525
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2135,
+  "segment_path": "work/construction/segments/0526-reconcile-sequence525-stage-approval-timezone-fix.md",
+  "segment_sha256": "a9c4cb4d7e2770b6542754c828d66c3879664bb4aed37b2b63048746673d8375",
+  "sequence": 526,
+  "sequence_526_stage_approval_timezone_reconciliation": {
+    "candidate_commits": [
+      "099e3f9663991f1ff633ad6ae5cfd496067b6041",
+      "e0cb09da3ac990ed794e6311196ca0cfd4d41ceb"
+    ],
+    "candidate_tree": "492425c3eb5dab4305d52a2ad0ef3dc3b9a799b4",
+    "final_candidate_checks": "passed",
+    "main_merge_commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+    "ordered_parents": [
+      "90f5d412709838b75470c3172fa84067af3c3035",
+      "e0cb09da3ac990ed794e6311196ca0cfd4d41ceb"
+    ],
+    "postmerge_checks": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2535,
+    "resolved_candidate_iterations": [
+      "parameterized_acceptance_node_binding",
+      "pr_title_commit_subject_binding"
+    ]
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 525 stage-approval timezone fix",
+  "verified_main": {
+    "commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+    "ref": "main",
+    "tree": "492425c3eb5dab4305d52a2ad0ef3dc3b9a799b4"
+  }
+}
