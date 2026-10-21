@@ -9,6 +9,7 @@ import argparse
 import json
 import time
 import subprocess
+import shlex
 from pathlib import Path
 import zipfile
 import tempfile
@@ -70,11 +71,14 @@ def _fmt_time(seconds: float) -> str:
 
 def _trigger_avatar(emotion: str, persona: str, ts: float, cmd: str | None) -> None:
     if cmd:
-        full = f"{cmd} --emotion={emotion} --persona={persona} --time={ts}"
         try:
-            subprocess.run(full, shell=True, check=False)
+            argv = shlex.split(cmd)
+            if not argv:
+                raise ValueError("avatar_callback_must_contain_executable")
+            argv.extend((f"--emotion={emotion}", f"--persona={persona}", f"--time={ts}"))
+            subprocess.run(argv, shell=False, check=False)
         except Exception:
-            print(f"[Avatar] {full}")
+            print(f"[Avatar] {cmd}")
     else:
         print(f"[Avatar] set_avatar(preset='{emotion}', persona='{persona}')")
 
@@ -256,7 +260,10 @@ def main(argv=None):
     parser.add_argument('--headless', action='store_true')
     parser.add_argument('--gui', action='store_true')
     parser.add_argument('--audio-only', action='store_true')
-    parser.add_argument('--avatar-callback')
+    parser.add_argument(
+        '--avatar-callback',
+        help='Executable and arguments; emotion, persona, and time are passed as separate argv values (no shell).',
+    )
     parser.add_argument('--show-subtitles', action='store_true')
     parser.add_argument('--chapter', type=int, default=1)
     parser.add_argument('--enable-gestures', action='store_true')

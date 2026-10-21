@@ -9,6 +9,7 @@ import datetime as dt
 import json
 import os
 import subprocess
+import shlex
 import base64
 import shutil
 from pathlib import Path
@@ -293,15 +294,22 @@ def generate_scene_image(
     image_cmd: Optional[str] = None,
     image_api: Optional[str] = None,
 ) -> None:
-    """Generate a scene illustration using a command, API, or placeholder."""
+    """Generate a scene illustration from an argv template, API, or placeholder."""
     if image_cmd:
-        cmd = image_cmd.format(prompt=prompt, out=str(out_path))
+        # Parse the operator-supplied template before inserting storyboard data.
+        # Prompt text and paths then remain individual argv values, even when
+        # they contain quotes, substitutions, or shell control characters.
+        command_argv = shlex.split(image_cmd)
+        if not command_argv:
+            raise ValueError("image_command_must_contain_executable")
+        argv = [part.format(prompt=prompt, out=str(out_path))
+                for part in command_argv]
         if dry_run:
-            print("[Storymaker] DRY RUN image cmd:", cmd)
+            print("[Storymaker] DRY RUN image cmd:", shlex.join(argv))
             out_path.write_text("image")
             return
         try:
-            subprocess.run(cmd, shell=True, check=False)
+            subprocess.run(argv, shell=False, check=False)
             return
         except Exception:
             pass
@@ -718,7 +726,10 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--emotion-data')
     parser.add_argument('--sync-metadata')
     parser.add_argument('--scene-images', action='store_true', help='Generate experimental scene images')
-    parser.add_argument('--image-cmd')
+    parser.add_argument(
+        '--image-cmd',
+        help='Executable and argument template; {prompt} and {out} are single argv values (no shell).',
+    )
     parser.add_argument('--image-api')
     parser.add_argument('--image-prompt-field')
     parser.add_argument('--export-demo')

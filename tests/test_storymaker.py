@@ -10,13 +10,18 @@ import json
 import subprocess
 import datetime as dt
 import time
+import pytest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import storymaker
-import tts_bridge
-import replay
+with patch("sentientos.privilege.require_admin_banner"), patch(
+    "sentientos.privilege.require_lumos_approval"
+):
+    import tts_bridge
+    import storymaker
+    import replay
 
 
 def test_storymaker_dry_run(tmp_path, monkeypatch):
@@ -134,6 +139,26 @@ def test_image_cmd_option(tmp_path, monkeypatch):
         dry_run=True, chapters=True, scene_images=True, image_cmd="touch {out}"
     )
     assert (tmp_path / "chapter_1.png").exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_image_command_keeps_prompt_and_output_as_single_arguments(tmp_path, monkeypatch):
+    marker = tmp_path / "shell-injection-marker"
+    prompt = f"calm; touch {marker}"
+    output = tmp_path / "image output.png"
+    calls = []
+
+    def fake_run(argv, *, shell, check):
+        calls.append((argv, shell, check))
+
+    monkeypatch.setattr(storymaker.subprocess, "run", fake_run)
+
+    storymaker.generate_scene_image(
+        prompt, output, image_cmd="trusted-image --prompt {prompt} --out {out}")
+
+    assert calls == [(["trusted-image", "--prompt", prompt, "--out", str(output)],
+        False, False)]
+    assert not marker.exists()
 
 
 def test_demo_pack_export_import(tmp_path, monkeypatch, capsys):
