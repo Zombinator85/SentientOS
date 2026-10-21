@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "18294774b3ddee8e980281bf41a063803afd15aac6c4922b0450e39a86a3d94e",
-    "latest_segment_sequence": 560,
-    "latest_segment_sha256": "ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629",
-    "source_commit": "1042e955963d2dac5ef60c2930d0e089568c0024",
-    "source_tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
+    "checkpoint_sha256": "b1db68881586e6565155317791aba90ef5a097f7f9a05da8bab717468e1062c3",
+    "latest_segment_sequence": 561,
+    "latest_segment_sha256": "d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133",
+    "source_commit": "31711da42f3e128333138a2982e30d9e94e5d2b2",
+    "source_tree": "11ee45ab1873a509f570604885dbe1a661dc8226"
   },
-  "checkpoint_sha256": "18294774b3ddee8e980281bf41a063803afd15aac6c4922b0450e39a86a3d94e",
+  "checkpoint_sha256": "b1db68881586e6565155317791aba90ef5a097f7f9a05da8bab717468e1062c3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 560,
+  "latest_sequence": 561,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6451,6 +6451,19 @@
       "source_candidate_commit": "e4c8ab6f14656305aec5c41dd8833c600fec8133",
       "source_commit": "1042e955963d2dac5ef60c2930d0e089568c0024",
       "source_tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
+    },
+    {
+      "bytes": 2381,
+      "evidence_bytes": 5550,
+      "evidence_path": "work/construction/evidence/0561-terminate-child-on-setup-failure.json",
+      "evidence_sha256": "e8e204b8cd5464cfc0a88d533f92d8b10433894180c0769d2ee2aafe5ec40b6d",
+      "path": "work/construction/segments/0561-terminate-child-on-setup-failure.md",
+      "predecessor": "segment-sha256:ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629",
+      "sequence": 561,
+      "sha256": "d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133",
+      "source_candidate_commit": "676c7ceb6068d6eee3c69330263d3c39c967ead1",
+      "source_commit": "31711da42f3e128333138a2982e30d9e94e5d2b2",
+      "source_tree": "11ee45ab1873a509f570604885dbe1a661dc8226"
     }
   ],
   "source_acquisition": {
