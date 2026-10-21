@@ -378,8 +378,8 @@ def run_supervised(
         return_code = process.wait()
 
     except BaseException:
-        if process.poll() is None:
-            termination_reason = termination_reason or "controller_exception"
+        termination_reason = termination_reason or "controller_exception"
+        if os.name == "posix" or process.poll() is None:
             graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
         raise
     finally:

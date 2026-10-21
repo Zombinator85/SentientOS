@@ -171,6 +171,47 @@ def test_selector_setup_failure_terminates_already_started_child(
     assert not marker.exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX controller-exception cleanup proof")
+def test_controller_exception_terminates_group_after_root_exits(tmp_path: Path) -> None:
+    pid_file, marker, root_exit = tmp_path / "descendant-pid", tmp_path / "descendant-survived", tmp_path / "root-exited"
+    descendant = (
+        "import os,time\n"
+        "from pathlib import Path\n"
+        f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+        "time.sleep(1.0)\n"
+        f"Path({str(marker)!r}).write_text('survived')\n"
+    )
+    root = (
+        "import subprocess,sys,time\n"
+        "from pathlib import Path\n"
+        f"subprocess.Popen([sys.executable, '-c', {descendant!r}])\n"
+        f"deadline=time.monotonic()+2\n"
+        f"while not Path({str(pid_file)!r}).exists() and time.monotonic()<deadline:time.sleep(.01)\n"
+        "print('controller-output',flush=True)\n"
+        "time.sleep(.15)\n"
+        f"Path({str(root_exit)!r}).write_text('exited')\n"
+    )
+
+    def fail_after_root_exit(line: str) -> None:
+        if "[root-exited][stdout] controller-output" in line:
+            time.sleep(.4)
+            raise OSError("injected_controller_callback_failure")
+
+    with pytest.raises(OSError, match="injected_controller_callback_failure"):
+        run_supervised(
+            [sys.executable, "-c", root],
+            stage_id="root-exited",
+            timeout_seconds=4,
+            termination_grace_seconds=.1,
+            emit=fail_after_root_exit,
+        )
+
+    assert pid_file.exists(), "descendant did not start before the controller failed"
+    assert root_exit.exists(), "supervised root had not exited before the callback failed"
+    time.sleep(1.1)
+    assert not marker.exists()
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX signal lifecycle proof")
 def test_controller_termination_does_not_leave_grandchild_running(tmp_path: Path) -> None:
     controller = tmp_path / "controller.py"
