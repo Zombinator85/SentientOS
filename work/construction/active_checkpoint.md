@@ -416,3 +416,17 @@ Implementation source commit: a5b689b822f6349f34766ea93399278f12bf308b, tree e16
 Latest construction segment: work/construction/segments/0507-bind-subordinate-approval-summaries-to-artifacts.md
 Latest segment SHA-256: f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a
 Sequence: 507 (candidate pending hosted verification)
+
+
+## Sequence 507 — verified merge and test-count correction
+
+PR #2515 merged with history preserved as `814f3a4a58b697a7992e4247c988a8aff74a2890`, tree `e6a59f770cdeab6f7ca1a025a4bb6588070d7e78`; exact-candidate hosted checks, separate metadata guard, Administrator strict audits, immutability, and post-merge checks passed. Sequence 507 evidence remains append-only and unchanged. Its supplemental test count was initially recorded as 97; exact JUnit XML recount on the same source tree established 85 passed, 0 failed, and 0 skipped. PR #2515 description was corrected, and sequence 508 records the correction.
+
+## Sequence 508 — isolate subordinate verifier input
+
+The transition ingress now gives the subordinate verifier an independent deep copy of approvals and preserves its separately bound execution snapshot for controller consumption. The regression confirms nested verifier mutation cannot alter controller input. Supplemental local verification passed 86 affected tests, targeted Mypy, compilation, workflow YAML parsing, diff checks, and custody. Source commit `28ba679e5c4a8921e1f2e7e561e1b0d78db198c9` is based on verified main `814f3a4a58b697a7992e4247c988a8aff74a2890`; exact-candidate hosted verification is pending. No production transition or inference ran.
+
+Latest verified main: `814f3a4a58b697a7992e4247c988a8aff74a2890`, tree `e6a59f770cdeab6f7ca1a025a4bb6588070d7e78`
+Latest construction segment: `work/construction/segments/0508-isolate-subordinate-verifier-input.md`
+Latest segment SHA-256: `5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c`
+Sequence: 508 (candidate pending hosted verification)
