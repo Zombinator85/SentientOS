@@ -107,6 +107,8 @@ def run_supervised(
         or not math.isfinite(timeout_seconds)
         or not math.isfinite(heartbeat_seconds)
         or not math.isfinite(termination_grace_seconds)
+        or not isinstance(tail_lines, int)
+        or isinstance(tail_lines, bool)
         or timeout_seconds <= 0
         or heartbeat_seconds <= 0
         or termination_grace_seconds < 0

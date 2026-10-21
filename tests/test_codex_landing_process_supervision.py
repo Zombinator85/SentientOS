@@ -63,19 +63,25 @@ def test_budget_refusal_starts_no_child_process() -> None:
 
 def test_invalid_numeric_limits_start_no_child_process() -> None:
     invalid_limits = (
-        (math.nan, 30, 2),
-        (math.inf, 30, 2),
-        (-math.inf, 30, 2),
-        (1, math.nan, 2),
-        (1, math.inf, 2),
-        (1, 30, -1),
-        (1, 30, math.nan),
-        (1, 30, math.inf),
-        (True, 30, 2),
-        (1, False, 2),
-        (1, 30, False),
+        (math.nan, 30, 2, 40),
+        (math.inf, 30, 2, 40),
+        (-math.inf, 30, 2, 40),
+        (1, math.nan, 2, 40),
+        (1, math.inf, 2, 40),
+        (1, 30, -1, 40),
+        (1, 30, math.nan, 40),
+        (1, 30, math.inf, 40),
+        (True, 30, 2, 40),
+        (1, False, 2, 40),
+        (1, 30, False, 40),
+        (1, 30, 2, -1),
+        (1, 30, 2, 0),
+        (1, 30, 2, math.nan),
+        (1, 30, 2, math.inf),
+        (1, 30, 2, 1.5),
+        (1, 30, 2, True),
     )
-    for timeout, heartbeat, grace in invalid_limits:
+    for timeout, heartbeat, grace, tail in invalid_limits:
         with pytest.raises(ValueError, match="supervision_limits_must_be_finite_and_valid"):
             run_supervised(
                 [sys.executable, "-c", "raise SystemExit(99)"],
@@ -83,6 +89,7 @@ def test_invalid_numeric_limits_start_no_child_process() -> None:
                 timeout_seconds=timeout,
                 heartbeat_seconds=heartbeat,
                 termination_grace_seconds=grace,
+                tail_lines=tail,
                 emit=lambda _: None,
             )
 
