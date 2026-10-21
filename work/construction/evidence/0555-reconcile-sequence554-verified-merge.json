@@ -1,0 +1,121 @@
+{
+  "evidence_pr_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39639879198
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39639879072
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39639879034
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39639879218
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39639879221
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39639879304
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39639879163
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "hosted_privileged_pr_landing_finalizer": "success",
+      "id": 39639879145,
+      "separate_prepublication_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Required Quality Gate artifacts": {
+      "acceptance": {
+        "digest": "sha256:59b9d4aa67adc44d6b7ffb7cedb59c6c3af65b7fb332e649a00f155f90cd457a",
+        "id": 12364507077
+      },
+      "finalizer": {
+        "digest": "sha256:8342ee83e04839615e2f32fae6b1c9ea1740090511f69b2dffa9742bb5203e36",
+        "id": 12364991896
+      },
+      "quality_gate": {
+        "digest": "sha256:98449b8ce33a2121a6b19b393b6efad4106a5761fe42244cd2702a314027fa98",
+        "id": 12364661681
+      }
+    }
+  },
+  "invariants": [
+    "sequence 554 evidence remains append-only and bound to its exact merged source tree",
+    "merge history retained with ordered first and second parents",
+    "candidate strict audits, hosted finalizer, and separate metadata guard passed",
+    "post-merge required checks bind to the exact merged commit; configured Forge Smoke skip is preserved",
+    "stale and protected workspaces remain untouched"
+  ],
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39640705286
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39640705610
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39640705248
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39640705214
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39640705617
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39640705206
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39640705312
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "ed116854381f15228171712a588061990514a9092ccbacdc2444dfcf75469ebd",
+    "sequence": 554
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1695,
+  "segment_path": "work/construction/segments/0555-reconcile-sequence554-verified-merge.md",
+  "segment_sha256": "9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8b4017fb6a",
+  "sequence": 555,
+  "source_candidate": {
+    "commit": "d0669621538e929ec84ee9d2e2ec433863be3917",
+    "pull_request": 2568,
+    "tree": "e9c1726f14aa630f86cc1daad0a4b359ee8e3d47"
+  },
+  "source_recovery": {
+    "construction_custody": "the exact 554-segment chain was verified before publication; all sequence-554 blobs were fetched from GitHub and compared byte-for-byte with local bytes",
+    "protected_workspaces_touched": false,
+    "remote_lineage": "main commit and tree fetched independently from origin; merge parent order matches PR #2568 base and exact candidate"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 554 verified merge",
+  "verified_main": {
+    "commit": "289438aed7d2f1258e20c1939d6195f1840725ca",
+    "merge_method": "merge",
+    "parents": [
+      "3e435dd8db0a4ada125cdf7433a8744f3ddb9eee",
+      "d0669621538e929ec84ee9d2e2ec433863be3917"
+    ],
+    "ref": "main",
+    "tree": "e9c1726f14aa630f86cc1daad0a4b359ee8e3d47"
+  }
+}

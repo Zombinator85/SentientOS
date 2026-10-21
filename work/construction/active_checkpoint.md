@@ -311,3 +311,15 @@ Latest segment SHA-256: `ed116854381f15228171712a588061990514a9092ccbacdc2444dfc
 Sequence: 554 (verified merge reconciliation)
 
 Next: inspect Windows cancellation and descendant-lifetime semantics without overstating platform guarantees.
+
+
+## Sequence 555 — reconcile sequence 554 verified merge
+
+PR #2568 merged normally as `289438aed7d2f1258e20c1939d6195f1840725ca`, tree `e9c1726f14aa630f86cc1daad0a4b359ee8e3d47`, with ordered parents `3e435dd8db0a4ada125cdf7433a8744f3ddb9eee` and `d0669621538e929ec84ee9d2e2ec433863be3917`. The exact evidence candidate passed CI, strict hosted Quality Gate and privileged finalizer, separate pre-publication metadata guard, Docker, lint, invariants, Release, Codex CI, and Gradient. Post-merge CI, Quality Gate, Docker, Docs Deploy, invariants, and Codex CI passed; Forge Smoke was conditionally skipped. See the paired evidence JSON for run and artifact identities.
+
+Verified main: `289438aed7d2f1258e20c1939d6195f1840725ca`, tree `e9c1726f14aa630f86cc1daad0a4b359ee8e3d47`
+Latest construction segment: `work/construction/segments/0555-reconcile-sequence554-verified-merge.md`
+Latest segment SHA-256: `9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8b4017fb6a`
+Sequence: 555 (verified merge reconciliation)
+
+Next: review Windows subprocess cancellation evidence semantics while preserving the explicit descendant-confirmation limitation.
