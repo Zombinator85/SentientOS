@@ -135,6 +135,42 @@ def test_escaped_descendant_is_not_reported_as_confirmed_terminated(
             pass
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process setup cleanup proof")
+def test_selector_setup_failure_terminates_already_started_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file, marker = tmp_path / "child-pid", tmp_path / "child-survived"
+    child = (
+        "import os,time\n"
+        "from pathlib import Path\n"
+        f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+        "time.sleep(.8)\n"
+        f"Path({str(marker)!r}).write_text('survived')\n"
+    )
+
+    def fail_after_child_starts():
+        deadline = time.monotonic() + 2
+        while not pid_file.exists() and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert pid_file.exists(), "supervised child did not start before selector setup"
+        raise OSError("injected_selector_setup_failure")
+
+    monkeypatch.setattr(
+        "sentientos.bounded_subprocess.selectors.DefaultSelector",
+        fail_after_child_starts,
+    )
+    with pytest.raises(OSError, match="injected_selector_setup_failure"):
+        run_supervised(
+            [sys.executable, "-c", child],
+            stage_id="selector-setup-failure",
+            timeout_seconds=3,
+            emit=lambda _: None,
+        )
+
+    time.sleep(.9)
+    assert not marker.exists()
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX signal lifecycle proof")
 def test_controller_termination_does_not_leave_grandchild_running(tmp_path: Path) -> None:
     controller = tmp_path / "controller.py"
