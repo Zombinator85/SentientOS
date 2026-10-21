@@ -1,0 +1,91 @@
+{
+  "evidence_path": "work/construction/evidence/0524-reconcile-sequence523-protocol-publication-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "exact_candidate_acceptance": "passed_30_of_30",
+    "metadata_guard": "passed",
+    "postmerge_checks": "passed",
+    "pr_metadata_finalizer": "ready_for_pr_metadata",
+    "precommit_finalizer": "ready_to_commit",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only evidence history and exact main-tree bindings are preserved.",
+    "Strict audit, administrator, and metadata requirements remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "automated_federation_health_pr": {
+      "checks": "not_attached",
+      "merged": false,
+      "number": 2511,
+      "state": "open"
+    },
+    "federation_health_current_main": "not_observed",
+    "federation_health_latest_scheduled_run": {
+      "commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+      "conclusion": "success",
+      "run_id": 39546186159
+    },
+    "nightly_audit_integrity_current_main": "not_observed",
+    "nightly_audit_integrity_latest_scheduled_run": {
+      "commit": "124de0f9ced349de7342901a2e1338c460c05a00",
+      "conclusion": "success",
+      "run_id": 39396388332
+    },
+    "nightly_self_check_current_main": {
+      "commit": "04a9fe3c8991fe58410b65e2d6f914545586f998",
+      "conclusion": "success",
+      "run_id": 39567393433
+    }
+  },
+  "postmerge_checks": {
+    "ci": "passed",
+    "codex_ci": "passed",
+    "deploy": "passed",
+    "docker": "passed",
+    "docs_linkcheck": "passed",
+    "forge_smoke": "skipped_by_condition",
+    "helm": "passed",
+    "integrated_source_validation": "passed",
+    "invariants": "passed",
+    "nightly_self_check": "passed",
+    "quality_gate": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0523-reconcile-sequence522-evidence-merge.md",
+    "segment_sha256": "2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
+    "sequence": 523
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2471,
+  "segment_path": "work/construction/segments/0524-reconcile-sequence523-protocol-publication-merge.md",
+  "segment_sha256": "55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff771c20026",
+  "sequence": 524,
+  "sequence_524_protocol_publication_merge_reconciliation": {
+    "candidate_checks": "passed",
+    "candidate_commit": "1e7891722208a0ec6620231c1c7a38e6826c8e6b",
+    "main_merge_commit": "04a9fe3c8991fe58410b65e2d6f914545586f998",
+    "main_tree": "aa615c37302cb8b18bc32fe78c9a1cfb71bd0d2b",
+    "ordered_parents": [
+      "ffa91dcfa4bc7cc5893473907807f8fd487e6888",
+      "1e7891722208a0ec6620231c1c7a38e6826c8e6b"
+    ],
+    "postmerge_checks": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2532
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 523 protocol publication merge",
+  "verified_main": {
+    "commit": "04a9fe3c8991fe58410b65e2d6f914545586f998",
+    "ref": "main",
+    "tree": "aa615c37302cb8b18bc32fe78c9a1cfb71bd0d2b"
+  }
+}
