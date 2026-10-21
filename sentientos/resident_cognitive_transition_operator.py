@@ -27,7 +27,9 @@ from .resident_cognitive_transition_operator_authentication import (
     TransitionOperatorProvenanceVerifier,
 )
 from .platform_fcntl import fcntl, require_flock
-from .private_file_custody import PrivateFileCustodyError, open_private_directory
+from .private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, publish_immutable_bytes,
+)
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
@@ -175,16 +177,21 @@ def persist_request(installation_root: Path, request: Mapping[str, Any]) -> Path
     """Create one immutable packet below the fixed installation custody root."""
     if os.name != "posix":
         raise TransitionError("transition_request_publication_unsupported_platform")
+    request_id = request.get("request_id")
+    if (not isinstance(request_id, str)
+            or re.fullmatch(r"resident-transition-request-[0-9a-f]{24}", request_id) is None):
+        raise TransitionError("operator_request_id_invalid")
     root = Path(installation_root) / REQUEST_CUSTODY
-    root.mkdir(parents=True, exist_ok=True)
-    target = root / f"{request['request_id']}.json"
+    target = root / f"{request_id}.json"
     data = _canonical(request)
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
     try:
-        os.write(descriptor, data)
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
+        created = publish_immutable_bytes(
+            target, data, max_bytes=MAX_TRANSITION_REQUEST_BYTES,
+            collision_code="operator_request_immutable_content_conflict")
+    except PrivateFileCustodyError as exc:
+        raise TransitionError("operator_request_publication_failed") from exc
+    if not created:
+        raise FileExistsError(target)
     return target
 
 
