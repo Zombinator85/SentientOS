@@ -231,6 +231,8 @@ def _inference_event_time(value: Any) -> str | None:
         return None
     if not isinstance(value, str) or not value or len(value) > 64:
         raise DevelopmentalModelReplacementError("inference_event_time_invalid")
+    if value.endswith("-00:00"):
+        raise DevelopmentalModelReplacementError("inference_event_time_offset_unknown")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (OverflowError, ValueError) as exc:
