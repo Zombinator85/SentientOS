@@ -285,3 +285,17 @@ Latest segment SHA-256: `87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf8464
 Sequence: 552 (verified merge reconciliation)
 
 Next: continue inspecting bounded subprocess lifecycle and resource-input boundaries against this verified main, preserving process-tree termination and source-bound acceptance.
+
+
+## Sequence 553 — reconcile explicit subprocess environment semantics
+
+PR #2565 merged normally as `a18ae26a9cd5a0440d5e9a654cf45ab5245626ad`, tree `49f158f370927a75878de6a4492f08b7bab8cdb7`, with ordered parents `c898bcb4d8923b2c96ce307f5c49e2f7bf2e4aea` and `15173d47a45de1d2a8977c4448cba85b393146cf`. The bounded subprocess supervisor now preserves explicit empty environments instead of silently inheriting its caller's environment. The new regression was added to the 40-node exact acceptance and hosted reconstruction bindings.
+
+The exact-candidate privileged Required Quality Gate and separate metadata guard passed. Candidate CI, lint/Mypy, Docker, invariants, Release, Codex CI, and Gradient passed. All post-merge CI, QG, Docker, Docs Deploy, Nightly Self Check, invariants, and Codex CI passed; Forge Smoke was skipped by condition. See `work/construction/evidence/0553-preserve-explicit-empty-subprocess-environments.json` for exact run and artifact identities.
+
+Latest verified source main: `a18ae26a9cd5a0440d5e9a654cf45ab5245626ad`, tree `49f158f370927a75878de6a4492f08b7bab8cdb7`
+Latest construction segment: `work/construction/segments/0553-preserve-explicit-empty-subprocess-environments.md`
+Latest segment SHA-256: `af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c`
+Sequence: 553 (verified merge reconciliation)
+
+Next: make bounded subprocess pipe draining work on native Windows, where selectors cannot monitor anonymous pipes, while preserving timeout and platform-specific process-tree evidence.
