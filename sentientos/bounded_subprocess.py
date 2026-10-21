@@ -8,7 +8,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, IO, Mapping, Sequence
 
 
 DEFAULT_HEARTBEAT_SECONDS = 30.0
@@ -114,11 +114,14 @@ def run_supervised(
     pgid = process.pid
     tails: dict[str, deque[str]] = {"stdout": deque(maxlen=tail_lines), "stderr": deque(maxlen=tail_lines)}
     selector = selectors.DefaultSelector()
-    assert process.stdout is not None and process.stderr is not None
-    selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-    selector.register(process.stderr, selectors.EVENT_READ, "stderr")
-    for output_stream in (process.stdout, process.stderr):
-        os.set_blocking(output_stream.fileno(), False)
+    stdout, stderr = process.stdout, process.stderr
+    assert stdout is not None and stderr is not None
+    output_streams: dict[int, IO[bytes]] = {}
+    for output_stream, stream_name in ((stdout, "stdout"), (stderr, "stderr")):
+        file_descriptor = output_stream.fileno()
+        os.set_blocking(file_descriptor, False)
+        output_streams[file_descriptor] = output_stream
+        selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
     pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
     max_line_bytes = 65536
     last_output = started
@@ -158,8 +161,9 @@ def run_supervised(
                     if buffered:
                         record_line(stream_name, bytes(buffered))
                         buffered.clear()
-                    selector.unregister(key.fileobj)
-                    key.fileobj.close()
+                    file_descriptor = key.fd
+                    selector.unregister(file_descriptor)
+                    output_streams[file_descriptor].close()
                 break
             if selector.get_map():
                 wait_seconds = min(0.2, heartbeat_seconds)
@@ -170,10 +174,10 @@ def run_supervised(
                 time.sleep(min(0.2, heartbeat_seconds))
                 events = []
             for key, _ in events:
-                stream = key.fileobj
+                file_descriptor = key.fd
                 stream_name = str(key.data)
                 try:
-                    chunk = os.read(stream.fileno(), 65536)
+                    chunk = os.read(file_descriptor, 65536)
                 except BlockingIOError:
                     continue
                 if not chunk:
@@ -181,7 +185,7 @@ def run_supervised(
                     if buffered:
                         record_line(stream_name, bytes(buffered))
                         buffered.clear()
-                    selector.unregister(stream)
+                    selector.unregister(file_descriptor)
                     continue
                 buffered = pending_lines[stream_name]
                 buffered.extend(chunk)
