@@ -76,3 +76,14 @@ Latest verified main: `00c7018401611773173f5c761a004a0ed836679e`, tree `283496e2
 Latest construction segment: `work/construction/segments/0536-reconcile-sequence535-verified-merge.md`
 Latest segment SHA-256: `7188b23aee28129d405bfb8fdd2d3a9b90dd9cac025c4ed3385c3639937f5cd4`
 Sequence: 536 (verified merge reconciliation)
+
+
+## Sequence 537 — enforce canonical campaign protocol contracts
+
+Campaign protocols now revalidate fixed aggregation rules, non-claims, strict authority/count types, and bounded trial identities rather than trusting a recomputed self-digest. Rehashed changes to interpretation and malformed inventory are rejected before campaign execution. The exact regression is included in source-validation acceptance. Local affected integration: 63 passed; exact source/contract nodes: 2 passed; compilation, YAML, and diff checks passed. Hosted CI and Quality Gate are pending. The local pinned Mypy baseline could not run because the sanitized tool environment cannot see the installed distribution; no pass is claimed. No production model effect occurred.
+
+Verified main: `5b9f7b43bbed42ac2fed43f9db4a73ba427923bc`, tree `15288aa40bcd8cab5bbe71b8ae0531a362a22d3b`
+Implementation candidate: `9760cb406396dc663c462b0d39c6c6b4acb8fd76`, tree `9f9a09558272a888fb0b7221eb3bcea1c71304c`
+Latest construction segment: `work/construction/segments/0537-enforce-canonical-campaign-protocol-contract.md`
+Latest segment SHA-256: `a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4`
+Sequence: 537 (candidate pending hosted verification)

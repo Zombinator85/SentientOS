@@ -527,6 +527,47 @@ jobs:
             --manifest glow/test_runs/campaign_report_verification_acceptance.json \
             --provenance glow/test_runs/campaign_report_verification.json \
             --output glow/test_runs/campaign_report_verification_acceptance_result.json
+      - name: Verify canonical model-replacement campaign protocol contract
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_developmental_model_replacement_campaign.py::test_protocol_verifier_rejects_rehashed_noncanonical_contract_fields \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_campaign_protocol_contract_verification
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/campaign_protocol_contract_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_developmental_model_replacement_campaign.py::test_protocol_verifier_rejects_rehashed_noncanonical_contract_fields",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_campaign_protocol_contract_verification",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/campaign_protocol_contract_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": nodes[0],
+                      "rationale": "reject rehashed campaign protocols that change the fixed interpretation contract or use malformed trial identities and counts",
+                  },
+                  {
+                      "node_id": nodes[1],
+                      "rationale": "bind the exact adverse protocol regression to hosted source validation and archived acceptance evidence",
+                  },
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/campaign_protocol_contract_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/campaign_protocol_contract_acceptance.json \
+            --provenance glow/test_runs/campaign_protocol_contract_provenance.json \
+            --output glow/test_runs/campaign_protocol_contract_acceptance_result.json
       - name: Verify daemon campaign report inspection is read-only
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \

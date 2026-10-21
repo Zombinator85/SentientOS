@@ -1,0 +1,49 @@
+{
+  "evidence_path": "work/construction/evidence/0537-enforce-canonical-campaign-protocol-contract.json",
+  "hosted_verification": {
+    "candidate_checks": "pending",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Campaign protocol verification accepts only canonical aggregation and non-claim declarations even when an altered protocol recomputes its own digest and ID.",
+    "Trial IDs remain bounded canonical ASCII identities and planned count and authority fields use strict types.",
+    "Negative or adverse experimental outcomes are not reclassified or discarded; this increment only validates the preregistered protocol contract.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "affected_campaign_experiment_production_trial_and_e2e_tests": "63_passed",
+    "ci_yaml_parse": "passed",
+    "compileall": "passed",
+    "exact_protocol_regression_and_hosted_contract_tests": "2_passed",
+    "git_diff_check": "passed",
+    "repository_mypy_baseline": "not_compared_local_sanitized_environment_cannot_see_pinned_mypy"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0536-reconcile-sequence535-verified-merge.md",
+    "segment_sha256": "7188b23aee28129d405bfb8fdd2d3a9b90dd9cac025c4ed3385c3639937f5cd4",
+    "sequence": 536
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2323,
+  "segment_path": "work/construction/segments/0537-enforce-canonical-campaign-protocol-contract.md",
+  "segment_sha256": "a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4",
+  "sequence": 537,
+  "source_candidate": {
+    "commit": "9760cb406396dc663c462b0d39c6c6b4acb8fd76",
+    "tree": "9f9a09558272a888fb0b7221eb3bcea1c71304c"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Enforce canonical campaign protocol contracts",
+  "verified_main": {
+    "commit": "5b9f7b43bbed42ac2fed43f9db4a73ba427923bc",
+    "ref": "main",
+    "tree": "15288aa40bcd8cab5bbe71b8ae0531a362a22d3b"
+  }
+}

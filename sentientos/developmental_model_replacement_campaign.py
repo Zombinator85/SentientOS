@@ -103,13 +103,29 @@ class CampaignProtocol:
         return replace(raw, campaign_id="model-replacement-campaign-" + digest[7:31], campaign_digest=digest)
 
     def verify(self) -> None:
+        trial_ids_valid = (
+            type(self.trial_ids) is tuple
+            and all(type(trial_id) is str and 0 < len(trial_id) <= 128
+                and all(character in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+                    for character in trial_id)
+                for trial_id in self.trial_ids)
+        )
         payload = self.semantic_payload()
         digest = _digest(payload)
         if (self.campaign_digest != digest or self.campaign_id != "model-replacement-campaign-" + digest[7:31]
-                or self.schema_version not in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA} or self.grants_authority
+                or self.schema_version not in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA}
+                or type(self.grants_authority) is not bool or self.grants_authority is not False
                 or self.condition_order != CONDITION_ORDER
+                or type(self.condition_order) is not tuple
+                or type(self.planned_trial_count) is not int
                 or not MIN_TRIALS <= self.planned_trial_count <= MAX_TRIALS
-                or self.planned_trial_count != len(self.trial_ids) or len(set(self.trial_ids)) != len(self.trial_ids)
+                or not trial_ids_valid
+                or self.planned_trial_count != len(self.trial_ids)
+                or len(set(self.trial_ids)) != len(self.trial_ids)
+                or type(self.aggregation_rules) is not tuple
+                or self.aggregation_rules != AGGREGATION_RULES
+                or type(self.non_claims) is not tuple
+                or self.non_claims != CAMPAIGN_NON_CLAIMS
                 or (self.schema_version == PROTOCOL_SCHEMA and self.objective_task_plan_digest is not None)
                 or (self.schema_version == SCORED_PROTOCOL_SCHEMA and
                     (not isinstance(self.objective_task_plan_digest, str)
