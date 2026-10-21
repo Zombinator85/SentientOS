@@ -34,6 +34,13 @@ CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_cognitive_transition_live_config:v2"
 REQUEST_SCHEMA = "sentientos.resident_cognitive_transition_operator_request:v1"
 RECEIPT_SCHEMA = "sentientos.resident_cognitive_transition_operator_request_receipt:v1"
+_REQUEST_FIELDS = frozenset({
+    "schema_version", "installation_identity", "protocol_id", "protocol_digest",
+    "transition_id", "requested_stage", "expected_prior_phase", "expected_journal_head",
+    "stage_approval_id", "stage_approval_digest", "stage_approval", "subordinate_approvals",
+    "stage_evidence", "subordinate_approval_bindings", "operation_id", "correlation_id",
+    "operator_identity", "operator_provenance", "created_at", "expires_at", "grants_authority",
+})
 REQUEST_CUSTODY = "state/resident-cognitive-transition/operator-requests"
 RECEIPT_CUSTODY = "state/resident-cognitive-transition/operator-request-receipts.jsonl"
 JOURNAL_CUSTODY = "state/resident-cognitive-transition/transition.journal.jsonl"
@@ -674,6 +681,8 @@ class LiveTransitionOperatorRuntime:
                 or request_id != "resident-transition-request-" + observed[:24]
                 or value.get("grants_authority") is not False):
             raise TransitionError("operator_request_tamper")
+        if set(value) != _REQUEST_FIELDS:
+            raise TransitionError("operator_request_schema_invalid")
 
     def process_one(self) -> dict[str, Any]:
         if not self.config.enabled:
