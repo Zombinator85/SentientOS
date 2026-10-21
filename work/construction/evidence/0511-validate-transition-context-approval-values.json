@@ -1,0 +1,71 @@
+{
+  "evidence_path": "work/construction/evidence/0511-validate-transition-context-approval-values.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "1a4c290c3599972d7ac12c2e374d9179a2906dcd",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "20adb45a2025cefe44212837e2e136a60979ca58"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "git_blob_sha": "8fdb30aaa9a7c36f213f84f5c5e5f51be5a3862b"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "22e7fc2df8ad403cb5473d4741b2c10f43be928d"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "c295281127d318f431fbffb7795759f8aaff902c"
+      }
+    },
+    "parent": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+    "tree": "39d3c649ab4d82275c049d904340612e1a43d1b6"
+  },
+  "invariants": [
+    "TransitionStageExecutionContext rejects unsupported non-JSON leaves instead of retaining possibly mutable objects.",
+    "Mapping keys must be exact strings; distinct non-string and string keys cannot collapse during freezing.",
+    "Recursive detachment and activation-boundary authority restrictions remain preserved.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; all 510 predecessor segments verified",
+    "diff_check": "passed",
+    "hosted_verification": "pending exact-candidate checks, Administrator strict audits, finalization, and separate metadata guard",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_model_transition_experiment.py",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_failed": 0,
+    "tests_passed": 89,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0510-enforce-immutable-transition-context-construction.md",
+    "segment_sha256": "3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
+    "sequence": 510
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1194,
+  "segment_path": "work/construction/segments/0511-validate-transition-context-approval-values.md",
+  "segment_sha256": "40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
+  "sequence": 511,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Validate transition context approval values",
+  "verified_main": {
+    "commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+    "ref": "main",
+    "tree": "75fc6ab0605f367991e0e3a6e1518d44ea4771e6"
+  }
+}

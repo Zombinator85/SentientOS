@@ -460,3 +460,13 @@ Latest verified main: `94107b207bf320efc1a40ab71f5a77c61614139c`, tree `431081c8
 Latest construction segment: `work/construction/segments/0510-enforce-immutable-transition-context-construction.md`
 Latest segment SHA-256: `3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e`
 Sequence: 510 (candidate pending hosted verification)
+
+
+## Sequence 511 — validate transition context approval values
+
+The transition context now rejects unsupported non-JSON values and non-string mapping keys before freezing, with regressions for mutable leaves and key collisions. Supplemental local verification passed 89 affected tests, targeted Mypy, compilation, workflow YAML parsing, diff checks, and custody over 510 predecessor segments. Candidate source commit `1a4c290c3599972d7ac12c2e374d9179a2906dcd`, tree `39d3c649ab4d82275c049d904340612e1a43d1b6`, is based on verified main `7fbd149ddb0f48f2385c18590c254a64cc2522bd`, tree `75fc6ab0605f367991e0e3a6e1518d44ea4771e6`. Hosted exact-candidate verification is pending. No production transition, activation, serving, inference, or writeback ran.
+
+Latest verified source merge: `7fbd149ddb0f48f2385c18590c254a64cc2522bd`, tree `75fc6ab0605f367991e0e3a6e1518d44ea4771e6`
+Latest construction segment: `work/construction/segments/0511-validate-transition-context-approval-values.md`
+Latest segment SHA-256: `40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b`
+Sequence: 511 (candidate pending hosted verification)
