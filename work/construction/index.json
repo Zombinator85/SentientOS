@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "44b0b8fcdb0d31ef349a5474d4d77773ae4de84265a8ce323f53ee1db4400224",
-    "latest_segment_sequence": 558,
-    "latest_segment_sha256": "e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
-    "source_commit": "a23e638c3a2653a79cb544ca08204b49839aacea",
-    "source_tree": "e063948428b16d16339679ccac75a78ca3c9d437"
+    "checkpoint_sha256": "8a04c3fd0d26bc28e16e626bb08421c9c7f53c6e9eacd7f15e3941ad59344a84",
+    "latest_segment_sequence": 559,
+    "latest_segment_sha256": "157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
+    "source_commit": "30c2c524d15e28b510d01b8a6f2728fa2a471a2d",
+    "source_tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
   },
-  "checkpoint_sha256": "44b0b8fcdb0d31ef349a5474d4d77773ae4de84265a8ce323f53ee1db4400224",
+  "checkpoint_sha256": "8a04c3fd0d26bc28e16e626bb08421c9c7f53c6e9eacd7f15e3941ad59344a84",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 558,
+  "latest_sequence": 559,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6425,6 +6425,19 @@
       "source_candidate_commit": "8f81cfefa307e002521d19da4efd7b6a3491f9e9",
       "source_commit": "a23e638c3a2653a79cb544ca08204b49839aacea",
       "source_tree": "e063948428b16d16339679ccac75a78ca3c9d437"
+    },
+    {
+      "bytes": 2134,
+      "evidence_bytes": 4708,
+      "evidence_path": "work/construction/evidence/0559-fail-closed-posix-worker-thread-supervision.json",
+      "evidence_sha256": "fb8d05d46195189f896ff6a5a822c3e81685e68037cfb5ccf95ea7932595433d",
+      "path": "work/construction/segments/0559-fail-closed-posix-worker-thread-supervision.md",
+      "predecessor": "segment-sha256:e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
+      "sequence": 559,
+      "sha256": "157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
+      "source_candidate_commit": "082d67afcaca06b4c4aa0201e3f99514021bea6c",
+      "source_commit": "30c2c524d15e28b510d01b8a6f2728fa2a471a2d",
+      "source_tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
     }
   ],
   "source_acquisition": {
