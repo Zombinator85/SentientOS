@@ -1,0 +1,99 @@
+{
+  "evidence_path": "work/construction/evidence/0536-reconcile-sequence535-verified-merge.json",
+  "hosted_verification": {
+    "append_only_custody_before_reconciliation": "passed_535_segments",
+    "candidate_ci": "39587879457_success",
+    "candidate_push_ci": "39587875031_success",
+    "candidate_required_quality_gate": "39589708154_success_actual_administrator_exact_acceptance_finalizer_and_metadata_guard",
+    "post_merge_runs": {
+      "ci": {
+        "conclusion": "success",
+        "id": 39589972876
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "id": 39589972923
+      },
+      "docker_image": {
+        "conclusion": "success",
+        "id": 39589972968
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "id": 39589972886
+      },
+      "forge_smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39589972916
+      },
+      "invariant_tests": {
+        "conclusion": "success",
+        "id": 39589972928
+      },
+      "nightly_self_check_push": {
+        "conclusion": "success",
+        "id": 39589972919
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "id": 39589972896
+      }
+    },
+    "stale_metadata_event": {
+      "failed_run_id": 39587879505,
+      "fresh_successful_run_id": 39589708154,
+      "reason": "rerun_replayed_old_PR_title_and_failed_preflight"
+    },
+    "status": "verified_reconciliation"
+  },
+  "invariants": [
+    "Sequence 535 source and evidence were integrated without squashing or rebasing.",
+    "The exact candidate tree and final main tree match.",
+    "The stale PR-title failure was superseded only by a fresh exact-candidate gate with the current title and separate metadata guard.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "automated_pr_2511": {
+      "base": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+      "checks": "action_required",
+      "head": "141f5ebbf94cb987c03722f0119975005ff129ef",
+      "merge_ready": false,
+      "state": "open"
+    },
+    "federation_health_current_main": {
+      "current_main": "00c7018401611773173f5c761a004a0ed836679e",
+      "interpretation": "latest scheduled report is on an older head; its snapshot was explicitly stale",
+      "latest_scheduled_run_id": 39582634969,
+      "latest_scheduled_source": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+      "scheduled_run": "not_observed_as_of_2026-10-21T11:17Z"
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0535-repair-transition-validation-shell-boundary.md",
+    "segment_sha256": "1961b7a85829511f72074f3944324f86912690f68503a8bbc9e781f043115fc0",
+    "sequence": 535
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2049,
+  "segment_path": "work/construction/segments/0536-reconcile-sequence535-verified-merge.md",
+  "segment_sha256": "7188b23aee28129d405bfb8fdd2d3a9b90dd9cac025c4ed3385c3639937f5cd4",
+  "sequence": 536,
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 535 verified merge",
+  "verified_main": {
+    "commit": "00c7018401611773173f5c761a004a0ed836679e",
+    "parents": [
+      "155eb48b60afda086eeaa03b75b02fc4062907f8",
+      "c10023c2bf5abf4669fac0fb7d47f65fb7a4827c"
+    ],
+    "ref": "main",
+    "tree": "283496e226e73a649edee6cff37a686e8ba25016"
+  }
+}
