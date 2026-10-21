@@ -1,0 +1,75 @@
+{
+  "evidence_path": "work/construction/evidence/0540-bind-self-reflection-trial-receipt-identities.json",
+  "hosted_verification": {
+    "candidate_checks": "pending",
+    "sequence_538_539_merge_postchecks": "partially_pending_at_capture",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Verified production self-reflection trial receipt IDs must equal the canonical semantic identity derived by the writer.",
+    "A recomputed outer digest cannot make a missing, malformed, or arbitrary receipt ID canonical.",
+    "Historical production-trial evidence and adverse outcomes remain intact; this change validates identity and does not reinterpret experimental results.",
+    "No production model transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "ci_yaml_parse": "passed",
+    "combined_production_trial_self_reflection_workflow_contract_and_synthetic_rehearsal_tests": "72_passed",
+    "compileall": "passed",
+    "construction_continuation_custody": "539_segments_ready",
+    "git_diff_check": "passed",
+    "targeted_mypy_baseline_comparison": {
+      "current_candidate_error_signatures": 50,
+      "new_error_signatures": 0,
+      "previous_candidate_error_signatures": 50
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0539-correct-hosted-receipt-identity-acceptance-node.md",
+    "segment_sha256": "63d9d23e7fee463dffa27b85aab60a830883a755a364a2c99dd55d0f58b35c29",
+    "sequence": 539
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2715,
+  "segment_path": "work/construction/segments/0540-bind-self-reflection-trial-receipt-identities.md",
+  "segment_sha256": "33f3a80108c11750eae07d68c4e1dc0aa7b5df4c67068b2039d5e96b732883a8",
+  "sequence": 540,
+  "sequence_538_539_merge": {
+    "branch_push_quality_gate_failure": "precommit_provenance_parent_workspace_mismatch; PR-event gate passed and merge succeeded",
+    "candidate_workflows": {
+      "CI": 39594563307,
+      "Codex CI": 39594563206,
+      "Docker Image": 39594563049,
+      "Gradient null regression": 39594563245,
+      "Invariant Tests": 39594563085,
+      "Lint Benchmark": 39594563125,
+      "Release": 39594563047,
+      "Required Quality Gate PR": 39594574836,
+      "Required Quality Gate branch push": 39594563195
+    },
+    "merge_commit": "5d45b1e95ef41b29729ee3cda9eb9d949c460706",
+    "parents": [
+      "500fd87c0d807f9ef2128902c166d04c3203f8fc",
+      "85e7c5b8e09fb7350dd112bb522a7da0713a4134"
+    ],
+    "pr": 2547,
+    "tree": "ecf56ce9152b32e52d935d2b843b6178e921164c"
+  },
+  "source_candidate": {
+    "commit": "41a089059e915473a8e57d9e2927e49c31e5db14",
+    "tree": "d47759dcd37104e3645976cadfbec86c7c43570b"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind self-reflection trial receipt identities",
+  "verified_main": {
+    "commit": "5d45b1e95ef41b29729ee3cda9eb9d949c460706",
+    "ref": "main",
+    "tree": "ecf56ce9152b32e52d935d2b843b6178e921164c"
+  }
+}
