@@ -610,6 +610,13 @@ def test_transition_stage_execution_context_constructor_freezes_nested_values() 
         approval["authorization"]["scopes"] = ("serve",)
 
 
+def test_transition_stage_execution_context_rejects_non_json_mutable_values() -> None:
+    with pytest.raises(TransitionError, match="transition_stage_execution_context_value_invalid"):
+        TransitionStageExecutionContext("b_activation_committed", ({"opaque": bytearray(b"mutable")},))
+    with pytest.raises(TransitionError, match="transition_stage_execution_context_key_invalid"):
+        TransitionStageExecutionContext("b_activation_committed", ({1: "numeric", "1": "string"},))
+
+
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:
     runtime = _runtime(tmp_path)
     runtime.request_root.mkdir(parents=True)

@@ -21,6 +21,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_subordinate_verifier_cannot_mutate_controller_approval_snapshot",
         "test_transition_stage_execution_context_is_deeply_immutable",
         "test_transition_stage_execution_context_constructor_freezes_nested_values",
+        "test_transition_stage_execution_context_rejects_non_json_mutable_values",
     )
     for node in nodes:
         assert node in source_validation
