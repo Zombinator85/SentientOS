@@ -153,6 +153,11 @@ def run_supervised(
                 drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
             if drain_deadline is not None and now >= drain_deadline:
                 for key in list(selector.get_map().values()):
+                    stream_name = str(key.data)
+                    buffered = pending_lines[stream_name]
+                    if buffered:
+                        record_line(stream_name, bytes(buffered))
+                        buffered.clear()
                     selector.unregister(key.fileobj)
                     key.fileobj.close()
                 break
