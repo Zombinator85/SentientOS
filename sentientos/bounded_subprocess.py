@@ -8,7 +8,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Mapping, Sequence, TextIO, cast
+from typing import Any, Callable, Mapping, Sequence
 
 
 DEFAULT_HEARTBEAT_SECONDS = 30.0
@@ -47,7 +47,7 @@ def _process_group_exists(process_group_id: int) -> bool:
 
 
 def _terminate_tree(
-    process: subprocess.Popen[str], grace: float, process_group_id: int | None = None
+    process: subprocess.Popen[Any], grace: float, process_group_id: int | None = None
 ) -> tuple[bool, bool]:
     graceful = True
     forced = False
@@ -106,9 +106,9 @@ def run_supervised(
     started = time.monotonic()
     writer(f"[finalizer] stage start: {stage_id}")
     creationflags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)) if os.name == "nt" else 0
-    process = subprocess.Popen(
-        command, shell=shell, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        bufsize=1, env=dict(env) if env else None, start_new_session=os.name == "posix",
+    process: subprocess.Popen[bytes] = subprocess.Popen(
+        command, shell=shell, text=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        bufsize=0, env=dict(env) if env else None, start_new_session=os.name == "posix",
         creationflags=creationflags,
     )
     pgid = process.pid
@@ -117,51 +117,87 @@ def run_supervised(
     assert process.stdout is not None and process.stderr is not None
     selector.register(process.stdout, selectors.EVENT_READ, "stdout")
     selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+    for output_stream in (process.stdout, process.stderr):
+        os.set_blocking(output_stream.fileno(), False)
+    pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
+    max_line_bytes = 65536
     last_output = started
     termination_reason: str | None = None
     graceful = forced = False
     previous_handlers: dict[int, Any] = {}
+    drain_deadline: float | None = None
 
     def cancel(signum: int, _frame: object) -> None:
-        nonlocal termination_reason, graceful, forced
+        nonlocal termination_reason, graceful, forced, drain_deadline
         termination_reason = f"signal:{signum}"
         graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
+        drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
 
     if os.name == "posix" and sys.platform != "win32":
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.getsignal(signum)
             signal.signal(signum, cancel)
     try:
+        def record_line(name: str, raw_line: bytes) -> None:
+            nonlocal last_output
+            clean = raw_line.decode("utf-8", errors="replace").rstrip("\r")
+            tails[name].append(clean)
+            writer(f"[{stage_id}][{name}] {clean}")
+            last_output = time.monotonic()
+
         while process.poll() is None or selector.get_map():
             now = time.monotonic()
-            if now - started >= timeout_seconds:
+            if termination_reason is None and now - started >= timeout_seconds:
                 termination_reason = "timeout"
                 graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
+                drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
+            if drain_deadline is not None and now >= drain_deadline:
+                for key in list(selector.get_map().values()):
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
                 break
             if selector.get_map():
-                events = selector.select(timeout=min(0.2, heartbeat_seconds))
+                wait_seconds = min(0.2, heartbeat_seconds)
+                if drain_deadline is not None:
+                    wait_seconds = min(wait_seconds, max(0.0, drain_deadline - now))
+                events = selector.select(timeout=wait_seconds)
             else:
                 time.sleep(min(0.2, heartbeat_seconds))
                 events = []
             for key, _ in events:
-                active_stream = cast(TextIO, key.fileobj)
-                line = active_stream.readline()
-                if line:
-                    clean = line.rstrip("\r\n")
-                    tails[key.data].append(clean)
-                    writer(f"[{stage_id}][{key.data}] {clean}")
-                    last_output = time.monotonic()
-                else:
-                    selector.unregister(key.fileobj)
-            if time.monotonic() - last_output >= heartbeat_seconds:
+                stream = key.fileobj
+                stream_name = str(key.data)
+                try:
+                    chunk = os.read(stream.fileno(), 65536)
+                except BlockingIOError:
+                    continue
+                if not chunk:
+                    buffered = pending_lines[stream_name]
+                    if buffered:
+                        record_line(stream_name, bytes(buffered))
+                        buffered.clear()
+                    selector.unregister(stream)
+                    continue
+                buffered = pending_lines[stream_name]
+                buffered.extend(chunk)
+                while True:
+                    try:
+                        newline = buffered.index(10)
+                    except ValueError:
+                        break
+                    raw_line = bytes(buffered[:newline])
+                    del buffered[: newline + 1]
+                    if len(raw_line) > max_line_bytes:
+                        raw_line = raw_line[:max_line_bytes] + b" [line truncated]"
+                    record_line(stream_name, raw_line)
+                while len(buffered) > max_line_bytes:
+                    record_line(stream_name, bytes(buffered[:max_line_bytes]) + b" [line continues]")
+                    del buffered[:max_line_bytes]
+            if termination_reason is None and time.monotonic() - last_output >= heartbeat_seconds:
                 writer(f"[{stage_id}][heartbeat] quiet stage still running")
                 last_output = time.monotonic()
-        for stream, name in ((process.stdout, "stdout"), (process.stderr, "stderr")):
-            for line in stream:
-                clean = line.rstrip("\r\n")
-                tails[name].append(clean)
-                writer(f"[{stage_id}][{name}] {clean}")
         return_code = process.wait()
+
     except BaseException:
         if process.poll() is None:
             termination_reason = termination_reason or "controller_exception"

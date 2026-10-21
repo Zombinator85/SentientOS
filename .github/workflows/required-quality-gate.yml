@@ -88,7 +88,8 @@ jobs:
             tests/test_replay.py::test_avatar_callback_keeps_storyboard_values_in_single_arguments \
             tests/test_storymaker.py::test_image_command_keeps_prompt_and_output_as_single_arguments \
             tests/test_bootstrap_cathedral_entrypoints.py::test_bootstrap_command_runner_never_interprets_shell_syntax \
-            tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_descendant_held_output_pipes
+            tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_descendant_held_output_pipes \
+            tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_unterminated_partial_output
       - name: Bind and verify exact acceptance
         run: |
           python - <<'PY'
@@ -99,7 +100,7 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==37
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==38
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
@@ -206,8 +207,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           candidate = json.loads(Path(source_provenance).read_text())
           nodes = candidate.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 37 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("hosted candidate acceptance must contain the exact 37 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 38 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("hosted candidate acceptance must contain the exact 38 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = os.environ.copy()
@@ -303,8 +304,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           initial = json.loads(Path(source_provenance).read_text())
           nodes = initial.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 37 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("candidate acceptance must contain the exact 37 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 38 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("candidate acceptance must contain the exact 38 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = {**os.environ, "PYTHONPATH": workspace, "SENTIENTOS_TEST_RUN_DIR": str(run_dir)}
