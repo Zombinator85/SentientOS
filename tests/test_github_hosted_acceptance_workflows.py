@@ -1163,3 +1163,25 @@ def test_source_validation_indexes_daemon_campaign_report_verification():
         "daemon_campaign_report_inspection_acceptance_result.json",
     ):
         assert artifact in source_validation
+
+
+def test_source_validation_indexes_campaign_protocol_contract_verification():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert (
+        "- name: Verify canonical model-replacement campaign protocol contract"
+        in source_validation
+    )
+    for node in (
+        "tests/test_developmental_model_replacement_campaign.py::"
+        "test_protocol_verifier_rejects_rehashed_noncanonical_contract_fields",
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_campaign_protocol_contract_verification",
+    ):
+        assert node in source_validation
+    for artifact in (
+        "campaign_protocol_contract_provenance.json",
+        "campaign_protocol_contract_acceptance.json",
+        "campaign_protocol_contract_acceptance_result.json",
+    ):
+        assert artifact in source_validation

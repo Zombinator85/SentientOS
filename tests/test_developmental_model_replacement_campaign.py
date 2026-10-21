@@ -187,6 +187,29 @@ def test_trial_inventory_is_fixed_and_bounded(tmp_path: Path) -> None:
             DevelopmentalModelReplacementCampaign.create(experiment=exp, artifact_root=tmp_path, trial_ids=ids)
 
 
+def test_protocol_verifier_rejects_rehashed_noncanonical_contract_fields(
+        tmp_path: Path) -> None:
+    subject, _, _, _ = campaign(tmp_path)
+    mutations = (
+        {"aggregation_rules": ("skip_adverse_outcomes",)},
+        {"non_claims": ("no_limitations",)},
+        {"trial_ids": ("../outside", "trial-2")},
+        {"planned_trial_count": 2.0},
+        {"grants_authority": "false"},
+    )
+    for mutation in mutations:
+        candidate = replace(subject.protocol, **mutation)
+        candidate_digest = digest(candidate.semantic_payload())
+        candidate = replace(candidate,
+            campaign_id="model-replacement-campaign-" + candidate_digest[7:31],
+            campaign_digest=candidate_digest)
+
+        # Recomputing every self-identity field must not turn a protocol with a
+        # changed interpretation or malformed inventory into a canonical protocol.
+        with pytest.raises(DevelopmentalModelReplacementError, match="protocol_invalid"):
+            candidate.verify()
+
+
 def test_interrupted_trial_is_not_replayed(tmp_path: Path) -> None:
     subject, exp, _, _ = campaign(tmp_path)
     exp.store.persist_provenance(exp.provenance_a)
