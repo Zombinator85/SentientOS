@@ -526,17 +526,39 @@ def verify_stage_approval(approval: Mapping[str, Any], *, expected: Mapping[str,
         if value.get(key) != _plain(expected_value):
             raise TransitionError("stage_approval_binding_mismatch")
     try:
-        start = datetime.fromisoformat(str(value["not_before"]).replace("Z", "+00:00"))
-        end = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00"))
-    except (KeyError, ValueError) as exc:
+        start = _stage_approval_timestamp(value["not_before"])
+        end = _stage_approval_timestamp(value["expires_at"])
+    except (KeyError, ValueError, TypeError) as exc:
         raise TransitionError("stage_approval_validity_invalid") from exc
-    now = observation_time.astimezone(timezone.utc)
+    if start > end:
+        raise TransitionError("stage_approval_validity_invalid")
+    if (not isinstance(observation_time, datetime)
+            or observation_time.tzinfo is None
+            or observation_time.utcoffset() is None):
+        raise TransitionError("stage_approval_observation_time_invalid")
+    try:
+        now = observation_time.astimezone(timezone.utc)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise TransitionError("stage_approval_observation_time_invalid") from exc
     if not start <= now <= end:
         raise TransitionError("stage_approval_not_current")
     if value["synthetic_test_approval"] and not allow_synthetic_for_tests:
         raise TransitionError("synthetic_stage_approval_forbidden")
     if any(value.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference")):
         raise TransitionError("stage_approval_grants_subordinate_authority")
+
+
+def _stage_approval_timestamp(value: object) -> datetime:
+    """Parse one explicit-offset stage validity timestamp as UTC."""
+    if not isinstance(value, str) or not value:
+        raise ValueError("stage_approval_timestamp_must_be_text")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("stage_approval_timestamp_must_include_timezone")
+    try:
+        return parsed.astimezone(timezone.utc)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ValueError("stage_approval_timestamp_invalid") from exc
 
 
 @dataclass(frozen=True)

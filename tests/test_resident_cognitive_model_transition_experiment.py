@@ -411,6 +411,52 @@ def test_malformed_stage_approval_synthetic_flag_is_rejected(tmp_path, synthetic
     assert ctl.phase == PHASES[0]
 
 
+@pytest.mark.parametrize(("field", "timestamp"), [
+    ("not_before", "2026-09-24T00:00:00"),
+    ("expires_at", "2026-09-25T00:00:00"),
+    ("not_before", None),
+    ("expires_at", 123),
+])
+def test_stage_approval_requires_explicit_offset_timestamps_before_effects(
+        tmp_path, field, timestamp):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied[field] = timestamp
+
+    with pytest.raises(TransitionError, match="stage_approval_validity_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
+def test_reversed_stage_approval_window_is_invalid_before_effects(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied["not_before"] = "2026-09-25T00:00:00+00:00"
+    supplied["expires_at"] = "2026-09-24T00:00:00+00:00"
+
+    with pytest.raises(TransitionError, match="stage_approval_validity_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
+def test_naive_transition_observation_clock_is_rejected_before_effects(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    ctl.clock = lambda: NOW.replace(tzinfo=None)
+
+    with pytest.raises(TransitionError, match="stage_approval_observation_time_invalid"):
+        ctl.advance(approval=approval(ctl, slot))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
 def test_transition_slot_rejects_bind_without_quiescence():
     gate = ResidentCognitionQuiescenceGate(); proto = protocol(); activation = activation_value("b", 2)
     session = Session("session-b", {"identity_digest": "b"}, activation, "b-op")

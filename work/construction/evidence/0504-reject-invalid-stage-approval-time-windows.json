@@ -1,0 +1,58 @@
+{
+  "behavior": [
+    "Require nonempty stage validity timestamp strings with explicit UTC offsets.",
+    "Normalize approval bounds to UTC before comparing the observation instant.",
+    "Reject reversed validity windows before any transition effects.",
+    "Reject naive or invalid observation clock values before any transition effects."
+  ],
+  "candidate_branch": "codex/construct-sentientos-stage-approval-time-boundary",
+  "changed_source_paths": [
+    "sentientos/resident_cognitive_model_transition_experiment.py",
+    "tests/test_resident_cognitive_model_transition_experiment.py"
+  ],
+  "hosted_verification": {
+    "required": [
+      "exact-candidate acceptance",
+      "Administrator strict audits",
+      "immutability verification",
+      "hosted finalizer",
+      "pre-publication PR metadata guard"
+    ],
+    "status": "pending"
+  },
+  "invariants": [
+    "No activation, model serving, inference, or writeback authority was added.",
+    "Denied approvals do not change transition phase, journal entries, or quiescence state."
+  ],
+  "local_verification": {
+    "compilation": "passed for implementation and regression-test modules",
+    "diff_check": "passed",
+    "focused_run_provenance_path": "/tmp/sentientos-stage-approval-test-run/test_run_provenance.json",
+    "focused_run_provenance_sha256": "80aeaabb46dc8c1a01485fa189326c60b9190986b25bc63cf9590c35d8b05ac3",
+    "focused_test_command": "PYTHONUSERBASE=/tmp/sentientos-python-userbase PYTHONPATH=<checkout> SENTIENTOS_TEST_RUN_DIR=/tmp/sentientos-stage-approval-test-run python -m scripts.run_tests -q tests/test_resident_cognitive_model_transition_experiment.py tests/test_resident_cognitive_transition_operator.py",
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 62,
+    "source_binding": "supplemental only; local provenance reports the clean base SHA while tests ran against the dirty candidate worktree",
+    "targeted_mypy": "passed: python -m mypy --follow-imports=skip sentientos/resident_cognitive_model_transition_experiment.py"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0503-authenticate-delegated-stage-approval-issuers.md",
+    "segment_sha256": "54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8",
+    "sequence": 503
+  },
+  "production": {
+    "inference_run": false,
+    "transition_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1834,
+  "segment_sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
+  "sequence": 504,
+  "status": "construction_candidate_pending_hosted_verification",
+  "title": "Reject invalid stage approval time windows",
+  "verified_base": {
+    "commit": "5d5f18d55214ac8fefc965e0a523015395a7d989",
+    "ref": "main",
+    "tree": "56780853b6fe7aa2242794d96385fba6de64f64f"
+  }
+}
