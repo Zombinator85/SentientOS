@@ -19,7 +19,7 @@ request, configure a dedicated GitHub App:
 1. Create an App and install it on the `SentientOS` repository only.
 2. Grant repository permissions `Contents: Read and write` and `Pull requests:
    Read and write`. Do not grant Actions or administration permission.
-3. Add repository Actions secrets `SENTIENTOS_FEDERATION_HEALTH_APP_ID` and
+3. Add repository Actions secrets `SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID` and
    `SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY`.
 4. Add the repository Actions variable `SENTIENTOS_FEDERATION_HEALTH_USE_APP`
    with the value `1`.

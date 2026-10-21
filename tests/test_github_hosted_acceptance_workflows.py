@@ -171,6 +171,10 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
         "permission-pull-requests": "write",
     }
     assert "app-id" not in app_token["with"]
+    publication_doc = (ROOT / "docs/federation_health_publication.md").read_text()
+    assert "SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID" in publication_doc
+    assert "SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY" in publication_doc
+    assert "SENTIENTOS_FEDERATION_HEALTH_USE_APP" in publication_doc
     create_pr = next(
         step for step in parsed["jobs"]["publish"]["steps"]
         if step.get("id") == "create-pr"
