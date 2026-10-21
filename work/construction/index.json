@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "dbdcda35958bcd10d6845eabc0b21bc9967c89b785c00f1c5c5d1745ec5ee612",
-    "latest_segment_sequence": 550,
-    "latest_segment_sha256": "101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f",
-    "source_commit": "1f8ab6409449fbf3dcf0bcfc1da6726de239d97d",
-    "source_tree": "60c828d033ee89c75599980d7eacd87c751cb859"
+    "checkpoint_sha256": "2e83755d59195824f7684193a1d7679e2d38211c9f35cb8da38994a7c760057a",
+    "latest_segment_sequence": 551,
+    "latest_segment_sha256": "4cedeeb3f23919effecfc388de5e6e0c79212e25bc756fed397c6c6e94719c64",
+    "source_commit": "14a2d4863d8c0331cbfe2454c3a90d379ec4db5c",
+    "source_tree": "25886a365c792408a8832e4df90f250a0dc9773a"
   },
-  "checkpoint_sha256": "dbdcda35958bcd10d6845eabc0b21bc9967c89b785c00f1c5c5d1745ec5ee612",
+  "checkpoint_sha256": "2e83755d59195824f7684193a1d7679e2d38211c9f35cb8da38994a7c760057a",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 550,
+  "latest_sequence": 551,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6321,6 +6321,19 @@
       "source_candidate_commit": "12afa26f3d7780daf31a125cd1d2abeedd4873e6",
       "source_commit": "1f8ab6409449fbf3dcf0bcfc1da6726de239d97d",
       "source_tree": "60c828d033ee89c75599980d7eacd87c751cb859"
+    },
+    {
+      "bytes": 3468,
+      "evidence_bytes": 7376,
+      "evidence_path": "work/construction/evidence/0551-reconcile-supervised-partial-line-timeout-merge.json",
+      "evidence_sha256": "91d48edc28069c20c47ed1b7a294013cc0e640f50ca5312cdd42e305e193d68b",
+      "path": "work/construction/segments/0551-reconcile-supervised-partial-line-timeout-merge.md",
+      "predecessor": "segment-sha256:101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f",
+      "sequence": 551,
+      "sha256": "4cedeeb3f23919effecfc388de5e6e0c79212e25bc756fed397c6c6e94719c64",
+      "source_candidate_commit": "d472b9c60a805c63f39d478d9adb85ae771ffbac",
+      "source_commit": "14a2d4863d8c0331cbfe2454c3a90d379ec4db5c",
+      "source_tree": "25886a365c792408a8832e4df90f250a0dc9773a"
     }
   ],
   "source_acquisition": {

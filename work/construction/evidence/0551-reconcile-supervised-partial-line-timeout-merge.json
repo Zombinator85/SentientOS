@@ -1,0 +1,194 @@
+{
+  "evidence_path": "work/construction/evidence/0551-reconcile-supervised-partial-line-timeout-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "id": 39626838860,
+        "conclusion": "success",
+        "scope": "full hosted tests, Mypy baseline ratchet, integrated resource-to-cognition lifecycle, documentation linkcheck, and Helm"
+      },
+      "Codex CI": {
+        "id": 39626838782,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39626838861,
+        "conclusion": "success",
+        "step": "pull_request workflow passed; post-merge workflow performed the build and push"
+      },
+      "Gradient null regression": {
+        "id": 39626838849,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "id": 39626838995,
+        "conclusion": "success"
+      },
+      "Lint Benchmark": {
+        "id": 39626838799,
+        "conclusion": "success",
+        "scope": "Python 3.11 and 3.14 lock variants, Mypy baseline, and tests"
+      },
+      "Release": {
+        "id": 39626838791,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39626838798,
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "accepted_nodes": 38,
+        "failed_nodes": 0,
+        "skipped_nodes": 0,
+        "new_regression": {
+          "node": "tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_unterminated_partial_output",
+          "outcome": "passed"
+        },
+        "strict_administrator_audits": true,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "acceptance_artifact": {
+          "id": 12358011397,
+          "digest": "sha256:d57e2a24216999f9a2d3743552326838ccf6c428e83b3db7d4f879df2db783a6"
+        },
+        "finalizer_artifact": {
+          "id": 12358455359,
+          "digest": "sha256:52389c9af8f42131e263fe90153fbb46ae23294c11599dabea6a5433b8f93233"
+        },
+        "quality_gate_artifact": {
+          "id": 12356588364,
+          "digest": "sha256:e8aa6a1ba1ea4f3c3b4a3e5c969c6f3f9a64bb215b2175117dda9136b5150f47"
+        }
+      },
+      "push CI": {
+        "id": 39626830550,
+        "conclusion": "success"
+      },
+      "push Invariant Tests": {
+        "id": 39626830511,
+        "conclusion": "success"
+      },
+      "push Required Quality Gate": {
+        "id": 39626830522,
+        "conclusion": "success"
+      }
+    },
+    "corrected_candidate_attempts": [
+      {
+        "commit": "bad1d272edf1452ecf8a410e6d9e62439b35e06f",
+        "runs": [
+          39625668858,
+          39625668938,
+          39625668673,
+          39625668664,
+          39625609373,
+          39625609530
+        ],
+        "reason": "three new Mypy union-attribute errors came from calling close() or fileno() on SelectorKey.fileobj typed as int | HasFileno; exact-candidate QG, lint, CI, Docker, and push checks refused the candidate"
+      },
+      {
+        "commit": "6b2fe5f35b69ee24f4adbbb23c7237aba8bf0164",
+        "runs": [
+          39625925989,
+          39625925947,
+          39625926114,
+          39625926303,
+          39625915488,
+          39625915398
+        ],
+        "reason": "the buffered-output preservation follow-up still inherited the SelectorKey typing errors; corrected in 5a41b92df13ffd0a80939b4c6397315ecb166b5b using typed IO[bytes] handles keyed by integer selector descriptor, with no Mypy suppression or baseline change"
+      }
+    ],
+    "candidate_refinements": [
+      {
+        "commit": "5a41b92df13ffd0a80939b4c6397315ecb166b5b",
+        "change": "replace SelectorKey.fileobj IO operations with the retained typed descriptor map; hosted Mypy and CI passed"
+      },
+      {
+        "commit": "90fb34c3a31faaaa0517fe49a2c0bf8f5ce8b69c",
+        "change": "preserve bare-CR universal newline handling and test partial output alongside a progress line"
+      },
+      {
+        "commit": "d472b9c60a805c63f39d478d9adb85ae771ffbac",
+        "change": "split CRLF across reads in the exact regression; final exact candidate passed all checks"
+      }
+    ],
+    "post_merge_runs": {
+      "CI": {
+        "id": 39627721153,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "id": 39627721381,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39627721146,
+        "conclusion": "success"
+      },
+      "Docs Deploy": {
+        "id": 39627721085,
+        "conclusion": "success"
+      },
+      "Forge Smoke": {
+        "id": 39627721020,
+        "conclusion": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "id": 39627721185,
+        "conclusion": "success"
+      },
+      "Nightly Self Check": {
+        "id": 39627721008,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39627721249,
+        "conclusion": "success",
+        "strict_administrator_audits": true
+      }
+    }
+  },
+  "invariants": [
+    "selector readiness is handled with nonblocking descriptor reads and cannot block inside text readline",
+    "unterminated line buffering and individual output-tail lines remain bounded",
+    "LF, CRLF split across reads, and bare-CR line endings retain the prior text-stream behavior",
+    "partial bytes read before EOF or the bounded drain cutoff are retained in the output tail",
+    "timeout remains active while the child or captured streams remain active and existing process-group termination is preserved",
+    "the exact 38-node acceptance set preserves the previous 37 nodes and adds the partial-line timeout regression",
+    "candidate and post-merge verification are bound to exact source SHAs and Git tree identities"
+  ],
+  "predecessor": {
+    "sequence": 550,
+    "segment_sha256": "101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 551,
+  "source_candidate": {
+    "commit": "d472b9c60a805c63f39d478d9adb85ae771ffbac",
+    "pull_request": 2561,
+    "tree": "25886a365c792408a8832e4df90f250a0dc9773a"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "all four changed file blobs were independently read back and matched the prepared bytes",
+    "local_tests": "isolated temporary checkout: Python compilation, 8 supervisor regressions, 2 exact-QG binding tests, and strict Mypy on the changed module passed; hosted workflows ran full source and exact acceptance suites",
+    "protected_workspaces_touched": false,
+    "remote_main_parent": "d5fddfc43faa7c2993cce2ce33dbe49a3ae3aa93",
+    "publication": "GitHub Git Data API with expected-head ref compare-and-swap updates"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile bounded partial-line subprocess timeout reads",
+  "verified_main": {
+    "commit": "14a2d4863d8c0331cbfe2454c3a90d379ec4db5c",
+    "ref": "main",
+    "tree": "25886a365c792408a8832e4df90f250a0dc9773a",
+    "merge_method": "merge",
+    "parents": [
+      "d5fddfc43faa7c2993cce2ce33dbe49a3ae3aa93",
+      "d472b9c60a805c63f39d478d9adb85ae771ffbac"
+    ]
+  },
+  "segment_path": "work/construction/segments/0551-reconcile-supervised-partial-line-timeout-merge.md",
+  "segment_sha256": "4cedeeb3f23919effecfc388de5e6e0c79212e25bc756fed397c6c6e94719c64",
+  "segment_bytes": 3468
+}
