@@ -1112,6 +1112,25 @@ def test_source_validation_indexes_verified_trial_provenance_in_reports():
         assert artifact in source_validation
 
 
+def test_source_validation_indexes_production_trial_receipt_identity():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify production-trial receipt identity binding" in source_validation
+    for node in (
+        "tests/test_developmental_model_replacement_production_trial.py::"
+        "test_receipt_verifier_rejects_missing_or_recomputed_noncanonical_identity",
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_production_trial_receipt_identity",
+    ):
+        assert node in source_validation
+    for artifact in (
+        "production_trial_receipt_identity_provenance.json",
+        "production_trial_receipt_identity_acceptance.json",
+        "production_trial_receipt_identity_acceptance_result.json",
+    ):
+        assert artifact in source_validation
+
+
 def test_source_validation_indexes_read_only_campaign_report_verification():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
