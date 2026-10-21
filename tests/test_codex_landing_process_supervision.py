@@ -30,20 +30,23 @@ def test_quiet_stage_emits_heartbeat() -> None:
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX worker-thread timeout proof")
-def test_worker_thread_supervisor_enforces_timeout_without_signal_handler_install() -> None:
-    results = []
+def test_worker_thread_supervisor_refuses_before_starting_child(tmp_path: Path) -> None:
+    marker = tmp_path / "child-started"
+    lines: list[str] = []
     errors = []
 
     def supervise() -> None:
         try:
-            results.append(
-                run_supervised(
-                    [sys.executable, "-c", "import time; time.sleep(5)"],
-                    stage_id="worker-timeout",
-                    timeout_seconds=0.1,
-                    termination_grace_seconds=0.1,
-                    emit=lambda _: None,
-                )
+            run_supervised(
+                [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; "
+                    f"Path({str(marker)!r}).write_text('started')",
+                ],
+                stage_id="worker-timeout",
+                timeout_seconds=1,
+                emit=lines.append,
             )
         except BaseException as exc:
             errors.append(exc)
@@ -53,10 +56,11 @@ def test_worker_thread_supervisor_enforces_timeout_without_signal_handler_instal
     worker.join(timeout=3)
 
     assert not worker.is_alive()
-    assert not errors
-    assert len(results) == 1
-    assert results[0].status == "timed_out"
-    assert results[0].termination_reason == "timeout"
+    assert len(errors) == 1
+    assert isinstance(errors[0], RuntimeError)
+    assert str(errors[0]) == "posix_supervision_requires_main_thread"
+    assert not lines
+    assert not marker.exists()
 
 
 def _tree_script(tmp_path: Path) -> str:
