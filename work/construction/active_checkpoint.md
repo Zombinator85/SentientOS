@@ -104,3 +104,16 @@ Latest segment SHA-256: 6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf
 Sequence: 538 (candidate pending hosted verification)
 
 Next: verify the exact receipt-identity candidate with hosted CI and the privileged Quality Gate, reconcile its merge, and continue reviewing persisted evidence and planning boundaries.
+
+
+## Sequence 539 — correct hosted receipt-identity acceptance node
+
+The first sequence 538 CI run caught an acceptance-node mismatch: pytest parameter suffixes did not match the manifest's exact node, despite the adverse cases passing. The test now uses one stable node for all three cases. The original sequence 538 record is preserved; this correction is appended. Local receipt/rehearsal tests: 23 nodes passed, 25 identity cases covered; Mypy error signatures match the prior candidate (50, with zero new signatures); compile, YAML, and diff checks passed. Corrected hosted checks are pending.
+
+Verified main: `500fd87c0d807f9ef2128902c166d04c3203f8fc`, tree `7bc937225377b689657cd52df96cbb604ccc2639`
+Correction candidate: `d506514e0f655fdf3dd21faa16cd9fbf2695e963`, tree `e0fe12b7375584f38ce25f411d688425a3715dfe`
+Latest construction segment: work/construction/segments/0539-correct-hosted-receipt-identity-acceptance-node.md
+Latest segment SHA-256: 63d9d23e7fee463dffa27b85aab60a830883a755a364a2c99dd55d0f58b35c29
+Sequence: 539 (corrected candidate pending hosted verification)
+
+Next: verify the corrected exact candidate and its privileged gate, then reconcile the merge before publishing the next receipt-custody increment.
