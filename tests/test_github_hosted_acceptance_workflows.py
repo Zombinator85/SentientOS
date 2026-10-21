@@ -9,9 +9,14 @@ ROOT = Path(__file__).parents[1]
 def test_source_validation_runs_federation_health_freshness_regression():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
-    node = "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window"
+    nodes = (
+        "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window",
+        "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression",
+    )
     assert "- name: Verify Federation Health snapshot freshness" in source_validation
-    assert node in source_validation
+    for node in nodes:
+        assert node in source_validation
     assert "federation_health_acceptance.json" in source_validation
     assert "federation_health_acceptance_result.json" in source_validation
 
@@ -158,13 +163,14 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
         "64ab729a6294000f5aa4a4bc0b73d1f32bc45510"
     )
     assert app_token["with"] == {
-        "app-id": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}",
+        "client-id": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY }}",
         "owner": "Zombinator85",
         "repositories": "SentientOS",
         "permission-contents": "write",
         "permission-pull-requests": "write",
     }
+    assert "app-id" not in app_token["with"]
     create_pr = next(
         step for step in parsed["jobs"]["publish"]["steps"]
         if step.get("id") == "create-pr"
