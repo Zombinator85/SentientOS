@@ -334,3 +334,14 @@ Latest segment SHA-256: `d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f57
 Sequence: 556 (verified merge reconciliation)
 
 Next: continue checking Windows subprocess lifecycle and cancellation boundaries, retaining the explicit descendant-confirmation limit and source-bound acceptance.
+
+## Sequence 557 — native Windows subprocess cancellation proof
+
+PR #2572 merged normally as `60a335fb8f7e46a8715ae16db7305fcebcc7df05`, tree `37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc`, with ordered parents `fc60cbd57d59354cbaf1568e57e26307e5044c8a` and `04b0632e811ef59ee20880022c42d5613e8fcf0d`. The new Windows-only regression exercises `run_supervised` through a native process-group timeout, accepts delivered `SIGBREAK` or forced fallback, checks bounded/accurate termination evidence, and preserves the descendant-confirmation limit. Linux's exact 45-node acceptance remains unchanged; the Windows Custody workflow runs the full supervisor module and passed. Candidate strict Quality Gate, hosted finalizer, separate metadata guard, Windows Custody, CI, Docker, lint, invariants, Release, Codex CI, and Gradient passed. Post-merge CI, Quality Gate, Docker, Docs Deploy, Nightly Self Check, Windows Custody, Invariants, and Codex CI passed; Forge Smoke was conditionally skipped. See the sequence 557 evidence JSON for exact run IDs, artifacts, and the platform-binding correction.
+
+Verified main: `60a335fb8f7e46a8715ae16db7305fcebcc7df05`, tree `37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc`
+Latest construction segment: `work/construction/segments/0557-native-windows-subprocess-cancellation-proof.md`
+Latest segment SHA-256: `1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4`
+Sequence: 557 (verified merge reconciliation)
+
+Next: continue examining bounded Windows subprocess lifecycle and evidence boundaries without claiming descendant termination where the platform cannot confirm it.

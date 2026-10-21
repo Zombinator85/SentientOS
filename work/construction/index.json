@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "bec8ec5517ab0fd1dd7619e4c1d5bccd3fa87a8d893c0618488e0254b5a1a9a0",
-    "latest_segment_sequence": 556,
-    "latest_segment_sha256": "d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
-    "source_commit": "287188335576efb45c2ab94d7f7ade7c004c2b77",
-    "source_tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
+    "checkpoint_sha256": "3e854348b4a4f5eb1ced2bbfa38fd9a2c28b05a8b01cf6c832ec010b41530ce1",
+    "latest_segment_sequence": 557,
+    "latest_segment_sha256": "1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
+    "source_commit": "60a335fb8f7e46a8715ae16db7305fcebcc7df05",
+    "source_tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
   },
-  "checkpoint_sha256": "bec8ec5517ab0fd1dd7619e4c1d5bccd3fa87a8d893c0618488e0254b5a1a9a0",
+  "checkpoint_sha256": "3e854348b4a4f5eb1ced2bbfa38fd9a2c28b05a8b01cf6c832ec010b41530ce1",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 556,
+  "latest_sequence": 557,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6399,6 +6399,19 @@
       "source_candidate_commit": "6e9d65e073fda487c4da55dfe712c7a443fcd8d5",
       "source_commit": "287188335576efb45c2ab94d7f7ade7c004c2b77",
       "source_tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
+    },
+    {
+      "bytes": 2303,
+      "evidence_bytes": 5235,
+      "evidence_path": "work/construction/evidence/0557-native-windows-subprocess-cancellation-proof.json",
+      "evidence_sha256": "d158429607313eb6a4e7840d9f85850d7e724092d09731ebcb8b9513773b7d1f",
+      "path": "work/construction/segments/0557-native-windows-subprocess-cancellation-proof.md",
+      "predecessor": "segment-sha256:d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
+      "sequence": 557,
+      "sha256": "1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
+      "source_candidate_commit": "04b0632e811ef59ee20880022c42d5613e8fcf0d",
+      "source_commit": "60a335fb8f7e46a8715ae16db7305fcebcc7df05",
+      "source_tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
     }
   ],
   "source_acquisition": {

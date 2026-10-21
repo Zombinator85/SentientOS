@@ -1,0 +1,160 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39650521180
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39650521182
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39650521195
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39650521208
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39650521105
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39650521049
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39650521211
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "exact_platform_agnostic_acceptance_nodes": 45,
+      "hosted_privileged_pr_landing_finalizer": "success",
+      "id": 39650521258,
+      "separate_prepublication_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39650521243
+    }
+  },
+  "invariants": [
+    "the exact Linux acceptance set remains platform-agnostic and unchanged",
+    "Windows Custody executes the complete supervision module natively",
+    "termination-attempt evidence remains truthful and bounded",
+    "Windows descendant confirmation remains explicitly unclaimed",
+    "source and merge trees match; ordered merge parents preserve candidate history",
+    "protected and stale workspaces remain untouched"
+  ],
+  "local_verification": {
+    "diff_check": "passed",
+    "focused_tests": "65 passed; 1 Windows-only test skipped on Linux",
+    "py_compile": "passed for changed Python files",
+    "strict_mypy": "passed for sentientos/bounded_subprocess.py",
+    "workflow_contract_tests": "passed"
+  },
+  "platform_binding_remediation": {
+    "initial_candidate_commit": "9bbb1e373aca2a3db48c73d3068f7ec2096e44a7",
+    "initial_quality_gate_run": {
+      "artifact_digest": "sha256:d60da3fb1400f42db9e757f3f512048824241c6c966306205607f26975a95af0",
+      "artifact_id": 12368114688,
+      "conclusion": "failure",
+      "id": 39649888012,
+      "reason": "the Linux exact-node reporter correctly returned required_node_not_passed for the Windows-only regression because that test was skipped on Linux"
+    },
+    "initial_windows_custody": {
+      "conclusion": "success",
+      "id": 39649886677
+    },
+    "resolution": "left the 45-node Linux acceptance unchanged and retained the new Windows-only regression in the full native Windows Custody module; the final 45-node QG and Windows Custody both passed"
+  },
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39651244242
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39651244217
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39651244206
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39651244523
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39651244742
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39651244482
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39651244780
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39651244571
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39651244522
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
+    "sequence": 556
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "digest": "sha256:fcabf11986f45448932df06e07faad5de1a7407140f66d1f397b90555134fba4",
+      "id": 12368752813
+    },
+    "finalizer": {
+      "digest": "sha256:34eb939dd0e06b5bde4ba8c093ff4086724cfc7969ffaff86da340f31b7be592",
+      "id": 12369575764
+    },
+    "quality_gate": {
+      "digest": "sha256:79df25adc7c4ae49befb45f57de3222dfd034c9118fd39b97b0df63150812ba7",
+      "id": 12369480591
+    }
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2303,
+  "segment_path": "work/construction/segments/0557-native-windows-subprocess-cancellation-proof.md",
+  "segment_sha256": "1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
+  "sequence": 557,
+  "source_blobs": {
+    "tests/test_codex_landing_process_supervision.py": "ce79aa3fbf15c9eca50885517fb7123a5b7c66e4"
+  },
+  "source_candidate": {
+    "commit": "04b0632e811ef59ee20880022c42d5613e8fcf0d",
+    "pull_request": 2572,
+    "tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
+  },
+  "source_recovery": {
+    "continuation_chain": "sequence 556 verified as predecessor before appending 557",
+    "protected_workspaces_touched": false,
+    "remote_readback": "GitHub main ref, merge commit, tree, parents, and source blob were independently read back"
+  },
+  "status": "verified_reconciliation",
+  "title": "Native Windows subprocess cancellation proof",
+  "verified_main": {
+    "commit": "60a335fb8f7e46a8715ae16db7305fcebcc7df05",
+    "merge_method": "merge",
+    "parents": [
+      "fc60cbd57d59354cbaf1568e57e26307e5044c8a",
+      "04b0632e811ef59ee20880022c42d5613e8fcf0d"
+    ],
+    "ref": "main",
+    "tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
+  }
+}
