@@ -1,0 +1,50 @@
+{
+  "evidence_path": "work/construction/evidence/0532-single-sample-operator-validity-time.json",
+  "hosted_verification": {
+    "append_only_custody": "passed_532_segments_before_candidate_append",
+    "local_acceptance": "passed",
+    "local_administrator_audit": "not_run",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "One trusted clock sample is normalized and reused across signed request admission and recovery verification.",
+    "Operator provenance remains Ed25519-authenticated against the pinned read-only trust catalog.",
+    "Planning/read paths do not gain execution authority; no subordinate owner gate is changed.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "affected_operator_module": "46_passed",
+    "compileall": "passed",
+    "focused_clock_and_acceptance_contract": "4_passed",
+    "full_import_graph_mypy": "not_passed_339_existing_diagnostics_across_64_modules",
+    "targeted_mypy": "passed_with_follow_imports_silent_for_two_touched_modules"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0531-reconcile-sequence530-federation-health.md",
+    "segment_sha256": "9aa4d87aca5c45345e379116d8ea63fd1d8ab48c8f280252a0202d784a838d7f",
+    "sequence": 531
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1979,
+  "segment_path": "work/construction/segments/0532-single-sample-operator-validity-time.md",
+  "segment_sha256": "1f00ab4a6bd90ee6022738fe3f1d034691a683d7a75776a4cd4e0e335dce0050",
+  "sequence": 532,
+  "source_candidate": {
+    "commit": "14a1e9881e0a710b5701362778473e2fc0ef14b3",
+    "tree": "4b64630c16937ab5aea19aa77a251cbbc8150427"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind operator request validity to one aware clock sample",
+  "verified_main": {
+    "commit": "9f240e177afc7eb7b67c05e33ca5283b2d8cd598",
+    "ref": "main",
+    "tree": "38479e185d368011ef331458de875e15746a0643"
+  }
+}

@@ -555,3 +555,16 @@ Latest segment SHA-256: `9aa4d87aca5c45345e379116d8ea63fd1d8ab48c8f280252a0202d7
 Sequence: 531 (verified operational reconciliation)
 
 Next: continue bounded developmental cognition and authenticate the existing operator-approval delegation; pursue the bot-created PR's required workflow approval through the repository's normal governance path.
+
+
+## Sequence 532 — bind transition request validity to one aware clock sample
+
+The authenticated transition operator now validates and normalizes one clock sample, reusing that same UTC instant for key validity, request validity, and journal recovery. Naive and offset-unknown clocks fail closed. The focused and affected module regressions, compilation, and targeted Mypy passed locally; hosted checks remain pending.
+
+Verified base main: `9f240e177afc7eb7b67c05e33ca5283b2d8cd598`, tree `38479e185d368011ef331458de875e15746a0643`
+Implementation candidate: `14a1e9881e0a710b5701362778473e2fc0ef14b3`, tree `4b64630c16937ab5aea19aa77a251cbbc8150427`
+Latest construction segment: `work/construction/segments/0532-single-sample-operator-validity-time.md`
+Latest segment SHA-256: `1f00ab4a6bd90ee6022738fe3f1d034691a683d7a75776a4cd4e0e335dce0050`
+Sequence: 532 (candidate pending hosted verification)
+
+Next: verify the exact candidate on hosted CI, then continue toward the next read-only developmental cognition dependency without crossing production authority boundaries.
