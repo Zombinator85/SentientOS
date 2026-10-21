@@ -481,3 +481,14 @@ Implementation candidate: `ddfeba77456cd003cf8b3ff1f0a80ff9413c256d`, tree `ef6b
 Latest construction segment: `work/construction/segments/0512-reject-nonfinite-transition-context-values.md`
 Latest segment SHA-256: `ee4248d25d3a66e38fa1cd837bd170526d8ff9a28aa4f942b43fcacfdc0518fa`
 Sequence: 512 (candidate pending hosted verification)
+
+
+## Sequence 513 — bind finite-number regression to acceptance
+
+Hosted CI exposed an exact-node acceptance mismatch in the initial sequence 512 candidate: pytest ran all three parametrized NaN/infinity cases, but the verifier did not count the expanded node IDs as the declared function node. The test now performs all three assertions in one call. The initial Quality Gate, privileged finalizer, separate metadata guard, Docker, Release validation, Codex CI, invariants, lint, and Gradient passed; CI failed only at `Verify transition-stage receipt projection` because the acceptance node was unselected. The corrected candidate has a 90-pass local suite and is pending full hosted rerun.
+
+Latest verified source merge: `dd51df9fc0aa21f8ecac732df590716f14d801bb`, tree `2ff89a56f9c8881f7ba66237baf22c5755d6b390`
+Acceptance follow-up candidate: `f8b627b73234a13d8c1c19659b911e587c0cf1f9`, tree `97fa41a08bf468bf74c86137e74522d223965003`
+Latest construction segment: `work/construction/segments/0513-bind-finite-number-regression-to-acceptance.md`
+Latest segment SHA-256: `3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb`
+Sequence: 513 (corrected candidate pending hosted verification)

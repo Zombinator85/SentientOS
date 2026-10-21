@@ -1,0 +1,74 @@
+{
+  "evidence_path": "work/construction/evidence/0513-bind-finite-number-regression-to-acceptance.json",
+  "hosted_verification": {
+    "administrator_audits": "pending_for_corrected_head",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending_for_corrected_head",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "f8b627b73234a13d8c1c19659b911e587c0cf1f9",
+    "files": {
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "49de6f359dfe6ab173a08bc36592d553ae239867"
+      }
+    },
+    "parent": "1adf9ef26a7bb30698859aac0b5f79e98645d8d3",
+    "tree": "97fa41a08bf468bf74c86137e74522d223965003"
+  },
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; all 512 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "passed",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_failed": 0,
+    "tests_passed": 90,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0512-reject-nonfinite-transition-context-values.md",
+    "segment_sha256": "ee4248d25d3a66e38fa1cd837bd170526d8ff9a28aa4f942b43fcacfdc0518fa",
+    "sequence": 512
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "reconciles_sequence_512_initial_candidate": {
+    "ci_result": "failed_task_acceptance_exact_node_unobserved",
+    "ci_run": 39547010551,
+    "corrective_change": "Run NaN and both infinity assertions in one test invocation so the exact required node is recorded as a call.",
+    "evidence_commit": "1adf9ef26a7bb30698859aac0b5f79e98645d8d3",
+    "failed_step": "Verify transition-stage receipt projection",
+    "failure_detail": "Parameterized test expanded into NaN/inf node IDs; acceptance requested the non-parameterized function node. All three test cases themselves passed.",
+    "implementation_commit": "ddfeba77456cd003cf8b3ff1f0a80ff9413c256d",
+    "other_hosted_runs": {
+      "codex_ci": 39547010413,
+      "docker": 39547010538,
+      "gradient_null_regression": 39547010301,
+      "invariants": 39547010516,
+      "lint_benchmark": 39547010526,
+      "release": 39547010418
+    },
+    "quality_gate": "passed_including_administrator_audits_finalizer_and_separate_metadata_guard",
+    "quality_gate_run": 39547010462
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1868,
+  "segment_path": "work/construction/segments/0513-bind-finite-number-regression-to-acceptance.md",
+  "segment_sha256": "3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
+  "sequence": 513,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind finite-number regression to acceptance",
+  "verified_main": {
+    "commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+    "ref": "main",
+    "tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
+  }
+}
