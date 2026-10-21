@@ -610,10 +610,10 @@ def test_transition_stage_execution_context_constructor_freezes_nested_values() 
         approval["authorization"]["scopes"] = ("serve",)
 
 
-@pytest.mark.parametrize("number", [float("nan"), float("inf"), float("-inf")])
-def test_transition_stage_execution_context_rejects_non_finite_numbers(number: float) -> None:
-    with pytest.raises(TransitionError, match="transition_stage_execution_context_value_invalid"):
-        TransitionStageExecutionContext("b_activation_committed", ({"number": number},))
+def test_transition_stage_execution_context_rejects_non_finite_numbers() -> None:
+    for number in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(TransitionError, match="transition_stage_execution_context_value_invalid"):
+            TransitionStageExecutionContext("b_activation_committed", ({"number": number},))
 
 
 def test_transition_stage_execution_context_rejects_non_json_mutable_values() -> None:
