@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "597d12952b6d9771a7116ec74f1f01d4fdb182a253c42484d9c78666a66451f1",
-    "latest_segment_sequence": 530,
-    "latest_segment_sha256": "d6912dbeafb4efd6f49d60044fde59be5554e3df4c33722919765bbd0ba2a894",
-    "source_commit": "ec7075c36011ff6e39316c97dd256e63a106f8a1",
-    "source_tree": "7c4a3c6493e5609fd3224c0050b49de51ad86cb6"
+    "checkpoint_sha256": "98d7cbaaa40ec369fbedc97aa7892351267b32011add8683314b8da44dbed490",
+    "latest_segment_sequence": 531,
+    "latest_segment_sha256": "9aa4d87aca5c45345e379116d8ea63fd1d8ab48c8f280252a0202d784a838d7f",
+    "source_commit": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+    "source_tree": "a3cc496ab66415fe25fb3d537af9fb0e446ecad1"
   },
   "checkpoint_sha256": "597d12952b6d9771a7116ec74f1f01d4fdb182a253c42484d9c78666a66451f1",
   "hosted_lifecycle_reconciliation": {
@@ -6063,6 +6063,18 @@
       "source_candidate_commit": "bffc49e17c198ef99d6b32a19308841796fa0e9b",
       "source_commit": "ec7075c36011ff6e39316c97dd256e63a106f8a1",
       "source_tree": "7c4a3c6493e5609fd3224c0050b49de51ad86cb6"
+    },
+    {
+      "bytes": 2243,
+      "evidence_bytes": 3100,
+      "evidence_path": "work/construction/evidence/0531-reconcile-sequence530-federation-health.json",
+      "evidence_sha256": "ca694e0ba3d6ad17616ca0d7dca4df7af3229aeeeb16ca1e90dc6fb88da3df3d",
+      "path": "work/construction/segments/0531-reconcile-sequence530-federation-health.md",
+      "predecessor": "segment-sha256:d6912dbeafb4efd6f49d60044fde59be5554e3df4c33722919765bbd0ba2a894",
+      "sequence": 531,
+      "sha256": "9aa4d87aca5c45345e379116d8ea63fd1d8ab48c8f280252a0202d784a838d7f",
+      "source_commit": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+      "source_tree": "a3cc496ab66415fe25fb3d537af9fb0e446ecad1"
     }
   ],
   "source_acquisition": {
