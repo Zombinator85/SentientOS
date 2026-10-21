@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "059009cd654e7dd4359b68d36ce62d2db9009ef0e3f8ff0d9fe959bf7b1b7304",
-    "latest_segment_sequence": 506,
-    "latest_segment_sha256": "e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38",
-    "source_commit": "1a568708d31201885034a51b66319b770584b5d4",
-    "source_tree": "3aa51733ce35955a5e0efb51da3ecf06c94a0834"
+    "checkpoint_sha256": "78b5c1e5955a833b9d21cd34d617c486acb761d2fa88aa298e272cbaa3761cd5",
+    "latest_segment_sequence": 507,
+    "latest_segment_sha256": "f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a",
+    "source_commit": "564bff002c4bd0a679bfa8347c0478b1698e0a2d",
+    "source_tree": "24360d2bbf2592e4810ff011f9fc6520569e156c"
   },
-  "checkpoint_sha256": "059009cd654e7dd4359b68d36ce62d2db9009ef0e3f8ff0d9fe959bf7b1b7304",
+  "checkpoint_sha256": "78b5c1e5955a833b9d21cd34d617c486acb761d2fa88aa298e272cbaa3761cd5",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 506,
+  "latest_sequence": 507,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5755,6 +5755,18 @@
       "sha256": "e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38",
       "source_commit": "1a568708d31201885034a51b66319b770584b5d4",
       "source_tree": "3aa51733ce35955a5e0efb51da3ecf06c94a0834"
+    },
+    {
+      "bytes": 2438,
+      "evidence_bytes": 3603,
+      "evidence_path": "work/construction/evidence/0507-bind-subordinate-approval-summaries-to-artifacts.json",
+      "evidence_sha256": "fd0bb7bcb2f3d8c80606e9df2e73d6f7656a77704759d5dbc1b7d8f721b2ef9a",
+      "path": "work/construction/segments/0507-bind-subordinate-approval-summaries-to-artifacts.md",
+      "predecessor": "segment-sha256:e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38",
+      "sequence": 507,
+      "sha256": "f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a",
+      "source_commit": "564bff002c4bd0a679bfa8347c0478b1698e0a2d",
+      "source_tree": "24360d2bbf2592e4810ff011f9fc6520569e156c"
     }
   ],
   "source_acquisition": {
@@ -5764,7 +5776,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "3aa51733ce35955a5e0efb51da3ecf06c94a0834",
+  "source_tree": "24360d2bbf2592e4810ff011f9fc6520569e156c",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
