@@ -1,0 +1,167 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 561,
+  "title": "Terminate supervised child when setup fails",
+  "status": "verified_reconciliation",
+  "predecessor": {
+    "sequence": 560,
+    "segment_sha256": "ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629"
+  },
+  "source_candidate": {
+    "pull_request": 2580,
+    "commit": "676c7ceb6068d6eee3c69330263d3c39c967ead1",
+    "tree": "11ee45ab1873a509f570604885dbe1a661dc8226"
+  },
+  "source_blobs": {
+    "sentientos/bounded_subprocess.py": "7edb928867b06904c30d0a322dfa7d32897534be",
+    "tests/test_codex_landing_process_supervision.py": "66baf4e6d0f851b996a85ca6ed6d1df6f1071f84",
+    ".github/workflows/required-quality-gate.yml": "b053f9b517a6ad7e3f3be12973b3a33dc4b207d3",
+    "tests/test_github_hosted_acceptance_workflows.py": "f0cabf5b4528891a0559fa0db8114d76452f87c5"
+  },
+  "source_recovery": {
+    "remote_readback": "candidate commit, tree, changed blob identities, merge commit, main ref, tree, and ordered parents independently read back from GitHub",
+    "protected_workspaces_touched": false
+  },
+  "local_verification": {
+    "focused_tests": "17 passed; 1 Windows-only native skip on Linux",
+    "avatar_authoring_tests": "12 passed",
+    "strict_mypy": "passed",
+    "py_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "candidate_hosted_verification": {
+    "CI": {
+      "pull_request_run_id": 39664803633,
+      "push_run_id": 39664793446,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "pull_request_run_ids": [
+        39664803691,
+        39664841125
+      ],
+      "push_run_id": 39664793563,
+      "conclusion": "success",
+      "exact_source_bound_nodes": 46,
+      "strict_administrator_audits": true,
+      "administrator_effective_uid": 0,
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "hosted_precommit_finalizer": "ready_to_commit",
+      "candidate_finalizer": "ready_for_pr_metadata"
+    },
+    "Codex_CI": {
+      "run_id": 39664803712,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "run_id": 39664803690,
+      "conclusion": "success"
+    },
+    "Gradient_null_regression": {
+      "run_id": 39664803551,
+      "conclusion": "success"
+    },
+    "Invariant_Tests": {
+      "pull_request_run_id": 39664803666,
+      "push_run_id": 39664793346,
+      "conclusion": "success"
+    },
+    "Lint_Benchmark": {
+      "run_id": 39664803890,
+      "conclusion": "success"
+    },
+    "Release": {
+      "run_id": 39664803727,
+      "conclusion": "success"
+    },
+    "Windows_Custody": {
+      "run_id": 39664803728,
+      "conclusion": "success"
+    }
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "id": 12377036899,
+      "digest": "sha256:3fd9c95159b1e7d6dcfd99a878b94858c691804d24c0b3b7da976cbe59c10c71",
+      "repository_sha": "676c7ceb6068d6eee3c69330263d3c39c967ead1",
+      "required_nodes": 46,
+      "all_call_phase_outcomes_passed": true,
+      "new_regression_passed": true
+    },
+    "finalizer": {
+      "id": 12377476863,
+      "digest": "sha256:842d03ddc4074e90c1be7bd9c6de34f68ebf5784980c743fc7c2cce96d436eab",
+      "precommit_status": "ready_to_commit",
+      "candidate_status": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready"
+    },
+    "quality_gate": {
+      "id": 12375079002,
+      "digest": "sha256:b96c626bb6ed6d9b1d47046bb162278443138180a76ab9efe63bc0ddcc9f30b8",
+      "administrator_verified": true,
+      "expected_sha": "676c7ceb6068d6eee3c69330263d3c39c967ead1",
+      "strict_audit_ok": true,
+      "immutability_ok": true
+    }
+  },
+  "post_merge_runs": {
+    "CI": {
+      "id": 39665497970,
+      "conclusion": "success"
+    },
+    "Codex_CI": {
+      "id": 39665497872,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "id": 39665497861,
+      "conclusion": "success"
+    },
+    "Docs_Deploy": {
+      "id": 39665497843,
+      "conclusion": "success"
+    },
+    "Forge_Smoke": {
+      "id": 39665501958,
+      "conclusion": "skipped_by_condition"
+    },
+    "Invariant_Tests": {
+      "id": 39665497863,
+      "conclusion": "success"
+    },
+    "Nightly_Self_Check": {
+      "id": 39665497917,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "id": 39665497846,
+      "conclusion": "success"
+    },
+    "Windows_Custody": {
+      "id": 39665497973,
+      "conclusion": "success"
+    }
+  },
+  "invariants": [
+    "selector and signal-handler setup failures terminate and reap an already launched process",
+    "the setup-failure regression proves child startup before injection and rejects a surviving delayed marker",
+    "the regression is an exact hosted acceptance node with passing call-phase outcome",
+    "process-supervisor production and authority boundaries are unchanged",
+    "source merge tree equals exact candidate tree and ordered parents preserve history",
+    "no production transition, inference, or actuation was run",
+    "stale and protected workspaces were not modified"
+  ],
+  "verified_main": {
+    "ref": "main",
+    "commit": "31711da42f3e128333138a2982e30d9e94e5d2b2",
+    "tree": "11ee45ab1873a509f570604885dbe1a661dc8226",
+    "merge_method": "merge",
+    "parents": [
+      "71a700dfe32961c2c8b0a0719d59c7a2b37d0348",
+      "676c7ceb6068d6eee3c69330263d3c39c967ead1"
+    ]
+  },
+  "segment_path": "work/construction/segments/0561-terminate-child-on-setup-failure.md",
+  "segment_bytes": 2381,
+  "segment_sha256": "d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133"
+}

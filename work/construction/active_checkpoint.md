@@ -388,4 +388,17 @@ Latest construction segment: `work/construction/segments/0560-report-escaped-des
 Latest segment SHA-256: `ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629`
 Sequence: 560 (verified merge reconciliation)
 
-Next: terminate and reap the supervised process if selector or signal-handler setup fails after `Popen` has already launched it.
+Resolved by sequence 561: selector or signal-handler setup failures after process launch now terminate and reap the child.
+
+## Sequence 561 — terminate child after supervision setup failure
+
+The supervision setup exception path now closes the process group, reaps the root process, closes pipes and selector state, restores any installed signal handlers, and re-raises the setup error. The new POSIX regression proves the child starts before selector construction fails and verifies it cannot write its delayed marker.
+
+The candidate and exact-node workflow contract passed the hosted CI and strict Administrator Quality Gate. The acceptance manifest and provenance bind 46 exact call-phase nodes to candidate 676c7ceb6068d6eee3c69330263d3c39c967ead1; all passed. The separate metadata guard and hosted finalizers passed. PR #2580 merged normally; post-merge CI, Quality Gate, Docker, Docs Deploy, Nightly Self Check, Windows Custody, Invariants, and Codex CI passed. Forge Smoke was skipped by condition.
+
+Verified main: `31711da42f3e128333138a2982e30d9e94e5d2b2`, tree `11ee45ab1873a509f570604885dbe1a661dc8226`
+Latest construction segment: work/construction/segments/0561-terminate-child-on-setup-failure.md
+Latest segment SHA-256: d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133
+Sequence: 561 (verified merge reconciliation)
+
+Next: ensure controller exceptions terminate the process group even when the supervised root has already exited.
