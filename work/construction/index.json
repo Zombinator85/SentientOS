@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "da7c3d5dba3e5266c2f9917040145a97c9b714fd2febbb9f7c9e5510a5353cfc",
-    "latest_segment_sequence": 521,
-    "latest_segment_sha256": "2610b1e849219b9457e563ee04be007cd525963c6cdd1b60411f0ec0f6f9f06f",
-    "source_commit": "c0ba3db88ab8c23bf282a68fd5327268191b4bc2",
-    "source_tree": "6de32bef47cec823470532182a8ec9f198c85b81"
+    "checkpoint_sha256": "860e5bf954377d8844e8d9b60a7df2f3907365ca09e1a5856ed0e22e1e3a6345",
+    "latest_segment_sequence": 522,
+    "latest_segment_sha256": "9434627749b57ed7e9969a6fdcd342b48cf60a79c1ea53232cd626aeb348c6ac",
+    "source_commit": "7500c4aae80ae2e4d5e971dd3a8add007655da82",
+    "source_tree": "01198ad506205aa21a382b77b7eb6a6960166c80"
   },
-  "checkpoint_sha256": "da7c3d5dba3e5266c2f9917040145a97c9b714fd2febbb9f7c9e5510a5353cfc",
+  "checkpoint_sha256": "860e5bf954377d8844e8d9b60a7df2f3907365ca09e1a5856ed0e22e1e3a6345",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 521,
+  "latest_sequence": 522,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5946,6 +5946,19 @@
       "source_candidate_commit": "4a2b6a2f0a0875f8d2e69448f49f4e7b19956dcc",
       "source_commit": "c0ba3db88ab8c23bf282a68fd5327268191b4bc2",
       "source_tree": "6de32bef47cec823470532182a8ec9f198c85b81"
+    },
+    {
+      "bytes": 1741,
+      "evidence_bytes": 2502,
+      "evidence_path": "work/construction/evidence/0522-reconcile-sequence522-verified-merge.json",
+      "evidence_sha256": "e242c7af9e309cfe14d81e5f4b9b64439768326062a8c7d7c14276f8b410f367",
+      "path": "work/construction/segments/0522-reconcile-sequence522-verified-merge.md",
+      "predecessor": "segment-sha256:2610b1e849219b9457e563ee04be007cd525963c6cdd1b60411f0ec0f6f9f06f",
+      "sequence": 522,
+      "sha256": "9434627749b57ed7e9969a6fdcd342b48cf60a79c1ea53232cd626aeb348c6ac",
+      "source_candidate_commit": "15d9a205959284e7810ffc4b8ffb10ec72ee18e0",
+      "source_commit": "7500c4aae80ae2e4d5e971dd3a8add007655da82",
+      "source_tree": "01198ad506205aa21a382b77b7eb6a6960166c80"
     }
   ],
   "source_acquisition": {
