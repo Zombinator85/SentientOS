@@ -163,7 +163,7 @@ def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_sc
         "64ab729a6294000f5aa4a4bc0b73d1f32bc45510"
     )
     assert app_token["with"] == {
-        "client-id": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}",
+        "client-id": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID }}",
         "private-key": "${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY }}",
         "owner": "Zombinator85",
         "repositories": "SentientOS",
