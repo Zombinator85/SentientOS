@@ -1,0 +1,62 @@
+{
+  "evidence_path": "work/construction/evidence/0521-reconcile-sequence520-verified-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only construction history and exact source bindings are preserved.",
+    "Current-main hosted self-check and Quality Gate retain Administrator strict audit verification.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "postmerge_checks": {
+    "ci": "passed",
+    "integrated_source_validation": "passed",
+    "self_check": "passed",
+    "quality_gate": "passed",
+    "docs_linkcheck": "passed",
+    "helm": "passed",
+    "invariants": "passed",
+    "docker_cpu_smoke": "passed",
+    "deploy": "passed",
+    "forge_smoke": "skipped_by_condition"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0520-reconcile-sequence519-verified-merge.md",
+    "segment_sha256": "4a2cd0546ea88f4ba1036889716d4cf6da6ac9f9433bf0582cdd1184311c3014",
+    "sequence": 520
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1553,
+  "segment_path": "work/construction/segments/0521-reconcile-sequence520-verified-merge.md",
+  "segment_sha256": "2610b1e849219b9457e563ee04be007cd525963c6cdd1b60411f0ec0f6f9f06f",
+  "sequence": 521,
+  "sequence_520_merge_reconciliation": {
+    "candidate_commit": "4a2b6a2f0a0875f8d2e69448f49f4e7b19956dcc",
+    "main_merge_commit": "c0ba3db88ab8c23bf282a68fd5327268191b4bc2",
+    "main_tree": "6de32bef47cec823470532182a8ec9f198c85b81",
+    "ordered_parents": [
+      "1ba874d68779d9f90493bd39d294a2ad20b4e2f6",
+      "4a2b6a2f0a0875f8d2e69448f49f4e7b19956dcc"
+    ],
+    "postmerge_status": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2527
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 520 verified merge",
+  "verified_main": {
+    "commit": "c0ba3db88ab8c23bf282a68fd5327268191b4bc2",
+    "ref": "main",
+    "tree": "6de32bef47cec823470532182a8ec9f198c85b81"
+  }
+}
