@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8814b2611b92dcb6e3902114a86d5cefabce83e8539f058ce5fb6396d7db648e",
-    "latest_segment_sequence": 504,
-    "latest_segment_sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
-    "source_commit": "5d5f18d55214ac8fefc965e0a523015395a7d989",
-    "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f"
+    "checkpoint_sha256": "ddb794b9ec5df1b5548949c5b88eaeb654c4bb5836d91d3e957e4e9f2ad7ca65",
+    "latest_segment_sequence": 505,
+    "latest_segment_sha256": "1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0",
+    "source_commit": "8bb33dffb4be129e9a72a198b74f46d8d625c36a",
+    "source_tree": "43a084883d35195307ea4ab2aa051f91b291ddf3"
   },
-  "checkpoint_sha256": "8814b2611b92dcb6e3902114a86d5cefabce83e8539f058ce5fb6396d7db648e",
+  "checkpoint_sha256": "ddb794b9ec5df1b5548949c5b88eaeb654c4bb5836d91d3e957e4e9f2ad7ca65",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 504,
+  "latest_sequence": 505,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5731,6 +5731,18 @@
       "sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
       "source_commit": "5d5f18d55214ac8fefc965e0a523015395a7d989",
       "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f"
+    },
+    {
+      "sequence": 505,
+      "path": "work/construction/segments/0505-reconcile-hosted-stage-approval-verification.md",
+      "sha256": "1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0",
+      "bytes": 2182,
+      "predecessor": "segment-sha256:b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
+      "evidence_path": "work/construction/evidence/0505-reconcile-hosted-stage-approval-verification.json",
+      "evidence_sha256": "952377c7a6ec76486fdd008761eda3e5aed8e67c37500cd01a52a2351684e642",
+      "evidence_bytes": 3358,
+      "source_commit": "8bb33dffb4be129e9a72a198b74f46d8d625c36a",
+      "source_tree": "43a084883d35195307ea4ab2aa051f91b291ddf3"
     }
   ],
   "source_acquisition": {
@@ -5740,7 +5752,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f",
+  "source_tree": "43a084883d35195307ea4ab2aa051f91b291ddf3",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

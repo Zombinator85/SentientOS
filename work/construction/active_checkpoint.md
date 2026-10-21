@@ -380,3 +380,12 @@ Latest verified base: `5d5f18d55214ac8fefc965e0a523015395a7d989`, tree `56780853
 Latest construction segment: `work/construction/segments/0504-reject-invalid-stage-approval-time-windows.md`
 Latest segment SHA-256: `b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429`
 Sequence: 504 (candidate pending hosted verification)
+
+## Sequence 505 — reconcile hosted verification of stage approval time windows
+
+Sequence 504's candidate passed the exact-candidate Required Quality Gate, source validation, and PR checks. Hosted finalization, Administrator strict audits, immutability verification, and the separate pre-publication metadata guard passed. PR #2512 merged with history preserved as `8bb33dffb4be129e9a72a198b74f46d8d625c36a`; post-merge Quality Gate, source validation, full self-check, Helm, docs, builds, CPU smoke, invariants, and Pages deployment passed. Sequence 504 remains unchanged; this entry records the later completion. No production transition or inference ran.
+
+Latest verified source merge: `8bb33dffb4be129e9a72a198b74f46d8d625c36a`, tree `43a084883d35195307ea4ab2aa051f91b291ddf3`
+Latest segment: `work/construction/segments/0505-reconcile-hosted-stage-approval-verification.md`
+Latest segment SHA-256: `1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0`
+Sequence: 505
