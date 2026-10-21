@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "57a00c6250c203ca43db2fb0dab1bc89915566ff692a7ad96e8294d5fb70d750",
-    "latest_segment_sequence": 535,
-    "latest_segment_sha256": "1961b7a85829511f72074f3944324f86912690f68503a8bbc9e781f043115fc0",
-    "source_commit": "155eb48b60afda086eeaa03b75b02fc4062907f8",
-    "source_tree": "d47f882f9a86968fd7d8cadd352b3bdb2f3a8b9a"
+    "checkpoint_sha256": "0bd71e464623ad1e8639caac2fd62129e5236bdc5b87b960e9c70f7f00ec6570",
+    "latest_segment_sequence": 536,
+    "latest_segment_sha256": "7188b23aee28129d405bfb8fdd2d3a9b90dd9cac025c4ed3385c3639937f5cd4",
+    "source_commit": "00c7018401611773173f5c761a004a0ed836679e",
+    "source_tree": "283496e226e73a649edee6cff37a686e8ba25016"
   },
-  "checkpoint_sha256": "57a00c6250c203ca43db2fb0dab1bc89915566ff692a7ad96e8294d5fb70d750",
+  "checkpoint_sha256": "0bd71e464623ad1e8639caac2fd62129e5236bdc5b87b960e9c70f7f00ec6570",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -6127,6 +6127,18 @@
       "source_candidate_commit": "d0fb1b1b24908f7aba5354d57989d869e936b0ff",
       "source_commit": "155eb48b60afda086eeaa03b75b02fc4062907f8",
       "source_tree": "d47f882f9a86968fd7d8cadd352b3bdb2f3a8b9a"
+    },
+    {
+      "bytes": 2049,
+      "evidence_bytes": 3561,
+      "evidence_path": "work/construction/evidence/0536-reconcile-sequence535-verified-merge.json",
+      "evidence_sha256": "08fff58b60519000c3da181581d8174bbfbeebffc37215a09eeb86d33ae033ae",
+      "path": "work/construction/segments/0536-reconcile-sequence535-verified-merge.md",
+      "predecessor": "segment-sha256:1961b7a85829511f72074f3944324f86912690f68503a8bbc9e781f043115fc0",
+      "sequence": 536,
+      "sha256": "7188b23aee28129d405bfb8fdd2d3a9b90dd9cac025c4ed3385c3639937f5cd4",
+      "source_commit": "00c7018401611773173f5c761a004a0ed836679e",
+      "source_tree": "283496e226e73a649edee6cff37a686e8ba25016"
     }
   ],
   "source_acquisition": {
