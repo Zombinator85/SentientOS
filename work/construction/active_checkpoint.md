@@ -519,3 +519,15 @@ Latest segment SHA-256: `e4d9d1d0ceaa1ce111578cb0f8a7a2b8661c42ef99476550de9d4ee
 Sequence: 528 (verified reconciliation)
 
 Next: capture exact-current-main Federation Health evidence when its scheduled owner runs, then continue bounded developmental cognition under authenticated operator approval and independent effect-owner checks.
+
+
+## Sequence 529 — reconcile sequence 528 unknown-offset request fix
+
+PR #2539 merged regularly as `ee811f8102313181c6910eab6fc3048f3f66fcd1`, tree `52d3885384bd5859fd7576dcae7d4fa7bdfa966b`. Candidate and exact-main post-merge hosted checks passed, with Forge Smoke skipped by condition. Exact-main Nightly Self Check passed; scheduled Federation Health and Nightly Audit Integrity executions on this head were not observed.
+
+Latest verified main: `ee811f8102313181c6910eab6fc3048f3f66fcd1`, tree `52d3885384bd5859fd7576dcae7d4fa7bdfa966b`
+Latest construction segment: work/construction/segments/0529-reconcile-sequence528-unknown-offset-request-fix.md
+Latest segment SHA-256: `dcfd8a8bfffc1fcfe0e2dd7d957fc99013a30fa117b8bd1ff4b652831baeb4a7`
+Sequence: 529 (verified reconciliation)
+
+Next: obtain exact-current-main Federation Health evidence when scheduled, then continue bounded transition-cognition development under authenticated operator approval and independent effect-owner checks.
