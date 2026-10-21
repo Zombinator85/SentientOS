@@ -150,3 +150,21 @@ def test_stage_timeout_covers_unterminated_partial_output() -> None:
     assert time.monotonic() - started < 0.75
     assert any("[partial-line][stdout] progress" in line for line in lines)
     assert any("[partial-line][stdout] partial output" in line for line in lines)
+
+
+def test_explicit_empty_environment_does_not_inherit_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_PARENT_ONLY_SENTINEL", "must-not-leak")
+    result = run_supervised(
+        [
+            sys.executable,
+            "-c",
+            "import os; print(os.environ.get('SENTIENTOS_PARENT_ONLY_SENTINEL', '<missing>'))",
+        ],
+        stage_id="empty-env",
+        timeout_seconds=2,
+        env={},
+        emit=lambda _: None,
+    )
+
+    assert result.status == "passed"
+    assert result.stdout_tail == "<missing>"
