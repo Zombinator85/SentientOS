@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3bbf7fd346a3ceeaa28289ff32b8a15d7b7cc6c69af8c7d566a2e2e7872b4c48",
+    "checkpoint_sha256": "41d79716bb66496052a3152615ea9f067602666629ae2c10739264cc2badd286",
     "latest_segment_sequence": 562,
-    "latest_segment_sha256": "52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102",
+    "latest_segment_sha256": "f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393",
     "source_commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
     "source_tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
   },
-  "checkpoint_sha256": "3bbf7fd346a3ceeaa28289ff32b8a15d7b7cc6c69af8c7d566a2e2e7872b4c48",
+  "checkpoint_sha256": "41d79716bb66496052a3152615ea9f067602666629ae2c10739264cc2badd286",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -6466,14 +6466,14 @@
       "source_tree": "11ee45ab1873a509f570604885dbe1a661dc8226"
     },
     {
-      "bytes": 1801,
-      "evidence_bytes": 3926,
+      "bytes": 1712,
+      "evidence_bytes": 4260,
       "evidence_path": "work/construction/evidence/0562-cleanup-descendants-after-root-exit.json",
-      "evidence_sha256": "98f73f3ccdf5a3592f763e13db7f2748b38521d1ef7d85ae9383f2096971a823",
+      "evidence_sha256": "f099f4028842d68934bb6729a1078ed98695ee99cab7710c7b04bb7b015c921d",
       "path": "work/construction/segments/0562-cleanup-descendants-after-root-exit.md",
       "predecessor": "segment-sha256:d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133",
       "sequence": 562,
-      "sha256": "52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102",
+      "sha256": "f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393",
       "source_candidate_commit": "ef88af8f8b49f85c858ea1086d614648dfdec403",
       "source_commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
       "source_tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"

@@ -10,5 +10,4 @@ Hosted candidate checks passed: CI, strict Administrator Quality Gate, Invariant
 
 Verified main: `6e150525bfda1ee0778afde25fed0b4909a8cd5e`, tree `d935a7c5c9d12148e1dbaec108d315508fc99bae`
 Latest construction segment: `work/construction/segments/0562-cleanup-descendants-after-root-exit.md`
-Latest segment SHA-256: `52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102`
 Sequence: 562 (verified merge reconciliation)

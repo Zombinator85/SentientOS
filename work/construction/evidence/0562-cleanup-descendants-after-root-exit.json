@@ -97,10 +97,16 @@
     "candidate_to_merge_changed_files": 0,
     "tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
   },
+  "evidence_custody_correction": {
+    "initial_quality_gate_run_id": 39672760091,
+    "append_only_custody_failure_run_id": 39672760104,
+    "reason": "the initial draft's segment SHA referenced itself and its byte count used character length; corrected in a follow-up commit without rewriting history"
+  },
   "verified_main": {
     "commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
     "tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
   },
   "segment_path": "work/construction/segments/0562-cleanup-descendants-after-root-exit.md",
-  "segment_sha256": "52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102"
+  "segment_bytes": 1712,
+  "segment_sha256": "f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393"
 }

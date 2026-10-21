@@ -411,7 +411,7 @@ The verified candidate passed CI, strict Administrator Quality Gate, separate me
 
 Verified main: `6e150525bfda1ee0778afde25fed0b4909a8cd5e`, tree `d935a7c5c9d12148e1dbaec108d315508fc99bae`
 Latest construction segment: `work/construction/segments/0562-cleanup-descendants-after-root-exit.md`
-Latest segment SHA-256: `52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102`
+Latest segment SHA-256: `f3fe6a0b295455f2d1e6ddec98c48def6d3fb89ced3dfe06c1d17cee78811393`
 Sequence: 562 (verified merge reconciliation)
 
 Next: update Federation Health's GitHub App token input from the deprecated `app-id` alias to `client-id`, then verify the updated publisher contract and hosted execution.
