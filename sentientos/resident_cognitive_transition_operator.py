@@ -52,6 +52,7 @@ MAX_TRANSITION_RECEIPTS = 4096
 MAX_TRANSITION_RECEIPT_BYTES = 16_777_216
 MAX_TRANSITION_REQUESTS = 4096
 MAX_TRANSITION_REQUEST_BYTES = 262_144
+MAX_TRANSITION_PROTOCOL_BYTES = 1_048_576
 MAX_TRANSITION_REQUEST_ROOT_BYTES = 67_108_864
 PROCESSING_LOCK = ".operator-processing.lock"
 
@@ -189,6 +190,8 @@ def persist_request(installation_root: Path, request: Mapping[str, Any]) -> Path
             target, data, max_bytes=MAX_TRANSITION_REQUEST_BYTES,
             collision_code="operator_request_immutable_content_conflict")
     except PrivateFileCustodyError as exc:
+        if exc.code == "operator_request_immutable_content_conflict":
+            raise FileExistsError(target) from exc
         raise TransitionError("operator_request_publication_failed") from exc
     if not created:
         raise FileExistsError(target)
@@ -201,14 +204,17 @@ def persist_protocol(installation_root: Path, protocol: TransitionProtocol) -> P
         raise TransitionError("transition_protocol_publication_unsupported_platform")
     protocol.verify()
     target = Path(installation_root) / PROTOCOL_CUSTODY
-    target.parent.mkdir(parents=True, exist_ok=True)
     data = _canonical(protocol.value)
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
     try:
-        os.write(descriptor, data)
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
+        created = publish_immutable_bytes(
+            target, data, max_bytes=MAX_TRANSITION_PROTOCOL_BYTES,
+            collision_code="transition_protocol_immutable_content_conflict")
+    except PrivateFileCustodyError as exc:
+        if exc.code == "transition_protocol_immutable_content_conflict":
+            raise FileExistsError(target) from exc
+        raise TransitionError("transition_protocol_publication_failed") from exc
+    if not created:
+        raise FileExistsError(target)
     return target
 
 
