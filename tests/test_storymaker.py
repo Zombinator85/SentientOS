@@ -10,6 +10,7 @@ import json
 import subprocess
 import datetime as dt
 import time
+import pytest
 from unittest.mock import patch
 from pathlib import Path
 
@@ -140,6 +141,7 @@ def test_image_cmd_option(tmp_path, monkeypatch):
     assert (tmp_path / "chapter_1.png").exists()
 
 
+@pytest.mark.no_legacy_skip
 def test_image_command_keeps_prompt_and_output_as_single_arguments(tmp_path, monkeypatch):
     marker = tmp_path / "shell-injection-marker"
     prompt = f"calm; touch {marker}"

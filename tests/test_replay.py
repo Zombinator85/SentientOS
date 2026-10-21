@@ -38,6 +38,7 @@ def test_avatar_callback(tmp_path, monkeypatch):
     assert calls == [(["echo", "avatar", "--emotion=calm", "--persona=system", "--time=0"], False, False)]
 
 
+@pytest.mark.no_legacy_skip
 def test_avatar_callback_keeps_storyboard_values_in_single_arguments(tmp_path, monkeypatch):
     marker = tmp_path / "shell-injection-marker"
     emotion = f"calm; touch {marker}"
