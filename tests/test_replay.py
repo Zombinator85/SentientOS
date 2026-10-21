@@ -6,11 +6,15 @@ import os
 import sys
 import json
 import time
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import replay
+with patch("sentientos.privilege.require_admin_banner"), patch(
+    "sentientos.privilege.require_lumos_approval"
+):
+    import replay
 import pytest
 
 
@@ -27,11 +31,32 @@ def test_avatar_callback(tmp_path, monkeypatch):
     sb = tmp_path / "sb.json"
     sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "text": "hi", "mood": "calm", "persona": "system", "t_start": 0, "t_end": 0.1}]}))
     calls = []
-    def fake_run(cmd, shell=True, check=False):
-        calls.append(cmd)
+    def fake_run(cmd, *, shell, check):
+        calls.append((cmd, shell, check))
     monkeypatch.setattr(replay.subprocess, "run", fake_run)
     replay.playback(str(sb), headless=True, avatar_callback="echo avatar", show_subtitles=False)
-    assert calls and "--emotion=calm" in calls[0]
+    assert calls == [(["echo", "avatar", "--emotion=calm", "--persona=system", "--time=0"], False, False)]
+
+
+def test_avatar_callback_keeps_storyboard_values_in_single_arguments(tmp_path, monkeypatch):
+    marker = tmp_path / "shell-injection-marker"
+    emotion = f"calm; touch {marker}"
+    persona = f"system $(touch {marker})"
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A",
+        "text": "hi", "mood": emotion, "persona": persona,
+        "t_start": 0, "t_end": 0.1}]}))
+    calls = []
+
+    def fake_run(argv, *, shell, check):
+        calls.append((argv, shell, check))
+
+    monkeypatch.setattr(replay.subprocess, "run", fake_run)
+    replay.playback(str(sb), headless=True, avatar_callback="trusted-avatar --mode safe")
+
+    assert calls == [(["trusted-avatar", "--mode", "safe", f"--emotion={emotion}",
+        f"--persona={persona}", "--time=0"], False, False)]
+    assert not marker.exists()
 
 
 def test_subtitles_progress_and_jump(tmp_path, capsys, monkeypatch):
