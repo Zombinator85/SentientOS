@@ -661,6 +661,12 @@ def test_protocol_and_receipt_tamper_fail_reconstruction(tmp_path: Path) -> None
     with pytest.raises(ProductionSelfReflectionError, match="protocol_tampered"): reconstruct_protocol(value)
     campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
     receipt = dict(campaign.run_one(verify_production_readiness(protocol, _observed()), lambda *_: _evidence()))
+    forged_id = dict(receipt)
+    forged_id["receipt_id"] = "production-self-reflection-trial-forged"
+    forged_id["receipt_digest"] = _d({key: item for key, item in forged_id.items()
+                                      if key != "receipt_digest"})
+    with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"):
+        verify_trial_receipt(forged_id)
     receipt["post_resident_identity"] = "cognitive-b"
     with pytest.raises(ProductionSelfReflectionError, match="trial_receipt_tampered"): verify_trial_receipt(receipt)
 

@@ -1242,6 +1242,9 @@ def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
             or claimed != _digest(body)
             or body.get("evidence_posture") != "production_experimental_evidence"):
         raise ProductionSelfReflectionError("trial_receipt_tampered")
+    receipt_id = body.pop("receipt_id", None)
+    if receipt_id != "production-self-reflection-trial-" + _digest(body)[7:31]:
+        raise ProductionSelfReflectionError("trial_receipt_tampered")
     if body.get("schema_version") == VERIFIED_RECEIPT_SCHEMA:
         try:
             binding = body["transition_stage_receipt_binding"]

@@ -1131,6 +1131,25 @@ def test_source_validation_indexes_production_trial_receipt_identity():
         assert artifact in source_validation
 
 
+def test_source_validation_indexes_self_reflection_receipt_identity():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify canonical production self-reflection receipt identity" in source_validation
+    for node in (
+        "tests/test_production_self_reflection_campaign.py::"
+        "test_protocol_and_receipt_tamper_fail_reconstruction",
+        "tests/test_github_hosted_acceptance_workflows.py::"
+        "test_source_validation_indexes_self_reflection_receipt_identity",
+    ):
+        assert node in source_validation
+    for artifact in (
+        "self_reflection_receipt_identity_provenance.json",
+        "self_reflection_receipt_identity_acceptance.json",
+        "self_reflection_receipt_identity_acceptance_result.json",
+    ):
+        assert artifact in source_validation
+
+
 def test_source_validation_indexes_read_only_campaign_report_verification():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]

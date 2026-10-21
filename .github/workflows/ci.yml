@@ -521,6 +521,47 @@ jobs:
             --manifest glow/test_runs/production_trial_receipt_identity_acceptance.json \
             --provenance glow/test_runs/production_trial_receipt_identity_provenance.json \
             --output glow/test_runs/production_trial_receipt_identity_acceptance_result.json
+      - name: Verify canonical production self-reflection receipt identity
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_self_reflection_receipt_identity
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/self_reflection_receipt_identity_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_indexes_self_reflection_receipt_identity",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/self_reflection_receipt_identity_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": nodes[0],
+                      "rationale": "reject production self-reflection receipts with forged semantic identities even when their outer digest is recomputed",
+                  },
+                  {
+                      "node_id": nodes[1],
+                      "rationale": "bind the adverse receipt identity regression to hosted source validation and archived acceptance evidence",
+                  },
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/self_reflection_receipt_identity_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/self_reflection_receipt_identity_acceptance.json \
+            --provenance glow/test_runs/self_reflection_receipt_identity_provenance.json \
+            --output glow/test_runs/self_reflection_receipt_identity_acceptance_result.json
       - name: Verify persisted campaign reports without mutation
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
