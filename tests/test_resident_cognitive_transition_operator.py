@@ -13,7 +13,9 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from sentientos.resident_cognitive_model_transition_experiment import PHASES, TransitionError, digest
+from sentientos.resident_cognitive_model_transition_experiment import (
+    PHASES, TransitionError, TransitionStageExecutionContext, digest,
+)
 from sentientos.causal_resource_principal_ed25519 import CryptographyEd25519SignatureVerifier
 from sentientos.resident_cognitive_transition_operator_authentication import (
     OPERATOR_PROVENANCE_SCHEMA, TrustedTransitionOperatorKey,
@@ -574,8 +576,24 @@ def test_subordinate_verifier_cannot_mutate_controller_approval_snapshot(tmp_pat
     assert result["status"] == "stage_advanced"
     assert verified[0]["authorization"]["scopes"] == ["activate", "serve"]
     assert controller.calls == 1
-    assert controller.stage_execution_context.subordinate_approvals[0]["authorization"]["scopes"] == ["activate"]
+    assert controller.stage_execution_context.subordinate_approvals[0]["authorization"]["scopes"] == ("activate",)
     assert controller.stage_execution_context.subordinate_approvals[0]["approval_evidence_id"] == "authorization-1"
+
+
+def test_transition_stage_execution_context_is_deeply_immutable() -> None:
+    approvals = [{"approval_evidence_id": "authorization-1",
+                  "approval_semantic_digest": "sha256:" + "a" * 64,
+                  "authorization": {"scopes": ["activate"]}}]
+
+    context = TransitionStageExecutionContext.create("b_activation_committed", approvals)
+    approvals[0]["authorization"]["scopes"].append("serve")
+
+    approval = context.exact_activation_approval()
+    assert approval["authorization"]["scopes"] == ("activate",)
+    with pytest.raises(TypeError):
+        approval["authorization"]["role"] = "administrator"
+    with pytest.raises(AttributeError):
+        approval["authorization"]["scopes"].append("writeback")
 
 
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:

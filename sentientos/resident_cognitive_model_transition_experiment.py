@@ -88,6 +88,15 @@ def _plain(value: Any) -> Any:
     return value
 
 
+def _freeze(value: Any) -> Any:
+    """Recursively detach and freeze approval values crossing an execution boundary."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(key): _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
 def digest(value: Mapping[str, Any]) -> str:
     return hashlib.sha256((json.dumps(_plain(value), sort_keys=True,
                                       separators=(",", ":")) + "\n").encode()).hexdigest()
@@ -460,7 +469,7 @@ class TransitionStageExecutionContext:
     @classmethod
     def create(cls, requested_stage: str,
                approvals: Sequence[Mapping[str, Any]]) -> "TransitionStageExecutionContext":
-        frozen = tuple(MappingProxyType(_plain(item)) for item in approvals)
+        frozen = tuple(_freeze(item) for item in approvals)
         return cls(requested_stage=requested_stage, subordinate_approvals=frozen)
 
     def exact_activation_approval(self) -> Mapping[str, Any]:
