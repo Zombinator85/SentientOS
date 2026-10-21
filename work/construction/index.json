@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "f9f002e329f6a80dc4690245904589658e700b9d46bcc66fc4bfb0414618dc25",
-    "latest_segment_sequence": 549,
-    "latest_segment_sha256": "2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b",
-    "source_commit": "c4f3c9fd7413c108f12998632e58034e42ab8c5c",
-    "source_tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
+    "checkpoint_sha256": "dbdcda35958bcd10d6845eabc0b21bc9967c89b785c00f1c5c5d1745ec5ee612",
+    "latest_segment_sequence": 550,
+    "latest_segment_sha256": "101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f",
+    "source_commit": "1f8ab6409449fbf3dcf0bcfc1da6726de239d97d",
+    "source_tree": "60c828d033ee89c75599980d7eacd87c751cb859"
   },
-  "checkpoint_sha256": "f9f002e329f6a80dc4690245904589658e700b9d46bcc66fc4bfb0414618dc25",
+  "checkpoint_sha256": "dbdcda35958bcd10d6845eabc0b21bc9967c89b785c00f1c5c5d1745ec5ee612",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 549,
+  "latest_sequence": 550,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6308,6 +6308,19 @@
       "source_candidate_commit": "e7c57210aef6fd2162865175ed701a189874c0b3",
       "source_commit": "c4f3c9fd7413c108f12998632e58034e42ab8c5c",
       "source_tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
+    },
+    {
+      "bytes": 3298,
+      "evidence_bytes": 6066,
+      "evidence_path": "work/construction/evidence/0550-reconcile-supervised-pipe-drain-timeout-merge.json",
+      "evidence_sha256": "468a29ecdc703b824ad61e3b56fa26074989591444f2613329b4aa8ec5b425c2",
+      "path": "work/construction/segments/0550-reconcile-supervised-pipe-drain-timeout-merge.md",
+      "predecessor": "segment-sha256:2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b",
+      "sequence": 550,
+      "sha256": "101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f",
+      "source_candidate_commit": "12afa26f3d7780daf31a125cd1d2abeedd4873e6",
+      "source_commit": "1f8ab6409449fbf3dcf0bcfc1da6726de239d97d",
+      "source_tree": "60c828d033ee89c75599980d7eacd87c751cb859"
     }
   ],
   "source_acquisition": {

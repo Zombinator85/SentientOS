@@ -1,0 +1,16 @@
+# Sequence 550 — reconcile supervised pipe-drain timeout enforcement
+
+PR #2559 merged normally as `1f8ab6409449fbf3dcf0bcfc1da6726de239d97d` with tree `60c828d033ee89c75599980d7eacd87c751cb859` and ordered parents `030210310b670af210c03cdc62afecfb9f8ac987` and `12afa26f3d7780daf31a125cd1d2abeedd4873e6`. The active `main` ref and Git commit object independently report this merge, tree, and parent order.
+
+The supervisor now keeps its timeout loop active while the direct child is running or captured output streams remain open. It retains the process-group ID established by `start_new_session` and signals that group on timeout, including when the original child has already exited. A POSIX regression spawns a descendant that inherits the captured pipes, then verifies the supervisor times out promptly and the descendant does not create its delayed marker.
+
+The exact candidate `12afa26f3d7780daf31a125cd1d2abeedd4873e6` passed all 37 bound acceptance nodes with zero failed or skipped nodes; the new process-supervision regression's hosted outcome is `passed`. PR Required Quality Gate run `39621088491` passed exact acceptance, strict Administrator audits, immutability checks, hosted privileged finalization, and the separate pre-publication metadata guard. Candidate CI, Docker, docs, Helm, Mypy, invariants, Release, Codex CI, lint benchmark, and Gradient checks passed. Push-triggered CI, QG, and invariants also passed.
+
+The first source commit `42b7dfba5c20e4e845df45f1ad125b2e84321b0b` introduced one Mypy regression: a selector stream variable reused the name of a later drain-loop variable. The Mypy ratchet reported the exact assignment type mismatch. The follow-up commit renamed the selector variable; the corrected Mypy matrix passed. The first PR QG run on the corrected head also failed preflight because it observed the old PR title while the branch update and title update were racing. The title was verified against the new tip subject and the fresh exact-candidate QG then passed. Both failed attempts remain visible in workflow history; no baseline, gate, or test was weakened.
+
+The GitHub PR workflow concluded success for every candidate workflow. The Docker job's `Build and push` step was correctly skipped on the pull-request event; the enclosing Docker workflow concluded success. At evidence capture, GitHub's child check-run record for that skipped job still reported `in_progress` despite all job steps completing and the enclosing workflow reporting success. The post-merge Docker workflow also completed successfully.
+
+All post-merge CI, Required Quality Gate, Docker Image, Docs Deploy, Nightly Self Check, Invariant Tests, and Codex CI workflows passed on exact `main` `1f8ab6409449fbf3dcf0bcfc1da6726de239d97d`. Forge Smoke was skipped by its configured condition. No production process, model inference, or transition was run.
+
+Known next edge: event handling still calls text-stream `readline()`. A child that writes an unterminated partial line and then holds the pipe can block inside that read before the next timeout check. Sequence 550 establishes the descendant-held-pipe case without claiming every partial-output case is bounded. Continue by replacing blocking line reads with bounded incremental reads and add a regression for partial output.
+

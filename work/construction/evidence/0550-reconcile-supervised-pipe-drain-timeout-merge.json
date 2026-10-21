@@ -1,0 +1,172 @@
+{
+  "evidence_path": "work/construction/evidence/0550-reconcile-supervised-pipe-drain-timeout-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "id": 39621080885,
+        "conclusion": "success",
+        "scope": "full hosted pytest, Mypy baseline ratchet, integrated resource-to-cognition lifecycle, docs linkcheck, and Helm"
+      },
+      "Codex CI": {
+        "id": 39621080623,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39621081035,
+        "conclusion": "success",
+        "step": "Build and push skipped on pull_request; enclosing workflow success"
+      },
+      "Gradient null regression": {
+        "id": 39621080606,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "id": 39621080578,
+        "conclusion": "success"
+      },
+      "Lint Benchmark": {
+        "id": 39621080576,
+        "conclusion": "success"
+      },
+      "Release": {
+        "id": 39621080898,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39621088491,
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "accepted_nodes": 37,
+        "failed_nodes": 0,
+        "skipped_nodes": 0,
+        "new_regression": {
+          "node": "tests/test_codex_landing_process_supervision.py::test_stage_timeout_covers_descendant_held_output_pipes",
+          "outcome": "passed"
+        },
+        "strict_administrator_audits": true,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "acceptance_artifact": {
+          "id": 12353639975,
+          "digest": "sha256:bccab2a647e6bbf310a0d5eb2c26f4cb4a4c5dc9361df093e8d69589be7d50aa"
+        },
+        "finalizer_artifact": {
+          "id": 12354379414,
+          "digest": "sha256:4d1dcb962c0cf9e876432708ac26ef5a00e36ed1cbf03ee1d22a3268541f2a37"
+        },
+        "quality_gate_artifact": {
+          "id": 12354538656,
+          "digest": "sha256:79ad2c18b86ff092e6713f7de3c79a94cafc4afcdc812739283c85111015896c"
+        }
+      },
+      "push CI": {
+        "id": 39621073694,
+        "conclusion": "success"
+      },
+      "push Invariant Tests": {
+        "id": 39621073865,
+        "conclusion": "success"
+      },
+      "push Required Quality Gate": {
+        "id": 39621073843,
+        "conclusion": "success"
+      }
+    },
+    "corrected_candidate_attempts": [
+      {
+        "commit": "42b7dfba5c20e4e845df45f1ad125b2e84321b0b",
+        "runs": [
+          39620719761,
+          39620719662
+        ],
+        "reason": "one new Mypy assignment mismatch from reusing the stream variable; fixed by renaming, with no suppression or baseline change"
+      },
+      {
+        "commit": "12afa26f3d7780daf31a125cd1d2abeedd4873e6",
+        "run": 39621080590,
+        "reason": "QG preflight observed the previous PR title during concurrent branch and title updates; corrected title and fresh QG run 39621088491 passed"
+      }
+    ],
+    "candidate_checkrun_metadata_note": {
+      "run": 39621081035,
+      "child_check": "build",
+      "child_status": "in_progress at capture although all steps completed and enclosing Docker workflow concluded success",
+      "skipped_step": "Build and push skipped because the event was pull_request"
+    },
+    "post_merge_runs": {
+      "CI": {
+        "id": 39622188835,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "id": 39622188879,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39622188755,
+        "conclusion": "success"
+      },
+      "Docs Deploy": {
+        "id": 39622188831,
+        "conclusion": "success"
+      },
+      "Forge Smoke": {
+        "id": 39622188729,
+        "conclusion": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "id": 39622188791,
+        "conclusion": "success"
+      },
+      "Nightly Self Check": {
+        "id": 39622188861,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39622188734,
+        "conclusion": "success",
+        "strict_administrator_audits": true
+      }
+    }
+  },
+  "invariants": [
+    "the timeout loop remains active when the direct child exits but captured pipes remain open",
+    "timeout termination targets the retained isolated process group, including descendants",
+    "the exact 37-node acceptance set preserves all prior nodes and adds the regression",
+    "candidate and post-merge verification are bound to exact source SHAs",
+    "partial unterminated output remains a known next edge and is not claimed as fixed"
+  ],
+  "predecessor": {
+    "sequence": 549,
+    "segment_sha256": "2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 550,
+  "source_candidate": {
+    "commit": "12afa26f3d7780daf31a125cd1d2abeedd4873e6",
+    "pull_request": 2559,
+    "tree": "60c828d033ee89c75599980d7eacd87c751cb859"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "four changed files independently matched prepared source byte for byte",
+    "local_tests": "not run; exact candidate acceptance executed on hosted runner",
+    "protected_workspaces_touched": false,
+    "remote_main_parent": "030210310b670af210c03cdc62afecfb9f8ac987",
+    "publication": "GitHub Git Data API with expected-head branch updates"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile supervised pipe-drain timeout enforcement",
+  "verified_main": {
+    "commit": "1f8ab6409449fbf3dcf0bcfc1da6726de239d97d",
+    "merge_method": "merge",
+    "parents": [
+      "030210310b670af210c03cdc62afecfb9f8ac987",
+      "12afa26f3d7780daf31a125cd1d2abeedd4873e6"
+    ],
+    "ref": "main",
+    "tree": "60c828d033ee89c75599980d7eacd87c751cb859"
+  },
+  "segment_path": "work/construction/segments/0550-reconcile-supervised-pipe-drain-timeout-merge.md",
+  "segment_sha256": "101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f",
+  "segment_bytes": 3298
+}
