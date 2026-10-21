@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ea2c6ea299cb7a973e7cea85d4a2b6dac98abd5a71e8de0783678a30d042df14",
-    "latest_segment_sequence": 544,
-    "latest_segment_sha256": "6fc6b80a959d6b9db74bc82ebcee45062297458f7111b63ced28916710b55fed",
-    "source_commit": "94c96aee157a4bb633e0bc699ccb8be85a39a7b8",
-    "source_tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+    "checkpoint_sha256": "5b5d47c37fd309ace631351e1cbfd7bb3d2cbe3944b5bef3ddb00dc9b3e70802",
+    "latest_segment_sequence": 545,
+    "latest_segment_sha256": "6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
+    "source_commit": "9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0",
+    "source_tree": "b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8"
   },
-  "checkpoint_sha256": "ea2c6ea299cb7a973e7cea85d4a2b6dac98abd5a71e8de0783678a30d042df14",
+  "checkpoint_sha256": "5b5d47c37fd309ace631351e1cbfd7bb3d2cbe3944b5bef3ddb00dc9b3e70802",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -6243,6 +6243,19 @@
       "source_candidate_commit": "47f9233a552e97067f8f1c346b1ef5b8ba74956a",
       "source_commit": "94c96aee157a4bb633e0bc699ccb8be85a39a7b8",
       "source_tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+    },
+    {
+      "bytes": 1658,
+      "evidence_bytes": 2912,
+      "evidence_path": "work/construction/evidence/0545-gate-nondeterministic-adapter-execution.json",
+      "evidence_sha256": "3c4706ed3d44ab50c8ac18b222b0c394e2583664453a85b0db4b94e12513a70c",
+      "path": "work/construction/segments/0545-gate-nondeterministic-adapter-execution.md",
+      "predecessor": "segment-sha256:6fc6b80a959d6b9db74bc82ebcee45062297458f7111b63ced28916710b55fed",
+      "sequence": 545,
+      "sha256": "6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
+      "source_candidate_commit": "e49438c08efa9d41c1c4c59a8d96fdcae83c2bb6",
+      "source_commit": "9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0",
+      "source_tree": "b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8"
     }
   ],
   "source_acquisition": {

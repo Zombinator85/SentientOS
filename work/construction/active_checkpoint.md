@@ -189,3 +189,16 @@ Latest segment SHA-256: `6fc6b80a959d6b9db74bc82ebcee45062297458f7111b63ced28916
 Sequence: 544 (verified merge reconciliation)
 
 Next: continue the retained-experience to canonical-planning dependency from this exact main tree and observe the next scheduled Federation Health execution separately from source-triggered evidence.
+
+
+## Sequence 545 — gate nondeterministic adapter execution on consensus approval
+
+Pending experiments could reach execution through nondeterministic Arduino or webcam adapters when `requires_consensus` was false. The runner now also gates adapters whose registered class declares `deterministic = False`; deterministic adapter behavior is preserved. Three exact regressions cover pending denial, approved execution, and deterministic compatibility, and are bound into the hosted Required Quality Gate.
+
+The canonical local test airlock stopped before test execution because the pinned setuptools dependency could not be fetched through the sandbox network proxy. Compilation, workflow YAML parsing, diff checks, and pre-append custody verification passed. Hosted verification remains pending. No hardware or production transition was run.
+
+Verified base main: `9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0`, tree `b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8`
+Implementation candidate: `e49438c08efa9d41c1c4c59a8d96fdcae83c2bb6`, tree `a021879d8ce38c4e2a9f95354d4bb5ee549a003f`
+Latest construction segment: `work/construction/segments/0545-gate-nondeterministic-adapter-execution.md`
+Latest segment SHA-256: `6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f`
+Sequence: 545 (candidate pending hosted verification)
