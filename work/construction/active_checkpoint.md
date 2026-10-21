@@ -146,3 +146,18 @@ Latest segment SHA-256: `3d4b31e9c1b047a2cabf6e104489b986f072894162473b810c11fbf
 Sequence: 541 (verified merge reconciliation)
 
 Next: observe the next scheduled Federation Health execution against the current `main`, verify its run-bound artifact and publication result, then continue with the next source-level developmental dependency.
+
+
+## Sequence 542 — add a scoped App token for Federation Health checks
+
+The Federation Health publisher now has an opt-in, repository-scoped GitHub App token path for unattended PR checks. Its exact candidate is `d202a441c7a67da2769ff66bfacc4d02a727d5bd`, tree `e74884090c58da73d333e3265820fa960609fe9e`, based on main `20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a`, tree `ce98c6d030b62d81a82598900d0bad5e445223b8`. Local static YAML, permission-scope, test-module compilation, and diff checks passed. The focused test nodes could not run locally because the canonical airlock's pinned build dependency was unavailable; no local test pass is claimed. Hosted checks are pending.
+
+No App secret or repository variable has been configured. The existing `GITHUB_TOKEN` path remains the default. The latest scheduled Federation Health run is still pre-merge (`39582634969`); no current-main scheduled execution is claimed. Post-merge main CI, Quality Gate, Docker, docs deployment, invariants, and Codex CI passed.
+
+Latest verified source base: `20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a`, tree `ce98c6d030b62d81a82598900d0bad5e445223b8`
+Latest implementation candidate: `d202a441c7a67da2769ff66bfacc4d02a727d5bd`, tree `e74884090c58da73d333e3265820fa960609fe9e`
+Latest segment: `work/construction/segments/0542-add-scoped-app-token-for-federation-health.md`
+Latest segment SHA-256: `028f3d8ba896e358da06723fd37fe7a9e13efa90c2d9a2cef4c47de025da1aaa`
+Sequence: 542 (candidate pending hosted verification)
+
+Next: complete exact-candidate hosted verification and the privileged Quality Gate, then obtain a real scheduled Federation Health run on current main and confirm the publisher uses the intended identity if the optional App is provisioned.

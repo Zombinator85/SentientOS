@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "9df18bdc6e8cc4cda6c79e86b5b8ba791f13430b050ec5caa6c1166a8615b6ec",
-    "latest_segment_sequence": 541,
-    "latest_segment_sha256": "3d4b31e9c1b047a2cabf6e104489b986f072894162473b810c11fbf13d0cf82f",
-    "source_commit": "7239df5728d9fe96376410501f2e6487e22d0ba4",
-    "source_tree": "90a698c0905147c56a8e223ed7fabe8874606d7b"
+    "checkpoint_sha256": "f037e678c47b46cbf8a6e004075d12d3346f0759e76fac2cd52e51f5c4cf2ab0",
+    "latest_segment_sequence": 542,
+    "latest_segment_sha256": "028f3d8ba896e358da06723fd37fe7a9e13efa90c2d9a2cef4c47de025da1aaa",
+    "source_commit": "20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a",
+    "source_tree": "ce98c6d030b62d81a82598900d0bad5e445223b8"
   },
-  "checkpoint_sha256": "9df18bdc6e8cc4cda6c79e86b5b8ba791f13430b050ec5caa6c1166a8615b6ec",
+  "checkpoint_sha256": "f037e678c47b46cbf8a6e004075d12d3346f0759e76fac2cd52e51f5c4cf2ab0",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 541,
+  "latest_sequence": 542,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6204,6 +6204,19 @@
       "source_candidate_commit": "1bf2de893905321b2431b7886afb2644e88c02f5",
       "source_commit": "7239df5728d9fe96376410501f2e6487e22d0ba4",
       "source_tree": "90a698c0905147c56a8e223ed7fabe8874606d7b"
+    },
+    {
+      "bytes": 3079,
+      "evidence_bytes": 4465,
+      "evidence_path": "work/construction/evidence/0542-add-scoped-app-token-for-federation-health.json",
+      "evidence_sha256": "a7357263d5a73b44e42de7c93004013f0466552ff7d8a797b0f0113aa2a300b6",
+      "path": "work/construction/segments/0542-add-scoped-app-token-for-federation-health.md",
+      "predecessor": "segment-sha256:3d4b31e9c1b047a2cabf6e104489b986f072894162473b810c11fbf13d0cf82f",
+      "sequence": 542,
+      "sha256": "028f3d8ba896e358da06723fd37fe7a9e13efa90c2d9a2cef4c47de025da1aaa",
+      "source_candidate_commit": "d202a441c7a67da2769ff66bfacc4d02a727d5bd",
+      "source_commit": "20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a",
+      "source_tree": "ce98c6d030b62d81a82598900d0bad5e445223b8"
     }
   ],
   "source_acquisition": {
