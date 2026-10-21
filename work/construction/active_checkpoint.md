@@ -256,3 +256,17 @@ Latest segment SHA-256: 101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170
 Sequence: 550 (verified merge reconciliation)
 
 Next: replace blocking supervisor line reads with bounded incremental pipe reads; keep output tails bounded and verify process-group cleanup.
+
+## Sequence 551 — reconcile bounded partial-line subprocess timeout reads
+
+PR #2561 merged normally as `14a2d4863d8c0331cbfe2454c3a90d379ec4db5c` with tree `25886a365c792408a8832e4df90f250a0dc9773a` and ordered parents `d5fddfc43faa7c2993cce2ce33dbe49a3ae3aa93` and `d472b9c60a805c63f39d478d9adb85ae771ffbac`. The supervisor now uses nonblocking bounded reads, preserves unterminated output and universal line endings, and keeps timeout enforcement active through bounded pipe draining.
+
+The exact 38-node hosted acceptance, strict Administrator audits, immutability verification, privileged finalizer, separate PR metadata guard, candidate CI and companion workflows all passed. Full post-merge CI, QG, Docker, Docs Deploy, Nightly Self Check, invariants, and Codex CI passed on exact main; Forge Smoke was skipped by condition. The first candidate revisions' SelectorKey Mypy errors were fixed through typed descriptor-bound IO handles with no suppression or baseline change. See the sequence evidence JSON for exact run IDs, artifact digests, and correction lineage.
+
+Latest verified source main: `14a2d4863d8c0331cbfe2454c3a90d379ec4db5c`, tree `25886a365c792408a8832e4df90f250a0dc9773a`
+Latest construction segment: `work/construction/segments/0551-reconcile-supervised-partial-line-timeout-merge.md`
+Latest segment SHA-256: `4cedeeb3f23919effecfc388de5e6e0c79212e25bc756fed397c6c6e94719c64`
+Sequence: 551 (verified merge reconciliation)
+
+Next: reject non-finite timeout and heartbeat values and negative or non-finite termination grace values so invalid numeric inputs cannot disable the bounded-time contract.
+
