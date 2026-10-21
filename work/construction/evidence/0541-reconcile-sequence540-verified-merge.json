@@ -1,0 +1,147 @@
+{
+  "evidence_path": "work/construction/evidence/0541-reconcile-sequence540-verified-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39595567995
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39595568151
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39595567801
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "id": 39595568020
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39595567855
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "id": 39595568145
+      },
+      "Release": {
+        "conclusion": "success",
+        "id": 39595568081
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39595567828,
+        "landing_finalizer": "success",
+        "prepublication_metadata_guard": "success",
+        "strict_administrator_audits": true
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "conclusion": "in_progress_at_capture",
+        "id": 39596073100,
+        "passed": "self-check_mypy_full_pytest_source_validation_and_helm; docs_linkcheck_running"
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39596073109
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39596073052
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "id": 39596073081
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39596073148
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39596073142
+      },
+      "Nightly Self Check": {
+        "conclusion": "success",
+        "id": 39596073123
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39596073055
+      }
+    },
+    "status": "verified_merge_postchecks_partially_pending_at_capture"
+  },
+  "invariants": [
+    "Sequence 540 changes are integrated through an ordinary merge commit without squashing or rebasing.",
+    "The semantic receipt ID must equal the canonical content-derived ID even if the outer receipt digest is recomputed.",
+    "The sequence 540 exact-candidate Administrator audits, hosted finalizer, and separate pre-publication metadata guard passed.",
+    "The recorded Federation Health execution predates this merge and is not represented as post-merge evidence.",
+    "The bot-created Federation Health report PR remains action_required and is not represented as verified or merged.",
+    "No production model transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "sequence_540_affected_tests": "72_passed",
+    "source_candidate_tree_matches_merged_main": "passed"
+  },
+  "operational_evidence": {
+    "federation_health_latest_scheduled": {
+      "automated_pr": 2511,
+      "automated_pr_head": "141f5ebbf94cb987c03722f0119975005ff129ef",
+      "checks": "action_required",
+      "conclusion": "success",
+      "current_main_sha": "7239df5728d9fe96376410501f2e6487e22d0ba4",
+      "interpretation": "pre-merge execution only; no current-main scheduled execution observed at capture",
+      "post_merge_execution": false,
+      "run_id": 39582634969,
+      "source_sha": "df38a118dae867b02a7562c956d1c9ee21c50b40"
+    },
+    "nightly_audit_integrity": {
+      "conclusion": "success",
+      "interpretation": "latest scheduled run before this merge; current-main push verification does not replace the scheduled audit run",
+      "run_id": 39572356700,
+      "source_sha": "47ea84a0f0ecd91fac886687a43c47093f724da3"
+    },
+    "nightly_self_check": {
+      "conclusion": "success",
+      "event": "push",
+      "run_id": 39596073123,
+      "source_sha": "7239df5728d9fe96376410501f2e6487e22d0ba4"
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0540-bind-self-reflection-trial-receipt-identities.md",
+    "segment_sha256": "33f3a80108c11750eae07d68c4e1dc0aa7b5df4c67068b2039d5e96b732883a8",
+    "sequence": 540
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 3474,
+  "segment_path": "work/construction/segments/0541-reconcile-sequence540-verified-merge.md",
+  "segment_sha256": "3d4b31e9c1b047a2cabf6e104489b986f072894162473b810c11fbf13d0cf82f",
+  "sequence": 541,
+  "source_candidate": {
+    "commit": "1bf2de893905321b2431b7886afb2644e88c02f5",
+    "tree": "90a698c0905147c56a8e223ed7fabe8874606d7b"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 540 verified merge",
+  "verified_main": {
+    "commit": "7239df5728d9fe96376410501f2e6487e22d0ba4",
+    "parents": [
+      "5d45b1e95ef41b29729ee3cda9eb9d949c460706",
+      "1bf2de893905321b2431b7886afb2644e88c02f5"
+    ],
+    "ref": "main",
+    "tree": "90a698c0905147c56a8e223ed7fabe8874606d7b"
+  }
+}
