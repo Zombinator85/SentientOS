@@ -616,6 +616,20 @@ def test_transition_stage_execution_context_rejects_non_finite_numbers() -> None
             TransitionStageExecutionContext("b_activation_committed", ({"number": number},))
 
 
+def test_transition_stage_execution_context_rejects_cycles_and_excessive_nesting() -> None:
+    cycle: dict[str, Any] = {}
+    cycle["self"] = cycle
+    deeply_nested: Any = []
+    for _ in range(100):
+        deeply_nested = [deeply_nested]
+    for value, reason in (
+        (cycle, "transition_stage_execution_context_cycle_invalid"),
+        (deeply_nested, "transition_stage_execution_context_nesting_invalid"),
+    ):
+        with pytest.raises(TransitionError, match=reason):
+            TransitionStageExecutionContext("b_activation_committed", ({"value": value},))
+
+
 def test_transition_stage_execution_context_rejects_malformed_constructor_shape() -> None:
     invalid_stage: Any = []
     invalid_approvals: Any = None

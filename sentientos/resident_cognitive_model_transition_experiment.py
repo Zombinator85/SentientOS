@@ -50,6 +50,7 @@ EFFECTFUL = frozenset({"b_activation_committed", "b_serving_bound",
 MAX_TRANSITION_JOURNAL_ENTRIES = 4096
 MAX_TRANSITION_JOURNAL_BYTES = 16_777_216
 MAX_TRANSITION_JOURNAL_ENTRY_BYTES = 262_144
+MAX_TRANSITION_STAGE_CONTEXT_NESTING = 64
 
 
 class TransitionError(RuntimeError):
@@ -89,14 +90,28 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def _freeze(value: Any) -> Any:
-    """Recursively detach and freeze approval values crossing an execution boundary."""
-    if isinstance(value, Mapping):
-        if any(type(key) is not str for key in value):
-            raise TransitionError("transition_stage_execution_context_key_invalid")
-        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
-    if isinstance(value, (list, tuple)):
-        return tuple(_freeze(item) for item in value)
+def _freeze(value: Any, *, _active: set[int] | None = None, _depth: int = 0) -> Any:
+    """Recursively detach and freeze bounded, acyclic approval values."""
+    if isinstance(value, (Mapping, list, tuple)):
+        if _depth >= MAX_TRANSITION_STAGE_CONTEXT_NESTING:
+            raise TransitionError("transition_stage_execution_context_nesting_invalid")
+        active = set() if _active is None else _active
+        identity = id(value)
+        if identity in active:
+            raise TransitionError("transition_stage_execution_context_cycle_invalid")
+        active.add(identity)
+        try:
+            if isinstance(value, Mapping):
+                items = tuple(value.items())
+                if any(type(key) is not str for key, _ in items):
+                    raise TransitionError("transition_stage_execution_context_key_invalid")
+                return MappingProxyType({
+                    key: _freeze(item, _active=active, _depth=_depth + 1)
+                    for key, item in items
+                })
+            return tuple(_freeze(item, _active=active, _depth=_depth + 1) for item in value)
+        finally:
+            active.remove(identity)
     if value is None or type(value) in {str, bool, int}:
         return value
     if type(value) is float and math.isfinite(value):
