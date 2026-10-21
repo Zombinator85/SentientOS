@@ -240,3 +240,19 @@ Latest segment SHA-256: 2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd078
 Sequence: 549 (verified merge reconciliation)
 
 Next: investigate the bounded subprocess supervisor's pipe-drain deadline when a child exits but a descendant retains inherited output pipes. Add a focused regression only if the lifecycle contract confirms the timeout should cover that drain; preserve process-tree custody and platform limits.
+
+
+## Sequence 550 — reconcile supervised pipe-drain timeout enforcement
+
+The supervisor now keeps the timeout active while a direct child has exited but captured pipes remain open, and uses the retained process-group ID to terminate descendants. The new POSIX descendant-held-pipe regression passed in the exact 37-node hosted acceptance set. PR #2559 passed strict Administrator audits, privileged finalization, the separate metadata guard, full CI, Mypy, Docker, docs, Helm, invariants, Release, lint, Codex CI, and Gradient checks. The first source candidate exposed one Mypy variable-name collision; a targeted rename fixed it. A preflight attempt captured the old PR title during the concurrent title update; the fresh exact-candidate QG passed.
+
+PR #2559 merged normally as `1f8ab6409449fbf3dcf0bcfc1da6726de239d97d`, tree `60c828d033ee89c75599980d7eacd87c751cb859`, with parents `030210310b670af210c03cdc62afecfb9f8ac987` and `12afa26f3d7780daf31a125cd1d2abeedd4873e6`. Post-merge CI, QG, Docker, Docs Deploy, Nightly Self Check, invariants, and Codex CI passed; Forge Smoke was skipped by condition.
+
+Known next edge: the stream event path still uses blocking `readline()`, so an unterminated partial line may block before the timeout check. Address this with bounded incremental reads and a focused regression.
+
+Latest verified main: `1f8ab6409449fbf3dcf0bcfc1da6726de239d97d`, tree `60c828d033ee89c75599980d7eacd87c751cb859`
+Latest construction segment: `work/construction/segments/0550-reconcile-supervised-pipe-drain-timeout-merge.md`
+Latest segment SHA-256: 101dae2f63ca0097c5cc05c7793172c26ca51e1d1dbba1dc37f3d170b453504f
+Sequence: 550 (verified merge reconciliation)
+
+Next: replace blocking supervisor line reads with bounded incremental pipe reads; keep output tails bounded and verify process-group cleanup.
