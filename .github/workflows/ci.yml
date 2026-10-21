@@ -221,7 +221,8 @@ jobs:
             tests/test_resident_cognitive_transition_operator.py::test_subordinate_approval_summary_is_required \
             tests/test_resident_cognitive_transition_operator.py::test_subordinate_verifier_cannot_mutate_controller_approval_snapshot \
             tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_is_deeply_immutable \
-            tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_constructor_freezes_nested_values
+            tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_constructor_freezes_nested_values \
+            tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_rejects_non_json_mutable_values
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/transition_receipt_provenance.json
           python - <<'PYCODE'
@@ -240,6 +241,7 @@ jobs:
               "tests/test_resident_cognitive_transition_operator.py::test_subordinate_verifier_cannot_mutate_controller_approval_snapshot",
               "tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_is_deeply_immutable",
               "tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_constructor_freezes_nested_values",
+              "tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_rejects_non_json_mutable_values",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "870d5160298adad335a2f633cde842bfd9ec8624ec8b9904b98f0dbe998d9aa1",
-    "latest_segment_sequence": 510,
-    "latest_segment_sha256": "3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
-    "source_commit": "94107b207bf320efc1a40ab71f5a77c61614139c",
-    "source_tree": "431081c84f1d91f9c6c4aac29fb8299198f121e8"
+    "checkpoint_sha256": "87002288c1430c7c60bdee65c11d63c05a25b123473f0a356e548647cf9d4c10",
+    "latest_segment_sequence": 511,
+    "latest_segment_sha256": "40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
+    "source_commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+    "source_tree": "75fc6ab0605f367991e0e3a6e1518d44ea4771e6"
   },
-  "checkpoint_sha256": "870d5160298adad335a2f633cde842bfd9ec8624ec8b9904b98f0dbe998d9aa1",
+  "checkpoint_sha256": "87002288c1430c7c60bdee65c11d63c05a25b123473f0a356e548647cf9d4c10",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 510,
+  "latest_sequence": 511,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5769,40 +5769,53 @@
       "source_tree": "24360d2bbf2592e4810ff011f9fc6520569e156c"
     },
     {
-      "sequence": 508,
-      "path": "work/construction/segments/0508-isolate-subordinate-verifier-input.md",
       "bytes": 2117,
-      "sha256": "5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
-      "predecessor": "segment-sha256:f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a",
-      "evidence_path": "work/construction/evidence/0508-isolate-subordinate-verifier-input.json",
       "evidence_bytes": 3814,
+      "evidence_path": "work/construction/evidence/0508-isolate-subordinate-verifier-input.json",
       "evidence_sha256": "e72ee56a75b324e503911a34cd0ca109f815afc4713ba1febf8bc926f71c7053",
+      "path": "work/construction/segments/0508-isolate-subordinate-verifier-input.md",
+      "predecessor": "segment-sha256:f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a",
+      "sequence": 508,
+      "sha256": "5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
       "source_commit": "814f3a4a58b697a7992e4247c988a8aff74a2890",
       "source_tree": "e6a59f770cdeab6f7ca1a025a4bb6588070d7e78"
     },
     {
-      "sequence": 509,
-      "path": "work/construction/segments/0509-deeply-freeze-transition-approval-context.md",
       "bytes": 2033,
-      "sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
-      "predecessor": "segment-sha256:5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
-      "evidence_path": "work/construction/evidence/0509-deeply-freeze-transition-approval-context.json",
       "evidence_bytes": 4246,
+      "evidence_path": "work/construction/evidence/0509-deeply-freeze-transition-approval-context.json",
       "evidence_sha256": "08c7d467a80ec6182c924d56012add32fcbe0d54ed8dc59fb46069d15bd01c4b",
+      "path": "work/construction/segments/0509-deeply-freeze-transition-approval-context.md",
+      "predecessor": "segment-sha256:5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
+      "sequence": 509,
+      "sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
       "source_commit": "bef4b1c193817cffdaca272db9bf6d6efca0d21d",
       "source_tree": "d6525445c33fc5d82df4a638f2a822c53ea64987"
     },
     {
-      "sequence": 510,
-      "path": "work/construction/segments/0510-enforce-immutable-transition-context-construction.md",
       "bytes": 2353,
-      "sha256": "3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
-      "predecessor": "segment-sha256:3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
-      "evidence_path": "work/construction/evidence/0510-enforce-immutable-transition-context-construction.json",
       "evidence_bytes": 4148,
+      "evidence_path": "work/construction/evidence/0510-enforce-immutable-transition-context-construction.json",
       "evidence_sha256": "f6e7c192fe441ff3c80767144260584c175ecd9c1adafdd8b947a8641626dbd8",
+      "path": "work/construction/segments/0510-enforce-immutable-transition-context-construction.md",
+      "predecessor": "segment-sha256:3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
+      "sequence": 510,
+      "sha256": "3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
       "source_commit": "94107b207bf320efc1a40ab71f5a77c61614139c",
       "source_tree": "431081c84f1d91f9c6c4aac29fb8299198f121e8"
+    },
+    {
+      "bytes": 1194,
+      "evidence_bytes": 3358,
+      "evidence_path": "work/construction/evidence/0511-validate-transition-context-approval-values.json",
+      "evidence_sha256": "ddf3642077798762a329bd5fe549dcfa9cf1a8b2b78ff7678cffff73429f2038",
+      "path": "work/construction/segments/0511-validate-transition-context-approval-values.md",
+      "predecessor": "segment-sha256:3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
+      "sequence": 511,
+      "sha256": "40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
+      "source_candidate_commit": "1a4c290c3599972d7ac12c2e374d9179a2906dcd",
+      "source_commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+      "source_tree": "75fc6ab0605f367991e0e3a6e1518d44ea4771e6"
     }
   ],
   "source_acquisition": {

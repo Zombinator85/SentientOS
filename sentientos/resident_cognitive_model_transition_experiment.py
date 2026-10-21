@@ -91,10 +91,14 @@ def _plain(value: Any) -> Any:
 def _freeze(value: Any) -> Any:
     """Recursively detach and freeze approval values crossing an execution boundary."""
     if isinstance(value, Mapping):
-        return MappingProxyType({str(key): _freeze(item) for key, item in value.items()})
+        if any(type(key) is not str for key in value):
+            raise TransitionError("transition_stage_execution_context_key_invalid")
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, (list, tuple)):
         return tuple(_freeze(item) for item in value)
-    return value
+    if value is None or type(value) in {str, bool, int, float}:
+        return value
+    raise TransitionError("transition_stage_execution_context_value_invalid")
 
 
 def digest(value: Mapping[str, Any]) -> str:
