@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7df1c7fba1b427f4ad351a129f9e5e98b2c2cdda222f04f8f9113575b1623795",
-    "latest_segment_sequence": 564,
-    "latest_segment_sha256": "ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9",
-    "source_commit": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
-    "source_tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4"
+    "checkpoint_sha256": "232bcf4b04494d73dc12c07749b880a74e49e3a54c228ea098d0293e5754b06a",
+    "latest_segment_sequence": 565,
+    "latest_segment_sha256": "7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71",
+    "source_commit": "597af64de9c6382639b0b97e97d8718864538a6f",
+    "source_tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba"
   },
-  "checkpoint_sha256": "7df1c7fba1b427f4ad351a129f9e5e98b2c2cdda222f04f8f9113575b1623795",
+  "checkpoint_sha256": "232bcf4b04494d73dc12c07749b880a74e49e3a54c228ea098d0293e5754b06a",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 564,
+  "latest_sequence": 565,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6503,6 +6503,19 @@
       "source_candidate_commit": "6a0b58691d42c416e7a9fdb7228c28e4f2c9969b",
       "source_commit": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
       "source_tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4"
+    },
+    {
+      "bytes": 2168,
+      "evidence_bytes": 3563,
+      "evidence_path": "work/construction/evidence/0565-correct-federation-health-app-client-id-docs.json",
+      "evidence_sha256": "07092bdc0148d59441f31dfbeb529459b7fe426255d3fdffa4a9b90bd9f180e1",
+      "path": "work/construction/segments/0565-correct-federation-health-app-client-id-docs.md",
+      "predecessor": "segment-sha256:ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9",
+      "sequence": 565,
+      "sha256": "7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71",
+      "source_candidate_commit": "277a87bdeea216d1543e5554117bd76a75862af3",
+      "source_commit": "597af64de9c6382639b0b97e97d8718864538a6f",
+      "source_tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba"
     }
   ],
   "source_acquisition": {
