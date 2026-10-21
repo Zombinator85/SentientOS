@@ -1,0 +1,92 @@
+{
+  "evidence_path": "work/construction/evidence/0516-enforce-canonical-transition-request-envelope.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "be78a543cc7d90d2eff4526f107bc0bfca45be76"
+      },
+      "sentientos/resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "1798f20d42a977caa5826659e981ef550773d759"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "7b0e216b7e11a6ae2047b774a7ce1ce6ae715383"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "14e0f0d5a2e52c19a6658723fefffe21fe605840"
+      }
+    },
+    "parent": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+    "tree": "8d0fa6f97f7255c2ef3cfdcb7162b39e0a301a05"
+  },
+  "invariants": [
+    "The signed request envelope has exactly the versioned canonical field set.",
+    "Unknown and missing top-level fields fail closed before controller effects.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; 515 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "not clean: repository-wide config reported 339 diagnostics across 64 files; import-isolated edited module reported one existing no-any-return at line 229 outside changed lines",
+    "test_command": "/tmp/sentientos-seq516-verify/bin/python -m scripts.run_tests -- -m \"legacy or no_legacy_skip\" -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_transition_operator_trust_catalog.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_resident_cognitive_model_transition_experiment_capability_admission.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py",
+    "tests_failed": 0,
+    "tests_passed": 162,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0515-bound-recursive-transition-context-freezing.md",
+    "segment_sha256": "fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
+    "sequence": 515
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2254,
+  "segment_path": "work/construction/segments/0516-enforce-canonical-transition-request-envelope.md",
+  "segment_sha256": "76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c",
+  "sequence": 516,
+  "sequence_515_merge_reconciliation": {
+    "administrator_audits": "passed",
+    "candidate_checks": "passed",
+    "candidate_commit": "fc4aebcf71decb2e968633602572323dfae792b1",
+    "hosted_finalization": "passed",
+    "main_merge_commit": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+    "main_tree": "69e41aafb73be1ffad3185de45cc258c11e0d9fd",
+    "ordered_parents": [
+      "b480dff1219e53ea0280b44b82c53053c92c0b42",
+      "fc4aebcf71decb2e968633602572323dfae792b1"
+    ],
+    "postmerge_runs": {
+      "duplicate_push_group": "pending_at_evidence_capture",
+      "postmerge_ci_completed": "passed",
+      "postmerge_docs_deploy": "passed",
+      "postmerge_forge_smoke": "conditionally_skipped",
+      "postmerge_invariants": "passed",
+      "postmerge_quality_gate_completed": "passed"
+    },
+    "postmerge_status": "passed_with_duplicate_push_group_pending",
+    "pull_request": 2522,
+    "separate_metadata_guard": "passed"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Enforce canonical transition request envelopes",
+  "verified_main": {
+    "commit": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+    "ref": "main",
+    "tree": "69e41aafb73be1ffad3185de45cc258c11e0d9fd"
+  }
+}

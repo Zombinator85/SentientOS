@@ -14,6 +14,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding",
         "test_verified_stage_receipt_accepts_journal_recovered_completion",
         "test_verified_stage_receipt_rejects_rejected_or_missing_custody",
+        "test_operator_request_rejects_noncanonical_top_level_schema",
         "test_stage_approval_correlation_must_match_signed_request",
         "test_stage_approval_operation_must_match_signed_request",
         "test_subordinate_approval_summary_must_match_signed_artifact",

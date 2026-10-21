@@ -1,0 +1,11 @@
+# Sequence 516 — enforce canonical transition request envelopes
+
+Signed stage requests now require the exact version 1 top-level field set after their request digest and identity are verified. Missing or unknown fields fail closed at custody validation, so a request cannot carry an unreviewed extension or silently omit required provenance. Regressions exercise both a re-signed unknown field and an omitted field; the missing-field ingress case asserts rejection before any transition controller call. Hosted source-validation acceptance now runs the regression explicitly.
+
+Sequence 515 merged via PR #2522 as `801ede97f74332ae86286eeb03453c8bc2a4896e`, tree `69e41aafb73be1ffad3185de45cc258c11e0d9fd`, preserving ordered parents `b480dff1219e53ea0280b44b82c53053c92c0b42` and `fc4aebcf71decb2e968633602572323dfae792b1`. Its exact-candidate checks, privileged Administrator audits, finalizer, and separate metadata guard passed. Post-merge CI, source validation, self-check, docs, Helm, Docker, Quality Gate, invariants, and CPU smoke passed; Forge Smoke was conditionally skipped. A later duplicate push-triggered check group was still running during this evidence capture and is not claimed as complete.
+
+The local affected regression run passed 162 tests with 0 failures and 0 skips. Compilation, workflow YAML parsing, diff checks, and custody over 515 predecessor segments passed. The repository-wide Mypy invocation reports 339 diagnostics across 64 files; the import-isolated edited module reports one existing `no-any-return` diagnostic at line 229, outside this change. Those Mypy results are recorded as non-passing and are not represented as verification success. An initial test expectation for omitted schema data was updated to assert the new fail-closed custody error before the final passing run. Exact-candidate hosted verification for sequence 516 remains pending. No production transition, activation, serving, inference, or writeback was performed.
+
+Verified main: `801ede97f74332ae86286eeb03453c8bc2a4896e`, tree `69e41aafb73be1ffad3185de45cc258c11e0d9fd`
+Implementation candidate: `c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0`, tree `8d0fa6f97f7255c2ef3cfdcb7162b39e0a301a05`
+Sequence: 516 (candidate pending hosted verification)

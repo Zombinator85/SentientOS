@@ -514,3 +514,14 @@ Implementation candidate: `534050c1572280ed65d0a13f3663a9cca770880f`, tree `0202
 Latest construction segment: `work/construction/segments/0515-bound-recursive-transition-context-freezing.md`
 Latest segment SHA-256: `fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66`
 Sequence: 515 (candidate pending hosted verification)
+
+
+## Sequence 516 — enforce canonical transition request envelopes
+
+Signed stage requests now require exactly the version 1 schema fields. Missing and unknown members fail closed before transition effects, with a hosted acceptance regression. Sequence 515 merged via PR #2522 as `801ede97f74332ae86286eeb03453c8bc2a4896e`, tree `69e41aafb73be1ffad3185de45cc258c11e0d9fd`; its exact candidate governance and post-merge checks passed, with Forge Smoke conditionally skipped. A duplicate push-triggered check group remained in progress during this capture. Local affected tests passed 162/162; compile, YAML, diff, and construction custody passed. Mypy was not clean: the repo-wide run reported 339 diagnostics and isolated module analysis found one existing diagnostic outside the edit. The sequence 516 hosted candidate is pending. No production transition or inference ran.
+
+Latest verified source merge: `801ede97f74332ae86286eeb03453c8bc2a4896e`, tree `69e41aafb73be1ffad3185de45cc258c11e0d9fd`
+Implementation candidate: `c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0`, tree `8d0fa6f97f7255c2ef3cfdcb7162b39e0a301a05`
+Latest construction segment: `work/construction/segments/0516-enforce-canonical-transition-request-envelope.md`
+Latest segment SHA-256: `76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c`
+Sequence: 516 (candidate pending hosted verification)

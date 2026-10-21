@@ -204,6 +204,19 @@ def test_operator_provenance_rejects_claim_changes_and_revoked_key() -> None:
         revoked.verify(request, current_time=NOW)
 
 
+def test_operator_request_rejects_noncanonical_top_level_schema() -> None:
+    for mutation in ("unknown", "missing"):
+        packet = _request()
+        if mutation == "unknown":
+            packet["unrecognized_extension"] = "must not be silently accepted"
+        else:
+            packet.pop("stage_evidence")
+        packet = _resign_request(packet)
+
+        with pytest.raises(TransitionError, match="operator_request_schema_invalid"):
+            LiveTransitionOperatorRuntime._verify_packet_identity(packet)
+
+
 def test_missing_operator_trust_fails_closed_before_recovery_or_stage_effect(tmp_path: Path) -> None:
     controller = _Controller()
     recovery_calls = 0
@@ -546,11 +559,8 @@ def test_subordinate_approval_summary_is_required(tmp_path: Path) -> None:
     changed.pop("subordinate_approval_bindings")
     persist_request(tmp_path, _resign_request(changed))
 
-    result = runtime.process_one()
-
-    assert result["status"] == "rejected"
-    assert result["reason"] == "operator_request_subordinate_approval_invalid"
-    assert result["effect_performed"] is False
+    with pytest.raises(TransitionError, match="operator_request_schema_invalid"):
+        runtime.process_one()
     assert controller.calls == 0
 
 
