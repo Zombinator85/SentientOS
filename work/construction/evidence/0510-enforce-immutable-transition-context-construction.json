@@ -1,0 +1,94 @@
+{
+  "evidence_path": "work/construction/evidence/0510-enforce-immutable-transition-context-construction.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "immutability": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "d109d084f2d252ddef996a1b352a6bb397ea49a2",
+    "tree": "6c72308ea9c643859485c5f95b0faaf1a6318766",
+    "parent": "94107b207bf320efc1a40ab71f5a77c61614139c",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 65655,
+        "sha256": "a4ef76e704078a82c557436d48183e5b34e688276656a853fb5410f3b0cb4c79"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "bytes": 59550,
+        "sha256": "a5351628f11ab8509f2f50a84608afa09a66432692c8c21b02d354073f3f31b9"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "bytes": 59784,
+        "sha256": "5267d8f23be46cb171cce35ee143c3682bb4d52d6b95044b3192c2efcaf53213"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "bytes": 32066,
+        "sha256": "77e5578bec4030e0d18756e3b87ff9d0a9c357d70a75947d01165864dfb056e4"
+      }
+    }
+  },
+  "invariants": [
+    "TransitionStageExecutionContext.__post_init__ recursively freezes values for direct and factory construction.",
+    "The execution context is detached from caller-owned nested mappings and collections.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_passed": 88,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "test_provenance": "supplemental local run on final source tree; exact candidate hosted verification pending",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_model_transition_experiment.py with canonical pyproject settings",
+    "compileall": "passed",
+    "workflow_yaml": "passed",
+    "diff_check": "passed",
+    "construction_custody": "passed; all 509 predecessor segments verified",
+    "full_mypy_baseline": "not run locally; hosted check pending"
+  },
+  "predecessor": {
+    "sequence": 509,
+    "segment_path": "work/construction/segments/0509-deeply-freeze-transition-approval-context.md",
+    "segment_sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b"
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2353,
+  "segment_path": "work/construction/segments/0510-enforce-immutable-transition-context-construction.md",
+  "segment_sha256": "3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e",
+  "sequence": 510,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Enforce immutable transition context construction",
+  "verified_main": {
+    "ref": "main",
+    "commit": "94107b207bf320efc1a40ab71f5a77c61614139c",
+    "tree": "431081c84f1d91f9c6c4aac29fb8299198f121e8"
+  },
+  "sequence_509": {
+    "pull_request": 2517,
+    "initial_quality_gate_failed": "PR title did not match final commit subject",
+    "title_corrected_to_final_commit_subject": true,
+    "hosted_runs": {
+      "quality_gate": 39544802211,
+      "ci": 39544629832,
+      "docker": 39544629992,
+      "release": 39544629839,
+      "codex_ci": 39544629896,
+      "invariants": 39544629842,
+      "lint_benchmark": 39544629786,
+      "gradient_null_regression": 39544629833
+    },
+    "administrator_audits": "passed",
+    "separate_metadata_guard": "passed",
+    "post_merge_workflows": "not independently observed"
+  }
+}

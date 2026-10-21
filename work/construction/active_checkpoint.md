@@ -446,3 +446,17 @@ Latest verified main: `bef4b1c193817cffdaca272db9bf6d6efca0d21d`, tree `d6525445
 Latest construction segment: `work/construction/segments/0509-deeply-freeze-transition-approval-context.md`
 Latest segment SHA-256: `3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b`
 Sequence: 509 (candidate pending hosted verification)
+
+
+## Sequence 509 — verified candidate and merge
+
+PR #2517 merged as `94107b207bf320efc1a40ab71f5a77c61614139c`, tree `431081c84f1d91f9c6c4aac29fb8299198f121e8`, with ordered parents `bef4b1c193817cffdaca272db9bf6d6efca0d21d` and `912d8565ebd5db0a6a10a2047a06195d7c503172`. The exact-candidate Quality Gate, Administrator strict audits, finalizer, separate metadata guard, CI, docs, self-check, source validation, Docker, Release, Codex CI, invariants, lint benchmark, and gradient regression passed. The first Quality Gate attempt failed only because the PR title did not equal the final commit subject; after aligning the title, the rerun passed. Post-merge workflow results remain unobserved.
+
+## Sequence 510 — enforce immutable transition context construction
+
+The recursive freeze now runs in `__post_init__`, preventing direct dataclass construction from bypassing it. The `.create()` factory delegates to the same invariant. Supplemental local verification passed 88 affected tests, targeted Mypy, compileall, workflow YAML parsing, diff checks, and custody. Candidate source commit `d109d084f2d252ddef996a1b352a6bb397ea49a2`, tree `6c72308ea9c643859485c5f95b0faaf1a6318766`, is based on verified main `94107b207bf320efc1a40ab71f5a77c61614139c`; hosted verification is pending. No production transition or inference ran.
+
+Latest verified main: `94107b207bf320efc1a40ab71f5a77c61614139c`, tree `431081c84f1d91f9c6c4aac29fb8299198f121e8`
+Latest construction segment: `work/construction/segments/0510-enforce-immutable-transition-context-construction.md`
+Latest segment SHA-256: `3080478f77bff3ee3da249fa9ccb78db4e830e35ee14db5e87fa4e80bb7fba9e`
+Sequence: 510 (candidate pending hosted verification)

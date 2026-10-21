@@ -596,6 +596,20 @@ def test_transition_stage_execution_context_is_deeply_immutable() -> None:
         approval["authorization"]["scopes"].append("writeback")
 
 
+def test_transition_stage_execution_context_constructor_freezes_nested_values() -> None:
+    approvals = [{"approval_evidence_id": "authorization-1",
+                  "approval_semantic_digest": "sha256:" + "a" * 64,
+                  "authorization": {"scopes": ["activate"]}}]
+
+    context = TransitionStageExecutionContext("b_activation_committed", tuple(approvals))
+    approvals[0]["authorization"]["scopes"].append("serve")
+
+    approval = context.exact_activation_approval()
+    assert approval["authorization"]["scopes"] == ("activate",)
+    with pytest.raises(TypeError):
+        approval["authorization"]["scopes"] = ("serve",)
+
+
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:
     runtime = _runtime(tmp_path)
     runtime.request_root.mkdir(parents=True)

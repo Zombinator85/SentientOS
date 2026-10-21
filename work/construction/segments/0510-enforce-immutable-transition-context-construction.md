@@ -1,0 +1,11 @@
+# Sequence 510 — enforce immutable transition context construction
+
+Sequence 509 merged through PR #2517 as `94107b207bf320efc1a40ab71f5a77c61614139c`, tree `431081c84f1d91f9c6c4aac29fb8299198f121e8`, with base parent `bef4b1c193817cffdaca272db9bf6d6efca0d21d` and candidate parent `912d8565ebd5db0a6a10a2047a06195d7c503172`. The latest main commit search and main-branch construction index both identify this merge. Its exact candidate passed Required Quality Gate run `39544802211`, including actual Administrator strict audits, privileged finalization, and the separate pre-publication metadata guard. CI `39544629832`, Docker `39544629992`, Release `39544629839`, Codex CI `39544629896`, invariants `39544629842`, lint benchmark `39544629786`, and Gradient null regression `39544629833` passed. The first Quality Gate attempt `39544629816` failed its pre-commit identity preflight because the PR title differed from the final evidence commit subject. The PR title was corrected to exactly match that subject, and the rerun completed successfully. No source change was needed for this metadata correction. Post-merge workflow status was not available through the connector's PR-triggered workflow lookup and is not claimed.
+
+Sequence 509 recursively froze nested values when built through `.create()`, but the public frozen dataclass constructor could still receive nested mutable mappings and lists directly. A `__post_init__` invariant now freezes every constructor path. The factory delegates to that invariant rather than maintaining a separate freeze path. A direct-constructor regression verifies both detachment from input and rejection of nested mutation; the exact node is included in hosted transition receipt acceptance.
+
+Supplemental local verification passed 88 affected tests with 0 failures and 0 skips, targeted canonical Mypy for the changed transition module, compileall, workflow YAML parsing, diff checks, and construction custody over all 509 predecessors. No production transition, activation, serving, inference, or writeback was performed.
+
+Verified main: `94107b207bf320efc1a40ab71f5a77c61614139c`, tree `431081c84f1d91f9c6c4aac29fb8299198f121e8`
+Implementation source commit: `d109d084f2d252ddef996a1b352a6bb397ea49a2`, tree `6c72308ea9c643859485c5f95b0faaf1a6318766`
+Sequence: 510 (candidate pending hosted verification)

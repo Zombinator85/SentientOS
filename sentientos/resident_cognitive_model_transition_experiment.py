@@ -466,11 +466,14 @@ class TransitionStageExecutionContext:
     requested_stage: str
     subordinate_approvals: tuple[Mapping[str, Any], ...]
 
+    def __post_init__(self) -> None:
+        frozen = tuple(_freeze(item) for item in self.subordinate_approvals)
+        object.__setattr__(self, "subordinate_approvals", frozen)
+
     @classmethod
     def create(cls, requested_stage: str,
                approvals: Sequence[Mapping[str, Any]]) -> "TransitionStageExecutionContext":
-        frozen = tuple(_freeze(item) for item in approvals)
-        return cls(requested_stage=requested_stage, subordinate_approvals=frozen)
+        return cls(requested_stage=requested_stage, subordinate_approvals=tuple(approvals))
 
     def exact_activation_approval(self) -> Mapping[str, Any]:
         if self.requested_stage not in {"b_activation_committed", "a_restoration_activation_committed"}:
