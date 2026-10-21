@@ -700,10 +700,12 @@ class LiveTransitionOperatorRuntime:
         """Take one explicit-offset clock sample for every request time check."""
         try:
             current_time = self.clock()
-            if (not isinstance(current_time, datetime) or current_time.tzinfo is None
-                    or current_time.utcoffset() is None):
+            if not isinstance(current_time, datetime) or current_time.tzinfo is None:
                 raise TransitionError("operator_provenance_time_invalid")
-            return current_time.astimezone(timezone.utc)
+            offset = current_time.utcoffset()
+            if offset is None:
+                raise TransitionError("operator_provenance_time_invalid")
+            return (current_time.replace(tzinfo=None) - offset).replace(tzinfo=timezone.utc)
         except TransitionError:
             raise
         except (OverflowError, TypeError, ValueError) as exc:

@@ -316,13 +316,38 @@ class _UnknownOffset(tzinfo):
         return None
 
 
+class _ChangingOffset(tzinfo):
+    def __init__(self) -> None:
+        self.reads = 0
+
+    def utcoffset(self, dt: datetime | None) -> timedelta | None:
+        self.reads += 1
+        return timedelta(hours=13) if self.reads == 1 else None
+
+    def dst(self, dt: datetime | None) -> timedelta | None:
+        return None
+
+    def tzname(self, dt: datetime | None) -> str | None:
+        return None
+
+
 @pytest.mark.parametrize("observation_time", [
     NOW.replace(tzinfo=None),
     NOW.replace(tzinfo=_UnknownOffset()),
-], ids=["naive", "unknown_offset"])
+], ids=["naive_clock", "offset_unknown_clock"])
 def test_operator_provenance_rejects_non_aware_observation_clock(observation_time):
     with pytest.raises(TransitionOperatorProvenanceError, match="operator_provenance_time_invalid"):
         _operator_verifier().verify(_request(), current_time=observation_time)
+
+
+def test_operator_provenance_uses_one_sampled_utc_offset() -> None:
+    changing_offset = _ChangingOffset()
+    observation_time = NOW.replace(tzinfo=changing_offset)
+
+    with pytest.raises(TransitionOperatorProvenanceError, match="operator_provenance_time_invalid"):
+        _operator_verifier().verify(_request(), current_time=observation_time)
+
+    assert changing_offset.reads == 1
 
 
 def test_operator_request_validation_uses_one_clock_observation(tmp_path: Path) -> None:
