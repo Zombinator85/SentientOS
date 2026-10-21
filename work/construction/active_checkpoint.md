@@ -464,3 +464,17 @@ Latest segment SHA-256: `55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff
 Sequence: 524 (verified reconciliation)
 
 Next: obtain current-main Federation Health execution evidence and pursue bounded transition cognition development while preserving approval and effect-owner boundaries.
+
+
+## Sequence 525 — reconcile sequence 524 evidence merge
+
+PR #2533 merged regularly as `1f4e84a4041a9018ea0c912b539310f8b810b6ea`, tree `1eb557ea936f2b011a7935b0082a0d59ee845cfe`. Candidate and post-merge hosted checks passed, including actual-Administrator Quality Gate, exact acceptance, metadata guard, full CI, source validation, Docker, docs, and deployment; Forge Smoke was skipped by condition.
+
+The current-main CI self-check passed. Dedicated scheduled Federation Health and Nightly Audit Integrity runs remain bound to older main SHAs. Automated Federation Health PR #2511 remains open and without checks. No production transition, activation, serving, inference, or writeback was performed.
+
+Latest verified main: `1f4e84a4041a9018ea0c912b539310f8b810b6ea`, tree `1eb557ea936f2b011a7935b0082a0d59ee845cfe`
+Latest construction segment: work/construction/segments/0525-reconcile-sequence524-evidence-merge.md
+Latest segment SHA-256: `c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9`
+Sequence: 525 (verified reconciliation)
+
+Next: reject unknown-offset timestamps in transition approval validity windows before any stage effect, then continue bounded developmental cognition construction. Obtain current-main Federation Health evidence when the scheduled owner runs.
