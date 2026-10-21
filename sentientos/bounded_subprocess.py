@@ -204,6 +204,12 @@ def run_supervised(
         or tail_lines <= 0
     ):
         raise ValueError("supervision_limits_must_be_finite_and_valid")
+    if (
+        os.name == "posix"
+        and sys.platform != "win32"
+        and threading.current_thread() is not threading.main_thread()
+    ):
+        raise RuntimeError("posix_supervision_requires_main_thread")
     writer = emit or (lambda line: print(line, flush=True))
     command = argv if isinstance(argv, str) else list(argv)
     started = time.monotonic()
@@ -243,14 +249,7 @@ def run_supervised(
         graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
         drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
 
-    # Python only allows process-wide signal handlers to be installed by the
-    # main thread. Worker-thread supervisors remain bounded by their timeout;
-    # they simply cannot take ownership of controller-wide cancellation.
-    if (
-        os.name == "posix"
-        and sys.platform != "win32"
-        and threading.current_thread() is threading.main_thread()
-    ):
+    if os.name == "posix" and sys.platform != "win32":
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.getsignal(signum)
             signal.signal(signum, cancel)
