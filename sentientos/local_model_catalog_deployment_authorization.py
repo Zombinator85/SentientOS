@@ -153,6 +153,8 @@ class CatalogDeploymentAuthorizationCustody:
 
 
 def _instant(value: str) -> datetime:
+    if isinstance(value, str) and value.endswith("-00:00"):
+        raise CatalogDeploymentAuthorizationError("unknown_offset")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError) as exc:
