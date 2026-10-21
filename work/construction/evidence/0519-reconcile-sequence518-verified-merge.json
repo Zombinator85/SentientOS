@@ -1,0 +1,114 @@
+{
+  "evidence_path": "work/construction/evidence/0519-reconcile-sequence518-verified-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "implementation_source": {
+    "commit": "9357dede0d6fc6c5a829f084cf5905f77f2fc4aa",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "1dfffdb0f1f8da433eb9d089c8cfc6ecf307ffb9"
+      },
+      "federation_health_badge.py": {
+        "git_blob_sha": "9782fddfe8d4c1b310a11fc8412dc0701a25935d"
+      },
+      "tests/test_federation_health_badge.py": {
+        "git_blob_sha": "1f49421a4f8dab61288a7fe39f85701705e4f4ef"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "2e401121e0d3042b40301d038f409db74d0ab6e9"
+      }
+    },
+    "parent": "45d49ec2e2cab9a9158686f9bf7536801b642883",
+    "tree": "a25269c3e6ec480343b8cd7fa3607617ead0f41e"
+  },
+  "invariants": [
+    "A valid but old configured snapshot is reported as stale and is not represented as live telemetry.",
+    "Federation Health retains its hosted Administrator preflight, exact-run receipt, and scoped publisher permissions.",
+    "The automated health-report PR remains unmerged until its own checks are attached and pass.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "construction_custody": "passed; 518 predecessor segments verified before append",
+    "remote_main_tree_readback": "passed; exact tree matched current main"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0518-report-stale-federation-health-snapshots.md",
+    "segment_sha256": "f86b4147f88da2c6d26f78b2aa52ffb608c033ebb0ee4b70bd1e0c7dc6cae3ea",
+    "sequence": 518
+  },
+  "postmerge_execution": {
+    "federation_health": {
+      "administrator_preflight": "passed",
+      "artifact_id": 12325393187,
+      "artifact_sha256": "sha256:804e3a3631713b4cd25ca5c6b79233702dd21ae4e69e7d1bbac646f15dec1ac4",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "run_head": "56ce661de59577527a33eab112662360b606302e",
+      "run_id": 39556678412,
+      "source": "configured local log snapshot; not live federation telemetry"
+    },
+    "main_checks": {
+      "ci": "passed",
+      "cpu_smoke": "passed",
+      "deploy": "passed",
+      "docs_linkcheck": "passed",
+      "forge_smoke": "skipped by condition",
+      "helm": "passed",
+      "invariants": "passed",
+      "quality_gate": "passed",
+      "self_check": "passed",
+      "source_validation": "passed"
+    },
+    "nightly_audit_integrity": {
+      "current_head_scheduled_run": "not observed",
+      "latest_observed_run_id": 39396388332,
+      "latest_observed_run_sha": "124de0f9ced349de7342901a2e1338c460c05a00"
+    },
+    "nightly_self_check": {
+      "conclusion": "success",
+      "run_id": 39556678373,
+      "run_sha": "56ce661de59577527a33eab112662360b606302e"
+    },
+    "publisher_pr": {
+      "checks_at_inspection": [],
+      "head_sha": "46fee12719a5007927502be8211fc6e17b1b593a",
+      "number": 2511,
+      "state": "open_unmerged"
+    }
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2469,
+  "segment_path": "work/construction/segments/0519-reconcile-sequence518-verified-merge.md",
+  "segment_sha256": "f4d5b10351540376fae1376b84199bfe9942c087f10c4fb1134e1cebba758153",
+  "sequence": 519,
+  "sequence_518_merge_reconciliation": {
+    "candidate_commit": "2e329f4832d98d68103d4de9f1e7caac2991c24a",
+    "main_merge_commit": "56ce661de59577527a33eab112662360b606302e",
+    "main_tree": "77338048326f48bf98fe3a4fb8d83d4b1cabe876",
+    "ordered_parents": [
+      "45d49ec2e2cab9a9158686f9bf7536801b642883",
+      "2e329f4832d98d68103d4de9f1e7caac2991c24a"
+    ],
+    "postmerge_status": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2525
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 518 verified merge",
+  "verified_main": {
+    "commit": "56ce661de59577527a33eab112662360b606302e",
+    "ref": "main",
+    "tree": "77338048326f48bf98fe3a4fb8d83d4b1cabe876"
+  }
+}
