@@ -144,8 +144,8 @@ def run_supervised(
                 time.sleep(min(0.2, heartbeat_seconds))
                 events = []
             for key, _ in events:
-                stream = cast(TextIO, key.fileobj)
-                line = stream.readline()
+                active_stream = cast(TextIO, key.fileobj)
+                line = active_stream.readline()
                 if line:
                     clean = line.rstrip("\r\n")
                     tails[key.data].append(clean)
