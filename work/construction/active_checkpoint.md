@@ -465,8 +465,8 @@ This increment only aligns operational documentation and its contract test. The 
 
 Verified main: `597af64de9c6382639b0b97e97d8718864538a6f`, tree `5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba`
 Latest construction segment: `work/construction/segments/0565-correct-federation-health-app-client-id-docs.md`
+Latest segment SHA-256: `7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71`
 Sequence: 565 (verified documentation integration)
 
 Next: reassess the developmental outcome-to-planning dependency against the current runtime and acceptance suite, identifying a still-missing canonical connection before implementing further changes.
 
-Latest segment SHA-256: `7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71`
