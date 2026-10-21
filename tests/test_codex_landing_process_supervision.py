@@ -58,3 +58,29 @@ def test_output_tail_is_bounded() -> None:
 def test_budget_refusal_starts_no_child_process() -> None:
     with pytest.raises(ValueError):
         run_supervised([sys.executable, "-c", "raise SystemExit(99)"], stage_id="none", timeout_seconds=0)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group timeout proof")
+def test_stage_timeout_covers_descendant_held_output_pipes(tmp_path: Path) -> None:
+    marker = tmp_path / "descendant-survived"
+    child_script = f"import time;time.sleep(.8);open({str(marker)!r},'w').write('survived')"
+    parent_script = (
+        "import subprocess,sys; "
+        "subprocess.Popen([sys.executable,'-c',sys.argv[1]]); "
+        "print('parent exited',flush=True)"
+    )
+
+    started = time.monotonic()
+    result = run_supervised(
+        [sys.executable, "-c", parent_script, child_script],
+        stage_id="inherited-pipe",
+        timeout_seconds=.2,
+        termination_grace_seconds=.1,
+        emit=lambda _: None,
+    )
+    duration = time.monotonic() - started
+    time.sleep(.9)
+
+    assert result.status == "timed_out"
+    assert duration < .75
+    assert not marker.exists()
