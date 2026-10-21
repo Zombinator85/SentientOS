@@ -247,3 +247,47 @@ def test_windows_shutdown_forces_child_after_grace_period(
     process.send_signal.assert_called_once_with(123)
     process.kill.assert_called_once_with()
     assert process.wait.call_count == 2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows console-control lifecycle proof")
+def test_windows_timeout_reports_native_console_signal_or_forced_fallback(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "console-break-received"
+    ready = False
+
+    def capture(line: str) -> None:
+        nonlocal ready
+        if line.endswith("[stdout] ready"):
+            ready = True
+
+    child = (
+        "import signal,time\n"
+        "from pathlib import Path\n"
+        f"marker=Path({str(marker)!r})\n"
+        "def on_break(_signum, _frame):\n"
+        " marker.write_text('received')\n"
+        " raise SystemExit(0)\n"
+        "signal.signal(signal.SIGBREAK, on_break)\n"
+        "print('ready', flush=True)\n"
+        "while True: time.sleep(.05)\n"
+    )
+
+    result = run_supervised(
+        [sys.executable, "-c", child],
+        stage_id="windows-console-break",
+        timeout_seconds=3,
+        termination_grace_seconds=0.5,
+        emit=capture,
+    )
+
+    assert ready
+    assert result.status == "timed_out"
+    assert result.termination_reason == "timeout"
+    assert result.graceful_termination_attempted is True
+    assert result.descendants_confirmed_terminated is False
+    assert result.supervision_status == "platform_limited_termination_evidence"
+    assert result.duration_seconds < 8
+    if not result.forced_termination_attempted:
+        assert result.return_code == 0
+        assert marker.read_text() == "received"
