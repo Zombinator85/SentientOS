@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "5b5d47c37fd309ace631351e1cbfd7bb3d2cbe3944b5bef3ddb00dc9b3e70802",
-    "latest_segment_sequence": 545,
-    "latest_segment_sha256": "6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
-    "source_commit": "9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0",
-    "source_tree": "b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8"
+    "checkpoint_sha256": "0d881fe4595c8000174c5c0e421b8eb26342894dd32a39e55ff59f09bd8f78d9",
+    "latest_segment_sequence": 546,
+    "latest_segment_sha256": "e23073a9ec99177beffe9f7d784ace4e5cfd0569966542fab0c76b7a8e45a48b",
+    "source_commit": "bf94c77571c6b6eae017db3f38f21fcd19da20f0",
+    "source_tree": "4d0836c6989d462bae682192a4d5d32a0d66c7ec"
   },
-  "checkpoint_sha256": "5b5d47c37fd309ace631351e1cbfd7bb3d2cbe3944b5bef3ddb00dc9b3e70802",
+  "checkpoint_sha256": "0d881fe4595c8000174c5c0e421b8eb26342894dd32a39e55ff59f09bd8f78d9",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -6256,6 +6256,19 @@
       "source_candidate_commit": "e49438c08efa9d41c1c4c59a8d96fdcae83c2bb6",
       "source_commit": "9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0",
       "source_tree": "b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8"
+    },
+    {
+      "bytes": 1547,
+      "evidence_bytes": 2082,
+      "evidence_path": "work/construction/evidence/0546-isolate-experiment-chain-privilege-fixture.json",
+      "evidence_sha256": "dce6e839bd6b481217fa3bfef4c4ab59599c31fb5f69a8c08f56d36508d2314f",
+      "path": "work/construction/segments/0546-isolate-experiment-chain-privilege-fixture.md",
+      "predecessor": "segment-sha256:6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
+      "sequence": 546,
+      "sha256": "e23073a9ec99177beffe9f7d784ace4e5cfd0569966542fab0c76b7a8e45a48b",
+      "source_candidate_commit": "cc93441bc390997bf2139e881b47b0f981f891ce",
+      "source_commit": "bf94c77571c6b6eae017db3f38f21fcd19da20f0",
+      "source_tree": "4d0836c6989d462bae682192a4d5d32a0d66c7ec"
     }
   ],
   "source_acquisition": {

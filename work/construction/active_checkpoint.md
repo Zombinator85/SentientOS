@@ -202,3 +202,14 @@ Implementation candidate: `e49438c08efa9d41c1c4c59a8d96fdcae83c2bb6`, tree `a021
 Latest construction segment: `work/construction/segments/0545-gate-nondeterministic-adapter-execution.md`
 Latest segment SHA-256: `6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f`
 Sequence: 545 (candidate pending hosted verification)
+
+
+## Sequence 546 — isolate experiment-chain privilege guards in unit tests
+
+The exact hosted gate exposed a test fixture that did not stub the Administrator and Lumos guards around `experiment_tracker` persistence. The fixture now stubs those guards only for isolated unit tests; production authorization code and strict audits are unchanged. The first candidate QG failed before the three behavior assertions ran and is recorded as a failure. Corrected-candidate hosted verification is pending.
+
+Verified predecessor candidate: `bf94c77571c6b6eae017db3f38f21fcd19da20f0`, tree `4d0836c6989d462bae682192a4d5d32a0d66c7ec`
+Corrected candidate: `cc93441bc390997bf2139e881b47b0f981f891ce`, tree `98b2b5caadf2513cdfec33a4599909d52a6f4a2b`
+Latest construction segment: `work/construction/segments/0546-isolate-experiment-chain-privilege-fixture.md`
+Latest segment SHA-256: `e23073a9ec99177beffe9f7d784ace4e5cfd0569966542fab0c76b7a8e45a48b`
+Sequence: 546 (candidate pending hosted verification)

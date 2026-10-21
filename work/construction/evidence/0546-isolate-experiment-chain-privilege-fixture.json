@@ -1,0 +1,51 @@
+{
+  "correction": {
+    "files": [
+      "tests/test_experiment_chain.py"
+    ],
+    "fix": "stub require_admin_banner and require_lumos_approval on the isolated experiment_tracker module in the chain_env fixture",
+    "production_authorization_changed": false,
+    "test_only": true
+  },
+  "evidence_path": "work/construction/evidence/0546-isolate-experiment-chain-privilege-fixture.json",
+  "hosted_verification": {
+    "corrected_candidate_checks": "pending",
+    "failed_runs": [
+      {
+        "conclusion": "failure",
+        "event": "pull_request",
+        "failed_nodes": 3,
+        "id": 39605893385
+      },
+      {
+        "conclusion": "failure",
+        "event": "push",
+        "failed_nodes": 3,
+        "id": 39605828740
+      }
+    ],
+    "failure": "unit-test fixture did not isolate production Administrator and Lumos persistence guards; new exact tests raised SystemExit before behavior assertions",
+    "strict_administrator_audits": "passed"
+  },
+  "invariants": [
+    "Production privilege requirements remain intact.",
+    "A failed hosted test run is recorded as failure, not success.",
+    "Construction history remains append-only."
+  ],
+  "predecessor": {
+    "segment_path": "work/construction/segments/0545-gate-nondeterministic-adapter-execution.md",
+    "segment_sha256": "6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
+    "sequence": 545
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1547,
+  "segment_path": "work/construction/segments/0546-isolate-experiment-chain-privilege-fixture.md",
+  "segment_sha256": "e23073a9ec99177beffe9f7d784ace4e5cfd0569966542fab0c76b7a8e45a48b",
+  "sequence": 546,
+  "source_candidate_commit": "cc93441bc390997bf2139e881b47b0f981f891ce",
+  "source_candidate_tree": "98b2b5caadf2513cdfec33a4599909d52a6f4a2b",
+  "source_commit": "bf94c77571c6b6eae017db3f38f21fcd19da20f0",
+  "source_tree": "4d0836c6989d462bae682192a4d5d32a0d66c7ec",
+  "status": "candidate_pending_hosted_verification",
+  "title": "Isolate experiment-chain privilege guards in unit tests"
+}
