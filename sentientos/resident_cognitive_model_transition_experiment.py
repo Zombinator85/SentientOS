@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import threading
 import time
@@ -96,7 +97,9 @@ def _freeze(value: Any) -> Any:
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, (list, tuple)):
         return tuple(_freeze(item) for item in value)
-    if value is None or type(value) in {str, bool, int, float}:
+    if value is None or type(value) in {str, bool, int}:
+        return value
+    if type(value) is float and math.isfinite(value):
         return value
     raise TransitionError("transition_stage_execution_context_value_invalid")
 
