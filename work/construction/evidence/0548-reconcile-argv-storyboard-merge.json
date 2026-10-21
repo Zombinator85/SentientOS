@@ -1,0 +1,155 @@
+{
+  "evidence_path": "work/construction/evidence/0548-reconcile-argv-storyboard-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39612405238,
+        "scope": "full pytest and coverage, Mypy baseline ratchet, resource-to-cognition integration, docs linkcheck, Helm"
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39612405297
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39612405166
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "id": 39612405310
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39612405268
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "id": 39612405275
+      },
+      "Release": {
+        "conclusion": "success",
+        "id": 39612405233
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39612860825,
+        "exact_acceptance": "success",
+        "accepted_nodes": 35,
+        "failed_nodes": 0,
+        "skipped_nodes": 0,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "strict_administrator_audits": true,
+        "acceptance_artifact": {
+          "id": 12350882613,
+          "digest": "sha256:d9f3300beb4de1fbc802497922c53f5f95bfe0c38fb92635a0b0a01daf3b243d"
+        },
+        "finalizer_artifact": {
+          "id": 12350917586,
+          "digest": "sha256:f83149e4cc99ddfd3648af9e77b54c3528a6fb5a9783185643f397958d0a9fe0"
+        },
+        "quality_gate_artifact": {
+          "id": 12351821216,
+          "digest": "sha256:4eed26c701f7d502440dd1cba8ec296ff74ae09fd78854cf584c71ab404339d6"
+        }
+      }
+    },
+    "corrected_candidate_failures": [
+      {
+        "commit": "597c9bb468a29a385c6a55318a5a66c935ebf4c4",
+        "run": 39611098292,
+        "reason": "test fixture imported tts_bridge before test-only privilege guards"
+      },
+      {
+        "commit": "67a8de5fcfdbd95ccfd779a6aacf6882bea5a063",
+        "run": 39611575731,
+        "reason": "new regression nodes were skipped by legacy quarantine; fixed by explicitly opting those nodes into execution"
+      },
+      {
+        "commit": "a6404f7f81b44cd59d17f4073057712499fa35b9",
+        "run": 39612405192,
+        "reason": "PR title differed from tip commit subject; fixed by aligning PR metadata, then rerunning the complete gate"
+      }
+    ],
+    "post_merge_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39613212705
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39613212056
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39613212134
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "id": 39613212057
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39613212165
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39613212058
+      },
+      "Nightly Self Check": {
+        "job_conclusion": "success",
+        "job_id": 119267270192,
+        "run_id": 39613212067,
+        "run_conclusion": null,
+        "run_status": "in_progress",
+        "note": "All job steps completed successfully; enclosing run remained in progress at evidence capture."
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39613212087,
+        "strict_administrator_audits": true
+      }
+    }
+  },
+  "invariants": [
+    "storyboard values are inserted only after tokenization and remain individual argv values",
+    "external callbacks use shell=False",
+    "test-only guard patches do not change production authorization",
+    "the existing 33 acceptance nodes remain present and two exact nodes are added",
+    "planning and execution remain separate; no production inference or transition occurred"
+  ],
+  "predecessor": {
+    "sequence": 547,
+    "segment_sha256": "8ed20e9939f84325a68c43c1f49fb690aaf0b78092579b4cae58ef794e02a16b"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 548,
+  "source_candidate": {
+    "commit": "a6404f7f81b44cd59d17f4073057712499fa35b9",
+    "pull_request": 2555,
+    "tree": "059b5f5b9a0638f16983d3f57758305d99a851ba"
+  },
+  "source_recovery": {
+    "local_compile_and_workflow_validation": "passed",
+    "local_pytest": "blocked_by_canonical_minimal_test_install; guard not bypassed",
+    "protected_workspaces_touched": false,
+    "remote_main_parent": "ed44e102acfc05d1892bdaf87a245de88a75fa90",
+    "publication": "GitHub Git Data API; expected-head branch updates"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile verified argv-only storyboard callback merge",
+  "verified_main": {
+    "commit": "607f6517ae15ee9fb254daa587519c5c8572d34c",
+    "merge_method": "merge",
+    "parents": [
+      "ed44e102acfc05d1892bdaf87a245de88a75fa90",
+      "a6404f7f81b44cd59d17f4073057712499fa35b9"
+    ],
+    "ref": "main",
+    "tree": "059b5f5b9a0638f16983d3f57758305d99a851ba"
+  },
+  "segment_path": "work/construction/segments/0548-reconcile-argv-storyboard-merge.md",
+  "segment_sha256": "7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f4055456a8df",
+  "segment_bytes": 3247
+}

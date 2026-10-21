@@ -215,12 +215,14 @@ Latest segment SHA-256: `e23073a9ec99177beffe9f7d784ace4e5cfd0569966542fab0c76b7
 Sequence: 546 (candidate pending hosted verification)
 
 
-## Sequence 547 — reconcile sequence 546 verified merge
 
-PR #2553 merged normally as `0b548ac351268e58ca55db9b427f9de94f80deb7`, tree `266c27d41fb9a372c2fd6917258a7782f0798a20`. Exact candidate checks and all applicable post-merge checks passed. The narrow authenticated stage-approval delegation was confirmed in code and docs. No production transition or inference occurred.
+## Sequence 548 — reconcile verified argv-only storyboard callbacks
 
-Latest verified main: `0b548ac351268e58ca55db9b427f9de94f80deb7`, tree `266c27d41fb9a372c2fd6917258a7782f0798a20`
-Latest construction segment: work/construction/segments/0547-reconcile-sequence546-verified-merge.md
-Latest segment SHA-256: `8ed20e9939f84325a68c43c1f49fb690aaf0b78092579b4cae58ef794e02a16b`
-Sequence: 547 (verified merge reconciliation)
-Next: continue with a source-grounded developmental dependency selected from current main; keep authenticated operator delegation and independent effect-owner admissions intact.
+PR #2555 merged normally as `607f6517ae15ee9fb254daa587519c5c8572d34c` with tree `059b5f5b9a0638f16983d3f57758305d99a851ba`. The exact candidate passed 35 bound acceptance nodes with zero failures or skips, hosted strict Administrator audits, privileged pre-commit finalization, the separate PR metadata guard, CI, Docker, and Invariants. The PR-tip metadata mismatch and legacy-quarantine skips were corrected and retained in append-only history. Main's post-merge CI, Required Quality Gate, Docker, Docs Deploy, Codex CI, and Invariant workflows passed; Nightly Self Check's job passed although its workflow run summary remained in progress.
+
+Latest verified main: `607f6517ae15ee9fb254daa587519c5c8572d34c`, tree `059b5f5b9a0638f16983d3f57758305d99a851ba`
+Latest construction segment: work/construction/segments/0548-reconcile-argv-storyboard-merge.md
+Latest segment SHA-256: `7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f4055456a8df`
+Sequence: 548 (verified merge reconciliation)
+
+Next: inspect remaining process launch paths for concrete shell-string boundaries and platform-specific argument risks. Preserve read-only canonical planning and the separate goal execution and authority boundaries.
