@@ -431,6 +431,23 @@ def test_stage_approval_requires_explicit_offset_timestamps_before_effects(
     assert ctl.phase == PHASES[0]
 
 
+@pytest.mark.parametrize(("field", "timestamp"), [
+    ("not_before", "2026-09-24T00:00:00-00:00"),
+    ("expires_at", "2026-09-25T00:00:00-00:00"),
+])
+def test_stage_approval_rejects_unknown_offset_before_effects(tmp_path, field, timestamp):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    supplied = dict(approval(ctl, slot))
+    supplied[field] = timestamp
+
+    with pytest.raises(TransitionError, match="stage_approval_validity_invalid"):
+        ctl.advance(approval=_redigest_stage_approval(supplied))
+
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
 def test_reversed_stage_approval_window_is_invalid_before_effects(tmp_path):
     ctl, gate, journal, slot, _ = controller(tmp_path)
     supplied = dict(approval(ctl, slot))

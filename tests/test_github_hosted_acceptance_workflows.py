@@ -42,6 +42,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_request_publication_preserves_create_once_collision_semantics",
         "test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
         "test_protocol_publication_rejects_oversized_payload_without_publishing",
+        "test_stage_approval_rejects_unknown_offset_before_effects",
     )
     for node in nodes:
         assert node in source_validation

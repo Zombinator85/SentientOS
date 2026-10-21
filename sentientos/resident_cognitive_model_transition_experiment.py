@@ -592,6 +592,11 @@ def _stage_approval_timestamp(value: object) -> datetime:
     """Parse one explicit-offset stage validity timestamp as UTC."""
     if not isinstance(value, str) or not value:
         raise ValueError("stage_approval_timestamp_must_be_text")
+    # RFC 3339 assigns -00:00 the meaning "offset unknown". Python's
+    # fromisoformat treats it as UTC, which would make an uncertain approval
+    # window appear comparable to the controller's clock.
+    if value.endswith("-00:00"):
+        raise ValueError("stage_approval_timestamp_offset_unknown")
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("stage_approval_timestamp_must_include_timezone")
