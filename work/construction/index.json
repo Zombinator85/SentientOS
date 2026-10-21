@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7dc45016848e62694b19b0dd4ca66e0d03b2bb6462dd733b8cff8c79e0b00839",
-    "latest_segment_sequence": 513,
-    "latest_segment_sha256": "3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
-    "source_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
-    "source_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
+    "checkpoint_sha256": "c04ac0433bf7e95b9cbf9bb2eb34c5c2ee85ae6356d5f67c8c7e985f684dc0d3",
+    "latest_segment_sequence": 514,
+    "latest_segment_sha256": "b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
+    "source_commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+    "source_tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5"
   },
-  "checkpoint_sha256": "7dc45016848e62694b19b0dd4ca66e0d03b2bb6462dd733b8cff8c79e0b00839",
+  "checkpoint_sha256": "c04ac0433bf7e95b9cbf9bb2eb34c5c2ee85ae6356d5f67c8c7e985f684dc0d3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 513,
+  "latest_sequence": 514,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5842,6 +5842,19 @@
       "source_candidate_commit": "f8b627b73234a13d8c1c19659b911e587c0cf1f9",
       "source_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
       "source_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
+    },
+    {
+      "bytes": 2181,
+      "evidence_bytes": 4381,
+      "evidence_path": "work/construction/evidence/0514-validate-transition-context-constructor-shape.json",
+      "evidence_sha256": "83487bda5155a5141ba61019e3dae81d275eebb580dcf9f7575fbfc089ca0b7e",
+      "path": "work/construction/segments/0514-validate-transition-context-constructor-shape.md",
+      "predecessor": "segment-sha256:3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
+      "sequence": 514,
+      "sha256": "b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
+      "source_candidate_commit": "2d3539f462b5e6eb6acac5710001dc1b831ed2ce",
+      "source_commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+      "source_tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5"
     }
   ],
   "source_acquisition": {

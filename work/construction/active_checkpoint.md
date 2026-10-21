@@ -492,3 +492,14 @@ Acceptance follow-up candidate: `f8b627b73234a13d8c1c19659b911e587c0cf1f9`, tree
 Latest construction segment: `work/construction/segments/0513-bind-finite-number-regression-to-acceptance.md`
 Latest segment SHA-256: `3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb`
 Sequence: 513 (corrected candidate pending hosted verification)
+
+
+## Sequence 514 — validate transition context constructor shape
+
+The public transition-stage context constructor now validates the stage label, approval container, and each approval entry before recursive freezing, returning explicit domain errors for malformed direct API inputs. Sequence 512/513 merged via PR #2520 as `c10db1dd8bf68a440b4672744a12d3d89d96a18d`, tree `4a4d36bc8350b38c11d618cd37b4ea5c65235ef5`; exact-candidate checks and post-merge CI, Quality Gate, Docker, Docs Deploy, Codex CI, nightly self-check, and invariants passed. Forge Smoke was conditionally skipped. Supplemental verification passed 91 affected tests, targeted Mypy, compilation, workflow YAML, diff checks, and custody over 513 predecessor segments. Candidate checks are pending.
+
+Latest verified source merge: `c10db1dd8bf68a440b4672744a12d3d89d96a18d`, tree `4a4d36bc8350b38c11d618cd37b4ea5c65235ef5`
+Implementation candidate: `2d3539f462b5e6eb6acac5710001dc1b831ed2ce`, tree `833cda415b96db88afee5307c5542503fa53bdc6`
+Latest construction segment: `work/construction/segments/0514-validate-transition-context-constructor-shape.md`
+Latest segment SHA-256: `b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0`
+Sequence: 514 (candidate pending hosted verification)
