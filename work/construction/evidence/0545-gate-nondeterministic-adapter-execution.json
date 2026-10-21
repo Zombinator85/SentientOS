@@ -1,0 +1,67 @@
+{
+  "authority_boundary": {
+    "developmental_writeback": false,
+    "physical_adapter_execution": false,
+    "production_transition_or_inference": false
+  },
+  "change": {
+    "exact_acceptance_nodes": [
+      "tests/test_experiment_chain.py::test_pending_nondeterministic_adapter_waits_for_approval",
+      "tests/test_experiment_chain.py::test_nondeterministic_adapter_runs_after_consensus_approval",
+      "tests/test_experiment_chain.py::test_pending_deterministic_adapter_keeps_existing_execution_behavior"
+    ],
+    "files": [
+      "sentientos/verify/sentient_verify_loop.py",
+      "sentientos/experiments/runner.py",
+      "tests/test_experiment_chain.py",
+      ".github/workflows/required-quality-gate.yml",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "invariant": "non-deterministic adapters cannot execute before the experiment reaches active consensus-approved status"
+  },
+  "evidence_path": "work/construction/evidence/0545-gate-nondeterministic-adapter-execution.json",
+  "hosted_verification": {
+    "full_ci": "pending",
+    "required_quality_gate": "pending",
+    "status": "pending"
+  },
+  "invariants": [
+    "Append-only construction history; no prior evidence rewritten.",
+    "Only the isolated clean worktree was changed; stale and protected workspaces were untouched.",
+    "Adapter consensus requirement is derived from registered adapter metadata and existing active approval state.",
+    "No test or privileged verification gate was weakened."
+  ],
+  "local_verification": {
+    "canonical_targeted_tests": {
+      "reason": "network proxy unavailable for pinned setuptools editable-install dependency",
+      "status": "blocked_during_bootstrap",
+      "success_claimed": false,
+      "tests_executed": 0
+    },
+    "construction_continuation_custody": "passed_before_append; 544 prior segments",
+    "git_diff_check": "passed",
+    "python_compileall": "passed",
+    "quality_gate_yaml_parse": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0544-reconcile-sequence543-verified-merge.md",
+    "segment_sha256": "6fc6b80a959d6b9db74bc82ebcee45062297458f7111b63ced28916710b55fed",
+    "sequence": 544
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1658,
+  "segment_path": "work/construction/segments/0545-gate-nondeterministic-adapter-execution.md",
+  "segment_sha256": "6faabdc8662f5a83c89e956aad6075695f35b85304b18767bfad7f2537af8e4f",
+  "sequence": 545,
+  "source_base": {
+    "commit": "9e7019bca46b2e6c5e5baf6e4a03f4a0fb512ca0",
+    "ref": "main",
+    "tree": "b41e5cdf2c73e6dcbc228a185ed3a9b3983ce5f8"
+  },
+  "source_candidate": {
+    "commit": "e49438c08efa9d41c1c4c59a8d96fdcae83c2bb6",
+    "tree": "a021879d8ce38c4e2a9f95354d4bb5ee549a003f"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Gate nondeterministic adapter execution on consensus approval"
+}

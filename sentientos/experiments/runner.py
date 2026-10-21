@@ -11,7 +11,10 @@ from logging_config import get_log_path
 
 from .chain import ExperimentChain, ChainStep
 from .federation_guard import current_window, emit_guard_event, should_run_experiment
-from sentientos.verify.sentient_verify_loop import execute_experiment_with_adapter
+from sentientos.verify.sentient_verify_loop import (
+    adapter_requires_consensus,
+    execute_experiment_with_adapter,
+)
 
 
 ChainProgressCallback = Callable[["ChainStepResult"], None]
@@ -156,7 +159,9 @@ def run_chain(
             final_experiment_id = step.id
             break
 
-        if experiment.get("requires_consensus") and experiment.get("status") != "active":
+        if ((experiment.get("requires_consensus")
+                or adapter_requires_consensus(experiment))
+                and experiment.get("status") != "active"):
             result = ChainStepResult(
                 chain_id=chain.chain_id,
                 step_index=step_index,

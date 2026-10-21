@@ -25,6 +25,19 @@ def get_adapter(name: str) -> Type[Adapter]:
         raise ValueError(f"Unknown adapter '{name}'. Available adapters: {available}") from exc
 
 
+def adapter_requires_consensus(experiment: Dict[str, Any]) -> bool:
+    """Return whether the configured adapter is marked non-deterministic."""
+    try:
+        name, _ = _resolve_adapter_spec(experiment)
+    except (TypeError, ValueError):
+        # Let normal execution report malformed configuration through its
+        # established error path before connecting to or using an adapter.
+        return False
+    adapter_cls = ADAPTERS.get(name)
+    return adapter_cls is not None and not bool(
+        getattr(adapter_cls, "deterministic", True))
+
+
 def _normalise_sequence(value: Any) -> IterableABC[Dict[str, Any]]:
     if value is None:
         return []
@@ -95,5 +108,4 @@ def execute_experiment_with_adapter(experiment: Dict[str, Any]) -> Dict[str, Any
     if isinstance(mock_context, dict):
         for key, value in mock_context.items():
             context.setdefault(key, value)
-    # TODO: consensus gating for non-deterministic adapters.
     return context
