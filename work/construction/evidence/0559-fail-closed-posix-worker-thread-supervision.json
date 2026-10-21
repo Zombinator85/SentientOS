@@ -1,0 +1,149 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "pull_request_run_id": 39658053049,
+      "push_run_id": 39658027740
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39658053559
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39658053482
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39658053353
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "pull_request_run_id": 39658053226,
+      "push_run_id": 39658028055
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39658053159
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39658053132
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "exact_platform_agnostic_acceptance_nodes": 45,
+      "hosted_privileged_precommit_finalizer": "success",
+      "pull_request_run_id": 39658053549,
+      "push_run_id": 39658027885,
+      "separate_pr_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39658053224
+    }
+  },
+  "invariants": [
+    "POSIX worker-thread calls fail before stage output or child creation",
+    "process-wide controller signal handlers remain main-thread owned",
+    "the platform-agnostic acceptance remains exactly 45 nodes",
+    "strict audits, hosted finalization, and metadata guard remain enabled",
+    "source and merge trees match; ordered parents preserve candidate history",
+    "protected and stale workspaces were not touched"
+  ],
+  "local_verification": {
+    "construction_custody_before_append": "558 segments verified",
+    "diff_check": "passed",
+    "focused_tests": "15 passed; 1 Windows-only native test skipped on Linux",
+    "py_compile": "passed for changed Python files",
+    "strict_mypy": "passed for sentientos/bounded_subprocess.py"
+  },
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39658845521
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39658845500
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39658845549
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39658845351
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39658845296
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39658845561
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39658845428
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39658845497
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39658845730
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
+    "sequence": 558
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "digest": "sha256:c2c53de79c1be458e6ef9ca27dee47491b2bcaec4df5ec86ad88c27e98667266",
+      "id": 12371904191
+    },
+    "finalizer": {
+      "digest": "sha256:ad8bbc11d6b428bc67b3a06c4c7c7aa20557e548ad53fe009e49eeca05ec7b16",
+      "id": 12372179026
+    },
+    "quality_gate": {
+      "digest": "sha256:a979642218861e71767298e9cf1709c80bf6d2d68f95e6bc02efe6a6e4246dc2",
+      "id": 12371909119
+    }
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2134,
+  "segment_path": "work/construction/segments/0559-fail-closed-posix-worker-thread-supervision.md",
+  "segment_sha256": "157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
+  "sequence": 559,
+  "source_blobs": {
+    "sentientos/bounded_subprocess.py": "54f2056dd6efeb243684357529b3b316a53cd64d",
+    "tests/test_codex_landing_process_supervision.py": "badc245e9371d40a48b2d07b41619846a40547be"
+  },
+  "source_candidate": {
+    "commit": "082d67afcaca06b4c4aa0201e3f99514021bea6c",
+    "pull_request": 2576,
+    "tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
+  },
+  "source_recovery": {
+    "continuation_chain": "sequence 558 verified as predecessor before appending 559",
+    "protected_workspaces_touched": false,
+    "remote_readback": "GitHub candidate commit/tree/source blobs and main merge commit/tree/ordered parents independently read back"
+  },
+  "status": "verified_reconciliation",
+  "title": "Fail-closed POSIX worker-thread subprocess supervision",
+  "verified_main": {
+    "commit": "30c2c524d15e28b510d01b8a6f2728fa2a471a2d",
+    "merge_method": "merge",
+    "parents": [
+      "fe409477c32bc6165093954014e3da12c9e14e77",
+      "082d67afcaca06b4c4aa0201e3f99514021bea6c"
+    ],
+    "ref": "main",
+    "tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
+  }
+}
