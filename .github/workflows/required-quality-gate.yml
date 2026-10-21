@@ -214,7 +214,7 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           candidate = json.loads(Path(source_provenance).read_text())
           nodes = candidate.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 42 or not all(isinstance(node, str) for node in nodes):
+          if not isinstance(nodes, list) or len(nodes) != 45 or not all(isinstance(node, str) for node in nodes):
               raise SystemExit("hosted candidate acceptance must contain the exact 45 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
@@ -311,7 +311,7 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           initial = json.loads(Path(source_provenance).read_text())
           nodes = initial.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 42 or not all(isinstance(node, str) for node in nodes):
+          if not isinstance(nodes, list) or len(nodes) != 45 or not all(isinstance(node, str) for node in nodes):
               raise SystemExit("candidate acceptance must contain the exact 45 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
