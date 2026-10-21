@@ -7,10 +7,11 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
-from sentientos.bounded_subprocess import run_supervised
+from sentientos.bounded_subprocess import _terminate_windows_process, run_supervised
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -195,3 +196,54 @@ def test_supervisor_drains_stdout_and_stderr_without_deadlock() -> None:
     assert result.status == "passed"
     assert "line continues" in result.stdout_tail
     assert "line continues" in result.stderr_tail
+
+
+def test_windows_group_shutdown_is_reported_as_graceful(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 123, raising=False)
+    process = Mock()
+    process.poll.return_value = None
+    process.wait.return_value = 0
+
+    graceful, forced = _terminate_windows_process(process, 0.2)
+
+    assert graceful is True
+    assert forced is False
+    process.send_signal.assert_called_once_with(123)
+    process.kill.assert_not_called()
+
+
+def test_windows_shutdown_falls_back_to_reported_forced_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 123, raising=False)
+    process = Mock()
+    process.poll.return_value = None
+    process.send_signal.side_effect = OSError("console control event unavailable")
+    process.wait.return_value = -1
+
+    graceful, forced = _terminate_windows_process(process, 0.2)
+
+    assert graceful is True
+    assert forced is True
+    process.send_signal.assert_called_once_with(123)
+    process.kill.assert_called_once_with()
+
+
+def test_windows_shutdown_forces_child_after_grace_period(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", 123, raising=False)
+    process = Mock()
+    process.poll.return_value = None
+    process.wait.side_effect = [
+        subprocess.TimeoutExpired("child", 0.2),
+        -1,
+    ]
+
+    graceful, forced = _terminate_windows_process(process, 0.2)
+
+    assert graceful is True
+    assert forced is True
+    process.send_signal.assert_called_once_with(123)
+    process.kill.assert_called_once_with()
+    assert process.wait.call_count == 2
