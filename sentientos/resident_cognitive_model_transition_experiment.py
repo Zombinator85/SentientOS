@@ -474,7 +474,13 @@ class TransitionStageExecutionContext:
     subordinate_approvals: tuple[Mapping[str, Any], ...]
 
     def __post_init__(self) -> None:
+        if type(self.requested_stage) is not str:
+            raise TransitionError("transition_stage_execution_context_stage_invalid")
+        if type(self.subordinate_approvals) not in {tuple, list}:
+            raise TransitionError("transition_stage_execution_context_approvals_invalid")
         frozen = tuple(_freeze(item) for item in self.subordinate_approvals)
+        if any(not isinstance(item, Mapping) for item in frozen):
+            raise TransitionError("transition_stage_execution_context_approval_invalid")
         object.__setattr__(self, "subordinate_approvals", frozen)
 
     @classmethod
