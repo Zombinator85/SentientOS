@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "860e5bf954377d8844e8d9b60a7df2f3907365ca09e1a5856ed0e22e1e3a6345",
-    "latest_segment_sequence": 522,
-    "latest_segment_sha256": "9434627749b57ed7e9969a6fdcd342b48cf60a79c1ea53232cd626aeb348c6ac",
-    "source_commit": "7500c4aae80ae2e4d5e971dd3a8add007655da82",
-    "source_tree": "01198ad506205aa21a382b77b7eb6a6960166c80"
+    "checkpoint_sha256": "104a7d6f70c91f6472309519b9834c889a603ae0a137ebbd51a42296728da3b0",
+    "latest_segment_sequence": 523,
+    "latest_segment_sha256": "2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
+    "source_commit": "98a0a485c1cca0bc5f7c59db42a3fc12c43aa2bd",
+    "source_tree": "bb6289381479237ce62f59e15b1602915b2bdfee"
   },
-  "checkpoint_sha256": "860e5bf954377d8844e8d9b60a7df2f3907365ca09e1a5856ed0e22e1e3a6345",
+  "checkpoint_sha256": "104a7d6f70c91f6472309519b9834c889a603ae0a137ebbd51a42296728da3b0",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 522,
+  "latest_sequence": 523,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5959,6 +5959,19 @@
       "source_candidate_commit": "15d9a205959284e7810ffc4b8ffb10ec72ee18e0",
       "source_commit": "7500c4aae80ae2e4d5e971dd3a8add007655da82",
       "source_tree": "01198ad506205aa21a382b77b7eb6a6960166c80"
+    },
+    {
+      "bytes": 1295,
+      "evidence_bytes": 2531,
+      "evidence_path": "work/construction/evidence/0523-reconcile-sequence522-evidence-merge.json",
+      "evidence_sha256": "a2fe7fa0b7d755d28912007d83e29b0e527217ba16bc6523e3510cb630166d29",
+      "path": "work/construction/segments/0523-reconcile-sequence522-evidence-merge.md",
+      "predecessor": "segment-sha256:9434627749b57ed7e9969a6fdcd342b48cf60a79c1ea53232cd626aeb348c6ac",
+      "sequence": 523,
+      "sha256": "2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
+      "source_candidate_commit": "35687142d4fb5b88f86d099774fe4deddba990a6",
+      "source_commit": "98a0a485c1cca0bc5f7c59db42a3fc12c43aa2bd",
+      "source_tree": "bb6289381479237ce62f59e15b1602915b2bdfee"
     }
   ],
   "source_acquisition": {

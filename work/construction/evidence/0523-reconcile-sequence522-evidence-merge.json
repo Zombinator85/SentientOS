@@ -1,0 +1,67 @@
+{
+  "evidence_path": "work/construction/evidence/0523-reconcile-sequence522-evidence-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only evidence history and exact main-tree bindings are preserved.",
+    "Strict audit and metadata requirements remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "federation_health_current_main": "not_observed",
+    "nightly_audit_integrity_current_main": "not_observed",
+    "nightly_self_check_latest_exact_commit": "7500c4aae80ae2e4d5e971dd3a8add007655da82"
+  },
+  "postmerge_checks": {
+    "ci": "passed",
+    "deploy": "passed",
+    "docker_cpu_smoke": "passed",
+    "docs_linkcheck": "passed",
+    "forge_smoke": "skipped_by_condition",
+    "helm": "passed",
+    "integrated_source_validation": "passed",
+    "invariants": "passed",
+    "quality_gate": "passed",
+    "self_check": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0522-reconcile-sequence522-verified-merge.md",
+    "segment_sha256": "9434627749b57ed7e9969a6fdcd342b48cf60a79c1ea53232cd626aeb348c6ac",
+    "sequence": 522
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1295,
+  "segment_path": "work/construction/segments/0523-reconcile-sequence522-evidence-merge.md",
+  "segment_sha256": "2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
+  "sequence": 523,
+  "sequence_522_evidence_merge_reconciliation": {
+    "candidate_commit": "35687142d4fb5b88f86d099774fe4deddba990a6",
+    "main_merge_commit": "98a0a485c1cca0bc5f7c59db42a3fc12c43aa2bd",
+    "main_tree": "bb6289381479237ce62f59e15b1602915b2bdfee",
+    "ordered_parents": [
+      "7500c4aae80ae2e4d5e971dd3a8add007655da82",
+      "35687142d4fb5b88f86d099774fe4deddba990a6"
+    ],
+    "postmerge_status": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2530
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 522 evidence merge",
+  "verified_main": {
+    "commit": "98a0a485c1cca0bc5f7c59db42a3fc12c43aa2bd",
+    "ref": "main",
+    "tree": "bb6289381479237ce62f59e15b1602915b2bdfee"
+  }
+}
