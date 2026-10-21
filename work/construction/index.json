@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "50c3c51bc69bbcda2a108b2489b9204c5d2fd21503f8cfbe574bd01e8ab2c370",
-    "latest_segment_sequence": 538,
-    "latest_segment_sha256": "6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
-    "source_commit": "abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b",
-    "source_tree": "343687128774739c699b7ed2a2fb22c44c6c58f7"
+    "checkpoint_sha256": "140105768febd9b2ea54bf1bd85bb01f7cad109327b40f8787f16bfed65f5fc5",
+    "latest_segment_sequence": 539,
+    "latest_segment_sha256": "63d9d23e7fee463dffa27b85aab60a830883a755a364a2c99dd55d0f58b35c29",
+    "source_commit": "d506514e0f655fdf3dd21faa16cd9fbf2695e963",
+    "source_tree": "e0fe12b7375584f38ce25f411d688425a3715dfe"
   },
-  "checkpoint_sha256": "50c3c51bc69bbcda2a108b2489b9204c5d2fd21503f8cfbe574bd01e8ab2c370",
+  "checkpoint_sha256": "140105768febd9b2ea54bf1bd85bb01f7cad109327b40f8787f16bfed65f5fc5",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 538,
+  "latest_sequence": 539,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6163,6 +6163,19 @@
       "sequence": 538,
       "sha256": "6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
       "source_candidate_commit": "abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b",
+      "source_commit": "500fd87c0d807f9ef2128902c166d04c3203f8fc",
+      "source_tree": "7bc937225377b689657cd52df96cbb604ccc2639"
+    },
+    {
+      "bytes": 1990,
+      "evidence_bytes": 2714,
+      "evidence_path": "work/construction/evidence/0539-correct-hosted-receipt-identity-acceptance-node.json",
+      "evidence_sha256": "c113c1bd9c44456411db02dd7688dbac3bd37e3687ceb5995198a3f212bf123b",
+      "path": "work/construction/segments/0539-correct-hosted-receipt-identity-acceptance-node.md",
+      "predecessor": "segment-sha256:6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
+      "sequence": 539,
+      "sha256": "63d9d23e7fee463dffa27b85aab60a830883a755a364a2c99dd55d0f58b35c29",
+      "source_candidate_commit": "d506514e0f655fdf3dd21faa16cd9fbf2695e963",
       "source_commit": "500fd87c0d807f9ef2128902c166d04c3203f8fc",
       "source_tree": "7bc937225377b689657cd52df96cbb604ccc2639"
     }
