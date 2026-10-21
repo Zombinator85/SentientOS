@@ -237,7 +237,7 @@ jobs:
             --manifest glow/test_runs/federation_health_acceptance.json \
             --provenance glow/test_runs/federation_health_provenance.json \
             --output glow/test_runs/federation_health_acceptance_result.json
-      - name: Verify transition operator ingress and receipt projection
+      - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
             tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_requires_completed_semantically_verified_journal_binding \
@@ -257,7 +257,10 @@ jobs:
             tests/test_resident_cognitive_transition_operator.py::test_transition_stage_execution_context_rejects_cycles_and_excessive_nesting \
             tests/test_resident_cognitive_transition_operator.py::test_request_publication_keeps_partial_bytes_invisible_and_retries_short_writes \
             tests/test_resident_cognitive_transition_operator.py::test_request_publication_rejects_noncanonical_request_id_without_path_escape \
-            tests/test_resident_cognitive_transition_operator.py::test_request_publication_rejects_oversized_packet_without_publishing
+            tests/test_resident_cognitive_transition_operator.py::test_request_publication_rejects_oversized_packet_without_publishing \
+            tests/test_resident_cognitive_transition_operator.py::test_request_publication_preserves_create_once_collision_semantics \
+            tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes \
+            tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_rejects_oversized_payload_without_publishing
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/transition_receipt_provenance.json
           python - <<'PYCODE'
@@ -284,6 +287,9 @@ jobs:
               "tests/test_resident_cognitive_transition_operator.py::test_request_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
               "tests/test_resident_cognitive_transition_operator.py::test_request_publication_rejects_noncanonical_request_id_without_path_escape",
               "tests/test_resident_cognitive_transition_operator.py::test_request_publication_rejects_oversized_packet_without_publishing",
+              "tests/test_resident_cognitive_transition_operator.py::test_request_publication_preserves_create_once_collision_semantics",
+              "tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
+              "tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_rejects_oversized_payload_without_publishing",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
@@ -291,7 +297,7 @@ jobs:
               "repository_sha": os.environ["GITHUB_SHA"],
               "test_provenance_path": "glow/test_runs/transition_receipt_provenance.json",
               "required_nodes": [
-                  {"node_id": node, "rationale": "verify immutable operator request publication and read-only transition receipt custody"}
+                  {"node_id": node, "rationale": "verify bounded immutable protocol and request publication and read-only transition receipt custody"}
                   for node in nodes
               ],
               "successful_path_nodes": nodes,

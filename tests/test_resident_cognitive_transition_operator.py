@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sentientos.resident_cognitive_model_transition_experiment import (
-    PHASES, TransitionError, TransitionStageExecutionContext, digest,
+    PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
 )
 from sentientos.causal_resource_principal_ed25519 import CryptographyEd25519SignatureVerifier
 from sentientos.resident_cognitive_transition_operator_authentication import (
@@ -23,9 +23,10 @@ from sentientos.resident_cognitive_transition_operator_authentication import (
     operator_request_claims_digest, provenance_digest_for, seal_request_with_operator_provenance,
 )
 from sentientos.resident_cognitive_transition_operator import (
-    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, MAX_TRANSITION_REQUEST_BYTES,
-    REQUEST_CUSTODY, LiveTransitionConfig,
-    LiveTransitionOperatorRuntime, build_request, persist_request,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, JOURNAL_CUSTODY, MAX_TRANSITION_PROTOCOL_BYTES,
+    MAX_TRANSITION_REQUEST_BYTES, PROTOCOL_CUSTODY, REQUEST_CUSTODY,
+    LiveTransitionConfig, LiveTransitionOperatorRuntime, build_request, persist_protocol,
+    load_verified_protocol, persist_request,
 )
 from sentientos import private_file_custody
 
@@ -153,6 +154,16 @@ def _request(**changes):
     return seal_request_with_operator_provenance(request, provenance)
 
 
+def _transition_protocol(*, initial_boundary: dict[str, Any] | None = None) -> TransitionProtocol:
+    return TransitionProtocol.create(
+        installation_identity="installation-1", predecessor={"identity_digest": "a"},
+        successor={"identity_digest": "b"},
+        initial_activation={"state_digest": "a" * 64, "generation": 1},
+        initial_session={"session_id": "session-a", "binding": {"identity_digest": "a"}},
+        initial_boundary=initial_boundary or {}, b_operation_id="b-operation",
+        restored_a_operation_id="a-operation")
+
+
 def test_request_publication_keeps_partial_bytes_invisible_and_retries_short_writes(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     request = _request()
@@ -198,6 +209,66 @@ def test_request_publication_rejects_oversized_packet_without_publishing(tmp_pat
     root = tmp_path / REQUEST_CUSTODY
     assert not list(root.glob("*.json"))
     assert not list(root.glob(".pending-*"))
+
+
+def test_request_publication_preserves_create_once_collision_semantics(tmp_path: Path) -> None:
+    request = _request()
+    path = persist_request(tmp_path, request)
+    original = path.read_bytes()
+    changed = dict(request)
+    changed["stage_evidence"] = {"collision": "changed content under the same request ID"}
+
+    with pytest.raises(FileExistsError):
+        persist_request(tmp_path, changed)
+
+    assert path.read_bytes() == original
+
+
+def test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    protocol = _transition_protocol()
+    target = tmp_path / PROTOCOL_CUSTODY
+    original_write = private_file_custody.os.write
+    observed_partial_writes = 0
+
+    def short_write(descriptor: int, data: Any) -> int:
+        nonlocal observed_partial_writes
+        written = original_write(descriptor, data[:11])
+        observed_partial_writes += 1
+        assert not target.exists()
+        return written
+
+    monkeypatch.setattr(private_file_custody.os, "write", short_write)
+    path = persist_protocol(tmp_path, protocol)
+
+    assert path == target
+    assert observed_partial_writes > 1
+    assert json.loads(path.read_text()) == dict(protocol.value)
+    assert list(target.parent.glob(".pending-*")) == []
+    assert load_verified_protocol(
+        tmp_path, protocol_id=str(protocol.value["protocol_id"]),
+        protocol_digest=str(protocol.value["protocol_digest"])).value == protocol.value
+    monkeypatch.setattr(private_file_custody.os, "write", original_write)
+    with pytest.raises(FileExistsError):
+        persist_protocol(tmp_path, protocol)
+    original = path.read_bytes()
+    conflicting_protocol = _transition_protocol(initial_boundary={"changed": True})
+    with pytest.raises(FileExistsError):
+        persist_protocol(tmp_path, conflicting_protocol)
+    assert path.read_bytes() == original
+
+
+def test_protocol_publication_rejects_oversized_payload_without_publishing(
+        tmp_path: Path) -> None:
+    protocol = _transition_protocol(
+        initial_boundary={"payload": "x" * MAX_TRANSITION_PROTOCOL_BYTES})
+
+    with pytest.raises(TransitionError, match="transition_protocol_publication_failed"):
+        persist_protocol(tmp_path, protocol)
+
+    target = tmp_path / PROTOCOL_CUSTODY
+    assert not target.exists()
+    assert not list(target.parent.glob(".pending-*"))
 
 
 def _resign_request(request):
