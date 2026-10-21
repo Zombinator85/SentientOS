@@ -1,0 +1,99 @@
+{
+  "evidence_path": "work/construction/evidence/0517-reconcile-sequence516-verified-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "implementation_source": {
+    "commit": "c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "be78a543cc7d90d2eff4526f107bc0bfca45be76"
+      },
+      "sentientos/resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "1798f20d42a977caa5826659e981ef550773d759"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "7b0e216b7e11a6ae2047b774a7ce1ce6ae715383"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "14e0f0d5a2e52c19a6658723fefffe21fe605840"
+      }
+    },
+    "parent": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+    "tree": "8d0fa6f97f7255c2ef3cfdcb7162b39e0a301a05"
+  },
+  "invariants": [
+    "Versioned operator request envelopes reject missing and unknown top-level fields before stage effects.",
+    "Authenticated request operator remains bound to stage approval issuer; subordinate owners retain separate authority.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; 516 indexed segments before this reconciliation",
+    "diff_check": "passed",
+    "targeted_mypy": "not clean; see sequence 516 evidence for 339 repo-wide diagnostics and one existing module diagnostic outside changed lines",
+    "test_command": "/tmp/sentientos-seq516-verify/bin/python -m scripts.run_tests -- -m \"legacy or no_legacy_skip\" -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_transition_operator_trust_catalog.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_resident_cognitive_model_transition_experiment_capability_admission.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py",
+    "tests_failed": 0,
+    "tests_passed": 162,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0516-enforce-canonical-transition-request-envelope.md",
+    "segment_sha256": "76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c",
+    "sequence": 516
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1964,
+  "segment_path": "work/construction/segments/0517-reconcile-sequence516-verified-merge.md",
+  "segment_sha256": "64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d8dffeb972",
+  "sequence": 517,
+  "sequence_516_merge_reconciliation": {
+    "administrator_audits": "passed",
+    "candidate_checks": "passed",
+    "candidate_commit": "ce730dd21d6e9477cd144e441e2a85f393b49f4b",
+    "hosted_finalization": "passed",
+    "main_merge_commit": "73f19916301edde4b6d6866a6e29aebfca232697",
+    "main_tree": "131fac0cd50311782ca20bd87870c1388bc01a46",
+    "nightly_audit_integrity": "no_run_found_in_recent_inspected_actions_pages",
+    "ordered_parents": [
+      "801ede97f74332ae86286eeb03453c8bc2a4896e",
+      "ce730dd21d6e9477cd144e441e2a85f393b49f4b"
+    ],
+    "postmerge_runs": {
+      "build": 119064629061,
+      "cpu_smoke": 119064622540,
+      "deploy": 119064751703,
+      "docs_linkcheck": 119064623908,
+      "forge_smoke_skipped": 119064623594,
+      "helm": 119064623610,
+      "invariants": 119064622854,
+      "main_quality_gate": 119064622866,
+      "self_check": 119064623829,
+      "self_check_duplicate": 119064622914,
+      "source_validation": 119064623777
+    },
+    "postmerge_status": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2523,
+    "scheduled_federation_health": "no_run_on_sequence_516_main_at_capture",
+    "separate_metadata_guard": "passed"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 516 verified merge",
+  "verified_main": {
+    "commit": "73f19916301edde4b6d6866a6e29aebfca232697",
+    "ref": "main",
+    "tree": "131fac0cd50311782ca20bd87870c1388bc01a46"
+  }
+}
