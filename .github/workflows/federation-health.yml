@@ -145,7 +145,7 @@ jobs:
         if: ${{ vars.SENTIENTOS_FEDERATION_HEALTH_USE_APP == '1' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
         with:
-          app-id: ${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}
+          client-id: ${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}
           private-key: ${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY }}
           owner: Zombinator85
           repositories: SentientOS
