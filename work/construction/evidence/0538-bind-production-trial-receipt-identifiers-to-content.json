@@ -1,0 +1,68 @@
+{
+  "evidence_path": "work/construction/evidence/0538-bind-production-trial-receipt-identifiers-to-content.json",
+  "hosted_verification": {
+    "candidate_checks": "pending",
+    "sequence_537_merge_postchecks": "not_yet_observed_at_evidence_capture",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Production-trial receipt IDs must equal the canonical semantic identity derived from the receipt body before the ID and outer digest are added.",
+    "Recomputing the outer digest cannot validate missing, malformed, or noncanonical receipt identity.",
+    "Receipt posture, objective-plan binding, no-autonomous-repetition, and existing authority boundaries remain enforced.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "ci_yaml_parse": "passed",
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "production_trial_receipt_and_synthetic_rehearsal_tests": "25_passed",
+    "targeted_mypy_changed_python_files": "passed_no_issues_in_2_files"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0537-enforce-canonical-campaign-protocol-contract.md",
+    "segment_sha256": "a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4",
+    "sequence": 537
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2261,
+  "segment_path": "work/construction/segments/0538-bind-production-trial-receipt-identifiers-to-content.md",
+  "segment_sha256": "6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
+  "sequence": 538,
+  "sequence_537_merge": {
+    "candidate_workflows": {
+      "CI": 39592685026,
+      "Codex CI": 39592684865,
+      "Docker Image": 39592684783,
+      "Gradient null regression": 39592684934,
+      "Invariant Tests": 39592685113,
+      "Lint Benchmark": 39592685126,
+      "Release": 39592684834,
+      "Required Quality Gate": 39592684809
+    },
+    "merge_commit": "500fd87c0d807f9ef2128902c166d04c3203f8fc",
+    "parents": [
+      "5b9f7b43bbed42ac2fed43f9db4a73ba427923bc",
+      "137ff7dd72ab2ef95a74a20651d517ba25495056"
+    ],
+    "pr": 2546,
+    "tree": "7bc937225377b689657cd52df96cbb604ccc2639"
+  },
+  "source_candidate": {
+    "commit": "abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b",
+    "tree": "343687128774739c699b7ed2a2fb22c44c6c58f7"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind production-trial receipt identifiers to content",
+  "verified_main": {
+    "commit": "500fd87c0d807f9ef2128902c166d04c3203f8fc",
+    "ref": "main",
+    "tree": "7bc937225377b689657cd52df96cbb604ccc2639"
+  }
+}

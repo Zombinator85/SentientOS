@@ -292,6 +292,10 @@ def verify_production_trial_receipt(value: Mapping[str, Any]) -> None:
     body = dict(value); claimed = body.pop("receipt_digest", None)
     if body.get("schema_version") != RECEIPT_SCHEMA or claimed != semantic_digest(body):
         raise ProductionTrialError("production_trial_receipt_tampered")
+    receipt_id = body.pop("receipt_id", None)
+    expected_receipt_id = "production-model-replacement-trial-" + semantic_digest(body)[:24]
+    if receipt_id != expected_receipt_id:
+        raise ProductionTrialError("production_trial_receipt_tampered")
     if body.get("evidence_posture") not in POSTURES or body.get("autonomous_repetition_performed") is not False:
         raise ProductionTrialError("production_trial_receipt_invalid")
     plan_digest = body.get("objective_task_plan_digest")

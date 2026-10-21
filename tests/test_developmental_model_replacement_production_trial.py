@@ -66,12 +66,32 @@ def test_aliases_are_rejected(alias: str) -> None:
 
 def test_receipt_schema_and_tampering_detection() -> None:
     receipt = {"schema_version": RECEIPT_SCHEMA, "evidence_posture": "synthetic_test_trial",
-               "autonomous_repetition_performed": False, "receipt_id": "production-model-replacement-trial-1"}
+               "autonomous_repetition_performed": False}
+    receipt["receipt_id"] = "production-model-replacement-trial-" + semantic_digest(receipt)[:24]
     receipt["receipt_digest"] = semantic_digest(receipt)
     verify_production_trial_receipt(receipt)
     receipt["autonomous_repetition_performed"] = True
     with pytest.raises(ProductionTrialError, match="tampered"):
         verify_production_trial_receipt(receipt)
+
+
+def test_receipt_verifier_rejects_missing_or_recomputed_noncanonical_identity() -> None:
+    base: dict[str, object] = {
+        "schema_version": RECEIPT_SCHEMA,
+        "evidence_posture": "synthetic_test_trial",
+        "autonomous_repetition_performed": False,
+    }
+    canonical = dict(base)
+    canonical["receipt_id"] = "production-model-replacement-trial-" + semantic_digest(base)[:24]
+    for candidate_id in ("production-model-replacement-trial-forged", 7, None):
+        receipt = dict(canonical)
+        if candidate_id is None:
+            receipt.pop("receipt_id")
+        else:
+            receipt["receipt_id"] = candidate_id
+        receipt["receipt_digest"] = semantic_digest(receipt)
+        with pytest.raises(ProductionTrialError, match="tampered"):
+            verify_production_trial_receipt(receipt)
 
 
 def test_existing_campaign_and_five_condition_owners_are_reused() -> None:
