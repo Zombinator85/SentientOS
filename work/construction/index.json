@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a2f36656b4e5af73eb2f6f889c83654b15f50ac7c3333c7e377afe57de4c246a",
-    "latest_segment_sequence": 517,
-    "latest_segment_sha256": "64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d8dffeb972",
-    "source_commit": "73f19916301edde4b6d6866a6e29aebfca232697",
-    "source_tree": "131fac0cd50311782ca20bd87870c1388bc01a46"
+    "checkpoint_sha256": "190ab1604fed7667b42a35c2f77e12dd481ff3c309db33ddb7276fdd8a143ac8",
+    "latest_segment_sequence": 518,
+    "latest_segment_sha256": "f86b4147f88da2c6d26f78b2aa52ffb608c033ebb0ee4b70bd1e0c7dc6cae3ea",
+    "source_commit": "45d49ec2e2cab9a9158686f9bf7536801b642883",
+    "source_tree": "6b35806f17cce6a2814e6693f8a8156100d53a20"
   },
-  "checkpoint_sha256": "a2f36656b4e5af73eb2f6f889c83654b15f50ac7c3333c7e377afe57de4c246a",
+  "checkpoint_sha256": "190ab1604fed7667b42a35c2f77e12dd481ff3c309db33ddb7276fdd8a143ac8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 517,
+  "latest_sequence": 518,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5894,6 +5894,19 @@
       "source_candidate_commit": "c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0",
       "source_commit": "73f19916301edde4b6d6866a6e29aebfca232697",
       "source_tree": "131fac0cd50311782ca20bd87870c1388bc01a46"
+    },
+    {
+      "bytes": 1893,
+      "evidence_bytes": 3521,
+      "evidence_path": "work/construction/evidence/0518-report-stale-federation-health-snapshots.json",
+      "evidence_sha256": "35c1bfb2df1dc9e549b92f04768f447ce6074e3fbc4363c11b70f4d68f67eac9",
+      "path": "work/construction/segments/0518-report-stale-federation-health-snapshots.md",
+      "predecessor": "segment-sha256:64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d8dffeb972",
+      "sequence": 518,
+      "sha256": "f86b4147f88da2c6d26f78b2aa52ffb608c033ebb0ee4b70bd1e0c7dc6cae3ea",
+      "source_candidate_commit": "9357dede0d6fc6c5a829f084cf5905f77f2fc4aa",
+      "source_commit": "45d49ec2e2cab9a9158686f9bf7536801b642883",
+      "source_tree": "6b35806f17cce6a2814e6693f8a8156100d53a20"
     }
   ],
   "source_acquisition": {

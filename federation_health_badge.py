@@ -68,7 +68,12 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
                         recent += 1
             except (TypeError, ValueError):
                 continue
-    status = "healthy" if recent > 0 else "quiet"
+    if recent > 0:
+        status = "healthy"
+    elif latest_event_at is not None and latest_event_at < cutoff:
+        status = "stale"
+    else:
+        status = "quiet"
     latest = (
         latest_event_at.isoformat().replace("+00:00", "Z")
         if latest_event_at is not None
