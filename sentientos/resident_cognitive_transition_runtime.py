@@ -21,6 +21,14 @@ from .resident_cognitive_model_transition_experiment import (
 )
 
 
+def _plain(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return value
+
+
 def _activation(result: Mapping[str, Any], *, activation_history_digest: str,
                activation_predecessor_state_digest: str | None,
                commissioning_model_identity: Mapping[str, Any]) -> dict[str, Any]:
@@ -76,7 +84,7 @@ class ResidentCognitiveTransitionStageOperations:
         result = activate_production(
             installation_handle=self.installation_handle,
             commissioning_receipt_id=commissioning_receipt_id,
-            approval_evidence=approval,
+            approval_evidence=_plain(approval),
             control_plane_kernel=self.control_plane_kernel,
             correlation_id=correlation_id,
             expected_prior_state=current["active_state"]["state_semantic_digest"],
