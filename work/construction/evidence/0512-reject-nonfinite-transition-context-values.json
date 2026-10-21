@@ -1,0 +1,91 @@
+{
+  "evidence_path": "work/construction/evidence/0512-reject-nonfinite-transition-context-values.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "ddfeba77456cd003cf8b3ff1f0a80ff9413c256d",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "11ec0cbfff1083f3a462dabad3664cc3177ab07a"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "git_blob_sha": "ae3642fe138c0986587cdacb5a772a93be108fc7"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "ae65f7caac3139824224ea6e4e428bfe4e4b1d1b"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "d59b397fc9a795025e6031a8d1071f235be6b3b1"
+      }
+    },
+    "parent": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+    "tree": "ef6b99202f9924a0ccd5843b8273b79cade05478"
+  },
+  "invariants": [
+    "Transition-stage context freeze rejects non-finite floating point values that are accepted by Python JSON defaults but invalid in standard JSON.",
+    "Finite numeric values and existing recursive immutable snapshot behavior remain available.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; all 511 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_model_transition_experiment.py",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_failed": 0,
+    "tests_passed": 92,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0511-validate-transition-context-approval-values.md",
+    "segment_sha256": "40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
+    "sequence": 511
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1578,
+  "segment_path": "work/construction/segments/0512-reject-nonfinite-transition-context-values.md",
+  "segment_sha256": "ee4248d25d3a66e38fa1cd837bd170526d8ff9a28aa4f942b43fcacfdc0518fa",
+  "sequence": 512,
+  "sequence_511_reconciliation": {
+    "administrator_audits": "passed",
+    "candidate_commit": "374c847c2b3e5e9e005215ff90203d46291fd8bc",
+    "exact_candidate_finalization": "passed",
+    "hosted_runs": {
+      "ci": 39546330011,
+      "codex_ci": 39546329968,
+      "docker": 39546329994,
+      "gradient_null_regression": 39546329999,
+      "invariants": 39546329940,
+      "lint_benchmark": 39546330051,
+      "quality_gate": 39546330025,
+      "release": 39546329995
+    },
+    "main_merge_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+    "main_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390",
+    "post_merge_runs": "not independently observed",
+    "pull_request": 2519,
+    "separate_metadata_guard": "passed",
+    "source_commit": "1a4c290c3599972d7ac12c2e374d9179a2906dcd",
+    "status": "all_required_candidate_checks_passed"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Reject non-finite transition context values",
+  "verified_main": {
+    "commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+    "ref": "main",
+    "tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
+  }
+}
