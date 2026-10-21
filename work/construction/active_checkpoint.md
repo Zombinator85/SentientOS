@@ -495,3 +495,15 @@ Sequence: 526 (verified reconciliation)
 
 
 Next: obtain Federation Health execution evidence on current main, then continue bounded transition cognition development while preserving approval and effect-owner boundaries.
+
+
+## Sequence 527 — reconcile sequence 526 evidence merge
+
+PR #2536 merged regularly as `cec73e635cf3dd86f5970620f25290fe571f9ebb`, tree `b24d55ead4d5ea7824bf8162d0d189ef08525086`. Its exact-SHA post-merge hosted checks passed, including append-only custody and integrated source validation; Forge Smoke was skipped by condition. No scheduled Federation Health run on this exact main was observed at reconciliation time.
+
+Latest verified main: `cec73e635cf3dd86f5970620f25290fe571f9ebb`, tree `b24d55ead4d5ea7824bf8162d0d189ef08525086`
+Latest construction segment: work/construction/segments/0527-reconcile-sequence526-evidence-merge.md
+Latest segment SHA-256: `804d21e8be200d427831b076e70cf2404b8dc878248a3209a07663c88bbfa479`
+Sequence: 527 (verified reconciliation)
+
+Next: obtain Federation Health execution evidence on current main and continue bounded transition-cognition construction while preserving operator approval and effect-owner boundaries.
