@@ -87,3 +87,20 @@ Implementation candidate: `9760cb406396dc663c462b0d39c6c6b4acb8fd76`, tree `9f9a
 Latest construction segment: `work/construction/segments/0537-enforce-canonical-campaign-protocol-contract.md`
 Latest segment SHA-256: `a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4`
 Sequence: 537 (candidate pending hosted verification)
+
+
+## Sequence 537 — verified merge reconciliation
+
+PR #2546 merged normally as `500fd87c0d807f9ef2128902c166d04c3203f8fc` with tree `7bc937225377b689657cd52df96cbb604ccc2639` and ordered parents `5b9f7b43bbed42ac2fed43f9db4a73ba427923bc` and `137ff7dd72ab2ef95a74a20651d517ba25495056`. The exact candidate's full hosted CI, Mypy ratchet, integrated lifecycle, docs, Docker, invariants, release, Codex CI, lint benchmark, gradient regression, privileged Quality Gate, finalizer, and pre-publication metadata guard passed. Post-merge Actions runs were not yet visible at capture.
+
+## Sequence 538 — bind production-trial receipt identifiers to content
+
+The production-trial receipt verifier now checks that the semantic receipt ID matches the canonical body-derived ID even when an attacker recomputes the outer digest. Missing, malformed, and arbitrary recomputed IDs are rejected. Local receipt/rehearsal tests: 25 passed; targeted Mypy, compilation, YAML parsing, and diff checks passed. Hosted verification is pending. No production model effect occurred.
+
+Verified main: `500fd87c0d807f9ef2128902c166d04c3203f8fc`, tree `7bc937225377b689657cd52df96cbb604ccc2639`
+Implementation candidate: `abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b`, tree `343687128774739c699b7ed2a2fb22c44c6c58f7`
+Latest construction segment: work/construction/segments/0538-bind-production-trial-receipt-identifiers-to-content.md
+Latest segment SHA-256: 6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057
+Sequence: 538 (candidate pending hosted verification)
+
+Next: verify the exact receipt-identity candidate with hosted CI and the privileged Quality Gate, reconcile its merge, and continue reviewing persisted evidence and planning boundaries.

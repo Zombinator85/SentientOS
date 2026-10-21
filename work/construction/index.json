@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "6bff77a7dac0db32fe12ea531e9bc2c193cf64e41be131a9b2723e904628b82f",
-    "latest_segment_sequence": 537,
-    "latest_segment_sha256": "a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4",
-    "source_commit": "9760cb406396dc663c462b0d39c6c6b4acb8fd76",
-    "source_tree": "9f9a09558272a888fb0b7221eb3bcea1c71304c"
+    "checkpoint_sha256": "50c3c51bc69bbcda2a108b2489b9204c5d2fd21503f8cfbe574bd01e8ab2c370",
+    "latest_segment_sequence": 538,
+    "latest_segment_sha256": "6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
+    "source_commit": "abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b",
+    "source_tree": "343687128774739c699b7ed2a2fb22c44c6c58f7"
   },
-  "checkpoint_sha256": "6bff77a7dac0db32fe12ea531e9bc2c193cf64e41be131a9b2723e904628b82f",
+  "checkpoint_sha256": "50c3c51bc69bbcda2a108b2489b9204c5d2fd21503f8cfbe574bd01e8ab2c370",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 530,
+  "latest_sequence": 538,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6152,6 +6152,19 @@
       "source_candidate_commit": "9760cb406396dc663c462b0d39c6c6b4acb8fd76",
       "source_commit": "5b9f7b43bbed42ac2fed43f9db4a73ba427923bc",
       "source_tree": "15288aa40bcd8cab5bbe71b8ae0531a362a22d3b"
+    },
+    {
+      "bytes": 2261,
+      "evidence_bytes": 2790,
+      "evidence_path": "work/construction/evidence/0538-bind-production-trial-receipt-identifiers-to-content.json",
+      "evidence_sha256": "418d056af1e06f22d4f7e59e12c39db99e06e6a9290e94b3ff6c4f8b14fe8a4b",
+      "path": "work/construction/segments/0538-bind-production-trial-receipt-identifiers-to-content.md",
+      "predecessor": "segment-sha256:a833b0152cfb4dc1da2796c37890461e4e98cc2fe10ff65190227ec0a36e33d4",
+      "sequence": 538,
+      "sha256": "6d95cfe861a4b8dd325fd77fcadbfd4cfb26786ae229f1d0f24cccdf320f6057",
+      "source_candidate_commit": "abcb6ccd7b81d15c6ab3c69fb6c0fedeeacd4b5b",
+      "source_commit": "500fd87c0d807f9ef2128902c166d04c3203f8fc",
+      "source_tree": "7bc937225377b689657cd52df96cbb604ccc2639"
     }
   ],
   "source_acquisition": {
