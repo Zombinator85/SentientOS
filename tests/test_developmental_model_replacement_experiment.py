@@ -207,6 +207,8 @@ def test_model_replacement_event_time_rejects_unzoned_or_malformed_metadata() ->
         _inference_event_time("2035-01-03T00:00:00")
     with pytest.raises(DevelopmentalModelReplacementError, match="event_time_invalid"):
         _inference_event_time("not-a-timestamp")
+    with pytest.raises(DevelopmentalModelReplacementError, match="event_time_offset_unknown"):
+        _inference_event_time("2035-01-03T00:00:00-00:00")
 
 
 def test_preregistered_five_condition_model_replacement_experiment(tmp_path: Path) -> None:

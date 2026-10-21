@@ -3369,6 +3369,13 @@ print(json.dumps(score["score"], sort_keys=True))
     assert len(fake.requests) == invocations
 
 
+def test_cognition_event_time_rejects_rfc3339_unknown_offset() -> None:
+    from sentientos.resident_developmental_cognition import _aware_event_time
+
+    assert not _aware_event_time("2035-01-03T00:00:00-00:00")
+    assert _aware_event_time("2035-01-03T00:00:00+00:00")
+
+
 def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeInvoker()

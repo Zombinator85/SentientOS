@@ -111,6 +111,11 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
 def _aware_event_time(value: Any) -> bool:
     if not isinstance(value, str) or not value:
         return False
+    # RFC 3339 -00:00 means the producer's UTC offset is unknown. Treating it
+    # as UTC would make an uncertain cognition event appear chronologically
+    # comparable to other observations.
+    if value.endswith("-00:00"):
+        return False
     try:
         instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (OverflowError, ValueError):
