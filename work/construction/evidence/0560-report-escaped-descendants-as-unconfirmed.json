@@ -1,0 +1,166 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "pull_request_run_id": 39660574367,
+      "push_run_id": 39660555634
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39660574455
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39660574354
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39660574408
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "pull_request_run_id": 39660574419,
+      "push_run_id": 39660555716
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39660574447
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39660574241
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "exact_platform_agnostic_acceptance_nodes": 45,
+      "hosted_privileged_precommit_finalizer": "success",
+      "pull_request_run_id": 39660574450,
+      "push_run_id": 39660555648,
+      "separate_pr_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39660574412
+    }
+  },
+  "independent_operational_observation": {
+    "artifact": {
+      "digest": "sha256:00445c09990a2147cdb1f6097c524041f6e701daa351b6b01708a967c003f53d",
+      "id": 12373567190
+    },
+    "health_job": "success",
+    "publish_job": "success",
+    "pull_request_checks": "action_required",
+    "report_data_source": "configured local log snapshot, not live federation telemetry",
+    "report_head_commit": "e1b53c7604301ff24c6fc4096bfd19ef95bf460c",
+    "report_pr": 2511,
+    "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+    "report_status": "stale",
+    "run_conclusion": "success",
+    "run_head_sha": "21710b8a4f34c2728105d1e3f3a9437588d620a8",
+    "run_id": 39660874259
+  },
+  "invariants": [
+    "process-group disappearance is not treated as descendant termination evidence",
+    "the escaped-descendant regression demonstrates continued execution after parent timeout",
+    "existing POSIX and Windows supervision behavior remains covered",
+    "exact source and merge trees match; ordered parents preserve candidate history",
+    "no production model transition, inference, or actuation was run",
+    "protected and stale workspaces were not touched"
+  ],
+  "local_verification": {
+    "construction_custody_before_append": "559 segments verified",
+    "diff_check": "passed",
+    "focused_tests": "16 passed; 1 Windows-only native test skipped on Linux",
+    "py_compile": "passed for changed Python files",
+    "strict_mypy": "passed for sentientos/bounded_subprocess.py"
+  },
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39661840312
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39661840103
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39661839945
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39661839938
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39661840011
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39661839953
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39661839960
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39661839943
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39661840066
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
+    "sequence": 559
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "digest": "sha256:dfa70f2b19ed0bc2a7b6e724bf9750848d78abd51806ea56fdd2d29ac3eb5846",
+      "id": 12374605110
+    },
+    "finalizer": {
+      "digest": "sha256:31c0e79c965b19cd769cb1b92de5305f559232b42f02acaf5122da316830499f",
+      "id": 12373512828
+    },
+    "quality_gate": {
+      "digest": "sha256:d363a5ae0dd8a9a4357e62a46bf997a845645243ec0343c936de24e5900fd6e2",
+      "id": 12372823798
+    }
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2349,
+  "segment_path": "work/construction/segments/0560-report-escaped-descendants-as-unconfirmed.md",
+  "segment_sha256": "ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629",
+  "sequence": 560,
+  "source_blobs": {
+    "sentientos/bounded_subprocess.py": "2223d72511eca0cc2814991a27bd073d3e1cb1f7",
+    "tests/test_codex_landing_process_supervision.py": "420c4818b389c4f6ec5ca1d56e82bd988e780034"
+  },
+  "source_candidate": {
+    "commit": "e4c8ab6f14656305aec5c41dd8833c600fec8133",
+    "pull_request": 2578,
+    "tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
+  },
+  "source_recovery": {
+    "continuation_chain": "sequence 559 verified as predecessor before appending 560",
+    "protected_workspaces_touched": false,
+    "remote_readback": "GitHub candidate commit/tree/source blobs and main merge commit/tree/ordered parents independently read back"
+  },
+  "status": "verified_reconciliation",
+  "title": "Report escaped subprocess descendants as unconfirmed",
+  "verified_main": {
+    "commit": "1042e955963d2dac5ef60c2930d0e089568c0024",
+    "merge_method": "merge",
+    "parents": [
+      "21710b8a4f34c2728105d1e3f3a9437588d620a8",
+      "e4c8ab6f14656305aec5c41dd8833c600fec8133"
+    ],
+    "ref": "main",
+    "tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
+  }
+}

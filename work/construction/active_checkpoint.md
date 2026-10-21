@@ -376,4 +376,16 @@ Latest construction segment: `work/construction/segments/0559-fail-closed-posix-
 Latest segment SHA-256: `157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47`
 Sequence: 559 (verified merge reconciliation)
 
-Next: verify the supervisor distinguishes process-group disappearance from descendant termination when a child deliberately escapes with `setsid()`.
+Resolved by sequence 560: escaped descendants remain explicitly unconfirmed.
+
+
+## Sequence 560 — report escaped descendants as unconfirmed
+
+The supervisor no longer equates a vanished POSIX process group with all descendants terminated. An escaped `setsid()` child proves that group membership does not cover every descendant. The result reports the narrower group fact and leaves descendant termination unconfirmed. The focused module, Mypy, compilation, CI, strict Quality Gate, Windows Custody, and exact-main post-merge checks passed.
+
+Verified main: `1042e955963d2dac5ef60c2930d0e089568c0024`, tree `0612883b39292d1e50a3d48cde7ed0d6443458c9`
+Latest construction segment: `work/construction/segments/0560-report-escaped-descendants-as-unconfirmed.md`
+Latest segment SHA-256: `ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629`
+Sequence: 560 (verified merge reconciliation)
+
+Next: terminate and reap the supervised process if selector or signal-handler setup fails after `Popen` has already launched it.
