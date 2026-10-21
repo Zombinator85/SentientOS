@@ -5,7 +5,7 @@ import multiprocessing
 import time
 import base64
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any
 
@@ -303,6 +303,42 @@ def test_operator_provenance_authenticates_exact_request_claims() -> None:
     assert authenticated.operator_identity == "operator-1"
     assert authenticated.signing_key_id == _TEST_OPERATOR_KEY_ID
     assert authenticated.request_claims_digest == request["operator_provenance"]["request_claims_digest"]
+
+
+class _UnknownOffset(tzinfo):
+    def utcoffset(self, dt: datetime | None) -> timedelta | None:
+        return None
+
+    def dst(self, dt: datetime | None) -> timedelta | None:
+        return None
+
+    def tzname(self, dt: datetime | None) -> str | None:
+        return None
+
+
+@pytest.mark.parametrize("observation_time", [
+    NOW.replace(tzinfo=None),
+    NOW.replace(tzinfo=_UnknownOffset()),
+], ids=["naive", "unknown_offset"])
+def test_operator_provenance_rejects_non_aware_observation_clock(observation_time):
+    with pytest.raises(TransitionOperatorProvenanceError, match="operator_provenance_time_invalid"):
+        _operator_verifier().verify(_request(), current_time=observation_time)
+
+
+def test_operator_request_validation_uses_one_clock_observation(tmp_path: Path) -> None:
+    runtime = _runtime(tmp_path)
+    samples = 0
+
+    def clock() -> datetime:
+        nonlocal samples
+        samples += 1
+        return NOW
+
+    runtime.clock = clock
+    persist_request(tmp_path, _request())
+
+    assert runtime.process_one()["status"] == "stage_advanced"
+    assert samples == 1
 
 
 def test_operator_provenance_rejects_claim_changes_and_revoked_key() -> None:
