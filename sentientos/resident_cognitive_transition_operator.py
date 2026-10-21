@@ -700,10 +700,13 @@ class LiveTransitionOperatorRuntime:
                     if recovered is not None:
                         return recovered
                     self._validate(packet)
-                    subordinate = packet.get("subordinate_approvals", [])
+                    subordinate = _plain(packet.get("subordinate_approvals", []))
                     if not isinstance(subordinate, list): raise TransitionError("operator_request_subordinate_approval_invalid")
                     if self.subordinate_verifier is not None:
-                        self.subordinate_verifier(str(packet["requested_stage"]), subordinate)
+                        # The verifier is an independent owner. Give it a deep
+                        # copy so its implementation cannot change the artifact
+                        # snapshot later consumed by the transition controller.
+                        self.subordinate_verifier(str(packet["requested_stage"]), _plain(subordinate))
                     context = TransitionStageExecutionContext.create(
                         str(packet["requested_stage"]), subordinate)
                     result = dict(self.controller.advance(approval=packet["stage_approval"],

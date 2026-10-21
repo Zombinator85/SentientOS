@@ -1,0 +1,85 @@
+{
+  "evidence_path": "work/construction/evidence/0508-isolate-subordinate-verifier-input.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "immutability": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "28ba679e5c4a8921e1f2e7e561e1b0d78db198c9",
+    "tree": "4064bd7a559c4aef5f116f621071f805a05c8377",
+    "parent": "814f3a4a58b697a7992e4247c988a8aff74a2890",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 65109,
+        "sha256": "2cae380501d9840b37eb7a38c9838a0003e6575f83dcc186dda9e6a4e3dad759"
+      },
+      "sentientos/resident_cognitive_transition_operator.py": {
+        "bytes": 45663,
+        "sha256": "95effc04f846a3c3ed12c7101a0f340be810fa3de467dac05a11dcec4bd05483"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "bytes": 59628,
+        "sha256": "2ee405fbb2a435685f801520dc29971f1438860e8436538d2866a4bff1a47b0a"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "bytes": 30648,
+        "sha256": "0c9c3e918507d9b40079e23a88d827235267e5c21595d937868c50aaec9f73f9"
+      }
+    }
+  },
+  "invariants": [
+    "Verifier callbacks receive a deep copy separate from the controller execution snapshot.",
+    "Controller consumes the approval snapshot whose identity was bound before verifier invocation.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_passed": 86,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "test_provenance": "supplemental local run; exact candidate hosted verification pending",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_transition_operator.py with canonical pyproject settings",
+    "compileall": "passed",
+    "workflow_yaml": "passed",
+    "diff_check": "passed",
+    "construction_custody": "passed; all 507 predecessor segments verified",
+    "full_mypy_baseline": "local toolchain mismatch under sanitized environment; hosted check pending"
+  },
+  "predecessor": {
+    "sequence": 507,
+    "segment_path": "work/construction/segments/0507-bind-subordinate-approval-summaries-to-artifacts.md",
+    "segment_sha256": "f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a"
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2117,
+  "segment_path": "work/construction/segments/0508-isolate-subordinate-verifier-input.md",
+  "segment_sha256": "5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
+  "sequence": 508,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Isolate subordinate verifier input",
+  "verified_main": {
+    "ref": "main",
+    "commit": "814f3a4a58b697a7992e4247c988a8aff74a2890",
+    "tree": "e6a59f770cdeab6f7ca1a025a4bb6588070d7e78"
+  },
+  "sequence_507_test_count_correction": {
+    "previous_reported_tests": 97,
+    "corrected_tests": 85,
+    "failures": 0,
+    "skipped": 0,
+    "evidence_mutated": false,
+    "public_pr_description_corrected": true,
+    "basis": "JUnit XML recount of the exact command on source tree e6a59f770cdeab6f7ca1a025a4bb6588070d7e78"
+  }
+}

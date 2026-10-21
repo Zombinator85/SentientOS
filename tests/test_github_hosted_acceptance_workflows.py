@@ -18,6 +18,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_stage_approval_operation_must_match_signed_request",
         "test_subordinate_approval_summary_must_match_signed_artifact",
         "test_subordinate_approval_summary_is_required",
+        "test_subordinate_verifier_cannot_mutate_controller_approval_snapshot",
     )
     for node in nodes:
         assert node in source_validation
