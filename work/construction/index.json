@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "959bc2a335a45ab04b7e7b53b6fa25dc3ad708214f30ad62ddbbb923c23811b1",
-    "latest_segment_sequence": 508,
-    "latest_segment_sha256": "5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
-    "source_commit": "814f3a4a58b697a7992e4247c988a8aff74a2890",
-    "source_tree": "e6a59f770cdeab6f7ca1a025a4bb6588070d7e78"
+    "checkpoint_sha256": "414772cad44891a99945297f79f688ac351b47df65186faf51b097fb8df624b3",
+    "latest_segment_sequence": 509,
+    "latest_segment_sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
+    "source_commit": "bef4b1c193817cffdaca272db9bf6d6efca0d21d",
+    "source_tree": "d6525445c33fc5d82df4a638f2a822c53ea64987"
   },
-  "checkpoint_sha256": "959bc2a335a45ab04b7e7b53b6fa25dc3ad708214f30ad62ddbbb923c23811b1",
+  "checkpoint_sha256": "414772cad44891a99945297f79f688ac351b47df65186faf51b097fb8df624b3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 508,
+  "latest_sequence": 509,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5779,6 +5779,18 @@
       "evidence_sha256": "e72ee56a75b324e503911a34cd0ca109f815afc4713ba1febf8bc926f71c7053",
       "source_commit": "814f3a4a58b697a7992e4247c988a8aff74a2890",
       "source_tree": "e6a59f770cdeab6f7ca1a025a4bb6588070d7e78"
+    },
+    {
+      "sequence": 509,
+      "path": "work/construction/segments/0509-deeply-freeze-transition-approval-context.md",
+      "bytes": 2033,
+      "sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
+      "predecessor": "segment-sha256:5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c",
+      "evidence_path": "work/construction/evidence/0509-deeply-freeze-transition-approval-context.json",
+      "evidence_bytes": 4246,
+      "evidence_sha256": "08c7d467a80ec6182c924d56012add32fcbe0d54ed8dc59fb46069d15bd01c4b",
+      "source_commit": "bef4b1c193817cffdaca272db9bf6d6efca0d21d",
+      "source_tree": "d6525445c33fc5d82df4a638f2a822c53ea64987"
     }
   ],
   "source_acquisition": {

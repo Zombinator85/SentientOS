@@ -430,3 +430,19 @@ Latest verified main: `814f3a4a58b697a7992e4247c988a8aff74a2890`, tree `e6a59f77
 Latest construction segment: `work/construction/segments/0508-isolate-subordinate-verifier-input.md`
 Latest segment SHA-256: `5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c`
 Sequence: 508 (candidate pending hosted verification)
+
+
+## Sequence 508 — merged and hosted verified
+
+PR #2516 merged with history preserved as `bef4b1c193817cffdaca272db9bf6d6efca0d21d`, tree `d6525445c33fc5d82df4a638f2a822c53ea64987`, based on `814f3a4a58b697a7992e4247c988a8aff74a2890` with candidate `0968bf33713077110c1afcda9e760a5381b0e1f4`. Exact-candidate Quality Gate, actual Administrator audits, finalizer, and separate metadata guard passed. CI, docs, self-check, source validation, Docker, Codex CI, Release, Invariant Tests, Lint Benchmark, and Gradient null regression passed. The post-merge workflow state is not recorded here.
+
+The candidate also records the correction to sequence 507's supplemental test count: JUnit recount established 85 passed, 0 failed, 0 skipped. Sequence 507 evidence remains unchanged; PR #2515 description was corrected.
+
+## Sequence 509 — deeply freeze transition approval context
+
+Nested mappings and collections in `TransitionStageExecutionContext` are now frozen recursively. The activation adapter converts the detached immutable approval to plain JSON-compatible values at its owner boundary. Final supplemental verification passed 87 affected tests, targeted Mypy for both changed source modules, compileall, workflow YAML parsing, diff checks, and custody. Candidate source commit `4676315fdc90e980022e13fc688b6eb784583f08`, tree `a659f7816ce76aff0cd4cc1e9087e7d260dd15dd`, is based on verified main `bef4b1c193817cffdaca272db9bf6d6efca0d21d`; hosted verification is pending. No production transition or inference ran.
+
+Latest verified main: `bef4b1c193817cffdaca272db9bf6d6efca0d21d`, tree `d6525445c33fc5d82df4a638f2a822c53ea64987`
+Latest construction segment: `work/construction/segments/0509-deeply-freeze-transition-approval-context.md`
+Latest segment SHA-256: `3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b`
+Sequence: 509 (candidate pending hosted verification)

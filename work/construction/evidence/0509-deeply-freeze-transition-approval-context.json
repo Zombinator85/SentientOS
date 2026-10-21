@@ -1,0 +1,96 @@
+{
+  "evidence_path": "work/construction/evidence/0509-deeply-freeze-transition-approval-context.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "immutability": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "4676315fdc90e980022e13fc688b6eb784583f08",
+    "tree": "a659f7816ce76aff0cd4cc1e9087e7d260dd15dd",
+    "parent": "bef4b1c193817cffdaca272db9bf6d6efca0d21d",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 65368,
+        "sha256": "ceba60b18b77b18a1389c4e633d67f90ddc79726ba42330ed645b9aca35f7965"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "bytes": 59419,
+        "sha256": "a8547f609ffcd59054924fb49a464be56b1e56d4ebbf35535ab3e2e5b307ce01"
+      },
+      "sentientos/resident_cognitive_transition_runtime.py": {
+        "bytes": 13522,
+        "sha256": "708eb14630428399c6cb8e0f0cbc99ef17ebb3ecec0886fefb040c512d3cc5c1"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "bytes": 59699,
+        "sha256": "3366c594804b8402db432035f07aaa9d45135873fa05b25f8311aac173af14d9"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "bytes": 31425,
+        "sha256": "331f9b3c9d971ed61d9293618d9a78fd2a75118f257d68d25e4a20702a9a5271"
+      }
+    }
+  },
+  "invariants": [
+    "Approval context mappings are recursively immutable and nested sequences are tuples.",
+    "Activation receives a detached JSON-compatible approval projection; immutable context values are not exposed as mutable owner state.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_passed": 87,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "test_provenance": "supplemental local run on final source tree; hosted exact-candidate verification pending",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_model_transition_experiment.py and sentientos/resident_cognitive_transition_runtime.py with canonical pyproject settings",
+    "compileall": "passed",
+    "workflow_yaml": "passed",
+    "diff_check": "passed",
+    "construction_custody": "passed; all 508 predecessor segments verified",
+    "full_mypy_baseline": "not run locally; hosted check pending"
+  },
+  "predecessor": {
+    "sequence": 508,
+    "segment_path": "work/construction/segments/0508-isolate-subordinate-verifier-input.md",
+    "segment_sha256": "5d4f8ac76af197f9073bb5e18df27c68226010f7d6c5ce93e90e85dc492e462c"
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2033,
+  "segment_path": "work/construction/segments/0509-deeply-freeze-transition-approval-context.md",
+  "segment_sha256": "3e1d501ee7447b778e98b8bfbeb8eff8f0e68fcc54e23859d7df61a5b37c4b4b",
+  "sequence": 509,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Deeply freeze transition approval context",
+  "verified_main": {
+    "ref": "main",
+    "commit": "bef4b1c193817cffdaca272db9bf6d6efca0d21d",
+    "tree": "d6525445c33fc5d82df4a638f2a822c53ea64987"
+  },
+  "sequence_508": {
+    "pull_request": 2516,
+    "hosted_runs": {
+      "quality_gate": 39543560786,
+      "ci": 39543560916,
+      "docker": 39543560767,
+      "codex_ci": 39543560709,
+      "release": 39543560663,
+      "invariants": 39543560753,
+      "lint_benchmark": 39543560653,
+      "gradient_null_regression": 39543560626
+    },
+    "administrator_audits": "passed",
+    "separate_metadata_guard": "passed",
+    "post_merge_workflows": "not yet independently observed"
+  }
+}
