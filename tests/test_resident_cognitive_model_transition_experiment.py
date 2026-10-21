@@ -434,7 +434,7 @@ def test_stage_approval_requires_explicit_offset_timestamps_before_effects(
 @pytest.mark.parametrize(("field", "timestamp"), [
     ("not_before", "2026-09-24T00:00:00-00:00"),
     ("expires_at", "2026-09-25T00:00:00-00:00"),
-])
+], ids=("not_before_unknown_offset", "expires_at_unknown_offset"))
 def test_stage_approval_rejects_unknown_offset_before_effects(tmp_path, field, timestamp):
     ctl, gate, journal, slot, _ = controller(tmp_path)
     supplied = dict(approval(ctl, slot))

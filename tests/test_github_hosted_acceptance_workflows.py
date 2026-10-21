@@ -46,6 +46,14 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
     )
     for node in nodes:
         assert node in source_validation
+    assert (
+        "test_stage_approval_rejects_unknown_offset_before_effects[not_before_unknown_offset]"
+        in source_validation
+    )
+    assert (
+        "test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset]"
+        in source_validation
+    )
     assert "test_transition_stage_plan_rejects_tampering_and_stale_owner" in source_validation
     assert (
         "cp glow/test_runs/test_run_provenance.json \\\n"

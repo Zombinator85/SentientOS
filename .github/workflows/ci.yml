@@ -261,7 +261,8 @@ jobs:
             tests/test_resident_cognitive_transition_operator.py::test_request_publication_preserves_create_once_collision_semantics \
             tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes \
             tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_rejects_oversized_payload_without_publishing \
-            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects
+            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[not_before_unknown_offset] \
+            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset]
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/transition_receipt_provenance.json
           python - <<'PYCODE'
@@ -291,7 +292,8 @@ jobs:
               "tests/test_resident_cognitive_transition_operator.py::test_request_publication_preserves_create_once_collision_semantics",
               "tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
               "tests/test_resident_cognitive_transition_operator.py::test_protocol_publication_rejects_oversized_payload_without_publishing",
-              "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects",
+              "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[not_before_unknown_offset]",
+              "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset]",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
