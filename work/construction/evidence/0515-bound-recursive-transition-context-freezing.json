@@ -1,0 +1,94 @@
+{
+  "evidence_path": "work/construction/evidence/0515-bound-recursive-transition-context-freezing.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "534050c1572280ed65d0a13f3663a9cca770880f",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "72b42c16c57f80f5439b661cc9c3773e411a8f09"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "git_blob_sha": "62afd2229f265146e21155955d3ed3dd1fc643e1"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "5d7b72683e32e7175e68d6a84e754357d06f2ac3"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "32a10678ddc3bc3e2febb5749f6008d3970c5fa0"
+      }
+    },
+    "parent": "b480dff1219e53ea0280b44b82c53053c92c0b42",
+    "tree": "0202678592db9e1bb2b18f4f2a1ab5bec5e1f7ee"
+  },
+  "invariants": [
+    "Recursive freezing rejects cycles and caps container nesting at 64 levels.",
+    "The exact mapping items snapshot validated for key types is the snapshot recursively frozen.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; 514 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "passed",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_failed": 0,
+    "tests_passed": 92,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0514-validate-transition-context-constructor-shape.md",
+    "segment_sha256": "b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
+    "sequence": 514
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1857,
+  "segment_path": "work/construction/segments/0515-bound-recursive-transition-context-freezing.md",
+  "segment_sha256": "fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
+  "sequence": 515,
+  "sequence_514_merge_reconciliation": {
+    "administrator_audits": "passed",
+    "candidate_checks": "passed",
+    "candidate_commit": "51704a65e0415577f8161652e55a3f4edd0c7aca",
+    "hosted_finalization": "passed",
+    "main_merge_commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
+    "main_tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f",
+    "ordered_parents": [
+      "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+      "51704a65e0415577f8161652e55a3f4edd0c7aca"
+    ],
+    "postmerge_runs": {
+      "postmerge_ci": 39549517359,
+      "postmerge_codex_ci_cpu_smoke": 39549517312,
+      "postmerge_docker": 39549517275,
+      "postmerge_docs_deploy": 39549517337,
+      "postmerge_forge_smoke_skipped": 39549517317,
+      "postmerge_invariants": 39549517322,
+      "postmerge_nightly_self_check": 39549517315,
+      "postmerge_quality_gate": 39549517498
+    },
+    "postmerge_status": "passed_except_conditionally_skipped_forge_smoke",
+    "pull_request": 2521,
+    "separate_metadata_guard": "passed"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bound recursive transition context freezing",
+  "verified_main": {
+    "commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
+    "ref": "main",
+    "tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f"
+  }
+}
