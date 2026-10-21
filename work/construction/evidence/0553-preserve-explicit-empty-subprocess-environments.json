@@ -1,0 +1,133 @@
+{
+  "evidence_path": "work/construction/evidence/0553-preserve-explicit-empty-subprocess-environments.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39634912287,
+        "scope": "source validation, integrated resource-to-cognition lifecycle, Helm, docs linkcheck, and self-check"
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39634912219
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39634912253
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "id": 39634912149
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39634912202
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "id": 39634912218
+      },
+      "Release": {
+        "conclusion": "success",
+        "id": 39634912160
+      },
+      "Required Quality Gate": {
+        "accepted_nodes": 40,
+        "artifacts": {
+          "acceptance": {
+            "digest": "sha256:8a0debbeacb518c31cf38b872b95de9761be63221d97df06f7c00280fc3aac8c",
+            "id": 12360553476
+          },
+          "finalizer": {
+            "digest": "sha256:aaa23a98abf0fec5f13b31daa046f368cb04fabee5f8b1a3388560bd30b4f629",
+            "id": 12359464872
+          },
+          "quality_gate": {
+            "digest": "sha256:d1c5fef92547cc1a812e44ef9034ba8f1601800c24eb9ca9a6a4b6886d7de112",
+            "id": 12360213586
+          }
+        },
+        "conclusion": "success",
+        "failed_nodes": 0,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "id": 39634912233,
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "skipped_nodes": 0,
+        "strict_administrator_audits": true
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39635621338
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39635621260
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39635621322
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "id": 39635621264
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39635621179
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39635621170
+      },
+      "Nightly Self Check": {
+        "conclusion": "success",
+        "id": 39635621178
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39635621340
+      }
+    }
+  },
+  "invariants": [
+    "env=None inherits the parent environment",
+    "an explicit empty environment mapping starts the child without inherited parent variables",
+    "the regression is included in the exact 40-node acceptance set and both hosted candidate reconstructions",
+    "candidate and post-merge checks bind to the exact candidate and merge tree identities",
+    "source and evidence changes are limited to the fresh isolated checkout; protected workspaces remain untouched"
+  ],
+  "predecessor": {
+    "segment_sha256": "87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf846447416d384",
+    "sequence": 552
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1932,
+  "segment_path": "work/construction/segments/0553-preserve-explicit-empty-subprocess-environments.md",
+  "segment_sha256": "af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
+  "sequence": 553,
+  "source_candidate": {
+    "commit": "15173d47a45de1d2a8977c4448cba85b393146cf",
+    "pull_request": 2565,
+    "tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "all four changed GitHub blobs were independently fetched; their Git blob identities matched the exact local source bytes",
+    "local_tests": "the explicit-empty-environment regression first failed on the verified parent; then all 10 supervisor tests and all 50 hosted workflow contract tests passed; Python compilation, strict Mypy for sentientos/bounded_subprocess.py, and git diff --check passed",
+    "protected_workspaces_touched": false,
+    "publication": "GitHub Git Data API candidate branch was updated with expected-head compare-and-swap from exact main; PR merged normally with merge history preserved"
+  },
+  "status": "verified_reconciliation",
+  "title": "Preserve explicit empty subprocess environments",
+  "verified_main": {
+    "commit": "a18ae26a9cd5a0440d5e9a654cf45ab5245626ad",
+    "merge_method": "merge",
+    "parents": [
+      "c898bcb4d8923b2c96ce307f5c49e2f7bf2e4aea",
+      "15173d47a45de1d2a8977c4448cba85b393146cf"
+    ],
+    "ref": "main",
+    "tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
+  }
+}

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "80496217ef8f676115e123e99bbcbc9c7a22d3fea69858054cbfb17cdc27e2d5",
-    "latest_segment_sequence": 552,
-    "latest_segment_sha256": "87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf846447416d384",
-    "source_commit": "c1da3e1507a616ec49e4ddd1e9d5586f72fca322",
-    "source_tree": "5f00f68032ba9f79a921037badb4058afdef2944"
+    "checkpoint_sha256": "4f6faaf8d5cbc4d6d5caedb59c2d719310d27521d9ae77bbb1f48d6c60fd725d",
+    "latest_segment_sequence": 553,
+    "latest_segment_sha256": "af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
+    "source_commit": "a18ae26a9cd5a0440d5e9a654cf45ab5245626ad",
+    "source_tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
   },
-  "checkpoint_sha256": "80496217ef8f676115e123e99bbcbc9c7a22d3fea69858054cbfb17cdc27e2d5",
+  "checkpoint_sha256": "4f6faaf8d5cbc4d6d5caedb59c2d719310d27521d9ae77bbb1f48d6c60fd725d",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 552,
+  "latest_sequence": 553,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6347,6 +6347,19 @@
       "source_candidate_commit": "b778b9bf2e3c5a2ac90bb739981b7d3951ccd345",
       "source_commit": "c1da3e1507a616ec49e4ddd1e9d5586f72fca322",
       "source_tree": "5f00f68032ba9f79a921037badb4058afdef2944"
+    },
+    {
+      "bytes": 1932,
+      "evidence_bytes": 4796,
+      "evidence_path": "work/construction/evidence/0553-preserve-explicit-empty-subprocess-environments.json",
+      "evidence_sha256": "b580b93ae1264c64fd25efaa2988b62ab90f2d0c23f0bdb4fef4e3e3812b30c3",
+      "path": "work/construction/segments/0553-preserve-explicit-empty-subprocess-environments.md",
+      "predecessor": "segment-sha256:87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf846447416d384",
+      "sequence": 553,
+      "sha256": "af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
+      "source_candidate_commit": "15173d47a45de1d2a8977c4448cba85b393146cf",
+      "source_commit": "a18ae26a9cd5a0440d5e9a654cf45ab5245626ad",
+      "source_tree": "49f158f370927a75878de6a4492f08b7bab8cdb7"
     }
   ],
   "source_acquisition": {
