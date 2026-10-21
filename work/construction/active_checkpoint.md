@@ -525,3 +525,17 @@ Implementation candidate: `c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0`, tree `8d0f
 Latest construction segment: `work/construction/segments/0516-enforce-canonical-transition-request-envelope.md`
 Latest segment SHA-256: `76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c`
 Sequence: 516 (candidate pending hosted verification)
+
+
+## Sequence 517 — reconcile sequence 516 verified merge
+
+PR #2523 merged as `73f19916301edde4b6d6866a6e29aebfca232697`, tree `131fac0cd50311782ca20bd87870c1388bc01a46`. Exact-candidate CI, Docker, Release, Codex CI, invariants, Gradient, lint, and Required Quality Gate passed. The gate passed strict Administrator audits, exact acceptance, hosted finalization, and the separate metadata guard. Post-merge CI/source validation, Quality Gate, docs linkcheck, self-check, deploy, Helm, Docker/CPU smoke, and invariants passed; Forge Smoke was skipped by condition. No current-sequence scheduled Federation Health run was present yet; latest scheduled success was on earlier main `7fbd149ddb0f48f2385c18590c254a64cc2522bd`. No Nightly Audit Integrity run appeared in recent inspected Actions pages.
+
+Local affected tests passed 162/162, compileall, YAML parsing, diff checks, and custody passed. Mypy remains not clean and is recorded in sequence 516 evidence. No production transition or inference ran.
+
+Latest verified source merge: `73f19916301edde4b6d6866a6e29aebfca232697`, tree `131fac0cd50311782ca20bd87870c1388bc01a46`
+Latest construction segment: work/construction/segments/0517-reconcile-sequence516-verified-merge.md
+Latest segment SHA-256: `64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d8dffeb972`
+Sequence: 517
+
+Next: obtain post-merge Federation Health evidence on current main and verify the nightly audit workflow actually executes with its required Administrator authority; continue transition-cognition development within the existing non-production boundary.
