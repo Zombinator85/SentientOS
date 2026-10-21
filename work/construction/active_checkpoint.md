@@ -270,3 +270,18 @@ Sequence: 551 (verified merge reconciliation)
 
 Next: reject non-finite timeout and heartbeat values and negative or non-finite termination grace values so invalid numeric inputs cannot disable the bounded-time contract.
 
+
+## Sequence 552 — reconcile invalid bounded-subprocess limits
+
+PR #2563 merged normally as `c1da3e1507a616ec49e4ddd1e9d5586f72fca322`, tree `5f00f68032ba9f79a921037badb4058afdef2944`, with ordered parents `1b273288cfd0de75f808f32c437ff6c9c1d37269` and `b778b9bf2e3c5a2ac90bb739981b7d3951ccd345`. The supervisor now rejects non-finite timeout and heartbeat values, negative or non-finite termination grace, boolean timing values, and non-positive or non-integer tail counts before starting a process. Zero grace remains valid.
+
+The exact 39-node hosted acceptance, strict Administrator audits, immutability verification, privileged pre-commit finalizer, and separate PR metadata guard passed. Candidate CI, Mypy ratchet, docs, Helm, Docker, invariants, Release, Codex CI, lint, and Gradient checks passed. A first finalizer attempt correctly rejected a PR-title/latest-commit mismatch after the second implementation commit; the PR title was changed to match the commit subject and the exact source candidate then passed unchanged.
+
+All post-merge CI, Required Quality Gate, Docker, Docs Deploy, Nightly Self Check, invariants, and Codex CI passed on exact main; Forge Smoke was skipped by condition. The source tree is identical to the exact candidate tree. See the sequence evidence JSON for exact run IDs, artifact digests, candidate commit lineage, and the metadata correction.
+
+Latest verified source main: `c1da3e1507a616ec49e4ddd1e9d5586f72fca322`, tree `5f00f68032ba9f79a921037badb4058afdef2944`
+Latest construction segment: `work/construction/segments/0552-reject-invalid-bounded-supervision-limits.md`
+Latest segment SHA-256: `87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf846447416d384`
+Sequence: 552 (verified merge reconciliation)
+
+Next: continue inspecting bounded subprocess lifecycle and resource-input boundaries against this verified main, preserving process-tree termination and source-bound acceptance.

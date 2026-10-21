@@ -1,0 +1,162 @@
+{
+  "evidence_path": "work/construction/evidence/0552-reject-invalid-bounded-supervision-limits.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "id": 39631366866,
+        "conclusion": "success",
+        "scope": "full hosted source validation, integrated resource-to-cognition lifecycle, documentation linkcheck, Helm, self-check, and test suite"
+      },
+      "Codex CI": {
+        "id": 39631366791,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39631366896,
+        "conclusion": "success"
+      },
+      "Gradient null regression": {
+        "id": 39631366916,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "id": 39631367336,
+        "conclusion": "success"
+      },
+      "Lint Benchmark": {
+        "id": 39631366882,
+        "conclusion": "success",
+        "scope": "Python 3.11 and 3.14 variants, Mypy ratchet, and test suite"
+      },
+      "Release": {
+        "id": 39631366805,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39631657591,
+        "conclusion": "success",
+        "accepted_nodes": 39,
+        "failed_nodes": 0,
+        "skipped_nodes": 0,
+        "new_regression": {
+          "node": "tests/test_codex_landing_process_supervision.py::test_invalid_numeric_limits_start_no_child_process",
+          "outcome": "passed"
+        },
+        "strict_administrator_audits": true,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "artifacts": {
+          "acceptance": {
+            "id": 12359332609,
+            "digest": "sha256:88d413a19afdebbd520ca49d347d8ccf6877cba59b347f04218c238dcdd75d93"
+          },
+          "finalizer": {
+            "id": 12359697229,
+            "digest": "sha256:0a380d0953640f127e8b755b2da4920831c74c14d71270c9df33ab3fe4868621"
+          },
+          "quality_gate": {
+            "id": 12359432305,
+            "digest": "sha256:13bdabe0dabf875fe6087f58aa6636c59cbe03c5bdabcd1a524e1c8568c73e74"
+          }
+        },
+        "rejected_metadata_attempts": [
+          {
+            "id": 39631389425,
+            "conclusion": "failure",
+            "reason": "strict pre-commit reconstruction rejected PR title mismatch with latest commit subject; corrected PR title and reran without changing source or weakening the guard"
+          },
+          {
+            "id": 39631366819,
+            "conclusion": "failure",
+            "reason": "same title-to-latest-commit mismatch"
+          }
+        ]
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "id": 39632128315,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "id": 39632128305,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39632128281,
+        "conclusion": "success"
+      },
+      "Docs Deploy": {
+        "id": 39632128420,
+        "conclusion": "success"
+      },
+      "Forge Smoke": {
+        "id": 39632128301,
+        "conclusion": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "id": 39632128394,
+        "conclusion": "success"
+      },
+      "Nightly Self Check": {
+        "id": 39632128284,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39632128324,
+        "conclusion": "success",
+        "accepted_nodes": 39,
+        "strict_administrator_audits": true,
+        "artifact": {
+          "id": 12359791634,
+          "digest": "sha256:6724b90b84d4f4207cddff3ee837023c1ed510d1dbd246f964f820ffc7624e39"
+        }
+      }
+    }
+  },
+  "invariants": [
+    "timeout and heartbeat inputs are finite, positive, and not booleans before supervision starts",
+    "termination grace is finite, nonnegative, and not boolean; zero remains a supported immediate-escalation setting",
+    "tail_lines is a positive non-boolean integer before any subprocess is created",
+    "invalid limits fail before stage-start output or child process creation",
+    "the new adversarial regression is one stable node in the exact 39-node hosted acceptance and all finalizer bindings",
+    "candidate and post-merge checks bind to exact source commit and tree identities"
+  ],
+  "predecessor": {
+    "sequence": 551,
+    "segment_sha256": "4cedeeb3f23919effecfc388de5e6e0c79212e25bc756fed397c6c6e94719c64"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 552,
+  "source_candidate": {
+    "commit": "b778b9bf2e3c5a2ac90bb739981b7d3951ccd345",
+    "commits": [
+      "52d2a2f982fa256dd0163c05748d0a0501bed49e",
+      "b778b9bf2e3c5a2ac90bb739981b7d3951ccd345"
+    ],
+    "pull_request": 2563,
+    "tree": "5f00f68032ba9f79a921037badb4058afdef2944"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "all four final changed blobs were independently fetched from GitHub and matched the prepared source bytes",
+    "local_tests": "isolated supervisor tests: 9 passed; focused exact-QG acceptance and finalizer-binding tests: 2 passed; Python compilation and strict Mypy for sentientos/bounded_subprocess.py passed",
+    "sparse_checkout_note": "a broader local hosted-workflow module invocation in the deliberately sparse temporary recovery tree could not open unrelated workflow fixture files; the focused affected contract tests passed and full source validation ran on GitHub-hosted CI",
+    "protected_workspaces_touched": false,
+    "publication": "GitHub Git Data API branch update used expected-head compare-and-swap; PR merged normally preserving both candidate commits"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reject invalid bounded-subprocess limits before process launch",
+  "verified_main": {
+    "commit": "c1da3e1507a616ec49e4ddd1e9d5586f72fca322",
+    "ref": "main",
+    "tree": "5f00f68032ba9f79a921037badb4058afdef2944",
+    "merge_method": "merge",
+    "parents": [
+      "1b273288cfd0de75f808f32c437ff6c9c1d37269",
+      "b778b9bf2e3c5a2ac90bb739981b7d3951ccd345"
+    ]
+  },
+  "segment_path": "work/construction/segments/0552-reject-invalid-bounded-supervision-limits.md",
+  "segment_sha256": "87d65681731cc6640bce9d6650f78d9d562064e8e9987fe2daf846447416d384",
+  "segment_bytes": 2863
+}
