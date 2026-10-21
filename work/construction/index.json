@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3e854348b4a4f5eb1ced2bbfa38fd9a2c28b05a8b01cf6c832ec010b41530ce1",
-    "latest_segment_sequence": 557,
-    "latest_segment_sha256": "1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
-    "source_commit": "60a335fb8f7e46a8715ae16db7305fcebcc7df05",
-    "source_tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
+    "checkpoint_sha256": "44b0b8fcdb0d31ef349a5474d4d77773ae4de84265a8ce323f53ee1db4400224",
+    "latest_segment_sequence": 558,
+    "latest_segment_sha256": "e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
+    "source_commit": "a23e638c3a2653a79cb544ca08204b49839aacea",
+    "source_tree": "e063948428b16d16339679ccac75a78ca3c9d437"
   },
-  "checkpoint_sha256": "3e854348b4a4f5eb1ced2bbfa38fd9a2c28b05a8b01cf6c832ec010b41530ce1",
+  "checkpoint_sha256": "44b0b8fcdb0d31ef349a5474d4d77773ae4de84265a8ce323f53ee1db4400224",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 557,
+  "latest_sequence": 558,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6412,6 +6412,19 @@
       "source_candidate_commit": "04b0632e811ef59ee20880022c42d5613e8fcf0d",
       "source_commit": "60a335fb8f7e46a8715ae16db7305fcebcc7df05",
       "source_tree": "37d8163fa0a1f0aabd0e0bcc81d1bf1a29f4e6bc"
+    },
+    {
+      "bytes": 2352,
+      "evidence_bytes": 5189,
+      "evidence_path": "work/construction/evidence/0558-bounded-worker-thread-process-supervision.json",
+      "evidence_sha256": "be57611eec4b88285f416073a9d038ee8459eb5188652fc46b7db967d94e264e",
+      "path": "work/construction/segments/0558-bounded-worker-thread-process-supervision.md",
+      "predecessor": "segment-sha256:1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
+      "sequence": 558,
+      "sha256": "e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
+      "source_candidate_commit": "8f81cfefa307e002521d19da4efd7b6a3491f9e9",
+      "source_commit": "a23e638c3a2653a79cb544ca08204b49839aacea",
+      "source_tree": "e063948428b16d16339679ccac75a78ca3c9d437"
     }
   ],
   "source_acquisition": {

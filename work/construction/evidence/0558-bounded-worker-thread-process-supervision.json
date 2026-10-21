@@ -1,0 +1,157 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "pull_request_run_id": 39653989751,
+      "push_run_id": 39653965759
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39653989424
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39653989864
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39653989705
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39653989547
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39653989331
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39653989527
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "exact_platform_agnostic_acceptance_nodes": 45,
+      "failed_initial_pull_request_run_id": 39653989467,
+      "hosted_privileged_precommit_finalizer": "success",
+      "pull_request_run_id": 39654283491,
+      "push_run_id": 39653965760,
+      "separate_pr_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39653989429
+    }
+  },
+  "invariants": [
+    "worker-thread POSIX supervision no longer raises after launching an unowned child",
+    "worker-thread calls retain configured timeout enforcement",
+    "controller signal handlers are only installed by the main thread",
+    "the 45-node platform-agnostic acceptance remains unchanged",
+    "strict audits, privileged finalization, and PR metadata checks remain enabled",
+    "merge history and ordered parents are preserved",
+    "protected and stale workspaces were not touched"
+  ],
+  "local_verification": {
+    "construction_custody_before_append": "557 segments verified",
+    "diff_check": "passed",
+    "focused_tests": "15 passed; 1 Windows-only native test skipped on Linux",
+    "py_compile": "passed for changed Python files",
+    "strict_mypy": "passed for sentientos/bounded_subprocess.py"
+  },
+  "metadata_remediation": {
+    "initial_failure": "pre-commit reconstruction rejected a PR title that differed from the exact commit subject",
+    "initial_failure_run_id": 39653989467,
+    "remediation": "updated PR title to exactly match commit subject; reran hosted PR Quality Gate; no source, test, authority, or gate changes",
+    "rerun_conclusion": "success",
+    "rerun_id": 39654283491
+  },
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39654695233
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39654695165
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39654695133
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39654695226
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39654695249
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39654695293
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39654695152
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39654695030
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39654695783
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "1eaec5c50ffd7374da84ca7d41fa723700c78e97fe616533eff8e2b0d954f4b4",
+    "sequence": 557
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "digest": "sha256:76348456ac0e2c7debf05ba5b25a3ca4f1e0e112bd93534cbb3627d3f6e1cdcd",
+      "id": 12371610430
+    },
+    "finalizer": {
+      "digest": "sha256:d37fea37491a18fbbaf56611264a1e930f2f39ff8b69116000ee329a09b0cfa1",
+      "id": 12371775209
+    },
+    "quality_gate": {
+      "digest": "sha256:9003eca38f34833a7715a1f2efe74d23d9fd93d763363751e74ca73cf5c700d9",
+      "id": 12369443684
+    }
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2352,
+  "segment_path": "work/construction/segments/0558-bounded-worker-thread-process-supervision.md",
+  "segment_sha256": "e1bcf39c0570411e94ec9cb15846c137162e427ad4513fc7f70154bda4da15de",
+  "sequence": 558,
+  "source_blobs": {
+    "sentientos/bounded_subprocess.py": "c5332a245846ac9ace1c6710cc7ca1bbff4f748e",
+    "tests/test_codex_landing_process_supervision.py": "36f2754dfe5ac2893d161a2ab0d2d48be0c7c014"
+  },
+  "source_candidate": {
+    "commit": "8f81cfefa307e002521d19da4efd7b6a3491f9e9",
+    "pull_request": 2574,
+    "tree": "e063948428b16d16339679ccac75a78ca3c9d437"
+  },
+  "source_recovery": {
+    "continuation_chain": "sequence 557 verified as predecessor before appending 558",
+    "protected_workspaces_touched": false,
+    "remote_readback": "GitHub branch, candidate commit, tree, source blob identities, merge commit, tree, and ordered parents independently read back"
+  },
+  "status": "verified_reconciliation",
+  "title": "Bounded subprocess supervision from worker threads",
+  "verified_main": {
+    "commit": "a23e638c3a2653a79cb544ca08204b49839aacea",
+    "merge_method": "merge",
+    "parents": [
+      "5cd9b0239058a28b0b7daf680f4bfe73b11918b5",
+      "8f81cfefa307e002521d19da4efd7b6a3491f9e9"
+    ],
+    "ref": "main",
+    "tree": "e063948428b16d16339679ccac75a78ca3c9d437"
+  }
+}
