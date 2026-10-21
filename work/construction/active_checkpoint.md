@@ -370,3 +370,13 @@ Latest verified source merge: `385f425ad118e15dde85eb5b6b2c39cdabb9b401`, tree `
 Latest construction segment: work/construction/segments/0503-authenticate-delegated-stage-approval-issuers.md
 Latest segment SHA-256: `54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8`
 Sequence: 503
+
+
+## Sequence 504 — reject invalid stage approval time windows
+
+A bounded validation fix now rejects missing timezone offsets, malformed or reversed approval windows, and naive observation clocks before transition effects. The 62 focused transition and authenticated-operator tests passed locally; targeted Mypy, compilation, and diff checks also passed. This local test provenance is supplemental and not exact-candidate evidence. The source-bound construction branch is pending the hosted Required Quality Gate, including Administrator audits, immutability, finalization, and the pre-publication metadata guard. No production transition or inference was run.
+
+Latest verified base: `5d5f18d55214ac8fefc965e0a523015395a7d989`, tree `56780853b6fe7aa2242794d96385fba6de64f64f`
+Latest construction segment: `work/construction/segments/0504-reject-invalid-stage-approval-time-windows.md`
+Latest segment SHA-256: `b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429`
+Sequence: 504 (candidate pending hosted verification)

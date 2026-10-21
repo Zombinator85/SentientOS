@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0e0a46688da7b82cdc3e4c10e06e8febcfc60dfb2b34b8b48ec9800f9886e721",
-    "latest_segment_sequence": 503,
-    "latest_segment_sha256": "54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8",
-    "source_commit": "385f425ad118e15dde85eb5b6b2c39cdabb9b401",
-    "source_tree": "16366dc901b19f19796af53db828a67eeec159c8"
+    "checkpoint_sha256": "8814b2611b92dcb6e3902114a86d5cefabce83e8539f058ce5fb6396d7db648e",
+    "latest_segment_sequence": 504,
+    "latest_segment_sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
+    "source_commit": "5d5f18d55214ac8fefc965e0a523015395a7d989",
+    "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f"
   },
-  "checkpoint_sha256": "0e0a46688da7b82cdc3e4c10e06e8febcfc60dfb2b34b8b48ec9800f9886e721",
+  "checkpoint_sha256": "8814b2611b92dcb6e3902114a86d5cefabce83e8539f058ce5fb6396d7db648e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 503,
+  "latest_sequence": 504,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5625,14 +5625,14 @@
       "source_tree": "60e57156e3aa646e4aa1610db4fee934e97d3be1"
     },
     {
-      "sequence": 496,
-      "path": "work/construction/segments/0496-require-persisted-plan-evidence-digest.md",
-      "sha256": "9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1",
       "bytes": 2057,
-      "predecessor": "segment-sha256:c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+      "evidence_bytes": 2468,
       "evidence_path": "work/construction/evidence/0496-require-persisted-plan-evidence-digest.json",
       "evidence_sha256": "93e356caafa4b7f8e95d5dac92b979109a7e9b5cf4fab59861b9d0273dbdf5d8",
-      "evidence_bytes": 2468,
+      "path": "work/construction/segments/0496-require-persisted-plan-evidence-digest.md",
+      "predecessor": "segment-sha256:c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6",
+      "sequence": 496,
+      "sha256": "9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1",
       "source_commit": "020ee1a135f013aa3b395d6f3fd69b5775e5a4ca",
       "source_tree": "d268c38ca20262fcc14702ebbff11e33b10faa26"
     },
@@ -5661,64 +5661,76 @@
       "source_tree": "cf77d77cb58fbef561427e52c991ce4b0a9c10a8"
     },
     {
-      "sequence": 499,
-      "path": "work/construction/segments/0499-atomic-work-plan-evidence-envelope-publication.md",
-      "sha256": "a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f",
       "bytes": 1996,
-      "predecessor": "segment-sha256:3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8",
+      "evidence_bytes": 3462,
       "evidence_path": "work/construction/evidence/0499-atomic-work-plan-evidence-envelope-publication.json",
       "evidence_sha256": "e3c7aeeb38eaa33de9a01e474228ed1cb33284f24c4bf0539f5050b2befc29ee",
-      "evidence_bytes": 3462,
+      "path": "work/construction/segments/0499-atomic-work-plan-evidence-envelope-publication.md",
+      "predecessor": "segment-sha256:3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8",
+      "sequence": 499,
+      "sha256": "a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f",
       "source_commit": "d7219eb7673fe627412383b0e041506ed961ceab",
       "source_tree": "58837c6b924d0c39fd03e33a36cc4689c85af0e8"
     },
     {
-      "sequence": 500,
-      "path": "work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md",
-      "sha256": "1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
       "bytes": 2383,
-      "predecessor": "segment-sha256:a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f",
+      "evidence_bytes": 3599,
       "evidence_path": "work/construction/evidence/0500-protect-work-plan-evidence-directory-ancestry.json",
       "evidence_sha256": "ad879fb17b8f2e568fecf54c829b341b15eecaddb868b84863e2ae147da24a50",
-      "evidence_bytes": 3599,
+      "path": "work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md",
+      "predecessor": "segment-sha256:a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f",
+      "sequence": 500,
+      "sha256": "1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
       "source_commit": "d2b987d23cdc86a371a15d096feda08024f9c3db",
       "source_tree": "ff75349ab29030665b259ef742b3603d92e8d099"
     },
     {
-      "sequence": 501,
-      "path": "work/construction/segments/0501-fail-closed-work-plan-evidence-storage-without-dirfd.md",
-      "sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
       "bytes": 2434,
-      "predecessor": "segment-sha256:1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
+      "evidence_bytes": 3698,
       "evidence_path": "work/construction/evidence/0501-fail-closed-work-plan-evidence-storage-without-dirfd.json",
       "evidence_sha256": "0216811b36c73a307dc9937affe49369b23133257c79d2429803940e680269a9",
-      "evidence_bytes": 3698,
+      "path": "work/construction/segments/0501-fail-closed-work-plan-evidence-storage-without-dirfd.md",
+      "predecessor": "segment-sha256:1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7",
+      "sequence": 501,
+      "sha256": "3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
       "source_commit": "de26ab3847a09edbc42def8133603052ab192599",
       "source_tree": "b43e2fcbb66e17f98022ccabb10c8697ee8d541b"
     },
     {
-      "sequence": 502,
-      "path": "work/construction/segments/0502-hosted-windows-handle-custody-verification.md",
-      "sha256": "0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
       "bytes": 3472,
-      "predecessor": "segment-sha256:3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+      "evidence_bytes": 6555,
       "evidence_path": "work/construction/evidence/0502-hosted-windows-handle-custody-verification.json",
       "evidence_sha256": "d16014cc6bea90f28154efa6707cfda028a9b1a201a6fc0d8e4668f029aaa23d",
-      "evidence_bytes": 6555,
+      "path": "work/construction/segments/0502-hosted-windows-handle-custody-verification.md",
+      "predecessor": "segment-sha256:3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390",
+      "sequence": 502,
+      "sha256": "0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
       "source_commit": "ff37f74eca914153cc7435ad528aa844258cabcf",
       "source_tree": "a3b3e6d94b75529a8239d80106875f35ab816b99"
     },
     {
-      "sequence": 503,
-      "path": "work/construction/segments/0503-authenticate-delegated-stage-approval-issuers.md",
-      "sha256": "54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8",
       "bytes": 3124,
-      "predecessor": "segment-sha256:0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
+      "evidence_bytes": 5745,
       "evidence_path": "work/construction/evidence/0503-authenticate-delegated-stage-approval-issuers.json",
       "evidence_sha256": "c7faae985c785669afde7c47fca9f22ca4b050f836a2234e3a4679c7f4eddfe7",
-      "evidence_bytes": 5745,
+      "path": "work/construction/segments/0503-authenticate-delegated-stage-approval-issuers.md",
+      "predecessor": "segment-sha256:0e318546fb25147f2a6399d7d59d1a3b0b51f9c3d27ebb8c5ddabd75937f0249",
+      "sequence": 503,
+      "sha256": "54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8",
       "source_commit": "385f425ad118e15dde85eb5b6b2c39cdabb9b401",
       "source_tree": "16366dc901b19f19796af53db828a67eeec159c8"
+    },
+    {
+      "bytes": 1834,
+      "evidence_bytes": 2826,
+      "evidence_path": "work/construction/evidence/0504-reject-invalid-stage-approval-time-windows.json",
+      "evidence_sha256": "cebcaa9270db55c7d5ed468aada7764f981e99b3e39155614936c21a9ec67f39",
+      "path": "work/construction/segments/0504-reject-invalid-stage-approval-time-windows.md",
+      "predecessor": "segment-sha256:54eb6b00d845b230716d5ded08eb6f025e12826ab38e3d4cd69f8796f8e37ae8",
+      "sequence": 504,
+      "sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
+      "source_commit": "5d5f18d55214ac8fefc965e0a523015395a7d989",
+      "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f"
     }
   ],
   "source_acquisition": {
@@ -5728,7 +5740,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "16366dc901b19f19796af53db828a67eeec159c8",
+  "source_tree": "56780853b6fe7aa2242794d96385fba6de64f64f",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
