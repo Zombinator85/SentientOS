@@ -616,6 +616,18 @@ def test_transition_stage_execution_context_rejects_non_finite_numbers() -> None
             TransitionStageExecutionContext("b_activation_committed", ({"number": number},))
 
 
+def test_transition_stage_execution_context_rejects_malformed_constructor_shape() -> None:
+    invalid_stage: Any = []
+    invalid_approvals: Any = None
+    non_mapping_approvals: Any = ("not an approval mapping",)
+    with pytest.raises(TransitionError, match="transition_stage_execution_context_stage_invalid"):
+        TransitionStageExecutionContext(invalid_stage, ())
+    with pytest.raises(TransitionError, match="transition_stage_execution_context_approvals_invalid"):
+        TransitionStageExecutionContext("b_activation_committed", invalid_approvals)
+    with pytest.raises(TransitionError, match="transition_stage_execution_context_approval_invalid"):
+        TransitionStageExecutionContext("b_activation_committed", non_mapping_approvals)
+
+
 def test_transition_stage_execution_context_rejects_non_json_mutable_values() -> None:
     with pytest.raises(TransitionError, match="transition_stage_execution_context_value_invalid"):
         TransitionStageExecutionContext("b_activation_committed", ({"opaque": bytearray(b"mutable")},))

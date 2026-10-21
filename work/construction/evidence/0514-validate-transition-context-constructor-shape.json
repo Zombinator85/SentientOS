@@ -1,0 +1,102 @@
+{
+  "evidence_path": "work/construction/evidence/0514-validate-transition-context-constructor-shape.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "2d3539f462b5e6eb6acac5710001dc1b831ed2ce",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "5206e6260d7315cbf343e5cc4cb921c7d820d745"
+      },
+      "sentientos/resident_cognitive_model_transition_experiment.py": {
+        "git_blob_sha": "4772d74aa0e4108f1215052e3b8b1b595514153e"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "ed73d0bf20ea78ebf582ab681e8692496a78e9f5"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "git_blob_sha": "cbed9c30535f603d19eb86acfd2e9bee5e4e8ce9"
+      }
+    },
+    "parent": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+    "tree": "833cda415b96db88afee5307c5542503fa53bdc6"
+  },
+  "invariants": [
+    "Malformed direct constructor stage labels and approval container shapes fail with explicit transition-domain errors.",
+    "Every accepted subordinate approval entry remains a recursively frozen mapping snapshot.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; 513 predecessor segments verified",
+    "diff_check": "passed",
+    "targeted_mypy": "passed for transition experiment source",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "tests_failed": 0,
+    "tests_passed": 91,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0513-bind-finite-number-regression-to-acceptance.md",
+    "segment_sha256": "3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
+    "sequence": 513
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2181,
+  "segment_path": "work/construction/segments/0514-validate-transition-context-constructor-shape.md",
+  "segment_sha256": "b42dc2f3fa3ac4feba891d2c02679aa56114f0192f89ff2a1b2e0ef9af3b26a0",
+  "sequence": 514,
+  "sequence_512_513_merge_reconciliation": {
+    "administrator_audits": "passed",
+    "candidate_commit": "96fd9900c51dbb60df62936996f6e0c5042ae92b",
+    "corrected_candidate_checks": "passed",
+    "hosted_finalization": "passed",
+    "hosted_runs": {
+      "postmerge_ci": 39548093639,
+      "postmerge_codex_ci": 39548093602,
+      "postmerge_docker": 39548093590,
+      "postmerge_docs_deploy": 39548093596,
+      "postmerge_forge_smoke_skipped": 39548093644,
+      "postmerge_invariants": 39548093607,
+      "postmerge_nightly_self_check": 39548093634,
+      "postmerge_quality_gate": 39548093672,
+      "pr_codex_ci": 39547568957,
+      "pr_corrected_ci": 39547569130,
+      "pr_corrected_quality_gate": 39547571827,
+      "pr_docker": 39547569045,
+      "pr_gradient": 39547569002,
+      "pr_invariants": 39547569260,
+      "pr_lint": 39547568997,
+      "pr_release": 39547569092
+    },
+    "main_merge_commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+    "main_tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5",
+    "ordered_parents": [
+      "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+      "96fd9900c51dbb60df62936996f6e0c5042ae92b"
+    ],
+    "postmerge_runs": "passed_except_forge_smoke_conditionally_skipped",
+    "pull_request": 2520,
+    "separate_metadata_guard": "passed"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Validate transition context constructor shape",
+  "verified_main": {
+    "commit": "c10db1dd8bf68a440b4672744a12d3d89d96a18d",
+    "ref": "main",
+    "tree": "4a4d36bc8350b38c11d618cd37b4ea5c65235ef5"
+  }
+}
