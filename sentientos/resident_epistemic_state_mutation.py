@@ -146,6 +146,11 @@ class ResidentEpistemicStateMutationController:
             return
         if not isinstance(value, str) or not value or len(value) > 128:
             raise EpistemicMutationError("source_proof_recorded_at_invalid")
+        # RFC 3339 uses -00:00 to report an unknown local offset. Python's
+        # fromisoformat() treats it as UTC, which would make an uncertain
+        # source chronology appear precise enough for mutation custody.
+        if value.endswith("-00:00"):
+            raise EpistemicMutationError("source_proof_recorded_at_invalid")
         try:
             instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError as exc:

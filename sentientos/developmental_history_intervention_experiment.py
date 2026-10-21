@@ -689,6 +689,12 @@ class DevelopmentalExperimentStore:
         observed_times = [row.get("observed_at") for row in conditions]
         if any(not isinstance(value, str) or not value for value in observed_times):
             raise DevelopmentalHistoryInterventionError("epistemic_task_family_event_time_missing")
+        # Python treats RFC 3339 -00:00 as UTC, although it means the
+        # producer does not know the offset. Do not invent an ordering for a
+        # scored run before binding its measured relation to epistemic state.
+        if any(value.endswith("-00:00") for value in observed_times):
+            raise DevelopmentalHistoryInterventionError(
+                "epistemic_task_family_event_time_invalid")
         try:
             instants = [datetime.fromisoformat(value.replace("Z", "+00:00"))
                 for value in observed_times]
@@ -804,6 +810,9 @@ class DevelopmentalExperimentStore:
                         or not isinstance(observed_at, str)):
                     all_receipt_times_verified = False
                     continue
+                if observed_at.endswith("-00:00"):
+                    raise DevelopmentalHistoryInterventionError(
+                        "run_projection_event_time_invalid")
                 try:
                     parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
                 except ValueError as exc:

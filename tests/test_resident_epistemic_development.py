@@ -83,6 +83,13 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert state.evidence_set_digest
 
 
+def test_unknown_offset_historical_event_time_stays_unresolved():
+    from sentientos.resident_epistemic_development import _latest_historical_event_time
+
+    assert _latest_historical_event_time([
+        "2026-01-01T00:00:00-00:00", "2026-01-01T00:00:01+00:00"]) is None
+
+
 def test_quarantine_custody_status_cannot_become_epistemic_support(tmp_path):
     from sentientos.integrity_quarantine import QUARANTINE_PATH
 

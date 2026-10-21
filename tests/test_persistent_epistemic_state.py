@@ -515,6 +515,20 @@ def test_update_recorded_at_requires_bounded_aware_timestamp(tmp_path):
     assert list((tmp_path / "transactions").glob("*.json")) == []
 
 
+def test_update_recorded_at_rejects_unknown_offset_without_transaction(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    with pytest.raises(EpistemicStateError, match="epistemic_recorded_at_invalid"):
+        owner.commit_update(
+            proposition_id=p.proposition_id, expected_predecessor_digest=None,
+            stance="unknown", reason="initialization", active_binding_ids=(),
+            correlation_id="unknown-offset-time", tick=1,
+            recorded_at="2026-01-01T00:00:00-00:00")
+    assert list((tmp_path / "transactions").glob("*.json")) == []
+    assert owner.verify()["updates"] == 0
+
+
 def test_epistemic_collection_read_and_write_reject_symlinked_directory(tmp_path) -> None:
     import os
 

@@ -307,6 +307,31 @@ def test_naive_evidence_source_time_is_rejected_before_intent(tmp_path) -> None:
     assert list((owner.root / "bindings").glob("*.json")) == []
 
 
+def test_unknown_offset_evidence_source_time_is_rejected_before_intent(tmp_path) -> None:
+    owner, proposition, _authority, controller, _binding, _proof = setup(tmp_path)
+    unknown_offset_time = "2026-01-01T00:00:00-00:00"
+    binding = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="unknown-offset-observation",
+        source_digest="sha256:source", source_schema="sensor:v1",
+        source_class="operator_observation", observation_time=unknown_offset_time,
+        evidence_relation="supports", dependency_kind="independently_sourced_observation",
+        dependency_group="operator-unknown-offset", upstream_binding_ids=(),
+        freshness="current", reliability_posture="supports")
+    proof = make_epistemic_evidence_source_proof(
+        source_artifact_id=binding.source_artifact_id,
+        source_digest=binding.source_digest, source_schema=binding.source_schema,
+        source_class=binding.source_class, recorded_at=unknown_offset_time,
+        adapter_id="test-adapter:v1", provenance_id="operator:unknown-offset")
+    with pytest.raises(EpistemicMutationError,
+            match="source_proof_recorded_at_invalid"):
+        controller.append_evidence_binding(
+            binding=binding, source_proof=proof, admission=None,  # type: ignore[arg-type]
+            operation_id="unknown-offset-operation", correlation_id="unknown-offset")
+    assert list(controller.intent_root.glob("*.json")) == []
+    assert list((owner.root / "bindings").glob("*.json")) == []
+
+
 def test_explicit_undated_evidence_time_remains_unknown_without_failure() -> None:
     ResidentEpistemicStateMutationController._validate_source_event_time("undated")
 

@@ -41,6 +41,35 @@ def test_protocol_is_deterministic_preregistered_and_tamper_detecting(tmp_path: 
         verify_protocol(replace(first, snapshot_id="tampered"))
 
 
+def test_task_family_evidence_binding_rejects_unknown_offset_times() -> None:
+    run = {
+        "run_digest": "sha256:run",
+        "protocol": {"objective_task_descriptor": {
+            "family_posture": "operator_declared_protocol_bound",
+            "probe_inputs": [1], "probe_count": 1,
+            "task_family_id": "integer_affine_prediction"}},
+        "objective_evaluation": {
+            "assessment": "preregistered_probe_suite_scored",
+            "probe_count": 1, "condition_correct_counts": [1, 0, 1],
+            "history_correct_probe_delta": 1},
+        "objective_scores": [{"condition_id": condition,
+            "score": {"correct_count": count, "score_digest": "sha256:score"}}
+            for condition, count in zip(
+                ("history_present", "history_withheld", "history_restored"), (1, 0, 1))],
+        "conditions": [{"condition_id": condition,
+            "observed_at": "2026-01-01T00:00:00-00:00" if index == 0
+                else "2026-01-01T00:00:01+00:00"}
+            for index, condition in enumerate(
+                ("history_present", "history_withheld", "history_restored"))],
+    }
+    store = SimpleNamespace(load_run=lambda _run_id: run)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="epistemic_task_family_event_time_invalid"):
+        DevelopmentalExperimentStore.objective_task_family_evidence_binding(
+            store, run_id="run", expected_run_digest="sha256:run",
+            proposition_id="proposition")
+
+
 def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     def observation(condition: str, output: str, records: tuple[str, ...]):
         present = bool(records)

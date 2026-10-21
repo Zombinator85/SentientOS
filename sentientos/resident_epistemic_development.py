@@ -56,6 +56,10 @@ def _latest_historical_event_time(values: list[str]) -> str | None:
         return None
     parsed: list[tuple[datetime, str]] = []
     for value in values:
+        if value.endswith("-00:00"):
+            # -00:00 is an unknown offset, so it cannot participate in
+            # chronological selection as though it were UTC.
+            return None
         try:
             instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
             if instant.tzinfo is None or instant.utcoffset() is None:
