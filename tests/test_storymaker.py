@@ -15,10 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import tts_bridge
 with patch("sentientos.privilege.require_admin_banner"), patch(
     "sentientos.privilege.require_lumos_approval"
 ):
+    import tts_bridge
     import storymaker
     import replay
 
