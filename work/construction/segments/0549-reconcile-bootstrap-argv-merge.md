@@ -1,0 +1,13 @@
+# Sequence 549 — reconcile argv-only cathedral bootstrap commands
+
+PR #2557 merged normally as `c4f3c9fd7413c108f12998632e58034e42ab8c5c` with tree `733f8c5e823fbf4793e9b815e14eaf004c63f89b` and ordered parents `27139334d2dcb86d69a3b3314d6a4bc4de3ef170` and `e7c57210aef6fd2162865175ed701a189874c0b3`. The active `main` ref and commit object independently report that merge, tree, and parent order.
+
+`scripts/bootstrap_cathedral.py` now accepts command argument vectors, validates the executable and every argument, and invokes subprocess with `shell=False`. Requirement installation and fallback commands are passed as individual arguments. Command failure and operating-system launch errors are logged and returned as failure, preserving the fallback behavior when pip is unavailable. The adversarial regression verifies punctuation-bearing input remains one argument and rejects a raw command string before process creation. The exact node was added to the existing Quality Gate and hosted acceptance contract, increasing the bound set from 35 to 36 while retaining all prior nodes.
+
+On the exact candidate `e7c57210aef6fd2162865175ed701a189874c0b3`, the Required Quality Gate run `39616078874` passed its 36-node acceptance set, strict Administrator audits and immutability checks, hosted privileged pre-commit finalizer, and separate pre-publication PR metadata guard. The exact-candidate acceptance, finalizer, and QG artifacts were independently listed with their published digests. Candidate CI, Docs, Helm, Docker, invariants, Release, Codex CI, lint benchmark, and Gradient checks passed. The candidate's push-triggered CI, QG, and Invariant workflows also passed. No production inference, transition, or bootstrap installation was run.
+
+After merge, exact-main CI, Required Quality Gate, Docker Image, Docs Deploy, Nightly Self Check, Invariant Tests, and Codex CI all passed. Forge Smoke was skipped by its configured condition. The source candidate tree is identical to the merge tree. The four candidate blobs were independently read back from GitHub and matched the prepared source byte for byte before the PR was opened.
+
+No local pytest run is claimed; verification used the repository's hosted canonical workflows without bypassing its test airlock. The protected sequence-178 workspace and the separate sequence-545 workspace were not modified.
+
+Next: investigate the bounded subprocess supervisor's pipe-drain deadline when a child exits but a descendant retains inherited output pipes. Add a focused regression only if the lifecycle contract confirms the timeout should cover that drain; preserve process-tree custody and platform limits.

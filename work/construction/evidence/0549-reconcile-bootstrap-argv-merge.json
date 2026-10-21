@@ -1,0 +1,146 @@
+{
+  "evidence_path": "work/construction/evidence/0549-reconcile-bootstrap-argv-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "id": 39616078746,
+        "conclusion": "success",
+        "scope": "hosted full CI including integrated resource-to-cognition lifecycle, pytest, Mypy baseline, docs linkcheck, and Helm"
+      },
+      "Codex CI": {
+        "id": 39616078839,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39616078838,
+        "conclusion": "success"
+      },
+      "Gradient null regression": {
+        "id": 39616078870,
+        "conclusion": "success"
+      },
+      "Invariant Tests": {
+        "id": 39616078815,
+        "conclusion": "success"
+      },
+      "Lint Benchmark": {
+        "id": 39616078756,
+        "conclusion": "success"
+      },
+      "Release": {
+        "id": 39616078759,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39616078874,
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "accepted_nodes": 36,
+        "failed_nodes": 0,
+        "skipped_nodes": 0,
+        "strict_administrator_audits": true,
+        "hosted_privileged_precommit_finalizer": "ready_to_commit",
+        "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+        "acceptance_artifact": {
+          "id": 12352861501,
+          "digest": "sha256:34fdeb57e1d9c0e97a2fe5b462c4d0615cc4bf4a23b260f71dfb1f2ed0ff3974"
+        },
+        "finalizer_artifact": {
+          "id": 12353590131,
+          "digest": "sha256:3f16fe45965865ae76223edd3420de28e4f7f08da83df402eb4ff27a08b44f92"
+        },
+        "quality_gate_artifact": {
+          "id": 12353375079,
+          "digest": "sha256:273fc567bdd9a4e1d5dc62b8fcf5ef50704b1cb7cde92a3a0770b66fdc32bea0"
+        }
+      },
+      "push CI": {
+        "id": 39615980303,
+        "conclusion": "success"
+      },
+      "push Invariant Tests": {
+        "id": 39615980707,
+        "conclusion": "success"
+      },
+      "push Required Quality Gate": {
+        "id": 39615980533,
+        "conclusion": "success"
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "id": 39617585198,
+        "conclusion": "success"
+      },
+      "Codex CI": {
+        "id": 39617585088,
+        "conclusion": "success"
+      },
+      "Docker Image": {
+        "id": 39617585014,
+        "conclusion": "success"
+      },
+      "Docs Deploy": {
+        "id": 39617585023,
+        "conclusion": "success"
+      },
+      "Forge Smoke": {
+        "id": 39617585072,
+        "conclusion": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "id": 39617585116,
+        "conclusion": "success"
+      },
+      "Nightly Self Check": {
+        "id": 39617585106,
+        "conclusion": "success"
+      },
+      "Required Quality Gate": {
+        "id": 39617585016,
+        "conclusion": "success",
+        "strict_administrator_audits": true
+      }
+    }
+  },
+  "invariants": [
+    "bootstrap command strings are rejected before process creation",
+    "validated command arguments are passed as argv and shell=False",
+    "install fallback behavior is preserved when command launch or execution fails",
+    "the existing 35 exact acceptance nodes remain and one exact regression node is added",
+    "hosted verification is bound to the exact candidate and merge preserves both parents"
+  ],
+  "predecessor": {
+    "sequence": 548,
+    "segment_sha256": "7d4b8d74fa89b686196c853849ce1cc44d7fe3d79b4c8ceda2d5f4055456a8df"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 549,
+  "source_candidate": {
+    "commit": "e7c57210aef6fd2162865175ed701a189874c0b3",
+    "pull_request": 2557,
+    "tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "all four changed file blobs exactly matched prepared source",
+    "local_pytest": "not run; canonical hosted verification used",
+    "protected_workspaces_touched": false,
+    "remote_main_parent": "27139334d2dcb86d69a3b3314d6a4bc4de3ef170",
+    "publication": "GitHub Git Data API with expected-head branch updates"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile argv-only cathedral bootstrap commands",
+  "verified_main": {
+    "commit": "c4f3c9fd7413c108f12998632e58034e42ab8c5c",
+    "merge_method": "merge",
+    "parents": [
+      "27139334d2dcb86d69a3b3314d6a4bc4de3ef170",
+      "e7c57210aef6fd2162865175ed701a189874c0b3"
+    ],
+    "ref": "main",
+    "tree": "733f8c5e823fbf4793e9b815e14eaf004c63f89b"
+  },
+  "segment_path": "work/construction/segments/0549-reconcile-bootstrap-argv-merge.md",
+  "segment_sha256": "2d408e4eda152ec9b1548d2eed53e14cc8c64e6f2744e9502a8cd0789ab8b27b",
+  "segment_bytes": 2662
+}
