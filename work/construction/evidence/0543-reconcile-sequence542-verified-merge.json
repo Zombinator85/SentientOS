@@ -1,0 +1,210 @@
+{
+  "evidence_path": "work/construction/evidence/0543-reconcile-sequence542-verified-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39599656352
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39599656379
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39599656368
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "id": 39599656366
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39599656449
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "id": 39599656374
+      },
+      "Release": {
+        "conclusion": "success",
+        "id": 39599656396
+      },
+      "Required Quality Gate": {
+        "artifacts": {
+          "exact_acceptance": {
+            "digest": "sha256:6a10c7e5d4ddbec482e69eb37d17af4621e03c1c8b6998190566a62dfec30723",
+            "id": 12344868375
+          },
+          "hosted_finalizer": {
+            "digest": "sha256:63245d1675f86a91a29a3603093091c89a1067e2001bbfb050c1a36d10bb5460",
+            "id": 12346041581
+          },
+          "quality_gate_evidence": {
+            "digest": "sha256:aa39a6629bd46afde5604138c2ada77665d09eaa1f975c4130689a6d41fe8822",
+            "id": 12345133810
+          }
+        },
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "id": 39599887947,
+        "pre_commit_finalizer": "success",
+        "prepublication_metadata_guard": "success",
+        "strict_administrator_audits": true
+      },
+      "superseded_attempt": {
+        "conclusion": "failure",
+        "id": 39599656470,
+        "reason": "PR title did not match the latest evidence commit subject; title was corrected and the exact-candidate gate rerun successfully"
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "conclusion": "success",
+        "full_pytest_mypy_source_validation_docs_and_helm": "passed",
+        "id": 39600410968
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39600411036
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39600410951
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "id": 39600410928
+      },
+      "Federation Health Update": {
+        "conclusion": "success",
+        "id": 39600410991
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39600411008
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39600410964
+      },
+      "Nightly Self Check": {
+        "conclusion": "success",
+        "event": "push",
+        "id": 39600410967
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39600410993
+      }
+    }
+  },
+  "invariants": [
+    "PR #2550 was merged with the normal merge method and exact expected head SHA.",
+    "Sequence 542 source changes and append-only evidence are both present in the merged tree.",
+    "The source-triggered Federation Health execution is post-merge evidence but is not reported as scheduled execution.",
+    "The generated report snapshot remains stale and is not live telemetry.",
+    "GITHUB_TOKEN-created bot PR checks remain action_required; no approval or Actions write permission was added.",
+    "No production model transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "automated_report_pr": {
+      "app_credentials_configured": false,
+      "head_sha": "81ff3e839a1301e7aaf2142f38a96ba1748b49dd",
+      "mergeable_state": "unstable",
+      "number": 2511,
+      "state": "open",
+      "workflow_runs_action_required": [
+        39600478750,
+        39600478684,
+        39600478924,
+        39600478738,
+        39600478782,
+        39600478865,
+        39600479030,
+        39600478743
+      ]
+    },
+    "latest_scheduled_federation_health": {
+      "conclusion": "success",
+      "created_at": "2026-10-21T10:10:34Z",
+      "current_main_execution": false,
+      "interpretation": "No scheduled run for main ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4 was listed by 2026-10-21T12:36:35Z; the successful post-merge push run is not substituted for scheduled evidence.",
+      "run_id": 39582634969,
+      "source_sha": "df38a118dae867b02a7562c956d1c9ee21c50b40"
+    },
+    "post_merge_federation_health": {
+      "administrator_preflight": "passed",
+      "app_token_step": "skipped",
+      "artifact": {
+        "digest": "sha256:162fc1a3e93e2387f8c0a4426b5fba7813140e2cf2ff183b4429b425983f3e4f",
+        "id": 12346370297
+      },
+      "event": "push",
+      "execution_receipt": {
+        "blob_sha": "20608bd636a9e8e648ddd0b4bbbd414412b46ba9",
+        "head_sha": "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4",
+        "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+        "report_sha256_verified_against_remote_report": true,
+        "run_id": 39600410991
+      },
+      "health_generator": "completed_successfully",
+      "published_report": {
+        "blob_sha": "6b288d3fdb7350d48500ab4822c802316bde5026",
+        "branch": "automation/federation-health",
+        "data_source": "configured local log snapshot; not live federation telemetry",
+        "latest_event": "2025-06-05T16:25:13.805813Z",
+        "status": "stale"
+      },
+      "publisher_token": "GITHUB_TOKEN fallback",
+      "ref": "refs/heads/main",
+      "run_id": 39600410991,
+      "source_sha": "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4"
+    }
+  },
+  "predecessor": {
+    "evidence_sha256": "a7357263d5a73b44e42de7c93004013f0466552ff7d8a797b0f0113aa2a300b6",
+    "segment_path": "work/construction/segments/0542-add-scoped-app-token-for-federation-health.md",
+    "segment_sha256": "028f3d8ba896e358da06723fd37fe7a9e13efa90c2d9a2cef4c47de025da1aaa",
+    "sequence": 542
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 3692,
+  "segment_path": "work/construction/segments/0543-reconcile-sequence542-verified-merge.md",
+  "segment_sha256": "6c6804a0b36d01453881586f1fd0ea099607356acf968c40d9a6ada6941e8c13",
+  "sequence": 543,
+  "source_candidate": {
+    "commit": "e64ba0ccfb8cdf246aa31f335bf9c0a8c854c733",
+    "pull_request": 2550,
+    "tree": "626f7bd37e17ac3b9fc330b314b46b7cfb730231"
+  },
+  "source_recovery": {
+    "custody_verifier": "construction_continuation_custody_ready; 542 segments verified",
+    "git_fetch_from_sandbox": "failed_network_proxy_unavailable",
+    "local_synthetic_snapshot": {
+      "commit": "13224276b6134a1fa96899c062b1b2ced597a5a7",
+      "interpretation": "temporary local workspace snapshot only; the published candidate used ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4 as its actual GitHub parent",
+      "parent": "20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a",
+      "tree": "626f7bd37e17ac3b9fc330b314b46b7cfb730231"
+    },
+    "protected_workspaces_touched": false,
+    "remote_commit_parents": [
+      "20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a",
+      "e64ba0ccfb8cdf246aa31f335bf9c0a8c854c733"
+    ],
+    "remote_main_commit": "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4",
+    "remote_main_tree": "626f7bd37e17ac3b9fc330b314b46b7cfb730231"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 542 verified merge",
+  "verified_main": {
+    "commit": "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4",
+    "merge_method": "merge",
+    "parents": [
+      "20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a",
+      "e64ba0ccfb8cdf246aa31f335bf9c0a8c854c733"
+    ],
+    "ref": "main",
+    "tree": "626f7bd37e17ac3b9fc330b314b46b7cfb730231"
+  }
+}

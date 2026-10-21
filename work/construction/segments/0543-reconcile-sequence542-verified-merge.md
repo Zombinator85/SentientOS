@@ -1,0 +1,18 @@
+# Sequence 543 — reconcile sequence 542 verified merge
+
+PR #2550 merged normally as `ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4`, tree `626f7bd37e17ac3b9fc330b314b46b7cfb730231`, with ordered parents `20509f3cd7ee7d28b08bf3abc6e6a445fd3f0f7a` and `e64ba0ccfb8cdf246aa31f335bf9c0a8c854c733`. GitHub's main ref, merge PR, commit object, and candidate tree readbacks agreed. Local Git transport was unavailable, so this clean reconciliation worktree uses a clearly labeled local synthetic snapshot commit `13224276b6134a1fa96899c062b1b2ced597a5a7`; its tree is byte-for-byte the GitHub-verified merged tree. The stale sequence-178 and other protected workspaces were left untouched.
+
+On the exact candidate head, CI `39599656352`, Docker `39599656368`, Gradient `39599656366`, Lint Benchmark `39599656374`, Release `39599656396`, Codex CI `39599656379`, and Invariant Tests `39599656449` passed. CI included the full test suite, Mypy baseline ratchet, source validation, documentation build/linkcheck, and Helm integration. Required Quality Gate `39599887947` passed exact acceptance, strict Administrator audits, the pre-commit finalizer, and its separate pre-publication metadata guard. Its hosted artifacts are finalizer `12346041581`, exact acceptance `12344868375`, and Quality Gate evidence `12345133810`. The initial Quality Gate attempt `39599656470` failed only because the PR title did not match the evidence tip commit subject; the PR title was aligned, and the corrected exact-head gate passed without changing source or evidence.
+
+All applicable post-merge checks on `ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4` passed: CI `39600410968`, Required Quality Gate `39600410993`, Docker `39600410951`, Docs Deploy `39600410928`, Nightly Self Check (push-triggered) `39600410967`, Codex CI `39600411036`, Invariant Tests `39600410964`, and Federation Health Update `39600410991`. Forge Smoke `39600411008` was skipped by its configured condition.
+
+The post-merge Federation Health run was a source-triggered `push` execution, not a scheduled run. It was bound to the exact merge SHA and run ID in its receipt; the hosted Administrator preflight and report generator passed. Artifact `12346370297` (digest `sha256:162fc1a3e93e2387f8c0a4426b5fba7813140e2cf2ff183b4429b425983f3e4f`) contained the report and execution receipt. The receipt's report digest `e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c` matched the independently read-back published report. The report is marked `stale`: its configured local-log snapshot has no event newer than 2025-06-05 and is not live federation telemetry.
+
+The publisher updated bot PR #2511 to head `81ff3e839a1301e7aaf2142f38a96ba1748b49dd`. The run explicitly skipped the optional App-token step and used the `GITHUB_TOKEN` fallback; all eight resulting PR workflow runs concluded `action_required`. The opt-in App route is implemented and documented, but its repository variable and secrets are not configured, so unattended PR checks remain pending external App provisioning. This does not invalidate the successful post-merge execution or its run-bound artifact. The latest scheduled Federation Health run remains pre-merge, run `39582634969`; no current-main scheduled execution is claimed as of 2026-10-21 12:36 UTC.
+
+No production model transition, activation, serving, inference, or writeback was performed.
+
+Verified main: `ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4`, tree `626f7bd37e17ac3b9fc330b314b46b7cfb730231`
+Merged candidate: `e64ba0ccfb8cdf246aa31f335bf9c0a8c854c733`
+Latest construction segment: `work/construction/segments/0543-reconcile-sequence542-verified-merge.md`
+Sequence: 543 (verified merge reconciliation)

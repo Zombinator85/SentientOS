@@ -161,3 +161,17 @@ Latest segment SHA-256: `028f3d8ba896e358da06723fd37fe7a9e13efa90c2d9a2cef4c47de
 Sequence: 542 (candidate pending hosted verification)
 
 Next: complete exact-candidate hosted verification and the privileged Quality Gate, then obtain a real scheduled Federation Health run on current main and confirm the publisher uses the intended identity if the optional App is provisioned.
+
+
+## Sequence 543 — reconcile sequence 542 verified merge
+
+PR #2550 merged normally as `ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4`, tree `626f7bd37e17ac3b9fc330b314b46b7cfb730231`. Exact candidate CI, Required Quality Gate (including strict Administrator audits, exact acceptance, hosted pre-commit finalizer, and separate pre-publication metadata guard), Docker, Gradient, lint, Release, Codex CI, and invariants passed. Post-merge CI, Quality Gate, Docker, docs, Nightly Self Check, Codex CI, invariants, and the source-triggered Federation Health execution passed; Forge Smoke was skipped by condition.
+
+The Federation Health execution was bound to the current merge SHA and its report digest matched the published artifact. Its local-log snapshot is stale and is not live telemetry. The latest scheduled run is still pre-merge. The report publisher's optional GitHub App step was skipped; the GITHUB_TOKEN fallback created/updated bot PR #2511, whose checks remain action_required. App credentials are not configured; configuration instructions are in `docs/federation_health_publication.md`.
+
+Verified main: `ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4`, tree `626f7bd37e17ac3b9fc330b314b46b7cfb730231`
+Latest segment: `work/construction/segments/0543-reconcile-sequence542-verified-merge.md`
+Latest segment SHA-256: `6c6804a0b36d01453881586f1fd0ea099607356acf968c40d9a6ada6941e8c13`
+Sequence: 543 (verified merge reconciliation)
+
+Next: observe the next scheduled Federation Health execution on current main, continue investigating the unattended publisher authorization path, and proceed with the next retained-experience developmental dependency without conflating operational status with cognition evidence.
