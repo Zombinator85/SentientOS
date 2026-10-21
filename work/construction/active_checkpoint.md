@@ -299,3 +299,15 @@ Latest segment SHA-256: `af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3ce
 Sequence: 553 (verified merge reconciliation)
 
 Next: make bounded subprocess pipe draining work on native Windows, where selectors cannot monitor anonymous pipes, while preserving timeout and platform-specific process-tree evidence.
+
+
+## Sequence 554 — native Windows subprocess pipe draining
+
+The bounded subprocess supervisor now polls Windows anonymous pipes with `PeekNamedPipe` and drains stdout/stderr without relying on unsupported Windows selector pipe registration. POSIX behavior is unchanged; Windows descendant enumeration remains explicitly unconfirmed. The concurrent dual-stream regression and workflow binding passed on `windows-latest`; 62 focused local tests, compilation, strict Mypy, and diff checks passed. PR #2567 merged normally and exact-main post-merge CI, Required Quality Gate, Docker, Docs Deploy, Nightly Self Check, invariants, Windows Custody, and Codex CI passed. Forge Smoke was conditionally skipped.
+
+Verified main: `3e435dd8db0a4ada125cdf7433a8744f3ddb9eee`, tree `68e40fe10352fb958ae778d4fe3f08e0adaf1f46`
+Latest construction segment: `work/construction/segments/0554-windows-subprocess-pipe-draining.md`
+Latest segment SHA-256: `ed116854381f15228171712a588061990514a9092ccbacdc2444dfcf75469ebd`
+Sequence: 554 (verified merge reconciliation)
+
+Next: inspect Windows cancellation and descendant-lifetime semantics without overstating platform guarantees.

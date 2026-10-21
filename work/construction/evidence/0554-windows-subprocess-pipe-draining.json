@@ -1,0 +1,144 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39637787887
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39637787690
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39637787916
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39637787571
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39637787721
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39637787541
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39637787797
+    },
+    "Required Quality Gate": {
+      "accepted_nodes": 42,
+      "conclusion": "success",
+      "failed_nodes": 0,
+      "hosted_privileged_precommit_finalizer": "ready_to_commit",
+      "id": 39637787830,
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "skipped_nodes": 0,
+      "strict_administrator_audits": true
+    },
+    "Required Quality Gate artifacts": {
+      "acceptance": {
+        "digest": "sha256:6f5ee62783ad115fd4aa073af0e7d3e0f2f247bb7559bbdec5f0f423cf8409e1",
+        "id": 12362755834
+      },
+      "finalizer": {
+        "digest": "sha256:291b4ae395c4e3fca791f11051a397373bfd53f76c71843ee59297cc11c1c3b5",
+        "id": 12361488477
+      },
+      "quality_gate": {
+        "digest": "sha256:bf8f0a05285ae42a07cf8f155acf8c321b9777af1b6bdc4a2c1d19439c111048",
+        "id": 12363271432
+      }
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39637787789,
+      "platform": "windows-latest",
+      "scope": "Windows custody and bounded subprocess supervision regressions"
+    }
+  },
+  "invariants": [
+    "POSIX selector path unchanged",
+    "Windows anonymous pipes are drained without selector dependence",
+    "stdout and stderr drain concurrently beyond typical pipe capacity",
+    "line buffering, output tails, heartbeat, timeout, and drain deadlines remain bounded",
+    "Windows descendant termination is not asserted as independently confirmed",
+    "source and evidence use isolated worktrees; protected workspaces remain untouched"
+  ],
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39638778788
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39638778793
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39638778992
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39638778775
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39638778964
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39638778749
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39638778772
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39638779180
+    },
+    "Required Quality Gate evidence": {
+      "digest": "sha256:e21226a8c3c79b197c0d6109961be9618881ce2cd17c8ea8e4291f4ba28a5b5d",
+      "id": 12364215831
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39638778848
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "af0c0d9238b9e09ae0b5f527be3b4c9e70cb23c8595ccdf43d0f3cec2288927c",
+    "sequence": 553
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2506,
+  "segment_path": "work/construction/segments/0554-windows-subprocess-pipe-draining.md",
+  "segment_sha256": "ed116854381f15228171712a588061990514a9092ccbacdc2444dfcf75469ebd",
+  "sequence": 554,
+  "source_candidate": {
+    "commit": "5759e87c686d4e5cecafcc6d4012fdd950a2632f",
+    "pull_request": 2567,
+    "tree": "68e40fe10352fb958ae778d4fe3f08e0adaf1f46"
+  },
+  "source_recovery": {
+    "candidate_blob_readback": "all five candidate source/workflow blobs independently read back from GitHub; blob identities matched local bytes.",
+    "local_tests": "11 bounded subprocess supervision tests and 51 hosted workflow contract tests passed (62 combined); py_compile, strict Mypy, and git diff --check passed.",
+    "protected_workspaces_touched": false,
+    "publication": "candidate published via GitHub Git Data API with expected-head compare-and-swap from exact main; PR merged normally preserving merge history."
+  },
+  "status": "verified_reconciliation",
+  "title": "Support native Windows subprocess pipe draining",
+  "verified_main": {
+    "commit": "3e435dd8db0a4ada125cdf7433a8744f3ddb9eee",
+    "merge_method": "merge",
+    "parents": [
+      "070f2b793e772a9a39378d77fad90493af8f8277",
+      "5759e87c686d4e5cecafcc6d4012fdd950a2632f"
+    ],
+    "ref": "main",
+    "tree": "68e40fe10352fb958ae778d4fe3f08e0adaf1f46"
+  }
+}
