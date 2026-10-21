@@ -607,6 +607,27 @@ def test_bound_request_faults_are_consumed_without_effect(tmp_path: Path, mutati
     assert controller.calls == 0
 
 
+@pytest.mark.parametrize(("field", "timestamp"), [
+    ("created_at", "2026-09-25T11:00:00-00:00"),
+    ("expires_at", "2026-09-25T13:00:00-00:00"),
+], ids=("created_at_unknown_offset", "expires_at_unknown_offset"))
+def test_operator_request_rejects_unknown_offset_before_effects(
+        tmp_path: Path, field: str, timestamp: str) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    packet = _request()
+    packet[field] = timestamp
+    persist_request(tmp_path, _resign_request(packet))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_request_validity_invalid"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
+    assert controller.phase == PHASES[0]
+
+
 def test_authenticated_request_operator_must_match_stage_approval_issuer(tmp_path: Path) -> None:
     controller = _Controller(); runtime = _runtime(tmp_path, controller)
     approval = _approval()
