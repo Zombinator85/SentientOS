@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -469,6 +469,35 @@ def test_naive_transition_observation_clock_is_rejected_before_effects(tmp_path)
     with pytest.raises(TransitionError, match="stage_approval_observation_time_invalid"):
         ctl.advance(approval=approval(ctl, slot))
 
+    assert journal.entries() == []
+    assert gate.quiesced is False
+    assert ctl.phase == PHASES[0]
+
+
+class _ChangingObservationOffset(tzinfo):
+    def __init__(self) -> None:
+        self.reads = 0
+
+    def utcoffset(self, dt: datetime | None) -> timedelta | None:
+        self.reads += 1
+        return timedelta(hours=13) if self.reads == 1 else None
+
+    def dst(self, dt: datetime | None) -> timedelta | None:
+        return None
+
+    def tzname(self, dt: datetime | None) -> str | None:
+        return None
+
+
+def test_stage_approval_uses_one_sampled_observation_offset_before_effects(tmp_path):
+    ctl, gate, journal, slot, _ = controller(tmp_path)
+    offset = _ChangingObservationOffset()
+    ctl.clock = lambda: NOW.replace(tzinfo=offset)
+
+    with pytest.raises(TransitionError, match="stage_approval_not_current"):
+        ctl.advance(approval=approval(ctl, slot))
+
+    assert offset.reads == 1
     assert journal.entries() == []
     assert gate.quiesced is False
     assert ctl.phase == PHASES[0]

@@ -47,6 +47,7 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_protocol_publication_keeps_partial_bytes_invisible_and_retries_short_writes",
         "test_protocol_publication_rejects_oversized_payload_without_publishing",
         "test_stage_approval_rejects_unknown_offset_before_effects",
+        "test_stage_approval_uses_one_sampled_observation_offset_before_effects",
     )
     for node in nodes:
         assert node in source_validation

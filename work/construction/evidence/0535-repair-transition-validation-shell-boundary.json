@@ -1,0 +1,57 @@
+{
+  "checkpoint_compaction": {
+    "checkpoint_limit_bytes": 65536,
+    "prior_history_preserved_in_append_only_chain": true,
+    "removed_bytes": 60036
+  },
+  "evidence_path": "work/construction/evidence/0535-repair-transition-validation-shell-boundary.json",
+  "hosted_verification": {
+    "corrected_candidate_checks": "pending",
+    "prior_ci_run": "39587024868_failed_source_selection_command_extra_cp_argument",
+    "sequence_534_quality_gate": "39587186107_passed_including_separate_metadata_guard",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Only the malformed shell command separator changed; no test or verification requirement was weakened.",
+    "The 30 source-validation nodes and exact adverse stage-approval regression remain selected.",
+    "Append-only history through sequence 531 remains preserved in segment/evidence files and index.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "affected_transition_experiment_module": "42_passed",
+    "ci_yaml_parse": "passed",
+    "compileall": "passed",
+    "focused_clock_and_acceptance_nodes": "2_passed",
+    "source_validation_contract": "1_passed",
+    "source_validation_nodes": "30_passed",
+    "targeted_mypy": "passed_no_issues"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0534-single-sample-stage-approval-clock.md",
+    "segment_sha256": "5c9cd3c2bcf106014d54b2931797b23ebdbaf97d674b1fdceb7d1a59b56e6ba3",
+    "sequence": 534
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1435,
+  "segment_path": "work/construction/segments/0535-repair-transition-validation-shell-boundary.md",
+  "segment_sha256": "1961b7a85829511f72074f3944324f86912690f68503a8bbc9e781f043115fc0",
+  "sequence": 535,
+  "source_candidate": {
+    "commit": "d0fb1b1b24908f7aba5354d57989d869e936b0ff",
+    "tree": "b79fb23ebb7a5e64d19db39beb96387fcb4e2ae8"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Repair transition validation shell boundary",
+  "verified_main": {
+    "commit": "155eb48b60afda086eeaa03b75b02fc4062907f8",
+    "ref": "main",
+    "tree": "d47f882f9a86968fd7d8cadd352b3bdb2f3a8b9a"
+  }
+}

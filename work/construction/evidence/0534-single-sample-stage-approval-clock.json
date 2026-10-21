@@ -1,0 +1,47 @@
+{
+  "evidence_path": "work/construction/evidence/0534-single-sample-stage-approval-clock.json",
+  "hosted_verification": {
+    "candidate_checks": "pending",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Approval freshness uses one sampled explicit offset and never infers a local timezone.",
+    "The adverse regression proves rejection before journal, gate, or phase effects.",
+    "Independent operator authentication, approval authority, and effect-owner boundaries are unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "affected_transition_experiment_module": "42_passed",
+    "compileall": "passed",
+    "focused_clock_and_acceptance_nodes": "2_passed",
+    "targeted_mypy": "passed_no_issues"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0533-repair-operator-clock-acceptance-binding.md",
+    "segment_sha256": "90be67a3b3165c414e07caa4ec9c50860e3ab28a1fd4f6c1df2f712033b0c125",
+    "sequence": 533
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1442,
+  "segment_path": "work/construction/segments/0534-single-sample-stage-approval-clock.md",
+  "segment_sha256": "5c9cd3c2bcf106014d54b2931797b23ebdbaf97d674b1fdceb7d1a59b56e6ba3",
+  "sequence": 534,
+  "source_candidate": {
+    "commit": "f2ca9c28e02ff5cb4ee45f854bcae05c48f5371c",
+    "tree": "675c7bdd291a7107f881ca368d523543220f8de7"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Sample stage approval time offset once",
+  "verified_main": {
+    "commit": "155eb48b60afda086eeaa03b75b02fc4062907f8",
+    "ref": "main",
+    "tree": "d47f882f9a86968fd7d8cadd352b3bdb2f3a8b9a"
+  }
+}
