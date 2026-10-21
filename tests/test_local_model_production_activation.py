@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sentientos.local_model_production_activation import (
     ABSENT, APPROVAL_SCHEMA, EFFECTS, INTENT_SCHEMA, PRINCIPAL, STATE_SCHEMA,
-    _expected_prior, effect_set_digest, verify_activation_state,
+    ProductionActivationError, _expected_prior, _time, effect_set_digest, verify_activation_state,
 )
 from sentientos.local_runtime_provisioning import semantic_digest
 
@@ -37,3 +37,9 @@ def test_prior_state_rejects_wildcards(value: str) -> None:
     with pytest.raises(Exception, match="exact_expected_prior"):
         _expected_prior(value)
     assert _expected_prior(ABSENT) == ABSENT
+
+
+def test_activation_approval_time_rejects_unknown_rfc3339_offset() -> None:
+    with pytest.raises(ProductionActivationError, match="activation_approval_time_invalid"):
+        _time("2035-01-03T00:00:00-00:00")
+    assert _time("2035-01-03T00:00:00+00:00").isoformat() == "2035-01-03T00:00:00+00:00"
