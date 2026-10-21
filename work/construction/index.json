@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8a04c3fd0d26bc28e16e626bb08421c9c7f53c6e9eacd7f15e3941ad59344a84",
-    "latest_segment_sequence": 559,
-    "latest_segment_sha256": "157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
-    "source_commit": "30c2c524d15e28b510d01b8a6f2728fa2a471a2d",
-    "source_tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
+    "checkpoint_sha256": "18294774b3ddee8e980281bf41a063803afd15aac6c4922b0450e39a86a3d94e",
+    "latest_segment_sequence": 560,
+    "latest_segment_sha256": "ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629",
+    "source_commit": "1042e955963d2dac5ef60c2930d0e089568c0024",
+    "source_tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
   },
-  "checkpoint_sha256": "8a04c3fd0d26bc28e16e626bb08421c9c7f53c6e9eacd7f15e3941ad59344a84",
+  "checkpoint_sha256": "18294774b3ddee8e980281bf41a063803afd15aac6c4922b0450e39a86a3d94e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 559,
+  "latest_sequence": 560,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6438,6 +6438,19 @@
       "source_candidate_commit": "082d67afcaca06b4c4aa0201e3f99514021bea6c",
       "source_commit": "30c2c524d15e28b510d01b8a6f2728fa2a471a2d",
       "source_tree": "a2491cc93436404e2bf5f5de03869b389fb46823"
+    },
+    {
+      "bytes": 2349,
+      "evidence_bytes": 5460,
+      "evidence_path": "work/construction/evidence/0560-report-escaped-descendants-as-unconfirmed.json",
+      "evidence_sha256": "ff94d7962089d8913ac3ffe9481aa030d68f05dbe3579b61c9d41daf59d334cb",
+      "path": "work/construction/segments/0560-report-escaped-descendants-as-unconfirmed.md",
+      "predecessor": "segment-sha256:157b29e250d77cfd5b88b85031f92fbb17d78436d988fb80ab79bef6ef643d47",
+      "sequence": 560,
+      "sha256": "ec4efacbf3eb3c127f37e6b6518775730b5583624b01e82fa87798fee9b21629",
+      "source_candidate_commit": "e4c8ab6f14656305aec5c41dd8833c600fec8133",
+      "source_commit": "1042e955963d2dac5ef60c2930d0e089568c0024",
+      "source_tree": "0612883b39292d1e50a3d48cde7ed0d6443458c9"
     }
   ],
   "source_acquisition": {
