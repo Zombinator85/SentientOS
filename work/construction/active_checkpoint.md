@@ -117,3 +117,20 @@ Latest segment SHA-256: 63d9d23e7fee463dffa27b85aab60a830883a755a364a2c99dd55d0f
 Sequence: 539 (corrected candidate pending hosted verification)
 
 Next: verify the corrected exact candidate and its privileged gate, then reconcile the merge before publishing the next receipt-custody increment.
+
+
+## Sequence 538–539 — verified merge and acceptance correction
+
+PR #2547 merged normally as `5d45b1e95ef41b29729ee3cda9eb9d949c460706`, tree `ecf56ce9152b32e52d935d2b843b6178e921164c`, with parents `500fd87c0d807f9ef2128902c166d04c3203f8fc` and `85e7c5b8e09fb7350dd112bb522a7da0713a4134`. The parameter-suffixed test node was corrected and its exact acceptance regression passed. Exact PR CI, Mypy ratchet, integrated lifecycle, privileged Quality Gate, metadata guard, docs, Docker, invariants, Release, Codex CI, lint benchmark, and Gradient null regression passed. A separate branch-push Quality Gate failed during parent-workspace provenance reconstruction; the PR gate passed and merge was accepted. Post-merge CI, Docker, and Nightly Self Check remained pending at capture; the other post-merge checks passed.
+
+## Sequence 540 — bind self-reflection trial receipt identities
+
+The self-reflection receipt verifier now checks that a receipt ID matches the semantic body identity even after the outer digest is recomputed. Forged, missing, and non-string IDs are rejected. Combined receipt, campaign, workflow-contract, and synthetic rehearsal tests: 72 passed. Mypy delta comparison found zero new error signatures against the existing baseline. Hosted checks are pending. No production model effect occurred.
+
+Verified main: `5d45b1e95ef41b29729ee3cda9eb9d949c460706`, tree `ecf56ce9152b32e52d935d2b843b6178e921164c`
+Implementation candidate: `41a089059e915473a8e57d9e2927e49c31e5db14`, tree `d47759dcd37104e3645976cadfbec86c7c43570b`
+Latest construction segment: work/construction/segments/0540-bind-self-reflection-trial-receipt-identities.md
+Latest segment SHA-256: 33f3a80108c11750eae07d68c4e1dc0aa7b5df4c67068b2039d5e96b732883a8
+Sequence: 540 (candidate pending hosted verification)
+
+Next: verify the exact self-reflection receipt candidate, reconcile the merge and post-merge workflows, then observe the scheduled Federation Health run before deciding whether any operational change remains necessary.
