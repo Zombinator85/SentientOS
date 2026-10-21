@@ -72,6 +72,7 @@ class _Controller:
     def __init__(self) -> None:
         self.phase = PHASES[0]
         self.calls = 0
+        self.stage_execution_context = None
         self.protocol = type("Protocol", (), {"value": {"transition_id": "transition-1"}})()
         self.journal = type("Journal", (), {"entries": lambda self: []})()
 
@@ -85,6 +86,7 @@ class _Controller:
         prior = self.phase
         self.phase = PHASES[PHASES.index(self.phase) + 1]
         assert stage_execution_context is not None
+        self.stage_execution_context = stage_execution_context
         return {"prior_phase": prior, "phase": self.phase, "journal_head": f"head-{self.calls}",
                 "advanced_one_stage": True}
 
@@ -548,6 +550,32 @@ def test_subordinate_approval_summary_is_required(tmp_path: Path) -> None:
     assert result["reason"] == "operator_request_subordinate_approval_invalid"
     assert result["effect_performed"] is False
     assert controller.calls == 0
+
+
+def test_subordinate_verifier_cannot_mutate_controller_approval_snapshot(tmp_path: Path) -> None:
+    controller = _Controller()
+    subordinate = {
+        "approval_evidence_id": "authorization-1",
+        "approval_semantic_digest": "sha256:" + "b" * 64,
+        "authorization": {"scopes": ["activate"]},
+    }
+    verified: list[dict[str, object]] = []
+
+    def mutating_verifier(_stage: str, approvals: Any) -> None:
+        approvals[0]["authorization"]["scopes"].append("serve")
+        approvals[0]["approval_evidence_id"] = "rewritten-authorization"
+        verified.append(approvals[0])
+
+    runtime = _runtime(tmp_path, controller, mutating_verifier)
+    persist_request(tmp_path, _request(subordinate_approvals=[subordinate]))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "stage_advanced"
+    assert verified[0]["authorization"]["scopes"] == ["activate", "serve"]
+    assert controller.calls == 1
+    assert controller.stage_execution_context.subordinate_approvals[0]["authorization"]["scopes"] == ["activate"]
+    assert controller.stage_execution_context.subordinate_approvals[0]["approval_evidence_id"] == "authorization-1"
 
 
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:
