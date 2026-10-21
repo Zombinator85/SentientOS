@@ -145,177 +145,9 @@ Latest construction segment: work/construction/segments/0486-overflowed-priority
 Latest segment SHA-256: `28f30169b2ae939736f3d949e6247c4eece63815623cebc2a7288dad4b86e718`
 Sequence: 486
 
-## Sequence 487 — bounded priority overflow in canonical plan identity
+## Archived checkpoint summary — sequences 487–500
 
-PR #2477 records whether a further unique valid enabled prior proposition exceeded the 512-position relevance bound, and includes the flag and limit in canonical plan evidence and plan identity, allocation artifacts, and daemon feedback. The no-owner path remains unchanged. Local affected verification passed 61 tests with two existing skips, compilation passed, and the Mypy baseline added zero errors. Exact-candidate hosted acceptance, actual Administrator strict audits, audit immutability, the separate metadata guard, and all PR checks passed.
-
-Regular merge `598663bb85e423072391a9e0befe24c4836af7ac` preserves ordered parents `157450c562dbd062ed271172f1330fa0b2df002c` and `0e968e7014e4929b441a922e1c2a78f85bfdfeeb`; tree `e945a199d023fcabc64d93bb5982fef08de324f7`, signature valid. Post-merge Quality Gate, CI (including docs, source validation, self-check, and Helm), invariants, Codex CI, Docker, and Docs Deploy passed; Forge Smoke was skipped by condition.
-
-No scheduled Federation Health or nightly audit/self-check execution on exact main `598663bb85e423072391a9e0befe24c4836af7ac` was observed at 2026-10-20T07:09:00Z. Federation Health publication remains blocked by repository Actions-token PR policy; no current-head scheduled success is claimed.
-
-Next, verify persisted plan and evidence readback retains the priority-overflow flag and bound after recovery. Draft PR #2478 adds this integrated regression; local affected suite passed 63 tests with two existing skips, compilation passed, and Mypy added zero errors. Exact candidate hosted verification is in progress.
-
-Latest verified source merge: `598663bb85e423072391a9e0befe24c4836af7ac`, tree `e945a199d023fcabc64d93bb5982fef08de324f7`
-Latest construction segment: `work/construction/segments/0487-disclose-bounded-priority-overflow-in-plan-identity.md`
-Latest segment SHA-256: `26c48af56e4e0ba1be4083de12609e36947a5fce4d69a415edbd0906b3d2881f`
-Sequence: 487
-
-
-## Sequence 488 — verify persisted priority admission readback
-
-PR #2478 extends the overflow regression to reopen the persisted canonical plan and its evidence binding. It verifies `overflowed=true` and `limit=512` survive readback, while omission identity, adverse review status, and non-execution remain asserted. This is a test-only change. The affected local suite passed 61 tests with two existing skips; compilation passed; the full Mypy baseline added zero errors. Exact-candidate hosted Administrator audits, immutability, acceptance, metadata guard, and all PR checks passed.
-
-Regular merge `0b6f97752ce2da7229661174dd75fda61ae267f0` preserves ordered parents `598663bb85e423072391a9e0befe24c4836af7ac` and `325f3f6397378697196ea6a5df5f267fc3d92aa5`; tree `a0b20e55bcae4940cb2697dadf2b1d54d4f980a1`, signature valid. Post-merge CI, self-check, source validation, Helm, docs, Quality Gate, invariants, Codex CI, Docker, and CPU smoke passed. Forge Smoke was skipped by condition.
-
-At 2026-10-20T07:17:11Z, no scheduled Federation Health or nightly audit/self-check run on exact main `0b6f97752ce2da7229661174dd75fda61ae267f0` was observed. Federation Health publication remains blocked by repository Actions policy denying Actions-token pull request creation.
-
-Next, reassess the retained-experience to canonical-planning dependency and continue seeking actual current-head scheduled Federation Health evidence.
-
-Latest verified source merge: `0b6f97752ce2da7229661174dd75fda61ae267f0`, tree `a0b20e55bcae4940cb2697dadf2b1d54d4f980a1`
-Latest construction segment: `work/construction/segments/0488-verify-persisted-priority-admission-readback.md`
-Latest segment SHA-256: `59e50d280e62a030cdda88044ec92f7fa952fc1e1214d9b3d3e5cf7d9d5a3a5e`
-Sequence: 488
-
-## Sequence 489 — positive history in recovered daemon planning
-
-PR #2480 verifies that a supported model bound proposition reaches canonical daemon planning after reconstructing the persistent epistemic owner. The exact model identity selects the goal and binds position state/event identity into plan evidence. The 66 test affected suite passed (62 passed, 4 existing skips), compile and Mypy baseline passed, and exact candidate hosted checks passed.
-
-Regular merge `405f620e06285d99f81fdaa1189bd8df443d9320`, tree `034e2daed0795337ac4e50a350a31380c1ede85a`, ordered parents `0c0030fc0e5f6c602c94e3a40dbbd357c9a63adb` and `af003dbe1a2c5dfbbf7a96ae09b1bd597e1fa67b`; signature verified. Post merge required workflows passed.
-
-## Sequence 490 — fail closed on model identity drift
-
-PR #2481 verifies that a changed serving model defers the previously supported model bound goal as `epistemic_applicability_unresolved`, retaining positive state identity in allocation evidence. The affected 66 tests passed (62 passed, 4 existing skips), compile and Mypy baseline passed, and exact candidate hosted checks passed.
-
-Regular merge `d7db09da4567f2977575a17d3356dc0ac128fab2`, tree `71872aa0a18ac80af1648e5358d0af0d855583c8`, ordered parents `405f620e06285d99f81fdaa1189bd8df443d9320` and `71b3ef8064a5521cede91a49a8fc2e2799932913`; signature verified. Post merge required workflows passed.
-
-## Sequence 491 — model identity in daemon feedback
-
-PR #2482 surfaces the already bound target model digest and observation time in canonical daemon planning feedback. The integration regression verifies these values across model drift and retains the no inference, no execution, and no authority guarantees. The affected 66 tests passed (62 passed, 4 existing skips); compile and Mypy baseline passed; exact hosted acceptance and metadata guard passed.
-
-Regular merge `6046002357a51cf5f96fa5ec4b067155b3024040`, tree `00d600c2cb55c41e3829b9cba02efb4c821ff87b`, ordered parents `d7db09da4567f2977575a17d3356dc0ac128fab2` and `e26d85082c19b9c5ced1bc924ece184556883602`; signature verified. Post merge required workflows passed.
-
-No scheduled Federation Health, Nightly Audit Integrity, or Nightly Self Check run on this exact main head was observed at 2026-10-20T07:55:27Z. The latest scheduled Federation Health report generation succeeded on ancestor `800dcef026b32c45c5668282b260ca2e39ab4c24`, but its publisher failed because repository policy denies Actions token PR creation. No current head scheduled success is claimed.
-
-Latest verified source merge: `6046002357a51cf5f96fa5ec4b067155b3024040`, tree `00d600c2cb55c41e3829b9cba02efb4c821ff87b`
-Latest construction segment: `work/construction/segments/0491-surface-model-identity-in-daemon-planning-feedback.md`
-Latest segment SHA-256: `6f9e00eea9ed4098a58a9e37e57c7be6dc879875a15a76ccae54f08f044304b8`
-Sequence: 491
-
-
-## Sequence 492 — bind allocation content to persisted plan evidence
-
-PR #2486 carries a SHA-256 digest of exact canonical allocation bytes through deterministic plan identity, persisted plan evidence, and read-only daemon feedback. Persistence and readback verify the bounded linked artifact, while older evidence lacking the field remains readable. Local affected tests passed, compilation passed, and the full Mypy ratchet added zero errors and retired 40. Exact candidate checks, hosted Administrator audits, immutability, acceptance, and metadata guard passed. Regular merge `2adf59db661779ba8d62d5d8417381f442fdbaf0` preserves main and candidate as ordered parents; the exact tree and all five changed blobs were independently read back. Post-merge required checks passed.
-
-As of 2026-10-20T09:20:24Z, a scheduled Federation Health run on this main head and a current-head Nightly Self Check were not observed. Federation Health run #8680 passed its Administrator health/report job on older head `800dcef026b32c45c5668282b260ca2e39ab4c24` and uploaded an artifact bound to that head, but its publisher failed because Actions-token pull request creation is denied by repository policy. Nightly Audit Integrity #501 succeeded on prior main `124de0f9ced349de7342901a2e1338c460c05a00`; Nightly Self Check #507 succeeded on older head `b5912ecc8f25cebcb5338f623bae8d829261f6ce`. These do not establish scheduled execution on current main.
-
-Next, verify the allocation identity once more at the executor boundary so a mismatched executor envelope or replaced allocation cannot create a task journal or run artifact. Production campaign, inference, and transition execution remain unclaimed; protected and stale workspaces remain untouched.
-
-Latest verified source merge: `2adf59db661779ba8d62d5d8417381f442fdbaf0`, tree `04ad88a8f5a002e10409f721c3f5f0947dc7ebe8`
-Latest construction segment: `work/construction/segments/0492-bind-allocation-content-to-persisted-plan-evidence.md`
-Latest segment SHA-256: `206e524c8638d7155dcecf10ef2a6f53f280bb3aeda502669146978c322eb781`
-Sequence: 492
-
-
-## Sequence 493 — executor allocation identity before effects
-
-PR #2488 merged the executor allocation-binding check, verifying persisted evidence path and digest against ExecutorState before journal creation or task invocation. Its post-merge CLI omission was found by callsite review and fixed in sequence 495.
-
-## Sequence 494 — nightly workflow triggers and evidence
-
-PR #2489 merged the expanded nightly input paths and exact path-set contract. Nightly Audit Integrity #502 (run 39403772754) and Nightly Self Check #510 (run 39403773009) then passed on exact main 0ac5125cafd104df0b72d40207bae19eecf6faba. Both were push-triggered runs; they do not establish scheduled Federation Health success. The Federation Health publisher remains blocked by the Actions-token PR-creation setting.
-
-## Sequence 495 — canonical CLI allocation binding
-
-PR #2490 fixed the canonical work-plan runner to pass the graph hash, allocation artifact path, optional digest, and verified evidence digest to GoalExecutor. The 49 affected local tests passed. Exact-candidate hosted CI, Quality Gate, Administrator audits, immutability, acceptance, and the separate metadata guard passed. Regular merge 54c9764b6726a46e6f7d667232e726ba2795007a preserves the candidate commit and exact main tree 60e57156e3aa646e4aa1610db4fee934e97d3be1. The main-branch source and test blobs independently match the verified candidate blobs.
-
-At 2026-10-20T10:10:27Z, no scheduled Federation Health run on the new main head had been observed. The latest known scheduled report run remained on older head 800dcef026b32c45c5668282b260ca2e39ab4c24 and failed only in its PR publisher after report generation succeeded. The current Actions connector lists PR-triggered workflow runs only; no claim of a post-merge scheduled run is made.
-
-Latest verified source merge: `54c9764b6726a46e6f7d667232e726ba2795007a`, tree `60e57156e3aa646e4aa1610db4fee934e97d3be1`
-Latest construction segment: work/construction/segments/0495-canonical-cli-verified-allocation-identity.md
-Latest segment SHA-256: c05d66d6c6a99d4141064ee70c57faceff634663701974f3c578c0c0bd9799b6
-Sequence: 495
-
-
-## Sequence 496 — bind persisted evidence to direct execution
-
-PR #2492 closes the direct GoalExecutor path that could omit a digest while plan evidence existed. The executor now rejects that omission before journal or task effects, and keeps nonpersisted manual plans unchanged. The 84 affected local tests and exact candidate hosted verification passed. The Quality Gate's hosted Administrator audits, acceptance, finalizer, and separate metadata guard passed for candidate a6f6c1eee0bfc8021fc08168662dc050802f0b7a, tree d268c38ca20262fcc14702ebbff11e33b10faa26; the finalizer artifact SHA-256 was independently matched.
-
-PR #2492 merged with history preserved as 020ee1a135f013aa3b395d6f3fd69b5775e5a4ca; remote main readback matched both verified source blobs and tree d268c38ca20262fcc14702ebbff11e33b10faa26.
-
-No production task, inference, campaign, or transition was executed. The validation profile was solo, with exhaustive matrix output not requested.
-
-Latest verified source merge: `020ee1a135f013aa3b395d6f3fd69b5775e5a4ca`, tree `d268c38ca20262fcc14702ebbff11e33b10faa26`
-Latest construction segment: `work/construction/segments/0496-require-persisted-plan-evidence-digest.md`
-Latest segment SHA-256: `9a423a613e0696bb8235a48f80edf6f310e01d0a270dccefc7af57123c6b4df1`
-Sequence: 496
-
-## Sequence 497 — partial plan evidence sidecar fails closed
-
-PR #2494 adds a regression for a crash between writing the external evidence-binding sidecar and its envelope. A sidecar alone marks the persisted plan as evidence-bound: direct execution without the expected digest raises `work_plan_evidence_digest_required` before task invocation, journal creation, or run artifact creation. The test also confirms the partial sidecar bytes remain unchanged.
-
-The affected executor, CLI, evidence bounds, journal, plan loading, and orchestration tests passed locally (85 tests), and `git diff --check` passed. Exact-candidate hosted CI, Required Quality Gate (hosted strict audit, acceptance, privileged finalizer, and separate pre-publication metadata guard), invariants, Gradient, Codex CI, Release, Docker, and Lint passed. The solo profile did not request an exhaustive matrix.
-
-PR #2494 merged with commit history preserved as `50c1d9ab99d8d81b0a28ba58185c8a99349b17ca`; main readback returned the exact test source. No production task, inference, campaign, or transition execution occurred.
-
-Latest source-bearing main commit: `50c1d9ab99d8d81b0a28ba58185c8a99349b17ca`, tree `03da01b4f4d39d592c32d210f3bed990a609dd4a`
-Latest construction segment: `work/construction/segments/0497-partial-plan-evidence-sidecar-fail-closed.md`
-Latest segment SHA-256: `3089ccefcb21807d423255a7bce19f1e5300849d5010d921c742803887de8699`
-Sequence: 497
-
-The sequence-497 record is additive; prior construction segments and the frozen legacy continuation journal remain unchanged.
-
-
-## Sequence 498 — atomically publish work-plan evidence sidecars
-
-PR #2496 closes the interrupted-write gap in immutable work-plan evidence bindings. The writer uses a private same-directory temporary file, flushes and synchronizes its bytes, publishes with an atomic no-overwrite hard link, and synchronizes the containing directory. Exact existing bytes remain idempotent; conflicting bytes still fail closed.
-
-The regression injects an `fsync` failure before publication, verifies that neither the canonical sidecar nor its envelope exists and that the temporary is removed, then retries and confirms successful canonical readback. Focused evidence-bound and executor tests, targeted Mypy, compilation, all exact-candidate checks, and all post-merge checks passed. Hosted finalizer, acceptance, and quality-gate artifacts were downloaded and independently matched to their GitHub-published SHA-256 digests. The separate metadata guard reported `pr_metadata_guard_ready`; validation used the solo profile and did not request an exhaustive matrix.
-
-Regular merge `803f4d004dbc853424a507beba9980c706c9266c` preserves verified main `a20f300d3639539df977be67452f0eedde39b890` and candidate `a43018f58e796367ece41e4a85e98419e0f8bf37` as ordered parents. The signed merge commit's tree is `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`, matching the exact candidate tree. Post-merge Quality Gate, CI, build, CPU smoke, invariants, docs, Helm, and deployment passed; Forge Smoke was skipped by its workflow condition.
-
-No production task, inference, campaign, or transition was executed. No authority boundary or append-only history was changed.
-
-Latest verified source merge: `803f4d004dbc853424a507beba9980c706c9266c`, tree `cf77d77cb58fbef561427e52c991ce4b0a9c10a8`
-Latest construction segment: `work/construction/segments/0498-atomic-work-plan-sidecar-publication.md`
-Latest segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
-Sequence: 498
-
-
-## Sequence 499 — atomically publish work-plan evidence envelopes
-
-PR #2498 closes the interruption window after an external work-plan binding sidecar has been published but before the canonical evidence envelope is fully written. The envelope is now written and synchronized in a private same-directory temporary, atomically linked into place without replacement, and followed by a directory sync. Exact retries remain idempotent and conflicting contents fail closed.
-
-The regression injects an envelope fsync failure after the sidecar is durable, verifies the complete sidecar remains while the canonical envelope and temporary are absent, then retries and validates the persisted evidence digest. The affected local suites passed (24 tests), targeted Mypy and compilation passed, and all exact-candidate hosted checks passed. The Quality Gate's strict Administrator audits, acceptance, privileged finalizer, and separate pre-publication metadata guard passed. Downloaded gate artifacts were independently checked against GitHub's SHA-256 digests; validation used the solo profile without requesting an exhaustive matrix.
-
-PR #2498 merged with history preserved as `d7219eb7673fe627412383b0e041506ed961ceab`. The signed merge preserves base `e70d952579bbe8d5a5257f52ad6ba8f024ee61d7` and candidate `6bef514f1d4f530d5b478fce7bb6f7d4b6367aaf` as ordered parents, with tree `58837c6b924d0c39fd03e33a36cc4689c85af0e8`, identical to the candidate tree. Post-merge checks passed; Forge Smoke was skipped by its workflow condition.
-
-No production task, inference, campaign, or transition was executed. Authority boundaries and append-only construction history were preserved.
-
-Latest source merge: `d7219eb7673fe627412383b0e041506ed961ceab`, tree `58837c6b924d0c39fd03e33a36cc4689c85af0e8`
-Latest segment: `work/construction/segments/0499-atomic-work-plan-evidence-envelope-publication.md`
-Latest segment SHA-256: `a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f`
-Predecessor segment SHA-256: `3fbd678500273d28cda7d2cee02a27e0880dc30eb57cbc2cd46ae3ac12bfa6d8`
-Sequence: 499
-
-
-## Sequence 500 — guard work-plan evidence directory ancestry
-
-PR #2499 closes the directory-ancestry gap in immutable work-plan evidence storage. On platforms with descriptor-relative APIs, the writer and reader traverse the canonical evidence directory without following symlinks, operate through the opened descriptor, and verify that the descriptor still names the canonical directory after access. The fallback validates each path component without accepting symlinks.
-
-Regression tests reject symlinks at each ancestry level for both writes and reads, exercise the fallback rejection path, and swap an ancestor after secure open to prove the operation does not redirect evidence into the external target and fails its final directory identity check.
-
-Seven affected work-plan, executor, journal, and orchestration suites passed (92 tests); targeted Mypy and compilation passed. All exact-candidate checks passed, including hosted Administrator audits, acceptance, privileged finalization, and the separate pre-publication metadata guard. The three hosted artifacts were independently downloaded and matched their GitHub SHA-256 digests. The finalizer bound candidate `69271640d8159832d761402cf187c32f52e5c004` and tree `ff75349ab29030665b259ef742b3603d92e8d099`; validation used the solo profile without requesting an exhaustive matrix.
-
-PR #2499 merged with history preserved as signed merge `d2b987d23cdc86a371a15d096feda08024f9c3db`, preserving base `d7219eb7673fe627412383b0e041506ed961ceab` and candidate `69271640d8159832d761402cf187c32f52e5c004` as ordered parents. Remote main resolves to the merge and its tree matches the exact candidate tree. Post-merge Quality Gate, source validation, self-check, build, CPU smoke, invariants, Helm, and deployment passed; Forge Smoke was skipped by its workflow condition. The strict docs link check passed after the longer Sphinx external-link phase completed.
-
-No production task, inference, campaign, or transition was executed. Authority boundaries and append-only construction history were preserved.
-
-Latest source merge: `d2b987d23cdc86a371a15d096feda08024f9c3db`, tree `ff75349ab29030665b259ef742b3603d92e8d099`
-Latest segment: `work/construction/segments/0500-protect-work-plan-evidence-directory-ancestry.md`
-Latest segment SHA-256: `1de8ce7c67afb9bffce9b0dbc82395bad42a84c765a5e78ae5dc02875a8de4f7`
-Predecessor segment SHA-256: `a51c1db481d2fcd8f1b0e5948ba1e00e24e0d6e990e2f6927ef6f5df6993691f`
-Sequence: 500
-
+Sequences 487–500 developed bounded goal-relevant history selection, daemon planning identity and drift checks, canonical plan evidence binding, pre-effect executor validation, CLI evidence binding, and atomic sidecar publication. Their complete append-only records remain in `work/construction/index.json` and the indexed segment/evidence files; this checkpoint keeps the detailed operational narrative beginning at sequence 501.
 
 ## Sequence 501 — fail closed without descriptor-relative evidence access
 
@@ -539,3 +371,18 @@ Latest segment SHA-256: `64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d
 Sequence: 517
 
 Next: obtain post-merge Federation Health evidence on current main and verify the nightly audit workflow actually executes with its required Administrator authority; continue transition-cognition development within the existing non-production boundary.
+
+
+## Sequence 518 — report stale Federation Health snapshots
+
+A successful scheduled artifact on older main exposed a June 2025 latest event being labeled `quiet` in October 2026. The report now labels old snapshots `stale`, preserving the explicit local-snapshot/not-live disclosure. A hosted regression is source-bound in CI. The existing Federation Health workflow's main push trigger includes this source path, so merging will generate an artifact on current main. Administrator preflight and scoped publisher permissions are unchanged.
+
+Local affected tests passed 98/98; compileall, YAML, AST, diff, and custody passed. Canonical Mypy baseline improved with zero new errors. Candidate hosted verification is pending.
+
+Latest verified source merge: `45d49ec2e2cab9a9158686f9bf7536801b642883`, tree `6b35806f17cce6a2814e6693f8a8156100d53a20`
+Implementation candidate: `9357dede0d6fc6c5a829f084cf5905f77f2fc4aa`, tree `a25269c3e6ec480343b8cd7fa3607617ead0f41e`
+Latest construction segment: work/construction/segments/0518-report-stale-federation-health-snapshots.md
+Latest segment SHA-256: `f86b4147f88da2c6d26f78b2aa52ffb608c033ebb0ee4b70bd1e0c7dc6cae3ea`
+Sequence: 518 (candidate pending hosted verification)
+
+Next: inspect the sequence-518 post-merge Federation Health artifact and publication PR; verify the nightly audit schedule on current main.

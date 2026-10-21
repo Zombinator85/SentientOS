@@ -1,0 +1,83 @@
+{
+  "evidence_path": "work/construction/evidence/0518-report-stale-federation-health-snapshots.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "9357dede0d6fc6c5a829f084cf5905f77f2fc4aa",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "git_blob_sha": "1dfffdb0f1f8da433eb9d089c8cfc6ecf307ffb9"
+      },
+      "federation_health_badge.py": {
+        "git_blob_sha": "9782fddfe8d4c1b310a11fc8412dc0701a25935d"
+      },
+      "tests/test_federation_health_badge.py": {
+        "git_blob_sha": "1f49421a4f8dab61288a7fe39f85701705e4f4ef"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "git_blob_sha": "2e401121e0d3042b40301d038f409db74d0ab6e9"
+      }
+    },
+    "parent": "45d49ec2e2cab9a9158686f9bf7536801b642883",
+    "tree": "a25269c3e6ec480343b8cd7fa3607617ead0f41e"
+  },
+  "invariants": [
+    "Stale local snapshots are identified as stale rather than quiet while the report remains explicit that telemetry is not live.",
+    "Administrator preflight, execution receipt binding, and publisher authority remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "ast_parse": "passed",
+    "compileall": "passed",
+    "construction_custody": "passed; 517 predecessor segments verified",
+    "diff_check": "passed",
+    "mypy_baseline": {
+      "new_errors": 0,
+      "retired_errors": 40,
+      "status": "mypy_baseline_improved"
+    },
+    "test_command": "/tmp/sentientos-seq516-verify/bin/python -m scripts.run_tests -- -m \"legacy or no_legacy_skip\" -q tests/test_federation_health_badge.py tests/test_federation_health_execution_receipt.py tests/test_github_hosted_acceptance_workflows.py tests/test_resident_cognitive_transition_operator.py",
+    "tests_failed": 0,
+    "tests_passed": 98,
+    "tests_skipped": 0,
+    "workflow_yaml": "passed: .github/workflows/ci.yml and .github/workflows/federation-health.yml"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0517-reconcile-sequence516-verified-merge.md",
+    "segment_sha256": "64b314faac27c42e61bb2298bb9a2dd04e67db50f9ab5a41dce439d8dffeb972",
+    "sequence": 517
+  },
+  "prior_federation_health_artifact": {
+    "artifact_id": 12320849226,
+    "artifact_sha256": "sha256:b29c73993b12d457a3de90bb829d29cbe3fb4fb46752a5bb93f43cd543a2931b",
+    "latest_event_at": "2025-06-05T16:25:13.805813Z",
+    "observed_status": "quiet",
+    "run_head": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+    "run_id": 39546186159,
+    "source": "configured local snapshot; not live federation telemetry"
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1893,
+  "segment_path": "work/construction/segments/0518-report-stale-federation-health-snapshots.md",
+  "segment_sha256": "f86b4147f88da2c6d26f78b2aa52ffb608c033ebb0ee4b70bd1e0c7dc6cae3ea",
+  "sequence": 518,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Report stale Federation Health snapshots",
+  "verified_main": {
+    "commit": "45d49ec2e2cab9a9158686f9bf7536801b642883",
+    "ref": "main",
+    "tree": "6b35806f17cce6a2814e6693f8a8156100d53a20"
+  }
+}
