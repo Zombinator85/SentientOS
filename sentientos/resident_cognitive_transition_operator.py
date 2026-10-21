@@ -63,6 +63,20 @@ def _canonical(value: Mapping[str, Any]) -> bytes:
     return (json.dumps(_plain(value), sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def _subordinate_approval_bindings(
+        approvals: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    bindings: list[dict[str, str]] = []
+    for item in approvals:
+        artifact_digest = str(item.get("approval_digest") or item.get("approval_semantic_digest")
+                              or item.get("receipt_semantic_digest") or "")
+        artifact_id = str(item.get("approval_id") or item.get("approval_evidence_id")
+                          or item.get("receipt_id") or "")
+        if not artifact_id or not artifact_digest:
+            raise TransitionError("operator_request_subordinate_approval_invalid")
+        bindings.append({"approval_id": artifact_id, "approval_digest": artifact_digest})
+    return bindings
+
+
 def _time(value: object) -> datetime:
     try:
         parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
@@ -133,15 +147,7 @@ def build_request(*, installation_identity: str, protocol: Mapping[str, Any], re
     approval_digest = str(stage.get("approval_digest", ""))
     if not approval_digest or digest({k: v for k, v in stage.items() if k != "approval_digest"}) != approval_digest:
         raise TransitionError("operator_request_stage_approval_invalid")
-    subordinate_bindings = []
-    for item in subordinate:
-        artifact_digest = str(item.get("approval_digest") or item.get("approval_semantic_digest")
-                              or item.get("receipt_semantic_digest") or "")
-        artifact_id = str(item.get("approval_id") or item.get("approval_evidence_id")
-                          or item.get("receipt_id") or "")
-        if not artifact_id or not artifact_digest:
-            raise TransitionError("operator_request_subordinate_approval_invalid")
-        subordinate_bindings.append({"approval_id": artifact_id, "approval_digest": artifact_digest})
+    subordinate_bindings = _subordinate_approval_bindings(subordinate)
     body = {"schema_version": REQUEST_SCHEMA, "installation_identity": installation_identity,
             "protocol_id": protocol["protocol_id"], "protocol_digest": protocol["protocol_digest"],
             "transition_id": protocol["transition_id"], "requested_stage": requested_stage,
@@ -639,6 +645,12 @@ class LiveTransitionOperatorRuntime:
             raise TransitionError("operator_request_stage_approval_binding_mismatch")
         if approval.get("approval_issuer_identity") != authenticated_operator.operator_identity:
             raise TransitionError("operator_request_stage_approval_issuer_mismatch")
+        subordinate = value.get("subordinate_approvals")
+        bindings = value.get("subordinate_approval_bindings")
+        if not isinstance(subordinate, list) or not isinstance(bindings, list):
+            raise TransitionError("operator_request_subordinate_approval_invalid")
+        if bindings != _subordinate_approval_bindings(subordinate):
+            raise TransitionError("operator_request_subordinate_approval_binding_mismatch")
         now = self.clock().astimezone(timezone.utc)
         if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
 

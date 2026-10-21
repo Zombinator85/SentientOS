@@ -147,6 +147,21 @@ def _request(**changes):
     return seal_request_with_operator_provenance(request, provenance)
 
 
+def _resign_request(request):
+    signed_at = request["operator_provenance"]["signed_at"]
+    claims_digest = operator_request_claims_digest(request)
+    signature = _TEST_OPERATOR_PRIVATE_KEY.sign(canonical_operator_request_payload(
+        operator_identity=str(request["operator_identity"]), signing_key_id=_TEST_OPERATOR_KEY_ID,
+        signed_at=str(signed_at), request_claims_digest=claims_digest))
+    provenance = {"schema": OPERATOR_PROVENANCE_SCHEMA,
+        "operator_identity": request["operator_identity"], "signing_key_id": _TEST_OPERATOR_KEY_ID,
+        "algorithm": "ed25519", "signed_at": signed_at,
+        "request_claims_digest": claims_digest,
+        "signature": base64.urlsafe_b64encode(signature).decode().rstrip("=")}
+    provenance["provenance_digest"] = provenance_digest_for(provenance)
+    return seal_request_with_operator_provenance(request, provenance)
+
+
 def _runtime(tmp_path: Path, controller=None, verifier=None,
              operator_provenance_verifier=_DEFAULT_OPERATOR_VERIFIER):
     provenance_verifier = (_operator_verifier() if operator_provenance_verifier is _DEFAULT_OPERATOR_VERIFIER
@@ -493,6 +508,46 @@ def test_stage_approval_correlation_must_match_signed_request(tmp_path: Path) ->
 def test_stage_approval_operation_must_match_signed_request(tmp_path: Path) -> None:
     _assert_stage_approval_binding_rejected(
         tmp_path, _approval(operation_identity="other-operation"))
+
+
+def test_subordinate_approval_summary_must_match_signed_artifact(tmp_path: Path) -> None:
+    controller = _Controller()
+    verifier_calls: list[list[dict[str, str]]] = []
+    runtime = _runtime(tmp_path, controller,
+        lambda _stage, approvals: verifier_calls.append([dict(item) for item in approvals]))
+    subordinate = {"approval_evidence_id": "authorization-1",
+                   "approval_semantic_digest": "sha256:" + "b" * 64}
+    request = _request(subordinate_approvals=[subordinate])
+    changed = dict(request)
+    changed["subordinate_approval_bindings"] = [
+        {"approval_id": "authorization-1", "approval_digest": "sha256:" + "c" * 64}]
+    persist_request(tmp_path, _resign_request(changed))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_request_subordinate_approval_binding_mismatch"
+    assert result["effect_performed"] is False
+    assert verifier_calls == []
+    assert controller.calls == 0
+
+
+def test_subordinate_approval_summary_is_required(tmp_path: Path) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    request = _request(subordinate_approvals=[{
+        "approval_evidence_id": "authorization-1",
+        "approval_semantic_digest": "sha256:" + "b" * 64}])
+    changed = dict(request)
+    changed.pop("subordinate_approval_bindings")
+    persist_request(tmp_path, _resign_request(changed))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_request_subordinate_approval_invalid"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
 
 
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:

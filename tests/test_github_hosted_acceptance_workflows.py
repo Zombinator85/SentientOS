@@ -16,6 +16,8 @@ def test_source_validation_runs_verified_transition_receipt_regressions():
         "test_verified_stage_receipt_rejects_rejected_or_missing_custody",
         "test_stage_approval_correlation_must_match_signed_request",
         "test_stage_approval_operation_must_match_signed_request",
+        "test_subordinate_approval_summary_must_match_signed_artifact",
+        "test_subordinate_approval_summary_is_required",
     )
     for node in nodes:
         assert node in source_validation
