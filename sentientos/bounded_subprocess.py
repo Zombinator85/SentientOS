@@ -88,6 +88,69 @@ def _terminate_tree(
     return graceful, forced
 
 
+def _windows_pipe_available_bytes(file_descriptor: int) -> int | None:
+    """Return readable bytes for a Windows anonymous pipe, or None at EOF."""
+    import ctypes
+    import msvcrt
+
+    kernel32_loader: Any = getattr(ctypes, "WinDLL")
+    msvcrt_module: Any = msvcrt
+    kernel32 = kernel32_loader("kernel32", use_last_error=True)
+    peek_named_pipe: Any = getattr(kernel32, "PeekNamedPipe")
+    peek_named_pipe.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_ulong),
+        ctypes.c_void_p,
+    ]
+    peek_named_pipe.restype = ctypes.c_int
+    available = ctypes.c_ulong()
+    handle = msvcrt_module.get_osfhandle(file_descriptor)
+    if peek_named_pipe(
+        handle, None, 0, None, ctypes.byref(available), None
+    ):
+        return int(available.value)
+
+    get_last_error: Any = getattr(ctypes, "get_last_error")
+    error_code = int(get_last_error())
+    if error_code == 109:  # ERROR_BROKEN_PIPE: the writer closed its handle.
+        return None
+    format_error: Any = getattr(ctypes, "FormatError")
+    raise OSError(error_code, format_error(error_code))
+
+
+def _poll_windows_output(
+    output_streams: Mapping[int, IO[bytes]],
+    stream_names: Mapping[int, str],
+    timeout_seconds: float,
+) -> list[tuple[int, str, bytes | None]]:
+    """Poll both anonymous pipes without blocking the supervision thread."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        events: list[tuple[int, str, bytes | None]] = []
+        for file_descriptor in tuple(output_streams):
+            stream_name = stream_names[file_descriptor]
+            available = _windows_pipe_available_bytes(file_descriptor)
+            if available is None:
+                events.append((file_descriptor, stream_name, None))
+            elif available > 0:
+                try:
+                    chunk = os.read(file_descriptor, min(available, 65536))
+                except OSError as exc:
+                    if getattr(exc, "winerror", None) != 109:
+                        raise
+                    chunk = b""
+                events.append((file_descriptor, stream_name, chunk or None))
+        if events:
+            return events
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return events
+        time.sleep(min(0.01, remaining))
+
+
 def run_supervised(
     argv: Sequence[str] | str,
     *,
@@ -127,15 +190,18 @@ def run_supervised(
     )
     pgid = process.pid
     tails: dict[str, deque[str]] = {"stdout": deque(maxlen=tail_lines), "stderr": deque(maxlen=tail_lines)}
-    selector = selectors.DefaultSelector()
+    selector = selectors.DefaultSelector() if os.name == "posix" else None
     stdout, stderr = process.stdout, process.stderr
     assert stdout is not None and stderr is not None
     output_streams: dict[int, IO[bytes]] = {}
+    output_stream_names: dict[int, str] = {}
     for output_stream, stream_name in ((stdout, "stdout"), (stderr, "stderr")):
         file_descriptor = output_stream.fileno()
-        os.set_blocking(file_descriptor, False)
         output_streams[file_descriptor] = output_stream
-        selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
+        output_stream_names[file_descriptor] = stream_name
+        if selector is not None:
+            os.set_blocking(file_descriptor, False)
+            selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
     pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
     skip_lf_after_cr = {"stdout": False, "stderr": False}
     max_line_bytes = 65536
@@ -163,45 +229,75 @@ def run_supervised(
             writer(f"[{stage_id}][{name}] {clean}")
             last_output = time.monotonic()
 
-        while process.poll() is None or selector.get_map():
+        while process.poll() is None or (
+            bool(selector.get_map()) if selector is not None else bool(output_streams)
+        ):
             now = time.monotonic()
             if termination_reason is None and now - started >= timeout_seconds:
                 termination_reason = "timeout"
                 graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
                 drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
             if drain_deadline is not None and now >= drain_deadline:
-                for key in list(selector.get_map().values()):
-                    stream_name = str(key.data)
+                if selector is not None:
+                    active_streams = [
+                        (key.fd, str(key.data))
+                        for key in selector.get_map().values()
+                    ]
+                else:
+                    active_streams = [
+                        (file_descriptor, output_stream_names[file_descriptor])
+                        for file_descriptor in output_streams
+                    ]
+                for file_descriptor, stream_name in active_streams:
+                    closing_stream = output_streams.get(file_descriptor)
                     buffered = pending_lines[stream_name]
                     if buffered:
                         record_line(stream_name, bytes(buffered))
                         buffered.clear()
-                    file_descriptor = key.fd
-                    selector.unregister(file_descriptor)
-                    output_streams[file_descriptor].close()
+                    if selector is not None:
+                        selector.unregister(file_descriptor)
+                    output_streams.pop(file_descriptor, None)
+                    output_stream_names.pop(file_descriptor, None)
+                    if closing_stream is not None:
+                        closing_stream.close()
                 break
-            if selector.get_map():
+
+            active_output = bool(selector.get_map()) if selector is not None else bool(output_streams)
+            if active_output:
                 wait_seconds = min(0.2, heartbeat_seconds)
                 if drain_deadline is not None:
                     wait_seconds = min(wait_seconds, max(0.0, drain_deadline - now))
-                events = selector.select(timeout=wait_seconds)
+                if selector is not None:
+                    events: list[tuple[int, str, bytes | None]] = []
+                    for key, _ in selector.select(timeout=wait_seconds):
+                        file_descriptor = key.fd
+                        stream_name = str(key.data)
+                        try:
+                            chunk = os.read(file_descriptor, 65536)
+                        except BlockingIOError:
+                            continue
+                        events.append((file_descriptor, stream_name, chunk or None))
+                else:
+                    events = _poll_windows_output(
+                        output_streams, output_stream_names, wait_seconds
+                    )
             else:
                 time.sleep(min(0.2, heartbeat_seconds))
                 events = []
-            for key, _ in events:
-                file_descriptor = key.fd
-                stream_name = str(key.data)
-                try:
-                    chunk = os.read(file_descriptor, 65536)
-                except BlockingIOError:
-                    continue
-                if not chunk:
+
+            for file_descriptor, stream_name, event_chunk in events:
+                if event_chunk is None:
                     buffered = pending_lines[stream_name]
                     if buffered:
                         record_line(stream_name, bytes(buffered))
                         buffered.clear()
-                    selector.unregister(file_descriptor)
+                    if selector is not None:
+                        selector.unregister(file_descriptor)
+                    output_stream = output_streams.pop(file_descriptor)
+                    output_stream_names.pop(file_descriptor, None)
+                    output_stream.close()
                     continue
+                chunk = event_chunk
                 if skip_lf_after_cr[stream_name]:
                     if chunk.startswith(b"\n"):
                         chunk = chunk[1:]
@@ -220,7 +316,7 @@ def run_supervised(
                     raw_line = bytes(buffered[:delimiter])
                     is_carriage_return = buffered[delimiter] == 13
                     del buffered[: delimiter + 1]
-                    if is_carriage_return and buffered.startswith(b"\\n"):
+                    if is_carriage_return and buffered.startswith(b"\n"):
                         del buffered[:1]
                     elif is_carriage_return and not buffered:
                         skip_lf_after_cr[stream_name] = True
@@ -243,7 +339,8 @@ def run_supervised(
     finally:
         for saved_signum, handler in previous_handlers.items():
             signal.signal(saved_signum, handler)
-        selector.close()
+        if selector is not None:
+            selector.close()
     duration = time.monotonic() - started
     status = "timed_out" if termination_reason == "timeout" else "cancelled" if termination_reason else "passed" if return_code == 0 else "failed"
     # On POSIX wait() plus process-group signalling is the strongest portable
