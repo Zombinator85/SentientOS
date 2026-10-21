@@ -245,6 +245,8 @@ def prepare_activation_intent(installation_handle: InstallationStateHandle, *, c
 
 
 def _time(value: object) -> datetime:
+    if isinstance(value, str) and value.endswith("-00:00"):
+        raise ProductionActivationError("activation_approval_time_invalid")
     try: parsed = datetime.fromisoformat(value) if isinstance(value, str) else None
     except ValueError as exc: raise ProductionActivationError("activation_approval_time_invalid") from exc
     if parsed is None or parsed.tzinfo is None or parsed.utcoffset() is None:
