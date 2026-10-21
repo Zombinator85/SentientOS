@@ -632,6 +632,11 @@ class LiveTransitionOperatorRuntime:
         if value.get("requested_stage") != expected_stage: raise TransitionError("operator_request_stage_skipped")
         approval = value.get("stage_approval")
         if not isinstance(approval, Mapping) or value.get("stage_approval_digest") != approval.get("approval_digest"): raise TransitionError("operator_request_stage_approval_mismatch")
+        if (value.get("stage_approval_id") != value.get("stage_approval_digest")
+                or approval.get("requested_stage") != value.get("requested_stage")
+                or approval.get("correlation_id") != value.get("correlation_id")
+                or approval.get("operation_identity") != value.get("operation_id")):
+            raise TransitionError("operator_request_stage_approval_binding_mismatch")
         if approval.get("approval_issuer_identity") != authenticated_operator.operator_identity:
             raise TransitionError("operator_request_stage_approval_issuer_mismatch")
         now = self.clock().astimezone(timezone.utc)

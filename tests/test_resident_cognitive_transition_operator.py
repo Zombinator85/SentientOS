@@ -102,10 +102,13 @@ class _CrossProcessController(_Controller):
         return super().advance(**kwargs)
 
 
-def _approval(stage: str = PHASES[1]) -> dict[str, object]:
+def _approval(stage: str = PHASES[1], *, correlation_id: str = "correlation-1",
+              operation_identity: str = "operation-1") -> dict[str, object]:
     body: dict[str, object] = {"schema_version": "sentientos.resident_cognitive_transition_stage_operator_approval:v2",
                               "requested_stage": stage,
-                              "approval_issuer_identity": "operator-1"}
+                              "approval_issuer_identity": "operator-1",
+                              "correlation_id": correlation_id,
+                              "operation_identity": operation_identity}
     return {**body, "approval_digest": digest(body)}
 
 
@@ -117,11 +120,15 @@ def _config() -> LiveTransitionConfig:
 
 
 def _request(**changes):
+    correlation_id = changes.get("correlation_id", "correlation-1")
+    operation_id = changes.get("operation_id", "operation-1")
+    requested_stage = changes.get("requested_stage", PHASES[1])
     values = dict(installation_identity="installation-1",
         protocol={"protocol_id": "protocol-1", "protocol_digest": "a" * 64, "transition_id": "transition-1"},
-        requested_stage=PHASES[1], expected_prior_phase=PHASES[0], expected_journal_head="GENESIS",
-        stage_approval=_approval(), subordinate_approvals=[], operation_id="operation-1",
-        correlation_id="correlation-1", operator_identity="operator-1",
+        requested_stage=requested_stage, expected_prior_phase=PHASES[0], expected_journal_head="GENESIS",
+        stage_approval=_approval(requested_stage, correlation_id=correlation_id,
+            operation_identity=operation_id), subordinate_approvals=[], operation_id=operation_id,
+        correlation_id=correlation_id, operator_identity="operator-1",
         operator_provenance={}, created_at="2026-09-25T11:00:00+00:00",
         expires_at="2026-09-25T13:00:00+00:00")
     values.update(changes)
@@ -461,6 +468,31 @@ def test_authenticated_request_operator_must_match_stage_approval_issuer(tmp_pat
     assert result["status"] == "rejected"
     assert result["reason"] == "operator_request_stage_approval_issuer_mismatch"
     assert controller.calls == 0
+
+
+def _assert_stage_approval_binding_rejected(
+    tmp_path: Path, approval: dict[str, object],
+) -> None:
+    controller = _Controller()
+    runtime = _runtime(tmp_path, controller)
+    persist_request(tmp_path, _request(stage_approval=approval))
+
+    result = runtime.process_one()
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == "operator_request_stage_approval_binding_mismatch"
+    assert result["effect_performed"] is False
+    assert controller.calls == 0
+
+
+def test_stage_approval_correlation_must_match_signed_request(tmp_path: Path) -> None:
+    _assert_stage_approval_binding_rejected(
+        tmp_path, _approval(correlation_id="other-correlation"))
+
+
+def test_stage_approval_operation_must_match_signed_request(tmp_path: Path) -> None:
+    _assert_stage_approval_binding_rejected(
+        tmp_path, _approval(operation_identity="other-operation"))
 
 
 def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None:
