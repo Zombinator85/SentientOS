@@ -186,6 +186,19 @@ def test_expired_review_yields_expired():
     assert receipt.review_status == ProviderInvocationDenialReviewStatus.INVOCATION_DENIAL_REVIEW_EXPIRED
 
 
+@pytest.mark.parametrize("field", ("reviewed_at", "evaluated_at", "expires_at"))
+@pytest.mark.parametrize("value", ("2025-01-01T00:00:00", "2025-01-01T00:00:00-00:00", 123))
+def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
+    receipt = _receipt(
+        decision=ProviderInvocationDenialReviewDecision.APPROVE_FUTURE_EXTERNAL_SECURITY_REVIEW_GATE,
+        review_scope=ProviderInvocationDenialReviewScope.FUTURE_EXTERNAL_SECURITY_REVIEW_GATE,
+        **{field: value},
+    )
+    assert receipt.review_status == ProviderInvocationDenialReviewStatus.INVOCATION_DENIAL_REVIEW_INVALID
+    assert "review_time_invalid" in _codes(receipt)
+    assert not provider_invocation_denial_review_approves_future_external_security_review_gate(receipt)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

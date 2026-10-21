@@ -319,15 +319,17 @@ def _finding(code: str, detail: str, severity: str = "blocker") -> ProviderDryRu
 
 
 def _parse_time(value: str) -> datetime | None:
-    if not value:
+    if not isinstance(value, str) or not value:
+        return None
+    if value.endswith("-00:00"):
         return None
     text = value.replace("Z", "+00:00")
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
     return parsed.astimezone(timezone.utc)
 
 
@@ -349,6 +351,11 @@ def _is_expired(expiration: ProviderDryRunEgressReviewExpiration) -> bool:
     expires = _parse_time(expiration.expires_at)
     evaluated = _parse_time(expiration.evaluated_at)
     return bool(expires and evaluated and evaluated >= expires)
+
+
+def _expiration_times_valid(expiration: ProviderDryRunEgressReviewExpiration) -> bool:
+    return bool(_parse_time(expiration.reviewed_at) and _parse_time(expiration.evaluated_at)
+        and (not expiration.expires_at or _parse_time(expiration.expires_at)))
 
 
 def _code_from_text(prefix: str, text: str) -> str:
@@ -493,7 +500,7 @@ def _status(decision: str, findings: Sequence[ProviderDryRunEgressReviewFinding]
     codes = {finding.code for finding in findings}
     if expired:
         return ProviderDryRunEgressReviewStatus.PROVIDER_DRY_RUN_REVIEW_EXPIRED
-    if any(code in codes for code in {"dry_run_missing", "reviewer_ref_missing", "decision_unknown", "review_scope_unknown", "linked_digest_missing", "dry_run_digest_mismatch"}):
+    if any(code in codes for code in {"dry_run_missing", "reviewer_ref_missing", "decision_unknown", "review_scope_unknown", "linked_digest_missing", "dry_run_digest_mismatch", "review_time_invalid"}):
         return ProviderDryRunEgressReviewStatus.PROVIDER_DRY_RUN_REVIEW_INVALID
     if "prompt_raw_runtime_marker_detected" in codes and decision not in _APPROVE_DECISIONS:
         return ProviderDryRunEgressReviewStatus.PROVIDER_DRY_RUN_REVIEW_INVALID
@@ -570,6 +577,8 @@ def build_provider_dry_run_egress_review_receipt(
         routing_allowed=bool(routing_allowed),
         expired=expired,
     )
+    if not _expiration_times_valid(expiration):
+        findings = (*findings, _finding("review_time_invalid", "review timestamps must include a known timezone"))
     status = _status(decision, findings, expired)
     receipt = ProviderDryRunEgressReviewReceipt(
         review_receipt_id="",

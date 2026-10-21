@@ -6,6 +6,7 @@ from dataclasses import replace
 import importlib
 import sys
 import types
+import pytest
 
 # Keep privilege imports side-effect-safe under the repo's test ritual.
 tts_stub = types.ModuleType("tts_bridge")
@@ -116,6 +117,16 @@ def test_statuses_for_approval_constraints_reject_more_evidence_missing_reviewer
     assert missing.review_status == INVALID
     expired = _review(envelope, expires_at="2026-05-09T00:00:00Z", evaluated_at="2026-05-09T00:00:00Z")
     assert expired.review_status == EXPIRED
+
+
+@pytest.mark.parametrize("field", ("reviewed_at", "evaluated_at", "expires_at"))
+@pytest.mark.parametrize("value", ("2026-05-09T00:00:00", "2026-05-09T00:00:00-00:00", 123))
+def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
+    envelope = _envelope()
+    receipt = _review(envelope, **{field: value})
+    assert receipt.review_status == INVALID
+    assert "review_time_invalid" in _codes(receipt)
+    assert not provider_dry_run_review_satisfies_envelope(envelope, receipt)
 
 
 def test_satisfaction_requires_matching_id_digest_unexpired_approval_and_all_mitigations():
