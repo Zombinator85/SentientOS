@@ -36,26 +36,53 @@ class SupervisedProcessResult:
         return asdict(self)
 
 
-def _terminate_tree(process: subprocess.Popen[str], grace: float) -> tuple[bool, bool]:
+def _process_group_exists(process_group_id: int) -> bool:
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _terminate_tree(
+    process: subprocess.Popen[str], grace: float, process_group_id: int | None = None
+) -> tuple[bool, bool]:
     graceful = True
     forced = False
+    if os.name == "posix":
+        group_id = process_group_id
+        if group_id is None:
+            try:
+                group_id = os.getpgid(process.pid)
+            except ProcessLookupError:
+                return graceful, forced
+        try:
+            os.killpg(group_id, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline and _process_group_exists(group_id):
+            time.sleep(min(0.02, max(0.0, deadline - time.monotonic())))
+        if _process_group_exists(group_id):
+            forced = True
+            try:
+                os.killpg(group_id, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        if process.poll() is None:
+            process.wait(timeout=max(1.0, grace))
+        return graceful, forced
+
     try:
-        if os.name == "posix":
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        else:
-            process.terminate()
+        process.terminate()
         process.wait(timeout=grace)
     except ProcessLookupError:
         pass
     except subprocess.TimeoutExpired:
         forced = True
-        if os.name == "posix":
-            try:
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        else:
-            process.kill()
+        process.kill()
         process.wait(timeout=max(1.0, grace))
     return graceful, forced
 
@@ -84,7 +111,7 @@ def run_supervised(
         bufsize=1, env=dict(env) if env else None, start_new_session=os.name == "posix",
         creationflags=creationflags,
     )
-    pgid = os.getpgid(process.pid) if os.name == "posix" else process.pid
+    pgid = process.pid
     tails: dict[str, deque[str]] = {"stdout": deque(maxlen=tail_lines), "stderr": deque(maxlen=tail_lines)}
     selector = selectors.DefaultSelector()
     assert process.stdout is not None and process.stderr is not None
@@ -98,27 +125,34 @@ def run_supervised(
     def cancel(signum: int, _frame: object) -> None:
         nonlocal termination_reason, graceful, forced
         termination_reason = f"signal:{signum}"
-        graceful, forced = _terminate_tree(process, termination_grace_seconds)
+        graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
 
     if os.name == "posix" and sys.platform != "win32":
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.getsignal(signum)
             signal.signal(signum, cancel)
     try:
-        while process.poll() is None:
+        while process.poll() is None or selector.get_map():
             now = time.monotonic()
             if now - started >= timeout_seconds:
                 termination_reason = "timeout"
-                graceful, forced = _terminate_tree(process, termination_grace_seconds)
+                graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
                 break
-            events = selector.select(timeout=min(0.2, heartbeat_seconds))
+            if selector.get_map():
+                events = selector.select(timeout=min(0.2, heartbeat_seconds))
+            else:
+                time.sleep(min(0.2, heartbeat_seconds))
+                events = []
             for key, _ in events:
-                line = cast(TextIO, key.fileobj).readline()
+                stream = cast(TextIO, key.fileobj)
+                line = stream.readline()
                 if line:
                     clean = line.rstrip("\r\n")
                     tails[key.data].append(clean)
                     writer(f"[{stage_id}][{key.data}] {clean}")
                     last_output = time.monotonic()
+                else:
+                    selector.unregister(key.fileobj)
             if time.monotonic() - last_output >= heartbeat_seconds:
                 writer(f"[{stage_id}][heartbeat] quiet stage still running")
                 last_output = time.monotonic()
@@ -131,7 +165,7 @@ def run_supervised(
     except BaseException:
         if process.poll() is None:
             termination_reason = termination_reason or "controller_exception"
-            graceful, forced = _terminate_tree(process, termination_grace_seconds)
+            graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
         raise
     finally:
         for saved_signum, handler in previous_handlers.items():
@@ -141,7 +175,7 @@ def run_supervised(
     status = "timed_out" if termination_reason == "timeout" else "cancelled" if termination_reason else "passed" if return_code == 0 else "failed"
     # On POSIX wait() plus process-group signalling is the strongest portable
     # repository-level confirmation. Windows cannot independently enumerate descendants.
-    confirmed = os.name == "posix" and process.poll() is not None
+    confirmed = os.name == "posix" and not _process_group_exists(pgid)
     writer(f"[finalizer] stage end: {stage_id} status={status} exit_code={return_code} duration={duration:.3f}s")
     return SupervisedProcessResult(
         tuple(argv) if not isinstance(argv, str) else (argv,), process.pid, pgid, return_code,
