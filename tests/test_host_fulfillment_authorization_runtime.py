@@ -51,6 +51,19 @@ def test_request_after_expiry_and_current_clock_after_expiry(tmp_path):
     r=consume(tmp_path, now='2029-01-04T00:00:00+00:00', envelope=env, bundle=(issue,g,ver,led,exp,src,env))
     assert {'request_after_expiry','current_clock_after_expiry'} <= set(r.findings)
 
+
+@pytest.mark.parametrize('requested_time', (
+    '2029-01-02T00:00:00',
+    '2029-01-02T00:00:00-00:00',
+))
+def test_unknown_or_unzoned_request_time_fails_before_admission_or_append(tmp_path, requested_time):
+    issue,g,ver,led,exp,src,_env=chain()
+    envelope=build_request_envelope(src, requested_time=requested_time)
+    result=consume(tmp_path, envelope=envelope, bundle=(issue,g,ver,led,exp,src,envelope))
+    assert 'time_parse_failed' in result.findings
+    assert result.admission_call_count == 0
+    assert result.ledger_append_count == 0
+
 def test_expiry_for_other_grant_and_forged_expiry_digest(tmp_path):
     issue,g,ver,led,exp,src,env=chain(); bad=replace(exp, grant_id='other')
     r=consume(tmp_path, expiry_eval=bad)
