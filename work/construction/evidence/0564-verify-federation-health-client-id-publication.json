@@ -1,0 +1,138 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 564,
+  "title": "Verify Federation Health publication with the configured Client ID",
+  "status": "verified_operational_integration",
+  "predecessor": {
+    "sequence": 563,
+    "segment_sha256": "434a52d5d99e08eb0c8a65ba34ddae5282e1078069c1b960188794a5e186bf89"
+  },
+  "source_candidate": {
+    "pull_request": 2587,
+    "commit": "6a0b58691d42c416e7a9fdb7228c28e4f2c9969b",
+    "tree": "804e676bc6006a3f2ad3f45b96671cc64ce4b69",
+    "merged_as": "18fb9c7030945c2a5341d510d283e0ced47b709f"
+  },
+  "source_blobs": {
+    ".github/workflows/federation-health.yml": "099a7b6b38b36f82b3a005f4f83ea81ac66ce1dd",
+    "tests/test_github_hosted_acceptance_workflows.py": "650295f77534b7868e0fa17fd6184f30a4f2154a"
+  },
+  "source_recovery": {
+    "secret": "SENTIENTOS_FEDERATION_HEALTH_APP_CLIENT_ID",
+    "configured_by_owner": true,
+    "value_accessed": false,
+    "intermediate_candidate": {
+      "commit": "2a85e2b094f14d5801680f25e2bece4fc7cfe8d1",
+      "qg_run": 39678870640,
+      "result": "strict preflight rejected commit subject/PR title mismatch"
+    },
+    "final_candidate": {
+      "commit": "6a0b58691d42c416e7a9fdb7228c28e4f2c9969b",
+      "parents": [
+        "83fbd5330af426e8d60f56d13d3e4c491ebe44a9",
+        "2a85e2b094f14d5801680f25e2bece4fc7cfe8d1"
+      ],
+      "title_matches_subject": true,
+      "history_preserved": true
+    }
+  },
+  "candidate_verification": {
+    "head": "6a0b58691d42c416e7a9fdb7228c28e4f2c9969b",
+    "runs": {
+      "CI": 39679242653,
+      "Quality_Gate": 39679242722,
+      "Invariants": 39679242775,
+      "Docker": 39679242777,
+      "Release": 39679242816,
+      "Lint_Benchmark": 39679242835,
+      "Gradient": 39679242927,
+      "Codex_CI": 39679243316
+    },
+    "all": "success",
+    "strict_administrator_finalizer": "success",
+    "separate_prepublication_metadata_guard": "success",
+    "acceptance_artifact": {
+      "id": 12383950226,
+      "sha256": "9648f24db59e2a554fffe03530f98dce4ab292dbe3a1a7651e979fa78b9e3743"
+    },
+    "finalizer_artifact": {
+      "id": 12383406506,
+      "sha256": "a31f86af920fec8ac34a49a8be4fe445d143ead214fda4eb12a580d84bd79661"
+    }
+  },
+  "operational_execution": {
+    "run_id": 39679872709,
+    "event": "push",
+    "ref": "refs/heads/main",
+    "source_main": "18fb9c7030945c2a5341d510d283e0ced47b709f",
+    "administrator_preflight": "passed",
+    "generation": "success",
+    "app_token_creation": "success",
+    "publication": "success",
+    "receipt": {
+      "blob": "f900061b0e45e7d0db84a51195b0c95c26522bae",
+      "sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "artifact_id": 12383356942,
+      "artifact_bytes": 799,
+      "artifact_sha256": "211aab610ae249c3902854ba9b1acdd4735df2bc399ab75d9cfacc6191ab16ac"
+    }
+  },
+  "automated_report_pr": {
+    "number": 2588,
+    "author": "sentientos-federation-publisher[bot]",
+    "candidate": "d034d5ba25bd51e20ea892f6f4770484b3448cd7",
+    "changed_only": [
+      "docs/FEDERATION_HEALTH_EXECUTION.json"
+    ],
+    "manual_ci_approval_required": false,
+    "runs": {
+      "CI": 39679927274,
+      "Quality_Gate": 39679927494,
+      "Invariants": 39679927384,
+      "Docker": 39679927430,
+      "Release": 39679927210,
+      "Lint_Benchmark": 39679927317,
+      "Gradient": 39679927441,
+      "Codex_CI": 39679927392
+    },
+    "all": "success",
+    "strict_finalizer_and_metadata_guard": "success",
+    "merge": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
+    "tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4",
+    "acceptance_artifact": {
+      "id": 12384280774,
+      "sha256": "a4acaf12af2f9153b12bbeda9885b665e142ae69fb48ddce63638a504f28d208"
+    },
+    "finalizer_artifact": {
+      "id": 12383836150,
+      "sha256": "b1af8e58bb9273eb85e457da293e462be2cca6f347f280c8d0bc3bcb33223488"
+    }
+  },
+  "verified_main": {
+    "commit": "66b7a6e7852e4044dc754fc31bb489b94be434f8",
+    "tree": "8ee175e584bad31fc9dfbbf19ceadd71cbf124b4",
+    "checks": {
+      "CI": 39680600487,
+      "Quality_Gate": 39680600544,
+      "Invariants": 39680600568,
+      "Docker": 39680600536,
+      "Docs_Deploy": 39680600419,
+      "Codex_CI": 39680600535,
+      "Forge_Smoke": {
+        "run": 39680600399,
+        "result": "conditionally_skipped"
+      }
+    },
+    "all_required": "success"
+  },
+  "remaining_limitations": {
+    "health_data": "stale configured local log snapshot; not live federation telemetry",
+    "production_transition": "not run",
+    "inference": "not run",
+    "secret_value_accessed": false,
+    "publication_mechanics_verified": true
+  },
+  "segment_path": "work/construction/segments/0564-verify-federation-health-client-id-publication.md",
+  "segment_bytes": 2577,
+  "segment_sha256": "ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9"
+}
