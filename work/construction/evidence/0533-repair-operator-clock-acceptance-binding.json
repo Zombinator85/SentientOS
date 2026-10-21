@@ -1,0 +1,60 @@
+{
+  "checkpoint_compaction": {
+    "checkpoint_limit_bytes": 65536,
+    "prior_history_preserved_in_append_only_chain": true,
+    "removed_bytes": 2330
+  },
+  "evidence_path": "work/construction/evidence/0533-repair-operator-clock-acceptance-binding.json",
+  "hosted_verification": {
+    "corrected_candidate_checks": "pending",
+    "first_candidate_source_validation": "failed_acceptance_case_not_selected",
+    "repair": "bound_both_expanded_parameter_cases_with_stable_ids",
+    "status": "candidate_pending"
+  },
+  "invariants": [
+    "Both malformed-time cases remain explicit, independently selected, and bound to acceptance.",
+    "Timestamp conversion uses a single captured offset and does not infer local timezone.",
+    "Authentication delegation and effect-owner authority are unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "affected_operator_module": "47_passed",
+    "compileall": "passed",
+    "focused_exact_clock_and_acceptance_nodes": "5_passed",
+    "full_mypy_clean_comparison": {
+      "base": "339_diagnostics_across_64_files",
+      "candidate": "339_diagnostics_across_64_files",
+      "mode": "no_incremental",
+      "new_diagnostics": 0
+    },
+    "targeted_mypy": "passed_no_issues_in_two_touched_modules_with_follow_imports_silent"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0532-single-sample-operator-validity-time.md",
+    "segment_sha256": "1f00ab4a6bd90ee6022738fe3f1d034691a683d7a75776a4cd4e0e335dce0050",
+    "sequence": 532
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2015,
+  "segment_path": "work/construction/segments/0533-repair-operator-clock-acceptance-binding.md",
+  "segment_sha256": "90be67a3b3165c414e07caa4ec9c50860e3ab28a1fd4f6c1df2f712033b0c125",
+  "sequence": 533,
+  "source_candidate": {
+    "commit": "81fdce1661007e5ea45c299bad25f866e2808de6",
+    "tree": "aaee662d942d4754c1859f756a01c052d2353a7a"
+  },
+  "status": "candidate_pending_hosted_verification",
+  "title": "Repair operator clock acceptance binding",
+  "verified_main": {
+    "commit": "9f240e177afc7eb7b67c05e33ca5283b2d8cd598",
+    "ref": "main",
+    "tree": "38479e185d368011ef331458de875e15746a0643"
+  }
+}

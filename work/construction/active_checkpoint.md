@@ -1,29 +1,8 @@
 # Active construction checkpoint
 
-## Latest verified main
+## Historical evidence index
 
-Sequence 501 closes a time-of-check/time-of-use gap in the path-based work-plan evidence fallback. Where descriptor-relative filesystem operations are unavailable, canonical evidence reads and writes now fail closed instead of following a possibly substituted ancestor.
-
-Latest verified source merge: `de26ab3847a09edbc42def8133603052ab192599`, tree `b43e2fcbb66e17f98022ccabb10c8697ee8d541b`
-Latest construction segment: `work/construction/segments/0501-fail-closed-work-plan-evidence-storage-without-dirfd.md`
-Latest segment SHA-256: `3483bf789523bb2429fb7597a16d3e56928ce5de53661a0a08ce4758c1d4f390`
-Sequence: 501
-
-
-
-## Operational observation
-
-At 2026-10-20 01:39:57 UTC, no scheduled workflow run on main head `d3420704c90796d16fe4e393170f7fb1076eb10f` was present in GitHub Actions. Federation Health run #39347148781 succeeded in its Administrator health and report-binding job on older head `b69d75884bcf3e33c6a877d0bcdd454311a87f53`, but its publisher failed because Actions could not create pull requests. Nightly Audit Integrity #39228761152 and Nightly Self Check #39235681245 succeeded on older heads `fd20cf6ccef310a827794fb5956538df89a6598a` and `b5912ecc8f25cebcb5338f623bae8d829261f6ce`, respectively. These results do not establish current-head execution.
-
-## Next dependency and limits
-
-Next, expose a minimal descriptive provenance inventory in completed campaign reports so each retained trial outcome can be correlated to its verified transition binding without granting execution or scoring authority. Current-head scheduled Federation Health and nightly audit/self-check evidence remains outstanding. No production campaign, request, operator catalog, signing key, inference, or A-to-B-to-A transition was provisioned or run. Historical test-provenance integrity and sequence-286 loss remain unresolved. Protected and stale workspaces remain untouched.
-
-Latest verified source merge: `d3420704c90796d16fe4e393170f7fb1076eb10f`, tree `02e0100f8da2b9a748b2d55d8790e362a0779c99`
-Latest construction segment: work/construction/segments/0477-bind-live-stage-receipts-to-immutable-trial-outcomes.md
-Latest segment SHA-256: `7426e036b3578a2447396ec8bccda8973e76ec7fa28d03d8d41d000bfa87dece`
-Sequence: 477 (verified live transition-stage provenance is bound to immutable trial outcomes)
-
+Prior detailed narratives, source identities, tests, merges, and operational results remain preserved in the append-only indexed segment and evidence chain. This checkpoint is a bounded current-state summary; it does not replace or remove those records.
 
 ## Recovered append-only history
 
@@ -568,3 +547,16 @@ Latest segment SHA-256: `1f00ab4a6bd90ee6022738fe3f1d034691a683d7a75776a4cd4e0e3
 Sequence: 532 (candidate pending hosted verification)
 
 Next: verify the exact candidate on hosted CI, then continue toward the next read-only developmental cognition dependency without crossing production authority boundaries.
+
+
+## Sequence 533 — repair operator clock acceptance binding
+
+The hosted source-validation check exposed that a parametrized clock regression needed its two expanded case IDs in the exact acceptance manifest. Both stable case IDs are now bound, and timestamp normalization uses one captured explicit offset. Local module/focused tests, compilation, and clean baseline-comparative Mypy passed; corrected hosted checks remain pending.
+
+Verified base main: `9f240e177afc7eb7b67c05e33ca5283b2d8cd598`, tree `38479e185d368011ef331458de875e15746a0643`
+Implementation candidate: `81fdce1661007e5ea45c299bad25f866e2808de6`, tree `aaee662d942d4754c1859f756a01c052d2353a7a`
+Latest construction segment: `work/construction/segments/0533-repair-operator-clock-acceptance-binding.md`
+Latest segment SHA-256: `90be67a3b3165c414e07caa4ec9c50860e3ab28a1fd4f6c1df2f712033b0c125`
+Sequence: 533 (candidate pending hosted verification)
+
+Next: verify corrected source-bound acceptance on the complete hosted candidate, then continue developmental cognition construction.
