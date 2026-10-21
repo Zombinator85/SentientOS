@@ -1266,6 +1266,10 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_update_tick_invalid")
         if not isinstance(recorded_at, str) or not recorded_at or len(recorded_at) > 128:
             raise EpistemicStateError("epistemic_recorded_at_invalid")
+        # -00:00 means the producer does not know the offset. Treating it as
+        # UTC would invent ordering for an append-only state transition.
+        if recorded_at.endswith("-00:00"):
+            raise EpistemicStateError("epistemic_recorded_at_invalid")
         try:
             recorded_instant = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
         except ValueError as exc:
