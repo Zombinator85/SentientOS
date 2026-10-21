@@ -1,0 +1,88 @@
+{
+  "hosted_candidate_verification": {
+    "administrator_strict_audits": "passed",
+    "all_required_check_runs": "passed",
+    "build_run": 39521676918,
+    "cpu_smoke_run": 39521676877,
+    "docs_run": 39521676816,
+    "exact_candidate_acceptance": "passed",
+    "helm_run": 39521676816,
+    "hosted_finalizer": "passed",
+    "immutability_verification": "passed",
+    "invariants_run": 39521676825,
+    "landing_artifact": {
+      "id": 12310943639,
+      "sha256": "9f5ef1518aecdeaab4fd3a6a0765bc6491ab7b78c49b6ca5d121eedc2cc83483"
+    },
+    "lint_run": 39521676889,
+    "prepublication_metadata_guard": "passed",
+    "quality_gate_run": 39521676814,
+    "self_check_run": 39521676816,
+    "source_validation_run": 39521676816
+  },
+  "invariants": [
+    "Sequence 504 remains immutable; this sequence appends the eventual verification result.",
+    "No production transition or inference was executed.",
+    "No activation, serving, inference, writeback, or approval-issuer authority was added by sequence 504."
+  ],
+  "local_supplemental_verification": {
+    "candidate_binding": "local provenance was supplemental and is not claimed as exact-candidate evidence",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 62,
+    "targeted_mypy": "passed"
+  },
+  "post_merge_verification": {
+    "all_executed_checks": "passed",
+    "build_runs": [
+      39522126972,
+      39522126958
+    ],
+    "cpu_smoke_run": 39522126944,
+    "docs_run": 39522127010,
+    "forge_smoke": "skipped by workflow condition",
+    "helm_run": 39522127010,
+    "invariants_run": 39522127006,
+    "pages_deploy_run": 39522126958,
+    "quality_gate_run": 39522126954,
+    "self_check_run": 39522127010,
+    "source_validation_run": 39522127010
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0504-reject-invalid-stage-approval-time-windows.md",
+    "segment_sha256": "b311089f5b8329c9361e0c3bbe5234349a9fce9afd217401bcb92b14baf98429",
+    "sequence": 504
+  },
+  "production": {
+    "inference_run": false,
+    "transition_run": false
+  },
+  "reconciles": {
+    "candidate_branch": "codex/construct-sentientos-stage-approval-time-boundary",
+    "candidate_commit": "b12f5164dd59b55c7095c7fc689328e2b54f8abd",
+    "candidate_tree": "43a084883d35195307ea4ab2aa051f91b291ddf3",
+    "merge_commit": "8bb33dffb4be129e9a72a198b74f46d8d625c36a",
+    "merge_tree": "43a084883d35195307ea4ab2aa051f91b291ddf3",
+    "ordered_parents": [
+      "5d5f18d55214ac8fefc965e0a523015395a7d989",
+      "b12f5164dd59b55c7095c7fc689328e2b54f8abd"
+    ],
+    "pull_request": 2512,
+    "pull_request_state": "merged",
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2512",
+    "remote_main_readback": "8bb33dffb4be129e9a72a198b74f46d8d625c36a",
+    "tree_readback": "43a084883d35195307ea4ab2aa051f91b291ddf3"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2182,
+  "segment_sha256": "1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0",
+  "sequence": 505,
+  "status": "verification_reconciled_after_merge",
+  "title": "Reconcile hosted verification of stage approval time windows",
+  "verified_main": {
+    "commit": "8bb33dffb4be129e9a72a198b74f46d8d625c36a",
+    "ref": "main",
+    "tree": "43a084883d35195307ea4ab2aa051f91b291ddf3"
+  }
+}
