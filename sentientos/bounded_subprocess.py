@@ -221,26 +221,12 @@ def run_supervised(
         creationflags=creationflags,
     )
     pgid = process.pid
-    tails: dict[str, deque[str]] = {"stdout": deque(maxlen=tail_lines), "stderr": deque(maxlen=tail_lines)}
-    selector = selectors.DefaultSelector() if os.name == "posix" else None
-    stdout, stderr = process.stdout, process.stderr
-    assert stdout is not None and stderr is not None
+    selector: selectors.BaseSelector | None = None
     output_streams: dict[int, IO[bytes]] = {}
     output_stream_names: dict[int, str] = {}
-    for output_stream, stream_name in ((stdout, "stdout"), (stderr, "stderr")):
-        file_descriptor = output_stream.fileno()
-        output_streams[file_descriptor] = output_stream
-        output_stream_names[file_descriptor] = stream_name
-        if selector is not None:
-            os.set_blocking(file_descriptor, False)
-            selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
-    pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
-    skip_lf_after_cr = {"stdout": False, "stderr": False}
-    max_line_bytes = 65536
-    last_output = started
+    previous_handlers: dict[int, Any] = {}
     termination_reason: str | None = None
     graceful = forced = False
-    previous_handlers: dict[int, Any] = {}
     drain_deadline: float | None = None
 
     def cancel(signum: int, _frame: object) -> None:
@@ -249,10 +235,38 @@ def run_supervised(
         graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
         drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
 
-    if os.name == "posix" and sys.platform != "win32":
-        for signum in (signal.SIGINT, signal.SIGTERM):
-            previous_handlers[signum] = signal.getsignal(signum)
-            signal.signal(signum, cancel)
+    try:
+        tails: dict[str, deque[str]] = {"stdout": deque(maxlen=tail_lines), "stderr": deque(maxlen=tail_lines)}
+        selector = selectors.DefaultSelector() if os.name == "posix" else None
+        stdout, stderr = process.stdout, process.stderr
+        assert stdout is not None and stderr is not None
+        for output_stream, stream_name in ((stdout, "stdout"), (stderr, "stderr")):
+            file_descriptor = output_stream.fileno()
+            output_streams[file_descriptor] = output_stream
+            output_stream_names[file_descriptor] = stream_name
+            if selector is not None:
+                os.set_blocking(file_descriptor, False)
+                selector.register(file_descriptor, selectors.EVENT_READ, stream_name)
+        pending_lines: dict[str, bytearray] = {"stdout": bytearray(), "stderr": bytearray()}
+        skip_lf_after_cr = {"stdout": False, "stderr": False}
+        max_line_bytes = 65536
+        last_output = started
+        if os.name == "posix" and sys.platform != "win32":
+            for signum in (signal.SIGINT, signal.SIGTERM):
+                previous_handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, cancel)
+    except BaseException:
+        try:
+            _terminate_tree(process, termination_grace_seconds, pgid)
+        finally:
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
+            if selector is not None:
+                selector.close()
+            for saved_signum, handler in previous_handlers.items():
+                signal.signal(saved_signum, handler)
+        raise
     try:
         def record_line(name: str, raw_line: bytes) -> None:
             nonlocal last_output
