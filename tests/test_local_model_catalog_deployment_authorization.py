@@ -98,6 +98,15 @@ def test_request_fails_closed(field: str, value: object, code: str, tmp_path: Pa
             created_at=START, allow_synthetic_test_evidence=True)
 
 
+def test_unknown_offset_request_time_fails_before_authorization_state_write(tmp_path: Path) -> None:
+    handle, candidate, receipts, request, approval, custody = fixture(tmp_path)
+    request = replace(request, not_before="2026-09-07T12:00:00-00:00")
+    with pytest.raises(CatalogDeploymentAuthorizationError, match="unknown_offset"):
+        issue_catalog_deployment_authorization(handle, request, approval, candidate, receipts, Kernel(),
+            created_at=START, allow_synthetic_test_evidence=True)
+    assert not custody.root.path.exists()
+
+
 def test_expiry_revocation_and_conflict_prevent_authority(tmp_path: Path) -> None:
     handle, candidate, receipts, request, approval, custody = fixture(tmp_path)
     result = issue_catalog_deployment_authorization(handle, request, approval, candidate, receipts, Kernel(),
