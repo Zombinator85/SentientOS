@@ -1,0 +1,161 @@
+{
+  "candidate_hosted_verification": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39644835283
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39644835319
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39644835253
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "id": 39644835247
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39644835346
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "id": 39644835274
+    },
+    "Release": {
+      "conclusion": "success",
+      "id": 39644835302
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "hosted_privileged_pr_landing_finalizer": "success",
+      "id": 39644835295,
+      "separate_prepublication_metadata_guard": "success",
+      "strict_administrator_audits": true
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39644835280
+    }
+  },
+  "invariants": [
+    "source candidate and merge tree are identical",
+    "ordered merge parents preserve candidate history",
+    "strict audits, hosted finalizer, and separate metadata guard passed before publication",
+    "post-merge checks bind to exact main commit",
+    "Windows descendant termination remains unconfirmed",
+    "protected and stale workspaces remain untouched"
+  ],
+  "local_verification": {
+    "compilation": "passed",
+    "diff_check": "passed",
+    "focused_tests": "65 passed across subprocess supervision and hosted acceptance workflow contracts",
+    "strict_mypy": "passed for bounded subprocess source",
+    "workflow_yaml_parse": "passed"
+  },
+  "post_merge_runs": {
+    "CI": {
+      "conclusion": "success",
+      "id": 39645630425
+    },
+    "Codex CI": {
+      "conclusion": "success",
+      "id": 39645630319
+    },
+    "Docker Image": {
+      "conclusion": "success",
+      "id": 39645634802
+    },
+    "Docs Deploy": {
+      "conclusion": "success",
+      "id": 39645630346
+    },
+    "Forge Smoke": {
+      "conclusion": "skipped_by_condition",
+      "id": 39645630255
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "id": 39645630315
+    },
+    "Nightly Self Check": {
+      "conclusion": "success",
+      "id": 39645630167
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "id": 39645630164
+    },
+    "Windows Custody": {
+      "conclusion": "success",
+      "id": 39645630282
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8b4017fb6a",
+    "sequence": 555
+  },
+  "prepublication_remediation": [
+    {
+      "cause": "pre-commit reconstruction still required 42 nodes after candidate acceptance had grown to 45",
+      "resolution": "aligned both reconstruction bounds and contract assertions with the exact 45-node acceptance",
+      "result": "blocked",
+      "run_id": 39643655768
+    },
+    {
+      "cause": "landing metadata required PR title to match latest commit subject",
+      "resolution": "aligned PR metadata and subsequent commit subject; final candidate reran all required checks",
+      "result": "blocked",
+      "run_id": 39644387966
+    }
+  ],
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "digest": "sha256:c2ba20e3b0a16dc17f6d17b058b667dea580c20462be803ade32142d94c69004",
+      "id": 12367131747
+    },
+    "finalizer": {
+      "digest": "sha256:b1b3b7c15ac51730b18228c74bbbdae0400140d56fb1b9aaac961f72b472b21e",
+      "id": 12366712086
+    },
+    "quality_gate": {
+      "digest": "sha256:e0c680cf3125174689dc91e4f110bc6d9020e63ac157af419aee75050adc926b",
+      "id": 12366866571
+    }
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2297,
+  "segment_path": "work/construction/segments/0556-windows-subprocess-termination-semantics.md",
+  "segment_sha256": "d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2",
+  "sequence": 556,
+  "source_blobs": {
+    ".github/workflows/required-quality-gate.yml": "5a3c2b7919da63e34cd2d2be656ac0b850fa5c3b",
+    "sentientos/bounded_subprocess.py": "2ce95d5b874de38c322dd94d60545f56579e0148",
+    "tests/test_codex_landing_process_supervision.py": "75b919e7634529f800d0d39383f9804660334e34",
+    "tests/test_github_hosted_acceptance_workflows.py": "671818782431c17e2b8f0b6a8cda3cbc5377cfec"
+  },
+  "source_candidate": {
+    "commit": "6e9d65e073fda487c4da55dfe712c7a443fcd8d5",
+    "pull_request": 2570,
+    "tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
+  },
+  "source_recovery": {
+    "continuation_chain": "sequence 555 predecessor verified before appending sequence 556",
+    "protected_workspaces_touched": false,
+    "remote_readback": "GitHub API main ref, commit, and recursive tree independently confirmed; changed source blob SHAs match the candidate tree"
+  },
+  "status": "verified_reconciliation",
+  "title": "Windows subprocess termination semantics",
+  "verified_main": {
+    "commit": "287188335576efb45c2ab94d7f7ade7c004c2b77",
+    "merge_method": "merge",
+    "parents": [
+      "9718b3ebd75050ed8d44b5c6b283ee0e81dd0f2d",
+      "6e9d65e073fda487c4da55dfe712c7a443fcd8d5"
+    ],
+    "ref": "main",
+    "tree": "0d7148d4d7542b57a9c28b052889e6f210ed05f8"
+  }
+}

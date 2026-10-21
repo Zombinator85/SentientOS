@@ -323,3 +323,14 @@ Latest segment SHA-256: `9c3808fc462d1ae510599f3beb7bafb6b2a6f4eafe30e1dc449f9c8
 Sequence: 555 (verified merge reconciliation)
 
 Next: review Windows subprocess cancellation evidence semantics while preserving the explicit descendant-confirmation limitation.
+
+## Sequence 556 — Windows subprocess termination semantics
+
+PR #2570 merged normally as `287188335576efb45c2ab94d7f7ade7c004c2b77`, tree `0d7148d4d7542b57a9c28b052889e6f210ed05f8`, with ordered parents `9718b3ebd75050ed8d44b5c6b283ee0e81dd0f2d` and `6e9d65e073fda487c4da55dfe712c7a443fcd8d5`. Windows cancellation now requests an isolated process-group break, waits the grace interval, and reports forced termination only when falling back to kill. Descendant termination remains explicitly unconfirmed. The exact 45-node acceptance mismatch in both hosted reconstruction paths was repaired and regression-bound. Exact candidate CI, strict Administrator Quality Gate, hosted privileged finalizer, separate metadata guard, Windows Custody, Docker, lint, invariants, Release, Codex CI, and Gradient passed. All post-merge CI, Quality Gate, Docker, Docs Deploy, Nightly Self Check, Windows Custody, Invariants, and Codex CI passed; Forge Smoke was conditionally skipped. See the sequence 556 evidence JSON for run IDs, artifact digests, failures and remediation, and remote blob identities.
+
+Verified main: `287188335576efb45c2ab94d7f7ade7c004c2b77`, tree `0d7148d4d7542b57a9c28b052889e6f210ed05f8`
+Latest construction segment: `work/construction/segments/0556-windows-subprocess-termination-semantics.md`
+Latest segment SHA-256: `d98e46af2bdfac4efed7727a18f0770e68769ee138070411c5f6f5786df5fcb2`
+Sequence: 556 (verified merge reconciliation)
+
+Next: continue checking Windows subprocess lifecycle and cancellation boundaries, retaining the explicit descendant-confirmation limit and source-bound acceptance.
