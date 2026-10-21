@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "1a5565b6409ba1d6047411d6c742c1903f6151b8c94100f7da49bcd375da2f11",
-    "latest_segment_sequence": 525,
-    "latest_segment_sha256": "c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9",
-    "source_commit": "1f4e84a4041a9018ea0c912b539310f8b810b6ea",
-    "source_tree": "1eb557ea936f2b011a7935b0082a0d59ee845cfe"
+    "checkpoint_sha256": "c2a8db1409c8d66270d72efdc5dd0fb0ee204ea256b8c7f0dec7923dcdf371fa",
+    "latest_segment_sequence": 526,
+    "latest_segment_sha256": "a9c4cb4d7e2770b6542754c828d66c3879664bb4aed37b2b63048746673d8375",
+    "source_commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+    "source_tree": "492425c3eb5dab4305d52a2ad0ef3dc3b9a799b4"
   },
-  "checkpoint_sha256": "1a5565b6409ba1d6047411d6c742c1903f6151b8c94100f7da49bcd375da2f11",
+  "checkpoint_sha256": "c2a8db1409c8d66270d72efdc5dd0fb0ee204ea256b8c7f0dec7923dcdf371fa",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 525,
+  "latest_sequence": 526,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5974,30 +5974,43 @@
       "source_tree": "bb6289381479237ce62f59e15b1602915b2bdfee"
     },
     {
-      "sequence": 524,
-      "path": "work/construction/segments/0524-reconcile-sequence523-protocol-publication-merge.md",
       "bytes": 2471,
-      "sha256": "55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff771c20026",
-      "predecessor": "segment-sha256:2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
-      "source_commit": "04a9fe3c8991fe58410b65e2d6f914545586f998",
-      "source_tree": "aa615c37302cb8b18bc32fe78c9a1cfb71bd0d2b",
-      "evidence_path": "work/construction/evidence/0524-reconcile-sequence523-protocol-publication-merge.json",
       "evidence_bytes": 3351,
+      "evidence_path": "work/construction/evidence/0524-reconcile-sequence523-protocol-publication-merge.json",
       "evidence_sha256": "17d62a3132d44bce4fbce1a8c1d3cc8deebd14bd67606af70a5f217102cf2e83",
-      "source_candidate_commit": "1e7891722208a0ec6620231c1c7a38e6826c8e6b"
+      "path": "work/construction/segments/0524-reconcile-sequence523-protocol-publication-merge.md",
+      "predecessor": "segment-sha256:2d23b9b6e9fffb3e7916e88db4369412db81eb710bec957f77170bb4aa2126cd",
+      "sequence": 524,
+      "sha256": "55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff771c20026",
+      "source_candidate_commit": "1e7891722208a0ec6620231c1c7a38e6826c8e6b",
+      "source_commit": "04a9fe3c8991fe58410b65e2d6f914545586f998",
+      "source_tree": "aa615c37302cb8b18bc32fe78c9a1cfb71bd0d2b"
     },
     {
-      "sequence": 525,
-      "path": "work/construction/segments/0525-reconcile-sequence524-evidence-merge.md",
       "bytes": 1475,
-      "sha256": "c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9",
-      "predecessor": "segment-sha256:55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff771c20026",
-      "source_commit": "1f4e84a4041a9018ea0c912b539310f8b810b6ea",
-      "source_tree": "1eb557ea936f2b011a7935b0082a0d59ee845cfe",
-      "evidence_path": "work/construction/evidence/0525-reconcile-sequence524-evidence-merge.json",
       "evidence_bytes": 3289,
+      "evidence_path": "work/construction/evidence/0525-reconcile-sequence524-evidence-merge.json",
       "evidence_sha256": "dedcdabd83159ec828ddf1d45499388a64278d8daf3889db34c2600dc39c0011",
-      "source_candidate_commit": "b088330dbd2bce6669537a4e2e33cda7e42c1411"
+      "path": "work/construction/segments/0525-reconcile-sequence524-evidence-merge.md",
+      "predecessor": "segment-sha256:55fe17abb4a729213d7b7e7ee7f31f057718970cb82c4f54fabecff771c20026",
+      "sequence": 525,
+      "sha256": "c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9",
+      "source_candidate_commit": "b088330dbd2bce6669537a4e2e33cda7e42c1411",
+      "source_commit": "1f4e84a4041a9018ea0c912b539310f8b810b6ea",
+      "source_tree": "1eb557ea936f2b011a7935b0082a0d59ee845cfe"
+    },
+    {
+      "bytes": 2135,
+      "evidence_bytes": 3644,
+      "evidence_path": "work/construction/evidence/0526-reconcile-sequence525-stage-approval-timezone-fix.json",
+      "evidence_sha256": "6c7c81d244707aa8995e0acafec1fd2c6ab3d5735d7191f57d12a06b37944e25",
+      "path": "work/construction/segments/0526-reconcile-sequence525-stage-approval-timezone-fix.md",
+      "predecessor": "segment-sha256:c5a052aea5f646ee2c9221b3b24ac885315dfde2a256c799bba98b8b745f99e9",
+      "sequence": 526,
+      "sha256": "a9c4cb4d7e2770b6542754c828d66c3879664bb4aed37b2b63048746673d8375",
+      "source_candidate_commit": "e0cb09da3ac990ed794e6311196ca0cfd4d41ceb",
+      "source_commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "source_tree": "492425c3eb5dab4305d52a2ad0ef3dc3b9a799b4"
     }
   ],
   "source_acquisition": {
