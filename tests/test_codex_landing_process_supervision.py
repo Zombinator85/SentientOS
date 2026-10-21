@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import signal
 import subprocess
@@ -58,6 +59,48 @@ def test_output_tail_is_bounded() -> None:
 def test_budget_refusal_starts_no_child_process() -> None:
     with pytest.raises(ValueError):
         run_supervised([sys.executable, "-c", "raise SystemExit(99)"], stage_id="none", timeout_seconds=0)
+
+
+def test_invalid_numeric_limits_start_no_child_process() -> None:
+    invalid_limits = (
+        (math.nan, 30, 2, 40),
+        (math.inf, 30, 2, 40),
+        (-math.inf, 30, 2, 40),
+        (1, math.nan, 2, 40),
+        (1, math.inf, 2, 40),
+        (1, 30, -1, 40),
+        (1, 30, math.nan, 40),
+        (1, 30, math.inf, 40),
+        (True, 30, 2, 40),
+        (1, False, 2, 40),
+        (1, 30, False, 40),
+        (1, 30, 2, -1),
+        (1, 30, 2, 0),
+        (1, 30, 2, math.nan),
+        (1, 30, 2, math.inf),
+        (1, 30, 2, 1.5),
+        (1, 30, 2, True),
+    )
+    for timeout, heartbeat, grace, tail in invalid_limits:
+        with pytest.raises(ValueError, match="supervision_limits_must_be_finite_and_valid"):
+            run_supervised(
+                [sys.executable, "-c", "raise SystemExit(99)"],
+                stage_id="invalid-limits",
+                timeout_seconds=timeout,
+                heartbeat_seconds=heartbeat,
+                termination_grace_seconds=grace,
+                tail_lines=tail,
+                emit=lambda _: None,
+            )
+
+    zero_grace_result = run_supervised(
+        [sys.executable, "-c", "import time;time.sleep(5)"],
+        stage_id="zero-grace",
+        timeout_seconds=0.05,
+        termination_grace_seconds=0,
+        emit=lambda _: None,
+    )
+    assert zero_grace_result.status == "timed_out"
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process-group timeout proof")
