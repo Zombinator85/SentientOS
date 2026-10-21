@@ -1,0 +1,106 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 562,
+  "title": "Terminate supervised descendants after root exit",
+  "status": "verified_reconciliation",
+  "predecessor": {
+    "sequence": 561,
+    "segment_sha256": "d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133"
+  },
+  "source_candidate": {
+    "pull_request": 2582,
+    "commit": "ef88af8f8b49f85c858ea1086d614648dfdec403",
+    "tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
+  },
+  "source_blobs": {
+    "sentientos/bounded_subprocess.py": "0d8d415e783c3052c46174dc668dadb337b72dd6",
+    "tests/test_codex_landing_process_supervision.py": "69592e8c4d72b34b24318292e4f29c6351b96852",
+    ".github/workflows/required-quality-gate.yml": "ed0cda96ecfdc07bfbfdd04d8fbb64d196baa1eb",
+    "tests/test_github_hosted_acceptance_workflows.py": "603db70e5373c9733745d9f4547b1b445950bfae"
+  },
+  "source_recovery": {
+    "remote_readback": "candidate commit, tree, changed blobs, PR head, merge commit, and zero-file candidate-to-merge comparison independently read back through GitHub",
+    "protected_workspaces_touched": false
+  },
+  "local_verification": {
+    "source_validation": "Python AST parse passed for source, regression test, and acceptance workflow contract",
+    "runtime_tests": "not run locally; exact hosted acceptance used"
+  },
+  "candidate_hosted_verification": {
+    "CI": {
+      "pull_request_run_id": 39668040817,
+      "conclusion": "success"
+    },
+    "Required_Quality_Gate": {
+      "run_id": 39668040609,
+      "conclusion": "success",
+      "exact_source_bound_nodes": 47,
+      "passed_nodes": 47,
+      "failed_nodes": 0,
+      "strict_administrator_audits": true,
+      "administrator_effective_uid": 0,
+      "hosted_precommit_finalizer": "ready_to_commit",
+      "candidate_finalizer": "ready_for_pr_metadata",
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "new_regression": "passed"
+    },
+    "Invariants": {
+      "run_id": 39668040570,
+      "conclusion": "success"
+    },
+    "Lint_Benchmark": {
+      "run_id": 39668040528,
+      "conclusion": "success"
+    },
+    "Release": {
+      "run_id": 39668040976,
+      "conclusion": "success"
+    },
+    "Windows_Custody": {
+      "run_id": 39668040502,
+      "conclusion": "success"
+    },
+    "Docker_Image": {
+      "run_id": 39668040658,
+      "conclusion": "success"
+    },
+    "Codex_CI": {
+      "run_id": 39668040706,
+      "conclusion": "success"
+    },
+    "Gradient_null_regression": {
+      "run_id": 39668040708,
+      "conclusion": "success"
+    }
+  },
+  "quality_gate_artifacts": {
+    "acceptance": {
+      "artifact_id": 12377559495,
+      "artifact_sha256": "536be680cec8780247c3d73394c40395e8ac32b0750b8cb6bba49838ca970558"
+    },
+    "finalizer": {
+      "artifact_id": 12376534872,
+      "artifact_sha256": "5a7698502bcb4e771ed840b45dbb99ccb82bc670b029bfc5fdff26a9ea5af84c"
+    },
+    "gate_evidence": {
+      "artifact_id": 12378611237,
+      "artifact_sha256": "37acad314643a3798ca7c5e76f0350e0328376d821ac74de068a40e456f2df24"
+    },
+    "verified_acceptance_manifest_sha256": "1bfee672a1dc1a3ebf153704092ed957bb7dde62765c542c9eddf066fa177550",
+    "verified_acceptance_provenance_sha256": "b55879869684ba43a270028787506ba9338577143162555d6276cbedd11987bd"
+  },
+  "integration": {
+    "pull_request": 2582,
+    "merge_method": "merge",
+    "merge_commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
+    "base_commit": "8145fba4606fb4b95b61cfece69c7e991363f457",
+    "candidate_to_merge_changed_files": 0,
+    "tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
+  },
+  "verified_main": {
+    "commit": "6e150525bfda1ee0778afde25fed0b4909a8cd5e",
+    "tree": "d935a7c5c9d12148e1dbaec108d315508fc99bae"
+  },
+  "segment_path": "work/construction/segments/0562-cleanup-descendants-after-root-exit.md",
+  "segment_sha256": "52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102"
+}

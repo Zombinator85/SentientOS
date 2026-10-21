@@ -402,3 +402,16 @@ Latest segment SHA-256: d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe
 Sequence: 561 (verified merge reconciliation)
 
 Next: ensure controller exceptions terminate the process group even when the supervised root has already exited.
+
+## Sequence 562 — terminate descendants after root exit
+
+The process supervisor now terminates its recorded POSIX process group when controller output handling raises, even if the root has already exited. A regression proves the descendant cannot write after the injected callback failure. The exact regression is part of the 47-node hosted Quality Gate set; all 47 call-phase nodes passed.
+
+The verified candidate passed CI, strict Administrator Quality Gate, separate metadata guard, Invariants, Lint Benchmark, Release, Windows Custody, Docker, Codex CI, and Gradient checks. PR #2582 merged normally. The merge commit has the same tree as the candidate.
+
+Verified main: `6e150525bfda1ee0778afde25fed0b4909a8cd5e`, tree `d935a7c5c9d12148e1dbaec108d315508fc99bae`
+Latest construction segment: `work/construction/segments/0562-cleanup-descendants-after-root-exit.md`
+Latest segment SHA-256: `52cf756088649108bcdcb81f15569935261bad2ab99f211b04e2ce4628b77102`
+Sequence: 562 (verified merge reconciliation)
+
+Next: update Federation Health's GitHub App token input from the deprecated `app-id` alias to `client-id`, then verify the updated publisher contract and hosted execution.
