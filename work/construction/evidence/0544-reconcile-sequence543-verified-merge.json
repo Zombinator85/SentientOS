@@ -1,0 +1,146 @@
+{
+  "evidence_path": "work/construction/evidence/0544-reconcile-sequence543-verified-merge.json",
+  "hosted_verification": {
+    "candidate_runs": {
+      "CI": {
+        "conclusion": "success",
+        "ids": [
+          39601304880,
+          39601282369
+        ],
+        "scope": "full pytest and coverage, Mypy ratchet, source validation, documentation linkcheck, Helm tests"
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39601304887
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39601304892
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "id": 39601304972
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "ids": [
+          39601304987,
+          39601282217
+        ]
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "id": 39601304974
+      },
+      "Release": {
+        "conclusion": "success",
+        "id": 39601304879
+      },
+      "Required Quality Gate": {
+        "artifacts": {
+          "exact_acceptance": {
+            "digest": "sha256:66318414642ef51993f687e5de14f8cf9c9fbabe8bbe1497596c40e4542d738c",
+            "id": 12346601166
+          },
+          "hosted_finalizer": {
+            "digest": "sha256:30dfc3bffd5e04e207989a90601ce5c91dd749b7489510d473081d2811331e44",
+            "id": 12346645857
+          },
+          "quality_gate_evidence": {
+            "digest": "sha256:e4e23aaf9a034e1625addcbc241c147413df38b5a7c1ce1d007b63011277940b",
+            "id": 12346277328
+          }
+        },
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_precommit_finalizer": "success",
+        "id": 39601304913,
+        "separate_prepublication_metadata_guard": "success",
+        "strict_administrator_audits": true
+      }
+    },
+    "post_merge_runs": {
+      "CI": {
+        "conclusion": "success",
+        "id": 39602067643
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "id": 39602067468
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "id": 39602067665
+      },
+      "Docs Deploy": {
+        "conclusion": "success",
+        "id": 39602067743
+      },
+      "Forge Smoke": {
+        "conclusion": "skipped_by_condition",
+        "id": 39602067598
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "id": 39602067490
+      },
+      "Required Quality Gate": {
+        "conclusion": "success",
+        "id": 39602067496
+      }
+    }
+  },
+  "invariants": [
+    "PR #2551 was merged with the normal merge method and exact expected head SHA.",
+    "The merge commit has the exact verified main parent first and candidate parent second.",
+    "The candidate and merged main tree identities match.",
+    "Construction evidence is append-only; earlier segments and evidence were not rewritten.",
+    "The local source snapshot commit is synthetic and was not published or represented as the remote merge identity.",
+    "No production model transition, activation, serving, inference, or writeback was performed."
+  ],
+  "predecessor": {
+    "segment_path": "work/construction/segments/0543-reconcile-sequence542-verified-merge.md",
+    "segment_sha256": "6c6804a0b36d01453881586f1fd0ea099607356acf968c40d9a6ada6941e8c13",
+    "sequence": 543
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2536,
+  "segment_path": "work/construction/segments/0544-reconcile-sequence543-verified-merge.md",
+  "segment_sha256": "6fc6b80a959d6b9db74bc82ebcee45062297458f7111b63ced28916710b55fed",
+  "sequence": 544,
+  "source_candidate": {
+    "commit": "47f9233a552e97067f8f1c346b1ef5b8ba74956a",
+    "pull_request": 2551,
+    "tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+  },
+  "source_recovery": {
+    "custody_verifier": "construction_continuation_custody_ready; 543 segments verified before this append",
+    "git_fetch_from_sandbox": "failed_network_proxy_unavailable",
+    "local_synthetic_snapshot": {
+      "commit": "203c33795d09350d394191fc4c776fcd166808",
+      "interpretation": "clean local tree snapshot matched GitHub verified main 94c96aee157a4bb633e0bc699ccb8be85a39a7b8; the synthetic commit is local-only",
+      "parent": "13224276b6134a1fa96899c062b1b2ced597a5a7",
+      "tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+    },
+    "protected_workspaces_touched": false,
+    "remote_commit_parents": [
+      "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4",
+      "47f9233a552e97067f8f1c346b1ef5b8ba74956a"
+    ],
+    "remote_main_commit": "94c96aee157a4bb633e0bc699ccb8be85a39a7b8",
+    "remote_main_tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 543 verified merge",
+  "verified_main": {
+    "commit": "94c96aee157a4bb633e0bc699ccb8be85a39a7b8",
+    "merge_method": "merge",
+    "parents": [
+      "ba31aa3d6488e2ab5f26c19be2c6fc1e87be15a4",
+      "47f9233a552e97067f8f1c346b1ef5b8ba74956a"
+    ],
+    "ref": "main",
+    "tree": "5e523939c941eb9d643e1407add0cd22ce974ff2"
+  }
+}
