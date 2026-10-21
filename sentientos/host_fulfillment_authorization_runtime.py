@@ -26,11 +26,17 @@ def _dict(v: Any) -> dict[str, Any]: return v.to_dict() if hasattr(v, "to_dict")
 def _digest_record(p: Mapping[str, Any]) -> str:
     d=dict(p); d["digest"]=""; return _sha(d)
 def _parse_time(s: str) -> datetime:
+    if not isinstance(s, str) or not s:
+        raise ValueError("timestamp must be non-empty text")
     if s.startswith("expires:"): s=s.removeprefix("expires:")
     if s.startswith("not_before:"): s=s.removeprefix("not_before:")
     if s.startswith("not_after:"): s=s.removeprefix("not_after:")
+    if s.endswith("-00:00"):
+        raise ValueError("timestamp offset is unknown")
     dt=datetime.fromisoformat(s.replace("Z","+00:00"))
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        raise ValueError("timestamp must include a known timezone")
+    return dt.astimezone(timezone.utc)
 def _now() -> str: return datetime.now(timezone.utc).isoformat()
 
 @dataclass(frozen=True)
