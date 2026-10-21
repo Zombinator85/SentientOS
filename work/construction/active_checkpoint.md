@@ -396,7 +396,7 @@ The supervision setup exception path now closes the process group, reaps the roo
 
 The candidate and exact-node workflow contract passed the hosted CI and strict Administrator Quality Gate. The acceptance manifest and provenance bind 46 exact call-phase nodes to candidate 676c7ceb6068d6eee3c69330263d3c39c967ead1; all passed. The separate metadata guard and hosted finalizers passed. PR #2580 merged normally; post-merge CI, Quality Gate, Docker, Docs Deploy, Nightly Self Check, Windows Custody, Invariants, and Codex CI passed. Forge Smoke was skipped by condition.
 
-Verified main: 31711da42f3e128333138a2982e30d9e94e5d2b2, tree 11ee45ab1873a509f570604885dbe1a661dc8226
+Verified main: `31711da42f3e128333138a2982e30d9e94e5d2b2`, tree `11ee45ab1873a509f570604885dbe1a661dc8226`
 Latest construction segment: work/construction/segments/0561-terminate-child-on-setup-failure.md
 Latest segment SHA-256: d74b4dd1e4419774e58e3c7cb9d80eed080ebd0f60772a6cc56f05fe802a0133
 Sequence: 561 (verified merge reconciliation)
