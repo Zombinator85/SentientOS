@@ -560,3 +560,13 @@ Latest segment SHA-256: `90be67a3b3165c414e07caa4ec9c50860e3ab28a1fd4f6c1df2f712
 Sequence: 533 (candidate pending hosted verification)
 
 Next: verify corrected source-bound acceptance on the complete hosted candidate, then continue developmental cognition construction.
+
+
+## Sequence 534 — sample stage-approval time offset once
+
+Approval freshness now captures and uses one explicit UTC offset. A changing timezone regression proves fail-closed behavior before transition effects; CI source validation and acceptance bind the exact node. Local verification: 42 transition tests, 2 focused tests, compilation, and targeted Mypy passed. No production transition or inference ran.
+
+Verified main: `155eb48b60afda086eeaa03b75b02fc4062907f8`, tree `d47f882f9a86968fd7d8cadd352b3bdb2f3a8b9a`
+Latest construction segment: `work/construction/segments/0534-single-sample-stage-approval-clock.md`
+Latest segment SHA-256: `5c9cd3c2bcf106014d54b2931797b23ebdbaf97d674b1fdceb7d1a59b56e6ba3`
+Sequence: 534 (candidate pending hosted verification)
