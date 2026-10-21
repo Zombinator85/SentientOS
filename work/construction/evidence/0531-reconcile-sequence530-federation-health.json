@@ -1,0 +1,78 @@
+{
+  "evidence_path": "work/construction/evidence/0531-reconcile-sequence530-federation-health.json",
+  "hosted_verification": {
+    "append_only_custody": "pending_candidate_verification",
+    "source_identity": "verified_remote_main",
+    "status": "verified_reconciliation",
+    "status_note": "This entry records operational execution evidence; it is not a source candidate verification."
+  },
+  "invariants": [
+    "Append-only evidence and exact source bindings are preserved.",
+    "Hosted Administrator execution was observed; no workflow permissions were broadened.",
+    "No production model transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "artifact": {
+      "expired": false,
+      "id": 12337157247,
+      "name": "federation-health-39582634969",
+      "sha256": "a3e50e73412b3d41e0050dbf23d30ffedef8ae3f1730b6422dca13d11984eb42",
+      "source_commit": "df38a118dae867b02a7562c956d1c9ee21c50b40"
+    },
+    "automated_pr": {
+      "base": "main",
+      "base_sha": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+      "ci_runs": "action_required",
+      "head_branch": "automation/federation-health",
+      "head_sha": "141f5ebbf94cb987c03722f0119975005ff129ef",
+      "merge_ready": false,
+      "merged": false,
+      "number": 2511,
+      "publisher_job": "success",
+      "state": "open"
+    },
+    "federation_health_current_main": {
+      "administrator_preflight": "passed",
+      "administrator_report_update": "passed",
+      "artifact_upload": "passed",
+      "conclusion": "success",
+      "event": "schedule",
+      "execution_receipt_binding": "passed",
+      "fixture_job": "skipped",
+      "health_job": "success",
+      "run_id": 39582634969,
+      "source_commit": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+      "source_tree": "a3cc496ab66415fe25fb3d537af9fb0e446ecad1"
+    },
+    "report": {
+      "interpretation": "privileged execution succeeded; underlying configured snapshot remains stale",
+      "path": "docs/FEDERATION_HEALTH.md",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "status": "stale"
+    }
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0530-reconcile-sequence529-evidence-merge.md",
+    "segment_sha256": "d6912dbeafb4efd6f49d60044fde59be5554e3df4c33722919765bbd0ba2a894",
+    "sequence": 530
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2243,
+  "segment_path": "work/construction/segments/0531-reconcile-sequence530-federation-health.md",
+  "segment_sha256": "9aa4d87aca5c45345e379116d8ea63fd1d8ab48c8f280252a0202d784a838d7f",
+  "sequence": 531,
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 530 Federation Health execution",
+  "verified_main": {
+    "commit": "df38a118dae867b02a7562c956d1c9ee21c50b40",
+    "ref": "main",
+    "tree": "a3cc496ab66415fe25fb3d537af9fb0e446ecad1"
+  }
+}
