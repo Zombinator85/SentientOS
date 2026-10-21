@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "01fef4b73a2ca415b567cde45f23da370c72b366d5f9f128641676cd1f2b43fc",
-    "latest_segment_sequence": 515,
-    "latest_segment_sha256": "fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
-    "source_commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
-    "source_tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f"
+    "checkpoint_sha256": "21734d834e4d499c02940882c6d10a58a59e5d9ac5bbf2e79ce09049fef7f592",
+    "latest_segment_sequence": 516,
+    "latest_segment_sha256": "76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c",
+    "source_commit": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+    "source_tree": "69e41aafb73be1ffad3185de45cc258c11e0d9fd"
   },
-  "checkpoint_sha256": "01fef4b73a2ca415b567cde45f23da370c72b366d5f9f128641676cd1f2b43fc",
+  "checkpoint_sha256": "21734d834e4d499c02940882c6d10a58a59e5d9ac5bbf2e79ce09049fef7f592",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 515,
+  "latest_sequence": 516,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5868,6 +5868,19 @@
       "source_candidate_commit": "534050c1572280ed65d0a13f3663a9cca770880f",
       "source_commit": "b480dff1219e53ea0280b44b82c53053c92c0b42",
       "source_tree": "6215482f905b5dc888b2dfddf41810f6ac9eab6f"
+    },
+    {
+      "bytes": 2254,
+      "evidence_bytes": 4207,
+      "evidence_path": "work/construction/evidence/0516-enforce-canonical-transition-request-envelope.json",
+      "evidence_sha256": "cfa115975f0aeede5114dbe081f62a2e3302992aff59a15c923baebbfbb4330f",
+      "path": "work/construction/segments/0516-enforce-canonical-transition-request-envelope.md",
+      "predecessor": "segment-sha256:fd230b752f91839ea1705bfdf80ca6da2c53daaf2800887159b865d1638e1e66",
+      "sequence": 516,
+      "sha256": "76c0637c12ab95ad37f2611bd858a661faa62511c4e30193a2ed9e1c1ccccb5c",
+      "source_candidate_commit": "c0fd8e38562734bc05c99fbbbc5dbb97bd3610d0",
+      "source_commit": "801ede97f74332ae86286eeb03453c8bc2a4896e",
+      "source_tree": "69e41aafb73be1ffad3185de45cc258c11e0d9fd"
     }
   ],
   "source_acquisition": {
