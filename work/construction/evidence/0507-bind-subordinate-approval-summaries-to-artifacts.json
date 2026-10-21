@@ -1,0 +1,76 @@
+{
+  "evidence_path": "work/construction/evidence/0507-bind-subordinate-approval-summaries-to-artifacts.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "immutability": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "a5b689b822f6349f34766ea93399278f12bf308b",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 64832,
+        "sha256": "8589b3915fb1bd6cd5efa07b5eb3499a419ed873c0a0e114c840e983a858b8a3"
+      },
+      "sentientos/resident_cognitive_transition_operator.py": {
+        "bytes": 45408,
+        "sha256": "e2940c0719e67282a4f8da4974b197c6581da003f9d9562a7ff77d0422947dcf"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "bytes": 59548,
+        "sha256": "4185818b36cd3cd2578bfb61cb45ee0c74a21911150927bd74ae8d5f6b080c26"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "bytes": 29376,
+        "sha256": "72704152e6acd29b2d5e47b5080acc67b1b22cd3900975f591fa39e83771ee2b"
+      }
+    },
+    "parent": "564bff002c4bd0a679bfa8347c0478b1698e0a2d",
+    "tree": "e169c02e93895874cf7748769203a8acf559331e"
+  },
+  "invariants": [
+    "Subordinate binding summaries are derived from the exact attached approval artifacts.",
+    "Missing or mismatched summaries are rejected before subordinate verification and controller effects.",
+    "Subordinate owners retain their independent admission authority.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "construction_custody": "passed; all 506 predecessor segments verified",
+    "diff_check": "passed",
+    "full_mypy_baseline": "local toolchain mismatch under sanitized environment; hosted sequence 507 check pending",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_transition_operator.py using canonical pyproject configuration",
+    "test_command": "/tmp/sentientos-stageapproval-venv/bin/python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "test_provenance": "supplemental local run; exact candidate hosted verification remains pending",
+    "tests_failed": 0,
+    "tests_passed": 97,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0506-bind-stage-approval-to-signed-transition-request.md",
+    "segment_sha256": "e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38",
+    "sequence": 506
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2438,
+  "segment_path": "work/construction/segments/0507-bind-subordinate-approval-summaries-to-artifacts.md",
+  "segment_sha256": "f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a",
+  "sequence": 507,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind subordinate approval summaries to artifacts",
+  "verified_main": {
+    "commit": "564bff002c4bd0a679bfa8347c0478b1698e0a2d",
+    "ref": "main",
+    "tree": "24360d2bbf2592e4810ff011f9fc6520569e156c"
+  }
+}

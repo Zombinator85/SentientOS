@@ -401,3 +401,18 @@ Latest segment SHA-256: `e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c69
 Sequence: 506 (candidate pending hosted verification)
 
 Next, verify that subordinate approval summary bindings exactly match the approval artifacts consumed by the transition owner, without adding approval authority.
+
+
+## Sequence 506 — reconcile hosted merge verification
+
+Sequence 506 merged as 564bff002c4bd0a679bfa8347c0478b1698e0a2d with tree 24360d2bbf2592e4810ff011f9fc6520569e156c and ordered parents 1a568708d31201885034a51b66319b770584b5d4 and 79aa1d0cdf776754af1b746bd511c9af45142e87. Exact-candidate push and PR checks passed, including the privileged Quality Gate, distinct metadata guard, CI Mypy ratchet, source-validation lifecycle, strict docs, Helm, CPU smoke, and all configured build and lint jobs. Post-merge Quality Gate, source validation, self-check, invariants, CPU smoke, docs, builds, Helm, and deployment passed; Forge smoke was skipped by condition. The sequence 506 evidence file remains unchanged.
+
+## Sequence 507 — bind subordinate approval summaries to artifacts
+
+The transition owner now recomputes the subordinate approval identity/digest summary from the exact attached artifacts and requires exact ordered equality before subordinate verification and controller advancement. Missing or inconsistent summaries fail closed. Two correctly re-signed negative regressions and hosted acceptance nodes cover the behavior. Supplemental local verification passed 97 affected tests, targeted Mypy, compilation, workflow YAML parsing, diff checks, and construction custody. Hosted exact-candidate checks are pending.
+
+Verified main: `564bff002c4bd0a679bfa8347c0478b1698e0a2d`, tree `24360d2bbf2592e4810ff011f9fc6520569e156c`
+Implementation source commit: a5b689b822f6349f34766ea93399278f12bf308b, tree e169c02e93895874cf7748769203a8acf559331e
+Latest construction segment: work/construction/segments/0507-bind-subordinate-approval-summaries-to-artifacts.md
+Latest segment SHA-256: f941e423c48c478dc73ee0b0b6b53bf7e40baf616f5cb307efe2c75fc8ab002a
+Sequence: 507 (candidate pending hosted verification)
