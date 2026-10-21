@@ -1,0 +1,101 @@
+{
+  "evidence_path": "work/construction/evidence/0529-reconcile-sequence528-unknown-offset-request-fix.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "append_only_custody": "passed_528_segments",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only construction evidence and exact source bindings are preserved.",
+    "Authority boundaries and strict audit and metadata gates remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "canonical_runner_exact_nodes": "passed",
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "operator_test_module": "passed_43_tests",
+    "test_environment_adaptation": "temporary_editable_install_under_tmp_after_offline_build_isolation_failure"
+  },
+  "operational_evidence": {
+    "automated_federation_health_pr": {
+      "checks": "not_attached",
+      "merged": false,
+      "number": 2511,
+      "state": "open"
+    },
+    "federation_health_current_main": "not_observed",
+    "federation_health_latest_scheduled_run": {
+      "commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+      "conclusion": "success",
+      "run_id": 39546186159
+    },
+    "nightly_audit_integrity_current_main": "not_observed",
+    "nightly_audit_integrity_latest_scheduled_run": {
+      "commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "conclusion": "success",
+      "event": "schedule",
+      "run_id": 39572356700
+    },
+    "nightly_self_check_current_main": {
+      "commit": "ee811f8102313181c6910eab6fc3048f3f66fcd1",
+      "conclusion": "success",
+      "event": "push",
+      "run_id": 39578568294
+    }
+  },
+  "postmerge_checks": {
+    "ci": "passed",
+    "codex_ci": "passed",
+    "cpu_smoke": "passed",
+    "deploy": "passed",
+    "docker": "passed",
+    "docs_linkcheck": "passed",
+    "forge_smoke": "skipped_by_condition",
+    "helm": "passed",
+    "integrated_source_validation": "passed",
+    "invariants": "passed",
+    "quality_gate": "passed",
+    "self_check": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0528-reconcile-sequence527-evidence-merge.md",
+    "segment_sha256": "e4d9d1d0ceaa1ce111578cb0f8a7a2b8661c42ef99476550de9d4ee8d19f4f5e",
+    "sequence": 528
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2093,
+  "segment_path": "work/construction/segments/0529-reconcile-sequence528-unknown-offset-request-fix.md",
+  "segment_sha256": "dcfd8a8bfffc1fcfe0e2dd7d957fc99013a30fa117b8bd1ff4b652831baeb4a7",
+  "sequence": 529,
+  "sequence_529_request_timestamp_reconciliation": {
+    "candidate_checks": "passed",
+    "candidate_commit": "61a7e067a7eb363ed11257dadf821ac9cd9cbaa0",
+    "main_merge_commit": "ee811f8102313181c6910eab6fc3048f3f66fcd1",
+    "main_tree": "52d3885384bd5859fd7576dcae7d4fa7bdfa966b",
+    "ordered_parents": [
+      "0acc244d158618a827a34fbbfb5c80a876a137c7",
+      "61a7e067a7eb363ed11257dadf821ac9cd9cbaa0"
+    ],
+    "postmerge_checks": "passed_except_conditionally_skipped_forge_smoke",
+    "postmerge_ci_run": 39578568134,
+    "pull_request": 2539
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 528 unknown-offset request fix",
+  "verified_main": {
+    "commit": "ee811f8102313181c6910eab6fc3048f3f66fcd1",
+    "ref": "main",
+    "tree": "52d3885384bd5859fd7576dcae7d4fa7bdfa966b"
+  }
+}

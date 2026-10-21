@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0a5e294d96657a32e553f69d5f4c7d24431cde01d68ac3bca845a7bdb57b804d",
-    "latest_segment_sequence": 528,
-    "latest_segment_sha256": "e4d9d1d0ceaa1ce111578cb0f8a7a2b8661c42ef99476550de9d4ee8d19f4f5e",
-    "source_commit": "b9b6501022fe4428eeba42b28627b8912afc585d",
-    "source_tree": "32c62b9b94da90fe5de1bdbc9bdc9eb873183606"
+    "checkpoint_sha256": "029101776fbf3a189e257f99dcab7d4a6f2efe86e14a4c1a8fa4cbad7c04a04e",
+    "latest_segment_sequence": 529,
+    "latest_segment_sha256": "dcfd8a8bfffc1fcfe0e2dd7d957fc99013a30fa117b8bd1ff4b652831baeb4a7",
+    "source_commit": "ee811f8102313181c6910eab6fc3048f3f66fcd1",
+    "source_tree": "52d3885384bd5859fd7576dcae7d4fa7bdfa966b"
   },
-  "checkpoint_sha256": "0a5e294d96657a32e553f69d5f4c7d24431cde01d68ac3bca845a7bdb57b804d",
+  "checkpoint_sha256": "029101776fbf3a189e257f99dcab7d4a6f2efe86e14a4c1a8fa4cbad7c04a04e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 528,
+  "latest_sequence": 529,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6037,6 +6037,19 @@
       "source_candidate_commit": "a02d680d6480b3d3a7137d2542242153738744f5",
       "source_commit": "b9b6501022fe4428eeba42b28627b8912afc585d",
       "source_tree": "32c62b9b94da90fe5de1bdbc9bdc9eb873183606"
+    },
+    {
+      "bytes": 2093,
+      "evidence_bytes": 3677,
+      "evidence_path": "work/construction/evidence/0529-reconcile-sequence528-unknown-offset-request-fix.json",
+      "evidence_sha256": "f9706b154a2d0455b08a11c80791b00fa0af19de02bcfa6ece0148bfcddd15f6",
+      "path": "work/construction/segments/0529-reconcile-sequence528-unknown-offset-request-fix.md",
+      "predecessor": "segment-sha256:e4d9d1d0ceaa1ce111578cb0f8a7a2b8661c42ef99476550de9d4ee8d19f4f5e",
+      "sequence": 529,
+      "sha256": "dcfd8a8bfffc1fcfe0e2dd7d957fc99013a30fa117b8bd1ff4b652831baeb4a7",
+      "source_candidate_commit": "61a7e067a7eb363ed11257dadf821ac9cd9cbaa0",
+      "source_commit": "ee811f8102313181c6910eab6fc3048f3f66fcd1",
+      "source_tree": "52d3885384bd5859fd7576dcae7d4fa7bdfa966b"
     }
   ],
   "source_acquisition": {
