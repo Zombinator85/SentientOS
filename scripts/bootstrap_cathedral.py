@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import subprocess
+from collections.abc import Sequence
 import importlib
 from datetime import datetime
 import json
@@ -23,20 +24,27 @@ def log_event(status: str, detail: str = "") -> None:
         f.write(json.dumps(log_entry) + "\n")
     print(f"[bootstrap] {status.upper()}: {detail}")
 
-def run(cmd: str) -> bool:
+def run(argv: Sequence[str]) -> bool:
+    if isinstance(argv, (str, bytes)):
+        raise ValueError("bootstrap_command_argv_invalid")
+    command = list(argv)
+    if (not command or any(not isinstance(part, str) for part in command)
+            or not command[0].strip()):
+        raise ValueError("bootstrap_command_argv_invalid")
     try:
-        subprocess.run(cmd, shell=True, check=True)
+        subprocess.run(command, shell=False, check=True)
         return True
-    except subprocess.CalledProcessError as e:
-        log_event("error", f"Command failed: {cmd}")
+    except (subprocess.CalledProcessError, OSError):
+        log_event("error", "Command failed: " + json.dumps(command))
         return False
 
 def install_requirements() -> None:
     log_event("install", "Installing requirements.txt...")
-    if not run("pip install -r requirements.txt --no-build-isolation"):
+    if not run(["pip", "install", "-r", "requirements.txt", "--no-build-isolation"]):
         log_event("fallback", "Falling back to pandas==2.3.0")
-        run("pip install pandas==2.3.0")
-    run("pip install Cython || echo 'Cython install skipped'")
+        run(["pip", "install", "pandas==2.3.0"])
+    if not run(["pip", "install", "Cython"]):
+        log_event("fallback", "Cython install skipped")
 
 def ensure_env_keys() -> None:
     module_name = f"{__package__}.env_sync_autofill" if __package__ else "env_sync_autofill"

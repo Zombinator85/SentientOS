@@ -42,6 +42,23 @@ def _run_bootstrap(tmp_path: Path, *argv: str) -> subprocess.CompletedProcess[st
     )
 
 
+def test_bootstrap_command_runner_never_interprets_shell_syntax(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], bool, bool]] = []
+
+    def fake_run(argv: list[str], *, shell: bool, check: bool) -> None:
+        calls.append((argv, shell, check))
+
+    monkeypatch.setattr(bootstrap_cathedral.subprocess, "run", fake_run)
+    dynamic_value = "persona; touch shell-injection-marker"
+    assert bootstrap_cathedral.run(["trusted-bootstrap", dynamic_value])
+    assert calls == [(["trusted-bootstrap", dynamic_value], False, True)]
+
+    with pytest.raises(ValueError, match="bootstrap_command_argv_invalid"):
+        bootstrap_cathedral.run("trusted-bootstrap " + dynamic_value)  # type: ignore[arg-type]
+
+
 def test_documented_direct_file_entrypoint_imports_sibling(tmp_path: Path) -> None:
     result = _run_bootstrap(tmp_path, "scripts/bootstrap_cathedral.py")
 
