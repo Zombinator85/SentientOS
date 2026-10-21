@@ -47,6 +47,40 @@ def _process_group_exists(process_group_id: int) -> bool:
     return True
 
 
+def _terminate_windows_process(
+    process: subprocess.Popen[Any], grace: float
+) -> tuple[bool, bool]:
+    """Request console-group shutdown, then report any forced fallback."""
+    graceful = False
+    forced = False
+    if process.poll() is not None:
+        return graceful, forced
+
+    break_event = getattr(signal, "CTRL_BREAK_EVENT", None)
+    if break_event is not None:
+        graceful = True
+        try:
+            process.send_signal(break_event)
+        except (OSError, ValueError):
+            pass
+        else:
+            try:
+                process.wait(timeout=grace)
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                return graceful, forced
+
+    if process.poll() is None:
+        forced = True
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    process.wait(timeout=max(1.0, grace))
+    return graceful, forced
+
+
 def _terminate_tree(
     process: subprocess.Popen[Any], grace: float, process_group_id: int | None = None
 ) -> tuple[bool, bool]:
@@ -76,16 +110,7 @@ def _terminate_tree(
             process.wait(timeout=max(1.0, grace))
         return graceful, forced
 
-    try:
-        process.terminate()
-        process.wait(timeout=grace)
-    except ProcessLookupError:
-        pass
-    except subprocess.TimeoutExpired:
-        forced = True
-        process.kill()
-        process.wait(timeout=max(1.0, grace))
-    return graceful, forced
+    return _terminate_windows_process(process, grace)
 
 
 def _windows_pipe_available_bytes(file_descriptor: int) -> int | None:
