@@ -57,6 +57,96 @@ def _read_log_lines(path) -> List[Dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
+def _set_experiment_adapter(tracker, exp_id: str, name: str) -> None:
+    from sentientos.experiments.consensus import compute_experiment_digest
+
+    experiments = tracker._load()
+    experiment = next(item for item in experiments if item["id"] == exp_id)
+    experiment["adapter"] = {"name": name}
+    experiment["digest"] = compute_experiment_digest(experiment)
+    tracker._save(experiments)
+
+
+def test_pending_nondeterministic_adapter_waits_for_approval(chain_env, monkeypatch):
+    chain_module, runner, tracker, _ = chain_env
+    exp_id = tracker.propose_experiment(
+        "unreviewed camera experiment", "conditions", "expected",
+        criteria="value >= 1", requires_consensus=False)
+    _set_experiment_adapter(tracker, exp_id, "webcam")
+
+    def fail_execute(_experiment):  # pragma: no cover - defensive
+        raise AssertionError("unreviewed non-deterministic adapter must not execute")
+
+    monkeypatch.setattr(runner, "execute_experiment", fail_execute)
+    chain = chain_module.ExperimentChain(
+        chain_id="nondeterministic-pending",
+        description="pending hardware adapter waits for approval",
+        start=exp_id,
+        steps={exp_id: chain_module.ChainStep(id=exp_id)},
+    )
+
+    result = runner.run_chain(chain)
+
+    assert result.outcome == "pending_consensus"
+    assert result.steps[0].error == "pending_consensus"
+    assert result.steps[0].success is None
+
+
+def test_nondeterministic_adapter_runs_after_consensus_approval(chain_env, monkeypatch):
+    chain_module, runner, tracker, _ = chain_env
+    exp_id = tracker.propose_experiment(
+        "reviewed camera experiment", "conditions", "expected",
+        criteria="value >= 1", requires_consensus=True, quorum_k=2, quorum_n=3)
+    _set_experiment_adapter(tracker, exp_id, "webcam")
+    assert tracker.vote_experiment(exp_id, "peer-a", True)
+    assert tracker.vote_experiment(exp_id, "peer-b", True)
+    assert tracker.get_experiment(exp_id)["status"] == "active"
+    executed: list[str] = []
+
+    def execute(experiment):
+        executed.append(experiment["id"])
+        return {"value": 1}
+
+    monkeypatch.setattr(runner, "execute_experiment", execute)
+    chain = chain_module.ExperimentChain(
+        chain_id="nondeterministic-approved",
+        description="approved hardware adapter may execute",
+        start=exp_id,
+        steps={exp_id: chain_module.ChainStep(id=exp_id)},
+    )
+
+    result = runner.run_chain(chain)
+
+    assert result.outcome == "success"
+    assert executed == [exp_id]
+
+
+def test_pending_deterministic_adapter_keeps_existing_execution_behavior(
+        chain_env, monkeypatch):
+    chain_module, runner, tracker, _ = chain_env
+    exp_id = tracker.propose_experiment(
+        "deterministic mock experiment", "conditions", "expected",
+        criteria="value >= 1", requires_consensus=False)
+    executed: list[str] = []
+
+    def execute(experiment):
+        executed.append(experiment["id"])
+        return {"value": 1}
+
+    monkeypatch.setattr(runner, "execute_experiment", execute)
+    chain = chain_module.ExperimentChain(
+        chain_id="deterministic-pending",
+        description="deterministic adapter behavior is preserved",
+        start=exp_id,
+        steps={exp_id: chain_module.ChainStep(id=exp_id)},
+    )
+
+    result = runner.run_chain(chain)
+
+    assert result.outcome == "success"
+    assert executed == [exp_id]
+
+
 def test_linear_chain_success(chain_env, monkeypatch):
     chain_module, runner, tracker, tmp_path = chain_env
 
