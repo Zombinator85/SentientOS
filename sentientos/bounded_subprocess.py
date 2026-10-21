@@ -6,6 +6,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections import deque
 from dataclasses import asdict, dataclass
@@ -242,7 +243,14 @@ def run_supervised(
         graceful, forced = _terminate_tree(process, termination_grace_seconds, pgid)
         drain_deadline = time.monotonic() + max(0.1, termination_grace_seconds)
 
-    if os.name == "posix" and sys.platform != "win32":
+    # Python only allows process-wide signal handlers to be installed by the
+    # main thread. Worker-thread supervisors remain bounded by their timeout;
+    # they simply cannot take ownership of controller-wide cancellation.
+    if (
+        os.name == "posix"
+        and sys.platform != "win32"
+        and threading.current_thread() is threading.main_thread()
+    ):
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.getsignal(signum)
             signal.signal(signum, cancel)

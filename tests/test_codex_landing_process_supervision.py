@@ -5,6 +5,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from unittest.mock import Mock
@@ -26,6 +27,36 @@ def test_quiet_stage_emits_heartbeat() -> None:
     lines: list[str] = []
     run_supervised([sys.executable, "-c", "import time;time.sleep(.15)"], stage_id="quiet", timeout_seconds=1, heartbeat_seconds=.05, emit=lines.append)
     assert any("[quiet][heartbeat]" in line for line in lines)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX worker-thread timeout proof")
+def test_worker_thread_supervisor_enforces_timeout_without_signal_handler_install() -> None:
+    results = []
+    errors = []
+
+    def supervise() -> None:
+        try:
+            results.append(
+                run_supervised(
+                    [sys.executable, "-c", "import time; time.sleep(5)"],
+                    stage_id="worker-timeout",
+                    timeout_seconds=0.1,
+                    termination_grace_seconds=0.1,
+                    emit=lambda _: None,
+                )
+            )
+        except BaseException as exc:
+            errors.append(exc)
+
+    worker = threading.Thread(target=supervise)
+    worker.start()
+    worker.join(timeout=3)
+
+    assert not worker.is_alive()
+    assert not errors
+    assert len(results) == 1
+    assert results[0].status == "timed_out"
+    assert results[0].termination_reason == "timeout"
 
 
 def _tree_script(tmp_path: Path) -> str:
