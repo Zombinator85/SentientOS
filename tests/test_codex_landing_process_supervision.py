@@ -94,7 +94,7 @@ def test_stage_timeout_covers_unterminated_partial_output() -> None:
         [
             sys.executable,
             "-c",
-            "import os,time;os.write(1,b'progress\\rpartial output');time.sleep(5)",
+            "import os,time;os.write(1,b'progress\\r');time.sleep(0.05);os.write(1,b'\\npartial output');time.sleep(5)",
         ],
         stage_id="partial-line",
         timeout_seconds=0.2,
