@@ -1,0 +1,74 @@
+{
+  "evidence_path": "work/construction/evidence/0506-bind-stage-approval-to-signed-transition-request.json",
+  "hosted_verification": {
+    "administrator_audits": "pending",
+    "exact_candidate": "pending",
+    "immutability": "pending",
+    "metadata_guard": "pending",
+    "required_checks": "pending",
+    "status": "pending"
+  },
+  "implementation_source": {
+    "commit": "94046e6bb78d921f5c5bdc468440b620e1c773b2",
+    "files": {
+      ".github/workflows/ci.yml": {
+        "bytes": 64340,
+        "sha256": "740f364d99b2c5fa15cb25291a657c4f2852fdc2704181d9cb6fa49c5932bf6f"
+      },
+      "sentientos/resident_cognitive_transition_operator.py": {
+        "bytes": 44768,
+        "sha256": "8d101e8f62873de9ba56277527dce209b8233bf2b65f6dbe82a24224e56fac78"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "bytes": 59419,
+        "sha256": "1775305249785765c09058a3621f3adbd578bff67bfe7307a24ee8cea8f05bb5"
+      },
+      "tests/test_resident_cognitive_transition_operator.py": {
+        "bytes": 26804,
+        "sha256": "fa98b32c4defe4d2a1a92d715c41e0daee5ddd4aef70f600d672d06dad12dca4"
+      }
+    },
+    "parent": "1a568708d31201885034a51b66319b770584b5d4",
+    "tree": "870666fbb3454e5ce51699b3f512b7ea85c27dd8"
+  },
+  "invariants": [
+    "Stage approval signature and authenticated issuer verification remain required.",
+    "Approval/request identity mismatch is rejected before subordinate verification and controller effects.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "local_verification": {
+    "compileall": "passed",
+    "diff_check": "passed",
+    "repo_wide_mypy_baseline": "not run; sanitized local environment could not import user-site Mypy; hosted check pending",
+    "targeted_mypy": "passed for sentientos/resident_cognitive_transition_operator.py",
+    "test_command": "python -m scripts.run_tests -q tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_verified_transition_receipt_regressions",
+    "test_provenance": "supplemental local run; working-tree tests were not claimed as exact-candidate hosted evidence",
+    "tests_failed": 0,
+    "tests_passed": 83,
+    "workflow_yaml": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0505-reconcile-hosted-stage-approval-verification.md",
+    "segment_sha256": "1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0",
+    "sequence": 505
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1879,
+  "segment_path": "work/construction/segments/0506-bind-stage-approval-to-signed-transition-request.md",
+  "segment_sha256": "e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38",
+  "sequence": 506,
+  "status": "candidate_pending_hosted_verification",
+  "title": "Bind stage approvals to signed transition requests",
+  "verified_main": {
+    "commit": "1a568708d31201885034a51b66319b770584b5d4",
+    "ref": "main",
+    "tree": "3aa51733ce35955a5e0efb51da3ecf06c94a0834"
+  }
+}

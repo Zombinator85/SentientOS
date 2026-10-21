@@ -389,3 +389,15 @@ Latest verified source merge: `8bb33dffb4be129e9a72a198b74f46d8d625c36a`, tree `
 Latest segment: `work/construction/segments/0505-reconcile-hosted-stage-approval-verification.md`
 Latest segment SHA-256: `1fe0bf3617c9e4dcc95854fc8e581891d6b0885926a77a74ceffaf43c27b28e0`
 Sequence: 505
+
+
+## Sequence 506 — bind stage approvals to signed transition requests
+
+PR candidate implementation commit `94046e6bb78d921f5c5bdc468440b620e1c773b2` (tree `870666fbb3454e5ce51699b3f512b7ea85c27dd8`) adds exact cross-binding between the authenticated request and its stage approval. Two mismatch regressions are included in the hosted source-validation acceptance step. Supplemental local validation passed 83 tests, targeted Mypy, compilation, workflow YAML parsing, and diff checks. Hosted exact-candidate verification is pending; no production transition or inference was run.
+
+Latest verified main: `1a568708d31201885034a51b66319b770584b5d4`, tree `3aa51733ce35955a5e0efb51da3ecf06c94a0834`
+Latest construction segment: `work/construction/segments/0506-bind-stage-approval-to-signed-transition-request.md`
+Latest segment SHA-256: `e66f52cabef4a6f1d70f53ca020079c270f6b99798ca3cafe754c6934ee7db38`
+Sequence: 506 (candidate pending hosted verification)
+
+Next, verify that subordinate approval summary bindings exactly match the approval artifacts consumed by the transition owner, without adding approval authority.
