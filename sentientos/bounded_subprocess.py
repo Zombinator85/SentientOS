@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import selectors
 import signal
@@ -99,8 +100,19 @@ def run_supervised(
     termination_grace_seconds: float = DEFAULT_TERMINATION_GRACE_SECONDS,
     emit: Callable[[str], None] | None = None,
 ) -> SupervisedProcessResult:
-    if timeout_seconds <= 0 or heartbeat_seconds <= 0 or tail_lines <= 0:
-        raise ValueError("supervision_limits_must_be_positive")
+    if (
+        isinstance(timeout_seconds, bool)
+        or isinstance(heartbeat_seconds, bool)
+        or isinstance(termination_grace_seconds, bool)
+        or not math.isfinite(timeout_seconds)
+        or not math.isfinite(heartbeat_seconds)
+        or not math.isfinite(termination_grace_seconds)
+        or timeout_seconds <= 0
+        or heartbeat_seconds <= 0
+        or termination_grace_seconds < 0
+        or tail_lines <= 0
+    ):
+        raise ValueError("supervision_limits_must_be_finite_and_valid")
     writer = emit or (lambda line: print(line, flush=True))
     command = argv if isinstance(argv, str) else list(argv)
     started = time.monotonic()
