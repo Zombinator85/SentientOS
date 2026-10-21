@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "87002288c1430c7c60bdee65c11d63c05a25b123473f0a356e548647cf9d4c10",
-    "latest_segment_sequence": 511,
-    "latest_segment_sha256": "40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
-    "source_commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
-    "source_tree": "75fc6ab0605f367991e0e3a6e1518d44ea4771e6"
+    "checkpoint_sha256": "7dc45016848e62694b19b0dd4ca66e0d03b2bb6462dd733b8cff8c79e0b00839",
+    "latest_segment_sequence": 513,
+    "latest_segment_sha256": "3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
+    "source_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+    "source_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
   },
-  "checkpoint_sha256": "87002288c1430c7c60bdee65c11d63c05a25b123473f0a356e548647cf9d4c10",
+  "checkpoint_sha256": "7dc45016848e62694b19b0dd4ca66e0d03b2bb6462dd733b8cff8c79e0b00839",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 511,
+  "latest_sequence": 513,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -5816,6 +5816,32 @@
       "source_candidate_commit": "1a4c290c3599972d7ac12c2e374d9179a2906dcd",
       "source_commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
       "source_tree": "75fc6ab0605f367991e0e3a6e1518d44ea4771e6"
+    },
+    {
+      "bytes": 1578,
+      "evidence_bytes": 3994,
+      "evidence_path": "work/construction/evidence/0512-reject-nonfinite-transition-context-values.json",
+      "evidence_sha256": "fcc0e6c00bf49aff6e5db2d01f383feded234cb213194b2d3ed206a26436c001",
+      "path": "work/construction/segments/0512-reject-nonfinite-transition-context-values.md",
+      "predecessor": "segment-sha256:40564342f3ea3f159f12ab1babc883065c4167d9e546eb47c8ea07c5687dbb4b",
+      "sequence": 512,
+      "sha256": "ee4248d25d3a66e38fa1cd837bd170526d8ff9a28aa4f942b43fcacfdc0518fa",
+      "source_candidate_commit": "ddfeba77456cd003cf8b3ff1f0a80ff9413c256d",
+      "source_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+      "source_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
+    },
+    {
+      "bytes": 1868,
+      "evidence_bytes": 3391,
+      "evidence_path": "work/construction/evidence/0513-bind-finite-number-regression-to-acceptance.json",
+      "evidence_sha256": "171ee0696dcdc404739add2d30589045be044ce206934805622e989cd72e4583",
+      "path": "work/construction/segments/0513-bind-finite-number-regression-to-acceptance.md",
+      "predecessor": "segment-sha256:ee4248d25d3a66e38fa1cd837bd170526d8ff9a28aa4f942b43fcacfdc0518fa",
+      "sequence": 513,
+      "sha256": "3701da784e959e6cc69d21995ccfffd778c937c898217cb573ae5d842a5115cb",
+      "source_candidate_commit": "f8b627b73234a13d8c1c19659b911e587c0cf1f9",
+      "source_commit": "dd51df9fc0aa21f8ecac732df590716f14d801bb",
+      "source_tree": "2ff89a56f9c8881f7ba66237baf22c5755d6b390"
     }
   ],
   "source_acquisition": {
