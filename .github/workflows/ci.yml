@@ -209,6 +209,34 @@ jobs:
             --manifest glow/test_runs/canonical_planning_acceptance.json \
             --provenance glow/test_runs/canonical_planning_provenance.json \
             --output glow/test_runs/canonical_planning_acceptance_result.json
+      - name: Verify Federation Health snapshot freshness
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_health_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          node = "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window"
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_health_provenance.json",
+              "required_nodes": [{"node_id": node, "rationale": "stale local snapshots must not be reported as quiet health"}],
+              "successful_path_nodes": [node],
+          }
+          Path("glow/test_runs/federation_health_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_health_acceptance.json \
+            --provenance glow/test_runs/federation_health_provenance.json \
+            --output glow/test_runs/federation_health_acceptance_result.json
       - name: Verify transition-stage receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \

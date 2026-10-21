@@ -61,6 +61,25 @@ def test_compute_health_reports_missing_log(health_badge, tmp_path, monkeypatch)
     }
 
 
+def test_compute_health_marks_snapshot_stale_when_latest_event_predates_window(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    latest = datetime.now(timezone.utc) - timedelta(days=2)
+    log_path.write_text(
+        json.dumps({"timestamp": latest.isoformat(), "data": {"peer": "alpha"}}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+
+    assert stats["nodes"] == 1
+    assert stats["recent"] == 0
+    assert stats["status"] == "stale"
+    assert stats["live_telemetry"] is False
+
+
 def test_main_updates_only_requested_health_document(
     health_badge, tmp_path, monkeypatch, capsys
 ):

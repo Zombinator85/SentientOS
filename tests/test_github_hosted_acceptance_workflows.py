@@ -6,6 +6,16 @@ pytestmark = pytest.mark.no_legacy_skip
 
 ROOT = Path(__file__).parents[1]
 
+def test_source_validation_runs_federation_health_freshness_regression():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    node = "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window"
+    assert "- name: Verify Federation Health snapshot freshness" in source_validation
+    assert node in source_validation
+    assert "federation_health_acceptance.json" in source_validation
+    assert "federation_health_acceptance_result.json" in source_validation
+
+
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
