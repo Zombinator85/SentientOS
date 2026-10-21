@@ -122,7 +122,7 @@ def run_supervised(
     creationflags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)) if os.name == "nt" else 0
     process: subprocess.Popen[bytes] = subprocess.Popen(
         command, shell=shell, text=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        bufsize=0, env=dict(env) if env else None, start_new_session=os.name == "posix",
+        bufsize=0, env=dict(env) if env is not None else None, start_new_session=os.name == "posix",
         creationflags=creationflags,
     )
     pgid = process.pid
