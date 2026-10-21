@@ -136,10 +136,25 @@ jobs:
         with:
           name: federation-health-${{ github.run_id }}
           path: docs
+      # Set SENTIENTOS_FEDERATION_HEALTH_USE_APP=1 only after installing a
+      # repository-scoped App with contents:write and pull-requests:write, and
+      # adding the two matching repository secrets. Otherwise the existing
+      # GITHUB_TOKEN path remains active (GitHub may require approval for its
+      # PR checks).
+      - id: app-token
+        if: ${{ vars.SENTIENTOS_FEDERATION_HEALTH_USE_APP == '1' }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_ID }}
+          private-key: ${{ secrets.SENTIENTOS_FEDERATION_HEALTH_APP_PRIVATE_KEY }}
+          owner: Zombinator85
+          repositories: SentientOS
+          permission-contents: write
+          permission-pull-requests: write
       - id: create-pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ github.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
           base: main
           branch: ${{ (inputs.publication_fixture == true || github.ref == 'refs/heads/automation/federation-health-publication-fixture') && format('automation/federation-health-fixture-{0}', github.run_id) || 'automation/federation-health' }}
           delete-branch: false
