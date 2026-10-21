@@ -1,0 +1,87 @@
+{
+  "evidence_path": "work/construction/evidence/0528-reconcile-sequence527-evidence-merge.json",
+  "hosted_verification": {
+    "administrator_audits": "passed",
+    "append_only_custody": "passed_527_segments",
+    "exact_candidate": "passed",
+    "metadata_guard": "passed",
+    "required_checks": "passed",
+    "status": "verified"
+  },
+  "invariants": [
+    "Append-only construction evidence and exact source bindings are preserved.",
+    "Authority boundaries and strict audit and metadata gates remain unchanged.",
+    "No production transition, activation, serving, inference, or writeback was performed."
+  ],
+  "operational_evidence": {
+    "automated_federation_health_pr": {
+      "checks": "not_attached",
+      "merged": false,
+      "number": 2511,
+      "state": "open"
+    },
+    "federation_health_current_main": "not_observed",
+    "federation_health_latest_scheduled_run": {
+      "commit": "7fbd149ddb0f48f2385c18590c254a64cc2522bd",
+      "conclusion": "success",
+      "run_id": 39546186159
+    },
+    "nightly_audit_integrity_current_main": "not_observed",
+    "nightly_audit_integrity_predecessor_main": {
+      "commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "conclusion": "success",
+      "event": "schedule",
+      "run_id": 39572356700
+    }
+  },
+  "postmerge_checks": {
+    "ci": "passed",
+    "codex_ci": "passed",
+    "cpu_smoke": "passed",
+    "deploy": "passed",
+    "docker": "passed",
+    "docs_linkcheck": "passed",
+    "forge_smoke": "skipped_by_condition",
+    "helm": "passed",
+    "integrated_source_validation": "passed",
+    "invariants": "passed",
+    "quality_gate": "passed",
+    "self_check": "passed"
+  },
+  "predecessor": {
+    "segment_path": "work/construction/segments/0527-reconcile-sequence526-evidence-merge.md",
+    "segment_sha256": "804d21e8be200d427831b076e70cf2404b8dc878248a3209a07663c88bbfa479",
+    "sequence": 527
+  },
+  "production": {
+    "activation_run": false,
+    "inference_run": false,
+    "serving_run": false,
+    "transition_run": false,
+    "writeback_run": false
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1723,
+  "segment_path": "work/construction/segments/0528-reconcile-sequence527-evidence-merge.md",
+  "segment_sha256": "e4d9d1d0ceaa1ce111578cb0f8a7a2b8661c42ef99476550de9d4ee8d19f4f5e",
+  "sequence": 528,
+  "sequence_528_evidence_merge_reconciliation": {
+    "candidate_checks": "passed",
+    "main_merge_commit": "b9b6501022fe4428eeba42b28627b8912afc585d",
+    "main_tree": "32c62b9b94da90fe5de1bdbc9bdc9eb873183606",
+    "ordered_parents": [
+      "cec73e635cf3dd86f5970620f25290fe571f9ebb",
+      "a02d680d6480b3d3a7137d2542242153738744f5"
+    ],
+    "postmerge_checks": "passed_except_conditionally_skipped_forge_smoke",
+    "postmerge_ci_run": 39575310421,
+    "pull_request": 2537
+  },
+  "status": "verified_reconciliation",
+  "title": "Reconcile sequence 527 evidence merge",
+  "verified_main": {
+    "commit": "b9b6501022fe4428eeba42b28627b8912afc585d",
+    "ref": "main",
+    "tree": "32c62b9b94da90fe5de1bdbc9bdc9eb873183606"
+  }
+}
