@@ -707,6 +707,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
     )[1].split("- name: Verify pre-publication PR metadata guard", 1)[0]
+    assert 'len(nodes) != 45' in finalizer
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
     assert 'test "$(sudo -n id -u)" = "0"' in finalizer
     assert '"HOME=$HOME"' in finalizer
