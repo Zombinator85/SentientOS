@@ -471,7 +471,8 @@ class LiveTransitionOperatorRuntime:
             raise TransitionError("operator_stage_receipt_unavailable")
 
         try:
-            authenticated_operator = self._verify_operator_provenance(packet)
+            authenticated_operator = self._verify_operator_provenance(
+                packet, current_time=self._observed_utc_time())
         except TransitionError as exc:
             raise TransitionError("operator_stage_receipt_operator_authentication_unavailable") from exc
         catalog_version = self.config.operator_trust_catalog_version
@@ -600,14 +601,16 @@ class LiveTransitionOperatorRuntime:
         self._latest = receipt
         return receipt
 
-    def _recover_journal_outcome(self, packet: Mapping[str, Any]) -> dict[str, Any] | None:
+    def _recover_journal_outcome(
+            self, packet: Mapping[str, Any], *,
+            observation_time: datetime) -> dict[str, Any] | None:
         """Reconcile an operator request against the controller's durable journal.
 
         The journal is the stage commit point. If the process died before the
         operator receipt was appended, record that already-published outcome
         rather than invoking the stage a second time.
         """
-        self._verify_operator_provenance(packet)
+        self._verify_operator_provenance(packet, current_time=observation_time)
         request = {"request_id": packet.get("request_id"),
                    "request_digest": packet.get("request_digest")}
         matches = []
@@ -649,9 +652,11 @@ class LiveTransitionOperatorRuntime:
                 "effect_performed": False, "recovered": True,
                 "receipt_digest": receipt["receipt_digest"]}
 
-    def _validate(self, packet: Mapping[str, Any]) -> None:
+    def _validate(self, packet: Mapping[str, Any], *,
+                  observation_time: datetime) -> None:
         self._verify_packet_identity(packet)
-        authenticated_operator = self._verify_operator_provenance(packet)
+        authenticated_operator = self._verify_operator_provenance(
+            packet, current_time=observation_time)
         value = dict(packet)
         value.pop("request_digest", None); value.pop("request_id", None)
         health = self.controller.health()
@@ -676,20 +681,35 @@ class LiveTransitionOperatorRuntime:
             raise TransitionError("operator_request_subordinate_approval_invalid")
         if bindings != _subordinate_approval_bindings(subordinate):
             raise TransitionError("operator_request_subordinate_approval_binding_mismatch")
-        now = self.clock().astimezone(timezone.utc)
-        if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
+        if not _time(value.get("created_at")) <= observation_time <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
 
     def _verify_operator_provenance(
-            self, packet: Mapping[str, Any]) -> AuthenticatedTransitionOperatorRequest:
+            self, packet: Mapping[str, Any], *,
+            current_time: datetime) -> AuthenticatedTransitionOperatorRequest:
         verifier = self.operator_provenance_verifier
         if verifier is None:
             raise TransitionError("operator_provenance_verifier_unavailable")
         try:
-            return verifier.verify(packet, current_time=self.clock())
+            return verifier.verify(packet, current_time=current_time)
         except TransitionOperatorProvenanceError as exc:
             raise TransitionError(str(exc)) from exc
         except Exception as exc:
             raise TransitionError("operator_provenance_verification_failed") from exc
+
+    def _observed_utc_time(self) -> datetime:
+        """Take one explicit-offset clock sample for every request time check."""
+        try:
+            current_time = self.clock()
+            if not isinstance(current_time, datetime) or current_time.tzinfo is None:
+                raise TransitionError("operator_provenance_time_invalid")
+            offset = current_time.utcoffset()
+            if offset is None:
+                raise TransitionError("operator_provenance_time_invalid")
+            return (current_time.replace(tzinfo=None) - offset).replace(tzinfo=timezone.utc)
+        except TransitionError:
+            raise
+        except (OverflowError, TypeError, ValueError) as exc:
+            raise TransitionError("operator_provenance_time_invalid") from exc
 
     @staticmethod
     def _verify_packet_identity(packet: Mapping[str, Any]) -> None:
@@ -716,6 +736,7 @@ class LiveTransitionOperatorRuntime:
             observed_consumed: str | None = None
             for packet in self._request_packets():
                 request_id = packet["request_id"]
+                observation_time: datetime | None = None
                 try:
                     if request_id in consumed:
                         self._verify_packet_identity(packet)
@@ -723,10 +744,12 @@ class LiveTransitionOperatorRuntime:
                         self._latest = consumed[request_id]
                         continue
                     self._verify_packet_identity(packet)
-                    recovered = self._recover_journal_outcome(packet)
+                    observation_time = self._observed_utc_time()
+                    recovered = self._recover_journal_outcome(
+                        packet, observation_time=observation_time)
                     if recovered is not None:
                         return recovered
-                    self._validate(packet)
+                    self._validate(packet, observation_time=observation_time)
                     subordinate = _plain(packet.get("subordinate_approvals", []))
                     if not isinstance(subordinate, list): raise TransitionError("operator_request_subordinate_approval_invalid")
                     if self.subordinate_verifier is not None:
@@ -752,7 +775,10 @@ class LiveTransitionOperatorRuntime:
                     if (isinstance(packet, Mapping)
                             and not str(code).startswith("operator_provenance")):
                         try:
-                            recovered = self._recover_journal_outcome(packet)
+                            if observation_time is None:
+                                observation_time = self._observed_utc_time()
+                            recovered = self._recover_journal_outcome(
+                                packet, observation_time=observation_time)
                         except Exception as recovery_exc:
                             raise TransitionError("operator_request_recovery_ambiguous") from recovery_exc
                         if recovered is not None:

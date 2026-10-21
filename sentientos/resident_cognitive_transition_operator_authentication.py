@@ -156,9 +156,17 @@ class TransitionOperatorProvenanceVerifier:
             raise TransitionOperatorProvenanceError("operator_provenance_algorithm_invalid")
         signed_at = provenance.get("signed_at")
         signed_time = _parse_time(signed_at, "operator_provenance_time_invalid")
-        if current_time.tzinfo is None:
-            raise TransitionOperatorProvenanceError("operator_provenance_time_invalid")
-        now = current_time.astimezone(timezone.utc)
+        try:
+            if not isinstance(current_time, datetime) or current_time.tzinfo is None:
+                raise TransitionOperatorProvenanceError("operator_provenance_time_invalid")
+            offset = current_time.utcoffset()
+            if offset is None:
+                raise TransitionOperatorProvenanceError("operator_provenance_time_invalid")
+            now = (current_time.replace(tzinfo=None) - offset).replace(tzinfo=timezone.utc)
+        except TransitionOperatorProvenanceError:
+            raise
+        except (OverflowError, TypeError, ValueError) as exc:
+            raise TransitionOperatorProvenanceError("operator_provenance_time_invalid") from exc
         claims_digest = operator_request_claims_digest(request)
         if provenance.get("request_claims_digest") != claims_digest:
             raise TransitionOperatorProvenanceError("operator_provenance_request_mismatch")

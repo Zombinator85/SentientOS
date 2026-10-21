@@ -244,6 +244,10 @@ jobs:
             tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_accepts_journal_recovered_completion \
             tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_rejects_rejected_or_missing_custody \
             tests/test_resident_cognitive_transition_operator.py::test_operator_request_rejects_noncanonical_top_level_schema \
+            tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_rejects_non_aware_observation_clock[naive_clock] \
+            tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_rejects_non_aware_observation_clock[offset_unknown_clock] \
+            tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_uses_one_sampled_utc_offset \
+            tests/test_resident_cognitive_transition_operator.py::test_operator_request_validation_uses_one_clock_observation \
             tests/test_resident_cognitive_transition_operator.py::test_stage_approval_correlation_must_match_signed_request \
             tests/test_resident_cognitive_transition_operator.py::test_stage_approval_operation_must_match_signed_request \
             tests/test_resident_cognitive_transition_operator.py::test_subordinate_approval_summary_must_match_signed_artifact \
@@ -277,6 +281,10 @@ jobs:
               "tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_accepts_journal_recovered_completion",
               "tests/test_resident_cognitive_transition_operator.py::test_verified_stage_receipt_rejects_rejected_or_missing_custody",
               "tests/test_resident_cognitive_transition_operator.py::test_operator_request_rejects_noncanonical_top_level_schema",
+              "tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_rejects_non_aware_observation_clock[naive_clock]",
+              "tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_rejects_non_aware_observation_clock[offset_unknown_clock]",
+              "tests/test_resident_cognitive_transition_operator.py::test_operator_provenance_uses_one_sampled_utc_offset",
+              "tests/test_resident_cognitive_transition_operator.py::test_operator_request_validation_uses_one_clock_observation",
               "tests/test_resident_cognitive_transition_operator.py::test_stage_approval_correlation_must_match_signed_request",
               "tests/test_resident_cognitive_transition_operator.py::test_stage_approval_operation_must_match_signed_request",
               "tests/test_resident_cognitive_transition_operator.py::test_subordinate_approval_summary_must_match_signed_artifact",
