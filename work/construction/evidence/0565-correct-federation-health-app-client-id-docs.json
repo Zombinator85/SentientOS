@@ -1,0 +1,112 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 565,
+  "title": "Correct Federation Health App setup guidance",
+  "status": "verified_documentation_integration",
+  "predecessor": {
+    "sequence": 564,
+    "segment_sha256": "ff9c3deca46005a60f9bc32862fb1363d431ca85fd5db869f267ded952308ff9"
+  },
+  "source_candidate": {
+    "pull_request": 2590,
+    "commit": "277a87bdeea216d1543e5554117bd76a75862af3",
+    "tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba",
+    "merged_as": "597af64de9c6382639b0b97e97d8718864538a6f"
+  },
+  "source_blobs": {
+    "docs/federation_health_publication.md": "062732d0b3d5b3f232e44fb67654072d3238adb6",
+    "tests/test_github_hosted_acceptance_workflows.py": "fb398e0ca32b4f5b4dc1e04a7651626820e911cf"
+  },
+  "change": {
+    "contract": "The operator guide names the Client ID secret consumed by the current action, the private-key secret, and the repository opt-in variable; a source-validation assertion guards all three.",
+    "authority_or_workflow_behavior_changed": false,
+    "credential_value_accessed": false
+  },
+  "candidate_verification": {
+    "head": "277a87bdeea216d1543e5554117bd76a75862af3",
+    "runs": {
+      "CI": 39683500141,
+      "Quality_Gate": 39683500124,
+      "Invariants": 39683500279,
+      "Lint_Benchmark": 39683500215,
+      "Gradient": 39683500183,
+      "Docker": 39683500102,
+      "Build": 39683500070,
+      "Branch_CI": 39683483429,
+      "Branch_Invariants": 39683483713
+    },
+    "check_runs": {
+      "total": 20,
+      "success": 18,
+      "conditional_skips": 2,
+      "failures": 0
+    },
+    "strict_administrator_audits": "success",
+    "strict_hosted_finalizer": "success",
+    "separate_prepublication_metadata_guard": "success",
+    "artifacts": {
+      "finalizer": {
+        "id": 12385506716,
+        "sha256": "bc4d15d0ceefcc800f759495d554e237e9ceed8f01c2b1cf5f31eb27533610f4"
+      },
+      "acceptance": {
+        "id": 12384399461,
+        "sha256": "b5d0a6bf6000321dd8ddd75f0150669da9858cd1c53981c789acb301a3f46f24"
+      },
+      "quality_gate_evidence": {
+        "id": 12385342192,
+        "sha256": "e94a000ea0befae8e090f96b0eb567a9b45a9f9b408fbb818d85e6e2bbb978d9"
+      }
+    }
+  },
+  "merge": {
+    "method": "merge",
+    "commit": "597af64de9c6382639b0b97e97d8718864538a6f",
+    "tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba",
+    "parents": [
+      "1de9d1280180342b2b5abeb986523e249e3dc81c",
+      "277a87bdeea216d1543e5554117bd76a75862af3"
+    ],
+    "candidate_tree_preserved": true
+  },
+  "post_merge_verification": {
+    "CI": {
+      "run": 39684139170,
+      "result": "success"
+    },
+    "Quality_Gate": {
+      "run": 39684139098,
+      "result": "success"
+    },
+    "Invariants": {
+      "run": 39684139028,
+      "result": "success"
+    },
+    "Docker": {
+      "run": 39684139106,
+      "result": "success"
+    },
+    "Docs_Deploy": {
+      "run": 39684139216,
+      "result": "success"
+    },
+    "Codex_CI": {
+      "run": 39684139220,
+      "result": "success"
+    },
+    "Nightly_Self_Check": {
+      "run": 39684139038,
+      "result": "success"
+    },
+    "Forge_Smoke": {
+      "run": 39684139275,
+      "result": "conditionally_skipped"
+    }
+  },
+  "limitations": [
+    "Federation Health currently reports a stale configured local snapshot and does not claim live federation telemetry."
+  ],
+  "segment_path": "work/construction/segments/0565-correct-federation-health-app-client-id-docs.md",
+  "segment_bytes": 2168,
+  "segment_sha256": "7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71"
+}
