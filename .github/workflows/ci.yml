@@ -268,7 +268,8 @@ jobs:
             tests/test_resident_cognitive_transition_operator.py::test_operator_request_rejects_unknown_offset_before_effects[created_at_unknown_offset] \
             tests/test_resident_cognitive_transition_operator.py::test_operator_request_rejects_unknown_offset_before_effects[expires_at_unknown_offset] \
             tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[not_before_unknown_offset] \
-            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset]
+            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset] \
+            tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_uses_one_sampled_observation_offset_before_effects \
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/transition_receipt_provenance.json
           python - <<'PYCODE'
@@ -306,6 +307,7 @@ jobs:
               "tests/test_resident_cognitive_transition_operator.py::test_operator_request_rejects_unknown_offset_before_effects[expires_at_unknown_offset]",
               "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[not_before_unknown_offset]",
               "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_rejects_unknown_offset_before_effects[expires_at_unknown_offset]",
+              "tests/test_resident_cognitive_model_transition_experiment.py::test_stage_approval_uses_one_sampled_observation_offset_before_effects",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",

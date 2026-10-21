@@ -572,12 +572,15 @@ def verify_stage_approval(approval: Mapping[str, Any], *, expected: Mapping[str,
         raise TransitionError("stage_approval_validity_invalid") from exc
     if start > end:
         raise TransitionError("stage_approval_validity_invalid")
-    if (not isinstance(observation_time, datetime)
-            or observation_time.tzinfo is None
-            or observation_time.utcoffset() is None):
+    if not isinstance(observation_time, datetime) or observation_time.tzinfo is None:
         raise TransitionError("stage_approval_observation_time_invalid")
     try:
-        now = observation_time.astimezone(timezone.utc)
+        offset = observation_time.utcoffset()
+        if offset is None:
+            raise TransitionError("stage_approval_observation_time_invalid")
+        now = (observation_time.replace(tzinfo=None) - offset).replace(tzinfo=timezone.utc)
+    except TransitionError:
+        raise
     except (OverflowError, TypeError, ValueError) as exc:
         raise TransitionError("stage_approval_observation_time_invalid") from exc
     if not start <= now <= end:
