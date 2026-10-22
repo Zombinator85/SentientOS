@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 577
+## Current verified state — sequence 578
 
-The bounded epistemic evidence-selection repair (PR #2614) and its exact-candidate hosted verification are documented in the append-only sequence 576 evidence. The scheduled Federation Health run was successfully published and integrated as historical evidence through PR #2615; its configured logs are stale local-snapshot data, not live telemetry. Sequence 577 records exact artifact, candidate, and merge identities.
+Sequences 576–578 preserve the bounded epistemic evidence-selection repair, the successful scheduled Federation Health publication as historical evidence, and the append-only integration details. The report is based on a configured local log snapshot, not live telemetry. PR #2616's candidate checks, privileged finalizer, metadata guard, exact acceptance, CI, and source validation passed; its merge tree matches the candidate. Post-merge push-triggered workflow results were not available through the configured connector.
 
-Latest verified main: `cb76de22952bffd5597405ef7322b9c9668693aa`, tree `ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322`
-Latest construction segment: `work/construction/segments/0577-reconcile-sequence576-and-federation-health-evidence-integration.md`
-Latest segment SHA-256: `c4ecc5258b7de94ade912e102db704b7c57b4a630c19cea6156f1094102e6b55`
-Sequence: 577 (verified evidence integration)
+Latest verified main: `fd8e2139e73d3a846e9039ffa56a3c96ad5dce2c`, tree `8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2`
+Latest construction segment: `work/construction/segments/0578-reconcile-sequence576-577-append-only-integration.md`
+Latest segment SHA-256: `ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51`
+Sequence: 578 (verified append-only integration)
 
-Next: trace whether bounded canonical planning can repeatedly omit lower-ranked pending history across ticks. Establish the actual selector, its ordering/fairness contract, and omission receipts before deciding whether a source change is warranted. Preserve read-only planning, exact historical identity, deterministic choices, and explicit omissions.
+Next: prove whether repeated fresh evidence can keep a low-sorted proposition selected while another proposition's state update remains pending across ticks. Establish the deterministic fairness contract and omission trail before changing the selector. Preserve read-only planning and execution separation.
