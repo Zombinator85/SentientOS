@@ -199,7 +199,7 @@ def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> 
     assert recovered_state is not None and recovered_state.generation == 0
     assert recovered_state.state_id == receipt.successor_state_id
     assert recovered_owner.verify()["incomplete_admission_bound_transactions"] == 1
-    with pytest.raises(EpistemicStateError, match="epistemic_projection_pairing_ambiguous"):
+    with pytest.raises(EpistemicStateError, match="epistemic_update_state_pairing_ambiguous"):
         recovered_owner.cognitive_projection(max_states=1)
     ledger = AdmissionLedger(tmp_path / "admissions.json")
     admissions_before, _ = ledger.load()
