@@ -114,3 +114,17 @@ def test_no_raw_secret_in_authority_evidence(tmp_path: Path) -> None:
     serialized = json.dumps([asdict(values[4]), asdict(values[3]), asdict(result.grant), asdict(result.lease),
       asdict(result.receipt), asdict(values[5])], sort_keys=True)
     assert secret not in serialized
+
+
+@pytest.mark.parametrize("observed_at", (
+  "0001-01-01T00:00:00+23:59",
+  "9999-12-31T23:59:59-23:59",
+))
+def test_unrepresentable_observation_time_never_projects_publication_authority(tmp_path: Path, observed_at: str) -> None:
+    values = fixture(tmp_path)
+    result = issue(values)
+    with pytest.raises(ModelMirrorPublicationAuthorizationError, match="timestamp_unrepresentable"):
+        project_model_mirror_publication_authority(
+            result.grant, result.lease, result.receipt, values[4], observed_at=observed_at,
+            allow_synthetic_test_authority=True,
+        )

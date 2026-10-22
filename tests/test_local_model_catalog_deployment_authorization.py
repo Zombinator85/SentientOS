@@ -123,3 +123,23 @@ def test_expiry_revocation_and_conflict_prevent_authority(tmp_path: Path) -> Non
     with pytest.raises(CatalogDeploymentAuthorizationError, match="authorization_identity_conflict"):
         issue_catalog_deployment_authorization(handle, request, approval, candidate, receipts, Kernel(),
             created_at=START, allow_synthetic_test_evidence=True)
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    (field, value)
+    for field in ("not_before", "expires_at", "lease_not_before", "lease_expires_at")
+    for value in ("0001-01-01T00:00:00+23:59", "9999-12-31T23:59:59-23:59")
+])
+def test_unrepresentable_authorization_times_fail_before_admission_or_write(
+    tmp_path: Path, field: str, value: str,
+) -> None:
+    handle, candidate, receipts, request, approval, custody = fixture(tmp_path)
+    request = replace(request, **{field: value})
+    kernel = Kernel()
+    with pytest.raises(CatalogDeploymentAuthorizationError, match="timestamp_unrepresentable"):
+        issue_catalog_deployment_authorization(
+            handle, request, approval, candidate, receipts, kernel, created_at=START,
+            allow_synthetic_test_evidence=True,
+        )
+    assert kernel.requests == []
+    assert not custody.root.path.exists()
