@@ -127,6 +127,8 @@ class ModelMirrorPublicationAuthorizationCustody:
 
 
 def _instant(value: str) -> datetime:
+    if isinstance(value, str) and value.endswith("-00:00"):
+        raise ModelMirrorPublicationAuthorizationError("unknown_offset")
     try: result = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError) as exc: raise ModelMirrorPublicationAuthorizationError("malformed_timestamp") from exc
     if result.tzinfo is None or result.utcoffset() is None:
