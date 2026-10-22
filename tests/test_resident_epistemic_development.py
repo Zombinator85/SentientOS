@@ -174,6 +174,62 @@ def test_settled_propositions_do_not_starve_pending_state_updates(tmp_path):
     assert owner.current_state(propositions[2].proposition_id) is not None
 
 
+def test_fresh_early_evidence_does_not_starve_other_pending_state(tmp_path):
+    owner, initial, _ledger, runtime = fixture(tmp_path)
+    other = make_proposition(namespace="operator", subject="service-b",
+        predicate="is_nominal", object_value=True, polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="environmental")
+    owner.register_proposition(other)
+    early, later = sorted((initial, other), key=lambda item: item.proposition_id)
+    rules = tuple(EpistemicDevelopmentRule(
+        f"rule-{proposition.subject}", proposition.proposition_id,
+        proposition.proposition_digest, {
+            "source_kind": "runtime_supervisor",
+            "subject_id": proposition.subject,
+            "stage": "observation", "disposition": "nominal",
+        }, "supports", "unknown_dependency", "recorded")
+        for proposition in (early, later))
+    runtime.config = replace(runtime.config, rules=rules,
+        max_new_bindings_per_tick=8, max_updated_propositions_per_tick=1)
+
+    def record(proposition, source_id, sample):
+        return {
+            "source_kind": "runtime_supervisor", "source_id": source_id,
+            "subject_kind": "service", "subject_id": proposition.subject,
+            "stage": "observation", "disposition": "nominal",
+            "observed_at": NOW, "payload": {"check": "nominal", "sample": sample},
+        }
+
+    early_first = record(early, "early-1", 1)
+    early_next = record(early, "early-2", 2)
+    later_first = record(later, "later-1", 1)
+    builder = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW))
+    first = runtime.process_snapshot(builder.build([early_first]),
+        tick=10, recorded_at=NOW)
+    assert first.updated_proposition_count == 1
+
+    second = runtime.process_snapshot(
+        builder.build([early_first, early_next, later_first]),
+        tick=11, recorded_at=NOW)
+    assert second.status == "bounded_partial"
+    assert second.updated_proposition_count == 1
+    assert second.omitted_proposition_ids == (early.proposition_id,)
+    early_state = owner.current_state(early.proposition_id)
+    later_state = owner.current_state(later.proposition_id)
+    assert early_state is not None and early_state.generation == 0
+    assert later_state is not None
+
+    third = runtime.process_snapshot(
+        builder.build([early_first, early_next, record(early, "early-3", 3), later_first]),
+        tick=12, recorded_at=NOW)
+    assert third.updated_proposition_count == 1
+    assert third.omitted_proposition_ids == ()
+    early_state = owner.current_state(early.proposition_id)
+    assert early_state is not None and early_state.generation == 1
+
+
 def test_unknown_offset_historical_event_time_stays_unresolved():
     from sentientos.resident_epistemic_development import _latest_historical_event_time
 

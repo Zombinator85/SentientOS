@@ -1137,6 +1137,14 @@ class ResidentEpistemicDevelopmentRuntime:
             if stance is None: continue
             state_candidates.append((proposition_id, bindings, prior, active_ids,
                 prior_active_ids, posture, stance))
+        # Serve the oldest persisted state update first. This durable cursor
+        # prevents a repeatedly refreshed early proposition from monopolizing
+        # the per-tick state-update bound; proposition identity breaks ties.
+        last_update_tick: dict[str, int] = {}
+        for item in state_candidates:
+            history = self.owner.update_events(item[0])
+            last_update_tick[item[0]] = history[-1].tick if history else -1
+        state_candidates.sort(key=lambda item: (last_update_tick[item[0]], item[0]))
         bounded_state_candidates = state_candidates[
             :self.config.max_updated_propositions_per_tick]
         omitted_proposition_ids = tuple(sorted(item[0] for item in
