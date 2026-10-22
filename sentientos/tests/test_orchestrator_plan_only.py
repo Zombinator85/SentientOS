@@ -1486,6 +1486,32 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert scope["position_identity"]["update_event_id"] == supported.update_event_id
     assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
 
+    # Execution must reject an envelope that tries to reuse the plan's evidence
+    # under a different serving identity before opening the execution journal.
+    assert positive.allocation_artifact_path is not None
+    assert positive.allocation_artifact_digest is not None
+    assert positive.work_plan_evidence_digest is not None
+    changed_identity = {
+        "provider": "fixture", "model": "developmental-model-v2"}
+    changed_state = ExecutorState(
+        repo_root=tmp_path, created_at=positive.work_plan.created_at,
+        context="orchestrator_tick", operating_mode="normal",
+        quarantine_active=False, allow_mutation=False,
+        goal_graph_hash=positive.goal_graph_hash,
+        allocation_id=positive.allocation_artifact_path,
+        risk_budget=RiskBudget(router_k_max=8, router_m_max=8,
+            forge_max_files_changed=0),
+        allocation_artifact_digest=positive.allocation_artifact_digest,
+        target_active_model_identity_digest=(
+            "sha256:" + digest_payload(changed_identity)),
+        target_identity_observed_at=positive.target_identity_observed_at)
+    with pytest.raises(WorkPlanError,
+            match="work_plan_execution_model_identity_binding_mismatch"):
+        GoalExecutor(repo_root=tmp_path).execute_plan(
+            positive.work_plan, changed_state,
+            expected_evidence_digest=positive.work_plan_evidence_digest)
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+
     # Retained support is model-bound: a different observed model cannot inherit
     # the previous model's successful outcome.
     observer.identity = {"provider": "fixture", "model": "developmental-model-v2"}

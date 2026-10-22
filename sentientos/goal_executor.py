@@ -57,6 +57,12 @@ class GoalExecutor:
                         != state.allocation_artifact_digest):
                 raise WorkPlanError(
                     "work_plan_execution_allocation_binding_mismatch")
+            if (evidence_binding.get("target_active_model_identity_digest")
+                    != state.target_active_model_identity_digest
+                    or evidence_binding.get("target_identity_observed_at")
+                        != state.target_identity_observed_at):
+                raise WorkPlanError(
+                    "work_plan_execution_model_identity_binding_mismatch")
         # Reject a mismatched execution envelope before opening journals or
         # invoking any task. The run-id helper enforces the plan timestamp as
         # part of the durable identity; waiting until the end could otherwise
