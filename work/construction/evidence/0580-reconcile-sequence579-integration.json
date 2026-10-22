@@ -1,0 +1,96 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 580,
+  "title": "Reconcile sequence 579 fairness integration",
+  "status": "verified_evidence_integration",
+  "predecessor": {
+    "sequence": 579,
+    "segment_sha256": "9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235"
+  },
+  "segment_path": "work/construction/segments/0580-reconcile-sequence579-integration.md",
+  "segment_sha256": "2330ec7fb204641feb8720e4a472fae00f0c47bc3bf0252e2089f68e9e416e78",
+  "segment_bytes": 1563,
+  "evidence_candidate": {
+    "base": "affcb8d4c336d94a618ee0c2348df49cf24c882d",
+    "commit": "e00d31258950967a5005aab081dcb273956172bb",
+    "tree": "ef38f0616c7879b08e0743398a2b975f015f8953",
+    "pull_request": 2619,
+    "remote_blob_readback": "four of four matched byte-for-byte"
+  },
+  "checks": {
+    "ci": {
+      "run": 39819255695,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12444026762,
+        "digest": "sha256:eec4dc8c2f1cc8d86e08403f1727eef544aa86c4c699bc63a969086f5c4f934c"
+      },
+      "source_validation_artifact": {
+        "id": 12443452732,
+        "digest": "sha256:5b61028d8761ca990a30c40b351f51428115691314bd6d1419424079e08fcf9b"
+      }
+    },
+    "lint_benchmark": {
+      "run": 39819255612,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39819255618,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39819255649,
+      "result": "success"
+    },
+    "release": {
+      "run": 39819255663,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39819255606,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39819255682,
+      "result": "success"
+    },
+    "quality_gate": {
+      "run": 39819255693,
+      "workflow_summary": "in_progress_at_last_observation",
+      "sole_job": "completed_success",
+      "strict_administrator_audits": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12444560170,
+          "digest": "sha256:d2fb5dfb2fcba346a03052b5b9abf823247269b1c74f0da7e5bfc0d83de4bfa7"
+        },
+        {
+          "id": 12444505775,
+          "digest": "sha256:221a28ee61c7a38ca1ff3148a081a014b760f918dcba1be061bf45b8d45b383e"
+        },
+        {
+          "id": 12442489400,
+          "digest": "sha256:48c5f4d000641922ecfc1d1fa84c23aee85e2c79c4ad377ee586a342d229e115"
+        }
+      ]
+    }
+  },
+  "merge": {
+    "commit": "d6b90fe16326a11a72b5543f71f52ce9ab99d363",
+    "tree": "ef38f0616c7879b08e0743398a2b975f015f8953",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "Configured connector did not expose post-merge push-triggered workflows.",
+    "Quality Gate job and all steps were successful, but its top-level workflow summary remained in_progress at last observation.",
+    "No inference or production transition occurred."
+  ]
+}
