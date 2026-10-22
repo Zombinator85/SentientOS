@@ -2879,10 +2879,16 @@ class RuntimeMaintenanceSurfaces:
                 prior_self_model = None
                 prior_epistemic_state = None
                 epistemic_projection_tick: int | None = None
+                config = self._longitudinal_self_model_config
                 if self._epistemic_state_configuration_error is not None:
                     raise ValueError(self._epistemic_state_configuration_error)
-                if (self._epistemic_state_owner is not None
-                        and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
+                uses_prior_projection = (
+                    (config is not None and config.cognitive_consumption_enabled
+                     and self._longitudinal_self_model_owner is not None)
+                    or (self._epistemic_state_owner is not None
+                        and self._epistemic_state_config.get(
+                            "cognitive_consumption_enabled") is True))
+                if uses_prior_projection:
                     if tick_id.endswith("-00:00"):
                         raise ValueError("resident_cognition_tick_offset_unknown")
                     try:
@@ -2898,7 +2904,6 @@ class RuntimeMaintenanceSurfaces:
                     except (OSError, OverflowError, ValueError) as exc:
                         raise ValueError(
                             "resident_cognition_tick_unrepresentable") from exc
-                config = self._longitudinal_self_model_config
                 if (config is not None and config.cognitive_consumption_enabled
                         and self._longitudinal_self_model_owner is not None):
                     prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
