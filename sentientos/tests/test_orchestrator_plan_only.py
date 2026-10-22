@@ -874,6 +874,8 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
 
     observer = ServingObserver()
 
+    real_execute_plan = GoalExecutor.execute_plan
+
     def forbidden_execute(*_args, **_kwargs):
         raise AssertionError("canonical planning must not execute goals")
 
@@ -1507,8 +1509,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         target_identity_observed_at=positive.target_identity_observed_at)
     with pytest.raises(WorkPlanError,
             match="work_plan_execution_model_identity_binding_mismatch"):
-        GoalExecutor(repo_root=tmp_path).execute_plan(
-            positive.work_plan, changed_state,
+        real_execute_plan(
+            GoalExecutor(repo_root=tmp_path), positive.work_plan, changed_state,
             expected_evidence_digest=positive.work_plan_evidence_digest)
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
 
