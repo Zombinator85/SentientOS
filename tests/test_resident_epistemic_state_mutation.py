@@ -264,6 +264,55 @@ def test_conflicting_admission_bound_transactions_do_not_recover(tmp_path) -> No
         for path in (owner.root / "transactions").glob("*.json")} == transactions_before
     assert receipt_path.read_bytes() == receipt_before
 
+
+def test_duplicate_transaction_record_cannot_recover(tmp_path) -> None:
+    owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="duplicate transaction recovery fixture", uncertainty="unknown",
+        model_id="caller")
+    operation_id = "state-duplicate-original"
+    admission = issue(authority, admission_id="state-duplicate-original-admission",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(candidate=candidate,
+            operation_id=operation_id), sequence=1)
+    receipt = controller.commit_update_candidate(candidate=candidate, admission=admission,
+        operation_id=operation_id, correlation_id="transaction-duplicate", tick=1,
+        recorded_at="2026-01-01T00:01:00Z")
+
+    transaction_paths = tuple((owner.root / "transactions").glob("*.json"))
+    assert len(transaction_paths) == 1
+    transaction_path = transaction_paths[0]
+    transaction_bytes = transaction_path.read_bytes()
+    duplicate_path = transaction_path.with_name(f"duplicate-{transaction_path.name}")
+    duplicate_path.write_bytes(transaction_bytes)
+    duplicate_path.chmod(0o600)
+
+    states_before = {path.name: path.read_bytes()
+        for path in (owner.root / "states").glob("*.json")}
+    events_before = {path.name: path.read_bytes()
+        for path in (owner.root / "updates").glob("*.json")}
+    transactions_before = {path.name: path.read_bytes()
+        for path in (owner.root / "transactions").glob("*.json")}
+    receipt_path = (controller.receipt_root / "receipts" / "state"
+        / f"{receipt.receipt_id}.json")
+    receipt_before = receipt_path.read_bytes()
+    admissions_before, _ = AdmissionLedger(tmp_path / "admissions.json").load()
+
+    with pytest.raises(EpistemicStateError, match="epistemic_record_path_identity_mismatch"):
+        PersistentEpistemicStateOwner(owner.root, allowed_namespaces=("test",))
+
+    admissions_after, _ = AdmissionLedger(tmp_path / "admissions.json").load()
+    assert admissions_after == admissions_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "states").glob("*.json")} == states_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "updates").glob("*.json")} == events_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "transactions").glob("*.json")} == transactions_before
+    assert receipt_path.read_bytes() == receipt_before
+
 def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:
     owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
     candidate = make_epistemic_update_candidate(

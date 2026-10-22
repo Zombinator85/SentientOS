@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0d1ba85d135d6118eb9846305d68cc9d188de21119ecc99a40d19493ec7c8e07",
-    "latest_segment_sequence": 587,
-    "latest_segment_sha256": "a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa",
-    "source_commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
-    "source_tree": "f70894adb9c96463c5feb2099be2e4f97552be16"
+    "checkpoint_sha256": "7e92c033714c9880ce64a3899d9f466c9ca748d189764d8c92a5bcdf666aa231",
+    "latest_segment_sequence": 588,
+    "latest_segment_sha256": "8240eb74e24d090929da04d839c38b2968299fa63416ecbea22b814a2363b4aa",
+    "source_commit": "1139e3117adf54c3529555d9d2faf2befc55cac2",
+    "source_tree": "ca41cbc5fe13458fd2c62ce414d7ad8268f070d8"
   },
-  "checkpoint_sha256": "0d1ba85d135d6118eb9846305d68cc9d188de21119ecc99a40d19493ec7c8e07",
+  "checkpoint_sha256": "7e92c033714c9880ce64a3899d9f466c9ca748d189764d8c92a5bcdf666aa231",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 587,
+  "latest_sequence": 588,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6802,6 +6802,19 @@
       "source_candidate_commit": "ccf77144239045afeebbc3eb8ee2b2569ca67c69",
       "source_commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
       "source_tree": "f70894adb9c96463c5feb2099be2e4f97552be16"
+    },
+    {
+      "sequence": 588,
+      "path": "work/construction/segments/0588-reject-conflicting-admission-bound-transactions.md",
+      "sha256": "8240eb74e24d090929da04d839c38b2968299fa63416ecbea22b814a2363b4aa",
+      "bytes": 1975,
+      "predecessor": "segment-sha256:a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa",
+      "evidence_path": "work/construction/evidence/0588-reject-conflicting-admission-bound-transactions.json",
+      "evidence_sha256": "9bc5d44bb4a51ccd022521b968d49ed05962fc34366c1b97187dad4dc0c1a6aa",
+      "evidence_bytes": 4031,
+      "source_candidate_commit": "ecc068cc112a0dd86d89d71f986962503b39aaf8",
+      "source_commit": "1139e3117adf54c3529555d9d2faf2befc55cac2",
+      "source_tree": "ca41cbc5fe13458fd2c62ce414d7ad8268f070d8"
     }
   ],
   "source_acquisition": {
