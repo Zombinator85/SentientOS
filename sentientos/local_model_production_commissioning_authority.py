@@ -61,6 +61,8 @@ def commissioning_custody(handle: InstallationStateHandle) -> dict[str, str]:
 def _time(value: object) -> datetime:
     if not isinstance(value, str):
         raise CommissioningAuthorityError("commissioning_approval_time_invalid")
+    if value.endswith("-00:00"):
+        raise CommissioningAuthorityError("commissioning_approval_time_offset_unknown")
     try:
         parsed = datetime.fromisoformat(value)
     except ValueError as exc:

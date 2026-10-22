@@ -44,6 +44,13 @@ def test_external_approval_accepts_exact_evidence_and_rejects_time_and_digest(tm
             verify_external_approval(evidence, plan, correlation_id="acquisition-test", observation_time=observed)
 
 
+@pytest.mark.parametrize("field", ("not_before", "expires_at", "approval_timestamp"))
+def test_external_approval_rejects_unknown_timestamp_offsets(tmp_path, field):
+    *_, plan = case(tmp_path)
+    evidence = approval(plan, **{field: "2026-01-01T00:00:00-00:00"})
+    with pytest.raises(AcquisitionApprovalError, match="time_offset_unknown"):
+        verify_external_approval(evidence, plan, correlation_id="acquisition-test", observation_time=NOW)
+
 def test_legacy_boolean_authorization_cannot_execute(tmp_path):
     data, *_, plan = case(tmp_path); transport = FakeTransport(data)
     with pytest.raises(ModelArtifactAcquisitionError, match="legacy"):
