@@ -101,6 +101,7 @@ class EpistemicDevelopmentFeedback:
     pending_state_intent_count: int = 0
     pending_transaction_count: int = 0
     recovered_receipt_count: int = 0
+    omitted_binding_ids: tuple[str, ...] = ()
 
 
 def load_epistemic_development_config(path: str | Path) -> EpistemicDevelopmentConfig:
@@ -1075,15 +1076,39 @@ class ResidentEpistemicDevelopmentRuntime:
                 pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
                 pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
                 recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
-        bounded = matches[:self.config.max_new_bindings_per_tick]
-        evidence_receipts: list[str] = []; touched: set[str] = set(); new_count = 0
-        for rule, fact in bounded:
-            proof, binding = self._adapt(snapshot, fact, rule); touched.add(rule.proposition_id)
-            existing = {item.binding_id: item for item in self.owner.bindings(rule.proposition_id)}
-            if binding.binding_id in existing:
-                if existing[binding.binding_id] != binding:
+        # Resolve durable identities before applying the per-tick admission
+        # bound. Otherwise already admitted, lexically early observations can
+        # occupy every slot on every snapshot and starve later evidence.
+        existing_by_proposition = {
+            rule.proposition_id: {
+                item.binding_id: item
+                for item in self.owner.bindings(rule.proposition_id)
+            }
+            for rule in self.config.rules
+        }
+        touched: set[str] = {rule.proposition_id for rule, _fact in matches}
+        candidates: dict[str, tuple[EpistemicDevelopmentRule, WorldStateFact,
+                                   Any, EvidenceBinding]] = {}
+        for rule, fact in matches:
+            proof, binding = self._adapt(snapshot, fact, rule)
+            existing = existing_by_proposition[rule.proposition_id].get(binding.binding_id)
+            if existing is not None:
+                if existing != binding:
                     raise EpistemicDevelopmentError("evidence_identity_collision")
                 continue
+            prior_candidate = candidates.get(binding.binding_id)
+            candidate = (rule, fact, proof, binding)
+            if prior_candidate is not None and prior_candidate[3] != binding:
+                raise EpistemicDevelopmentError("evidence_identity_collision")
+            candidates.setdefault(binding.binding_id, candidate)
+        ordered_candidates = sorted(candidates.values(), key=lambda item: (
+            item[0].rule_id, item[1].fact_id, item[3].binding_id))
+        bounded = ordered_candidates[:self.config.max_new_bindings_per_tick]
+        omitted_binding_ids = tuple(sorted(
+            item[3].binding_id for item in ordered_candidates[
+                self.config.max_new_bindings_per_tick:]))
+        evidence_receipts: list[str] = []; new_count = 0
+        for rule, fact, proof, binding in bounded:
             operation = f"{tick}:{rule.rule_id}:evidence"
             configuration = self.controller.evidence_configuration_digest(binding=binding,
                 proposition_digest=rule.proposition_digest, operation_id=operation)
@@ -1125,7 +1150,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 operation_id=operation, correlation_id=f"tick:{tick}:epistemic-development",
                 tick=tick, recorded_at=recorded_at)
             state_receipts.append(state_receipt.receipt_id); states.append(state_receipt.successor_state_id); generations.append(state_receipt.generation)
-        partial = len(matches) > len(bounded) or len(touched) > self.config.max_updated_propositions_per_tick
+        partial = bool(omitted_binding_ids) or len(touched) > self.config.max_updated_propositions_per_tick
         status = "bounded_partial" if partial else "state_advanced" if state_receipts else "evidence_appended" if evidence_receipts else "no_matching_evidence"
         recovery = self.controller.recovery_status
         return EpistemicDevelopmentFeedback(status, snapshot.snapshot_id, len(self.config.rules), len(matches),
@@ -1134,7 +1159,8 @@ class ResidentEpistemicDevelopmentRuntime:
             pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
             pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
             pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
-            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
+            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)),
+            omitted_binding_ids=omitted_binding_ids)
 
 
 __all__ = ["ResidentEpistemicDevelopmentRuntime", "EpistemicDevelopmentConfig",
