@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d695d124ff67fc62dbb3c8a1a9054c72930877cfeea9586f88691648aa9afde9",
-    "latest_segment_sequence": 575,
-    "latest_segment_sha256": "541f035c3dbf99ce4ae59b2d7347df4518b1ef1be40345c7ccaad139383e6a74",
-    "source_commit": "60113fcd7c5c8ceceb61cfc543d4e39889c98af0",
-    "source_tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6"
+    "checkpoint_sha256": "d85f6f07e9ba567c804c771381ba4ad4123cf08f88c81e925bc4a01933ee0b99",
+    "latest_segment_sequence": 577,
+    "latest_segment_sha256": "c4ecc5258b7de94ade912e102db704b7c57b4a630c19cea6156f1094102e6b55",
+    "source_commit": "cb76de22952bffd5597405ef7322b9c9668693aa",
+    "source_tree": "ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322"
   },
-  "checkpoint_sha256": "d695d124ff67fc62dbb3c8a1a9054c72930877cfeea9586f88691648aa9afde9",
+  "checkpoint_sha256": "d85f6f07e9ba567c804c771381ba4ad4123cf08f88c81e925bc4a01933ee0b99",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 575,
+  "latest_sequence": 577,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6646,6 +6646,32 @@
       "source_candidate_commit": "6227e886116ffe7680c76b8a17db444cecd78579",
       "source_commit": "60113fcd7c5c8ceceb61cfc543d4e39889c98af0",
       "source_tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6"
+    },
+    {
+      "sequence": 576,
+      "path": "work/construction/segments/0576-prevent-bounded-epistemic-evidence-starvation.md",
+      "sha256": "300990c0e72d90e28716bb4b77f40e48df1a8e29037914e59e995e0abc56c7db",
+      "bytes": 1128,
+      "predecessor": "segment-sha256:541f035c3dbf99ce4ae59b2d7347df4518b1ef1be40345c7ccaad139383e6a74",
+      "evidence_path": "work/construction/evidence/0576-prevent-bounded-epistemic-evidence-starvation.json",
+      "evidence_sha256": "ab3a6c7129d468516c390bb55237fa204ee5708108e293faf096cc36f12d2adf",
+      "evidence_bytes": 1443,
+      "source_candidate_commit": "970105b9e7ac25286068d85287e7ff8da59940f4",
+      "source_commit": "1b35e8a9b7e5eb91a93bf39fea4b6e34f572d0c4",
+      "source_tree": "5560f4b347e55fb5b2c9c68e2cb65cc4d93c729d"
+    },
+    {
+      "sequence": 577,
+      "path": "work/construction/segments/0577-reconcile-sequence576-and-federation-health-evidence-integration.md",
+      "sha256": "c4ecc5258b7de94ade912e102db704b7c57b4a630c19cea6156f1094102e6b55",
+      "bytes": 1506,
+      "predecessor": "segment-sha256:300990c0e72d90e28716bb4b77f40e48df1a8e29037914e59e995e0abc56c7db",
+      "evidence_path": "work/construction/evidence/0577-reconcile-sequence576-and-federation-health-evidence-integration.json",
+      "evidence_sha256": "710a0d88512e92b5d52587d0d14a898148abaf6e5b05d61fa7804310a17c6ddf",
+      "evidence_bytes": 2028,
+      "source_candidate_commit": "6bba5fab8dd9f79ae0dbcd858d420c488a4e855a",
+      "source_commit": "cb76de22952bffd5597405ef7322b9c9668693aa",
+      "source_tree": "ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,48 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 577,
+  "title": "Reconcile sequence 576 and Federation Health evidence integration",
+  "status": "verified_evidence_integration",
+  "predecessor": {
+    "sequence": 576,
+    "segment_sha256": "300990c0e72d90e28716bb4b77f40e48df1a8e29037914e59e995e0abc56c7db"
+  },
+  "segment_path": "work/construction/segments/0577-reconcile-sequence576-and-federation-health-evidence-integration.md",
+  "segment_sha256": "c4ecc5258b7de94ade912e102db704b7c57b4a630c19cea6156f1094102e6b55",
+  "segment_bytes": 1506,
+  "source_candidate_commit": "6bba5fab8dd9f79ae0dbcd858d420c488a4e855a",
+  "source_commit": "cb76de22952bffd5597405ef7322b9c9668693aa",
+  "source_tree": "ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322",
+  "federation_health": {
+    "run": 39803586219,
+    "result": "success",
+    "artifact_id": 12435968802,
+    "artifact_sha256": "2879d1592be313be70ec90fe71ffea6df85905a1887bd85e462e54ee653f73e3",
+    "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+    "source_commit": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+    "limitation": "configured local log snapshot; not live telemetry"
+  },
+  "publisher_pr": 2593,
+  "disposition": "closed_without_merge_stale_base_delta_reconstruction_failed",
+  "candidate_pr": 2615,
+  "candidate_commit": "6bba5fab8dd9f79ae0dbcd858d420c488a4e855a",
+  "tree": "ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322",
+  "quality_gate": "passed",
+  "metadata_guard": "passed",
+  "acceptance": "passed",
+  "checks": "19 success; 2 conditional skips",
+  "merge": {
+    "commit": "cb76de22952bffd5597405ef7322b9c9668693aa",
+    "tree": "ec23ee5aa3f54068d2eb2ee808f8b1d5dcc6e322",
+    "method": "merge",
+    "parents": [
+      "1b35e8a9b7e5eb91a93bf39fea4b6e34f572d0c4",
+      "6bba5fab8dd9f79ae0dbcd858d420c488a4e855a"
+    ],
+    "post_merge_checks": "10 success; 1 conditional skip"
+  },
+  "limitations": [
+    "Report is not live telemetry.",
+    "No inference or production transition occurred."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 576,
+  "title": "Prevent bounded epistemic evidence starvation",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 575,
+    "segment_sha256": "541f035c3dbf99ce4ae59b2d7347df4518b1ef1be40345c7ccaad139383e6a74"
+  },
+  "segment_path": "work/construction/segments/0576-prevent-bounded-epistemic-evidence-starvation.md",
+  "segment_sha256": "300990c0e72d90e28716bb4b77f40e48df1a8e29037914e59e995e0abc56c7db",
+  "segment_bytes": 1128,
+  "candidate": {
+    "base": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+    "commit": "970105b9e7ac25286068d85287e7ff8da59940f4",
+    "tree": "5560f4b347e55fb5b2c9c68e2cb65cc4d93c729d",
+    "pull_request": 2614,
+    "focused_tests": 25,
+    "mypy_issues": 0,
+    "hosted_ci": {
+      "passed": 143,
+      "skipped": 13
+    },
+    "quality_gate": "passed_with_administrator_audits_and_immutability",
+    "acceptance": "47/47",
+    "metadata_guard": "passed"
+  },
+  "merge": {
+    "commit": "1b35e8a9b7e5eb91a93bf39fea4b6e34f572d0c4",
+    "tree": "5560f4b347e55fb5b2c9c68e2cb65cc4d93c729d",
+    "parents": [
+      "7d55b9757a10322d680f6fb450691de7ff7f8506",
+      "970105b9e7ac25286068d85287e7ff8da59940f4"
+    ],
+    "method": "merge",
+    "post_merge_checks": "passed",
+    "conditional_skip": "Forge Smoke"
+  },
+  "limitations": [
+    "No inference, goal execution, or production transition occurred."
+  ]
+}
