@@ -1,0 +1,170 @@
+{
+  "candidate": {
+    "acceptance": {
+      "artifact_id": 12398108876,
+      "artifact_sha256": "f36b0ed87c014861c9469de1eb1dccc4450afced02e99df795881b18bf3a2282",
+      "passed_nodes": 47,
+      "repository_sha": "6227e886116ffe7680c76b8a17db444cecd78579",
+      "required_nodes": 47,
+      "status": "task_acceptance_ready"
+    },
+    "base": "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+    "branch": "codex/construction-sequence-574",
+    "checks": {
+      "CI_source_validation": {
+        "result": "success",
+        "run": 39715609456
+      },
+      "Codex_CI": {
+        "result": "success",
+        "run": 39715609456
+      },
+      "Docker": {
+        "result": "success",
+        "run": 39715609323
+      },
+      "Docs_and_Helm": {
+        "result": "success",
+        "run": 39715609456
+      },
+      "Gradient": {
+        "result": "success",
+        "run": 39715609314
+      },
+      "Invariants": {
+        "result": "success",
+        "run": 39715609426
+      },
+      "Lint_Benchmark_Mypy": {
+        "result": "success",
+        "run": 39715609352
+      },
+      "Release": {
+        "result": "success",
+        "run": 39715609342
+      },
+      "Required_Quality_Gate": {
+        "result": "success",
+        "run": 39715609371
+      },
+      "publisher_only_steps": "conditionally skipped",
+      "push_source_validation": {
+        "result": "success",
+        "run": 39715595880
+      }
+    },
+    "commit": "6227e886116ffe7680c76b8a17db444cecd78579",
+    "hosted_finalizer": {
+      "administrator_verified": true,
+      "audit_immutability": "success",
+      "effective_uid": 0,
+      "evidence_artifact_id": 12397934065,
+      "evidence_artifact_sha256": "139f125267591753af1e35c13eabf1f40afc300fe33e467e4685816608a51ea3",
+      "exhaustive_matrix_requested": false,
+      "finalizer_artifact_id": 12398906597,
+      "finalizer_artifact_sha256": "bdf0ac4eb2c412444179bd0a296cc3afe87d530e1567ec438c793d00d00bdb0e",
+      "precommit_decision": "ready_to_commit",
+      "prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "run": 39715609371,
+      "source_sha": "6227e886116ffe7680c76b8a17db444cecd78579",
+      "source_tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6",
+      "source_unchanged": true,
+      "strict_audit_repair_allowed": false,
+      "strict_audits": "success",
+      "validation_profile": "solo"
+    },
+    "pull_request": 2612,
+    "remote_tree_entries": 8182,
+    "remote_tree_readback_matches_local": true,
+    "remote_tree_truncated": false,
+    "tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6"
+  },
+  "federation_health": {
+    "current_main_scheduled_run_observed": false,
+    "latest_scheduled_result": "success",
+    "latest_scheduled_run": 39692862932,
+    "latest_scheduled_source": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "observed_at": "2026-10-22T03:24:00Z",
+    "report_limitation": "configured local log snapshot; not live telemetry"
+  },
+  "limitations": [
+    "No production inference or model transition was run."
+  ],
+  "local_verification": {
+    "continuation_custody_before_publication": "construction_continuation_custody_ready",
+    "diff_check": "passed",
+    "segments_verified": 574
+  },
+  "merge": {
+    "candidate_tree_preserved": true,
+    "commit": "60113fcd7c5c8ceceb61cfc543d4e39889c98af0",
+    "method": "merge",
+    "parents": [
+      "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+      "6227e886116ffe7680c76b8a17db444cecd78579"
+    ],
+    "pull_request": 2612,
+    "tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6"
+  },
+  "post_merge_verification": {
+    "Build": {
+      "result": "success",
+      "runs": [
+        39716010760,
+        39716010766
+      ]
+    },
+    "Docker_smoke": {
+      "result": "success",
+      "run": 39716010797
+    },
+    "Docs_Deploy": {
+      "result": "success",
+      "run": 39716010766
+    },
+    "Forge_Smoke": {
+      "result": "conditionally_skipped",
+      "run": 39716010803
+    },
+    "Helm_Kubernetes": {
+      "result": "success",
+      "run": 39716010759
+    },
+    "Invariants": {
+      "result": "success",
+      "run": 39716010845
+    },
+    "Required_Quality_Gate": {
+      "administrator_verified": true,
+      "artifact_id": 12399465124,
+      "artifact_sha256": "675b6cce58e6c1b9c4d4b849c8e2c553ecd29b6f74ddf02249d0fff59e618799",
+      "audit_immutability": "success",
+      "effective_uid": 0,
+      "result": "success",
+      "run": 39716010779,
+      "source_unchanged": true,
+      "strict_audits": "success"
+    },
+    "Self_check": {
+      "result": "success",
+      "run": 39716010759
+    },
+    "Source_validation": {
+      "result": "success",
+      "run": 39716010759
+    },
+    "source_commit": "60113fcd7c5c8ceceb61cfc543d4e39889c98af0",
+    "source_tree": "9b14c50f780d669b81a67ef34cd6bc3d370549c6"
+  },
+  "predecessor": {
+    "segment_sha256": "2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67",
+    "sequence": 574
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1297,
+  "segment_path": "work/construction/segments/0575-verify-sequence-574-evidence-integration.md",
+  "segment_sha256": "541f035c3dbf99ce4ae59b2d7347df4518b1ef1be40345c7ccaad139383e6a74",
+  "sequence": 575,
+  "status": "verified_evidence_integration",
+  "title": "Verify sequence 574 evidence integration"
+}

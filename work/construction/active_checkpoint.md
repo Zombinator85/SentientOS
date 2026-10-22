@@ -472,17 +472,17 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 574
+## Current verified state — sequence 575
 
-Sequence 573's append-only evidence merged normally as PR #2610 at `bd8ffa6a5fab52e677fa32d58fa902e0e965ce49`, tree `401a446a6f523f4ad1523838e707d901fd14f93e`. The timestamp validation and evidence tree were preserved, and all candidate plus post-merge hosted checks passed.
+PR #2612 integrated sequence 574's append-only record normally as `60113fcd7c5c8ceceb61cfc543d4e39889c98af0`, tree `9b14c50f780d669b81a67ef34cd6bc3d370549c6`. Its evidence candidate was based on verified main `26f35f8221202cbbde5bd8c27cd67e9f00453bac`; candidate and merge trees match, and the two parents preserve main then candidate order. Candidate acceptance, strict hosted Administrator Quality Gate, separate metadata guard, source validation, all normal CI checks, and post-merge validation passed. Forge Smoke was conditionally skipped.
 
-Sequence 574 corrected three adjacent embodiment self-observation test contracts without changing runtime source. The focused 14-test file passed locally; exact-candidate checks and the 47-node Required Quality Gate passed with actual hosted Administrator authority, strict audits, audit immutability, and a separate prepublication metadata guard. PR #2611 merged normally as `26f35f8221202cbbde5bd8c27cd67e9f00453bac`, tree `2375d16ab2faaa10e30edc619431deda9d09cd64`. Post-merge CI source validation, Quality Gate, Invariants, Docker, Docs Deploy, Helm/Kubernetes, and self-check passed; Forge Smoke was conditionally skipped.
+The underlying sequence 574 correction remains test-only; runtime source is unchanged. It preserves the quarantine-custody observation, historical-only synthetic sensor assertions, and descriptor-relative private-file custody error contract.
 
-The restored sensor assertion remains historical, with unknown freshness and no current-truth claim. The inert board retains only its non-authorizing quarantine custody observation. The publication failure test injects the descriptor-relative replacement error and checks the custody wrapper.
+At `2026-10-22T03:24:00Z`, the latest scheduled Federation Health run was still successful on ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222` (run `39692862932`); no scheduled run on current main was observed. Its report remains a configured local log snapshot, not live telemetry.
 
-Latest verified main: `26f35f8221202cbbde5bd8c27cd67e9f00453bac`, tree `2375d16ab2faaa10e30edc619431deda9d09cd64`
-Latest construction segment: `work/construction/segments/0574-clarify-embodiment-observation-test-contracts.md`
-Latest segment SHA-256: `2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67`
-Sequence: 574 (verified test-contract integration)
+Latest verified main: `60113fcd7c5c8ceceb61cfc543d4e39889c98af0`, tree `9b14c50f780d669b81a67ef34cd6bc3d370549c6`
+Latest construction segment: `work/construction/segments/0575-verify-sequence-574-evidence-integration.md`
+Latest segment SHA-256: `541f035c3dbf99ce4ae59b2d7347df4518b1ef1be40345c7ccaad139383e6a74`
+Sequence: 575 (verified evidence integration)
 
-Next: continue developmental cognition work by tracing verified positive and adverse historical outcomes through canonical prior-state planning and looking for a missing source-bound decision dependency; preserve read-only planning and non-execution, exact history identity, and omission visibility.
+Next: continue developmental cognition work by tracing verified positive and adverse outcomes through canonical prior-state planning and identify a missing source-bound decision dependency, while preserving read-only planning, non-execution, exact history identity, and omission visibility.
