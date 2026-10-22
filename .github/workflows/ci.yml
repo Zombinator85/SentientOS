@@ -150,6 +150,7 @@ jobs:
             sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution \
             sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation \
             sentientos/tests/test_orchestrator_plan_only.py::test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery \
+            sentientos/tests/test_orchestrator_plan_only.py::test_receipt_verified_outcomes_change_canonical_goal_selection_after_recovery \
             sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence \
             sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted \
             sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal \
@@ -179,6 +180,7 @@ jobs:
               "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
               "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
               "sentientos/tests/test_orchestrator_plan_only.py::test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery",
+              "sentientos/tests/test_orchestrator_plan_only.py::test_receipt_verified_outcomes_change_canonical_goal_selection_after_recovery",
               "sentientos/tests/test_epistemic_planning.py::test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence",
               "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted",
               "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal",
