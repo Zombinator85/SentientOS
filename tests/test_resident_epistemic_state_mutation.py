@@ -159,6 +159,63 @@ def test_missing_transaction_for_admitted_state_intent_fails_closed(tmp_path) ->
             receipt_root=tmp_path / "controller")
 
 
+
+def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> None:
+    owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    evidence = issue(authority, admission_id="evidence-before-partial-state",
+        effects=EVIDENCE_BINDING_EFFECTS, subject=binding.binding_id,
+        config=controller.evidence_configuration_digest(binding=binding,
+            proposition_digest=proposition.proposition_digest, operation_id="bind-partial-state"),
+        sequence=1, provenance=proof.provenance_id)
+    controller.append_evidence_binding(binding=binding, source_proof=proof,
+        admission=evidence, operation_id="bind-partial-state",
+        correlation_id="partial-state")
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="provisionally_supported",
+        evidence_binding_ids=(binding.binding_id,), reason="initialization",
+        rationale="authenticated evidence", uncertainty="medium", model_id="caller")
+    admission = issue(authority, admission_id="state-partial-transaction",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(
+            candidate=candidate, operation_id="state-partial-transaction"),
+        sequence=2)
+    receipt = controller.commit_update_candidate(
+        candidate=candidate, admission=admission,
+        operation_id="state-partial-transaction",
+        correlation_id="partial-state", tick=1,
+        recorded_at="2026-01-01T00:01:00Z")
+    state_receipt_path = (controller.receipt_root / "receipts" / "state"
+        / f"{receipt.receipt_id}.json")
+    published_receipt = state_receipt_path.read_bytes()
+    event_path = owner.root / "updates" / f"{receipt.generation:012d}-{receipt.event_id}.json"
+    assert event_path.is_file()
+    event_path.unlink()
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        owner.root, allowed_namespaces=("test",))
+    recovered_state = recovered_owner.current_state(proposition.proposition_id)
+    assert recovered_state is not None and recovered_state.generation == 0
+    assert recovered_state.state_id == receipt.successor_state_id
+    assert recovered_owner.verify()["incomplete_admission_bound_transactions"] == 1
+    with pytest.raises(EpistemicStateError, match="mutation_lineage_unverified"):
+        recovered_owner.cognitive_projection(max_states=1)
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    admissions_before, _ = ledger.load()
+    with pytest.raises(EpistemicMutationError,
+        match="mutation_receipt_without_verified_intent"):
+        ResidentEpistemicStateMutationController(
+            owner=recovered_owner,
+            admission_verifier=controller.admission_verifier,
+            current_sequence=controller.current_sequence,
+            receipt_root=controller.receipt_root)
+    admissions_after, _ = ledger.load()
+    assert admissions_after == admissions_before
+    assert state_receipt_path.read_bytes() == published_receipt
+    assert recovered_owner.current_state(proposition.proposition_id) == recovered_state
+
+
+
 def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:
     owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
     candidate = make_epistemic_update_candidate(
