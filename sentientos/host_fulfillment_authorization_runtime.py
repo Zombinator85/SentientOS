@@ -86,10 +86,12 @@ def _validate_source(source: HostFulfillmentAuthorizationSource, supplied: Mappi
 
 def _validate_fresh(*, grant:Any, expiry:Any, request_time:str, current_time:str, max_future_seconds:int=MAX_FUTURE_REQUEST_SECONDS)->list[str]:
     f=[]; g=_dict(grant); e=_dict(expiry)
-    try: req=_parse_time(request_time); cur=_parse_time(current_time); exp=_parse_time(str(g.get("expiry_label","")))
-    except Exception: return ["time_parse_failed"]
-    nbs=[_parse_time(x) for x in g.get("granted_time_bounds",()) if str(x).startswith("not_before:")]
-    nas=[_parse_time(x) for x in g.get("granted_time_bounds",()) if str(x).startswith("not_after:")]
+    try:
+        req=_parse_time(request_time); cur=_parse_time(current_time); exp=_parse_time(str(g.get("expiry_label","")))
+        nbs=[_parse_time(x) for x in g.get("granted_time_bounds",()) if str(x).startswith("not_before:")]
+        nas=[_parse_time(x) for x in g.get("granted_time_bounds",()) if str(x).startswith("not_after:")]
+    except (OverflowError, TypeError, ValueError):
+        return ["time_parse_failed"]
     if e.get("grant_id") != g.get("grant_id"): f.append("expiry_evaluation_wrong_grant")
     if e.get("digest") != local_authorization_grant_expiry_evaluation_digest(e): f.append("expiry_digest_mismatch")
     try: ev=_parse_time(str(e.get("evaluated_at")))

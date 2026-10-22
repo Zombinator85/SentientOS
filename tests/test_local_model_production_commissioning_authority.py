@@ -30,6 +30,14 @@ def test_generation_ceiling_is_bounded_and_bound_into_the_approved_intent(monkey
  assert _approval(larger)[0]["smoke_contract"]==larger["smoke_contract"]
  with pytest.raises(CommissioningAuthorityError,match="generation_ceiling_invalid"):
   _intent(monkeypatch,tmp_path,max_new_tokens=513)
+@pytest.mark.parametrize("field", ("not_before", "expires_at", "approval_timestamp"))
+def test_external_commissioning_approval_rejects_unknown_timestamp_offsets(monkeypatch,tmp_path,field):
+ intent=_intent(monkeypatch,tmp_path); approval,now=_approval(intent)
+ approval[field]="2026-09-08T12:00:00-00:00"
+ approval["approval_semantic_digest"]=semantic_digest({k:v for k,v in approval.items() if k!="approval_semantic_digest"})
+ with pytest.raises(CommissioningAuthorityError,match="time_offset_unknown"):
+  verify_external_approval(approval,intent,observation_time=now)
+
 def test_exact_external_approval_and_distinct_deterministic_child(monkeypatch,tmp_path):
  intent=_intent(monkeypatch,tmp_path); approval,now=_approval(intent); assert verify_external_approval(approval,intent,observation_time=now)["operator_identity"]=="operator-alice"; child=child_smoke_correlation(intent["correlation_id"],intent); assert child!=intent["correlation_id"] and child==child_smoke_correlation(intent["correlation_id"],intent)
 @pytest.mark.parametrize("mutation",["subset","duplicate","expired","synthetic","placeholder"])

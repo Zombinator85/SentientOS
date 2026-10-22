@@ -7,7 +7,7 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionDecision, LifecyclePhase
-from sentientos.host_fulfillment_authorization_runtime import HostFulfillmentAuthorizationRuntimeCoordinator, build_request_envelope, recompute_source, world_state_records, dashboard_projection
+from sentientos.host_fulfillment_authorization_runtime import HostFulfillmentAuthorizationRuntimeCoordinator, _validate_fresh, build_request_envelope, recompute_source, world_state_records, dashboard_projection
 from sentientos.local_authorization_grant import build_local_authorization_grant_expiry_evaluation, verify_local_authorization_grant, build_local_authorization_grant_ledger, LocalAuthorizationGrant, local_authorization_grant_digest, build_local_authorization_grant_revocation_receipt
 
 class Kernel:
@@ -116,3 +116,32 @@ def test_historical_receipt_survives_later_revocation_future_denied(tmp_path):
     r2=consume(tmp_path/'revoked', revocations=(rev,))
     assert 'grant_revoked' in r2.findings and r2.ledger_append_count==0
 
+
+@pytest.mark.parametrize(("field", "value"), [
+    (field, value)
+    for field in ("request_time", "current_time", "expiry", "not_before", "not_after")
+    for value in ("0001-01-01T00:00:00+23:59", "9999-12-31T23:59:59-23:59")
+])
+def test_unrepresentable_fulfillment_times_fail_as_validation_findings(field, value):
+    g = {"expiry_label": "expires:2030-01-01T00:00:00+00:00", "granted_time_bounds": ()}
+    e = {"grant_id": "g1", "digest": "", "evaluated_at": "2029-01-01T00:00:00+00:00", "expiry_status": "unknown"}
+    request_time = "2029-01-02T00:00:00+00:00"
+    current_time = "2029-01-02T00:00:00+00:00"
+    if field == "request_time": request_time = value
+    elif field == "current_time": current_time = value
+    elif field == "expiry": g["expiry_label"] = "expires:" + value
+    elif field == "not_before": g["granted_time_bounds"] = ("not_before:" + value,)
+    else: g["granted_time_bounds"] = ("not_after:" + value,)
+    assert _validate_fresh(grant=g, expiry=e, request_time=request_time, current_time=current_time) == ["time_parse_failed"]
+
+
+@pytest.mark.parametrize("now", (
+    "0001-01-01T00:00:00+23:59",
+    "9999-12-31T23:59:59-23:59",
+))
+def test_unrepresentable_clock_denies_before_admission_or_append(tmp_path, now):
+    result = consume(tmp_path, now=now)
+    assert "time_parse_failed" in result.findings
+    assert result.admission_call_count == 0
+    assert result.ledger_append_count == 0
+    assert result.ledger is None

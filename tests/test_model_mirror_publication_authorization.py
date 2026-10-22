@@ -12,6 +12,7 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.model_mirror_publication import PublicationProviderConfiguration, semantic_digest
 from sentientos.model_mirror_publication_authorization import (
     APPROVAL_SCHEMA, ISSUANCE_CAPABILITY, ISSUANCE_EFFECTS, ISSUER_PRINCIPAL,
+    ModelMirrorPublicationAuthorizationCustody,
     ModelMirrorPublicationAuthorizationApproval, ModelMirrorPublicationAuthorizationError,
     ModelMirrorPublicationAuthorizationRequest, build_publication_intent,
     issue_model_mirror_publication_authorization, project_model_mirror_publication_authority,
@@ -114,3 +115,42 @@ def test_no_raw_secret_in_authority_evidence(tmp_path: Path) -> None:
     serialized = json.dumps([asdict(values[4]), asdict(values[3]), asdict(result.grant), asdict(result.lease),
       asdict(result.receipt), asdict(values[5])], sort_keys=True)
     assert secret not in serialized
+
+
+@pytest.mark.parametrize("observed_at", (
+  "0001-01-01T00:00:00+23:59",
+  "9999-12-31T23:59:59-23:59",
+))
+def test_unrepresentable_observation_time_never_projects_publication_authority(tmp_path: Path, observed_at: str) -> None:
+    values = fixture(tmp_path)
+    result = issue(values)
+    with pytest.raises(ModelMirrorPublicationAuthorizationError, match="timestamp_unrepresentable"):
+        project_model_mirror_publication_authority(
+            result.grant, result.lease, result.receipt, values[4], observed_at=observed_at,
+            allow_synthetic_test_authority=True,
+        )
+
+
+@pytest.mark.parametrize("field", (
+  "grant_not_before", "grant_expires_at", "lease_not_before", "lease_expires_at",
+))
+def test_unknown_offset_request_time_fails_before_admission_or_write(tmp_path: Path, field: str) -> None:
+    values = fixture(tmp_path)
+    request = replace(values[2], **{field: "2026-09-28T12:00:00-00:00"})
+    custody = ModelMirrorPublicationAuthorizationCustody.for_installation(values[0])
+    with pytest.raises(ModelMirrorPublicationAuthorizationError, match="unknown_offset"):
+        issue_model_mirror_publication_authorization(
+            values[0], request, values[3], values[4], values[1], created_at=START,
+            allow_synthetic_test_evidence=True,
+        )
+    assert not custody.root.path.exists()
+
+
+def test_unknown_offset_observation_never_projects_publication_authority(tmp_path: Path) -> None:
+    values = fixture(tmp_path)
+    result = issue(values)
+    with pytest.raises(ModelMirrorPublicationAuthorizationError, match="unknown_offset"):
+        project_model_mirror_publication_authority(
+            result.grant, result.lease, result.receipt, values[4],
+            observed_at="2026-09-28T12:00:00-00:00", allow_synthetic_test_authority=True,
+        )

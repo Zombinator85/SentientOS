@@ -159,9 +159,12 @@ def _instant(value: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError) as exc:
         raise CatalogDeploymentAuthorizationError("malformed_timestamp") from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise CatalogDeploymentAuthorizationError("timezone_required")
-    return parsed.astimezone(timezone.utc)
+    try:
+        return parsed.astimezone(timezone.utc)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise CatalogDeploymentAuthorizationError("timestamp_unrepresentable") from exc
 
 
 def _digest_record(value: Any) -> str:
