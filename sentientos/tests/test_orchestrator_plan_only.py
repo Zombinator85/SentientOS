@@ -1225,7 +1225,8 @@ def test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery(
         EpistemicStateError, make_epistemic_update_candidate,
     )
     from sentientos.resident_epistemic_state_mutation import (
-        PRINCIPAL, STATE_UPDATE_EFFECTS, ResidentEpistemicStateMutationController,
+        EpistemicMutationError, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        ResidentEpistemicStateMutationController,
     )
     from sentientos.runtime_admission import (
         AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
@@ -1335,7 +1336,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         make_evidence_binding,
     )
     from sentientos.resident_epistemic_state_mutation import (
-        PRINCIPAL, STATE_UPDATE_EFFECTS, ResidentEpistemicStateMutationController,
+        EpistemicMutationError, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        ResidentEpistemicStateMutationController,
     )
     from sentientos.runtime_admission import (
         AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
@@ -1461,6 +1463,33 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert {row.goal_id: row.reason for row in unknown.allocation.deferred} == {
         "g_outcome": "epistemic_review_required"}
 
+    foreign_proposition = make_proposition(
+        namespace="embodiment", subject="task_family:other_prediction",
+        predicate="heldout_episode_outcome",
+        object_value={"family": "other_prediction"}, polarity="positive",
+        qualifiers={"fixture": "cross-proposition-binding-denial"},
+        temporal_scope={"kind": "measured_episode"},
+        context_scope={"task_family_id": "other_prediction",
+            "active_model_identity_digest": identity_digest},
+        proposition_class="causal_hypothesis",
+        statement="A distinct task family has its own evidence scope.")
+    owner.register_proposition(foreign_proposition)
+    foreign_binding = make_evidence_binding(
+        proposition_id=foreign_proposition.proposition_id,
+        source_artifact_id="developmental-run:foreign-episode",
+        source_digest="sha256:" + "d" * 64,
+        source_schema="sentientos.developmental_run:v1",
+        source_class="deterministic_task_family_evaluation",
+        observation_time="2026-10-16T09:01:30Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group=None,
+        upstream_binding_ids=(), freshness="current", reliability_posture="supports")
+    owner.bind_evidence(foreign_binding)
+    with pytest.raises(EpistemicMutationError,
+            match="candidate_evidence_missing_foreign_or_withdrawn"):
+        update(stance="supported", binding_ids=(foreign_binding.binding_id,),
+            added_binding_ids=(foreign_binding.binding_id,), tick=2,
+            recorded_at="2026-10-16T09:01:30Z")
+
     support = make_evidence_binding(
         proposition_id=proposition.proposition_id,
         source_artifact_id="developmental-run:positive-episode",
@@ -1481,6 +1510,10 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert positive.target_identity_observed_at == "2026-10-16T09:03:00Z"
     evidence = json.loads((tmp_path / positive.work_plan_evidence_path).read_text(
         encoding="utf-8"))
+    reloaded_evidence = load_work_plan_evidence(tmp_path, positive.work_plan)
+    assert reloaded_evidence == evidence
+    assert evidence["evidence_binding"]["allocation_artifact_digest"] == (
+        positive.allocation_artifact_digest)
     scope = evidence["evidence_binding"]["review_scopes"][proposition.proposition_id]
     assert scope["position_posture"] == "verified_positive_current"
     assert scope["position_identity"]["state_id"] == supported.successor_state_id
