@@ -1,0 +1,182 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 571,
+  "title": "Reject uncertain canonical planning times",
+  "status": "verified_source_integration",
+  "segment_path": "work/construction/segments/0571-reject-uncertain-canonical-planning-times.md",
+  "segment_bytes": 2594,
+  "segment_sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+  "predecessor": {
+    "sequence": 570,
+    "segment_sha256": "a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c"
+  },
+  "source_change": {
+    "modified_modules": [
+      "sentientos/orchestrator.py"
+    ],
+    "regression_modules": [
+      "sentientos/tests/test_orchestrator_plan_only.py"
+    ],
+    "behaviors": [
+      "reject RFC3339 -00:00 planning offset",
+      "map timestamp conversion overflow to a domain error before repository/owner reads",
+      "preserve read-only prior-history selection and planning/execution separation"
+    ]
+  },
+  "local_verification": {
+    "canonical_suite": "sentientos/tests/test_orchestrator_plan_only.py",
+    "canonical_tests_passed": 16,
+    "canonical_runner": "scripts.run_tests",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "mypy_version": "1.20.2",
+    "mypy_new_errors": 0,
+    "mypy_retired_errors": 40,
+    "mypy_status": "mypy_baseline_improved"
+  },
+  "source_candidate": {
+    "pull_request": 2605,
+    "commit": "a543193a7df3b9465600773a854672ad0ae7e4eb",
+    "base": "c8453166d7a0806c0e02ae3030d378d4ca4cbff0",
+    "tree": "f3d3baa4fb6361adabb633f352266228b2f127be",
+    "remote_tree_blob_readback_matches_local": true,
+    "checks": {
+      "CI": {
+        "run": 39706091373,
+        "result": "success"
+      },
+      "Codex_CI": {
+        "run": 39706091652,
+        "result": "success"
+      },
+      "Docker": {
+        "run": 39706091522,
+        "result": "success"
+      },
+      "Gradient": {
+        "run": 39706091345,
+        "result": "success"
+      },
+      "Invariant_Tests": {
+        "run": 39706091244,
+        "result": "success"
+      },
+      "Lint_Benchmark": {
+        "run": 39706091520,
+        "result": "success"
+      },
+      "Release": {
+        "run": 39706091368,
+        "result": "success"
+      },
+      "Required_Quality_Gate": {
+        "run": 39706091807,
+        "result": "success"
+      }
+    }
+  },
+  "candidate_acceptance": {
+    "artifact_id": 12394494845,
+    "artifact_sha256": "a875debc6b55e26e7b93c3b38a7de8c19f49a1e6f1c03796adf3185a6e69877c",
+    "repository_sha": "a543193a7df3b9465600773a854672ad0ae7e4eb",
+    "required_nodes": 47,
+    "passed_nodes": 47,
+    "tests_executed": 47,
+    "tests_passed": 47,
+    "tests_failed": 0,
+    "status": "task_acceptance_ready"
+  },
+  "hosted_finalizer": {
+    "run": 39706091807,
+    "artifact_id": 12395082811,
+    "artifact_sha256": "a0452fa268c8b7fa47fb635cd9c7f75855ab89d43370fad9193ce126349bba0a",
+    "quality_gate_evidence_artifact_id": 12395232011,
+    "quality_gate_evidence_sha256": "cc2a91986e696dd64e9fe4e5d6df0cc85ad2d412a51a1a5ab704df7b46fc3e9e",
+    "strict_audits": "success",
+    "audit_immutability_required": true,
+    "strict_audit_repair_allowed": false,
+    "precommit_decision": "ready_to_commit",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "matrix_requested": false
+  },
+  "merge": {
+    "method": "merge",
+    "pull_request": 2605,
+    "commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352",
+    "tree": "f3d3baa4fb6361adabb633f352266228b2f127be",
+    "parents": [
+      "c8453166d7a0806c0e02ae3030d378d4ca4cbff0",
+      "a543193a7df3b9465600773a854672ad0ae7e4eb"
+    ],
+    "candidate_tree_preserved": true
+  },
+  "post_merge_verification": {
+    "CI": {
+      "run": 39706703009,
+      "result": "success"
+    },
+    "Codex_CI": {
+      "run": 39706702987,
+      "result": "success"
+    },
+    "Docker": {
+      "run": 39706702967,
+      "result": "success"
+    },
+    "Docs_Deploy": {
+      "run": 39706703081,
+      "result": "success"
+    },
+    "Invariants": {
+      "run": 39706703089,
+      "result": "success"
+    },
+    "Quality_Gate": {
+      "run": 39706703071,
+      "result": "success"
+    },
+    "Forge_Smoke": {
+      "run": 39706703028,
+      "result": "conditionally_skipped"
+    }
+  },
+  "developmental_acceptance": {
+    "source_validation": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_and_execution_separation": "passed",
+    "transition_receipt_informs_campaign_planning_without_execution": "passed"
+  },
+  "federation_health": {
+    "latest_scheduled_run": 39692862932,
+    "latest_scheduled_source": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "current_main": "7f22bd2157dfd0549f33eecf74a74fce56c8352",
+    "current_main_scheduled_run_observed": false,
+    "observed_at": "2026-10-22T01:42:41Z",
+    "limitation": "ancestor-bound report describes stale local snapshot; not live telemetry"
+  },
+  "nightly_workflows": {
+    "audit_integrity": {
+      "run": 39572356700,
+      "source_commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "result": "success",
+      "administrator_preflight": "success",
+      "strict_audit": "success",
+      "repair_job": "skipped"
+    },
+    "self_check": {
+      "run": 39577727254,
+      "source_commit": "0acc244d158618a827a34fbbfb5c80a876a137c7",
+      "result": "success",
+      "administrator_preflight": "success",
+      "strict_audit": "success",
+      "privilege_lint": "success",
+      "mypy": "success",
+      "pytest": "success"
+    },
+    "workflow_source_review": "authority requirements preserved; no defect found"
+  },
+  "limitations": [
+    "No scheduled Federation Health run on current main was observed at recorded time.",
+    "No production model inference or privileged operational effect was run."
+  ]
+}

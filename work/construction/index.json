@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "99af93a47c96330a8033e5502dd526f8c833402477e0f4cba71a63f7c88e4724",
-    "latest_segment_sequence": 570,
-    "latest_segment_sha256": "a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
-    "source_commit": "0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5",
-    "source_tree": "3149a0cb8f47f54aecbc882cddc9626e2b256a61"
+    "checkpoint_sha256": "6d93716a9a4c922614fef2180ed10a366554145b9cb1a090549b0a36b84fbdd6",
+    "latest_segment_sequence": 571,
+    "latest_segment_sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+    "source_commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352c",
+    "source_tree": "f3d3baa4fb6361adabb633f352266228b2f127be"
   },
-  "checkpoint_sha256": "99af93a47c96330a8033e5502dd526f8c833402477e0f4cba71a63f7c88e4724",
+  "checkpoint_sha256": "6d93716a9a4c922614fef2180ed10a366554145b9cb1a090549b0a36b84fbdd6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 570,
+  "latest_sequence": 571,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6581,6 +6581,19 @@
       "evidence_path": "work/construction/evidence/0570-verify-sequence-569-evidence-integration.json",
       "evidence_bytes": 4836,
       "evidence_sha256": "303b61a3d0462e7c4864d1efa16435c4aec74c5f881e8f41bf285720240d626f"
+    },
+    {
+      "sequence": 571,
+      "path": "work/construction/segments/0571-reject-uncertain-canonical-planning-times.md",
+      "bytes": 2594,
+      "sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+      "predecessor": "segment-sha256:a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
+      "source_commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352c",
+      "source_tree": "f3d3baa4fb6361adabb633f352266228b2f127be",
+      "source_candidate_commit": "a543193a7df3b9465600773a854672ad0ae7e4eb",
+      "evidence_path": "work/construction/evidence/0571-reject-uncertain-canonical-planning-times.json",
+      "evidence_bytes": 5769,
+      "evidence_sha256": "c2e3e84d798dd64aa480fe386796ebe6383e2f3e23cda8900fea1e2627ec465c"
     }
   ],
   "source_acquisition": {
