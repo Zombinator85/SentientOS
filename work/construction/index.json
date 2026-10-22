@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4e4c6c9a3b19eb84455e13f3287777cd7e8255f6e9660d90ac9f7d1dfa26a781",
-    "latest_segment_sequence": 584,
-    "latest_segment_sha256": "71923dfb3fd0509bcb334dfc05eae5cfccf7774dbab4cb8ee50b209988f62f50",
-    "source_commit": "debcec58ba4677c4efdb48375994e5d19f9015cf",
-    "source_tree": "dd188880b1ab36eb52032164cf5bbdb80fdcf11d"
+    "checkpoint_sha256": "16a3d47ac4eb4c46a6557c7634350ea3e03b6eeb78391f12908953492061e162",
+    "latest_segment_sequence": 585,
+    "latest_segment_sha256": "316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11",
+    "source_commit": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
+    "source_tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3"
   },
-  "checkpoint_sha256": "4e4c6c9a3b19eb84455e13f3287777cd7e8255f6e9660d90ac9f7d1dfa26a781",
+  "checkpoint_sha256": "16a3d47ac4eb4c46a6557c7634350ea3e03b6eeb78391f12908953492061e162",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 584,
+  "latest_sequence": 585,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6763,6 +6763,19 @@
       "source_candidate_commit": "e2ad912bc7a6a502ae6ee8d1946a665b0c9cc59e",
       "source_commit": "debcec58ba4677c4efdb48375994e5d19f9015cf",
       "source_tree": "dd188880b1ab36eb52032164cf5bbdb80fdcf11d"
+    },
+    {
+      "sequence": 585,
+      "path": "work/construction/segments/0585-fair-epistemic-volume.md",
+      "sha256": "316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11",
+      "bytes": 2104,
+      "predecessor": "segment-sha256:71923dfb3fd0509bcb334dfc05eae5cfccf7774dbab4cb8ee50b209988f62f50",
+      "evidence_path": "work/construction/evidence/0585-fair-epistemic-volume.json",
+      "evidence_sha256": "ce83d7007ddc62baf7330ec47034b842b31101c3a8c000c5bc0d9867276176d1",
+      "evidence_bytes": 3677,
+      "source_candidate_commit": "7b287b4203a6f981b18515a6765d79e6b4080a39",
+      "source_commit": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
+      "source_tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3"
     }
   ],
   "source_acquisition": {

@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 584
+## Current verified state — sequence 585
 
-Sequences 582–584 integrate deterministic least-generation-first scheduling and reconcile its source and hosted evidence. The equal-tick, after-restart regression passed. PR #2622 and its evidence follow-up passed the full hosted check set; main matches the verified evidence merge tree. The source changes keep omission evidence and existing admission boundaries.
+Sequences 582–585 establish and test deterministic least-generation-first epistemic service, including a same-tick restart with highly unequal active-binding counts. The omitted proposition's durable binding set remained unchanged; after owner reconstruction, the less-advanced proposition was selected despite a seven-to-one evidence-volume imbalance. PR #2626's exact candidate passed all eight hosted workflows, including strict Administrator audits, finalization, the separate metadata guard, source validation, and the 143-pass CI suite. Sequence 584's append-only evidence was included in the verified merge.
 
-Latest verified main: `debcec58ba4677c4efdb48375994e5d19f9015cf`, tree `dd188880b1ab36eb52032164cf5bbdb80fdcf11d`
-Latest construction segment: `work/construction/segments/0584-reconcile-sequence583-integration.md`
-Latest segment SHA-256: `71923dfb3fd0509bcb334dfc05eae5cfccf7774dbab4cb8ee50b209988f62f50`
-Sequence: 584 (verified evidence integration)
+Latest verified main: `d32135e39ce79b08f41133db50ba92160fa1ab7e`, tree `aabc6d990207f15dbd9a6f6e849a2522a6dc81c3`
+Latest construction segment: `work/construction/segments/0585-fair-epistemic-volume.md`
+Latest segment SHA-256: `316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11`
+Sequence: 585 (verified source integration)
 
-Next: verify bounded fairness with unequal active-binding counts and ensure only persisted state generations, not evidence volume or omitted attempts, influence service order. The current configured proposition cap and active-evidence bound should constrain worst-case work.
+Next: verify that state generation advances only after a verified durable receipt, including interrupted publication, rejected writes, and recovery. Ensure retry, duplicate snapshots, and omitted candidates cannot be reported as served unless the receipt and successor state are recovered and validated.
