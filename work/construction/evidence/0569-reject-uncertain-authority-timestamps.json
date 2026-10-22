@@ -1,0 +1,151 @@
+{
+  "candidate_verification": {
+    "artifacts": {
+      "acceptance": {
+        "id": 12393625991,
+        "sha256": "dd91bdd15276d85980d0539252e02b7effe408879dfa879ccfdb71e63d640879"
+      },
+      "finalizer": {
+        "id": 12393157017,
+        "sha256": "869287038026a96828b47d5f242d9afe67ab8bdaf09d876257b41cebf4a504a9"
+      },
+      "quality_gate_evidence": {
+        "id": 12392454471,
+        "sha256": "59a507601a2962404352e961fa16c13ca79575ea13318b98f5fafa8406400ea9"
+      }
+    },
+    "earlier_title_mismatch": "failed_preflight_then_corrected_by_matching_final_commit_subject",
+    "hosted_finalizer": "success",
+    "required_call_phase_nodes": 47,
+    "required_call_phase_passed": 47,
+    "runs": {
+      "CI": 39702237467,
+      "Codex_CI": 39702237521,
+      "Docker": 39702237284,
+      "Gradient": 39702237370,
+      "Invariants": 39702237424,
+      "Lint_Benchmark": 39702237425,
+      "Quality_Gate": 39702238951,
+      "Release": 39702237358,
+      "earlier_title_mismatch_gate": 39702237411
+    },
+    "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "strict_administrator_audits": "success"
+  },
+  "developmental_acceptance": {
+    "canonical_planning_and_execution_separation": "passed",
+    "source_validation": "passed",
+    "transition_receipt_informs_campaign_planning_without_execution": "passed"
+  },
+  "limitations": [
+    "No production inference or privileged operational effect was run.",
+    "No scheduled Federation Health run on this main was yet observed; the last recorded scheduled source is an ancestor and its snapshot is stale."
+  ],
+  "local_verification": {
+    "canonical_suites": "115 passed via scripts.run_tests",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "mypy_new_errors": 0,
+    "mypy_retired_errors": 40,
+    "mypy_status": "mypy_baseline_improved",
+    "mypy_version": "1.20.2"
+  },
+  "merge": {
+    "candidate_tree_preserved": true,
+    "commit": "f4cc3e7da87e143dd2187e7e80400974a2609860",
+    "method": "merge",
+    "parents": [
+      "e14ccd1f44fdd8dc41de5bd1ee183cd1cf5918f7",
+      "29a1eae23b97aaacfb3b6f9b9a12bca398324068"
+    ],
+    "tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e"
+  },
+  "post_merge_verification": {
+    "CI": {
+      "result": "success",
+      "run": 39702729457
+    },
+    "Codex_CI": {
+      "result": "success",
+      "run": 39702729422
+    },
+    "Docker": {
+      "result": "success",
+      "run": 39702729413
+    },
+    "Docs_Deploy": {
+      "result": "success",
+      "run": 39702729403
+    },
+    "Forge_Smoke": {
+      "result": "conditionally_skipped",
+      "run": 39702729397
+    },
+    "Invariants": {
+      "result": "success",
+      "run": 39702729401
+    },
+    "Nightly_Self_Check": {
+      "result": "success",
+      "run": 39702729427
+    },
+    "Quality_Gate": {
+      "result": "success",
+      "run": 39702729452
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
+    "sequence": 568
+  },
+  "review": {
+    "no_duplicate_authority_added": true,
+    "stage_approval_issuer_matches_authenticated_operator": "already_enforced_by_existing_pinned_trust_catalog_contract"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 3143,
+  "segment_path": "work/construction/segments/0569-reject-uncertain-authority-timestamps.md",
+  "segment_sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
+  "sequence": 569,
+  "source_candidate": {
+    "base": "e14ccd1f44fdd8dc41de5bd1ee183cd1cf5918f7",
+    "commit": "29a1eae23b97aaacfb3b6f9b9a12bca398324068",
+    "commits": [
+      "84c81fadd8554f6927f501d68865737b97101b52",
+      "6834e4d9e80a6c24e2a5f03c323988602427a040",
+      "2f13cc2a09f7880ae0938633e3b259155eba11de",
+      "29a1eae23b97aaacfb3b6f9b9a12bca398324068"
+    ],
+    "pull_request": 2602,
+    "remote_tree_blob_readback_matches_local": true,
+    "tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e"
+  },
+  "source_change": {
+    "authority_flows": [
+      "model_catalog_deployment",
+      "model_mirror_publication",
+      "host_fulfillment",
+      "model_artifact_acquisition",
+      "production_model_commissioning",
+      "POSIX_resident_commissioning"
+    ],
+    "modified_modules": [
+      "sentientos/local_model_catalog_deployment_authorization.py",
+      "sentientos/model_mirror_publication_authorization.py",
+      "sentientos/host_fulfillment_authorization_runtime.py",
+      "sentientos/local_model_artifact_acquisition_authority.py",
+      "sentientos/local_model_production_commissioning_authority.py",
+      "sentientos/maintenance_initial_posix_resident_commissioning.py"
+    ],
+    "regression_modules": [
+      "tests/test_local_model_catalog_deployment_authorization.py",
+      "tests/test_model_mirror_publication_authorization.py",
+      "tests/test_host_fulfillment_authorization_runtime.py",
+      "tests/test_local_model_artifact_acquisition_authority.py",
+      "tests/test_local_model_production_commissioning_authority.py",
+      "tests/test_maintenance_initial_posix_resident_commissioning.py"
+    ]
+  },
+  "status": "verified_source_integration",
+  "title": "Reject uncertain and unrepresentable authority timestamps"
+}
