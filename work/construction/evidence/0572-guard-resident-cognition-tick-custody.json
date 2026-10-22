@@ -1,0 +1,177 @@
+{
+  "candidate_acceptance": {
+    "artifact_id": 12396542788,
+    "artifact_sha256": "ef03c9630bbd4bcec9ba4a1d5b39fb45048e0779b71ae1e4e2fa4313fb61307c",
+    "failed_nodes": 0,
+    "passed_nodes": 47,
+    "repository_sha": "55764bae0c03ce90d126e290eaf1b677bf0d477c",
+    "required_nodes": 47,
+    "status": "task_acceptance_ready"
+  },
+  "federation_health": {
+    "app_token_and_publisher": "success_no_report_change",
+    "current_main": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
+    "current_main_scheduled_run_observed": false,
+    "latest_scheduled_result": "success",
+    "latest_scheduled_run": 39692862932,
+    "latest_scheduled_source": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "observed_at": "2026-10-22T02:26:29Z",
+    "report_artifact_id": 12389256894,
+    "report_artifact_sha256": "ffae2912262302278ea7147630608533911825822cb0ca6de2478cd5ebe05ea3",
+    "report_digest": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+    "report_limitation": "stale configured local log snapshot; not live telemetry"
+  },
+  "hosted_finalizer": {
+    "administrator_verified": true,
+    "audit_immutability": "success",
+    "exhaustive_matrix_requested": false,
+    "finalizer_artifact_id": 12395989352,
+    "finalizer_artifact_sha256": "3febcd875ef2c71286b2cfc7e9b0017a36d7005a6417e23823c778ee62a9693f",
+    "precommit_decision": "ready_to_commit",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "quality_gate_evidence_artifact_id": 12396556372,
+    "quality_gate_evidence_sha256": "56fdc93658d5ae09c9e8aee340d182f97aa7abc44a3ab77b255b90992662658d",
+    "run": 39709535287,
+    "strict_audit_repair_allowed": false,
+    "strict_audits": "success",
+    "validation_profile": "solo"
+  },
+  "limitations": [
+    "No scheduled Federation Health execution on current main was observed at evidence capture.",
+    "No production model inference or privileged operational effect was run."
+  ],
+  "local_verification": {
+    "canonical_runner": "scripts.run_tests",
+    "canonical_suite": "tests/test_resident_developmental_cognition.py",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "pinned_mypy_local": "toolchain_unavailable; hosted Mypy passed",
+    "related_suites": [
+      "tests/test_sentientosd_resident_cognitive_transition_composition.py",
+      "tests/test_resident_epistemic_development.py",
+      "tests/test_developmental_model_replacement_resource_lineage_integration.py",
+      "sentientos/tests/test_orchestrator_plan_only.py"
+    ],
+    "status": "passed"
+  },
+  "merge": {
+    "candidate_tree_preserved": true,
+    "commit": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
+    "method": "merge",
+    "parents": [
+      "e233d7d9313427689b73b7329bdaa7a3ca5e655d",
+      "55764bae0c03ce90d126e290eaf1b677bf0d477c"
+    ],
+    "pull_request": 2607,
+    "tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
+  },
+  "post_merge_verification": {
+    "CI": {
+      "result": "success",
+      "run": 39710157381
+    },
+    "Codex_CI": {
+      "result": "success",
+      "run": 39710157370
+    },
+    "Docker": {
+      "result": "success",
+      "run": 39710157240
+    },
+    "Docs_Deploy": {
+      "result": "success",
+      "run": 39710157387
+    },
+    "Forge_Smoke": {
+      "result": "conditionally_skipped",
+      "run": 39710157323
+    },
+    "Invariants": {
+      "result": "success",
+      "run": 39710157491
+    },
+    "Nightly_Self_Check": {
+      "result": "success",
+      "run": 39710157363
+    },
+    "Quality_Gate": {
+      "result": "success",
+      "run": 39710157411
+    }
+  },
+  "predecessor": {
+    "segment_sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+    "sequence": 571
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2435,
+  "segment_path": "work/construction/segments/0572-guard-resident-cognition-tick-custody.md",
+  "segment_sha256": "2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
+  "sequence": 572,
+  "source_candidate": {
+    "base": "e233d7d9313427689b73b7329bdaa7a3ca5e655d",
+    "candidate_commits": [
+      "6ba0835ac101d0f3dee929f46c64a81e6cbd65a3",
+      "7abca2633eebaf5cde1a9e4ac291f816b7b804c0",
+      "55764bae0c03ce90d126e290eaf1b677bf0d477c"
+    ],
+    "checks": {
+      "CI": {
+        "result": "success",
+        "run": 39709535310
+      },
+      "CI_push": {
+        "result": "success",
+        "run": 39709530642
+      },
+      "Codex_CI": {
+        "result": "success",
+        "run": 39709535308
+      },
+      "Docker": {
+        "result": "success",
+        "run": 39709535209
+      },
+      "Gradient": {
+        "result": "success",
+        "run": 39709535264
+      },
+      "Invariants": {
+        "result": "success",
+        "run": 39709535277
+      },
+      "Lint_Benchmark_Mypy": {
+        "result": "success",
+        "run": 39709535225
+      },
+      "Release": {
+        "result": "success",
+        "run": 39709535306
+      },
+      "Required_Quality_Gate": {
+        "result": "success",
+        "run": 39709535287
+      }
+    },
+    "commit": "55764bae0c03ce90d126e290eaf1b677bf0d477c",
+    "pull_request": 2607,
+    "remote_tree_blob_readback_matches_local": true,
+    "tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
+  },
+  "source_change": {
+    "behaviors": [
+      "reject RFC 3339 -00:00 before prior resident cognition history selection",
+      "reject unrepresentable projection time before longitudinal self-model or epistemic projection reads",
+      "reject uncertain epistemic write time before persistent state transitions",
+      "return degraded non-authorizing feedback without invoking cognition or write owners"
+    ],
+    "modified_modules": [
+      "sentientosd.py"
+    ],
+    "regression_modules": [
+      "tests/test_resident_developmental_cognition.py"
+    ]
+  },
+  "status": "verified_source_integration",
+  "title": "Guard resident cognition tick custody"
+}
