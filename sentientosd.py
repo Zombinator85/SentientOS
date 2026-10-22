@@ -147,6 +147,29 @@ RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISI
 INTEGRITY_CONTROLLER_OBSERVATION_ENV = "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION"
 
 
+def _validated_daemon_tick_time(value: str) -> datetime:
+    """Parse a definite, representable daemon tick before it can bound evidence."""
+    if not isinstance(value, str) or not value:
+        raise ValueError("world_state_tick_timezone_required")
+    if value.endswith("-00:00"):
+        raise ValueError("world_state_tick_offset_unknown")
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("world_state_tick_timezone_required") from exc
+    try:
+        offset = instant.utcoffset()
+    except (OverflowError, ValueError) as exc:
+        raise ValueError("world_state_tick_timezone_required") from exc
+    if instant.tzinfo is None or offset is None:
+        raise ValueError("world_state_tick_timezone_required")
+    try:
+        int(instant.timestamp())
+    except (OSError, OverflowError, ValueError) as exc:
+        raise ValueError("world_state_tick_unrepresentable") from exc
+    return instant
+
+
 def _plain_transition_projection(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {str(key): _plain_transition_projection(item) for key, item in value.items()}
@@ -1518,7 +1541,25 @@ class RuntimeMaintenanceSurfaces:
 
     def build_world_state_board(self, *, tick_id: str | None = None) -> dict[str, Any]:
         """Persist one terminal read-only world-state snapshot per maintenance tick."""
-        tick_key = tick_id or datetime.now(timezone.utc).isoformat()
+        tick_key = tick_id if tick_id is not None else datetime.now(timezone.utc).isoformat()
+        try:
+            tick_instant = _validated_daemon_tick_time(tick_key)
+        except ValueError as exc:
+            self._world_state_snapshot = None
+            self._world_state_snapshot_built_for_tick = tick_key
+            feedback = {
+                "status": "degraded", "reason": f"ValueError:{exc}",
+                "snapshot_id": None, "snapshot_digest": None,
+                "entity_count": 0, "conflict_count": 0, "stale": True,
+                "contradicted": False,
+                "artifact": (self._runtime_state_root / "world_state_board" / "latest.json").as_posix(),
+                "publication_status": "not_attempted",
+                "decision_authority": False, "admission_authority": False,
+                "execution_authority": False, "adoption_authority": False,
+                "repository_mutation_authority": False,
+            }
+            self._feedback.setdefault("surfaces", {})["world_state_evidence_board"] = feedback
+            return feedback
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
@@ -1996,7 +2037,8 @@ class RuntimeMaintenanceSurfaces:
             return 3
 
         records.sort(key=board_source_priority)
-        snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
+        snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,),
+            max_source_count=128, clock=lambda: tick_instant).build(records)
         retained_source_ids = {source.source_id for source in snapshot.sources}
         retained_source_identities = {(source.source_id, source.digest) for source in snapshot.sources}
         omitted_embodiment_observation_identities = (

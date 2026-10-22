@@ -23,6 +23,14 @@ def test_conflicts_order_independent_and_staleness():
     assert c1 == c2 == ["allow_deny"]
     assert b.build(recs).summary.counts["staleness_posture"]["expired"] == 1
 
+def test_unknown_rfc3339_offset_cannot_be_counted_as_fresh():
+    b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
+    snapshot=b.build([{"source_kind":"control_plane_decision","source_id":"unknown-time",
+        "subject_id":"unknown-time","stage":"observation","disposition":"recorded",
+        "observed_at":"2026-01-01T00:00:00-00:00"}])
+    assert snapshot.facts[0].source.staleness == "undated"
+    assert snapshot.stale is True
+
 def test_identity_ignores_custody_but_binds_semantics_and_nested_validation():
     base={"source_kind":"capability_registry","source_id":"cap","subject_id":"cap","stage":"observation","disposition":"implemented","observed_at":"one","absolute_path":"/tmp/a","payload":{"x":1}}
     b=WorldStateBoardBuilder()
