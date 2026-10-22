@@ -874,8 +874,6 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
 
     observer = ServingObserver()
 
-    real_execute_plan = GoalExecutor.execute_plan
-
     def forbidden_execute(*_args, **_kwargs):
         raise AssertionError("canonical planning must not execute goals")
 
@@ -1378,6 +1376,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
 
         def invoke(self, *_args, **_kwargs):
             raise AssertionError("planning must not invoke a model")
+
+    real_execute_plan = GoalExecutor.execute_plan
 
     def forbidden_execute(*_args, **_kwargs):
         raise AssertionError("canonical planning must not execute goals")
