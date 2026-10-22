@@ -472,15 +472,17 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 572
+## Current verified state — sequence 573
 
-PR #2607 integrated guarded daemon tick custody on `main` at `8ab7b11b49c704e4939804e57ca1da4da8736cac`, tree `5788382f6df2dae47f42fb278db4e5dae8e653cf`. Unknown-offset and unrepresentable timestamps fail before prior resident cognition projections or epistemic writes. Exact-candidate 47-node acceptance, strict Administrator audits and immutability, the separate prepublication metadata guard, and all candidate checks passed. The normal merge preserves main as first parent and the candidate as second. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped.
+PR #2609 merged the World-State timestamp guard normally as `0a774ff5c9f79480e1ff7210dde81f0e26c9347c`, tree `fbaed7a9c453348e2a20dc7166796db21e396203`. Unknown-offset observations remain undated; invalid daemon ticks fail before cache reuse, owner reads, or board publication. Focused World-State and full resident developmental cognition tests passed locally; full exact-candidate CI, 47-node acceptance, strict hosted Administrator audit and immutability, and the separate prepublication metadata guard passed. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped.
 
-The latest scheduled Federation Health run is still bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; it succeeded, and its App-token publication path ran successfully without report changes. No scheduled run on current main was observed at `2026-10-22T02:26:29Z`. Its report is a stale configured local log snapshot, not live telemetry.
+Three adjacent embodiment test-contract failures reproduce unchanged on the pre-change main tree; they are not regressions from sequence 573. Their contracts are being corrected in a separate bounded increment to retain the non-authorizing quarantine observation and historical-only synthetic sensor evidence, and to inject the descriptor-relative replacement failure at the correct boundary.
 
-Latest verified main: `8ab7b11b49c704e4939804e57ca1da4da8736cac`, tree `5788382f6df2dae47f42fb278db4e5dae8e653cf`
-Latest construction segment: `work/construction/segments/0572-guard-resident-cognition-tick-custody.md`
-Latest segment SHA-256: `2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493`
-Sequence: 572 (verified source integration)
+At `2026-10-22T02:49:35Z`, the latest scheduled Federation Health run remained successful on ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; no scheduled run on current main `0a774ff5c9f79480e1ff7210dde81f0e26c9347c` was observed. The report is a stale configured local log snapshot, not live telemetry.
 
-Next: reject ambiguous observation times from World-State freshness scoring and validate daemon ticks before any owner read or board publication. Continue monitoring for scheduled Federation Health execution on the current main.
+Latest verified main: `0a774ff5c9f79480e1ff7210dde81f0e26c9347c`, tree `fbaed7a9c453348e2a20dc7166796db21e396203`
+Latest construction segment: `work/construction/segments/0573-reject-uncertain-world-state-times.md`
+Latest segment SHA-256: `fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe`
+Sequence: 573 (verified source integration)
+
+Next: complete the isolated embodiment test-contract repair, then continue monitoring for scheduled Federation Health execution on current main and reassess the next developmental cognition dependency.

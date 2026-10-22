@@ -1,0 +1,192 @@
+{
+  "candidate_acceptance": {
+    "artifact_id": 12397634194,
+    "artifact_sha256": "419e40293321fe1e083fd1dd89643d8931d9b95d29bd0f196e1a5bcef067ab5a",
+    "failed_nodes": 0,
+    "passed_nodes": 47,
+    "repository_sha": "8aaa7c0800d09f22a0a8599c66f51fdc6b431044",
+    "required_nodes": 47,
+    "status": "task_acceptance_ready"
+  },
+  "federation_health": {
+    "current_main": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
+    "current_main_scheduled_run_observed": false,
+    "latest_scheduled_result": "success",
+    "latest_scheduled_run": 39692862932,
+    "latest_scheduled_source": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "observed_at": "2026-10-22T02:49:35Z",
+    "report_artifact_id": 12389256894,
+    "report_artifact_sha256": "ffae2912262302278ea7147630608533911825822cb0ca6de2478cd5ebe05ea3",
+    "report_digest": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+    "report_limitation": "stale configured local log snapshot; not live telemetry"
+  },
+  "hosted_finalizer": {
+    "administrator_verified": true,
+    "audit_immutability": "success",
+    "effective_uid": 0,
+    "exhaustive_matrix_requested": false,
+    "finalizer_artifact_id": 12397389499,
+    "finalizer_artifact_sha256": "bb8ca41c736ad0e8c621d0782df6e2bc8bc29cc178083c7863cb706632d0ae08",
+    "precommit_decision": "ready_to_commit",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "quality_gate_evidence_artifact_id": 12397498775,
+    "quality_gate_evidence_sha256": "73154165a5d91d6e9adbaa8f2ca23a9e96954ee3a8326cd8b3742fd9ac5d491b",
+    "run": 39712686350,
+    "source_unchanged": true,
+    "strict_audit_repair_allowed": false,
+    "strict_audits": "success",
+    "validation_profile": "solo"
+  },
+  "limitations": [
+    "No production inference or privileged operational effect was run."
+  ],
+  "local_verification": {
+    "adjacent_baseline_findings": {
+      "disposition": "not changed in this increment; test-contract repairs continued in a separate work item",
+      "failing_nodes": [
+        "test_sentientosd_opt_in_and_absence_are_explicit",
+        "test_baseline_perturbation_restoration_and_prior_tick_firewall",
+        "test_world_state_memory_view_waits_for_snapshot_replacement"
+      ],
+      "result": "same failures reproduced on verified pre-change tree bb0a4401e9648c8523bdd319befe97ddfae8104e",
+      "suite": "tests/test_embodiment_self_observation.py"
+    },
+    "canonical_runner": "scripts.run_tests",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "focused_suites": [
+      {
+        "command": "tests/test_world_state_board.py tests/test_resident_developmental_cognition.py",
+        "result": "103 passed, 9 skipped"
+      }
+    ],
+    "isolated_test_environment": true
+  },
+  "merge": {
+    "candidate_tree_preserved": true,
+    "commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
+    "method": "merge",
+    "parents": [
+      "3c28f93efe7dfbf55c16133384810abecbba23db",
+      "8aaa7c0800d09f22a0a8599c66f51fdc6b431044"
+    ],
+    "pull_request": 2609,
+    "tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
+  },
+  "post_merge_verification": {
+    "CI": {
+      "result": "success",
+      "run": 39713111762
+    },
+    "Codex_CI": {
+      "result": "success",
+      "run": 39713111776
+    },
+    "Docker": {
+      "result": "success",
+      "run": 39713112059
+    },
+    "Docs_Deploy": {
+      "result": "success",
+      "run": 39713111698
+    },
+    "Forge_Smoke": {
+      "result": "conditionally_skipped",
+      "run": 39713111692
+    },
+    "Invariants": {
+      "result": "success",
+      "run": 39713111877
+    },
+    "Nightly_Self_Check": {
+      "result": "success",
+      "run": 39713111704
+    },
+    "Quality_Gate": {
+      "administrator_verified": true,
+      "artifact_id": 12397981631,
+      "artifact_sha256": "39c491c21dc6c783fb3a6c89c0ca66e6b1f20564299ba00d30faf4a757d95a60",
+      "audit_immutability": "success",
+      "effective_uid": 0,
+      "result": "success",
+      "run": 39713111841
+    },
+    "source_commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
+    "source_tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
+  },
+  "predecessor": {
+    "segment_sha256": "2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
+    "sequence": 572
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2799,
+  "segment_path": "work/construction/segments/0573-reject-uncertain-world-state-times.md",
+  "segment_sha256": "fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
+  "sequence": 573,
+  "source_candidate": {
+    "base": "3c28f93efe7dfbf55c16133384810abecbba23db",
+    "checks": {
+      "CI": {
+        "result": "success",
+        "run": 39712686377
+      },
+      "CI_push": {
+        "result": "success",
+        "run": 39712663938
+      },
+      "Codex_CI": {
+        "result": "success",
+        "run": 39712686325
+      },
+      "Docker": {
+        "result": "success",
+        "run": 39712686392
+      },
+      "Gradient": {
+        "result": "success",
+        "run": 39712686385
+      },
+      "Invariants": {
+        "result": "success",
+        "run": 39712686311
+      },
+      "Invariants_push": {
+        "result": "success",
+        "run": 39712664118
+      },
+      "Lint_Benchmark_Mypy": {
+        "result": "success",
+        "run": 39712686331
+      },
+      "Release": {
+        "result": "success",
+        "run": 39712686455
+      },
+      "Required_Quality_Gate": {
+        "result": "success",
+        "run": 39712686350
+      }
+    },
+    "commit": "8aaa7c0800d09f22a0a8599c66f51fdc6b431044",
+    "pull_request": 2609,
+    "remote_tree_blob_readback_matches_local": true,
+    "tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
+  },
+  "source_change": {
+    "behaviors": [
+      "RFC 3339 -00:00 observation times remain undated and cannot count as fresh",
+      "daemon tick offset and representable epoch are validated before cache reuse, owner reads, or board publication",
+      "invalid ticks return degraded non-authorizing feedback and do not publish a board"
+    ],
+    "modified_modules": [
+      "sentientos/world_state_board.py",
+      "sentientosd.py"
+    ],
+    "regression_modules": [
+      "tests/test_world_state_board.py",
+      "tests/test_resident_developmental_cognition.py"
+    ]
+  },
+  "status": "verified_source_integration",
+  "title": "Reject uncertain World-State times"
+}

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "70da496b26b87fcae5494bdf8accfc5eb39d0ec8b6a4ebe8b8cc1610967b9767",
-    "latest_segment_sequence": 572,
-    "latest_segment_sha256": "2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
-    "source_commit": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
-    "source_tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
+    "checkpoint_sha256": "855a175fd527cb8926de2d4bb27ec875a99cbb0c4d6e2627c4278e4813422bb8",
+    "latest_segment_sequence": 573,
+    "latest_segment_sha256": "fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
+    "source_commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
+    "source_tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
   },
-  "checkpoint_sha256": "70da496b26b87fcae5494bdf8accfc5eb39d0ec8b6a4ebe8b8cc1610967b9767",
+  "checkpoint_sha256": "855a175fd527cb8926de2d4bb27ec875a99cbb0c4d6e2627c4278e4813422bb8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 572,
+  "latest_sequence": 573,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6607,6 +6607,19 @@
       "source_candidate_commit": "55764bae0c03ce90d126e290eaf1b677bf0d477c",
       "source_commit": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
       "source_tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
+    },
+    {
+      "bytes": 2799,
+      "evidence_bytes": 6382,
+      "evidence_path": "work/construction/evidence/0573-reject-uncertain-world-state-times.json",
+      "evidence_sha256": "91950639b918085e6148fafff274c0381fd9bd94bcb10bbac8a3416aacc918c4",
+      "path": "work/construction/segments/0573-reject-uncertain-world-state-times.md",
+      "predecessor": "segment-sha256:2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
+      "sequence": 573,
+      "sha256": "fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
+      "source_candidate_commit": "8aaa7c0800d09f22a0a8599c66f51fdc6b431044",
+      "source_commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
+      "source_tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
     }
   ],
   "source_acquisition": {
