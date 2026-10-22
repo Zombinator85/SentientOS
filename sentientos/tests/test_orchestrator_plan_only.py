@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -35,6 +35,69 @@ from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_plan_goals_rejects_unknown_offset_before_reading_projection_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ProjectionOwner:
+        calls = 0
+
+        def cognitive_projection(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unknown planning time must be rejected first")
+
+    def forbidden_graph_read(_root):
+        raise AssertionError("unknown planning time must be rejected before repository reads")
+
+    owner = ProjectionOwner()
+    monkeypatch.setattr("sentientos.orchestrator.load_goal_graph", forbidden_graph_read)
+    with pytest.raises(ValueError, match="planning_time_offset_unknown"):
+        plan_goals(
+            tmp_path, prior_epistemic_projection_owner=owner,  # type: ignore[arg-type]
+            prior_epistemic_projection_max_states=1,
+            planning_time="2026-10-22T01:00:00-00:00")
+    assert owner.calls == 0
+
+
+def test_plan_goals_rejects_unrepresentable_projection_time_before_owner_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class UnrepresentableInstant:
+        tzinfo = timezone.utc
+
+        @staticmethod
+        def utcoffset():
+            return timedelta(0)
+
+        @staticmethod
+        def timestamp() -> float:
+            raise OverflowError("outside platform timestamp range")
+
+    class FixedDateTime:
+        @staticmethod
+        def fromisoformat(_value: str) -> UnrepresentableInstant:
+            return UnrepresentableInstant()
+
+    class ProjectionOwner:
+        calls = 0
+
+        def cognitive_projection(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unrepresentable planning time must be rejected first")
+
+    owner = ProjectionOwner()
+    monkeypatch.setattr("sentientos.orchestrator.datetime", FixedDateTime)
+    monkeypatch.setattr(
+        "sentientos.orchestrator.load_goal_graph",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("unrepresentable time must be rejected before repository reads")))
+    with pytest.raises(ValueError, match="planning_time_unrepresentable"):
+        plan_goals(
+            tmp_path, prior_epistemic_projection_owner=owner,  # type: ignore[arg-type]
+            prior_epistemic_projection_max_states=1,
+            planning_time="2026-10-22T01:00:00Z")
+    assert owner.calls == 0
 
 
 def test_goal_history_priorities_follow_enabled_deterministic_goal_precedence() -> None:
