@@ -58,6 +58,10 @@ def _sid(prefix:str, payload:Any)->str: return f"{prefix}-{digest(payload)[:16]}
 def to_dict(o:Any)->Any: return json.loads(_canon(o))
 def _parse_time(s:str|None):
     if not isinstance(s, str) or not s: return None
+    # RFC 3339 -00:00 records an unknown local offset, not a known UTC time.
+    # datetime.fromisoformat collapses it to a zero-offset timezone, so keep
+    # the uncertainty before parsing or freshness checks would overstate it.
+    if s.endswith("-00:00"): return None
     try:
         parsed = datetime.fromisoformat(s.replace("Z","+00:00"))
         if parsed.tzinfo is None or parsed.utcoffset() is None: return None

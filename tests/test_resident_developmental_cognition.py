@@ -5590,6 +5590,58 @@ def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path
     assert feedback["epistemic_composition"]["authority"] is False
 
 
+def _seed_world_state_snapshot_for_tick(
+        surfaces: RuntimeMaintenanceSurfaces, tick: str,
+) -> None:
+    """Exercise downstream fail-closed guards without the production board builder."""
+    surfaces._world_state_snapshot = WorldStateBoardBuilder().build()
+    surfaces._world_state_snapshot_built_for_tick = tick
+
+
+@pytest.mark.parametrize(("tick", "expected_reason"), [
+    ("2026-01-03T00:00:00-00:00", "world_state_tick_offset_unknown"),
+    ("2026-01-03T00:00:00+00:00", "world_state_tick_unrepresentable"),
+])
+def test_sentientosd_rejects_uncertain_world_state_tick_before_owner_reads(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tick: str,
+        expected_reason: str,
+) -> None:
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-world-state-uncertain-tick")
+    owner_reads: list[str] = []
+    monkeypatch.setattr(surfaces, "_observe_resource_owner_for_tick",
+        lambda value: owner_reads.append(value))
+    if expected_reason == "world_state_tick_unrepresentable":
+        from datetime import timedelta
+
+        class UnrepresentableInstant:
+            tzinfo = object()
+
+            def utcoffset(self):
+                return timedelta(0)
+
+            def timestamp(self) -> float:
+                raise OverflowError("platform timestamp range")
+
+        class DatetimeShim:
+            @staticmethod
+            def fromisoformat(_value: str) -> UnrepresentableInstant:
+                return UnrepresentableInstant()
+
+        monkeypatch.setattr("sentientosd.datetime", DatetimeShim)
+
+    feedback = surfaces.build_world_state_board(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == f"ValueError:{expected_reason}"
+    assert feedback["publication_status"] == "not_attempted"
+    assert feedback["decision_authority"] is False
+    assert surfaces.current_world_state_snapshot is None
+    assert owner_reads == []
+    assert not (tmp_path / "runtime-world-state-uncertain-tick" /
+        "world_state_board" / "latest.json").exists()
+
+
 def test_sentientosd_rejects_unknown_epistemic_tick_before_owner_reads(
     tmp_path: Path,
 ) -> None:
@@ -5619,7 +5671,7 @@ def test_sentientosd_rejects_unknown_epistemic_tick_before_owner_reads(
             "cognitive_consumption_enabled": True,
         },
     )
-    surfaces.build_world_state_board(tick_id=tick)
+    _seed_world_state_snapshot_for_tick(surfaces, tick)
 
     feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
 
@@ -5659,7 +5711,7 @@ def test_sentientosd_rejects_unrepresentable_epistemic_tick_before_owner_reads(
             "cognitive_consumption_enabled": True,
         },
     )
-    surfaces.build_world_state_board(tick_id=tick)
+    _seed_world_state_snapshot_for_tick(surfaces, tick)
 
     class UnrepresentableInstant:
         tzinfo = object()
@@ -5721,7 +5773,7 @@ def test_sentientosd_rejects_uncertain_self_model_tick_before_owner_reads(
         enabled=True, custody_root=tmp_path / "self-model", cognitive_consumption_enabled=True,
         max_projection_claims=1, allowed_predicates=("health",), installation_id="fixture",
     )
-    surfaces.build_world_state_board(tick_id=tick)
+    _seed_world_state_snapshot_for_tick(surfaces, tick)
     if tick.endswith("+00:00"):
         from datetime import timedelta
 
@@ -5769,7 +5821,7 @@ def test_sentientosd_rejects_unknown_epistemic_write_tick_before_runtime(
         tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-unknown-tick",
         epistemic_development_runtime=runtime,  # type: ignore[arg-type]
     )
-    surfaces.build_world_state_board(tick_id=tick)
+    _seed_world_state_snapshot_for_tick(surfaces, tick)
 
     feedback = surfaces.run_epistemic_development(tick_id=tick)
 
@@ -5797,7 +5849,7 @@ def test_sentientosd_rejects_unrepresentable_epistemic_write_tick_before_runtime
         tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-overflow-tick",
         epistemic_development_runtime=runtime,  # type: ignore[arg-type]
     )
-    surfaces.build_world_state_board(tick_id=tick)
+    _seed_world_state_snapshot_for_tick(surfaces, tick)
 
     class UnrepresentableInstant:
         tzinfo = object()
