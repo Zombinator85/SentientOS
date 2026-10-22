@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "855a175fd527cb8926de2d4bb27ec875a99cbb0c4d6e2627c4278e4813422bb8",
-    "latest_segment_sequence": 573,
-    "latest_segment_sha256": "fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
-    "source_commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
-    "source_tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
+    "checkpoint_sha256": "1380cb4fadbfff3947fe9a6ad6cf04b146ce712e93f6cc79f138db73a79fcf0e",
+    "latest_segment_sequence": 574,
+    "latest_segment_sha256": "2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67",
+    "source_commit": "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+    "source_tree": "2375d16ab2faaa10e30edc619431deda9d09cd64"
   },
-  "checkpoint_sha256": "855a175fd527cb8926de2d4bb27ec875a99cbb0c4d6e2627c4278e4813422bb8",
+  "checkpoint_sha256": "1380cb4fadbfff3947fe9a6ad6cf04b146ce712e93f6cc79f138db73a79fcf0e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 573,
+  "latest_sequence": 574,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6620,6 +6620,19 @@
       "source_candidate_commit": "8aaa7c0800d09f22a0a8599c66f51fdc6b431044",
       "source_commit": "0a774ff5c9f79480e1ff7210dde81f0e26c9347c",
       "source_tree": "fbaed7a9c453348e2a20dc7166796db21e396203"
+    },
+    {
+      "bytes": 2742,
+      "evidence_bytes": 6019,
+      "evidence_path": "work/construction/evidence/0574-clarify-embodiment-observation-test-contracts.json",
+      "evidence_sha256": "e5ea362fe02ea6f61db644b0b5f22182d4663407f0d97bfd47b92824a9990ee5",
+      "path": "work/construction/segments/0574-clarify-embodiment-observation-test-contracts.md",
+      "predecessor": "segment-sha256:fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
+      "sequence": 574,
+      "sha256": "2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67",
+      "source_candidate_commit": "15819c0a53b749b55b5773c827373ac90cdc92c0",
+      "source_commit": "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+      "source_tree": "2375d16ab2faaa10e30edc619431deda9d09cd64"
     }
   ],
   "source_acquisition": {

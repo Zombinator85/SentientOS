@@ -1,0 +1,183 @@
+{
+  "limitations": [
+    "No production inference or model transition was run.",
+    "Federation Health remains a configured local log snapshot, not live telemetry."
+  ],
+  "local_verification": {
+    "compilation": "passed",
+    "diff_check": "passed",
+    "epistemic_planning_suite": {
+      "command": "scripts.run_tests -q sentientos/tests/test_epistemic_planning.py",
+      "failed": 0,
+      "passed": 2
+    },
+    "focused_suite": {
+      "command": "tests/test_embodiment_self_observation.py",
+      "failed": 0,
+      "passed": 14
+    },
+    "isolated_test_environment": true,
+    "working_tree_after_test_residue_cleanup": "only intended embodiment test-contract patch"
+  },
+  "merge": {
+    "candidate_tree_preserved": true,
+    "commit": "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+    "method": "merge",
+    "parents": [
+      "bd8ffa6a5fab52e677fa32d58fa902e0e965ce49",
+      "15819c0a53b749b55b5773c827373ac90cdc92c0"
+    ],
+    "pull_request": 2611,
+    "tree": "2375d16ab2faaa10e30edc619431deda9d09cd64"
+  },
+  "observed_at": "2026-10-22T03:10:00Z",
+  "post_merge_verification": {
+    "Build": {
+      "result": "success",
+      "runs": [
+        39714786352,
+        39714786396
+      ]
+    },
+    "CI_source_validation": {
+      "result": "success",
+      "run": 39714786332
+    },
+    "Docker_smoke": {
+      "result": "success",
+      "run": 39714786380
+    },
+    "Docs_Deploy": {
+      "result": "success",
+      "run": 39714786396
+    },
+    "Forge_Smoke": {
+      "result": "conditionally_skipped",
+      "run": 39714786345
+    },
+    "Helm_Kubernetes": {
+      "result": "success",
+      "run": 39714786332
+    },
+    "Invariants": {
+      "result": "success",
+      "run": 39714786429
+    },
+    "Required_Quality_Gate": {
+      "administrator_verified": true,
+      "artifact_id": 12398283492,
+      "artifact_sha256": "fc95b2b9cf325884fed08e65b8bd4c2478cff1957f50a6a2ba92d47e4a34b1bb",
+      "audit_immutability": "success",
+      "effective_uid": 0,
+      "result": "success",
+      "run": 39714786408,
+      "source_unchanged": true,
+      "strict_audits": "success"
+    },
+    "Self_Check": {
+      "result": "success",
+      "run": 39714786332
+    },
+    "source_commit": "26f35f8221202cbbde5bd8c27cd67e9f00453bac",
+    "source_tree": "2375d16ab2faaa10e30edc619431deda9d09cd64"
+  },
+  "predecessor": {
+    "segment_sha256": "fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe",
+    "sequence": 573
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 2742,
+  "segment_path": "work/construction/segments/0574-clarify-embodiment-observation-test-contracts.md",
+  "segment_sha256": "2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67",
+  "sequence": 574,
+  "source_candidate": {
+    "acceptance": {
+      "artifact_id": 12398237874,
+      "artifact_sha256": "4082923812c2e366a40534ee03cd03fd930e510a16b8f72686c1adf77b088f57",
+      "passed_nodes": 47,
+      "repository_sha": "15819c0a53b749b55b5773c827373ac90cdc92c0",
+      "required_nodes": 47,
+      "status": "task_acceptance_ready"
+    },
+    "base": "bd8ffa6a5fab52e677fa32d58fa902e0e965ce49",
+    "branch": "codex/embodiment-observation-contracts-574",
+    "candidate_checks": {
+      "CI_and_integrated_source_validation": {
+        "result": "success",
+        "run": 39714290915
+      },
+      "Codex_CI": {
+        "result": "success",
+        "run": 39714290747
+      },
+      "Docker_Image": {
+        "result": "success",
+        "run": 39714290679
+      },
+      "Gradient": {
+        "result": "success",
+        "run": 39714290944
+      },
+      "Invariant_Tests": {
+        "result": "success",
+        "run": 39714290688
+      },
+      "Lint_Benchmark_Mypy": {
+        "result": "success",
+        "run": 39714290748
+      },
+      "Release": {
+        "result": "success",
+        "run": 39714290941
+      },
+      "Required_Quality_Gate": {
+        "result": "success",
+        "run": 39714291070
+      },
+      "non_required_conditional_jobs": "publisher-only steps skipped; no failure",
+      "push_source_validation": {
+        "result": "success",
+        "run": 39714278748
+      }
+    },
+    "commit": "15819c0a53b749b55b5773c827373ac90cdc92c0",
+    "hosted_finalizer": {
+      "administrator_verified": true,
+      "audit_immutability": "success",
+      "effective_uid": 0,
+      "evidence_artifact_id": 12398052400,
+      "evidence_artifact_sha256": "16544cce7cb9875d4ce3dce6cf05b92b5cf3a0385531348fa8151ae81f39b4b1",
+      "exhaustive_matrix_requested": false,
+      "finalizer_artifact_id": 12398257849,
+      "finalizer_artifact_sha256": "b88883dccf8aab48340af418541095149f5effad49b5ee19c761c1255c35bf33",
+      "precommit_decision": "ready_to_commit",
+      "prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "run": 39714291070,
+      "source_sha": "15819c0a53b749b55b5773c827373ac90cdc92c0",
+      "source_tree": "2375d16ab2faaa10e30edc619431deda9d09cd64",
+      "source_unchanged": true,
+      "strict_audit_repair_allowed": false,
+      "strict_audits": "success",
+      "validation_profile": "solo"
+    },
+    "pull_request": 2611,
+    "remote_blob_and_tree_readback_match": true,
+    "remote_tree_entry_count": 8180,
+    "remote_tree_truncated": false,
+    "tree": "2375d16ab2faaa10e30edc619431deda9d09cd64"
+  },
+  "source_change": {
+    "baseline_failures_reproduced_on_tree": "bb0a4401e9648c8523bdd319befe97ddfae8104e",
+    "behaviors": [
+      "distinguish absence of embodiment facts from the always-present non-authorizing quarantine custody observation",
+      "preserve restored synthetic caller sensor claims as historical with unknown freshness and no current-truth assertion",
+      "inject descriptor-relative replacement failure and assert the private-file custody error contract"
+    ],
+    "modified_paths": [
+      "tests/test_embodiment_self_observation.py"
+    ],
+    "runtime_source_changed": false
+  },
+  "status": "verified_source_integration",
+  "title": "Clarify embodiment observation test contracts"
+}

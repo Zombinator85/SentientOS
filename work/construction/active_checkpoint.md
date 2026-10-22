@@ -472,17 +472,17 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 573
+## Current verified state — sequence 574
 
-PR #2609 merged the World-State timestamp guard normally as `0a774ff5c9f79480e1ff7210dde81f0e26c9347c`, tree `fbaed7a9c453348e2a20dc7166796db21e396203`. Unknown-offset observations remain undated; invalid daemon ticks fail before cache reuse, owner reads, or board publication. Focused World-State and full resident developmental cognition tests passed locally; full exact-candidate CI, 47-node acceptance, strict hosted Administrator audit and immutability, and the separate prepublication metadata guard passed. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped.
+Sequence 573's append-only evidence merged normally as PR #2610 at `bd8ffa6a5fab52e677fa32d58fa902e0e965ce49`, tree `401a446a6f523f4ad1523838e707d901fd14f93e`. The timestamp validation and evidence tree were preserved, and all candidate plus post-merge hosted checks passed.
 
-Three adjacent embodiment test-contract failures reproduce unchanged on the pre-change main tree; they are not regressions from sequence 573. Their contracts are being corrected in a separate bounded increment to retain the non-authorizing quarantine observation and historical-only synthetic sensor evidence, and to inject the descriptor-relative replacement failure at the correct boundary.
+Sequence 574 corrected three adjacent embodiment self-observation test contracts without changing runtime source. The focused 14-test file passed locally; exact-candidate checks and the 47-node Required Quality Gate passed with actual hosted Administrator authority, strict audits, audit immutability, and a separate prepublication metadata guard. PR #2611 merged normally as `26f35f8221202cbbde5bd8c27cd67e9f00453bac`, tree `2375d16ab2faaa10e30edc619431deda9d09cd64`. Post-merge CI source validation, Quality Gate, Invariants, Docker, Docs Deploy, Helm/Kubernetes, and self-check passed; Forge Smoke was conditionally skipped.
 
-At `2026-10-22T02:49:35Z`, the latest scheduled Federation Health run remained successful on ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; no scheduled run on current main `0a774ff5c9f79480e1ff7210dde81f0e26c9347c` was observed. The report is a stale configured local log snapshot, not live telemetry.
+The restored sensor assertion remains historical, with unknown freshness and no current-truth claim. The inert board retains only its non-authorizing quarantine custody observation. The publication failure test injects the descriptor-relative replacement error and checks the custody wrapper.
 
-Latest verified main: `0a774ff5c9f79480e1ff7210dde81f0e26c9347c`, tree `fbaed7a9c453348e2a20dc7166796db21e396203`
-Latest construction segment: `work/construction/segments/0573-reject-uncertain-world-state-times.md`
-Latest segment SHA-256: `fa0807f7a496a84a8e39d7e6e512d373d2981d3ac242ccd1e0d63e1a88137ebe`
-Sequence: 573 (verified source integration)
+Latest verified main: `26f35f8221202cbbde5bd8c27cd67e9f00453bac`, tree `2375d16ab2faaa10e30edc619431deda9d09cd64`
+Latest construction segment: `work/construction/segments/0574-clarify-embodiment-observation-test-contracts.md`
+Latest segment SHA-256: `2f3124184419769c1aab540b4abfd3c0aaee7593bb09a4a053d2cb6bf34d1e67`
+Sequence: 574 (verified test-contract integration)
 
-Next: complete the isolated embodiment test-contract repair, then continue monitoring for scheduled Federation Health execution on current main and reassess the next developmental cognition dependency.
+Next: continue developmental cognition work by tracing verified positive and adverse historical outcomes through canonical prior-state planning and looking for a missing source-bound decision dependency; preserve read-only planning and non-execution, exact history identity, and omission visibility.
