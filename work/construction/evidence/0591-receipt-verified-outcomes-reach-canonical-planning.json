@@ -1,0 +1,50 @@
+{
+  "sequence": 591,
+  "title": "Receipt-verified positive and adverse outcomes reach canonical planning",
+  "predecessor": {
+    "sequence": 590,
+    "sha256": "9af85856ff3de668262c8eab64f07d9c9cf2574756ef36ae781647493ee359e8"
+  },
+  "source": {
+    "candidate_commit": "018e39f52031d4272fffd7a3981d87c0d1fdcd37",
+    "tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7",
+    "parent_main": "c0bc5adcd66a9d140101cc34904d399e099c4401"
+  },
+  "validation": {
+    "ci_run": 39848062975,
+    "ci_result": "success",
+    "full_self_check": "passed",
+    "source_validation": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39848063116,
+    "strict_administrator_audits": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39848063261,
+      "docker": 39848063171,
+      "gradient_null_regression": 39848063145,
+      "codex_ci": 39848062951,
+      "invariants": 39848062966,
+      "lint_benchmark": 39848062965
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2638,
+    "method": "normal merge",
+    "merge_commit": "fe55aaa2582fed20ecdee22f257cfc758b016882",
+    "tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7",
+    "candidate_to_merge_files_changed": 0
+  },
+  "fixture_revisions": {
+    "rejected_candidates": [
+      "f10e226902860ae310f1e5593a3edb646fab1ab2",
+      "20a5fa6c03d942de2c31d3dba72d26bc5534f165",
+      "10da0a3968585228a2c2a57f9ff36a433bdeb5ce"
+    ],
+    "disposition": "Hosted tests identified fixture defects in evidence sequence numbering, receipt return shape, and receipt field assertions; corrected before final candidate. No production source changes."
+  },
+  "scope": "Authority-admitted, evidence-bound positive and adverse outcomes change canonical goal selection after restart. Unknown or adverse positions defer; planning does not execute and no model or inference is invoked."
+}
