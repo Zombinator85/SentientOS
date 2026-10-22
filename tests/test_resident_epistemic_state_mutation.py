@@ -193,27 +193,14 @@ def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> 
     assert event_path.is_file()
     event_path.unlink()
 
-    recovered_owner = PersistentEpistemicStateOwner(
-        owner.root, allowed_namespaces=("test",))
-    recovered_state = recovered_owner.current_state(proposition.proposition_id)
-    assert recovered_state is not None and recovered_state.generation == 0
-    assert recovered_state.state_id == receipt.successor_state_id
-    assert recovered_owner.verify()["incomplete_admission_bound_transactions"] == 1
-    with pytest.raises(EpistemicStateError, match="epistemic_update_state_pairing_ambiguous"):
-        recovered_owner.cognitive_projection(max_states=1)
     ledger = AdmissionLedger(tmp_path / "admissions.json")
     admissions_before, _ = ledger.load()
-    with pytest.raises(EpistemicMutationError,
-        match="mutation_receipt_without_verified_intent"):
-        ResidentEpistemicStateMutationController(
-            owner=recovered_owner,
-            admission_verifier=controller.admission_verifier,
-            current_sequence=controller.current_sequence,
-            receipt_root=controller.receipt_root)
+    with pytest.raises(EpistemicStateError, match="epistemic_update_state_pairing_ambiguous"):
+        PersistentEpistemicStateOwner(owner.root, allowed_namespaces=("test",))
     admissions_after, _ = ledger.load()
     assert admissions_after == admissions_before
     assert state_receipt_path.read_bytes() == published_receipt
-    assert recovered_owner.current_state(proposition.proposition_id) == recovered_state
+    assert not event_path.exists()
 
 
 
