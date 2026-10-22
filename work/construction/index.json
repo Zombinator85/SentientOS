@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "72ea4132de7c200e4038ea43bb7fbbc2778640b219f9a4f540a8792115543be2",
-    "latest_segment_sequence": 580,
-    "latest_segment_sha256": "2330ec7fb204641feb8720e4a472fae00f0c47bc3bf0252e2089f68e9e416e78",
-    "source_commit": "d6b90fe16326a11a72b5543f71f52ce9ab99d363",
-    "source_tree": "ef38f0616c7879b08e0743398a2b975f015f8953"
+    "checkpoint_sha256": "540a107c9ae2c3422e9feb9c8ed4f14403fe8989a914076d26fb8b7af60efaf5",
+    "latest_segment_sequence": 581,
+    "latest_segment_sha256": "e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653",
+    "source_commit": "65f737615a5605eedc9697109d5862fcc8790dc5",
+    "source_tree": "fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8"
   },
-  "checkpoint_sha256": "72ea4132de7c200e4038ea43bb7fbbc2778640b219f9a4f540a8792115543be2",
+  "checkpoint_sha256": "540a107c9ae2c3422e9feb9c8ed4f14403fe8989a914076d26fb8b7af60efaf5",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 580,
+  "latest_sequence": 581,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6711,6 +6711,19 @@
       "source_candidate_commit": "e00d31258950967a5005aab081dcb273956172bb",
       "source_commit": "d6b90fe16326a11a72b5543f71f52ce9ab99d363",
       "source_tree": "ef38f0616c7879b08e0743398a2b975f015f8953"
+    },
+    {
+      "sequence": 581,
+      "path": "work/construction/segments/0581-reconcile-sequence580-integration.md",
+      "sha256": "e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653",
+      "bytes": 1190,
+      "predecessor": "segment-sha256:2330ec7fb204641feb8720e4a472fae00f0c47bc3bf0252e2089f68e9e416e78",
+      "evidence_path": "work/construction/evidence/0581-reconcile-sequence580-integration.json",
+      "evidence_sha256": "09a0967e2ca42bf9b9616eade00e808ce37002ae9115ce29beac5f6df85523a1",
+      "evidence_bytes": 2895,
+      "source_candidate_commit": "0551a4178200874e3d19ae88c6488b5f8753cf67",
+      "source_commit": "65f737615a5605eedc9697109d5862fcc8790dc5",
+      "source_tree": "fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8"
     }
   ],
   "source_acquisition": {

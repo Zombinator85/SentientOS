@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 580
+## Current verified state — sequence 581
 
-Sequences 579–580 integrate and reconcile the starvation-free bounded epistemic state scheduler. The exact regression passed in hosted source validation; PR #2618's eight candidate workflows passed. PR #2619's source validation, CI, lint, privileged finalizer, and metadata guard completed successfully. GitHub confirms main equals the evidence merge and its tree matches the candidate. Its QG job and all steps succeeded, though the connector's top-level run summary remained in progress; this is recorded as an evidence limitation.
+Sequences 579–581 integrate the bounded epistemic state fairness repair and reconcile its source and evidence PRs. The starvation regression passed in hosted source validation; exact-candidate CI, lint, privileged audit/finalizer/metadata guard, invariants, gradient, Docker, helm, docs, and Release validation completed successfully. Main matches the evidence merge tree.
 
-Latest verified main: `d6b90fe16326a11a72b5543f71f52ce9ab99d363`, tree `ef38f0616c7879b08e0743398a2b975f015f8953`
-Latest construction segment: `work/construction/segments/0580-reconcile-sequence579-integration.md`
-Latest segment SHA-256: `2330ec7fb204641feb8720e4a472fae00f0c47bc3bf0252e2089f68e9e416e78`
-Sequence: 580 (verified evidence integration)
+Latest verified main: `65f737615a5605eedc9697109d5862fcc8790dc5`, tree `fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8`
+Latest construction segment: `work/construction/segments/0581-reconcile-sequence580-integration.md`
+Latest segment SHA-256: `e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653`
+Sequence: 581 (verified evidence integration)
 
-Next: validate fairness across unequal active-binding counts and event-history reconstruction/restart. Confirm the scheduler remains bounded and deterministic under durable replay, and that omissions remain visible when a proposition has no current state event history. Preserve existing admission controls and do not introduce implicit inference or production execution.
+Next: verify that fairness ordering remains stable when state histories are reconstructed after restart and assess whether the persisted update tick is guaranteed monotonic by the canonical caller. If it is not, strengthen the chronology contract or use a durable append-order cursor, with a regression that preserves explicit omission evidence and remains inside existing admission boundaries.
