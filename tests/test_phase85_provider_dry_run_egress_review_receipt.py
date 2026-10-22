@@ -129,6 +129,17 @@ def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
     assert not provider_dry_run_review_satisfies_envelope(envelope, receipt)
 
 
+def test_extreme_review_times_fail_closed_when_utc_normalization_overflows():
+    values = ("0001-01-01T00:00:00+23:59", "9999-12-31T23:59:59-23:59")
+    for field in ("reviewed_at", "evaluated_at", "expires_at"):
+        for value in values:
+            envelope = _envelope()
+            receipt = _review(envelope, **{field: value})
+            assert receipt.review_status == INVALID
+            assert "review_time_invalid" in _codes(receipt)
+            assert not provider_dry_run_review_satisfies_envelope(envelope, receipt)
+
+
 def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
     envelope = _envelope()
     receipt = _review(envelope)
