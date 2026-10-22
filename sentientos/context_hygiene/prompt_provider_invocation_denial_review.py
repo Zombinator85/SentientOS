@@ -468,7 +468,7 @@ def _constraints() -> tuple[ProviderInvocationDenialReviewConstraint, ...]:
     )
 
 
-def _parse_time(value: str) -> datetime | None:
+def _parse_time(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     if value.endswith("-00:00"):
@@ -502,9 +502,12 @@ def _is_expired(expiration: ProviderInvocationDenialReviewExpiration) -> bool:
     return bool(expires and evaluated and evaluated >= expires)
 
 
-def _expiration_times_valid(expiration: ProviderInvocationDenialReviewExpiration) -> bool:
-    return bool(_parse_time(expiration.reviewed_at) and _parse_time(expiration.evaluated_at)
-        and (not expiration.expires_at or _parse_time(expiration.expires_at)))
+def _expiration_times_valid(expiration: Any) -> bool:
+    data = _mapping(expiration)
+    if not data:
+        return True
+    return all(value in (None, "") or _parse_time(value) is not None
+        for value in (data.get("reviewed_at"), data.get("evaluated_at"), data.get("expires_at")))
 
 
 def _code_from_text(prefix: str, text: str) -> str:
@@ -999,6 +1002,8 @@ def validate_provider_invocation_denial_review_receipt(receipt: ProviderInvocati
     findings: list[ProviderInvocationDenialReviewFinding] = []
     if not data:
         return (_finding("review_receipt_malformed", "provider invocation-denial review receipt is malformed"),)
+    if not _expiration_times_valid(data.get("expiration", {})):
+        findings.append(_finding("review_time_invalid", "review timestamps must include a known timezone"))
     if not str(data.get("reviewer_ref", "")):
         findings.append(_finding("reviewer_ref_missing", "reviewer_ref is required"))
     if not _markers_true(receipt):
@@ -1159,6 +1164,7 @@ def provider_invocation_denial_review_approves_future_external_security_review_g
         and data.get("review_scope") == ProviderInvocationDenialReviewScope.FUTURE_EXTERNAL_SECURITY_REVIEW_GATE
         and data.get("decision") == ProviderInvocationDenialReviewDecision.APPROVE_FUTURE_EXTERNAL_SECURITY_REVIEW_GATE
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not provider_invocation_denial_review_attempts_forbidden_invocation_override(receipt)
         and _markers_true(receipt)
         and _has_no_allowance(receipt)
@@ -1172,6 +1178,7 @@ def provider_invocation_denial_review_approves_future_denial_audit_gate(receipt:
         and data.get("review_scope") == ProviderInvocationDenialReviewScope.FUTURE_INVOCATION_DENIAL_AUDIT_GATE
         and data.get("decision") == ProviderInvocationDenialReviewDecision.APPROVE_FUTURE_INVOCATION_DENIAL_AUDIT_GATE
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not provider_invocation_denial_review_attempts_forbidden_invocation_override(receipt)
         and data.get("provider_invocation_forbidden") is True
         and _markers_true(receipt)

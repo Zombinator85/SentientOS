@@ -262,7 +262,7 @@ def _finding(code: str, detail: str, severity: str = "blocker") -> InternalModel
     return InternalModelCallReviewFinding(code=code, detail=detail, severity=severity)
 
 
-def _parse_time(value: str) -> datetime | None:
+def _parse_time(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     if value.endswith("-00:00"):
@@ -302,9 +302,12 @@ def _is_expired(expiration: InternalModelCallReviewExpiration) -> bool:
     return bool(expires and evaluated and evaluated >= expires)
 
 
-def _expiration_times_valid(expiration: InternalModelCallReviewExpiration) -> bool:
-    return bool(_parse_time(expiration.reviewed_at) and _parse_time(expiration.evaluated_at)
-        and (not expiration.expires_at or _parse_time(expiration.expires_at)))
+def _expiration_times_valid(expiration: Any) -> bool:
+    data = _mapping(expiration)
+    if not data:
+        return True
+    return all(value in (None, "") or _parse_time(value) is not None
+        for value in (data.get("reviewed_at"), data.get("evaluated_at"), data.get("expires_at")))
 
 
 def _code_from_text(prefix: str, text: str) -> str:
@@ -604,6 +607,8 @@ def validate_internal_model_call_review_receipt(receipt: InternalModelCallReview
     findings: list[InternalModelCallReviewFinding] = []
     if not data:
         return (_finding("review_receipt_malformed", "model-call review receipt is malformed"),)
+    if not _expiration_times_valid(data.get("expiration", {})):
+        findings.append(_finding("review_time_invalid", "review timestamps must include a known timezone"))
     if not str(data.get("reviewer_ref", "")):
         findings.append(_finding("reviewer_ref_missing", "reviewer_ref is required"))
     if not _non_runtime_markers_true(receipt):
@@ -699,6 +704,7 @@ def internal_model_call_review_approves_future_gate(receipt: InternalModelCallRe
             InternalModelCallReviewStatus.MODEL_CALL_REVIEW_APPROVED_WITH_CONSTRAINTS,
         }
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not internal_model_call_review_attempts_forbidden_override(receipt)
         and internal_model_call_review_preserves_provider_forbidden(receipt)
         and _has_no_runtime_allowance(receipt)

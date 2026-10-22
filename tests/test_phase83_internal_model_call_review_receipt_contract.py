@@ -308,6 +308,17 @@ def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
     assert not internal_model_call_review_satisfies_preflight(preflight, receipt)
 
 
+def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
+    preflight = _preflight()
+    receipt = _receipt(preflight)
+    forged = replace(receipt, expiration=replace(receipt.expiration,
+        expires_at="2030-01-01T00:00:00-00:00"), expired=False, findings=(), review_digest="")
+    forged = replace(forged, review_digest=compute_internal_model_call_review_digest(forged))
+    assert "review_time_invalid" in {finding.code for finding in validate_internal_model_call_review_receipt(forged)}
+    assert not internal_model_call_review_approves_future_gate(forged)
+    assert not internal_model_call_review_satisfies_preflight(preflight, forged)
+
+
 def test_preflight_digest_or_id_mismatch_does_not_satisfy_preflight():
     preflight = _preflight()
     receipt = _receipt(preflight)

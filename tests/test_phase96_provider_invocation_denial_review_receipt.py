@@ -199,6 +199,18 @@ def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
     assert not provider_invocation_denial_review_approves_future_external_security_review_gate(receipt)
 
 
+def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
+    receipt = _receipt(
+        decision=ProviderInvocationDenialReviewDecision.APPROVE_FUTURE_EXTERNAL_SECURITY_REVIEW_GATE,
+        review_scope=ProviderInvocationDenialReviewScope.FUTURE_EXTERNAL_SECURITY_REVIEW_GATE,
+    )
+    forged = replace(receipt, expiration=replace(receipt.expiration,
+        expires_at="2030-01-01T00:00:00-00:00"), expired=False, findings=(), review_digest="")
+    forged = replace(forged, review_digest=compute_provider_invocation_denial_review_digest(forged))
+    assert "review_time_invalid" in {finding.code for finding in validate_provider_invocation_denial_review_receipt(forged)}
+    assert not provider_invocation_denial_review_approves_future_external_security_review_gate(forged)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

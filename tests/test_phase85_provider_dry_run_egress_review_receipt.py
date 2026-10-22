@@ -129,6 +129,17 @@ def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
     assert not provider_dry_run_review_satisfies_envelope(envelope, receipt)
 
 
+def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
+    envelope = _envelope()
+    receipt = _review(envelope)
+    forged = replace(receipt, expiration=replace(receipt.expiration,
+        expires_at="2030-01-01T00:00:00-00:00"), expired=False, findings=(), review_digest="")
+    forged = replace(forged, review_digest=compute_provider_dry_run_egress_review_digest(forged))
+    assert "review_time_invalid" in {finding.code for finding in validate_provider_dry_run_egress_review_receipt(forged)}
+    assert not provider_dry_run_review_approves_future_simulation_gate(forged)
+    assert not provider_dry_run_review_satisfies_envelope(envelope, forged)
+
+
 def test_satisfaction_requires_matching_id_digest_unexpired_approval_and_all_mitigations():
     envelope = _envelope()
     receipt = _review(envelope)
