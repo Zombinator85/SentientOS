@@ -2864,22 +2864,38 @@ class RuntimeMaintenanceSurfaces:
             try:
                 prior_self_model = None
                 prior_epistemic_state = None
+                epistemic_projection_tick: int | None = None
+                if self._epistemic_state_configuration_error is not None:
+                    raise ValueError(self._epistemic_state_configuration_error)
+                if (self._epistemic_state_owner is not None
+                        and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
+                    if tick_id.endswith("-00:00"):
+                        raise ValueError("resident_cognition_tick_offset_unknown")
+                    try:
+                        cognition_instant = datetime.fromisoformat(
+                            tick_id.replace("Z", "+00:00"))
+                    except (AttributeError, TypeError, ValueError) as exc:
+                        raise ValueError(
+                            "resident_cognition_tick_timezone_required") from exc
+                    if cognition_instant.tzinfo is None or cognition_instant.utcoffset() is None:
+                        raise ValueError("resident_cognition_tick_timezone_required")
+                    try:
+                        epistemic_projection_tick = int(cognition_instant.timestamp())
+                    except (OSError, OverflowError, ValueError) as exc:
+                        raise ValueError(
+                            "resident_cognition_tick_unrepresentable") from exc
                 config = self._longitudinal_self_model_config
                 if (config is not None and config.cognitive_consumption_enabled
                         and self._longitudinal_self_model_owner is not None):
                     prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
                         before_tick=tick_id, max_claims=config.max_projection_claims,
                         allowed_predicates=config.allowed_predicates)
-                if self._epistemic_state_configuration_error is not None:
-                    raise ValueError(self._epistemic_state_configuration_error)
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
-                    cognition_instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
-                    if cognition_instant.tzinfo is None or cognition_instant.utcoffset() is None:
-                        raise ValueError("resident_cognition_tick_timezone_required")
+                    assert epistemic_projection_tick is not None
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
-                        current_tick=int(cognition_instant.timestamp()))
+                        current_tick=epistemic_projection_tick)
                 objective_request_status = None
                 objective_measurement_summary = None
                 existing_objective_request = False
