@@ -1,0 +1,97 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 578,
+  "title": "Reconcile sequence 576–577 append-only integration",
+  "status": "verified_evidence_integration",
+  "predecessor": {
+    "sequence": 577,
+    "segment_sha256": "c4ecc5258b7de94ade912e102db704b7c57b4a630c19cea6156f1094102e6b55"
+  },
+  "segment_path": "work/construction/segments/0578-reconcile-sequence576-577-append-only-integration.md",
+  "segment_sha256": "ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51",
+  "segment_bytes": 1382,
+  "candidate": {
+    "base": "cb76de22952bffd5597405ef7322b9c9668693aa",
+    "commit": "b8def0957242ce092dbe177fdd4844c8397a9b27",
+    "tree": "8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2",
+    "pull_request": 2616,
+    "remote_blob_readback": "six of six matched",
+    "source_validation": "passed",
+    "quality_gate": {
+      "run": 39814223351,
+      "result": "success",
+      "acceptance": "47/47",
+      "administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "finalizer_artifact": {
+        "id": 12440853522,
+        "digest": "sha256:7af8c60f737e505c04ec99d481fad2879b88a1a223e29929aaf567f49ac59d26"
+      },
+      "metadata_guard": "passed",
+      "acceptance_artifact": {
+        "id": 12441018018,
+        "digest": "sha256:60eb6646d8749f15d1f8e3986f3cdee4deaef4ebe486cd6984e9016cdb97e39a"
+      }
+    },
+    "checks": {
+      "ci": {
+        "run": 39814223403,
+        "result": "success",
+        "tests_passed": 143,
+        "tests_skipped": 13,
+        "tests_failed": 0,
+        "test_provenance_artifact": {
+          "id": 12441706300,
+          "digest": "sha256:209434ebed73cc19cd9694cd4b25ed00b49ddb51a51edccf809ceaedf2f17138"
+        }
+      },
+      "source_validation_artifact": {
+        "id": 12440754249,
+        "digest": "sha256:004c03952a1c0b088ff250fec197dd3004040c847d0629a0f3d02afef94fc830"
+      },
+      "lint_benchmark": {
+        "run": 39814223462,
+        "result": "success"
+      },
+      "codex_ci": {
+        "run": 39814223346,
+        "result": "success"
+      },
+      "gradient": {
+        "run": 39814223349,
+        "result": "success"
+      },
+      "release": {
+        "run": 39814223375,
+        "result": "success",
+        "publish": "conditionally_skipped"
+      },
+      "invariants": {
+        "run": 39814223350,
+        "result": "success"
+      },
+      "docker": {
+        "run": 39814223367,
+        "result": "success"
+      }
+    },
+    "synthetic_merge_test_sha": "4dbfd4042237f0e64056dbde26081c3d3b31dec9"
+  },
+  "merge": {
+    "commit": "fd8e2139e73d3a846e9039ffa56a3c96ad5dce2c",
+    "tree": "8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "base_compare": {
+      "base": "cb76de22952bffd5597405ef7322b9c9668693aa",
+      "ahead_by": 2,
+      "behind_by": 0,
+      "changed_files": 6
+    },
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured GitHub connector; no post-merge result is claimed.",
+    "No inference or production transition occurred."
+  ]
+}
