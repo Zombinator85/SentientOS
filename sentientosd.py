@@ -2719,10 +2719,24 @@ class RuntimeMaintenanceSurfaces:
             feedback = {"status": "degraded", "reason": "same_tick_world_state_unavailable",
                         "authority": False, "next_tick_only": True}
         else:
-            instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
-            result = self._epistemic_development_runtime.process_snapshot(
-                self._world_state_snapshot, tick=int(instant.timestamp()), recorded_at=instant.isoformat())
-            feedback = asdict(result)
+            try:
+                if tick_id.endswith("-00:00"):
+                    raise ValueError("resident_epistemic_development_tick_offset_unknown")
+                instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
+                if instant.tzinfo is None or instant.utcoffset() is None:
+                    raise ValueError("resident_epistemic_development_tick_timezone_required")
+                try:
+                    tick = int(instant.timestamp())
+                except (OSError, OverflowError, ValueError) as exc:
+                    raise ValueError(
+                        "resident_epistemic_development_tick_unrepresentable") from exc
+            except (AttributeError, TypeError, ValueError) as exc:
+                feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
+                            "authority": False, "next_tick_only": True}
+            else:
+                result = self._epistemic_development_runtime.process_snapshot(
+                    self._world_state_snapshot, tick=tick, recorded_at=instant.isoformat())
+                feedback = asdict(result)
         self._feedback.setdefault("surfaces", {})["resident_epistemic_development"] = feedback
         self._refresh_feedback()
         return feedback

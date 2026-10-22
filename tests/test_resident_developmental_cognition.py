@@ -5687,6 +5687,82 @@ def test_sentientosd_rejects_unrepresentable_epistemic_tick_before_owner_reads(
     assert cognition_owner.calls == 0
 
 
+def test_sentientosd_rejects_unknown_epistemic_write_tick_before_runtime(
+    tmp_path: Path,
+) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not timestamp epistemic updates")
+
+    tick = "2026-01-03T00:00:00-00:00"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-unknown-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    feedback = surfaces.run_epistemic_development(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == (
+        "ValueError:resident_epistemic_development_tick_offset_unknown")
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
+
+
+def test_sentientosd_rejects_unrepresentable_epistemic_write_tick_before_runtime(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unrepresentable tick must not timestamp updates")
+
+    tick = "2026-01-03T00:00:00+00:00"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-overflow-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    class UnrepresentableInstant:
+        tzinfo = object()
+
+        def utcoffset(self):
+            from datetime import timedelta
+            return timedelta(0)
+
+        def timestamp(self) -> float:
+            raise OverflowError("platform timestamp range")
+
+        def isoformat(self) -> str:
+            return tick
+
+    class DatetimeShim:
+        @staticmethod
+        def fromisoformat(_value: str) -> UnrepresentableInstant:
+            return UnrepresentableInstant()
+
+    monkeypatch.setattr("sentientosd.datetime", DatetimeShim)
+
+    feedback = surfaces.run_epistemic_development(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == (
+        "ValueError:resident_epistemic_development_tick_unrepresentable")
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
+
+
 def test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled(tmp_path: Path) -> None:
     assert _load_epistemic_state_owner(None) == (None, {"status":"disabled", "cognitive_consumption_enabled":False})
     path=tmp_path/"epistemic-config.json"
