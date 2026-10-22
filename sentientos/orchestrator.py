@@ -128,8 +128,11 @@ def plan_goals(
     path. The verified epistemic owner, when supplied, is read
     exactly once at the planning time and is never mutated.
     """
-    root = repo_root.resolve()
     current_time = planning_time or _iso_now()
+    if not isinstance(current_time, str):
+        raise ValueError("planning_time_must_be_timezone_aware")
+    if current_time.endswith("-00:00"):
+        raise ValueError("planning_time_offset_unknown")
     try:
         instant = datetime.fromisoformat(current_time.replace("Z", "+00:00"))
     except (AttributeError, ValueError) as exc:
@@ -139,6 +142,18 @@ def plan_goals(
     if (prior_epistemic_projection_owner is None
             and prior_epistemic_projection_max_states is not None):
         raise ValueError("epistemic_projection_bound_requires_owner")
+    projection_tick: int | None = None
+    projection_max_states: int | None = None
+    if prior_epistemic_projection_owner is not None:
+        if (not isinstance(prior_epistemic_projection_max_states, int)
+                or isinstance(prior_epistemic_projection_max_states, bool)):
+            raise ValueError("epistemic_projection_bound_required")
+        projection_max_states = prior_epistemic_projection_max_states
+        try:
+            projection_tick = int(instant.timestamp())
+        except (OSError, OverflowError, ValueError) as exc:
+            raise ValueError("planning_time_unrepresentable") from exc
+    root = repo_root.resolve()
     graph = load_goal_graph(root)
     if prior_epistemic_projection_owner is None:
         prioritized_proposition_ids = _goal_tagged_epistemic_positions(graph)
@@ -148,12 +163,11 @@ def plan_goals(
             _goal_tagged_epistemic_priority_selection(graph))
     prior_projection = None
     if prior_epistemic_projection_owner is not None:
-        if (not isinstance(prior_epistemic_projection_max_states, int)
-                or isinstance(prior_epistemic_projection_max_states, bool)):
-            raise ValueError("epistemic_projection_bound_required")
+        assert projection_tick is not None
+        assert projection_max_states is not None
         prior_projection = prior_epistemic_projection_owner.cognitive_projection(
-            max_states=prior_epistemic_projection_max_states,
-            current_tick=int(instant.timestamp()),
+            max_states=projection_max_states,
+            current_tick=projection_tick,
             prioritized_proposition_ids=prioritized_proposition_ids)
 
     now = _iso_now()
