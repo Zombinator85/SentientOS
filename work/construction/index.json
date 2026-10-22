@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "6d93716a9a4c922614fef2180ed10a366554145b9cb1a090549b0a36b84fbdd6",
-    "latest_segment_sequence": 571,
-    "latest_segment_sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
-    "source_commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352c",
-    "source_tree": "f3d3baa4fb6361adabb633f352266228b2f127be"
+    "checkpoint_sha256": "70da496b26b87fcae5494bdf8accfc5eb39d0ec8b6a4ebe8b8cc1610967b9767",
+    "latest_segment_sequence": 572,
+    "latest_segment_sha256": "2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
+    "source_commit": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
+    "source_tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
   },
-  "checkpoint_sha256": "6d93716a9a4c922614fef2180ed10a366554145b9cb1a090549b0a36b84fbdd6",
+  "checkpoint_sha256": "70da496b26b87fcae5494bdf8accfc5eb39d0ec8b6a4ebe8b8cc1610967b9767",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 571,
+  "latest_sequence": 572,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6557,43 +6557,56 @@
       "source_tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
     },
     {
-      "sequence": 569,
-      "path": "work/construction/segments/0569-reject-uncertain-authority-timestamps.md",
       "bytes": 3143,
-      "sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
-      "predecessor": "segment-sha256:ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
-      "source_commit": "f4cc3e7da87e143dd2187e7e80400974a2609860",
-      "source_tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e",
-      "source_candidate_commit": "29a1eae23b97aaacfb3b6f9b9a12bca398324068",
-      "evidence_path": "work/construction/evidence/0569-reject-uncertain-authority-timestamps.json",
       "evidence_bytes": 5227,
-      "evidence_sha256": "6284b5c6268919074060faae75a7b2e6a3f209cb0e03b7569072bee98654a716"
+      "evidence_path": "work/construction/evidence/0569-reject-uncertain-authority-timestamps.json",
+      "evidence_sha256": "6284b5c6268919074060faae75a7b2e6a3f209cb0e03b7569072bee98654a716",
+      "path": "work/construction/segments/0569-reject-uncertain-authority-timestamps.md",
+      "predecessor": "segment-sha256:ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
+      "sequence": 569,
+      "sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
+      "source_candidate_commit": "29a1eae23b97aaacfb3b6f9b9a12bca398324068",
+      "source_commit": "f4cc3e7da87e143dd2187e7e80400974a2609860",
+      "source_tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e"
     },
     {
-      "sequence": 570,
-      "path": "work/construction/segments/0570-verify-sequence-569-evidence-integration.md",
       "bytes": 2659,
-      "sha256": "a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
-      "predecessor": "segment-sha256:53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
-      "source_commit": "0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5",
-      "source_tree": "3149a0cb8f47f54aecbc882cddc9626e2b256a61",
-      "source_candidate_commit": "f0a05b10be87a3deac4e9bc030a9bbccede50987",
-      "evidence_path": "work/construction/evidence/0570-verify-sequence-569-evidence-integration.json",
       "evidence_bytes": 4836,
-      "evidence_sha256": "303b61a3d0462e7c4864d1efa16435c4aec74c5f881e8f41bf285720240d626f"
+      "evidence_path": "work/construction/evidence/0570-verify-sequence-569-evidence-integration.json",
+      "evidence_sha256": "303b61a3d0462e7c4864d1efa16435c4aec74c5f881e8f41bf285720240d626f",
+      "path": "work/construction/segments/0570-verify-sequence-569-evidence-integration.md",
+      "predecessor": "segment-sha256:53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
+      "sequence": 570,
+      "sha256": "a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
+      "source_candidate_commit": "f0a05b10be87a3deac4e9bc030a9bbccede50987",
+      "source_commit": "0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5",
+      "source_tree": "3149a0cb8f47f54aecbc882cddc9626e2b256a61"
     },
     {
-      "sequence": 571,
-      "path": "work/construction/segments/0571-reject-uncertain-canonical-planning-times.md",
       "bytes": 2594,
-      "sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
-      "predecessor": "segment-sha256:a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
-      "source_commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352c",
-      "source_tree": "f3d3baa4fb6361adabb633f352266228b2f127be",
-      "source_candidate_commit": "a543193a7df3b9465600773a854672ad0ae7e4eb",
-      "evidence_path": "work/construction/evidence/0571-reject-uncertain-canonical-planning-times.json",
       "evidence_bytes": 5769,
-      "evidence_sha256": "c2e3e84d798dd64aa480fe386796ebe6383e2f3e23cda8900fea1e2627ec465c"
+      "evidence_path": "work/construction/evidence/0571-reject-uncertain-canonical-planning-times.json",
+      "evidence_sha256": "c2e3e84d798dd64aa480fe386796ebe6383e2f3e23cda8900fea1e2627ec465c",
+      "path": "work/construction/segments/0571-reject-uncertain-canonical-planning-times.md",
+      "predecessor": "segment-sha256:a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
+      "sequence": 571,
+      "sha256": "82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+      "source_candidate_commit": "a543193a7df3b9465600773a854672ad0ae7e4eb",
+      "source_commit": "7f22bd2157dfd0549f33eecf74a74fce56c8352c",
+      "source_tree": "f3d3baa4fb6361adabb633f352266228b2f127be"
+    },
+    {
+      "bytes": 2435,
+      "evidence_bytes": 5896,
+      "evidence_path": "work/construction/evidence/0572-guard-resident-cognition-tick-custody.json",
+      "evidence_sha256": "56b358041c1be35adc3692f5f5a0d8151991c898cea6c37ffbc0b7da75eb9ca4",
+      "path": "work/construction/segments/0572-guard-resident-cognition-tick-custody.md",
+      "predecessor": "segment-sha256:82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0",
+      "sequence": 572,
+      "sha256": "2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493",
+      "source_candidate_commit": "55764bae0c03ce90d126e290eaf1b677bf0d477c",
+      "source_commit": "8ab7b11b49c704e4939804e57ca1da4da8736cac",
+      "source_tree": "5788382f6df2dae47f42fb278db4e5dae8e653cf"
     }
   ],
   "source_acquisition": {

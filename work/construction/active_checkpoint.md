@@ -472,15 +472,15 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 571
+## Current verified state — sequence 572
 
-Main is `7f22bd2157dfd0549f33eecf74a74fce56c8352c` with tree `f3d3baa4fb6361adabb633f352266228b2f127be`. Canonical planning now rejects unknown UTC offsets and fails closed when projection timestamp conversion is unrepresentable, before repository or owner reads. PR #2605 passed exact-candidate hosted acceptance and strict Administrator finalization, including the separate pre-publication metadata guard, then merged normally. All post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, and Codex CI checks passed; Forge Smoke was conditionally skipped.
+PR #2607 integrated guarded daemon tick custody on `main` at `8ab7b11b49c704e4939804e57ca1da4da8736cac`, tree `5788382f6df2dae47f42fb278db4e5dae8e653cf`. Unknown-offset and unrepresentable timestamps fail before prior resident cognition projections or epistemic writes. Exact-candidate 47-node acceptance, strict Administrator audits and immutability, the separate prepublication metadata guard, and all candidate checks passed. The normal merge preserves main as first parent and the candidate as second. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped.
 
-The latest scheduled Federation Health evidence still binds ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`, and no scheduled run on this current main was observed at 2026-10-22 01:42:41 UTC. Do not treat the earlier stale local snapshot as live federation telemetry. Nightly Audit Integrity and Nightly Self Check last succeeded on older commits; their source-level authority boundaries remain valid and current-main CI verifies the corresponding audit/test paths.
+The latest scheduled Federation Health run is still bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; it succeeded, and its App-token publication path ran successfully without report changes. No scheduled run on current main was observed at `2026-10-22T02:26:29Z`. Its report is a stale configured local log snapshot, not live telemetry.
 
-Latest verified main: `7f22bd2157dfd0549f33eecf74a74fce56c8352c`, tree `f3d3baa4fb6361adabb633f352266228b2f127be`
-Latest construction segment: `work/construction/segments/0571-reject-uncertain-canonical-planning-times.md`
-Latest segment SHA-256: `82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0`
-Sequence: 571 (verified source integration)
+Latest verified main: `8ab7b11b49c704e4939804e57ca1da4da8736cac`, tree `5788382f6df2dae47f42fb278db4e5dae8e653cf`
+Latest construction segment: `work/construction/segments/0572-guard-resident-cognition-tick-custody.md`
+Latest segment SHA-256: `2413e2fd8d59b3929c51e66ee2c14de8e7e12a9bcc385b883cb4bf55ef096493`
+Sequence: 572 (verified source integration)
 
-Next: verify an actual scheduled Federation Health execution on current main when available, then reassess the next canonical developmental cognition dependency.
+Next: reject ambiguous observation times from World-State freshness scoring and validate daemon ticks before any owner read or board publication. Continue monitoring for scheduled Federation Health execution on the current main.
