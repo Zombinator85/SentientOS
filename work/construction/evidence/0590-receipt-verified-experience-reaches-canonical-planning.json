@@ -1,0 +1,46 @@
+{
+  "sequence": 590,
+  "title": "Receipt-verified experience reaches canonical planning",
+  "predecessor": {
+    "sequence": 589,
+    "sha256": "dd59571035df1142bf276f6fa24c53fcb3771c4665fe96f1d928e50b811e241f"
+  },
+  "source": {
+    "candidate_commit": "bde315c91b6e04684a3a1aaaed0f488db164e7db",
+    "tree": "a3c46f657313ab958438580ad3badde29f9a77d8",
+    "parent_main": "681c35a9bdff0835e038640fbac050fff9973314"
+  },
+  "validation": {
+    "ci_run": 39843776113,
+    "ci_result": "success",
+    "self_check": {
+      "passed": 143,
+      "skipped": 13,
+      "failed": 0
+    },
+    "source_validation": "passed",
+    "canonical_planning_acceptance": "passed",
+    "required_quality_gate_run": 39843776147,
+    "strict_administrator_audits": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "lint_benchmark": 39843776287,
+      "release": 39843776228,
+      "invariants": 39843776115,
+      "gradient_null_regression": 39843776164,
+      "codex_ci": 39843776018,
+      "docker": 39843776422
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2636,
+    "method": "normal merge",
+    "merge_commit": "3266bc6a352ab515d9e29fe149ee64b21240a773",
+    "tree": "a3c46f657313ab958438580ad3badde29f9a77d8",
+    "candidate_to_merge_files_changed": 0
+  },
+  "scope": "Receipt-verified retained state changes canonical planning after restart; planning does not execute goals. No inference or production transition."
+}

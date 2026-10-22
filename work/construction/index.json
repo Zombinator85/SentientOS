@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "423f7e19e8fb1b95e3b70a8497915f30019d1c113a95334bfd29115824b5c304",
-    "latest_segment_sequence": 589,
-    "latest_segment_sha256": "dd59571035df1142bf276f6fa24c53fcb3771c4665fe96f1d928e50b811e241f",
-    "source_commit": "605712b0dcca29cb916f2508e02d7cbe0eaaeb89",
-    "source_tree": "24d0ba08983bb996e9e1a799babfe61ebde40907"
+    "checkpoint_sha256": "31e0b96777c8d436242d231a6c16441d727bbb49f843034ccda641643a9b0447",
+    "latest_segment_sequence": 590,
+    "latest_segment_sha256": "9af85856ff3de668262c8eab64f07d9c9cf2574756ef36ae781647493ee359e8",
+    "source_commit": "3266bc6a352ab515d9e29fe149ee64b21240a773",
+    "source_tree": "a3c46f657313ab958438580ad3badde29f9a77d8"
   },
-  "checkpoint_sha256": "423f7e19e8fb1b95e3b70a8497915f30019d1c113a95334bfd29115824b5c304",
+  "checkpoint_sha256": "31e0b96777c8d436242d231a6c16441d727bbb49f843034ccda641643a9b0447",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 589,
+  "latest_sequence": 590,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6828,6 +6828,19 @@
       "source_candidate_commit": "8149e053a07e83f635638a477eda2f43101dd346",
       "source_commit": "605712b0dcca29cb916f2508e02d7cbe0eaaeb89",
       "source_tree": "24d0ba08983bb996e9e1a799babfe61ebde40907"
+    },
+    {
+      "sequence": 590,
+      "path": "work/construction/segments/0590-receipt-verified-experience-reaches-canonical-planning.md",
+      "sha256": "9af85856ff3de668262c8eab64f07d9c9cf2574756ef36ae781647493ee359e8",
+      "bytes": 2001,
+      "predecessor": "segment-sha256:dd59571035df1142bf276f6fa24c53fcb3771c4665fe96f1d928e50b811e241f",
+      "evidence_path": "work/construction/evidence/0590-receipt-verified-experience-reaches-canonical-planning.json",
+      "evidence_sha256": "6a1f523fca78c98178c25a44b5850cb9b95f162e202132131ad2652784c11aa3",
+      "evidence_bytes": 1570,
+      "source_candidate_commit": "bde315c91b6e04684a3a1aaaed0f488db164e7db",
+      "source_commit": "3266bc6a352ab515d9e29fe149ee64b21240a773",
+      "source_tree": "a3c46f657313ab958438580ad3badde29f9a77d8"
     }
   ],
   "source_acquisition": {
