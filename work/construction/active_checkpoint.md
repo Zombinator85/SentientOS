@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 581
+## Current verified state — sequence 582
 
-Sequences 579–581 integrate the bounded epistemic state fairness repair and reconcile its source and evidence PRs. The starvation regression passed in hosted source validation; exact-candidate CI, lint, privileged audit/finalizer/metadata guard, invariants, gradient, Docker, helm, docs, and Release validation completed successfully. Main matches the evidence merge tree.
+Sequence 582 replaces tick-based fairness, which could collide at the daemon's integer-second resolution, with deterministic least-generation-first state scheduling. The same-tick regression passed in hosted source validation after reconstructing the persistent owner. PR #2622 passed strict hosted Quality Gate, CI, source validation, all three lint matrix jobs, and the other required candidate workflows, then merged normally. Main matches its tested source tree. The Lint Benchmark workflow summary lagged its successful matrix jobs and is recorded as a limitation.
 
-Latest verified main: `65f737615a5605eedc9697109d5862fcc8790dc5`, tree `fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8`
-Latest construction segment: `work/construction/segments/0581-reconcile-sequence580-integration.md`
-Latest segment SHA-256: `e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653`
-Sequence: 581 (verified evidence integration)
+Latest verified main: `d28206ce2f87c7a716de252aca5e9dd53085735c`, tree `a40da840707418ebd337acdf4825ee9c4876807b`
+Latest construction segment: `work/construction/segments/0582-fair-epistemic-generation-scheduling.md`
+Latest segment SHA-256: `2527f1ef23a5b9ed9d4bc69f3a38827866804712daa0473c6c0d073211087d12`
+Sequence: 582 (verified source integration)
 
-Next: verify that fairness ordering remains stable when state histories are reconstructed after restart and assess whether the persisted update tick is guaranteed monotonic by the canonical caller. If it is not, strengthen the chronology contract or use a durable append-order cursor, with a regression that preserves explicit omission evidence and remains inside existing admission boundaries.
+Next: inspect how least-generation-first behaves when one proposition receives evidence more frequently or has a much larger active binding set. Confirm that the service count advances only after a verified state receipt, that rejected/omitted candidates do not appear served, and that configured proposition limits keep the schedule bounded. Add a targeted regression only if the current lifecycle tests do not already prove these boundaries.

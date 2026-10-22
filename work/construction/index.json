@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "540a107c9ae2c3422e9feb9c8ed4f14403fe8989a914076d26fb8b7af60efaf5",
-    "latest_segment_sequence": 581,
-    "latest_segment_sha256": "e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653",
-    "source_commit": "65f737615a5605eedc9697109d5862fcc8790dc5",
-    "source_tree": "fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8"
+    "checkpoint_sha256": "cd3a7397e7c0c20ed59b91ee2b7671d24f7558ce546064c573efa5198a7e57fa",
+    "latest_segment_sequence": 582,
+    "latest_segment_sha256": "2527f1ef23a5b9ed9d4bc69f3a38827866804712daa0473c6c0d073211087d12",
+    "source_commit": "d28206ce2f87c7a716de252aca5e9dd53085735c",
+    "source_tree": "a40da840707418ebd337acdf4825ee9c4876807b"
   },
-  "checkpoint_sha256": "540a107c9ae2c3422e9feb9c8ed4f14403fe8989a914076d26fb8b7af60efaf5",
+  "checkpoint_sha256": "cd3a7397e7c0c20ed59b91ee2b7671d24f7558ce546064c573efa5198a7e57fa",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 581,
+  "latest_sequence": 582,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6724,6 +6724,19 @@
       "source_candidate_commit": "0551a4178200874e3d19ae88c6488b5f8753cf67",
       "source_commit": "65f737615a5605eedc9697109d5862fcc8790dc5",
       "source_tree": "fabf3c8b256e2bbe71ad1ccfd9c3c685b4ec5ee8"
+    },
+    {
+      "sequence": 582,
+      "path": "work/construction/segments/0582-fair-epistemic-generation-scheduling.md",
+      "sha256": "2527f1ef23a5b9ed9d4bc69f3a38827866804712daa0473c6c0d073211087d12",
+      "bytes": 1811,
+      "predecessor": "segment-sha256:e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653",
+      "evidence_path": "work/construction/evidence/0582-fair-epistemic-generation-scheduling.json",
+      "evidence_sha256": "648099b00798fe2bb8140817e45eccba9d8e97a833e12b46197f7505f851c582",
+      "evidence_bytes": 3478,
+      "source_candidate_commit": "680683bc8b20f9a36bdb338d86ae6e15269597ab",
+      "source_commit": "d28206ce2f87c7a716de252aca5e9dd53085735c",
+      "source_tree": "a40da840707418ebd337acdf4825ee9c4876807b"
     }
   ],
   "source_acquisition": {
