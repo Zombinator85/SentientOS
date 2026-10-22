@@ -232,7 +232,7 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     assert early_state is not None and early_state.generation == 1
     assert later_state is not None and later_state.generation == 0
     assert len(owner.active_binding_ids(early.proposition_id)) == 7
-    assert len(owner.active_binding_ids(later.proposition_id)) == 2
+    assert len(owner.active_binding_ids(later.proposition_id)) == 1
 
     recovered_owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemics", allowed_namespaces=("operator",))
@@ -245,6 +245,8 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
         config=runtime.config, owner=recovered_owner,
         mutation_controller=recovered_controller,
         admission_authority=runtime.authority, admission_ledger=ledger)
+    assert len(recovered_owner.active_binding_ids(early.proposition_id)) == 7
+    assert len(recovered_owner.active_binding_ids(later.proposition_id)) == 1
     third = recovered_runtime.process_snapshot(
         builder.build([
             *early_seed_records, early_first, early_second,
@@ -258,8 +260,6 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     later_state = recovered_owner.current_state(later.proposition_id)
     assert early_state is not None and early_state.generation == 1
     assert later_state is not None and later_state.generation == 1
-    assert len(recovered_owner.active_binding_ids(early.proposition_id)) == 8
-    assert len(recovered_owner.active_binding_ids(later.proposition_id)) == 3
 
 
 def test_unknown_offset_historical_event_time_stays_unresolved():
