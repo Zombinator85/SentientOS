@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8d50335d1fdee9f9aa6018541808ebd79f9cd38bcc5974a8c320d2560cfc4e91",
-    "latest_segment_sequence": 578,
-    "latest_segment_sha256": "ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51",
-    "source_commit": "fd8e2139e73d3a846e9039ffa56a3c96ad5dce2c",
-    "source_tree": "8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2"
+    "checkpoint_sha256": "20b3565362df3692e7ceb05fae25dc90b6181c96bb8ab1e3dde2b08e0aedace9",
+    "latest_segment_sequence": 579,
+    "latest_segment_sha256": "9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235",
+    "source_commit": "affcb8d4c336d94a618ee0c2348df49cf24c882d",
+    "source_tree": "420b91f5543e55a4e8e3a754d815cf4d3427ff06"
   },
-  "checkpoint_sha256": "8d50335d1fdee9f9aa6018541808ebd79f9cd38bcc5974a8c320d2560cfc4e91",
+  "checkpoint_sha256": "20b3565362df3692e7ceb05fae25dc90b6181c96bb8ab1e3dde2b08e0aedace9",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 578,
+  "latest_sequence": 579,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6685,6 +6685,19 @@
       "source_candidate_commit": "b8def0957242ce092dbe177fdd4844c8397a9b27",
       "source_commit": "fd8e2139e73d3a846e9039ffa56a3c96ad5dce2c",
       "source_tree": "8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2"
+    },
+    {
+      "sequence": 579,
+      "path": "work/construction/segments/0579-fair-bounded-epistemic-state-scheduling.md",
+      "sha256": "9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235",
+      "bytes": 2178,
+      "predecessor": "segment-sha256:ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51",
+      "evidence_path": "work/construction/evidence/0579-fair-bounded-epistemic-state-scheduling.json",
+      "evidence_sha256": "c3d5876d85ac404c672dec62d383f1c20841d35424cc5edb51fda623b69fee59",
+      "evidence_bytes": 3345,
+      "source_candidate_commit": "31c64326abe98bf3ef65df99d6f824f764d35668",
+      "source_commit": "affcb8d4c336d94a618ee0c2348df49cf24c882d",
+      "source_tree": "420b91f5543e55a4e8e3a754d815cf4d3427ff06"
     }
   ],
   "source_acquisition": {
