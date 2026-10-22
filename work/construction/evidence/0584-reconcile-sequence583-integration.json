@@ -1,0 +1,94 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 584,
+  "title": "Reconcile sequence 583 verified evidence integration",
+  "status": "verified_evidence_integration",
+  "predecessor": {
+    "sequence": 583,
+    "segment_sha256": "5265685e85fc1d0317dd414934da00294c93db7115f13e7e0cde2edb3ed02912"
+  },
+  "segment_path": "work/construction/segments/0584-reconcile-sequence583-integration.md",
+  "segment_sha256": "71923dfb3fd0509bcb334dfc05eae5cfccf7774dbab4cb8ee50b209988f62f50",
+  "segment_bytes": 962,
+  "candidate": {
+    "base": "ace641fae2200401143d87e57b8eea38b50793b8",
+    "commit": "e2ad912bc7a6a502ae6ee8d1946a665b0c9cc59e",
+    "tree": "dd188880b1ab36eb52032164cf5bbdb80fdcf11d",
+    "pull_request": 2624,
+    "remote_blob_readback": "four of four matched byte-for-byte"
+  },
+  "checks": {
+    "ci": {
+      "run": 39824924795,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12445958143,
+        "digest": "sha256:83e9192e862d008402408968a152531d1052a0c03ba9a3ce44c532170bc379a2"
+      },
+      "source_validation_artifact": {
+        "id": 12445788262,
+        "digest": "sha256:a7cce413977d33c5f438a3f6620f160d7a6d261d4d10c3d9886e45e22486f3b3"
+      }
+    },
+    "quality_gate": {
+      "run": 39824924699,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12446466298,
+          "digest": "sha256:3bedcb0fe1af11a855b9c022ea4e3bf5b6e1c9869373a00440b2b2e206b359ac"
+        },
+        {
+          "id": 12445543760,
+          "digest": "sha256:d369ffcead06d546ea784d65183c2d920c66d37110bd91457f8401dfdd606ebd"
+        },
+        {
+          "id": 12445558969,
+          "digest": "sha256:8120e16999150cef4fd7d00448cfccb7f78d94d47a2aa2c04c3cfede68055592"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39824924660,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39824924700,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39824924728,
+      "result": "success"
+    },
+    "release": {
+      "run": 39824924736,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39824924748,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39824924718,
+      "result": "success"
+    }
+  },
+  "merge": {
+    "commit": "debcec58ba4677c4efdb48375994e5d19f9015cf",
+    "tree": "dd188880b1ab36eb52032164cf5bbdb80fdcf11d",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured connector.",
+    "No inference or production transition occurred."
+  ]
+}
