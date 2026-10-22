@@ -215,6 +215,8 @@ def verify_approval(approval: Mapping[str, Any], intent: Mapping[str, Any], *, n
         raise CommissioningError("runtime_operator_provenance_invalid")
     if a["bindings"] != approval_bindings(intent): raise CommissioningError("runtime_operator_approval_binding_mismatch")
     instant = now or datetime.now(timezone.utc)
+    if any(str(a[key]).endswith("-00:00") for key in ("not_before", "expires_at")):
+        raise CommissioningError("runtime_operator_approval_time_invalid")
     try:
         start = datetime.fromisoformat(str(a["not_before"]).replace("Z", "+00:00")); end = datetime.fromisoformat(str(a["expires_at"]).replace("Z", "+00:00"))
     except ValueError as exc: raise CommissioningError("runtime_operator_approval_time_invalid") from exc

@@ -122,6 +122,14 @@ def test_exact_external_approval_and_production_synthetic_rejection(tmp_path: Pa
         commissioning.verify_approval(bad, intent, now=NOW)
 
 
+@pytest.mark.parametrize("field", ("not_before", "expires_at"))
+def test_operator_approval_rejects_unknown_timestamp_offsets(tmp_path: Path, field: str) -> None:
+    manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False, **{field: "2030-01-02T00:00:00-00:00"})
+    with pytest.raises(commissioning.CommissioningError, match="time_invalid"):
+        commissioning.verify_approval(evidence, intent, now=NOW)
+
+
 def test_missing_expired_and_denied_approval_are_pre_effect(tmp_path: Path) -> None:
     manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest); root = Path(str(manifest["custody_root"]))
     expired = approval(intent, synthetic=False, expires_at="2029-01-01T00:00:00Z")
