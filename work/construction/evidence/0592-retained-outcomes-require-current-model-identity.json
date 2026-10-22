@@ -1,0 +1,43 @@
+{
+  "sequence": 592,
+  "title": "Retained outcomes require the currently observed model identity",
+  "predecessor": {
+    "sequence": 591,
+    "sha256": "7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d"
+  },
+  "source": {
+    "candidate_commit": "e19b4b354b29dbf7ba196a0de10b900ad3fe4c16",
+    "tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993",
+    "parent_main": "2746bf3a2efd5bf4ca89fe89cc5df95bce368727"
+  },
+  "validation": {
+    "ci_run": 39849928877,
+    "ci_result": "success",
+    "full_self_check": "passed",
+    "resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39849928629,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "gradient_null_regression": 39849928814,
+      "lint_benchmark": 39849928820,
+      "release": 39849928897,
+      "docker": 39849928819,
+      "codex_ci": 39849928662,
+      "invariants": 39849928852
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2641,
+    "method": "normal merge",
+    "merge_commit": "02dae1f1322dc837a10fdc049901c29faa3c32d8",
+    "tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993",
+    "candidate_to_merge_files_changed": 0
+  },
+  "scope": "A recovered positive outcome remains bound to its model identity. Observing a different model makes the tagged goal epistemically unresolved; no execution, model invocation, inference, or production transition occurs."
+}
