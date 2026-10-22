@@ -116,7 +116,7 @@ def test_mutation_bound_state_is_not_cognized_without_verified_intent(tmp_path) 
             "admission_id": "missing-admission", "admission_binding_digest": "sha256:missing",
             "operation_id": "unadmitted-operation", "correlation_id": "unadmitted"})
 
-    with pytest.raises(EpistemicStateError, match="mutation_lineage_unverified"):
+    with pytest.raises(EpistemicStateError, match="epistemic_projection_pairing_ambiguous"):
         owner.cognitive_projection(max_states=1)
     with pytest.raises(EpistemicMutationError, match="mutation_lineage_intent_missing"):
         ResidentEpistemicStateMutationController(owner=owner,
