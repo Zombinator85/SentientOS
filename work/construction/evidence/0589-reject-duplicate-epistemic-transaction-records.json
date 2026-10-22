@@ -1,0 +1,117 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 589,
+  "title": "Reject duplicate epistemic transaction records",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 588,
+    "segment_sha256": "8240eb74e24d090929da04d839c38b2968299fa63416ecbea22b814a2363b4aa"
+  },
+  "segment_path": "work/construction/segments/0589-reject-duplicate-epistemic-transaction-records.md",
+  "candidate": {
+    "base": "1139e3117adf54c3529555d9d2faf2befc55cac2",
+    "commit": "8149e053a07e83f635638a477eda2f43101dd346",
+    "tree": "24d0ba08983bb996e9e1a799babfe61ebde40907",
+    "pull_request": 2634,
+    "source_validation_checkout": "867c8301121f9ec662b876587e5a32b02a28ec76",
+    "source_validation_checkout_tree_matches_candidate": true,
+    "merge_commit": "605712b0dcca29cb916f2508e02d7cbe0eaaeb89",
+    "merge_tree": "24d0ba08983bb996e9e1a799babfe61ebde40907",
+    "merge_method": "merge",
+    "candidate_merge_diff_files": 0
+  },
+  "checks": {
+    "ci": {
+      "run": 39841676200,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "source_validation_tests_passed": 414,
+      "source_validation_tests_skipped": 18,
+      "source_validation_tests_failed": 0,
+      "required_source_validation_nodes": [
+        "tests/test_resident_epistemic_state_mutation.py::test_conflicting_admission_bound_transactions_do_not_recover",
+        "tests/test_resident_epistemic_state_mutation.py::test_duplicate_transaction_record_cannot_recover"
+      ],
+      "required_source_validation_nodes_result": "both passed",
+      "source_validation_artifact": {
+        "id": 12454320219,
+        "digest": "sha256:b95301d826a93bfe5607cf4cd18a14d42401f3ea4ee8de632838456759e1a8fb"
+      },
+      "test_run_provenance_artifact": {
+        "id": 12452949058,
+        "digest": "sha256:48cddd25e18ad24ac0a22ccc5ab3e2a762f01b990c230178d8ad5e5c0792db84"
+      }
+    },
+    "quality_gate": {
+      "run": 39841675516,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12453018342,
+          "digest": "sha256:60a02f3ded5b8289c54146773ced6617e8b8576bde9b88a140888ee85960cbc8"
+        },
+        {
+          "id": 12452738579,
+          "digest": "sha256:08a616743c281f76bff07537c7fc4a67f3b77f8b8ca134efbfff8114b67280187"
+        },
+        {
+          "id": 12452474814,
+          "digest": "sha256:fbd6a98057292e60d1ed0efed5470f3e17a77d567c4340a25ab66162031d258e"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39841676472,
+      "result": "success"
+    },
+    "release": {
+      "run": 39841676084,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39841675851,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39841675640,
+      "result": "success"
+    },
+    "invariants": {
+      "run": 39841675539,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39841676055,
+      "result": "success"
+    }
+  },
+  "predecessor_evidence_pr": {
+    "pull_request": 2633,
+    "head": "78e29334051a71a9985b7e35c7c5cb7a63b3c8f2",
+    "standalone_ci_run": 39839733555,
+    "standalone_ci_status": "in_progress_at_descendant_merge",
+    "superseded_by_verified_descendant": 2634
+  },
+  "merge": {
+    "pull_request": 2634,
+    "commit": "605712b0dcca29cb916f2508e02d7cbe0eaaeb89",
+    "tree": "24d0ba08983bb996e9e1a799babfe61ebde40907",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical",
+    "sequence_588_evidence_pr": 2633,
+    "sequence_588_evidence_included": true
+  },
+  "limitations": [
+    "PR #2633's standalone full CI was still in progress at integration; its contents were included in PR #2634, whose exact full CI and strict gate passed.",
+    "No inference or production transition occurred."
+  ],
+  "segment_sha256": "dd59571035df1142bf276f6fa24c53fcb3771c4665fe96f1d928e50b811e241f",
+  "segment_bytes": 1873
+}
