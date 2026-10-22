@@ -1365,8 +1365,11 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
 
     class ServingObserver:
+        def __init__(self):
+            self.identity = model_identity
+
         def observed_current_model_identity(self):
-            return model_identity
+            return self.identity
 
         def current_session(self):
             raise AssertionError("planning must not acquire a serving session")
@@ -1482,6 +1485,18 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert scope["position_identity"]["state_digest"] == supported.successor_state_digest
     assert scope["position_identity"]["update_event_id"] == supported.update_event_id
     assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
+
+    # Retained support is model-bound: a different observed model cannot inherit
+    # the previous model's successful outcome.
+    observer.identity = {"provider": "fixture", "model": "developmental-model-v2"}
+    cross_model = recover_and_plan("2026-10-16T09:03:30Z")
+    assert cross_model.target_active_model_identity_digest == (
+        "sha256:" + digest_payload(observer.identity))
+    assert cross_model.work_plan is None
+    assert {row.goal_id: row.reason for row in cross_model.allocation.deferred} == {
+        "g_outcome": "epistemic_applicability_unresolved"}
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+    observer.identity = model_identity
 
     adverse = make_evidence_binding(
         proposition_id=proposition.proposition_id,
