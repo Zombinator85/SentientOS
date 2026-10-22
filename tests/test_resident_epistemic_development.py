@@ -201,21 +201,31 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
             "observed_at": NOW, "payload": {"check": "nominal", "sample": sample},
         }
 
-    early_first = record(early, "early-1", 1)
+    early_seed_records = [
+        record(early, f"early-seed-{sample}", sample)
+        for sample in range(5)]
+    early_first = record(early, "early-1", 10)
     later_first = record(later, "later-1", 1)
     early_second = record(early, "early-2", 2)
     later_second = record(later, "later-2", 2)
     builder = WorldStateBoardBuilder(
         clock=lambda: datetime.fromisoformat(NOW))
     first = runtime.process_snapshot(
-        builder.build([early_first, later_first]), tick=10, recorded_at=NOW)
+        builder.build([*early_seed_records, early_first, later_first]),
+        tick=10, recorded_at=NOW)
     assert first.updated_proposition_count == 2
     assert first.omitted_proposition_ids == ()
+    assert len(owner.active_binding_ids(early.proposition_id)) == 6
+    assert len(owner.active_binding_ids(later.proposition_id)) == 1
+    later_bindings_before_omission = set(
+        owner.active_binding_ids(later.proposition_id))
 
     runtime.config = replace(runtime.config,
         max_updated_propositions_per_tick=1)
     second = runtime.process_snapshot(
-        builder.build([early_first, early_second, later_first, later_second]),
+        builder.build([
+            *early_seed_records, early_first, early_second,
+            later_first, later_second]),
         tick=10, recorded_at=NOW)
     assert second.status == "bounded_partial"
     assert second.omitted_proposition_ids == (later.proposition_id,)
@@ -223,6 +233,8 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     later_state = owner.current_state(later.proposition_id)
     assert early_state is not None and early_state.generation == 1
     assert later_state is not None and later_state.generation == 0
+    assert len(owner.active_binding_ids(early.proposition_id)) == 7
+    assert set(owner.active_binding_ids(later.proposition_id)) == later_bindings_before_omission
 
     recovered_owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemics", allowed_namespaces=("operator",))
@@ -235,10 +247,13 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
         config=runtime.config, owner=recovered_owner,
         mutation_controller=recovered_controller,
         admission_authority=runtime.authority, admission_ledger=ledger)
+    assert len(recovered_owner.active_binding_ids(early.proposition_id)) == 7
+    assert set(recovered_owner.active_binding_ids(later.proposition_id)) == later_bindings_before_omission
     third = recovered_runtime.process_snapshot(
         builder.build([
-            early_first, early_second, record(early, "early-3", 3),
-            later_first, later_second, record(later, "later-3", 3),
+            *early_seed_records, early_first, early_second,
+            record(early, "early-3", 30), later_first, later_second,
+            record(later, "later-3", 3),
         ]), tick=10, recorded_at=NOW)
     assert third.status == "bounded_partial"
     assert third.updated_proposition_count == 1
