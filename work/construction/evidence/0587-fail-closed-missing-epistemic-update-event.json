@@ -1,0 +1,114 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 587,
+  "title": "Fail closed on missing epistemic update event",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 586,
+    "segment_sha256": "8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e"
+  },
+  "segment_path": "work/construction/segments/0587-fail-closed-missing-epistemic-update-event.md",
+  "candidate": {
+    "base": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
+    "commit": "ccf77144239045afeebbc3eb8ee2b2569ca67c69",
+    "tree": "f70894adb9c96463c5feb2099be2e4f97552be16",
+    "pull_request": 2630,
+    "source_validation_checkout": "8a9573d55f60bcdf344b3c2eba326c6182e95d5b",
+    "source_validation_checkout_tree_matches_candidate": true,
+    "merge_commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
+    "merge_tree": "f70894adb9c96463c5feb2099be2e4f97552be16",
+    "merge_method": "merge",
+    "candidate_merge_diff_files": 0,
+    "main_ref_matches_merge": true,
+    "remote_blob_readback": "corrected test blob independently read back byte-for-byte"
+  },
+  "checks": {
+    "ci": {
+      "run": 39834537834,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "source_validation_acceptance_nodes_passed": 14,
+      "source_validation_artifact": {
+        "id": 12450991088,
+        "digest": "sha256:e8a9a1cb7dab813b82063b35f6e2ff3f0ef25b005281a2640a46879b4e3f8076"
+      },
+      "test_run_provenance_artifact": {
+        "id": 12449903717,
+        "digest": "sha256:258ce45c1669118b4196978d9bdf27ee386eeca868901df78ff8932f12d8b465"
+      }
+    },
+    "quality_gate": {
+      "run": 39834564587,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12451305165,
+          "digest": "sha256:795290d427bc7da4c7cc3600bb326798ab3a5f5d90212932e494800640fb536e"
+        },
+        {
+          "id": 12451125713,
+          "digest": "sha256:df1cf93315d4406cafec69b263836e85848b8d11e599cf834e53f7cac2abe113"
+        },
+        {
+          "id": 12450900845,
+          "digest": "sha256:272704283de69c8c25ce7cbeaaacf6371ca0145976ddb296077369267d664317"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39834537913,
+      "result": "success"
+    },
+    "release": {
+      "run": 39834538065,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39834538055,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39834537961,
+      "result": "success"
+    },
+    "invariants": {
+      "run": 39834538086,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39834538047,
+      "result": "success"
+    }
+  },
+  "earlier_candidate": {
+    "commit": "d13b7613bfd55ce149e489a7e0abffbfa763d9e3",
+    "ci_run": 39833859278,
+    "result": "failed",
+    "failure": "the test expected owner reconstruction to succeed after event removal; hosted CI confirmed it correctly fails immediately with epistemic_update_state_pairing_ambiguous"
+  },
+  "merge": {
+    "pull_request": 2630,
+    "commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
+    "tree": "f70894adb9c96463c5feb2099be2e4f97552be16",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "predecessor_evidence_pr": {
+    "pull_request": 2629,
+    "head": "4f58767240acbd54bfa686bb8c7fa858b908f42a",
+    "status": "merged_through_verified_descendant"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured connector.",
+    "No inference or production transition occurred."
+  ],
+  "segment_sha256": "a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa",
+  "segment_bytes": 2280
+}
