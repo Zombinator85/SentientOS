@@ -230,13 +230,18 @@ def _compact_rationale(value: str, *, limit: int = 240) -> str:
     return compact[:limit]
 
 
-def _parse_time(value: str) -> datetime | None:
-    if not value:
+def _parse_time(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    if value.endswith("-00:00"):
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
 
 
 def _format_time(value: datetime) -> str:
@@ -256,6 +261,26 @@ def _is_expired(expiration: PromptOperatorReviewExpiration) -> bool:
     expires = _parse_time(expiration.expires_at)
     evaluated = _parse_time(expiration.evaluated_at)
     return bool(expires and evaluated and evaluated >= expires)
+
+
+def _expiration_times_valid(expiration: Any) -> bool:
+    data = _mapping(expiration)
+    if not data:
+        return True
+    reviewed = data.get("reviewed_at")
+    expires = data.get("expires_at")
+    evaluated = data.get("evaluated_at")
+    ttl = data.get("ttl_seconds", 0)
+    if isinstance(ttl, bool) or not isinstance(ttl, int) or ttl < 0:
+        return False
+    if any(value not in (None, "") and _parse_time(value) is None
+        for value in (reviewed, expires, evaluated)):
+        return False
+    if expires not in (None, "") and evaluated in (None, ""):
+        return False
+    if ttl > 0 and (reviewed in (None, "") or expires in (None, "") or evaluated in (None, "")):
+        return False
+    return True
 
 
 def _reason_codes(policy_decision: PromptMaterializationPolicyDecision | Mapping[str, Any]) -> tuple[str, ...]:
@@ -372,11 +397,12 @@ def _status_for(
     required_warning_codes: Sequence[str],
     required_caveat_codes: Sequence[str],
     expired: bool,
+    invalid_time: bool,
     forbidden_override_attempted: bool,
 ) -> str:
     if expired:
         return PromptOperatorReviewStatus.REVIEW_EXPIRED
-    if not reviewer_ref or any(decision not in _ALLOWED_DECISIONS for decision in decisions):
+    if invalid_time or not reviewer_ref or any(decision not in _ALLOWED_DECISIONS for decision in decisions):
         return PromptOperatorReviewStatus.REVIEW_INVALID
     if forbidden_override_attempted:
         return PromptOperatorReviewStatus.REVIEW_FORBIDDEN_OVERRIDE_ATTEMPTED
@@ -477,6 +503,10 @@ def build_prompt_operator_review_receipt(
         required_caveat_codes=required_caveat_codes,
         expired=expired,
     )
+    invalid_time = not _expiration_times_valid(expiration)
+    if invalid_time:
+        findings = (*findings, PromptOperatorReviewFinding(
+            "review_time_invalid", "review timestamps must include a known timezone", "blocker"))
     status = _status_for(
         policy_decision,
         reviewer_ref=reviewer,
@@ -486,6 +516,7 @@ def build_prompt_operator_review_receipt(
         required_warning_codes=required_warning_codes,
         required_caveat_codes=required_caveat_codes,
         expired=expired,
+        invalid_time=invalid_time,
         forbidden_override_attempted=forbidden_override_attempted,
     )
     receipt = PromptOperatorReviewReceipt(
@@ -548,6 +579,9 @@ def validate_prompt_operator_review_receipt(review_receipt: PromptOperatorReview
     findings: list[PromptOperatorReviewFinding] = []
     if not data:
         return (PromptOperatorReviewFinding("review_receipt_malformed", "operator review receipt is malformed", "blocker"),)
+    if not _expiration_times_valid(data.get("expiration", {})):
+        findings.append(PromptOperatorReviewFinding(
+            "review_time_invalid", "review timestamps must include a known timezone", "blocker"))
     if not str(data.get("reviewer_ref", "")):
         findings.append(PromptOperatorReviewFinding("reviewer_ref_missing", "reviewer_ref is required for operator review", "blocker"))
     if not _non_runtime_markers_true(review_receipt):

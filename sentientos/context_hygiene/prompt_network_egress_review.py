@@ -323,16 +323,18 @@ def _finding(code: str, detail: str, severity: str = "blocker") -> ProviderNetwo
     return ProviderNetworkEgressReviewFinding(code=code, detail=detail, severity=severity)
 
 
-def _parse_time(value: str) -> datetime | None:
-    if not value:
+def _parse_time(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    if value.endswith("-00:00"):
         return None
     text = value.replace("Z", "+00:00")
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
     return parsed.astimezone(timezone.utc)
 
 
@@ -354,6 +356,14 @@ def _is_expired(expiration: ProviderNetworkEgressReviewExpiration) -> bool:
     expires = _parse_time(expiration.expires_at)
     evaluated = _parse_time(expiration.evaluated_at)
     return bool(expires and evaluated and evaluated >= expires)
+
+
+def _expiration_times_valid(expiration: Any) -> bool:
+    data = _mapping(expiration)
+    if not data:
+        return True
+    return all(value in (None, "") or _parse_time(value) is not None
+        for value in (data.get("reviewed_at"), data.get("evaluated_at"), data.get("expires_at")))
 
 
 def _code_from_text(prefix: str, text: str) -> str:
@@ -506,7 +516,7 @@ def _status(decision: str, findings: Sequence[ProviderNetworkEgressReviewFinding
     codes = {finding.code for finding in findings}
     if expired:
         return ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_EXPIRED
-    if any(code in codes for code in {"network_preflight_missing", "reviewer_ref_missing", "decision_unknown", "review_scope_unknown", "linked_digest_missing", "network_preflight_digest_mismatch", "network_preflight_id_missing"}):
+    if any(code in codes for code in {"network_preflight_missing", "reviewer_ref_missing", "decision_unknown", "review_scope_unknown", "linked_digest_missing", "network_preflight_digest_mismatch", "network_preflight_id_missing", "review_time_invalid"}):
         return ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_INVALID
     if findings and decision in _APPROVE_DECISIONS:
         return ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_FORBIDDEN_NETWORK_OVERRIDE_ATTEMPTED
@@ -581,6 +591,8 @@ def build_provider_network_egress_review_receipt(
         routing_allowed=bool(routing_allowed),
         expired=expired,
     )
+    if not _expiration_times_valid(expiration):
+        findings = (*findings, _finding("review_time_invalid", "review timestamps must include a known timezone"))
     status = _status(decision, findings, expired)
     receipt = ProviderNetworkEgressReviewReceipt(
         review_receipt_id="",
@@ -744,6 +756,8 @@ def validate_provider_network_egress_review_receipt(receipt: ProviderNetworkEgre
     findings: list[ProviderNetworkEgressReviewFinding] = []
     if not data:
         return (_finding("review_receipt_malformed", "provider network-egress review receipt is malformed"),)
+    if not _expiration_times_valid(data.get("expiration", {})):
+        findings.append(_finding("review_time_invalid", "review timestamps must include a known timezone"))
     if not str(data.get("reviewer_ref", "")):
         findings.append(_finding("reviewer_ref_missing", "reviewer_ref is required"))
     if not _markers_true(receipt):
@@ -818,6 +832,8 @@ def provider_network_egress_review_satisfies_preflight(
         return False
     if bool(review_data.get("expired", False)):
         return False
+    if not _expiration_times_valid(review_data.get("expiration", {})):
+        return False
     if provider_network_egress_review_attempts_forbidden_network_override(review_receipt):
         return False
     if not provider_network_egress_preflight_allows_future_review_gate(preflight):
@@ -840,6 +856,7 @@ def provider_network_egress_review_approves_future_review_gate(receipt: Provider
         data.get("review_status") == ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_APPROVED
         and data.get("review_scope") == ProviderNetworkEgressReviewScope.FUTURE_NETWORK_EGRESS_REVIEW_GATE
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not provider_network_egress_review_attempts_forbidden_network_override(receipt)
         and _markers_true(receipt)
         and _has_no_allowance(receipt)
@@ -853,6 +870,7 @@ def provider_network_egress_review_approves_future_dry_run_gate(receipt: Provide
         data.get("review_status") == ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_APPROVED_WITH_CONSTRAINTS
         and data.get("review_scope") == ProviderNetworkEgressReviewScope.FUTURE_PROVIDER_CALL_DRY_RUN_GATE
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not provider_network_egress_review_attempts_forbidden_network_override(receipt)
         and _markers_true(receipt)
         and _has_no_allowance(receipt)
@@ -866,6 +884,7 @@ def provider_network_egress_review_approves_future_null_transport_gate(receipt: 
         data.get("review_status") == ProviderNetworkEgressReviewStatus.NETWORK_EGRESS_REVIEW_APPROVED_WITH_CONSTRAINTS
         and data.get("review_scope") == ProviderNetworkEgressReviewScope.FUTURE_TRANSPORT_NULL_ADAPTER_GATE
         and not data.get("expired", False)
+        and _expiration_times_valid(data.get("expiration", {}))
         and not provider_network_egress_review_attempts_forbidden_network_override(receipt)
         and _markers_true(receipt)
         and _has_no_allowance(receipt)
