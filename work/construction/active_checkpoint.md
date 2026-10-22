@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 591
+## Current verified state — sequence 592
 
-Sequences 582–590 established fair epistemic generation, fail-closed receipt recovery, and the route from verified retained experience into canonical planning. Sequence 591 now verifies supported and adverse evidence-bound outcomes through the same authority-admitted durable receipt and restart-recovery path: matching support restores goal selection, while unknown or contradicting outcomes defer it. Planning remains non-executing and makes no model call.
+Sequence 591 established that authority-admitted, receipt-verified positive and adverse outcomes can change canonical planning after restart. Sequence 592 confirms that the positive state remains scoped to the exact observed model identity: after restart, changing from model v1 to model v2 makes the goal epistemically unresolved and produces no work plan. No execution or model call occurs.
 
-Latest verified main: `fe55aaa2582fed20ecdee22f257cfc758b016882`, tree `a393a19bf1a4a20b5ee679325123cc3914ef5fb7`
-Latest construction segment: `work/construction/segments/0591-receipt-verified-outcomes-reach-canonical-planning.md`
-Latest segment SHA-256: 7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d
-Sequence: 591 (verified source integration)
+Latest verified main: `02dae1f1322dc837a10fdc049901c29faa3c32d8`, tree `00c71c09576ee3f070cce3aaf59f7088ba5b8993`
+Latest construction segment: `work/construction/segments/0592-retained-outcomes-require-current-model-identity.md`
+Latest segment SHA-256: 21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376
+Sequence: 592 (verified source integration)
 
-Next: inspect the end-to-end planner and retained epistemic receipt path for the next missing dependency after positive/adverse outcome selection. Prioritize exact evidence identity across restart and plan/allocation serialization, including stale or cross-model evidence denial. Keep planning separate from execution, preserve authority admission and durable receipt verification, and use the existing exact-source hosted acceptance and strict privileged gate before integration.
+Next: continue tracing retained outcome evidence into durable planning artifacts. Verify that model-bound support, contradictory evidence, and recovery identities remain mutually consistent when the plan or allocation artifact is reloaded, and that stale or cross-proposition evidence cannot be substituted. Preserve deterministic decisions, authority admission, restart verification, and planning/execution separation.

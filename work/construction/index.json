@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e151a729a0c45ef4df5f7ff5b8cdbb814f96d977d84f73d69d78a05e0a268651",
-    "latest_segment_sequence": 591,
-    "latest_segment_sha256": "7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d",
-    "source_commit": "fe55aaa2582fed20ecdee22f257cfc758b016882",
-    "source_tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7"
+    "checkpoint_sha256": "4c244a753dda2c8b2232179b4de2b730913911add1a1da5ceae84a038e1d137e",
+    "latest_segment_sequence": 592,
+    "latest_segment_sha256": "21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376",
+    "source_commit": "02dae1f1322dc837a10fdc049901c29faa3c32d8",
+    "source_tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993"
   },
-  "checkpoint_sha256": "e151a729a0c45ef4df5f7ff5b8cdbb814f96d977d84f73d69d78a05e0a268651",
+  "checkpoint_sha256": "4c244a753dda2c8b2232179b4de2b730913911add1a1da5ceae84a038e1d137e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 591,
+  "latest_sequence": 592,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6854,6 +6854,19 @@
       "source_candidate_commit": "018e39f52031d4272fffd7a3981d87c0d1fdcd37",
       "source_commit": "fe55aaa2582fed20ecdee22f257cfc758b016882",
       "source_tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7"
+    },
+    {
+      "sequence": 592,
+      "path": "work/construction/segments/0592-retained-outcomes-require-current-model-identity.md",
+      "sha256": "21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376",
+      "bytes": 1665,
+      "predecessor": "segment-sha256:7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d",
+      "evidence_path": "work/construction/evidence/0592-retained-outcomes-require-current-model-identity.json",
+      "evidence_sha256": "47c449568d8251a7dcfce36d00c86d0cf918f25f44cb0e0a733ccd91dc04f052",
+      "evidence_bytes": 1663,
+      "source_candidate_commit": "e19b4b354b29dbf7ba196a0de10b900ad3fe4c16",
+      "source_commit": "02dae1f1322dc837a10fdc049901c29faa3c32d8",
+      "source_tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993"
     }
   ],
   "source_acquisition": {
