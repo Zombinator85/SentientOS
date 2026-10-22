@@ -1,0 +1,11 @@
+# Sequence 591 — receipt-verified positive and adverse outcomes reach canonical planning
+
+PR #2638 adds an exact-source regression for the next step after sequence 590: positive and adverse epistemic outcomes must alter canonical goal selection only after their authority-admitted updates are durably receipted and recovered. The test begins with a selectable goal, admits an unknown outcome and verifies that a fresh owner defers it, then binds support evidence to the observed model identity and verifies that only the matching supported update restores selection. It also binds contradicting evidence and verifies that the adverse outcome defers the goal. The test checks allocation and plan identity evidence and asserts that the planner never invokes execution or a model.
+
+The final candidate was `018e39f52031d4272fffd7a3981d87c0d1fdcd37`, tree `a393a19bf1a4a20b5ee679325123cc3914ef5fb7`, based on sequence 590 main `c0bc5adcd66a9d140101cc34904d399e099c4401`. Hosted CI run 39848062975 passed the full self-check and source validation, including the canonical planning and execution-separation acceptance node. Required Quality Gate 39848063116 passed strict Administrator audits, audit immutability, hosted finalization, and the separate metadata guard. Release 39848063261, Docker 39848063171, Gradient 39848063145, Codex CI 39848062951, Invariant Tests 39848062966, and Lint Benchmark 39848062965 also passed. All eight exact-candidate workflows were green.
+
+Three earlier fixture revisions were rejected by hosted tests and corrected before the final candidate: `f10e226902860ae310f1e5593a3edb646fab1ab2` reused an evidence sequence; `20a5fa6c03d942de2c31d3dba72d26bc5534f165` unpacked a single receipt as a tuple; `10da0a3968585228a2c2a57f9ff36a433bdeb5ce` asserted fields absent from the receipt. These were test-fixture defects, not production changes; the successful final source changes only the acceptance test and its CI manifest.
+
+PR #2638 merged normally as `fe55aaa2582fed20ecdee22f257cfc758b016882`. Candidate-to-merge comparison reported zero changed files, preserving tree `a393a19bf1a4a20b5ee679325123cc3914ef5fb7`. No inference or production transition occurred.
+
+Sequence: 591 (verified source integration)

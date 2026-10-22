@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "31e0b96777c8d436242d231a6c16441d727bbb49f843034ccda641643a9b0447",
-    "latest_segment_sequence": 590,
-    "latest_segment_sha256": "9af85856ff3de668262c8eab64f07d9c9cf2574756ef36ae781647493ee359e8",
-    "source_commit": "3266bc6a352ab515d9e29fe149ee64b21240a773",
-    "source_tree": "a3c46f657313ab958438580ad3badde29f9a77d8"
+    "checkpoint_sha256": "e151a729a0c45ef4df5f7ff5b8cdbb814f96d977d84f73d69d78a05e0a268651",
+    "latest_segment_sequence": 591,
+    "latest_segment_sha256": "7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d",
+    "source_commit": "fe55aaa2582fed20ecdee22f257cfc758b016882",
+    "source_tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7"
   },
-  "checkpoint_sha256": "31e0b96777c8d436242d231a6c16441d727bbb49f843034ccda641643a9b0447",
+  "checkpoint_sha256": "e151a729a0c45ef4df5f7ff5b8cdbb814f96d977d84f73d69d78a05e0a268651",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 590,
+  "latest_sequence": 591,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6841,6 +6841,19 @@
       "source_candidate_commit": "bde315c91b6e04684a3a1aaaed0f488db164e7db",
       "source_commit": "3266bc6a352ab515d9e29fe149ee64b21240a773",
       "source_tree": "a3c46f657313ab958438580ad3badde29f9a77d8"
+    },
+    {
+      "sequence": 591,
+      "path": "work/construction/segments/0591-receipt-verified-outcomes-reach-canonical-planning.md",
+      "sha256": "7b6baa24dc8bcc846363c788412197cf51dfabca1ff22a16a6a2af59a8aef95d",
+      "bytes": 2236,
+      "predecessor": "segment-sha256:9af85856ff3de668262c8eab64f07d9c9cf2574756ef36ae781647493ee359e8",
+      "evidence_path": "work/construction/evidence/0591-receipt-verified-outcomes-reach-canonical-planning.json",
+      "evidence_sha256": "c6469bd5820b425c11c2a76c67e44c0699fa44fbc686915a1e345c14fafaf26c",
+      "evidence_bytes": 2033,
+      "source_candidate_commit": "018e39f52031d4272fffd7a3981d87c0d1fdcd37",
+      "source_commit": "fe55aaa2582fed20ecdee22f257cfc758b016882",
+      "source_tree": "a393a19bf1a4a20b5ee679325123cc3914ef5fb7"
     }
   ],
   "source_acquisition": {
