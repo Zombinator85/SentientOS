@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 579
+## Current verified state — sequence 580
 
-Sequence 579 integrates a durable fairness rule for bounded epistemic updates: oldest last-update tick first, proposition ID tie-break, with explicit omissions retained. The starvation regression was selected and passed in hosted source validation. PR #2618 passed exact-candidate CI, lint matrix, QG with privileged strict audits and separate metadata guard, invariants, gradient, Docker, and release validation; it merged normally and main matches its tree.
+Sequences 579–580 integrate and reconcile the starvation-free bounded epistemic state scheduler. The exact regression passed in hosted source validation; PR #2618's eight candidate workflows passed. PR #2619's source validation, CI, lint, privileged finalizer, and metadata guard completed successfully. GitHub confirms main equals the evidence merge and its tree matches the candidate. Its QG job and all steps succeeded, though the connector's top-level run summary remained in progress; this is recorded as an evidence limitation.
 
-Latest verified main: `affcb8d4c336d94a618ee0c2348df49cf24c882d`, tree `420b91f5543e55a4e8e3a754d815cf4d3427ff06`
-Latest construction segment: `work/construction/segments/0579-fair-bounded-epistemic-state-scheduling.md`
-Latest segment SHA-256: `9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235`
-Sequence: 579 (verified source integration)
+Latest verified main: `d6b90fe16326a11a72b5543f71f52ce9ab99d363`, tree `ef38f0616c7879b08e0743398a2b975f015f8953`
+Latest construction segment: `work/construction/segments/0580-reconcile-sequence579-integration.md`
+Latest segment SHA-256: `2330ec7fb204641feb8720e4a472fae00f0c47bc3bf0252e2089f68e9e416e78`
+Sequence: 580 (verified evidence integration)
 
-Next: inspect whether pending state-update scheduling remains starvation-free when propositions have different numbers of active evidence bindings and when a replay/restart reconstructs update-event history. Preserve deterministic ties, bounded work, durable identity, and explicit omission evidence. Continue only through the existing admission controller; no automatic inference or production execution.
+Next: validate fairness across unequal active-binding counts and event-history reconstruction/restart. Confirm the scheduler remains bounded and deterministic under durable replay, and that omissions remain visible when a proposition has no current state event history. Preserve existing admission controls and do not introduce implicit inference or production execution.
