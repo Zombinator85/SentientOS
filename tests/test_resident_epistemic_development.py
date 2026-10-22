@@ -264,6 +264,56 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     assert later_state is not None and later_state.generation == 1
 
 
+
+def test_generation_is_not_served_until_committed_receipt_recovers(tmp_path, monkeypatch):
+    owner, proposition, ledger, runtime = fixture(tmp_path)
+    original_write = runtime.controller._write_receipt
+
+    def interrupt_state_receipt(stage, receipt):
+        if stage == "state":
+            raise OSError("simulated state receipt interruption")
+        return original_write(stage, receipt)
+
+    monkeypatch.setattr(runtime.controller, "_write_receipt", interrupt_state_receipt)
+    with pytest.raises(OSError, match="simulated state receipt interruption"):
+        runtime.process_snapshot(snapshot(), tick=10, recorded_at=NOW)
+
+    committed_state = owner.current_state(proposition.proposition_id)
+    assert committed_state is not None and committed_state.generation == 0
+    state_receipt_dir = runtime.controller.receipt_root / "receipts" / "state"
+    assert list(state_receipt_dir.glob("*.json")) == []
+    admissions_before_recovery, _ = ledger.load()
+    assert len(admissions_before_recovery) == 2
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=runtime.controller.admission_verifier,
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=runtime.controller.receipt_root)
+    assert recovered_controller.recovery_status["status"] == "verified"
+    assert recovered_controller.recovery_status["pending_state_intent_count"] == 0
+    assert recovered_controller.recovery_status["recovered_receipt_count"] == 2
+    assert len(list(state_receipt_dir.glob("*.json"))) == 1
+
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=runtime.config, owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=runtime.authority, admission_ledger=ledger)
+    retry = recovered_runtime.process_snapshot(snapshot(), tick=10, recorded_at=NOW)
+
+    assert retry.recovery_status == "verified"
+    assert retry.recovered_receipt_count == 2
+    assert retry.status == "no_matching_evidence"
+    assert retry.state_receipt_ids == ()
+    assert retry.generations == ()
+    assert recovered_owner.current_state(proposition.proposition_id).generation == 0
+    admissions_after_recovery, _ = ledger.load()
+    assert len(admissions_after_recovery) == 2
+
+
+
 def test_unknown_offset_historical_event_time_stays_unresolved():
     from sentientos.resident_epistemic_development import _latest_historical_event_time
 
