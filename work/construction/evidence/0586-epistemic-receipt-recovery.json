@@ -1,0 +1,105 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 586,
+  "title": "Verify interrupted epistemic state receipt recovery",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 585,
+    "segment_sha256": "316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11"
+  },
+  "segment_path": "work/construction/segments/0586-epistemic-receipt-recovery.md",
+  "segment_sha256": "8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e",
+  "segment_bytes": 1731,
+  "candidate": {
+    "base": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
+    "commit": "ebf31c00b9e0d1c42d260ef5f4f038c993feba50",
+    "tree": "11e217ac166ff513a575d789633b457274aa921c",
+    "pull_request": 2628,
+    "source_validation_checkout": "74b3ee66d999f08a6d7c687f45e6fb7931164815",
+    "remote_blob_readback": "two of two matched byte-for-byte"
+  },
+  "checks": {
+    "ci": {
+      "run": 39830795356,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12448208057,
+        "digest": "sha256:8db6e1e40439630af0e2191e8e1215ec986a8322ef2b467e865381b5e185ca2d"
+      },
+      "source_validation_artifact": {
+        "id": 12447964354,
+        "digest": "sha256:f8347d8f7439d0b8c6a6ab338bbaeacb2011fc2e2e8d387a33a92db541ef09ea"
+      },
+      "source_validation_checkout": "74b3ee66d999f08a6d7c687f45e6fb7931164815",
+      "source_validation_test": "tests/test_resident_epistemic_development.py::test_generation_is_not_served_until_committed_receipt_recovers"
+    },
+    "quality_gate": {
+      "run": 39830795330,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12448826546,
+          "digest": "sha256:d0dfc1d720b6ef6f3280476f504d5701cc9d9029f8533a106c05ea0a3184bb8b"
+        },
+        {
+          "id": 12448592381,
+          "digest": "sha256:0e524fbe0a75ae79695e987ad00a452f38e9153e28ccf49a766b913aa7fc5648"
+        },
+        {
+          "id": 12448273153,
+          "digest": "sha256:5cd20d54e6352c0cff9170761845d0966127c9a42a888844e3b1b00112cffc42"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39830795687,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39830795328,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39830795315,
+      "result": "success"
+    },
+    "release": {
+      "run": 39830795311,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39830795385,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39830795491,
+      "result": "success"
+    }
+  },
+  "predecessor_evidence_pr": {
+    "pull_request": 2627,
+    "candidate": "e310ca1c937670c353608f55a6caf6c6b1c4d7a2",
+    "standalone_ci": "in_progress_at_integration",
+    "superseded_by_verified_descendant": 2628
+  },
+  "merge": {
+    "commit": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
+    "tree": "11e217ac166ff513a575d789633b457274aa921c",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical",
+    "source_validation_checkout_compare": "identical_tree"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured connector.",
+    "No inference or production transition occurred."
+  ]
+}
