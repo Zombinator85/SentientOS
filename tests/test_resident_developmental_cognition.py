@@ -5590,6 +5590,245 @@ def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path
     assert feedback["epistemic_composition"]["authority"] is False
 
 
+def test_sentientosd_rejects_unknown_epistemic_tick_before_owner_reads(
+    tmp_path: Path,
+) -> None:
+    class ProjectionSpy:
+        calls = 0
+
+        def cognitive_projection(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not select epistemic history")
+
+    class CognitionSpy:
+        calls = 0
+
+        def run_tick(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not reach cognition")
+
+    tick = "2026-01-03T00:00:00-00:00"
+    projection_owner = ProjectionSpy()
+    cognition_owner = CognitionSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-unknown-tick",
+        resident_developmental_owner=cognition_owner,  # type: ignore[arg-type]
+        epistemic_state_owner=projection_owner,  # type: ignore[arg-type]
+        epistemic_state_config={
+            "status": "configured", "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True,
+        },
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "ValueError:resident_cognition_tick_offset_unknown"
+    assert feedback["write_performed"] is False
+    assert projection_owner.calls == 0
+    assert cognition_owner.calls == 0
+
+
+def test_sentientosd_rejects_unrepresentable_epistemic_tick_before_owner_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ProjectionSpy:
+        calls = 0
+
+        def cognitive_projection(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unrepresentable tick must not select history")
+
+    class CognitionSpy:
+        calls = 0
+
+        def run_tick(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unrepresentable tick must not reach cognition")
+
+    tick = "2026-01-03T00:00:00+00:00"
+    projection_owner = ProjectionSpy()
+    cognition_owner = CognitionSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-overflow-tick",
+        resident_developmental_owner=cognition_owner,  # type: ignore[arg-type]
+        epistemic_state_owner=projection_owner,  # type: ignore[arg-type]
+        epistemic_state_config={
+            "status": "configured", "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True,
+        },
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    class UnrepresentableInstant:
+        tzinfo = object()
+
+        def utcoffset(self):
+            from datetime import timedelta
+            return timedelta(0)
+
+        def timestamp(self) -> float:
+            raise OverflowError("platform timestamp range")
+
+    class DatetimeShim:
+        @staticmethod
+        def fromisoformat(_value: str) -> UnrepresentableInstant:
+            return UnrepresentableInstant()
+
+    monkeypatch.setattr("sentientosd.datetime", DatetimeShim)
+
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == "ValueError:resident_cognition_tick_unrepresentable"
+    assert feedback["write_performed"] is False
+    assert projection_owner.calls == 0
+    assert cognition_owner.calls == 0
+
+
+@pytest.mark.parametrize("tick", [
+    "2026-01-03T00:00:00-00:00",
+    "9999-12-31T23:59:59+00:00",
+])
+def test_sentientosd_rejects_uncertain_self_model_tick_before_owner_reads(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tick: str,
+) -> None:
+    from sentientos.longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
+
+    class ProjectionSpy:
+        calls = 0
+
+        def cognitive_projection(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not select self-model history")
+
+    class CognitionSpy:
+        calls = 0
+
+        def run_tick(self, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not reach cognition")
+
+    projection_owner = ProjectionSpy()
+    cognition_owner = CognitionSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-self-model-uncertain-tick",
+        resident_developmental_owner=cognition_owner,  # type: ignore[arg-type]
+        longitudinal_self_model_owner=projection_owner,  # type: ignore[arg-type]
+    )
+    surfaces._longitudinal_self_model_config = LongitudinalSelfModelRuntimeConfig(
+        enabled=True, custody_root=tmp_path / "self-model", cognitive_consumption_enabled=True,
+        max_projection_claims=1, allowed_predicates=("health",), installation_id="fixture",
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+    if tick.endswith("+00:00"):
+        from datetime import timedelta
+
+        class UnrepresentableInstant:
+            tzinfo = object()
+
+            def utcoffset(self):
+                return timedelta(0)
+
+            def timestamp(self) -> float:
+                raise OverflowError("platform timestamp range")
+
+        class DatetimeShim:
+            @staticmethod
+            def fromisoformat(_value: str) -> UnrepresentableInstant:
+                return UnrepresentableInstant()
+
+        monkeypatch.setattr("sentientosd.datetime", DatetimeShim)
+
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    expected_reason = ("ValueError:resident_cognition_tick_offset_unknown"
+        if tick.endswith("-00:00")
+        else "ValueError:resident_cognition_tick_unrepresentable")
+    assert feedback["reason"] == expected_reason
+    assert feedback["write_performed"] is False
+    assert projection_owner.calls == 0
+    assert cognition_owner.calls == 0
+
+
+def test_sentientosd_rejects_unknown_epistemic_write_tick_before_runtime(
+    tmp_path: Path,
+) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("uncertain tick must not timestamp epistemic updates")
+
+    tick = "2026-01-03T00:00:00-00:00"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-unknown-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    feedback = surfaces.run_epistemic_development(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == (
+        "ValueError:resident_epistemic_development_tick_offset_unknown")
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
+
+
+def test_sentientosd_rejects_unrepresentable_epistemic_write_tick_before_runtime(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EpistemicDevelopmentSpy:
+        calls = 0
+
+        def process_snapshot(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("unrepresentable tick must not timestamp updates")
+
+    tick = "2026-01-03T00:00:00+00:00"
+    runtime = EpistemicDevelopmentSpy()
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-overflow-tick",
+        epistemic_development_runtime=runtime,  # type: ignore[arg-type]
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+
+    class UnrepresentableInstant:
+        tzinfo = object()
+
+        def utcoffset(self):
+            from datetime import timedelta
+            return timedelta(0)
+
+        def timestamp(self) -> float:
+            raise OverflowError("platform timestamp range")
+
+        def isoformat(self) -> str:
+            return tick
+
+    class DatetimeShim:
+        @staticmethod
+        def fromisoformat(_value: str) -> UnrepresentableInstant:
+            return UnrepresentableInstant()
+
+    monkeypatch.setattr("sentientosd.datetime", DatetimeShim)
+
+    feedback = surfaces.run_epistemic_development(tick_id=tick)
+
+    assert feedback["status"] == "degraded"
+    assert feedback["reason"] == (
+        "ValueError:resident_epistemic_development_tick_unrepresentable")
+    assert feedback["authority"] is False
+    assert feedback["next_tick_only"] is True
+    assert runtime.calls == 0
+
+
 def test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled(tmp_path: Path) -> None:
     assert _load_epistemic_state_owner(None) == (None, {"status":"disabled", "cognitive_consumption_enabled":False})
     path=tmp_path/"epistemic-config.json"
