@@ -1478,8 +1478,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         encoding="utf-8"))
     scope = evidence["evidence_binding"]["review_scopes"][proposition.proposition_id]
     assert scope["position_posture"] == "verified_positive_current"
-    assert scope["position_identity"]["state_id"] == supported.state_id
-    assert scope["position_identity"]["state_digest"] == supported.state_digest
+    assert scope["position_identity"]["state_id"] == supported.successor_state_id
+    assert scope["position_identity"]["state_digest"] == supported.successor_state_digest
     assert scope["position_identity"]["update_event_id"] == supported.update_event_id
     assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
 
