@@ -6,6 +6,7 @@ from dataclasses import replace
 import importlib
 import sys
 import types
+import pytest
 
 # Keep privilege imports side-effect-safe under the repo's test ritual.
 tts_stub = types.ModuleType("tts_bridge")
@@ -116,6 +117,27 @@ def test_statuses_for_approval_constraints_reject_more_evidence_missing_reviewer
     assert missing.review_status == INVALID
     expired = _review(envelope, expires_at="2026-05-09T00:00:00Z", evaluated_at="2026-05-09T00:00:00Z")
     assert expired.review_status == EXPIRED
+
+
+@pytest.mark.parametrize("field", ("reviewed_at", "evaluated_at", "expires_at"))
+@pytest.mark.parametrize("value", ("2026-05-09T00:00:00", "2026-05-09T00:00:00-00:00", 123))
+def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
+    envelope = _envelope()
+    receipt = _review(envelope, **{field: value})
+    assert receipt.review_status == INVALID
+    assert "review_time_invalid" in _codes(receipt)
+    assert not provider_dry_run_review_satisfies_envelope(envelope, receipt)
+
+
+def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
+    envelope = _envelope()
+    receipt = _review(envelope)
+    forged = replace(receipt, expiration=replace(receipt.expiration,
+        expires_at="2030-01-01T00:00:00-00:00"), expired=False, findings=(), review_digest="")
+    forged = replace(forged, review_digest=compute_provider_dry_run_egress_review_digest(forged))
+    assert "review_time_invalid" in {finding.code for finding in validate_provider_dry_run_egress_review_receipt(forged)}
+    assert not provider_dry_run_review_approves_future_simulation_gate(forged)
+    assert not provider_dry_run_review_satisfies_envelope(envelope, forged)
 
 
 def test_satisfaction_requires_matching_id_digest_unexpired_approval_and_all_mitigations():

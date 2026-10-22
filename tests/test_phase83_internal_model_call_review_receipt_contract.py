@@ -6,6 +6,7 @@ from dataclasses import replace
 import importlib
 import sys
 import types
+import pytest
 
 # Keep privilege imports side-effect-safe under the repo's test ritual.
 tts_stub = types.ModuleType("tts_bridge")
@@ -295,6 +296,27 @@ def test_missing_reviewer_ref_and_expired_review_are_invalid_or_expired():
     expired = _receipt(expires_at="2026-05-08T00:00:00Z", evaluated_at="2026-05-08T00:00:00Z")
     assert expired.review_status == EXPIRED
     assert validate_internal_model_call_review_receipt(expired)
+
+
+@pytest.mark.parametrize("field", ("reviewed_at", "evaluated_at", "expires_at"))
+@pytest.mark.parametrize("value", ("2026-05-08T00:00:00", "2026-05-08T00:00:00-00:00", 123))
+def test_ambiguous_review_times_never_satisfy_future_gate(field, value):
+    preflight = _preflight()
+    receipt = _receipt(preflight, **{field: value})
+    assert receipt.review_status == INVALID_REVIEW
+    assert "review_time_invalid" in _codes(receipt)
+    assert not internal_model_call_review_satisfies_preflight(preflight, receipt)
+
+
+def test_receipt_validator_rejects_recomputed_digest_with_ambiguous_expiry():
+    preflight = _preflight()
+    receipt = _receipt(preflight)
+    forged = replace(receipt, expiration=replace(receipt.expiration,
+        expires_at="2030-01-01T00:00:00-00:00"), expired=False, findings=(), review_digest="")
+    forged = replace(forged, review_digest=compute_internal_model_call_review_digest(forged))
+    assert "review_time_invalid" in {finding.code for finding in validate_internal_model_call_review_receipt(forged)}
+    assert not internal_model_call_review_approves_future_gate(forged)
+    assert not internal_model_call_review_satisfies_preflight(preflight, forged)
 
 
 def test_preflight_digest_or_id_mismatch_does_not_satisfy_preflight():
