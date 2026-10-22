@@ -1,0 +1,102 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 579,
+  "title": "Fair bounded epistemic state scheduling",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 578,
+    "segment_sha256": "ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51"
+  },
+  "segment_path": "work/construction/segments/0579-fair-bounded-epistemic-state-scheduling.md",
+  "segment_sha256": "9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235",
+  "segment_bytes": 2178,
+  "source_change": {
+    "base": "0984a9f39395c3f89a35f5bdf46e7c2dbe8c6f15",
+    "candidate_commit": "31c64326abe98bf3ef65df99d6f824f764d35668",
+    "candidate_tree": "420b91f5543e55a4e8e3a754d815cf4d3427ff06",
+    "pull_request": 2618,
+    "changed_files": [
+      "sentientos/resident_epistemic_development.py",
+      "tests/test_resident_epistemic_development.py",
+      ".github/workflows/ci.yml"
+    ],
+    "remote_blob_readback": "three of three matched byte-for-byte",
+    "python_compilation": "passed in isolated scratch copy",
+    "regression_node": "tests/test_resident_epistemic_development.py::test_fresh_early_evidence_does_not_starve_other_pending_state",
+    "regression_result": "selected and passed in hosted source validation"
+  },
+  "hosted_verification": {
+    "quality_gate": {
+      "run": 39817608377,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12443661143,
+          "digest": "sha256:d98ac0f5bf75c3e706e9a434e8d3b15017cb5acfa06e06005838701c4decb559"
+        },
+        {
+          "id": 12443281352,
+          "digest": "sha256:8bf153e5de5f0eb81ea59c388797591ace614e467d618917aba819f5a368622f"
+        },
+        {
+          "id": 12442478343,
+          "digest": "sha256:f336951da675fe0635cd83db459dce8d9804c02ff63268a292931950741ab3db"
+        }
+      ]
+    },
+    "ci": {
+      "run": 39817608483,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12442558647,
+        "digest": "sha256:e3c413aac03e4cf977694d627a2165231e3ee8758ba7b38563f36438c7636dec6"
+      },
+      "source_validation_artifact": {
+        "id": 12443137599,
+        "digest": "sha256:f4f5948bddf4496b15c401585d0192f5482e093cac19beafb8a0e0b78d234ee4"
+      }
+    },
+    "lint_benchmark": {
+      "run": 39817608390,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39817608593,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39817608628,
+      "result": "success"
+    },
+    "release": {
+      "run": 39817608676,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39817608450,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39817608476,
+      "result": "success"
+    },
+    "regression_node_result": "selected_and_passed_in_source_validation"
+  },
+  "merge": {
+    "commit": "affcb8d4c336d94a618ee0c2348df49cf24c882d",
+    "tree": "420b91f5543e55a4e8e3a754d815cf4d3427ff06",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "No inference or production transition was performed."
+  ]
+}

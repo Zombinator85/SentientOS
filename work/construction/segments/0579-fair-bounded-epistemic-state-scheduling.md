@@ -1,0 +1,11 @@
+# Sequence 579 — fair bounded epistemic state scheduling
+
+On verified main `0984a9f39395c3f89a35f5bdf46e7c2dbe8c6f15`, review found that pending state candidates were selected in proposition-ID order only. With a one-proposition-per-tick bound, repeated fresh evidence for an early-sorted proposition could keep later propositions omitted. The state owner already persists update-event ticks, so the bounded scheduler now selects the proposition with the oldest last persisted update first, using proposition ID as a deterministic tie-break and `-1` for propositions without update history. Existing explicit omission reporting remains intact.
+
+The regression continuously adds evidence to the early proposition while another remains pending. It verifies that the pending proposition advances, the early proposition is explicitly reported as omitted, and the early proposition advances on the next tick. The exact regression node passed in hosted source validation.
+
+PR #2618 candidate `31c64326abe98bf3ef65df99d6f824f764d35668` (tree `420b91f5543e55a4e8e3a754d815cf4d3427ff06`) changed only the scheduler, its test, and the source-validation node list. All eight exact-candidate workflows passed: Required Quality Gate, CI, Lint Benchmark, Codex CI, Gradient null regression, Invariant Tests, Docker Image, and Release validation. The Quality Gate completed strict audits with actual Administrator authority, hosted finalization, and the separate pre-publication metadata guard. CI completed 143 tests passed, 13 skipped, zero failed; the source-validation lifecycle and all selected acceptance nodes passed. Release publication was conditionally skipped.
+
+PR #2618 merged normally as `affcb8d4c336d94a618ee0c2348df49cf24c882d`. GitHub confirms main equals the merge commit and the merge tree is identical to the tested candidate tree. The exact regression was `tests/test_resident_epistemic_development.py::test_fresh_early_evidence_does_not_starve_other_pending_state`; hosted source-validation logs record it as selected and passed. The patch does not change authority boundaries or trigger inference or production transitions.
+
+Sequence: 579 (verified source integration)

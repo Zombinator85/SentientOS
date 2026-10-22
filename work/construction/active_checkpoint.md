@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 578
+## Current verified state — sequence 579
 
-Sequences 576–578 preserve the bounded epistemic evidence-selection repair, the successful scheduled Federation Health publication as historical evidence, and the append-only integration details. The report is based on a configured local log snapshot, not live telemetry. PR #2616's candidate checks, privileged finalizer, metadata guard, exact acceptance, CI, and source validation passed; its merge tree matches the candidate. Post-merge push-triggered workflow results were not available through the configured connector.
+Sequence 579 integrates a durable fairness rule for bounded epistemic updates: oldest last-update tick first, proposition ID tie-break, with explicit omissions retained. The starvation regression was selected and passed in hosted source validation. PR #2618 passed exact-candidate CI, lint matrix, QG with privileged strict audits and separate metadata guard, invariants, gradient, Docker, and release validation; it merged normally and main matches its tree.
 
-Latest verified main: `fd8e2139e73d3a846e9039ffa56a3c96ad5dce2c`, tree `8998bffdbb2d6b097bb851bb4f37ad74b17fdaf2`
-Latest construction segment: `work/construction/segments/0578-reconcile-sequence576-577-append-only-integration.md`
-Latest segment SHA-256: `ec8c9909fc7ae25a3cd62b5e046856262afaad22cddcf78ec96ab1df5e7e3c51`
-Sequence: 578 (verified append-only integration)
+Latest verified main: `affcb8d4c336d94a618ee0c2348df49cf24c882d`, tree `420b91f5543e55a4e8e3a754d815cf4d3427ff06`
+Latest construction segment: `work/construction/segments/0579-fair-bounded-epistemic-state-scheduling.md`
+Latest segment SHA-256: `9aaac900b12099a206d88358c06d041ece9148c5923f4fe3e9dd0129c89c2235`
+Sequence: 579 (verified source integration)
 
-Next: prove whether repeated fresh evidence can keep a low-sorted proposition selected while another proposition's state update remains pending across ticks. Establish the deterministic fairness contract and omission trail before changing the selector. Preserve read-only planning and execution separation.
+Next: inspect whether pending state-update scheduling remains starvation-free when propositions have different numbers of active evidence bindings and when a replay/restart reconstructs update-event history. Preserve deterministic ties, bounded work, durable identity, and explicit omission evidence. Continue only through the existing admission controller; no automatic inference or production execution.
