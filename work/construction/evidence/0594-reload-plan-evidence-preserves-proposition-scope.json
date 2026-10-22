@@ -1,0 +1,43 @@
+{
+  "sequence": 594,
+  "title": "Reloaded planning evidence preserves proposition and allocation bindings",
+  "predecessor": {
+    "sequence": 593,
+    "sha256": "4f292ebcd0b954fc7454fed31b3c8e48ff9e140d5731a6a2c3ffe635258fcfec"
+  },
+  "source": {
+    "candidate_commit": "9edb578344eebb85f96ae64ea7168fb690e4c6d3",
+    "tree": "4231ebb733ed10ebdffeb573670197e3e7c90b45",
+    "parent_main": "965659041bc448ba3d3166d7e618ef255abf0387"
+  },
+  "validation": {
+    "ci_run": 39855209957,
+    "ci_result": "success",
+    "full_pytest_suite": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39855209871,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39855209989,
+      "codex_ci": 39855209827,
+      "gradient_null_regression": 39855209826,
+      "invariants": 39855209754,
+      "docker": 39855209833,
+      "lint_benchmark": 39855209707
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2645,
+    "method": "normal merge",
+    "merge_commit": "c79b84f7fcaf1ab484cd7157f61666edf9016e45",
+    "tree": "4231ebb733ed10ebdffeb573670197e3e7c90b45",
+    "candidate_to_merge_files_changed": 0
+  },
+  "scope": "Reloaded plan evidence retains its immutable allocation digest and receipt-derived content. Cross-proposition evidence cannot be applied to a different proposition. No inference, execution, or production transition."
+}
