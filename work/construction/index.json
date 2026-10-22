@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "16a3d47ac4eb4c46a6557c7634350ea3e03b6eeb78391f12908953492061e162",
-    "latest_segment_sequence": 585,
-    "latest_segment_sha256": "316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11",
-    "source_commit": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
-    "source_tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3"
+    "checkpoint_sha256": "ca79181c7221a607979734aed951eeb32122d79e58c6071d0aa3e027055907e5",
+    "latest_segment_sequence": 586,
+    "latest_segment_sha256": "8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e",
+    "source_commit": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
+    "source_tree": "11e217ac166ff513a575d789633b457274aa921c"
   },
-  "checkpoint_sha256": "16a3d47ac4eb4c46a6557c7634350ea3e03b6eeb78391f12908953492061e162",
+  "checkpoint_sha256": "ca79181c7221a607979734aed951eeb32122d79e58c6071d0aa3e027055907e5",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 585,
+  "latest_sequence": 586,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6776,6 +6776,19 @@
       "source_candidate_commit": "7b287b4203a6f981b18515a6765d79e6b4080a39",
       "source_commit": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
       "source_tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3"
+    },
+    {
+      "sequence": 586,
+      "path": "work/construction/segments/0586-epistemic-receipt-recovery.md",
+      "sha256": "8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e",
+      "bytes": 1731,
+      "predecessor": "segment-sha256:316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11",
+      "evidence_path": "work/construction/evidence/0586-epistemic-receipt-recovery.json",
+      "evidence_sha256": "0f85f2b17c4b7336f961e0886cc819dbb01ae317c3bed0fe6a33cf4f5c9a0818",
+      "evidence_bytes": 3503,
+      "source_candidate_commit": "ebf31c00b9e0d1c42d260ef5f4f038c993feba50",
+      "source_commit": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
+      "source_tree": "11e217ac166ff513a575d789633b457274aa921c"
     }
   ],
   "source_acquisition": {
