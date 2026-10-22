@@ -217,6 +217,8 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     assert first.omitted_proposition_ids == ()
     assert len(owner.active_binding_ids(early.proposition_id)) == 6
     assert len(owner.active_binding_ids(later.proposition_id)) == 1
+    later_bindings_before_omission = set(
+        owner.active_binding_ids(later.proposition_id))
 
     runtime.config = replace(runtime.config,
         max_updated_propositions_per_tick=1)
@@ -232,7 +234,7 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
     assert early_state is not None and early_state.generation == 1
     assert later_state is not None and later_state.generation == 0
     assert len(owner.active_binding_ids(early.proposition_id)) == 7
-    assert len(owner.active_binding_ids(later.proposition_id)) == 1
+    assert set(owner.active_binding_ids(later.proposition_id)) == later_bindings_before_omission
 
     recovered_owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemics", allowed_namespaces=("operator",))
@@ -246,7 +248,7 @@ def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
         mutation_controller=recovered_controller,
         admission_authority=runtime.authority, admission_ledger=ledger)
     assert len(recovered_owner.active_binding_ids(early.proposition_id)) == 7
-    assert len(recovered_owner.active_binding_ids(later.proposition_id)) == 1
+    assert set(recovered_owner.active_binding_ids(later.proposition_id)) == later_bindings_before_omission
     third = recovered_runtime.process_snapshot(
         builder.build([
             *early_seed_records, early_first, early_second,
