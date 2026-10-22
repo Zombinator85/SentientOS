@@ -1212,3 +1212,111 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     assert owner.current_state(proposition.proposition_id) == supported
     assert recovered_owner.current_state(proposition.proposition_id) == supported
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+
+
+def test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only receipt-verified durable experience may change a canonical plan."""
+    from sentientos.codex_task_authority_admission import (
+        AUTHORITY_DEFINITIONS, RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        EpistemicStateError, make_epistemic_update_candidate,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        PRINCIPAL, STATE_UPDATE_EFFECTS, ResidentEpistemicStateMutationController,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+
+    proposition = make_proposition(
+        namespace="embodiment", subject="planning:receipt-fixture",
+        predicate="candidate_requires_review", object_value={"goal_id": "g_receipt"},
+        polarity="positive", qualifiers={"fixture": "receipt-backed-plan"},
+        temporal_scope={"kind": "bounded_planning_fixture"},
+        context_scope={"goal_id": "g_receipt"}, proposition_class="predictive",
+        statement="This prior position must be receipt-verified before planning.")
+    graph = GoalGraph(schema_version=1, goals=(Goal(
+        "g_receipt", "receipt-backed history goal", 5.0, 10, (),
+        "task:forge_propose", 1, 1,
+        ("integrity", f"epistemic_proposition:{proposition.proposition_id}"), True),))
+    persist_goal_graph(tmp_path, graph)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\\n", encoding="utf-8")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+
+    planning_time = "2026-10-16T09:00:00Z"
+    without_history = plan_goals(tmp_path, planning_time=planning_time)
+    assert without_history.allocation.selected == ("g_receipt",)
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    owner.register_proposition(proposition)
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    authority = RuntimeAdmissionAuthority(
+        definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+    receipt_root = tmp_path / "controller"
+    controller = ResidentEpistemicStateMutationController(
+        owner=owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger),
+        current_sequence=lambda: 10, receipt_root=receipt_root)
+    operation_id = "receipt-backed-plan-state"
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id,
+        predecessor_state_digest=None, proposed_stance="unknown",
+        evidence_binding_ids=(), reason="initialization",
+        rationale="receipt-backed canonical planning fixture",
+        uncertainty="unknown", model_id="fixture")
+    admission = authority.issue(
+        admission_id="receipt-backed-plan-admission",
+        capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+        subsystem_kind="epistemics", principal_id=PRINCIPAL,
+        principal_kind=PRINCIPAL, effects=STATE_UPDATE_EFFECTS,
+        subject_id=candidate.candidate_id,
+        request_configuration_digest=controller.state_configuration_digest(
+            candidate=candidate, operation_id=operation_id),
+        provenance="test:receipt-backed-canonical-plan",
+        issued_sequence=1, valid_through_sequence=20,
+        affirmative_preconditions=(
+            RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+    receipt = controller.commit_update_candidate(
+        candidate=candidate, admission=admission, operation_id=operation_id,
+        correlation_id="receipt-backed-canonical-plan", tick=1,
+        recorded_at="2026-10-16T08:00:00Z")
+    assert receipt.storage_verified is True
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, epistemic_state_owner=recovered_owner,
+        epistemic_state_config={"status": "configured",
+            "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1})
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_mutation_lineage_unverified"):
+        surfaces.plan_canonical_goals(tick_id=planning_time)
+
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger),
+        current_sequence=lambda: 10, receipt_root=receipt_root)
+    assert recovered_controller.recovery_status["status"] == "verified"
+
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("canonical planning must not execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    planned = surfaces.plan_canonical_goals(
+        tick_id="2026-10-16T09:01:00Z")
+    assert planned.allocation.selected == ()
+    assert {item.goal_id: item.reason
+        for item in planned.allocation.deferred}["g_receipt"] == (
+            "epistemic_review_required")
+    assert planned.work_plan is None
+    assert recovered_owner.current_state(proposition.proposition_id) is not None
