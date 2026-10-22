@@ -1,0 +1,54 @@
+{
+  "artifact": {
+    "bytes": 800,
+    "id": 12389256894,
+    "independent_download_and_readback": true,
+    "name": "federation-health-39692862932",
+    "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+    "sha256": "ffae2912262302278ea7147630608533911825822cb0ca6de2478cd5ebe05ea3"
+  },
+  "current_main_at_reconciliation": {
+    "commit": "6f75aece49019d0a0f417cca78cc1f8192de3f96",
+    "current_main_execution_bound_by_run": false,
+    "tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
+  },
+  "limitations": [
+    "The configured snapshot explicitly reports stale local data, not live federation telemetry.",
+    "The successful scheduled run and publication PR bind an ancestor main SHA; they do not constitute an execution on the then-current main SHA.",
+    "PR #2593 remains unmerged."
+  ],
+  "predecessor": {
+    "segment_sha256": "7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71",
+    "sequence": 565
+  },
+  "publication_pr": {
+    "base_commit_at_open": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "creator": "sentientos-federation-publisher[bot]",
+    "head_commit": "7e81f8c49e0be9da6aacae5f85d16eacd6378095",
+    "head_tree": "9c37fd8c19e6591c0efe4c79c7da10aa7ffbe8a5",
+    "merged": false,
+    "number": 2593,
+    "state": "open"
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1345,
+  "segment_path": "work/construction/segments/0566-verify-scheduled-federation-health-app-publication.md",
+  "segment_sha256": "a36bafc0a314db3273a2f54d06fdbae3202f9b5cb80b1b1ec9b1e0f67120d881",
+  "sequence": 566,
+  "source_execution": {
+    "administrator_preflight": "passed",
+    "event": "schedule",
+    "head_sha": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "head_tree": "8dc58158225fb42419cf3399c6d14381a95a41df",
+    "jobs": {
+      "fixture": "conditionally_skipped",
+      "health": "success",
+      "publish": "success"
+    },
+    "ref": "refs/heads/main",
+    "run_id": 39692862932,
+    "workflow": "Federation Health Update"
+  },
+  "status": "verified_operational_reconciliation",
+  "title": "Verify scheduled Federation Health App publication"
+}

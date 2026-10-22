@@ -1,0 +1,9 @@
+# Sequence 567 — reject uncertain review expiry chronology
+
+PR #2598 added chronology binding across model-call, provider dry-run egress, and invocation-denial review receipts. The final exact-candidate Required Quality Gate run `39697561429` passed after earlier attempts correctly rejected a stale PR-title payload. Candidate `abf3656fd32a4dcd9e2ebd0b91219a47495142de`, tree `9f65d9b9d91593d040d04c9576c451fec19f5a96`, merged normally as `292c85f8220686fc06c34f1a3934b31a3bd48b70` with verified main first and candidate second. Candidate CI, Invariants, Docker, Lint, Release, Codex CI, and Gradient checks passed. Post-merge CI, Quality Gate, Invariants, Docker, docs deployment, nightly self-check, and Codex CI passed; Forge Smoke was conditionally skipped.
+
+PR #2599 then hardened review timestamps and TTL types across network-egress and operator review receipts. Naive, malformed, or offset-unknown times cannot satisfy gates; TTL rejects booleans and negative values. The focused network-egress and operator-expiry suites passed (40 tests), compile and diff checks passed, and repository Mypy reported zero new errors with 40 retired baseline errors. Candidate `d9839dd3f09416980f2f15aad0de749d7367fffb` has tree `10dfb6e609b3a5733237bd770ac7e634fe5c8dc2`, based on `292c85f8220686fc06c34f1a3934b31a3bd48b70`; its strict Quality Gate and all companion candidate checks passed. It merged normally as `67bd7199cb62fdf4fc04a6ed750653f54672bcd5`, preserving candidate tree and commit history. Post-merge CI, Quality Gate, Invariants, Docker, docs, Codex CI, and nightly self-check passed; Forge Smoke was conditionally skipped.
+
+These changes make malformed or uncertain chronology fail closed at each receipt validator and gate predicate. No inference or production transition was run.
+
+Sequence: 567 (verified source integration)

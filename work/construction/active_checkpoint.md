@@ -470,3 +470,17 @@ Sequence: 565 (verified documentation integration)
 
 Next: reassess the developmental outcome-to-planning dependency against the current runtime and acceptance suite, identifying a still-missing canonical connection before implementing further changes.
 
+
+
+## Current verified state — sequence 568
+
+Main is `6f75aece49019d0a0f417cca78cc1f8192de3f96` with tree `0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966`. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped. Source validation passed the exact outcome-to-planning and planning/execution-separation acceptance nodes. The sequence-565 dependency has therefore been satisfied by current source and hosted acceptance.
+
+The Federation Health App publisher has completed an actual scheduled run and automatically created PR #2593, but that receipt binds ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; the PR remains unmerged and the report says the configured local snapshot is stale. It does not establish a scheduled run on the current main or live federation telemetry.
+
+Latest verified implementation merge: `6f75aece49019d0a0f417cca78cc1f8192de3f96`, tree `0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966`
+Latest construction segment: `work/construction/segments/0568-reject-review-timestamp-utc-overflow.md`
+Latest segment SHA-256: `ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434`
+Sequence: 568 (verified source integration)
+
+Next: close the reproduced UTC-normalization overflow in model-catalog deployment, model-mirror publication, and host-fulfillment authorization validators. Preserve their existing fail-closed admission and write boundaries; this follow-up is isolated from the merged review-receipt work.

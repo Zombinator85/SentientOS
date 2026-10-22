@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "232bcf4b04494d73dc12c07749b880a74e49e3a54c228ea098d0293e5754b06a",
-    "latest_segment_sequence": 565,
-    "latest_segment_sha256": "7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71",
-    "source_commit": "597af64de9c6382639b0b97e97d8718864538a6f",
-    "source_tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba"
+    "checkpoint_sha256": "c245dec0e4a24d9ffb7fa6c07f2ccf5c2e0203df6bd4aca7015e1bdc7d5e8e0a",
+    "latest_segment_sequence": 568,
+    "latest_segment_sha256": "ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
+    "source_commit": "6f75aece49019d0a0f417cca78cc1f8192de3f96",
+    "source_tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
   },
-  "checkpoint_sha256": "232bcf4b04494d73dc12c07749b880a74e49e3a54c228ea098d0293e5754b06a",
+  "checkpoint_sha256": "c245dec0e4a24d9ffb7fa6c07f2ccf5c2e0203df6bd4aca7015e1bdc7d5e8e0a",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 565,
+  "latest_sequence": 568,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6516,6 +6516,45 @@
       "source_candidate_commit": "277a87bdeea216d1543e5554117bd76a75862af3",
       "source_commit": "597af64de9c6382639b0b97e97d8718864538a6f",
       "source_tree": "5fc1d8879f5d8f42dcdc2c2267bc26ad5e377fba"
+    },
+    {
+      "bytes": 1345,
+      "evidence_bytes": 2157,
+      "evidence_path": "work/construction/evidence/0566-verify-scheduled-federation-health-app-publication.json",
+      "evidence_sha256": "a2b53f85dfa79cfd21bffe70ad71b883f7806d618234d3e995e8d262055d2ac8",
+      "path": "work/construction/segments/0566-verify-scheduled-federation-health-app-publication.md",
+      "predecessor": "segment-sha256:7b6ac514f62fa4524ddf65cb09b33eff26708b1e771c7a78d47c62edf8267c71",
+      "sequence": 566,
+      "sha256": "a36bafc0a314db3273a2f54d06fdbae3202f9b5cb80b1b1ec9b1e0f67120d881",
+      "source_candidate_commit": "7e81f8c49e0be9da6aacae5f85d16eacd6378095",
+      "source_commit": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+      "source_tree": "8dc58158225fb42419cf3399c6d14381a95a41df"
+    },
+    {
+      "bytes": 1839,
+      "evidence_bytes": 3940,
+      "evidence_path": "work/construction/evidence/0567-reject-uncertain-review-expiry-chronology.json",
+      "evidence_sha256": "08b204f753cfa119b755bd9aaec8e7849e60518ec4a49a977ba95d17cf5715fd",
+      "path": "work/construction/segments/0567-reject-uncertain-review-expiry-chronology.md",
+      "predecessor": "segment-sha256:a36bafc0a314db3273a2f54d06fdbae3202f9b5cb80b1b1ec9b1e0f67120d881",
+      "sequence": 567,
+      "sha256": "1e60213ac435fc8d60c36fc290f06503f333dc5054bcdda43d252d832804e156",
+      "source_candidate_commit": "d9839dd3f09416980f2f15aad0de749d7367fffb",
+      "source_commit": "67bd7199cb62fdf4fc04a6ed750653f54672bcd5",
+      "source_tree": "10dfb6e609b3a5733237bd770ac7e634fe5c8dc2"
+    },
+    {
+      "bytes": 1822,
+      "evidence_bytes": 4146,
+      "evidence_path": "work/construction/evidence/0568-reject-review-timestamp-utc-overflow.json",
+      "evidence_sha256": "ccb4e32b7aa37bd3ca7e5c4f03a426b41be4271a8f23ea9117cb5b8e95b92575",
+      "path": "work/construction/segments/0568-reject-review-timestamp-utc-overflow.md",
+      "predecessor": "segment-sha256:1e60213ac435fc8d60c36fc290f06503f333dc5054bcdda43d252d832804e156",
+      "sequence": 568,
+      "sha256": "ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
+      "source_candidate_commit": "b4e8371d120ef431e99a135fc4ad28ddd62cdcc8",
+      "source_commit": "6f75aece49019d0a0f417cca78cc1f8192de3f96",
+      "source_tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
     }
   ],
   "source_acquisition": {
