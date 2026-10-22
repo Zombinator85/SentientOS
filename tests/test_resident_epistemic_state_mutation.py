@@ -16,6 +16,7 @@ from sentientos.persistent_epistemic_state import (
     make_epistemic_update_candidate,
     make_evidence_binding, make_proposition,
 )
+import sentientos.persistent_epistemic_state as state_module
 import sentientos.resident_epistemic_state_mutation as mutation_module
 from sentientos.resident_epistemic_state_mutation import (
     EVIDENCE_BINDING_EFFECTS, PRINCIPAL, STATE_UPDATE_EFFECTS,
@@ -203,6 +204,64 @@ def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> 
     assert not event_path.exists()
 
 
+
+
+def test_conflicting_admission_bound_transactions_do_not_recover(tmp_path) -> None:
+    owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="conflicting transaction recovery fixture", uncertainty="unknown",
+        model_id="caller")
+    operation_id = "state-conflict-original"
+    admission = issue(authority, admission_id="state-conflict-original-admission",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(candidate=candidate,
+            operation_id=operation_id), sequence=1)
+    receipt = controller.commit_update_candidate(candidate=candidate, admission=admission,
+        operation_id=operation_id, correlation_id="transaction-conflict", tick=1,
+        recorded_at="2026-01-01T00:01:00Z")
+
+    transaction_paths = tuple((owner.root / "transactions").glob("*.json"))
+    assert len(transaction_paths) == 1
+    transaction_path = transaction_paths[0]
+    transaction = json.loads(transaction_path.read_text(encoding="utf-8"))
+    conflicting_binding = dict(transaction["mutation_binding"])
+    conflicting_binding["operation_id"] = "state-conflict-alternate"
+    semantic = {"state": transaction["state"], "event": transaction["event"],
+        "mutation_binding": conflicting_binding}
+    transaction_digest = state_module.digest(semantic)
+    transaction_id = f"epistemic-transaction:{transaction_digest[7:31]}"
+    conflict_path = owner.root / "transactions" / f"{transaction_id}.json"
+    assert conflict_path != transaction_path and not conflict_path.exists()
+    conflict = {"transaction_id": transaction_id,
+        "transaction_digest": transaction_digest, **semantic}
+    conflict_path.write_bytes(state_module.canonical_bytes(conflict) + b"\n")
+
+    states_before = {path.name: path.read_bytes()
+        for path in (owner.root / "states").glob("*.json")}
+    events_before = {path.name: path.read_bytes()
+        for path in (owner.root / "updates").glob("*.json")}
+    transactions_before = {path.name: path.read_bytes()
+        for path in (owner.root / "transactions").glob("*.json")}
+    receipt_path = (controller.receipt_root / "receipts" / "state"
+        / f"{receipt.receipt_id}.json")
+    receipt_before = receipt_path.read_bytes()
+    admissions_before, _ = AdmissionLedger(tmp_path / "admissions.json").load()
+
+    with pytest.raises(EpistemicStateError,
+        match="epistemic_transaction_generation_conflict"):
+        PersistentEpistemicStateOwner(owner.root, allowed_namespaces=("test",))
+
+    admissions_after, _ = AdmissionLedger(tmp_path / "admissions.json").load()
+    assert admissions_after == admissions_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "states").glob("*.json")} == states_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "updates").glob("*.json")} == events_before
+    assert {path.name: path.read_bytes()
+        for path in (owner.root / "transactions").glob("*.json")} == transactions_before
+    assert receipt_path.read_bytes() == receipt_before
 
 def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:
     owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
