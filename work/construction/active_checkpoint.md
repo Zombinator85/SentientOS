@@ -472,15 +472,17 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 568
+## Current verified state — sequence 569
 
-Main is `6f75aece49019d0a0f417cca78cc1f8192de3f96` with tree `0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966`. Post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped. Source validation passed the exact outcome-to-planning and planning/execution-separation acceptance nodes. The sequence-565 dependency has therefore been satisfied by current source and hosted acceptance.
+Main is `f4cc3e7da87e143dd2187e7e80400974a2609860` with tree `5424ebd92e0e3b08848460fe3d6b3f2df6071e0e`. The high-authority timestamp validation increment merged normally after exact-candidate hosted CI and the strict Administrator Quality Gate passed, including the separate pre-publication metadata guard. Exact-main CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped. Source validation passed the canonical planning/execution and transition-receipt-to-campaign-planning acceptance nodes.
 
-The Federation Health App publisher has completed an actual scheduled run and automatically created PR #2593, but that receipt binds ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`; the PR remains unmerged and the report says the configured local snapshot is stale. It does not establish a scheduled run on the current main or live federation telemetry.
+Six canonical suites passed 115 cases; pinned Mypy reported zero new errors and 40 retired. Six approval/grant flows reject unknown UTC offsets or unrepresentable timestamp normalization before admission or effect. No production inference or privileged effect was run.
 
-Latest verified implementation merge: `6f75aece49019d0a0f417cca78cc1f8192de3f96`, tree `0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966`
-Latest construction segment: `work/construction/segments/0568-reject-review-timestamp-utc-overflow.md`
-Latest segment SHA-256: `ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434`
-Sequence: 568 (verified source integration)
+The latest scheduled Federation Health evidence remains bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222` and explicitly describes a stale local snapshot. A scheduled run on this main is not yet recorded.
 
-Next: close the reproduced UTC-normalization overflow in model-catalog deployment, model-mirror publication, and host-fulfillment authorization validators. Preserve their existing fail-closed admission and write boundaries; this follow-up is isolated from the merged review-receipt work.
+Latest verified implementation merge: `f4cc3e7da87e143dd2187e7e80400974a2609860`, tree `5424ebd92e0e3b08848460fe3d6b3f2df6071e0e`
+Latest construction segment: `work/construction/segments/0569-reject-uncertain-authority-timestamps.md`
+Latest segment SHA-256: `53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c`
+Sequence: 569 (verified source integration)
+
+Next: verify the next scheduled Federation Health execution against this main, then reassess the next canonical developmental cognition dependency.

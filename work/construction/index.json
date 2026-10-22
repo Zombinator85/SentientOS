@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c245dec0e4a24d9ffb7fa6c07f2ccf5c2e0203df6bd4aca7015e1bdc7d5e8e0a",
-    "latest_segment_sequence": 568,
-    "latest_segment_sha256": "ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
-    "source_commit": "6f75aece49019d0a0f417cca78cc1f8192de3f96",
-    "source_tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
+    "checkpoint_sha256": "7846de7a00b8af6e915461d143618a50a00871abcff0d6091bbf88ec2ba17b2a",
+    "latest_segment_sequence": 569,
+    "latest_segment_sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
+    "source_commit": "f4cc3e7da87e143dd2187e7e80400974a2609860",
+    "source_tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e"
   },
-  "checkpoint_sha256": "c245dec0e4a24d9ffb7fa6c07f2ccf5c2e0203df6bd4aca7015e1bdc7d5e8e0a",
+  "checkpoint_sha256": "7846de7a00b8af6e915461d143618a50a00871abcff0d6091bbf88ec2ba17b2a",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 568,
+  "latest_sequence": 569,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6555,6 +6555,19 @@
       "source_candidate_commit": "b4e8371d120ef431e99a135fc4ad28ddd62cdcc8",
       "source_commit": "6f75aece49019d0a0f417cca78cc1f8192de3f96",
       "source_tree": "0c93ad3a2d664b84f2f92fc8e4b39e3e8310c966"
+    },
+    {
+      "sequence": 569,
+      "path": "work/construction/segments/0569-reject-uncertain-authority-timestamps.md",
+      "bytes": 3143,
+      "sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c",
+      "predecessor": "segment-sha256:ed801a01306575b2836bb300fd60a41b450f6bf38ff817ce9349ddd0ead45434",
+      "source_commit": "f4cc3e7da87e143dd2187e7e80400974a2609860",
+      "source_tree": "5424ebd92e0e3b08848460fe3d6b3f2df6071e0e",
+      "source_candidate_commit": "29a1eae23b97aaacfb3b6f9b9a12bca398324068",
+      "evidence_path": "work/construction/evidence/0569-reject-uncertain-authority-timestamps.json",
+      "evidence_bytes": 5227,
+      "evidence_sha256": "6284b5c6268919074060faae75a7b2e6a3f209cb0e03b7569072bee98654a716"
     }
   ],
   "source_acquisition": {
