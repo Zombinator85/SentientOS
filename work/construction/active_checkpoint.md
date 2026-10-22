@@ -472,17 +472,15 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 569
+## Current verified state — sequence 570
 
-Main is `f4cc3e7da87e143dd2187e7e80400974a2609860` with tree `5424ebd92e0e3b08848460fe3d6b3f2df6071e0e`. The high-authority timestamp validation increment merged normally after exact-candidate hosted CI and the strict Administrator Quality Gate passed, including the separate pre-publication metadata guard. Exact-main CI, Quality Gate, Invariants, Docker, Docs Deploy, Codex CI, and Nightly Self Check passed; Forge Smoke was conditionally skipped. Source validation passed the canonical planning/execution and transition-receipt-to-campaign-planning acceptance nodes.
+Main is `0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5` with tree `3149a0cb8f47f54aecbc882cddc9626e2b256a61`. Sequence 569's timestamp-validation source merge remains `f4cc3e7da87e143dd2187e7e80400974a2609860`; PR #2603 appended its construction record and merged normally. Candidate and post-merge hosted checks passed, including actual Administrator audits, exact-candidate acceptance, privileged finalization, and separate PR metadata guard. See sequence 570 evidence for exact run IDs and artifact digests.
 
-Six canonical suites passed 115 cases; pinned Mypy reported zero new errors and 40 retired. Six approval/grant flows reject unknown UTC offsets or unrepresentable timestamp normalization before admission or effect. No production inference or privileged effect was run.
+The latest scheduled Federation Health execution remains bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`. No scheduled execution on current main was observed as of 2026-10-22 01:21:59 UTC. The two nightly workflows' latest scheduled runs succeeded on older source; their current authority and least-privilege contracts are covered by source tests and current-main hosted checks. No change to those workflows was warranted.
 
-The latest scheduled Federation Health evidence remains bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222` and explicitly describes a stale local snapshot. A scheduled run on this main is not yet recorded.
+Latest verified main: `0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5`, tree `3149a0cb8f47f54aecbc882cddc9626e2b256a61`
+Latest construction segment: `work/construction/segments/0570-verify-sequence-569-evidence-integration.md`
+Latest segment SHA-256: `a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c`
+Sequence: 570 (verified construction evidence integration)
 
-Latest verified implementation merge: `f4cc3e7da87e143dd2187e7e80400974a2609860`, tree `5424ebd92e0e3b08848460fe3d6b3f2df6071e0e`
-Latest construction segment: `work/construction/segments/0569-reject-uncertain-authority-timestamps.md`
-Latest segment SHA-256: `53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c`
-Sequence: 569 (verified source integration)
-
-Next: verify the next scheduled Federation Health execution against this main, then reassess the next canonical developmental cognition dependency.
+Next: close canonical planning's unknown-offset and unrepresentable timestamp boundary before prior-history selection, preserving plan-only behavior; continue monitoring for a Federation Health scheduled execution bound to this main.
