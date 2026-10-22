@@ -1,0 +1,151 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 570,
+  "title": "Verify sequence 569 evidence integration",
+  "status": "verified_operational_integration",
+  "segment_path": "work/construction/segments/0570-verify-sequence-569-evidence-integration.md",
+  "segment_bytes": 2659,
+  "segment_sha256": "a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c",
+  "predecessor": {
+    "sequence": 569,
+    "segment_sha256": "53ec050cd1f2f8d7b6eb75fa21b67ef3e38fb6e97d78c64b2b56f7682272be0c"
+  },
+  "source_candidate": {
+    "pull_request": 2603,
+    "commit": "f0a05b10be87a3deac4e9bc030a9bbccede50987",
+    "base": "f4cc3e7da87e143dd2187e7e80400974a2609860",
+    "tree": "3149a0cb8f47f54aecbc882cddc9626e2b256a61",
+    "remote_tree_blob_readback_matches_local": true,
+    "checks": {
+      "CI": {
+        "run": 39703501168,
+        "result": "success"
+      },
+      "Codex_CI": {
+        "run": 39703501163,
+        "result": "success"
+      },
+      "Docker": {
+        "run": 39703501088,
+        "result": "success"
+      },
+      "Gradient": {
+        "run": 39703501096,
+        "result": "success"
+      },
+      "Invariant_Tests": {
+        "run": 39703501141,
+        "result": "success"
+      },
+      "Lint_Benchmark": {
+        "run": 39703501128,
+        "result": "success"
+      },
+      "Release": {
+        "run": 39703501259,
+        "result": "success"
+      },
+      "Required_Quality_Gate": {
+        "run": 39703501153,
+        "result": "success"
+      }
+    }
+  },
+  "candidate_acceptance": {
+    "artifact_id": 12393133620,
+    "artifact_sha256": "b78b90b265e2cefa61d75b38463a273a55f4e14c26a5efc2535e874b44929e2b",
+    "repository_sha": "f0a05b10be87a3deac4e9bc030a9bbccede50987",
+    "required_nodes": 47,
+    "passed_nodes": 47,
+    "status": "task_acceptance_ready"
+  },
+  "hosted_finalizer": {
+    "run": 39703501153,
+    "artifact_id": 12393442923,
+    "artifact_sha256": "0b71bf98d2e9379a2b090547d5083354575598f3e1ae81098cb05d25d3f85c65",
+    "strict_audits": "success",
+    "audit_immutability_required": true,
+    "precommit_decision": "ready_to_commit",
+    "prepublication_metadata_guard": "pr_metadata_guard_ready",
+    "matrix_requested": false
+  },
+  "merge": {
+    "method": "merge",
+    "pull_request": 2603,
+    "commit": "0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5",
+    "tree": "3149a0cb8f47f54aecbc882cddc9626e2b256a61",
+    "parents": [
+      "f4cc3e7da87e143dd2187e7e80400974a2609860",
+      "f0a05b10be87a3deac4e9bc030a9bbccede50987"
+    ],
+    "candidate_tree_preserved": true
+  },
+  "post_merge_verification": {
+    "CI": {
+      "run": 39703973597,
+      "result": "success"
+    },
+    "Codex_CI": {
+      "run": 39703973578,
+      "result": "success"
+    },
+    "Docker": {
+      "run": 39703973660,
+      "result": "success"
+    },
+    "Docs_Deploy": {
+      "run": 39703973561,
+      "result": "success"
+    },
+    "Invariants": {
+      "run": 39703973581,
+      "result": "success"
+    },
+    "Quality_Gate": {
+      "run": 39703973552,
+      "result": "success"
+    },
+    "Forge_Smoke": {
+      "run": 39703973583,
+      "result": "conditionally_skipped"
+    }
+  },
+  "nightly_workflows": {
+    "audit_integrity": {
+      "run": 39572356700,
+      "source_commit": "47ea84a0f0ecd91fac886687a43c47093f724da3",
+      "result": "success",
+      "administrator_preflight": "success",
+      "strict_audit": "success",
+      "repair_job": "skipped"
+    },
+    "self_check": {
+      "run": 39577727254,
+      "source_commit": "0acc244d158618a827a34fbbfb5c80a876a137c7",
+      "result": "success",
+      "administrator_preflight": "success",
+      "strict_audit": "success",
+      "privilege_lint": "success",
+      "mypy": "success",
+      "pytest": "success"
+    },
+    "current_main_source_review": "read_only_contracts_and_authority_gates_preserved; no source defect found"
+  },
+  "federation_health": {
+    "latest_scheduled_run": 39692862932,
+    "latest_scheduled_source": "b96d9d4da5b532ff8acf13d73d8c05d4f9316222",
+    "current_main": "0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5",
+    "current_main_scheduled_run_observed": false,
+    "observed_at": "2026-10-22T01:21:59Z",
+    "report_limit": "previous run is ancestor-bound and explicitly describes stale local snapshot; no live telemetry inferred"
+  },
+  "next_dependency": {
+    "finding": "canonical plan_goals accepts RFC3339 unknown offset -00:00 and would use it as UTC for prior-history selection",
+    "planned_change": "reject unknown planning offsets and domain-fail on unrepresentable projection timestamps before history-owner read",
+    "planning_execution_separation": "preserved"
+  },
+  "limitations": [
+    "No scheduled Federation Health run on current main was observed at the recorded time.",
+    "No production model inference or privileged operational effect was run."
+  ]
+}
