@@ -1,0 +1,50 @@
+{
+  "sequence": 593,
+  "title": "Execution envelopes must match verified plan model identity",
+  "predecessor": {
+    "sequence": 592,
+    "sha256": "21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376"
+  },
+  "source": {
+    "candidate_commit": "32c288ccbac879272c9875d7d537b7994a7109d1",
+    "tree": "33bce2d4eba059464014021aa0356e4b5e327527",
+    "parent_main": "b8ce7283837e454a24f127562c11b27403f4ecb7"
+  },
+  "validation": {
+    "ci_run": 39853665217,
+    "ci_result": "success",
+    "full_self_check": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39853672848,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39853665222,
+      "codex_ci": 39853665289,
+      "gradient_null_regression": 39853665055,
+      "invariants": 39853665202,
+      "docker": 39853664923,
+      "lint_benchmark": 39853665084
+    },
+    "result": "all eight final-head workflows passed"
+  },
+  "integration": {
+    "pull_request": 2643,
+    "method": "normal merge",
+    "merge_commit": "d4942c0228d46929159fd45aec7e5b0b1abef077",
+    "tree": "33bce2d4eba059464014021aa0356e4b5e327527",
+    "candidate_to_merge_files_changed": 0
+  },
+  "failed_revisions": {
+    "candidates": [
+      "0d92efa2bc253da6d9933de8998e3939cbc958c9",
+      "e370262d32d5319ad136b22d880c44e37db3c5e3"
+    ],
+    "disposition": "First source fixture let the planner sentinel intercept the intentional negative executor call; the next revision declared the captured original method outside the target test and raised NameError. The final revision scopes the capture correctly. An initial gate run also raced the PR retitle; a fresh final-head strict gate passed."
+  },
+  "scope": "Execution rejects a plan evidence / execution envelope mismatch in target model identity or observation time before journal creation. No run artifact, model invocation, inference, or production transition."
+}

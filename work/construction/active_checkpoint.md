@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 592
+## Current verified state — sequence 593
 
-Sequence 591 established that authority-admitted, receipt-verified positive and adverse outcomes can change canonical planning after restart. Sequence 592 confirms that the positive state remains scoped to the exact observed model identity: after restart, changing from model v1 to model v2 makes the goal epistemically unresolved and produces no work plan. No execution or model call occurs.
+Sequences 591–592 prove that positive and adverse receipt-verified experience changes canonical planning only when evidence matches the observed model identity. Sequence 593 extends that binding into execution: the executor rejects a plan evidence envelope whose target model identity or observation time differs from the supplied execution state before opening its journal. The negative regression produces no run artifact, and planning remains non-executing.
 
-Latest verified main: `02dae1f1322dc837a10fdc049901c29faa3c32d8`, tree `00c71c09576ee3f070cce3aaf59f7088ba5b8993`
-Latest construction segment: `work/construction/segments/0592-retained-outcomes-require-current-model-identity.md`
-Latest segment SHA-256: 21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376
-Sequence: 592 (verified source integration)
+Latest verified main: `d4942c0228d46929159fd45aec7e5b0b1abef077`, tree `33bce2d4eba059464014021aa0356e4b5e327527`
+Latest construction segment: `work/construction/segments/0593-execution-envelope-binds-plan-model-identity.md`
+Latest segment SHA-256: 4f292ebcd0b954fc7454fed31b3c8e48ff9e140d5731a6a2c3ffe635258fcfec
+Sequence: 593 (verified source integration)
 
-Next: continue tracing retained outcome evidence into durable planning artifacts. Verify that model-bound support, contradictory evidence, and recovery identities remain mutually consistent when the plan or allocation artifact is reloaded, and that stale or cross-proposition evidence cannot be substituted. Preserve deterministic decisions, authority admission, restart verification, and planning/execution separation.
+Next: inspect the persistent work-plan evidence loader and allocation binding end to end. Verify that receipt-derived review scopes and model identity survive plan reload exactly, and that stale, cross-proposition, or substituted support evidence is rejected without re-planning side effects or execution. Preserve immutable artifact checks, restart custody, authority admission, and the planner/executor boundary.

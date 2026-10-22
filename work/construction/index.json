@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4c244a753dda2c8b2232179b4de2b730913911add1a1da5ceae84a038e1d137e",
-    "latest_segment_sequence": 592,
-    "latest_segment_sha256": "21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376",
-    "source_commit": "02dae1f1322dc837a10fdc049901c29faa3c32d8",
-    "source_tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993"
+    "checkpoint_sha256": "d6137dbd22aaf18dc40d37ed573c4ceaba5d7167180a4ccc93bb355dda9c4936",
+    "latest_segment_sequence": 593,
+    "latest_segment_sha256": "4f292ebcd0b954fc7454fed31b3c8e48ff9e140d5731a6a2c3ffe635258fcfec",
+    "source_commit": "d4942c0228d46929159fd45aec7e5b0b1abef077",
+    "source_tree": "33bce2d4eba059464014021aa0356e4b5e327527"
   },
-  "checkpoint_sha256": "4c244a753dda2c8b2232179b4de2b730913911add1a1da5ceae84a038e1d137e",
+  "checkpoint_sha256": "d6137dbd22aaf18dc40d37ed573c4ceaba5d7167180a4ccc93bb355dda9c4936",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 592,
+  "latest_sequence": 593,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6867,6 +6867,19 @@
       "source_candidate_commit": "e19b4b354b29dbf7ba196a0de10b900ad3fe4c16",
       "source_commit": "02dae1f1322dc837a10fdc049901c29faa3c32d8",
       "source_tree": "00c71c09576ee3f070cce3aaf59f7088ba5b8993"
+    },
+    {
+      "sequence": 593,
+      "path": "work/construction/segments/0593-execution-envelope-binds-plan-model-identity.md",
+      "sha256": "4f292ebcd0b954fc7454fed31b3c8e48ff9e140d5731a6a2c3ffe635258fcfec",
+      "bytes": 2502,
+      "predecessor": "segment-sha256:21c2345751464f075716e7d1f22ade8bb96295943a6ce9137ecef6f57e9fb376",
+      "evidence_path": "work/construction/evidence/0593-execution-envelope-binds-plan-model-identity.json",
+      "evidence_sha256": "163c2fc4edd9c5160d15d1abf85666dd0ef1f8be6906cbd0bc31bced9d0b0437",
+      "evidence_bytes": 2162,
+      "source_candidate_commit": "32c288ccbac879272c9875d7d537b7994a7109d1",
+      "source_commit": "d4942c0228d46929159fd45aec7e5b0b1abef077",
+      "source_tree": "33bce2d4eba059464014021aa0356e4b5e327527"
     }
   ],
   "source_acquisition": {
