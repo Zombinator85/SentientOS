@@ -1484,11 +1484,36 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         dependency_kind="independently_sourced_observation", dependency_group=None,
         upstream_binding_ids=(), freshness="current", reliability_posture="supports")
     owner.bind_evidence(foreign_binding)
+    state_before_foreign = owner.current_state(proposition.proposition_id)
+    events_before_foreign = owner.update_events(proposition.proposition_id)
+    assert state_before_foreign is not None
+    assert len(events_before_foreign) == 1
+    intents_before_foreign = set(controller.intent_root.glob("*.json"))
+    state_receipts_dir = receipt_root / "receipts" / "state"
+    receipts_before_foreign = set(state_receipts_dir.glob("*.json"))
     with pytest.raises(EpistemicMutationError,
             match="candidate_evidence_missing_foreign_or_withdrawn"):
         update(stance="supported", binding_ids=(foreign_binding.binding_id,),
             added_binding_ids=(foreign_binding.binding_id,), tick=2,
             recorded_at="2026-10-16T09:01:30Z")
+
+    assert owner.current_state(proposition.proposition_id) == state_before_foreign
+    assert owner.update_events(proposition.proposition_id) == events_before_foreign
+    assert set(controller.intent_root.glob("*.json")) == intents_before_foreign
+    assert set(state_receipts_dir.glob("*.json")) == receipts_before_foreign
+
+    # Recovery must retain the prior unknown state without promoting the denied
+    # foreign binding or finding a state mutation intent/receipt for that attempt.
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    controller = ResidentEpistemicStateMutationController(
+        owner=owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger),
+        current_sequence=lambda: 10, receipt_root=receipt_root)
+    assert controller.recovery_status["status"] == "verified"
+    assert owner.current_state(proposition.proposition_id) == state_before_foreign
+    assert owner.update_events(proposition.proposition_id) == events_before_foreign
 
     support = make_evidence_binding(
         proposition_id=proposition.proposition_id,
