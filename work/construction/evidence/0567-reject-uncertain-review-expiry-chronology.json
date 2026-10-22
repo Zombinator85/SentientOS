@@ -1,0 +1,111 @@
+{
+  "invariants_preserved": [
+    "No production inference or model transition was executed.",
+    "Review validity and TTL bounds fail closed; no authority scope was expanded."
+  ],
+  "predecessor": {
+    "segment_sha256": "a36bafc0a314db3273a2f54d06fdbae3202f9b5cb80b1b1ec9b1e0f67120d881",
+    "sequence": 566
+  },
+  "schema_version": "sentientos.construction_increment:v1",
+  "segment_bytes": 1839,
+  "segment_path": "work/construction/segments/0567-reject-uncertain-review-expiry-chronology.md",
+  "segment_sha256": "1e60213ac435fc8d60c36fc290f06503f333dc5054bcdda43d252d832804e156",
+  "sequence": 567,
+  "source_candidates": [
+    {
+      "base": "ef98b0ea711bedc2689a4e4a0588757cf53532f9",
+      "commit": "abf3656fd32a4dcd9e2ebd0b91219a47495142de",
+      "final_quality_gate_artifacts": {
+        "acceptance": {
+          "id": 12391686218,
+          "sha256": "4e610e55c2d7cf278f87182f9c18cb465ab5ee36f493539553fa172e30d728d9"
+        },
+        "finalizer": {
+          "id": 12391681300,
+          "sha256": "3465703b8b21f9fb4dd810d3d899e8a534baf6a6993c6e21e8a2c18ed00d688e"
+        },
+        "quality_gate_evidence": {
+          "id": 12390953726,
+          "sha256": "65362d1847060c18ebedbe6df9d05b33f5937aca51f4cd2bb63bbff9031a6708"
+        }
+      },
+      "final_quality_gate_run": 39697561429,
+      "initial_quality_gate_attempts_failed": [
+        39697332689,
+        39697344384
+      ],
+      "local_regression_suites": "affected review receipt suites passed",
+      "merge_parents": [
+        "ef98b0ea711bedc2689a4e4a0588757cf53532f9",
+        "abf3656fd32a4dcd9e2ebd0b91219a47495142de"
+      ],
+      "merged_as": "292c85f8220686fc06c34f1a3934b31a3bd48b70",
+      "post_merge_runs": {
+        "CI": 39698017742,
+        "Codex_CI": 39698017823,
+        "Docker": 39698017793,
+        "Docs_Deploy": 39698017725,
+        "Forge_Smoke": "conditionally_skipped",
+        "Invariants": 39698017748,
+        "Nightly_Self_Check": 39698017754,
+        "Quality_Gate": 39698017780
+      },
+      "pull_request": 2598,
+      "tree": "9f65d9b9d91593d040d04c9576c451fec19f5a96"
+    },
+    {
+      "base": "292c85f8220686fc06c34f1a3934b31a3bd48b70",
+      "candidate_commit": "d9839dd3f09416980f2f15aad0de749d7367fffb",
+      "candidate_runs": {
+        "CI": 39698256883,
+        "Codex_CI": 39698256797,
+        "Docker": 39698256912,
+        "Docs_Lint_Benchmark": 39698256730,
+        "Gradient": 39698256889,
+        "Invariants": 39698256819,
+        "Quality_Gate": 39698256943,
+        "Release": 39698256903
+      },
+      "commits": [
+        "f72501bf9d49ba2d7c919881a4f4e2d72ee94578",
+        "d9839dd3f09416980f2f15aad0de749d7367fffb"
+      ],
+      "local_verification": {
+        "compile": "passed",
+        "focused_tests": "40 passed",
+        "mypy_new_errors": 0,
+        "mypy_retired_baseline_errors": 40
+      },
+      "merged_as": "67bd7199cb62fdf4fc04a6ed750653f54672bcd5",
+      "post_merge_runs": {
+        "CI": 39698969195,
+        "Codex_CI": 39698969225,
+        "Docker": 39698969383,
+        "Docs_Deploy": 39698969244,
+        "Forge_Smoke": "conditionally_skipped",
+        "Invariants": 39698969199,
+        "Nightly_Self_Check": 39698969254,
+        "Quality_Gate": 39698969204
+      },
+      "pull_request": 2599,
+      "quality_gate_artifacts": {
+        "acceptance": {
+          "id": 12391448990,
+          "sha256": "f9d6d00c7d0b5e7aa3a80d1c0c1ca9706ec58e0b3c060afcdbb6a3bf5c9011ce"
+        },
+        "finalizer": {
+          "id": 12392070182,
+          "sha256": "69c3a2e3056b6704e1a703c2fd5f7250b68609a0dd81eee501e1d2ab7415d95e"
+        },
+        "quality_gate_evidence": {
+          "id": 12391543812,
+          "sha256": "c80672896f8f8a6d736e7c14560331d00abe519bc7dfab9d8c0fd168edb78160"
+        }
+      },
+      "tree": "10dfb6e609b3a5733237bd770ac7e634fe5c8dc2"
+    }
+  ],
+  "status": "verified_source_integration",
+  "title": "Reject uncertain review expiry chronology"
+}
