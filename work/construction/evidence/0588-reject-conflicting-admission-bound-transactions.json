@@ -1,0 +1,119 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 588,
+  "title": "Reject conflicting admission-bound epistemic transactions",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 587,
+    "segment_sha256": "a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa"
+  },
+  "segment_path": "work/construction/segments/0588-reject-conflicting-admission-bound-transactions.md",
+  "candidate": {
+    "base": "d0e3aa5d70a1d44933087b16af546a63efb7d816",
+    "commit": "ecc068cc112a0dd86d89d71f986962503b39aaf8",
+    "tree": "ca41cbc5fe13458fd2c62ce414d7ad8268f070d8",
+    "pull_request": 2632,
+    "source_validation_checkout": "afcca6b8d39cda8bab01e55a16203ad74cbdfce7",
+    "source_validation_checkout_tree_matches_candidate": true,
+    "merge_commit": "1139e3117adf54c3529555d9d2faf2befc55cac2",
+    "merge_tree": "ca41cbc5fe13458fd2c62ce414d7ad8268f070d8",
+    "merge_method": "merge",
+    "candidate_merge_diff_files": 0
+  },
+  "checks": {
+    "ci": {
+      "run": 39838195862,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "source_validation_tests_passed": 413,
+      "source_validation_tests_skipped": 18,
+      "source_validation_tests_failed": 0,
+      "source_validation_required_node": "tests/test_resident_epistemic_state_mutation.py::test_conflicting_admission_bound_transactions_do_not_recover",
+      "source_validation_required_node_result": "passed",
+      "source_validation_artifact": {
+        "id": 12452815489,
+        "digest": "sha256:ff048501e30764edeb045fead4951b7500c8a91413d30e25cb69e6ac1b1605dc"
+      },
+      "test_run_provenance_artifact": {
+        "id": 12450414921,
+        "digest": "sha256:89c9d1ca53bece42c37a404df6933d8bc09fd6fbcaffcdc52469ddc03aaa3f3f"
+      }
+    },
+    "quality_gate": {
+      "run": 39838195900,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12452720041,
+          "digest": "sha256:45b7f68b3de5bf94a6b47499d1a8a8853526601d804509de0b63068f31d33f08"
+        },
+        {
+          "id": 12452516249,
+          "digest": "sha256:2f53e3abc7f6b984a18f81123efd7c9e6317f6c5e5868d20de6d56967b94bd39"
+        },
+        {
+          "id": 12451956704,
+          "digest": "sha256:143cc1cd896aaaa4b76b960a1df19b35a287047cb60b8537f4aa53590506411c"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39838195690,
+      "result": "success"
+    },
+    "release": {
+      "run": 39838196108,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39838195967,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39838195985,
+      "result": "success"
+    },
+    "invariants": {
+      "run": 39838195877,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39838195758,
+      "result": "success"
+    }
+  },
+  "earlier_candidates": [
+    {
+      "commit": "7c1904c71063ba924c67fc9efb7f1376fa82897b",
+      "ci_run": 39836979777,
+      "result": "failed",
+      "failure": "injected record had non-private default file mode; repository custody correctly rejected it"
+    },
+    {
+      "commit": "cad7973d1c34d1821a26946449da16b596e62239",
+      "ci_run": 39837724098,
+      "result": "failed",
+      "failure": "injected record path did not use canonical transaction ID suffix"
+    }
+  ],
+  "merge": {
+    "pull_request": 2632,
+    "commit": "1139e3117adf54c3529555d9d2faf2befc55cac2",
+    "tree": "ca41cbc5fe13458fd2c62ce414d7ad8268f070d8",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured connector.",
+    "No inference or production transition occurred."
+  ],
+  "segment_sha256": "8240eb74e24d090929da04d839c38b2968299fa63416ecbea22b814a2363b4aa",
+  "segment_bytes": 1975
+}
