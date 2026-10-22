@@ -1,0 +1,104 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 582,
+  "title": "Fair epistemic generation scheduling",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 581,
+    "segment_sha256": "e9b7e43e16e5b419ab3726d60e2b1026250a9fb4536808d30ab1b006138cd653"
+  },
+  "segment_path": "work/construction/segments/0582-fair-epistemic-generation-scheduling.md",
+  "segment_sha256": "2527f1ef23a5b9ed9d4bc69f3a38827866804712daa0473c6c0d073211087d12",
+  "segment_bytes": 1811,
+  "source_change": {
+    "base": "b4d4118cb013b9ca0fe69e7495e9413205049ee5",
+    "candidate_commit": "680683bc8b20f9a36bdb338d86ae6e15269597ab",
+    "candidate_tree": "a40da840707418ebd337acdf4825ee9c4876807b",
+    "pull_request": 2622,
+    "files": [
+      "sentientos/resident_epistemic_development.py",
+      "tests/test_resident_epistemic_development.py",
+      ".github/workflows/ci.yml"
+    ],
+    "remote_blob_readback": "three of three matched byte-for-byte",
+    "python_compilation": "passed in isolated scratch",
+    "regression_node": "tests/test_resident_epistemic_development.py::test_equal_tick_updates_remain_fair_after_owner_restart",
+    "regression_result": "selected and passed in hosted source validation"
+  },
+  "verification": {
+    "quality_gate": {
+      "run": 39822845030,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12444044385,
+          "digest": "sha256:65c0005a1ce527b8dc2e97fcc08c4ccaf1b0580a784129aca85cf97b6717489d"
+        },
+        {
+          "id": 12446080310,
+          "digest": "sha256:484df30985fa642a4ae63c1d52ff16918f02108006683a1f2a046e94533f3538"
+        },
+        {
+          "id": 12445073170,
+          "digest": "sha256:6f64470571fd97dbd7bc45eb30b5e08c29ea6953fd107661a1099e26346f2d4e"
+        }
+      ]
+    },
+    "ci": {
+      "run": 39822844991,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12446275013,
+        "digest": "sha256:79a644064dec257b6b6c3c73438297dc67bd49fe20d18c999fcf5d5531667485"
+      },
+      "source_validation_artifact": {
+        "id": 12444994228,
+        "digest": "sha256:eb91719cb4ed1a07623ee7385ad1a396d227a96126c2fed73646c506bd3618c9"
+      }
+    },
+    "lint_benchmark": {
+      "run": 39822845151,
+      "workflow_summary": "in_progress_at_last_observation",
+      "jobs": "three of three completed success"
+    },
+    "codex_ci": {
+      "run": 39822844842,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39822844728,
+      "result": "success"
+    },
+    "release": {
+      "run": 39822844765,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39822845058,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39822844801,
+      "result": "success"
+    },
+    "regression_node": "selected_and_passed"
+  },
+  "merge": {
+    "commit": "d28206ce2f87c7a716de252aca5e9dd53085735c",
+    "tree": "a40da840707418ebd337acdf4825ee9c4876807b",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "The Lint Benchmark run summary remained in_progress though all three jobs and final steps reported success.",
+    "No inference or production transition occurred."
+  ]
+}
