@@ -232,7 +232,7 @@ def test_conflicting_admission_bound_transactions_do_not_recover(tmp_path) -> No
         "mutation_binding": conflicting_binding}
     transaction_digest = state_module.digest(semantic)
     transaction_id = f"epistemic-transaction:{transaction_digest[7:31]}"
-    conflict_path = owner.root / "transactions" / f"{transaction_id}.json"
+    conflict_path = owner.root / "transactions" / f"{transaction_id.split(':', 1)[1]}.json"
     assert conflict_path != transaction_path and not conflict_path.exists()
     conflict = {"transaction_id": transaction_id,
         "transaction_digest": transaction_digest, **semantic}
