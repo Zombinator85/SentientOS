@@ -118,6 +118,7 @@ jobs:
               "tests/test_local_model_chat_recovery.py::test_restart_preserves_resource_provisioning_identity",
               "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
               "tests/test_resident_epistemic_development.py::test_equal_tick_updates_remain_fair_after_owner_restart",
+              "tests/test_resident_epistemic_development.py::test_generation_is_not_served_until_committed_receipt_recovers",
               "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart",
               "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
               "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",

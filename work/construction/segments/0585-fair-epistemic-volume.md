@@ -1,0 +1,11 @@
+# Sequence 585 — verify epistemic fairness under unequal evidence volume
+
+PR #2626 adds a regression for unequal active evidence volume under the generation-based service order. Two propositions share an equal second-resolution tick. The earlier proposition begins with six active bindings; the later one has one. A bounded update serves the earlier proposition, while the omitted later proposition remains at generation 0 and retains exactly its original binding set. After reconstructing the persistent owner, the next equal-tick update selects the less-advanced proposition despite the seven-to-one active-binding imbalance. The exact regression passed in hosted source validation.
+
+PR #2626 also carried sequence 584's append-only evidence record. Its exact candidate passed all eight hosted workflows: CI, Required Quality Gate, Lint Benchmark, Codex CI, Gradient, Release, Invariants, and Docker. CI reported 143 passed, 13 skipped, and zero failures. The integrated source-validation lifecycle and exact acceptance nodes passed. Strict Administrator audits, audit immutability, hosted finalization, and the separate pre-publication metadata guard passed.
+
+Candidate `7b287b4203a6f981b18515a6765d79e6b4080a39` and merge `d32135e39ce79b08f41133db50ba92160fa1ab7e` have the same tree `aabc6d990207f15dbd9a6f6e849a2522a6dc81c3`; main equals the merge. The test blob was read back byte-for-byte. PR #2625's standalone CI run remained in progress at FFmpeg installation; the verified descendant candidate included its complete evidence tree, passed the full check set, and integrated it while preserving commit history. GitHub consequently marked PR #2625 merged through PR #2626.
+
+Earlier intermediate #2626 candidates were rejected before merge: one exposed an incorrect test assumption about the omitted proposition's active binding count, and two pre-commit finalizer attempts rejected a mismatched commit title and then an empty patch. The final head corrected the assertions, used a nonempty title-matched commit, and passed the exact candidate gate.
+
+Sequence: 585 (verified source integration)

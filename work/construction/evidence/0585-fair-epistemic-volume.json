@@ -1,0 +1,116 @@
+{
+  "schema_version": "sentientos.construction_increment:v1",
+  "sequence": 585,
+  "title": "Verify epistemic fairness under unequal evidence volume",
+  "status": "verified_source_integration",
+  "predecessor": {
+    "sequence": 584,
+    "segment_sha256": "71923dfb3fd0509bcb334dfc05eae5cfccf7774dbab4cb8ee50b209988f62f50"
+  },
+  "segment_path": "work/construction/segments/0585-fair-epistemic-volume.md",
+  "segment_sha256": "316fde6e34eec32cb2294584fd9d4945b3dffdc0f218ca58c442a5bf4514fc11",
+  "segment_bytes": 2104,
+  "candidate": {
+    "base": "debcec58ba4677c4efdb48375994e5d19f9015cf",
+    "commit": "7b287b4203a6f981b18515a6765d79e6b4080a39",
+    "tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3",
+    "pull_request": 2626,
+    "remote_blob_readback": "final test blob matched byte-for-byte"
+  },
+  "checks": {
+    "ci": {
+      "run": 39828995983,
+      "result": "success",
+      "tests_passed": 143,
+      "tests_skipped": 13,
+      "tests_failed": 0,
+      "test_provenance_artifact": {
+        "id": 12448072054,
+        "digest": "sha256:d65ac444d4aeb626c8bc1bfc58cf447d36e57ea3ca1b8ee0012171726ba254ca"
+      },
+      "source_validation_artifact": {
+        "id": 12447258521,
+        "digest": "sha256:beb5efcdd0a8fa4e8890bb62e1e07bea8659cab4af390b0d1a43861cdd1e8e43"
+      },
+      "test_acceptance": "test_equal_tick_updates_remain_fair_after_owner_restart selected and passed"
+    },
+    "quality_gate": {
+      "run": 39828996018,
+      "result": "success",
+      "strict_administrator_audits": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "artifacts": [
+        {
+          "id": 12448355890,
+          "digest": "sha256:c1a9459f38883efe1f4687f5955bd8d127b0dde0d5ef1dcd35e5bf9b9785124a"
+        },
+        {
+          "id": 12447669272,
+          "digest": "sha256:7a9fe00da66c6756fd14b7bf61ea9f7c50b348d267f797c5c14eae80c52bfa65"
+        },
+        {
+          "id": 12447449671,
+          "digest": "sha256:5ec13f4023b5e1978ec91029c2a6c3a680a2d6a9b735d4c0786ede9a3f260360"
+        }
+      ]
+    },
+    "lint_benchmark": {
+      "run": 39828996283,
+      "result": "success"
+    },
+    "codex_ci": {
+      "run": 39828995940,
+      "result": "success"
+    },
+    "gradient": {
+      "run": 39828995993,
+      "result": "success"
+    },
+    "release": {
+      "run": 39828995927,
+      "result": "success",
+      "publish": "conditionally_skipped"
+    },
+    "invariants": {
+      "run": 39828995751,
+      "result": "success"
+    },
+    "docker": {
+      "run": 39828995910,
+      "result": "success"
+    }
+  },
+  "intermediate_candidate_runs": [
+    {
+      "commit": "6c30154dec59121277a905a90a386d2c50f23c9c",
+      "run": 39827717033,
+      "result": "failure",
+      "cause": "test expected two active bindings for omitted proposition; actual durable set remained one"
+    },
+    {
+      "commit": "d2de80d13207078407565d73fe7d25ed8151adb3",
+      "run": 39828456983,
+      "result": "failure",
+      "cause": "Quality Gate pre-commit title mismatch"
+    },
+    {
+      "commit": "104b80bfe055856e2cbb0de4bc824c0823276932",
+      "run": 39828714687,
+      "result": "failure",
+      "cause": "Quality Gate rejected an empty final commit patch"
+    }
+  ],
+  "merge": {
+    "commit": "d32135e39ce79b08f41133db50ba92160fa1ab7e",
+    "tree": "aabc6d990207f15dbd9a6f6e849a2522a6dc81c3",
+    "method": "merge",
+    "candidate_compare": "identical_tree",
+    "main_ref": "identical"
+  },
+  "limitations": [
+    "Post-merge push-triggered workflow listings were unavailable through the configured connector.",
+    "No inference or production transition occurred."
+  ]
+}
