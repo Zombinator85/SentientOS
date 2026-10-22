@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ca79181c7221a607979734aed951eeb32122d79e58c6071d0aa3e027055907e5",
-    "latest_segment_sequence": 586,
-    "latest_segment_sha256": "8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e",
-    "source_commit": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
-    "source_tree": "11e217ac166ff513a575d789633b457274aa921c"
+    "checkpoint_sha256": "0d1ba85d135d6118eb9846305d68cc9d188de21119ecc99a40d19493ec7c8e07",
+    "latest_segment_sequence": 587,
+    "latest_segment_sha256": "a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa",
+    "source_commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
+    "source_tree": "f70894adb9c96463c5feb2099be2e4f97552be16"
   },
-  "checkpoint_sha256": "ca79181c7221a607979734aed951eeb32122d79e58c6071d0aa3e027055907e5",
+  "checkpoint_sha256": "0d1ba85d135d6118eb9846305d68cc9d188de21119ecc99a40d19493ec7c8e07",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 586,
+  "latest_sequence": 587,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6789,6 +6789,19 @@
       "source_candidate_commit": "ebf31c00b9e0d1c42d260ef5f4f038c993feba50",
       "source_commit": "658e5385d52f8a0adf641106d3a6e852dc8bef25",
       "source_tree": "11e217ac166ff513a575d789633b457274aa921c"
+    },
+    {
+      "sequence": 587,
+      "path": "work/construction/segments/0587-fail-closed-missing-epistemic-update-event.md",
+      "sha256": "a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa",
+      "bytes": 2280,
+      "predecessor": "segment-sha256:8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e",
+      "evidence_path": "work/construction/evidence/0587-fail-closed-missing-epistemic-update-event.json",
+      "evidence_sha256": "2dd56b033930434bb1f22bce9f2ecaf680a1ee939c34a33b88e2e842f82b333b",
+      "evidence_bytes": 3861,
+      "source_candidate_commit": "ccf77144239045afeebbc3eb8ee2b2569ca67c69",
+      "source_commit": "ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa",
+      "source_tree": "f70894adb9c96463c5feb2099be2e4f97552be16"
     }
   ],
   "source_acquisition": {

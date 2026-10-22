@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 586
+## Current verified state — sequence 587
 
-Sequences 582–586 establish deterministic generation-based epistemic scheduling, test fairness under unequal active evidence, and verify recovery when a state transaction is durable but its mutation receipt publication is interrupted. The controller reconstructs the receipt from exact intent and transaction custody; retry does not duplicate admissions or state advancement. PR #2628's exact candidate passed all eight workflows, including hosted strict audits, finalization, the separate metadata guard, and full CI (143 passed, 13 skipped, zero failed). Its verified tree includes sequence 585's append-only evidence.
+Sequences 582–585 established fair generation-based epistemic service under unequal evidence volume; sequence 586 verified receipt recovery from exact durable intent and transaction custody. Sequence 587 confirms a persisted admission-bound state missing its matching update event fails closed during owner reconstruction. The existing admission ledger and published mutation receipt remain unchanged. The corrected exact candidate passed full CI, all 14 source-validation acceptance nodes, and the strict Administrator Quality Gate; the first test candidate's failure and correction are preserved in sequence 587 evidence.
 
-Latest verified main: `658e5385d52f8a0adf641106d3a6e852dc8bef25`, tree `11e217ac166ff513a575d789633b457274aa921c`
-Latest construction segment: `work/construction/segments/0586-epistemic-receipt-recovery.md`
-Latest segment SHA-256: `8e643110e903151ecf187a52a695e5a8d5ebdbfa5ef473842f8fbfc522a4864e`
-Sequence: 586 (verified source integration)
+Latest verified main: `ffeac63ad9e6bfbec29ada77441a5e8b1409d5aa`, tree `f70894adb9c96463c5feb2099be2e4f97552be16`
+Latest construction segment: `work/construction/segments/0587-fail-closed-missing-epistemic-update-event.md`
+Latest segment SHA-256: `a7ff867d9e3bab81ef42ed7c041bdb1ba9c4f3c0143ee18d1f9ade0f90024dfa`
+Sequence: 587 (verified source integration)
 
-Next: exercise the remaining state mutation crash windows, especially a persisted state without its matching update event or admission-bound transaction. Confirm reconstruction fails closed without issuing a receipt or incrementing the service generation, and that conflicting or duplicate transaction evidence cannot be accepted as a recoverable commit.
+Next: inspect the remaining admission-bound transaction conflict and duplicate-evidence recovery paths. Prove whether malformed, duplicated, or conflicting durable transaction records can be mistaken for a recoverable committed generation; preserve fail-closed behavior and avoid receipt reconstruction from ambiguous custody.
