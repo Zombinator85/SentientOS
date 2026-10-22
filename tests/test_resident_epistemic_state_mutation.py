@@ -116,7 +116,7 @@ def test_mutation_bound_state_is_not_cognized_without_verified_intent(tmp_path) 
             "admission_id": "missing-admission", "admission_binding_digest": "sha256:missing",
             "operation_id": "unadmitted-operation", "correlation_id": "unadmitted"})
 
-    with pytest.raises(EpistemicStateError, match="epistemic_projection_pairing_ambiguous"):
+    with pytest.raises(EpistemicStateError, match="mutation_lineage_unverified"):
         owner.cognitive_projection(max_states=1)
     with pytest.raises(EpistemicMutationError, match="mutation_lineage_intent_missing"):
         ResidentEpistemicStateMutationController(owner=owner,
@@ -188,7 +188,8 @@ def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> 
     state_receipt_path = (controller.receipt_root / "receipts" / "state"
         / f"{receipt.receipt_id}.json")
     published_receipt = state_receipt_path.read_bytes()
-    event_path = owner.root / "updates" / f"{receipt.generation:012d}-{receipt.event_id}.json"
+    event = owner.update_events(proposition.proposition_id)[0]
+    event_path = owner.root / "updates" / f"{event.generation:012d}-{event.event_id}.json"
     assert event_path.is_file()
     event_path.unlink()
 
@@ -198,7 +199,7 @@ def test_missing_update_event_keeps_admitted_generation_unverified(tmp_path) -> 
     assert recovered_state is not None and recovered_state.generation == 0
     assert recovered_state.state_id == receipt.successor_state_id
     assert recovered_owner.verify()["incomplete_admission_bound_transactions"] == 1
-    with pytest.raises(EpistemicStateError, match="mutation_lineage_unverified"):
+    with pytest.raises(EpistemicStateError, match="epistemic_projection_pairing_ambiguous"):
         recovered_owner.cognitive_projection(max_states=1)
     ledger = AdmissionLedger(tmp_path / "admissions.json")
     admissions_before, _ = ledger.load()
