@@ -472,15 +472,15 @@ Next: reassess the developmental outcome-to-planning dependency against the curr
 
 
 
-## Current verified state — sequence 570
+## Current verified state — sequence 571
 
-Main is `0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5` with tree `3149a0cb8f47f54aecbc882cddc9626e2b256a61`. Sequence 569's timestamp-validation source merge remains `f4cc3e7da87e143dd2187e7e80400974a2609860`; PR #2603 appended its construction record and merged normally. Candidate and post-merge hosted checks passed, including actual Administrator audits, exact-candidate acceptance, privileged finalization, and separate PR metadata guard. See sequence 570 evidence for exact run IDs and artifact digests.
+Main is `7f22bd2157dfd0549f33eecf74a74fce56c8352c` with tree `f3d3baa4fb6361adabb633f352266228b2f127be`. Canonical planning now rejects unknown UTC offsets and fails closed when projection timestamp conversion is unrepresentable, before repository or owner reads. PR #2605 passed exact-candidate hosted acceptance and strict Administrator finalization, including the separate pre-publication metadata guard, then merged normally. All post-merge CI, Quality Gate, Invariants, Docker, Docs Deploy, and Codex CI checks passed; Forge Smoke was conditionally skipped.
 
-The latest scheduled Federation Health execution remains bound to ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`. No scheduled execution on current main was observed as of 2026-10-22 01:21:59 UTC. The two nightly workflows' latest scheduled runs succeeded on older source; their current authority and least-privilege contracts are covered by source tests and current-main hosted checks. No change to those workflows was warranted.
+The latest scheduled Federation Health evidence still binds ancestor source `b96d9d4da5b532ff8acf13d73d8c05d4f9316222`, and no scheduled run on this current main was observed at 2026-10-22 01:42:41 UTC. Do not treat the earlier stale local snapshot as live federation telemetry. Nightly Audit Integrity and Nightly Self Check last succeeded on older commits; their source-level authority boundaries remain valid and current-main CI verifies the corresponding audit/test paths.
 
-Latest verified main: `0bd520477d1bf0169ac6b0d0cec20b2745b7c6c5`, tree `3149a0cb8f47f54aecbc882cddc9626e2b256a61`
-Latest construction segment: `work/construction/segments/0570-verify-sequence-569-evidence-integration.md`
-Latest segment SHA-256: `a46c8b61051fead276f9b1a85d292c0a74f8d8b8c15b9981a59a92286100c54c`
-Sequence: 570 (verified construction evidence integration)
+Latest verified main: `7f22bd2157dfd0549f33eecf74a74fce56c8352c`, tree `f3d3baa4fb6361adabb633f352266228b2f127be`
+Latest construction segment: `work/construction/segments/0571-reject-uncertain-canonical-planning-times.md`
+Latest segment SHA-256: `82ca49200b3b7a41567ecb142aa4ad7b88fd1d6d8785b1b27510f962749709f0`
+Sequence: 571 (verified source integration)
 
-Next: close canonical planning's unknown-offset and unrepresentable timestamp boundary before prior-history selection, preserving plan-only behavior; continue monitoring for a Federation Health scheduled execution bound to this main.
+Next: verify an actual scheduled Federation Health execution on current main when available, then reassess the next canonical developmental cognition dependency.
