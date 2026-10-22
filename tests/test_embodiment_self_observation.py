@@ -11,6 +11,7 @@ from sentientos.embodiment_self_observation import (
     EmbodimentObservation, score_structured_assessment, semantic_digest,
 )
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.private_file_custody import PrivateFileCustodyError
 from sentientos.world_state_board import WorldStateBoardBuilder, diff_snapshots
 from sentientosd import RuntimeMaintenanceSurfaces
 
@@ -59,12 +60,18 @@ def test_manifest_and_command_observation_are_mechanically_distinct(tmp_path):
 def test_sentientosd_opt_in_and_absence_are_explicit(tmp_path):
     inert = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "inert")
     inert.build_world_state_board(tick_id=NOW)
-    assert not inert.current_world_state_snapshot.facts
+    inert_facts = inert.current_world_state_snapshot.facts
+    assert not any(fact.source.kind == "embodiment" for fact in inert_facts)
+    assert {fact.subject.subject_kind for fact in inert_facts} == {
+        "quarantine_custody_observation",
+    }
+    assert all(fact.source.kind == "quarantine" for fact in inert_facts)
+    assert not any(inert.current_world_state_snapshot.authority.values())
     owner = EmbodimentEvidenceOwner([observation("sensor_observation", "camera", {"present": True, "healthy": True})])
     composed = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "composed",
                                           embodiment_evidence_owner=owner)
     composed.build_world_state_board(tick_id=NOW)
-    assert {fact.source.kind for fact in composed.current_world_state_snapshot.facts} == {"embodiment"}
+    assert "embodiment" in {fact.source.kind for fact in composed.current_world_state_snapshot.facts}
     status = composed._feedback["surfaces"]["embodiment_observation_projection"]
     assert status["status"] == "projected_context"
     assert status["input_posture"] == "unverified_caller_assertions"
@@ -87,8 +94,13 @@ def test_baseline_perturbation_restoration_and_prior_tick_firewall(tmp_path):
                                       allowed_predicates=("embodiment.sensor_health",)).source_reconciliation_id == a.reconciliation_id
     c = owner.reconcile(restored, tick_id="tick-c")
     assert c.generation == 3 and b.generation == 2
-    current = [claim for claim in c.claims if claim.predicate == "embodiment.sensor_health" and claim.status == "current"]
-    assert current and current[0].value is True and current[0].supersedes
+    health_claims = [claim for claim in c.claims if claim.predicate == "embodiment.sensor_health"]
+    restored_assertion = [claim for claim in health_claims
+                         if claim.value is True and claim.status == "historical"]
+    assert restored_assertion
+    assert all(claim.freshness == "unknown" for claim in restored_assertion)
+    assert all(claim.current_truth is False for claim in health_claims)
+    assert all(claim.evidence_strength == "unverified_caller_assertion" for claim in health_claims)
     assert owner.reconstruct().reconciliation_id == c.reconciliation_id
 
 
@@ -223,11 +235,12 @@ def test_world_state_memory_view_waits_for_snapshot_replacement(tmp_path, monkey
         tmp_path, runtime_state_root=tmp_path / "runtime")
     surfaces._resident_succession_world_state_records = lambda _tick: []
 
-    def fail_replace(_source, _target):
+    def fail_replace(_source, _target, **kwargs):
+        assert set(kwargs) == {"src_dir_fd", "dst_dir_fd"}
         raise OSError("publication interrupted")
 
     monkeypatch.setattr(sentientosd.os, "replace", fail_replace)
-    with pytest.raises(OSError, match="publication interrupted"):
+    with pytest.raises(PrivateFileCustodyError, match="publication_unavailable"):
         surfaces.build_world_state_board(tick_id=NOW)
     assert surfaces.current_world_state_snapshot is None
     assert surfaces._world_state_snapshot_built_for_tick is None
