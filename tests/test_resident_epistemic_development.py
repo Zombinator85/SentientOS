@@ -174,8 +174,8 @@ def test_settled_propositions_do_not_starve_pending_state_updates(tmp_path):
     assert owner.current_state(propositions[2].proposition_id) is not None
 
 
-def test_fresh_early_evidence_does_not_starve_other_pending_state(tmp_path):
-    owner, initial, _ledger, runtime = fixture(tmp_path)
+def test_equal_tick_updates_remain_fair_after_owner_restart(tmp_path):
+    owner, initial, ledger, runtime = fixture(tmp_path)
     other = make_proposition(namespace="operator", subject="service-b",
         predicate="is_nominal", object_value=True, polarity="positive",
         qualifiers={}, temporal_scope={}, context_scope={},
@@ -191,7 +191,7 @@ def test_fresh_early_evidence_does_not_starve_other_pending_state(tmp_path):
         }, "supports", "unknown_dependency", "recorded")
         for proposition in (early, later))
     runtime.config = replace(runtime.config, rules=rules,
-        max_new_bindings_per_tick=8, max_updated_propositions_per_tick=1)
+        max_new_bindings_per_tick=8, max_updated_propositions_per_tick=2)
 
     def record(proposition, source_id, sample):
         return {
@@ -202,32 +202,51 @@ def test_fresh_early_evidence_does_not_starve_other_pending_state(tmp_path):
         }
 
     early_first = record(early, "early-1", 1)
-    early_next = record(early, "early-2", 2)
     later_first = record(later, "later-1", 1)
+    early_second = record(early, "early-2", 2)
+    later_second = record(later, "later-2", 2)
     builder = WorldStateBoardBuilder(
         clock=lambda: datetime.fromisoformat(NOW))
-    first = runtime.process_snapshot(builder.build([early_first]),
-        tick=10, recorded_at=NOW)
-    assert first.updated_proposition_count == 1
+    first = runtime.process_snapshot(
+        builder.build([early_first, later_first]), tick=10, recorded_at=NOW)
+    assert first.updated_proposition_count == 2
+    assert first.omitted_proposition_ids == ()
 
+    runtime.config = replace(runtime.config,
+        max_updated_propositions_per_tick=1)
     second = runtime.process_snapshot(
-        builder.build([early_first, early_next, later_first]),
-        tick=11, recorded_at=NOW)
+        builder.build([early_first, early_second, later_first, later_second]),
+        tick=10, recorded_at=NOW)
     assert second.status == "bounded_partial"
-    assert second.updated_proposition_count == 1
-    assert second.omitted_proposition_ids == (early.proposition_id,)
+    assert second.omitted_proposition_ids == (later.proposition_id,)
     early_state = owner.current_state(early.proposition_id)
     later_state = owner.current_state(later.proposition_id)
-    assert early_state is not None and early_state.generation == 0
-    assert later_state is not None
-
-    third = runtime.process_snapshot(
-        builder.build([early_first, early_next, record(early, "early-3", 3), later_first]),
-        tick=12, recorded_at=NOW)
-    assert third.updated_proposition_count == 1
-    assert third.omitted_proposition_ids == ()
-    early_state = owner.current_state(early.proposition_id)
     assert early_state is not None and early_state.generation == 1
+    assert later_state is not None and later_state.generation == 0
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=runtime.controller.admission_verifier,
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=runtime.controller.receipt_root)
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=runtime.config, owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=runtime.authority, admission_ledger=ledger)
+    third = recovered_runtime.process_snapshot(
+        builder.build([
+            early_first, early_second, record(early, "early-3", 3),
+            later_first, later_second, record(later, "later-3", 3),
+        ]), tick=10, recorded_at=NOW)
+    assert third.status == "bounded_partial"
+    assert third.updated_proposition_count == 1
+    assert third.omitted_proposition_ids == (early.proposition_id,)
+    early_state = recovered_owner.current_state(early.proposition_id)
+    later_state = recovered_owner.current_state(later.proposition_id)
+    assert early_state is not None and early_state.generation == 1
+    assert later_state is not None and later_state.generation == 1
 
 
 def test_unknown_offset_historical_event_time_stays_unresolved():
