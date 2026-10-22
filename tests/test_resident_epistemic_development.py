@@ -83,6 +83,97 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert state.evidence_set_digest
 
 
+def test_existing_bindings_do_not_starve_new_evidence_and_omissions_are_stable(tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    runtime.config = replace(runtime.config, max_new_bindings_per_tick=1)
+    records = [{
+        "source_kind": "runtime_supervisor", "source_id": source_id,
+        "subject_kind": "service", "subject_id": "service-a",
+        "stage": "observation", "disposition": "nominal",
+        "observed_at": NOW, "payload": {"check": "nominal"},
+    } for source_id in ("supervisor-a", "supervisor-b", "supervisor-c", "supervisor-d")]
+    builder = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW))
+    combined = builder.build(records)
+    first_fact = min(combined.facts, key=lambda fact: fact.fact_id)
+    initial_record = next(record for record in records
+        if record["source_id"] == first_fact.source.source_id)
+    initial = builder.build([initial_record])
+    first = runtime.process_snapshot(initial, tick=10, recorded_at=NOW)
+    assert first.new_binding_count == 1
+    first_binding = owner.bindings(proposition.proposition_id)[0]
+
+    second = runtime.process_snapshot(combined, tick=11, recorded_at=NOW)
+    assert second.status == "bounded_partial"
+    assert second.new_binding_count == 1
+    assert len(second.omitted_binding_ids) == 2
+    assert second.omitted_binding_ids == tuple(sorted(second.omitted_binding_ids))
+    assert len(owner.bindings(proposition.proposition_id)) == 2
+    assert first_binding.binding_id not in second.omitted_binding_ids
+
+    third = runtime.process_snapshot(combined, tick=12, recorded_at=NOW)
+    assert third.new_binding_count == 1
+    assert len(third.omitted_binding_ids) == 1
+    assert len(owner.bindings(proposition.proposition_id)) == 3
+
+    fourth = runtime.process_snapshot(combined, tick=13, recorded_at=NOW)
+    assert fourth.new_binding_count == 1
+    assert fourth.omitted_binding_ids == ()
+    assert fourth.status == "state_advanced"
+    assert len(owner.bindings(proposition.proposition_id)) == 4
+
+
+def test_settled_propositions_do_not_starve_pending_state_updates(tmp_path):
+    owner, first_proposition, _ledger, runtime = fixture(tmp_path)
+    additional = []
+    for subject in ("service-b", "service-c"):
+        proposition = make_proposition(namespace="operator", subject=subject,
+            predicate="is_nominal", object_value=True, polarity="positive",
+            qualifiers={}, temporal_scope={}, context_scope={},
+            proposition_class="environmental")
+        owner.register_proposition(proposition)
+        additional.append(proposition)
+    propositions = sorted((first_proposition, *additional),
+        key=lambda item: item.proposition_id)
+    rules = tuple(EpistemicDevelopmentRule(
+        f"rule-{index}", proposition.proposition_id,
+        proposition.proposition_digest, {
+            "source_kind": "runtime_supervisor",
+            "source_id": f"supervisor-{index}",
+            "stage": "observation", "disposition": "nominal",
+        }, "supports", "unknown_dependency", "recorded")
+        for index, proposition in enumerate(propositions))
+    runtime.config = replace(runtime.config, rules=rules,
+        max_new_bindings_per_tick=8, max_updated_propositions_per_tick=1)
+    records = [{
+        "source_kind": "runtime_supervisor",
+        "source_id": f"supervisor-{index}",
+        "subject_kind": "service", "subject_id": proposition.subject,
+        "stage": "observation", "disposition": "nominal",
+        "observed_at": NOW, "payload": {"check": "nominal"},
+    } for index, proposition in enumerate(propositions)]
+    builder = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW))
+    first = runtime.process_snapshot(builder.build(records[:1]),
+        tick=20, recorded_at=NOW)
+    assert first.updated_proposition_count == 1
+
+    second = runtime.process_snapshot(builder.build(records),
+        tick=21, recorded_at=NOW)
+    assert second.updated_proposition_count == 1
+    assert len(second.omitted_proposition_ids) == 1
+    settled_id = propositions[0].proposition_id
+    assert settled_id not in second.omitted_proposition_ids
+    assert owner.current_state(propositions[1].proposition_id) is not None
+    assert owner.current_state(propositions[2].proposition_id) is None
+
+    third = runtime.process_snapshot(builder.build(records),
+        tick=22, recorded_at=NOW)
+    assert third.updated_proposition_count == 1
+    assert third.omitted_proposition_ids == ()
+    assert owner.current_state(propositions[2].proposition_id) is not None
+
+
 def test_unknown_offset_historical_event_time_stays_unresolved():
     from sentientos.resident_epistemic_development import _latest_historical_event_time
 
