@@ -1320,3 +1320,192 @@ def test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery(
             "epistemic_review_required")
     assert planned.work_plan is None
     assert recovered_owner.current_state(proposition.proposition_id) is not None
+
+
+def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recovery(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only admitted and recovered evidence can move a goal from review to selection."""
+    from sentientos.codex_task_authority_admission import (
+        AUTHORITY_DEFINITIONS, RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.local_model_authority import digest_payload
+    from sentientos.persistent_epistemic_state import (
+        make_epistemic_update_candidate,
+        make_evidence_binding,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        PRINCIPAL, STATE_UPDATE_EFFECTS, ResidentEpistemicStateMutationController,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+
+    model_identity = {"provider": "fixture", "model": "developmental-model-v1"}
+    identity_digest = "sha256:" + digest_payload(model_identity)
+    proposition = make_proposition(
+        namespace="embodiment", subject="task_family:integer_affine_prediction",
+        predicate="heldout_episode_outcome",
+        object_value={"family": "integer_affine_prediction"}, polarity="positive",
+        qualifiers={"fixture": "receipt-backed-outcome-planning"},
+        temporal_scope={"kind": "measured_episode"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": identity_digest},
+        proposition_class="causal_hypothesis",
+        statement="A measured episode outcome informs this model-bound task family.")
+    graph = GoalGraph(schema_version=1, goals=(Goal(
+        "g_outcome", "continue the measured family", 3.0, 20, (), "rule", 1, 1,
+        ("integrity", f"epistemic_proposition:{proposition.proposition_id}",
+            "epistemic_task_family:integer_affine_prediction"), True),))
+    persist_goal_graph(tmp_path, graph)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+
+    class ServingObserver:
+        def observed_current_model_identity(self):
+            return model_identity
+
+        def current_session(self):
+            raise AssertionError("planning must not acquire a serving session")
+
+        def invoke(self, *_args, **_kwargs):
+            raise AssertionError("planning must not invoke a model")
+
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("canonical planning must not execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    observer = ServingObserver()
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    owner.register_proposition(proposition)
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    authority = RuntimeAdmissionAuthority(
+        definitions=AUTHORITY_DEFINITIONS, ledger=ledger)
+    receipt_root = tmp_path / "controller"
+    controller = ResidentEpistemicStateMutationController(
+        owner=owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=AUTHORITY_DEFINITIONS, ledger=ledger),
+        current_sequence=lambda: 10, receipt_root=receipt_root)
+    operation_number = 0
+
+    def update(*, stance: str, binding_ids: tuple[str, ...],
+            added_binding_ids: tuple[str, ...], tick: int, recorded_at: str):
+        nonlocal operation_number
+        operation_number += 1
+        operation_id = f"outcome-planning-update-{operation_number}"
+        previous = owner.current_state(proposition.proposition_id)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=(previous.state_digest if previous else None),
+            proposed_stance=stance, evidence_binding_ids=binding_ids,
+            reason="initialization" if previous is None else "new_evidence",
+            rationale="authority-bound measured outcome planning regression",
+            uncertainty="unknown" if stance == "unknown" else "low", model_id="fixture")
+        admission = authority.issue(
+            admission_id=f"outcome-planning-admission-{operation_number}",
+            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
+            subsystem_kind="epistemics", principal_id=PRINCIPAL,
+            principal_kind=PRINCIPAL, effects=STATE_UPDATE_EFFECTS,
+            subject_id=candidate.candidate_id,
+            request_configuration_digest=controller.state_configuration_digest(
+                candidate=candidate, operation_id=operation_id),
+            provenance="test:receipt-backed-outcome-canonical-planning",
+            issued_sequence=1, valid_through_sequence=20,
+            affirmative_preconditions=(
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
+        return controller.commit_update_candidate(
+            candidate=candidate, admission=admission, operation_id=operation_id,
+            correlation_id=operation_id, tick=tick, recorded_at=recorded_at)
+
+    def recover_and_plan(tick_id: str):
+        nonlocal owner, controller
+        owner = PersistentEpistemicStateOwner(
+            tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+        controller = ResidentEpistemicStateMutationController(
+            owner=owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions=AUTHORITY_DEFINITIONS, ledger=ledger),
+            current_sequence=lambda: 10, receipt_root=receipt_root)
+        assert controller.recovery_status["status"] == "verified"
+        surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, epistemic_state_owner=owner,
+            epistemic_state_config={"status": "configured",
+                "cognitive_consumption_enabled": True,
+                "max_cognitive_projection_count": 1},
+            resident_cognitive_invoker=observer)
+        return surfaces.plan_canonical_goals(tick_id=tick_id)
+
+    without_history = RuntimeMaintenanceSurfaces(
+        tmp_path, epistemic_state_owner=owner,
+        epistemic_state_config={"status": "configured",
+            "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1},
+        resident_cognitive_invoker=observer).plan_canonical_goals(
+            tick_id="2026-10-16T09:00:00Z")
+    assert without_history.allocation.selected == ("g_outcome",)
+
+    update(stance="unknown", binding_ids=(), added_binding_ids=(), tick=1,
+        recorded_at="2026-10-16T08:00:00Z")
+    unknown = recover_and_plan("2026-10-16T09:01:00Z")
+    assert unknown.work_plan is None
+    assert {row.goal_id: row.reason for row in unknown.allocation.deferred} == {
+        "g_outcome": "epistemic_review_required"}
+
+    support = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="developmental-run:positive-episode",
+        source_digest="sha256:" + "b" * 64,
+        source_schema="sentientos.developmental_run:v1",
+        source_class="deterministic_task_family_evaluation",
+        observation_time="2026-10-16T09:02:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group=None,
+        upstream_binding_ids=(), freshness="current", reliability_posture="supports")
+    owner.bind_evidence(support)
+    supported, _event = update(stance="supported", binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,), tick=2,
+        recorded_at="2026-10-16T09:02:00Z")
+    positive = recover_and_plan("2026-10-16T09:03:00Z")
+    assert positive.work_plan is not None
+    assert positive.work_plan.selected_goals == ("g_outcome",)
+    assert positive.target_active_model_identity_digest == identity_digest
+    assert positive.target_identity_observed_at == "2026-10-16T09:03:00Z"
+    evidence = json.loads((tmp_path / positive.work_plan_evidence_path).read_text(
+        encoding="utf-8"))
+    scope = evidence["evidence_binding"]["review_scopes"][proposition.proposition_id]
+    assert scope["position_posture"] == "verified_positive_current"
+    assert scope["position_identity"]["state_id"] == supported.state_id
+    assert scope["position_identity"]["state_digest"] == supported.state_digest
+    assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
+
+    adverse = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="developmental-run:adverse-episode",
+        source_digest="sha256:" + "c" * 64,
+        source_schema="sentientos.developmental_run:v1",
+        source_class="deterministic_task_family_evaluation",
+        observation_time="2026-10-16T09:04:00Z", evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation", dependency_group=None,
+        upstream_binding_ids=(), freshness="current", reliability_posture="contradicts")
+    owner.bind_evidence(adverse)
+    contradicted, _event = update(stance="contradicted",
+        binding_ids=(support.binding_id, adverse.binding_id),
+        added_binding_ids=(adverse.binding_id,), tick=3,
+        recorded_at="2026-10-16T09:04:00Z")
+    negative = recover_and_plan("2026-10-16T09:05:00Z")
+    assert negative.work_plan is None
+    assert {row.goal_id: row.reason for row in negative.allocation.deferred} == {
+        "g_outcome": "epistemic_review_required"}
+    allocation_artifact = json.loads((tmp_path / negative.allocation_artifact_path).read_text(
+        encoding="utf-8"))
+    negative_position = allocation_artifact["deferred_goals"][0]["epistemic_positions"][0]
+    assert negative_position["posture"] == "review_required"
+    assert negative_position["identity"]["state_id"] == contradicted.state_id
+    assert negative_position["identity"]["contradicting_binding_ids"] == [
+        adverse.binding_id]
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+
