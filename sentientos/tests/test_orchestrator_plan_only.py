@@ -1165,8 +1165,8 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     binding = evidence["evidence_binding"]
     scope = binding["review_scopes"][proposition.proposition_id]
     assert scope["position_posture"] == "verified_positive_current"
-    assert scope["position_identity"]["state_id"] == supported.state_id
-    assert scope["position_identity"]["state_digest"] == supported.state_digest
+    assert scope["position_identity"]["state_id"] == supported.successor_state_id
+    assert scope["position_identity"]["state_digest"] == supported.successor_state_digest
     assert scope["position_identity"]["update_event_id"] == event.event_id
     assert binding["goal_applicability"]["g_experienced"] is None
     assert result.allocation.selected_reasons[0]["epistemic_positions"][0][
@@ -1466,7 +1466,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         dependency_kind="independently_sourced_observation", dependency_group=None,
         upstream_binding_ids=(), freshness="current", reliability_posture="supports")
     owner.bind_evidence(support)
-    supported, _event = update(stance="supported", binding_ids=(support.binding_id,),
+    supported = update(stance="supported", binding_ids=(support.binding_id,),
         added_binding_ids=(support.binding_id,), tick=2,
         recorded_at="2026-10-16T09:02:00Z")
     positive = recover_and_plan("2026-10-16T09:03:00Z")
@@ -1480,6 +1480,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert scope["position_posture"] == "verified_positive_current"
     assert scope["position_identity"]["state_id"] == supported.state_id
     assert scope["position_identity"]["state_digest"] == supported.state_digest
+    assert scope["position_identity"]["update_event_id"] == supported.update_event_id
     assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
 
     adverse = make_evidence_binding(
@@ -1492,7 +1493,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         dependency_kind="independently_sourced_observation", dependency_group=None,
         upstream_binding_ids=(), freshness="current", reliability_posture="contradicts")
     owner.bind_evidence(adverse)
-    contradicted, _event = update(stance="contradicted",
+    contradicted = update(stance="contradicted",
         binding_ids=(support.binding_id, adverse.binding_id),
         added_binding_ids=(adverse.binding_id,), tick=3,
         recorded_at="2026-10-16T09:04:00Z")
@@ -1504,7 +1505,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         encoding="utf-8"))
     negative_position = allocation_artifact["deferred_goals"][0]["epistemic_positions"][0]
     assert negative_position["posture"] == "review_required"
-    assert negative_position["identity"]["state_id"] == contradicted.state_id
+    assert negative_position["identity"]["state_id"] == contradicted.successor_state_id
     assert negative_position["identity"]["contradicting_binding_ids"] == [
         adverse.binding_id]
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
