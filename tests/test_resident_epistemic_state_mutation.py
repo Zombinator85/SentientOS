@@ -237,6 +237,7 @@ def test_conflicting_admission_bound_transactions_do_not_recover(tmp_path) -> No
     conflict = {"transaction_id": transaction_id,
         "transaction_digest": transaction_digest, **semantic}
     conflict_path.write_bytes(state_module.canonical_bytes(conflict) + b"\n")
+    conflict_path.chmod(0o600)
 
     states_before = {path.name: path.read_bytes()
         for path in (owner.root / "states").glob("*.json")}
