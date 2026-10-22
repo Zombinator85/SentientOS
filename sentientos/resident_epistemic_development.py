@@ -1097,10 +1097,10 @@ class ResidentEpistemicDevelopmentRuntime:
                     raise EpistemicDevelopmentError("evidence_identity_collision")
                 continue
             prior_candidate = candidates.get(binding.binding_id)
-            candidate = (rule, fact, proof, binding)
+            prepared_candidate = (rule, fact, proof, binding)
             if prior_candidate is not None and prior_candidate[3] != binding:
                 raise EpistemicDevelopmentError("evidence_identity_collision")
-            candidates.setdefault(binding.binding_id, candidate)
+            candidates.setdefault(binding.binding_id, prepared_candidate)
         ordered_candidates = sorted(candidates.values(), key=lambda item: (
             item[0].rule_id, item[1].fact_id, item[3].binding_id))
         bounded = ordered_candidates[:self.config.max_new_bindings_per_tick]
