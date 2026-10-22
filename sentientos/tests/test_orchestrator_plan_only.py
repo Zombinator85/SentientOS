@@ -1415,7 +1415,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
             request_configuration_digest=controller.state_configuration_digest(
                 candidate=candidate, operation_id=operation_id),
             provenance="test:receipt-backed-outcome-canonical-planning",
-            issued_sequence=1, valid_through_sequence=20,
+            issued_sequence=operation_number, valid_through_sequence=20,
             affirmative_preconditions=(
                 RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements))
         return controller.commit_update_candidate(
