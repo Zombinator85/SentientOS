@@ -71,6 +71,17 @@ def test_ambiguous_review_time_never_satisfies_policy(field: str, value: object)
     assert not operator_review_satisfies_policy_decision(policy, receipt)
 
 
+def test_extreme_review_times_fail_closed_when_utc_normalization_overflows() -> None:
+    policy = _policy()
+    values = ("0001-01-01T00:00:00+23:59", "9999-12-31T23:59:59-23:59")
+    for field in ("reviewed_at", "evaluated_at", "expires_at"):
+        for value in values:
+            receipt = _accepted(policy, **{field: value})
+            assert receipt.review_status == PromptOperatorReviewStatus.REVIEW_INVALID
+            assert any(item.code == "review_time_invalid" for item in receipt.findings)
+            assert not operator_review_satisfies_policy_decision(policy, receipt)
+
+
 def test_ttl_requires_review_and_evaluation_times() -> None:
     policy = _policy()
     receipt = _accepted(policy, ttl_seconds=3600)
