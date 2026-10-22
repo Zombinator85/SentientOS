@@ -101,6 +101,8 @@ class EpistemicDevelopmentFeedback:
     pending_state_intent_count: int = 0
     pending_transaction_count: int = 0
     recovered_receipt_count: int = 0
+    omitted_binding_ids: tuple[str, ...] = ()
+    omitted_proposition_ids: tuple[str, ...] = ()
 
 
 def load_epistemic_development_config(path: str | Path) -> EpistemicDevelopmentConfig:
@@ -1075,15 +1077,39 @@ class ResidentEpistemicDevelopmentRuntime:
                 pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
                 pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
                 recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
-        bounded = matches[:self.config.max_new_bindings_per_tick]
-        evidence_receipts: list[str] = []; touched: set[str] = set(); new_count = 0
-        for rule, fact in bounded:
-            proof, binding = self._adapt(snapshot, fact, rule); touched.add(rule.proposition_id)
-            existing = {item.binding_id: item for item in self.owner.bindings(rule.proposition_id)}
-            if binding.binding_id in existing:
-                if existing[binding.binding_id] != binding:
+        # Resolve durable identities before applying the per-tick admission
+        # bound. Otherwise already admitted, lexically early observations can
+        # occupy every slot on every snapshot and starve later evidence.
+        existing_by_proposition = {
+            rule.proposition_id: {
+                item.binding_id: item
+                for item in self.owner.bindings(rule.proposition_id)
+            }
+            for rule in self.config.rules
+        }
+        touched: set[str] = {rule.proposition_id for rule, _fact in matches}
+        candidates: dict[str, tuple[EpistemicDevelopmentRule, WorldStateFact,
+                                   Any, EvidenceBinding]] = {}
+        for rule, fact in matches:
+            proof, binding = self._adapt(snapshot, fact, rule)
+            existing = existing_by_proposition[rule.proposition_id].get(binding.binding_id)
+            if existing is not None:
+                if existing != binding:
                     raise EpistemicDevelopmentError("evidence_identity_collision")
                 continue
+            prior_candidate = candidates.get(binding.binding_id)
+            prepared_candidate = (rule, fact, proof, binding)
+            if prior_candidate is not None and prior_candidate[3] != binding:
+                raise EpistemicDevelopmentError("evidence_identity_collision")
+            candidates.setdefault(binding.binding_id, prepared_candidate)
+        ordered_candidates = sorted(candidates.values(), key=lambda item: (
+            item[0].rule_id, item[1].fact_id, item[3].binding_id))
+        bounded = ordered_candidates[:self.config.max_new_bindings_per_tick]
+        omitted_binding_ids = tuple(sorted(
+            item[3].binding_id for item in ordered_candidates[
+                self.config.max_new_bindings_per_tick:]))
+        evidence_receipts: list[str] = []; new_count = 0
+        for rule, fact, proof, binding in bounded:
             operation = f"{tick}:{rule.rule_id}:evidence"
             configuration = self.controller.evidence_configuration_digest(binding=binding,
                 proposition_digest=rule.proposition_digest, operation_id=operation)
@@ -1093,27 +1119,40 @@ class ResidentEpistemicDevelopmentRuntime:
             evidence_receipt = self.controller.append_evidence_binding(binding=binding, source_proof=proof,
                 admission=admission, operation_id=operation, correlation_id=f"tick:{tick}:{rule.rule_id}")
             evidence_receipts.append(evidence_receipt.receipt_id); new_count += 1
-        state_receipts: list[str] = []; states: list[str] = []; generations: list[int] = []
-        for proposition_id in sorted(touched)[:self.config.max_updated_propositions_per_tick]:
+        state_candidates: list[tuple[str, tuple[EvidenceBinding, ...], Any,
+            tuple[str, ...], set[str], Mapping[str, Any], str]] = []
+        for proposition_id in sorted(touched):
             bindings = tuple(item for item in self.owner.bindings(proposition_id) if not item.withdrawn)
             if len(bindings) > MAX_ACTIVE_EVIDENCE:
                 raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
             active_ids = tuple(sorted(item.binding_id for item in bindings))
             prior = self.owner.current_state(proposition_id)
-            if prior and set(active_ids) == set(self.owner.active_binding_ids(proposition_id)):
+            prior_active_ids = set(self.owner.active_binding_ids(proposition_id))
+            if prior and set(active_ids) == prior_active_ids:
                 continue
-            posture = evidence_posture(bindings)["posture"]
+            posture = evidence_posture(bindings)
+            posture_name = posture["posture"]
             stance = {"support_only": "provisionally_supported", "contradiction_only": "provisionally_contradicted",
-                "mixed": "contested", "all_evidence_stale": "suspended"}.get(str(posture))
+                "mixed": "contested", "all_evidence_stale": "suspended"}.get(str(posture_name))
             if stance is None: continue
-            new_relations = {item.evidence_relation for item in bindings if not prior or item.binding_id not in self.owner.active_binding_ids(proposition_id)}
+            state_candidates.append((proposition_id, bindings, prior, active_ids,
+                prior_active_ids, posture, stance))
+        bounded_state_candidates = state_candidates[
+            :self.config.max_updated_propositions_per_tick]
+        omitted_proposition_ids = tuple(sorted(item[0] for item in
+            state_candidates[self.config.max_updated_propositions_per_tick:]))
+        state_receipts: list[str] = []; states: list[str] = []; generations: list[int] = []
+        for (proposition_id, bindings, prior, active_ids, prior_active_ids,
+                posture, stance) in bounded_state_candidates:
+            new_relations = {item.evidence_relation for item in bindings
+                if not prior or item.binding_id not in prior_active_ids}
             reason = "contradiction_arrival" if "contradicts" in new_relations else "new_evidence"
             rules = sorted(rule.rule_id for rule in self.config.rules if rule.proposition_id == proposition_id)
             candidate = make_epistemic_update_candidate(proposition_id=proposition_id,
                 predecessor_state_digest=prior.state_digest if prior else None, proposed_stance=stance,
                 evidence_binding_ids=active_ids, reason=reason,
-                rationale=f"{QUALITATIVE_RULE}:{posture}; dependency posture preserved",
-                uncertainty="high" if evidence_posture(bindings)["dependency_unresolved"] else "medium",
+                rationale=f"{QUALITATIVE_RULE}:{posture['posture']}; dependency posture preserved",
+                uncertainty="high" if posture["dependency_unresolved"] else "medium",
                 model_id=None, proposer_kind="deterministic_rule", proposer_id="+".join(rules))
             operation = f"{tick}:{proposition_id}:state"
             configuration = self.controller.state_configuration_digest(candidate=candidate, operation_id=operation)
@@ -1125,7 +1164,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 operation_id=operation, correlation_id=f"tick:{tick}:epistemic-development",
                 tick=tick, recorded_at=recorded_at)
             state_receipts.append(state_receipt.receipt_id); states.append(state_receipt.successor_state_id); generations.append(state_receipt.generation)
-        partial = len(matches) > len(bounded) or len(touched) > self.config.max_updated_propositions_per_tick
+        partial = bool(omitted_binding_ids or omitted_proposition_ids)
         status = "bounded_partial" if partial else "state_advanced" if state_receipts else "evidence_appended" if evidence_receipts else "no_matching_evidence"
         recovery = self.controller.recovery_status
         return EpistemicDevelopmentFeedback(status, snapshot.snapshot_id, len(self.config.rules), len(matches),
@@ -1134,7 +1173,9 @@ class ResidentEpistemicDevelopmentRuntime:
             pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
             pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
             pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
-            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
+            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)),
+            omitted_binding_ids=omitted_binding_ids,
+            omitted_proposition_ids=omitted_proposition_ids)
 
 
 __all__ = ["ResidentEpistemicDevelopmentRuntime", "EpistemicDevelopmentConfig",
