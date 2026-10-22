@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 582
+## Current verified state — sequence 583
 
-Sequence 582 replaces tick-based fairness, which could collide at the daemon's integer-second resolution, with deterministic least-generation-first state scheduling. The same-tick regression passed in hosted source validation after reconstructing the persistent owner. PR #2622 passed strict hosted Quality Gate, CI, source validation, all three lint matrix jobs, and the other required candidate workflows, then merged normally. Main matches its tested source tree. The Lint Benchmark workflow summary lagged its successful matrix jobs and is recorded as a limitation.
+Sequences 582–583 replace tick-collision-prone epistemic scheduling with deterministic least-generation-first state service and reconcile its hosted evidence. The same-tick restart regression passed in source validation. PR #2622's strict privileged audits, finalizer, metadata guard, complete CI, and other candidate checks passed; PR #2623's evidence integration passed all checks and main matches its merge tree.
 
-Latest verified main: `d28206ce2f87c7a716de252aca5e9dd53085735c`, tree `a40da840707418ebd337acdf4825ee9c4876807b`
-Latest construction segment: `work/construction/segments/0582-fair-epistemic-generation-scheduling.md`
-Latest segment SHA-256: `2527f1ef23a5b9ed9d4bc69f3a38827866804712daa0473c6c0d073211087d12`
-Sequence: 582 (verified source integration)
+Latest verified main: `ace641fae2200401143d87e57b8eea38b50793b8`, tree `3633d3fb0e13946778255ef06622cae6ebc49ee1`
+Latest construction segment: `work/construction/segments/0583-reconcile-sequence582-integration.md`
+Latest segment SHA-256: `5265685e85fc1d0317dd414934da00294c93db7115f13e7e0cde2edb3ed02912`
+Sequence: 583 (verified evidence integration)
 
-Next: inspect how least-generation-first behaves when one proposition receives evidence more frequently or has a much larger active binding set. Confirm that the service count advances only after a verified state receipt, that rejected/omitted candidates do not appear served, and that configured proposition limits keep the schedule bounded. Add a targeted regression only if the current lifecycle tests do not already prove these boundaries.
+Next: verify that service fairness depends on state-generation count rather than evidence volume. Exercise unequal active-binding sets, ensure candidates omitted from a tick do not advance, and ensure receipt recovery cannot make a pending or rejected update appear served. Keep the per-tick and per-proposition bounds and mutation authorization intact.
