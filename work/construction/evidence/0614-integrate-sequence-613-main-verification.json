@@ -1,0 +1,98 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 614,
+  "title": "Integrate sequence 613 and verify merged main",
+  "predecessor": {
+    "sequence": 613,
+    "sha256": "e8875ddc91f28fdf5cb5f2ec059df887cdde6e9ec202319e9a8205c8f9e25fec"
+  },
+  "source": {
+    "pull_request": 2683,
+    "original_candidate_commit": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+    "final_candidate_commit": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+    "final_candidate_tree": "3c71c5d268c314cc4dd902a1d6f2aa54fc3ad90f",
+    "parent_main": "fdd43a8cbd2b102c3a0b8242c931af10cd35a847",
+    "final_main": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+    "final_main_tree": "3c71c5d268c314cc4dd902a1d6f2aa54fc3ad90f",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0614-integrate-sequence-613-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0614-integrate-sequence-613-main-verification.md"
+    ],
+    "scope": "Reconcile sequence 613 merge and all post-merge checks; retain source-bound landing and scheduled-workflow status."
+  },
+  "validation": {
+    "candidate_checks": {
+      "commit": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+      "quality_gate": 39926013914,
+      "ci_pull_request": 39926014114,
+      "ci_push": 39925997335,
+      "docker": 39926014187,
+      "codex_ci": 39926014260,
+      "invariant_pull_request": 39926014049,
+      "invariant_push": 39925997436,
+      "lint": 39926014164,
+      "gradient": 39926013946,
+      "release": 39926014309,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12488813520,
+      "name": "hosted-privileged-pr-landing-finalizer",
+      "size_bytes": 36848,
+      "advertised_digest": "sha256:0c8562c638fa16c4b17bcb6c1164c734877f3ac676331045d0d569b919a1171b",
+      "independent_sha256": "0c8562c638fa16c4b17bcb6c1164c734877f3ac676331045d0d569b919a1171b",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+      "bound_tree": "3c71c5d268c314cc4dd902a1d6f2aa54fc3ad90f"
+    },
+    "post_merge_checks": {
+      "main_commit": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "ci": 39926564529,
+      "quality_gate": 39926564530,
+      "docker": 39926564501,
+      "docs_deploy": 39926564497,
+      "codex_ci": 39926564500,
+      "invariants": 39926564482,
+      "strict_administrator_audits": "passed",
+      "results": "all completed successfully"
+    },
+    "integration": {
+      "pull_request": 2683,
+      "merge_commit": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "tree": "3c71c5d268c314cc4dd902a1d6f2aa54fc3ad90f",
+      "first_parent": "fdd43a8cbd2b102c3a0b8242c931af10cd35a847",
+      "second_parent": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 08:46:55Z",
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "current_main_scheduled_run_observed": false,
+      "report_status": "stale",
+      "live_telemetry": false
+    },
+    "scheduled_nightly_workflows": {
+      "latest_audit_integrity_run": 39751183422,
+      "latest_self_check_run": 39756453111,
+      "source_head": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+      "results": "both succeeded on 2026-10-22; no scheduled execution on sequence 613 main observed by cutoff"
+    }
+  },
+  "integration": {
+    "pull_request": 2683,
+    "merge_commit": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+    "tree": "3c71c5d268c314cc4dd902a1d6f2aa54fc3ad90f",
+    "first_parent": "fdd43a8cbd2b102c3a0b8242c931af10cd35a847",
+    "second_parent": "d65f37ef6e87f5898c3f98e1cdcf262f79a5f064",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; no runtime or workflow authority changes."
+}
