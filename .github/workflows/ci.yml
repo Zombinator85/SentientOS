@@ -547,6 +547,45 @@ jobs:
             --manifest glow/test_runs/federation_daemon_peer_health_projection_acceptance.json \
             --provenance glow/test_runs/federation_daemon_peer_health_projection_provenance.json \
             --output glow/test_runs/federation_daemon_peer_health_projection_acceptance_result.json
+      - name: Verify peer Health claim dashboard projection
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_dashboard_federation_peer_health.py
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_peer_health_dashboard_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_dashboard_federation_peer_health.py::test_runtime_exposes_peer_health_projection_map_without_local_source",
+              "tests/test_dashboard_federation_peer_health.py::test_status_source_projects_bounded_peer_claim_fields_only",
+              "tests/test_dashboard_federation_peer_health.py::test_status_source_limits_peer_health_projection_count_to_64",
+              "tests/test_dashboard_federation_peer_health.py::test_console_labels_peer_health_as_claims_separate_from_local_health",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_peer_health_dashboard_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": node,
+                      "rationale": "peer-reported Health must be presented as a bounded claim with local Health and authority boundaries explicit",
+                  }
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/federation_peer_health_dashboard_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_peer_health_dashboard_acceptance.json \
+            --provenance glow/test_runs/federation_peer_health_dashboard_provenance.json \
+            --output glow/test_runs/federation_peer_health_dashboard_acceptance_result.json
       - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \

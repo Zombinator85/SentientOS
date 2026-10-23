@@ -307,6 +307,12 @@ class RuntimeShell:
             return self._federation_poller.get_peer_sync_views()
         return {}
 
+    def get_peer_health_projections(self) -> Dict[str, PeerHealthProjection]:
+        """Expose peer-reported Health claims separately from local Health."""
+        if self._federation_poller:
+            return self._federation_poller.get_peer_health_projections()
+        return {}
+
     def get_federation_replay_state(self) -> Mapping[str, object]:
         if self._federation_poller:
             return self._federation_poller.get_replay_state()
@@ -1439,4 +1445,4 @@ def _handler_targets(path: Path, handler: logging.Handler) -> bool:
     handler_path = Path(getattr(handler, "baseFilename", ""))
     return handler_path == path
 from sentientos.federation.config import load_federation_config
-from sentientos.federation.poller import FederationPoller, FederationState
+from sentientos.federation.poller import FederationPoller, FederationState, PeerHealthProjection

@@ -56,6 +56,7 @@ class DashboardStatus:
     federation_peers: Dict[str, str] = field(default_factory=dict)
     federation_sync: Dict[str, Dict[str, object]] = field(default_factory=dict)
     federation_replay: List[Dict[str, object]] = field(default_factory=list)
+    federation_peer_health: List[Dict[str, object]] = field(default_factory=list)
     federation_cluster_unstable: bool = False
     federation_guard_cathedral: str = "ALLOW"
     federation_guard_experiments: str = "ALLOW"
@@ -345,6 +346,28 @@ class ConsoleDashboard:
             replay_lines.append("  (no replay data yet)")
         replay_lines.append("")
 
+        peer_health_lines: List[str] = [
+            "PEER-REPORTED HEALTH CLAIMS (NOT LOCAL HEALTH)"
+        ]
+        for projection in status.federation_peer_health[:3]:
+            peer = str(projection.get("peer") or "peer")
+            outcome = str(projection.get("outcome") or "unknown")
+            if outcome == "recovered":
+                peer_health_lines.append(
+                    f"  {peer}: peer-reported {projection.get('status', 'unknown')} "
+                    f"(sequence {projection.get('sequence', 'unknown')}; "
+                    f"{projection.get('freshness', 'unknown')})"
+                )
+            elif outcome == "error":
+                peer_health_lines.append(
+                    f"  {peer}: recovery error ({projection.get('error_code', 'unknown')})"
+                )
+            else:
+                peer_health_lines.append(f"  {peer}: {outcome}")
+        if len(peer_health_lines) == 1:
+            peer_health_lines.append("  (no peer Health projection available)")
+        peer_health_lines.append("")
+
         sync_lines: List[str] = []
         if status.federation_sync:
             sync_lines.append("    Sync:")
@@ -395,6 +418,7 @@ class ConsoleDashboard:
             guard_line,
         ]
         lines.extend(replay_lines)
+        lines.extend(peer_health_lines)
         lines.extend(
             [
                 f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",

@@ -300,6 +300,7 @@ def make_status_source(
         window = None
         federation_sync: Dict[str, Dict[str, object]] = {}
         federation_replay_entries: List[Dict[str, object]] = []
+        federation_peer_health_entries: List[Dict[str, object]] = []
 
         if shell is not None:
             config_obj = getattr(shell, "federation_config", None)
@@ -355,6 +356,60 @@ def make_status_source(
                     federation_replay_entries = cast(
                         List[Dict[str, object]], _normalise_replay_state(raw_replay)
                     )
+                peer_health_getter = getattr(shell, "get_peer_health_projections", None)
+                if callable(peer_health_getter):
+                    try:
+                        raw_peer_health = peer_health_getter()
+                    except Exception:
+                        raw_peer_health = {}
+                    if isinstance(raw_peer_health, Mapping):
+                        for peer_name, projection in sorted(
+                            raw_peer_health.items(), key=lambda item: str(item[0])
+                        )[:64]:
+                            if (
+                                not isinstance(peer_name, str)
+                                or not peer_name
+                                or len(peer_name) > 128
+                            ):
+                                continue
+                            outcome = getattr(projection, "outcome", None)
+                            if not isinstance(outcome, str) or outcome not in {
+                                "recovered", "empty", "omitted", "error"
+                            }:
+                                continue
+                            entry: Dict[str, object] = {
+                                "peer": peer_name,
+                                "outcome": outcome,
+                            }
+                            if outcome == "recovered":
+                                observation = getattr(projection, "observation", None)
+                                status = getattr(observation, "peer_reported_status", None)
+                                sequence = getattr(observation, "sequence", None)
+                                freshness = getattr(observation, "freshness_state", None)
+                                if (
+                                    not isinstance(status, str)
+                                    or status not in {
+                                        "healthy", "degraded", "unavailable", "unknown"
+                                    }
+                                    or type(sequence) is not int
+                                    or sequence < 1
+                                    or freshness != "within_bound"
+                                ):
+                                    continue
+                                entry.update(
+                                    status=status,
+                                    sequence=sequence,
+                                    freshness=freshness,
+                                )
+                            elif outcome == "error":
+                                error_code = getattr(projection, "error_code", None)
+                                if (
+                                    isinstance(error_code, str)
+                                    and error_code.isascii()
+                                    and error_code.isidentifier()
+                                ):
+                                    entry["error_code"] = error_code[:64]
+                            federation_peer_health_entries.append(entry)
         if federation_node is None:
             candidate = federation_cfg.get("node_name")
             if isinstance(candidate, str) and candidate:
@@ -475,6 +530,7 @@ def make_status_source(
             federation_incompatible=federation_incompatible,
             federation_peers=federation_peers,
             federation_replay=federation_replay_entries,
+            federation_peer_health=federation_peer_health_entries,
             federation_cluster_unstable=federation_cluster_unstable,
             federation_guard_cathedral=guard_cathedral,
             federation_guard_experiments=guard_experiments,
