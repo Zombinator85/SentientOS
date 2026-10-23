@@ -1381,11 +1381,22 @@ jobs:
           apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
           mirror_switched=false
           switch_to_public_archive() {
+            local mirror_list=/etc/apt/apt-mirrors.txt
+            local switched=false
+            if sudo test -f "$mirror_list"; then
+              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' "$mirror_list"
+              if sudo grep -qF 'archive.ubuntu.com' "$mirror_list"; then
+                switched=true
+              fi
+            fi
+            sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} +
             if sudo grep -Rqs 'azure.archive.ubuntu.com' /etc/apt; then
-              sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) \
-                -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} +
-            else
-              echo "::warning::Azure Ubuntu mirror was not configured; retrying the current package sources once."
+              echo "::error::Azure Ubuntu mirror remains configured after fallback rewrite."
+              return 1
+            fi
+            if [[ "$switched" != true ]] && ! sudo grep -Rqs 'archive.ubuntu.com' /etc/apt; then
+              echo "::error::No public Ubuntu archive source was configured by fallback."
+              return 1
             fi
             mirror_switched=true
           }

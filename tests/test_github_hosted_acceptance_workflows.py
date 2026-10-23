@@ -1381,3 +1381,7 @@ def test_self_check_retries_required_ffmpeg_install_after_mirror_timeout() -> No
     assert fallback_install in step
     assert step.index(initial_install) < step.rindex(fallback_update) < step.index(fallback_install)
     assert "--no-install-recommends -y ffmpeg" in step
+    assert "local mirror_list=/etc/apt/apt-mirrors.txt" in step
+    assert "sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g'" in step
+    assert "Azure Ubuntu mirror remains configured after fallback rewrite." in step
+    assert "No public Ubuntu archive source was configured by fallback." in step
