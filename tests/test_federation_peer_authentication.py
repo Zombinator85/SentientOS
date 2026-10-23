@@ -441,11 +441,28 @@ def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
 def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_path, monkeypatch):
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     root = tmp_path / "peer-one"
-    bounded = FederationPeerReplayOwner(root, peer_id="peer-one", max_history_bytes=70_000)
-    assert bounded.max_history_bytes == 70_000
-    for invalid_limit in (69_999, 67_108_865, True):
+    bounded = FederationPeerReplayOwner(root, peer_id="peer-one", max_history_bytes=140_000)
+    assert bounded.max_history_bytes == 140_000
+    for invalid_limit in (139_999, 67_108_865, True):
         with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_byte_limit_invalid"):
             FederationPeerReplayOwner(root, peer_id="peer-one", max_history_bytes=invalid_limit)
+
+    byte_root = tmp_path / "byte-limited"
+    byte_owner = FederationPeerReplayOwner(
+        byte_root, peer_id="peer-one", max_history_bytes=140_000,
+    )
+    large_outcome = {"kind": "bounded_payload", "value": '"' * 30_000}
+    large_first, _ = _signed_event(private, key_id, sequence=1, event=large_outcome)
+    large_second, _ = _signed_event(private, key_id, sequence=2, event=large_outcome)
+    assert len(large_first) < 65_536 and len(large_second) < 65_536
+    byte_owner.accept(
+        large_first, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+    )
+    with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_byte_limit_exceeded"):
+        byte_owner.accept(
+            large_second, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+        )
+    assert byte_owner.last_accepted_sequence == 1
     owner = FederationPeerReplayOwner(root, peer_id="peer-one", max_records=1)
     first_raw, _ = _signed_event(private, key_id, sequence=1)
     owner.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
