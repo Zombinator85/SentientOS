@@ -1,0 +1,106 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 610,
+  "title": "Integrate verified same-inode truncation recovery evidence",
+  "predecessor": {
+    "sequence": 609,
+    "sha256": "b1de5f5b31eac25649fe031df146cfbb733114424f759992cfc6b840af99b0d0"
+  },
+  "source": {
+    "pull_request": 2679,
+    "original_candidate_commit": "0258e95d1db792ccb503594fff0639ec4fdf19a8",
+    "final_candidate_commit": "0258e95d1db792ccb503594fff0639ec4fdf19a8",
+    "final_candidate_tree": "de5703831e6cc1ed704ea886a2d7e289a4c48c1a",
+    "parent_main": "9971c16dcc3e184958419f830aff339d645d6f20",
+    "final_main": "f46dd7a2dfcfe51ab253889520db647b8098a9c2",
+    "final_main_tree": "de5703831e6cc1ed704ea886a2d7e289a4c48c1a",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0610-integrate-truncation-recovery-evidence.json",
+      "work/construction/index.json",
+      "work/construction/segments/0610-integrate-truncation-recovery-evidence.md"
+    ],
+    "scope": "Reconcile sequence 609's verified evidence integration to exact main history and record post-merge validation without changing runtime code."
+  },
+  "validation": {
+    "local_source_tests": {
+      "source_change_pull_request": 2678,
+      "result": "11 passed",
+      "environment": "Isolated copies of exact PR #2678 candidate source and tests; privilege preconditions stubbed.",
+      "coverage": "bounded incremental reads, complete and partial records, oversize discard, truncation, file replacement, invalid bounds, and same-inode rewrite larger than the prior cursor"
+    },
+    "candidate_checks": {
+      "commit": "0258e95d1db792ccb503594fff0639ec4fdf19a8",
+      "quality_gate": 39913067091,
+      "ci_pull_request": 39913067080,
+      "ci_push": 39913056779,
+      "invariant_pull_request": 39913067094,
+      "invariant_push": 39913056786,
+      "docker": 39913067096,
+      "lint": 39913067140,
+      "gradient": 39913067083,
+      "codex_ci": 39913067085,
+      "release": 39913067099,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "post_merge_checks": {
+      "main_commit": "f46dd7a2dfcfe51ab253889520db647b8098a9c2",
+      "ci": 39913551016,
+      "quality_gate": 39913551011,
+      "docker": 39913551019,
+      "docs_deploy": 39913551013,
+      "codex_ci": 39913551120,
+      "invariants": 39913551058,
+      "results": "all completed successfully"
+    },
+    "integration": {
+      "merge_commit": "f46dd7a2dfcfe51ab253889520db647b8098a9c2",
+      "tree": "de5703831e6cc1ed704ea886a2d7e289a4c48c1a",
+      "first_parent": "9971c16dcc3e184958419f830aff339d645d6f20",
+      "second_parent": "0258e95d1db792ccb503594fff0639ec4fdf19a8",
+      "merge_method": "normal GitHub merge; original candidate commit retained"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23T07:11:30Z",
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "receipt_artifact_sha256": "3d27d122e9060a6e6521161e71149b32c0ba3203f88922cdc9525d6f403f64b3",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "publication_pr": 2672,
+      "publication_pr_merged": true,
+      "current_main_scheduled_run_observed": false,
+      "report_status": "stale",
+      "events_last_24_hours": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false
+    },
+    "scheduled_nightly_workflows": {
+      "latest_audit_integrity_run": 39751183422,
+      "latest_self_check_run": 39756453111,
+      "source_head": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+      "results": "both succeeded on 2026-10-22; no scheduled execution on sequence 609 main observed by cutoff"
+    },
+    "testclient_limitation": {
+      "result": "pre-change streaming TestClient test and a minimal finite StreamingResponse hang in the sandbox",
+      "runtime": {
+        "fastapi": "0.141.1",
+        "starlette": "0.52.1",
+        "httpx": "0.28.1"
+      },
+      "conclusion": "environment-specific; hosted integrated validation passed"
+    }
+  },
+  "integration": {
+    "pull_request": 2679,
+    "merge_commit": "f46dd7a2dfcfe51ab253889520db647b8098a9c2",
+    "tree": "de5703831e6cc1ed704ea886a2d7e289a4c48c1a",
+    "first_parent": "9971c16dcc3e184958419f830aff339d645d6f20",
+    "second_parent": "0258e95d1db792ccb503594fff0639ec4fdf19a8",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; runtime code and authority boundaries unchanged."
+}
