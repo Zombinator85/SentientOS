@@ -354,6 +354,133 @@ def accept_peer_event_for_local_review(
     )
 
 
+_MAX_RECEIPT_BYTES = 70_000
+
+_RECEIPT_BODY_FIELDS = frozenset({
+    "schema", "decision", "reason_code", "peer_id", "signing_key_id", "endpoint",
+    "sequence", "replay_record_digest", "event_digest", "catalog_version",
+    "catalog_digest", "policy_version", "policy_digest", "event_schema",
+    "semantic_kind", "submitted_claim", "experiment_id", "submitted_epistemic_status",
+    "submitted_outcome", "submitted_summary", "remote_evidence_refs",
+    "local_review_only", "remote_evidence_resolved_locally", "claim_truth_established",
+    "canonical_evidence_admitted", "health_publication_permitted",
+    "work_admission_permitted", "planning_permitted", "execution_permitted",
+    "decision_power",
+})
+_RECEIPT_FIELDS = _RECEIPT_BODY_FIELDS | {"receipt_digest"}
+
+
+def _semantic_receipt_body(
+    receipt: FederationPeerSemanticAcceptanceReceipt,
+) -> dict[str, object]:
+    if not isinstance(receipt, FederationPeerSemanticAcceptanceReceipt):
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_required")
+    return {
+        "schema": receipt.schema,
+        "decision": receipt.decision,
+        "reason_code": receipt.reason_code,
+        "peer_id": receipt.peer_id,
+        "signing_key_id": receipt.signing_key_id,
+        "endpoint": receipt.endpoint,
+        "sequence": receipt.sequence,
+        "replay_record_digest": receipt.replay_record_digest,
+        "event_digest": receipt.event_digest,
+        "catalog_version": receipt.catalog_version,
+        "catalog_digest": receipt.catalog_digest,
+        "policy_version": receipt.policy_version,
+        "policy_digest": receipt.policy_digest,
+        "event_schema": receipt.event_schema,
+        "semantic_kind": receipt.semantic_kind,
+        "submitted_claim": receipt.submitted_claim,
+        "experiment_id": receipt.experiment_id,
+        "submitted_epistemic_status": receipt.submitted_epistemic_status,
+        "submitted_outcome": receipt.submitted_outcome,
+        "submitted_summary": receipt.submitted_summary,
+        "remote_evidence_refs": list(receipt.remote_evidence_refs),
+        "local_review_only": receipt.local_review_only,
+        "remote_evidence_resolved_locally": receipt.remote_evidence_resolved_locally,
+        "claim_truth_established": receipt.claim_truth_established,
+        "canonical_evidence_admitted": receipt.canonical_evidence_admitted,
+        "health_publication_permitted": receipt.health_publication_permitted,
+        "work_admission_permitted": receipt.work_admission_permitted,
+        "planning_permitted": receipt.planning_permitted,
+        "execution_permitted": receipt.execution_permitted,
+        "decision_power": receipt.decision_power,
+    }
+
+
+def semantic_acceptance_receipt_digest_for(
+    receipt: FederationPeerSemanticAcceptanceReceipt,
+) -> str:
+    """Bind the complete receipt body, without treating the digest as authority."""
+    return "sha256:" + hashlib.sha256(_canonical(_semantic_receipt_body(receipt))).hexdigest()
+
+
+def semantic_acceptance_receipt_bytes(
+    receipt: FederationPeerSemanticAcceptanceReceipt,
+) -> bytes:
+    """Serialize a deterministic receipt with a derived content digest."""
+    body = _semantic_receipt_body(receipt)
+    encoded = _canonical({**body, "receipt_digest": semantic_acceptance_receipt_digest_for(receipt)})
+    if len(encoded) > _MAX_RECEIPT_BYTES:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_size_invalid")
+    return encoded
+
+
+def _reject_receipt_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise FederationPeerSemanticAcceptanceError("semantic_receipt_duplicate_key")
+        result[key] = value
+    return result
+
+
+def _reject_receipt_constant(_value: str) -> object:
+    raise FederationPeerSemanticAcceptanceError("semantic_receipt_nonfinite_number")
+
+
+def verify_semantic_acceptance_receipt_bytes(
+    raw: bytes,
+    *,
+    replay: FederationPeerReplayAcceptance,
+    policy: FederationPeerSemanticAcceptancePolicy,
+) -> FederationPeerSemanticAcceptanceReceipt:
+    """Recompute a receipt from exact replay provenance and locally pinned policy.
+
+    A content digest detects accidental mutation but is not authentication. This
+    verifier binds bytes to the supplied replay acceptance and policy by running
+    the semantic classifier again and requiring byte-for-byte canonical equality.
+    """
+    if not isinstance(raw, bytes) or not raw or len(raw) > _MAX_RECEIPT_BYTES:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_size_invalid")
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_receipt_duplicate_keys,
+            parse_constant=_reject_receipt_constant,
+        )
+    except FederationPeerSemanticAcceptanceError:
+        raise
+    except (UnicodeError, json.JSONDecodeError, RecursionError, TypeError, ValueError) as exc:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_load_failed") from exc
+    if not isinstance(value, dict) or set(value) != _RECEIPT_FIELDS:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_fields_invalid")
+    digest = value.get("receipt_digest")
+    if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_digest_invalid")
+    body = {key: item for key, item in value.items() if key != "receipt_digest"}
+    expected_digest = "sha256:" + hashlib.sha256(_canonical(body)).hexdigest()
+    if digest != expected_digest:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_digest_mismatch")
+    if _canonical(value) != raw:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_not_canonical")
+    expected = accept_peer_event_for_local_review(replay, policy=policy)
+    if semantic_acceptance_receipt_bytes(expected) != raw:
+        raise FederationPeerSemanticAcceptanceError("semantic_receipt_revalidation_mismatch")
+    return expected
+
+
 __all__ = [
     "CLAIM_EVIDENCE_SCHEMA",
     "FederationPeerSemanticAcceptanceError",
@@ -364,5 +491,8 @@ __all__ = [
     "SUPPORTED_EVENT_SCHEMAS",
     "TRIAL_OUTCOME_SCHEMA",
     "accept_peer_event_for_local_review",
+    "semantic_acceptance_receipt_bytes",
+    "semantic_acceptance_receipt_digest_for",
+    "verify_semantic_acceptance_receipt_bytes",
     "semantic_policy_digest_for",
 ]
