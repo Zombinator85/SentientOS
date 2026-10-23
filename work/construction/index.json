@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7e6c9f0731564013ab68ad444ca9193f429a31ac484c49ff73763bcd3e3f02de",
-    "latest_segment_sequence": 631,
-    "latest_segment_sha256": "e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309",
-    "source_commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
-    "source_tree": "1244a039c332c6cb58a5106699b6dcb8104c0371"
+    "checkpoint_sha256": "c76598e68248df48a0edb41feb0f731a64b80b3d86f62342bd763e081f9b024e",
+    "latest_segment_sequence": 632,
+    "latest_segment_sha256": "d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73",
+    "source_commit": "1b415bb52752d479dfeb9448053f7983032d6442",
+    "source_tree": "9819431d8965fee15f687e325fc44106089d8e4e"
   },
-  "checkpoint_sha256": "7e6c9f0731564013ab68ad444ca9193f429a31ac484c49ff73763bcd3e3f02de",
+  "checkpoint_sha256": "c76598e68248df48a0edb41feb0f731a64b80b3d86f62342bd763e081f9b024e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 631,
+  "latest_sequence": 632,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7374,6 +7374,19 @@
       "source_candidate_commit": "594a6ae5960b804d019e60dbbecad62ed3807828",
       "source_commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
       "source_tree": "1244a039c332c6cb58a5106699b6dcb8104c0371"
+    },
+    {
+      "sequence": 632,
+      "path": "work/construction/segments/0632-integrate-federation-health-malformed-record-accounting.md",
+      "sha256": "d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73",
+      "bytes": 4584,
+      "predecessor": "segment-sha256:e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309",
+      "evidence_path": "work/construction/evidence/0632-integrate-federation-health-malformed-record-accounting.json",
+      "evidence_sha256": "f0dbc111c1810735ba8892192e5842e8fc630b94bab5f882e5ce6d08deca05c7",
+      "evidence_bytes": 4913,
+      "source_candidate_commit": "51924e048018c23455ecba5427c97ed6426210c2",
+      "source_commit": "1b415bb52752d479dfeb9448053f7983032d6442",
+      "source_tree": "9819431d8965fee15f687e325fc44106089d8e4e"
     }
   ],
   "source_acquisition": {

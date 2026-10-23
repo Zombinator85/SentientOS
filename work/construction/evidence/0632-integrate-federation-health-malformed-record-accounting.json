@@ -1,0 +1,119 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 632,
+  "title": "Integrate sequence 632: Federation Health malformed record visibility and verified publication",
+  "predecessor": "segment-sha256:e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309",
+  "source": {
+    "pull_request": 2723,
+    "candidate_commit": "51924e048018c23455ecba5427c97ed6426210c2",
+    "parent_main": "5b1931a6cd04a5d09e71ccc4ae1568bf8418a4ad",
+    "source_merge": "b3a9152e6f4b5cbefbfeac9dd630cfd158ea9524",
+    "source_tree": "354231d93bad8a03bbaf24d729cebec449ef5684",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Count malformed strict JSON/UTF-8 records without conflating valid off-schema records; maintain distinct byte coverage and partial status"
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate": 40009548808,
+      "ci": 40009548637,
+      "invariants": 40009548986,
+      "docker": 40009548782,
+      "codex_ci": 40009548956,
+      "lint": 40009548790,
+      "release": 40009548830,
+      "gradient": 40009549001,
+      "all_checks": "passed",
+      "finalizer_artifact_sha256": "21c9459dbb38011631321b8d572fa7ef8a5bd13c2dbeecad61280244760856f3",
+      "independent_finalizer_sha256_match": true,
+      "source_validation_artifact_sha256": "6c4e6bc39ffa1df07f804cea29c32f74a991032a245fd9a470370d5ba55d2402",
+      "health_acceptance": "task_acceptance_ready",
+      "health_nodes_required": 8,
+      "health_nodes_passed": 8
+    },
+    "source_main": {
+      "commit": "b3a9152e6f4b5cbefbfeac9dd630cfd158ea9524",
+      "tree": "354231d93bad8a03bbaf24d729cebec449ef5684",
+      "quality_gate": 40010609731,
+      "ci": 40010610200,
+      "invariants": 40010610320,
+      "docker": 40010609817,
+      "codex_ci": 40010609922,
+      "docs_deploy": 40010609914,
+      "nightly_self_check": 40010610241,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed"
+    },
+    "scheduled_execution": {
+      "run": 40009888739,
+      "event": "schedule",
+      "source_commit": "5b1931a6cd04a5d09e71ccc4ae1568bf8418a4ad",
+      "result": "success",
+      "report_status": "stale",
+      "live_telemetry": false,
+      "independent_artifact_sha256": "e8cee49b409cb86af6298adf1ad778818bd0482cb0294d385d1aaeb0dacf192d",
+      "publication_disposition": "older scheduled receipt candidate superseded on PR #2724 by newer source-bound push output; scheduled run preserved in workflow artifact"
+    },
+    "post_source_health_execution": {
+      "run": 40010610075,
+      "event": "push",
+      "source_commit": "b3a9152e6f4b5cbefbfeac9dd630cfd158ea9524",
+      "result": "success",
+      "administrator_preflight": "passed",
+      "independent_artifact_sha256": "d0c31698109bf459292b9bfe2699f0e434a5931fe34807b076ea2b370ba449ec",
+      "report_sha256": "15305c3cc9b0d0bc8a1b7cdfb3b44820c807d237e0971ac631721aa145ba20fa",
+      "report_status": "stale",
+      "source": "configured_local_log_snapshot",
+      "live_telemetry": false,
+      "known_nodes": 1,
+      "recent_events_24h": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "omitted_prefix_bytes": 0,
+      "oversized_records_omitted": 0,
+      "malformed_records_omitted": 0
+    },
+    "publisher": {
+      "pull_request": 2724,
+      "candidate_commit": "ad43e813f3149a12b8df29022a7efe1eac3b2690",
+      "merge_commit": "1b415bb52752d479dfeb9448053f7983032d6442",
+      "tree": "9819431d8965fee15f687e325fc44106089d8e4e",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH.md",
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "quality_gate": 40010679428,
+      "ci": 40010679430,
+      "invariants": 40010679499,
+      "docker": 40010679857,
+      "codex_ci": 40010679807,
+      "lint": 40010679457,
+      "release": 40010679448,
+      "gradient": 40010679766,
+      "independent_finalizer_sha256": "89377b38b92547ff7bd21956487d53a067db8c0e315330fc1e802d28bcf7f15d",
+      "all_checks": "passed"
+    },
+    "post_receipt_main": {
+      "commit": "1b415bb52752d479dfeb9448053f7983032d6442",
+      "tree": "9819431d8965fee15f687e325fc44106089d8e4e",
+      "quality_gate": 40011453920,
+      "ci": 40011454039,
+      "invariants": 40011454297,
+      "docker": 40011454015,
+      "codex_ci": 40011454192,
+      "docs_deploy": 40011453936,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed"
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "authority_boundaries_preserved": true,
+    "latest_report_is_live_telemetry": false,
+    "next_dependency": "Authenticate and freshness-bound any eventual remote Health input without granting unintended admission or execution authority"
+  }
+}

@@ -1,3 +1,18 @@
+## Current verified state - sequence 632
+
+Sequence 632 integrates malformed Federation Health record accounting, exact source validation, the refreshed App publication, and all verified main-branch checks. Malformed UTF-8/JSON observations are counted separately from oversized rows and valid out-of-schema JSON; their omission makes the Health verdict partial without misreporting byte coverage. Local snapshot status and all authority denials remain intact.
+
+Latest verified main: `1b415bb52752d479dfeb9448053f7983032d6442`, tree `9819431d8965fee15f687e325fc44106089d8e4e`
+Latest construction segment: `work/construction/segments/0632-integrate-federation-health-malformed-record-accounting.md`
+Latest segment SHA-256: `d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73`
+Sequence: 632 (malformed Health record accounting and verified publication)
+
+PR #2723 source merged as `b3a9152e6f4b5cbefbfeac9dd630cfd158ea9524`, tree `354231d93bad8a03bbaf24d729cebec449ef5684`; all exact-candidate and post-source checks passed. The eight-node Health acceptance, privileged finalizer, and separate metadata guard passed. A scheduled Health execution #40009888739 on prior sequence-631 main was independently verified as a schedule event and remains a stale local snapshot. The source-main push Health run #40010610075 succeeded, reporting complete byte coverage, zero overlong or malformed records, and the same stale local-log status. Its refreshed report/receipt PR #2724 passed exact candidate checks and merged as current main `1b415bb52752d479dfeb9448053f7983032d6442`. Final main QG, CI, Docker, invariants, Codex CI and Docs Deploy all passed.
+
+Next: design only an operator-provisioned, authenticated and freshness-bounded bridge for a genuine peer telemetry source. The current Health workflow remains a scheduled/push-run local snapshot report and must not be taken as live remote health or promoted into admission, planning, or execution.
+
+## Previous checkpoint snapshot - sequence 631
+
 ## Current verified state - sequence 631
 
 Sequence 631 integrates bounded Federation Health snapshot scanning and an App-published push-triggered execution receipt. PR #2720 source merged as `a5d41eea9ae64ce44e475033dbf2956585103478`, tree `93cfa838cbd59b8e3541c0ea64461916fcc736c1`, and its exact-candidate plus post-merge workflows passed. A 16-MiB total scan bound and 64-KiB row bound report omitted oldest-prefix bytes and oversized rows; incomplete coverage is marked partial.
