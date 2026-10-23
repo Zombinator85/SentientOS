@@ -1,0 +1,162 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 617,
+  "title": "Integrate sequence 616 and verify merged main",
+  "predecessor": {
+    "sequence": 616,
+    "sha256": "5c6bd227030befe69f9bccfaa3c145e74b670d2e1ad82323b895f17719e5d694"
+  },
+  "source": {
+    "pull_request": 2687,
+    "candidate_commit": "afa7b577e00f6e5056d5d44733ffa074ab4799af",
+    "candidate_tree": "d00d0a2301c840442d091fec527047281a69d9ab",
+    "parent_main": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+    "final_main": "aee982295a7f009140420d125c4ff402d6e3562b",
+    "final_main_tree": "d00d0a2301c840442d091fec527047281a69d9ab",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0617-integrate-sequence-616-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0617-integrate-sequence-616-main-verification.md"
+    ],
+    "scope": "Append-only integration evidence for sequence 616, post-merge verification, and the actual scheduled Federation Health execution observed on its then-current main."
+  },
+  "validation": {
+    "candidate_checks": {
+      "candidate_commit": "afa7b577e00f6e5056d5d44733ffa074ab4799af",
+      "candidate_tree": "d00d0a2301c840442d091fec527047281a69d9ab",
+      "quality_gate": 39934300288,
+      "ci_pull_request": 39934300189,
+      "ci_push": 39934271543,
+      "docker": 39934300276,
+      "codex_ci": 39934300290,
+      "invariant_pull_request": 39934300275,
+      "invariant_push": 39934271610,
+      "lint": 39934300466,
+      "gradient": 39934300285,
+      "release": 39934300287,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12492704162,
+      "advertised_digest": "sha256:acc2c25e978f580f4483c177d6c3f0c44f03e33e547512f2bb017e742636d3a8",
+      "independent_sha256": "acc2c25e978f580f4483c177d6c3f0c44f03e33e547512f2bb017e742636d3a8",
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "afa7b577e00f6e5056d5d44733ffa074ab4799af",
+      "bound_tree": "d00d0a2301c840442d091fec527047281a69d9ab"
+    },
+    "slow_hosted_dependency_install": {
+      "run_id": 39934300189,
+      "job": "self-check",
+      "step": "Install FFmpeg for demo export",
+      "result": "success",
+      "approximate_duration": "27m46s",
+      "observed_cause": "Ubuntu Azure mirror served package downloads slowly; APT retried and switched one package fetch to archive.ubuntu.com",
+      "demo_export": "success",
+      "source_failure": false,
+      "verification_gate_changed": false
+    },
+    "integration": {
+      "pull_request": 2687,
+      "merge_commit": "aee982295a7f009140420d125c4ff402d6e3562b",
+      "tree": "d00d0a2301c840442d091fec527047281a69d9ab",
+      "first_parent": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "second_parent": "afa7b577e00f6e5056d5d44733ffa074ab4799af",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "post_merge_checks": {
+      "main_commit": "aee982295a7f009140420d125c4ff402d6e3562b",
+      "ci": 39938244443,
+      "quality_gate": 39938244384,
+      "invariants": 39938244462,
+      "docs_deploy": 39938244601,
+      "codex_ci": 39938244431,
+      "docker": 39938244378,
+      "ci_source_validation": "passed",
+      "ci_self_check_and_pytest": "passed",
+      "ci_docs_linkcheck": "passed",
+      "ci_helm_kubernetes": "passed",
+      "strict_administrator_audits": "passed",
+      "results": "all completed successfully"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 10:24:32Z",
+      "run_id": 39936583192,
+      "event": "schedule",
+      "source_head": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "source_was_then_current_main": true,
+      "workflow_result": "success",
+      "health_job": "success",
+      "administrator_preflight": "passed",
+      "report_generation": "success",
+      "publisher_job": "success",
+      "github_app_token_creation": "success",
+      "artifact_id": 12493692132,
+      "artifact_advertised_digest": "sha256:aa66a47cf363d9ae8cbfb61e5c9affcd15819be2906fde2949cabe4d71db9a51",
+      "artifact_independent_sha256": "aa66a47cf363d9ae8cbfb61e5c9affcd15819be2906fde2949cabe4d71db9a51",
+      "receipt_source_sha": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "events_in_last_24_hours": 0,
+      "report_latest_event_utc": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false,
+      "scheduled_run_on_final_main_observed": false
+    },
+    "publisher_pr": {
+      "pull_request": 2688,
+      "title": "chore: update federation health",
+      "automation": "sentientos-federation-publisher[bot]",
+      "candidate_commit": "a5c8873001d3a837f71b4787389958f785e1eb20",
+      "candidate_tree": "ec0e48480bfd8d3db460bf1fdee19dc6388812b4",
+      "candidate_parent": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "quality_gate_run": 39936653863,
+      "pr_ci_run": 39936653924,
+      "pr_ci_result": "success",
+      "push_ci_run": 39936648871,
+      "push_ci_at_cutoff": "in_progress_at_ffmpeg_install",
+      "finalizer_artifact_id": 12493374670,
+      "finalizer_advertised_digest": "sha256:1cdaa17ff4c08566dd8f8734852d9eaf9936ffb663cde88a6f7c7f8f4563af07",
+      "finalizer_independent_sha256": "1cdaa17ff4c08566dd8f8734852d9eaf9936ffb663cde88a6f7c7f8f4563af07",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "state": "open_unmerged",
+      "base_at_cutoff": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "current_main_after_integration": "aee982295a7f009140420d125c4ff402d6e3562b",
+      "merge_allowed_without_refresh": false
+    },
+    "scheduled_nightly_workflows": {
+      "latest_self_check_run": 39932390030,
+      "self_check_source_head": "9799837556f67500b3ea517494b76a0785785dad",
+      "self_check_result": "success",
+      "current_main_push_self_check_result": "success",
+      "current_main_scheduled_self_check_observed": false,
+      "latest_audit_integrity_run": 39927307722,
+      "audit_source_head": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "audit_result": "success",
+      "audit_administrator_preflight": "passed",
+      "audit_strict_audits": "passed",
+      "repairs_needed": false,
+      "current_main_scheduled_audit_observed": false
+    }
+  },
+  "integration": {
+    "pull_request": 2687,
+    "merge_commit": "aee982295a7f009140420d125c4ff402d6e3562b",
+    "tree": "d00d0a2301c840442d091fec527047281a69d9ab",
+    "first_parent": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+    "second_parent": "afa7b577e00f6e5056d5d44733ffa074ab4799af",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; no runtime or workflow authority changes."
+}
