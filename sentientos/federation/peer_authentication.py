@@ -213,9 +213,9 @@ def verify_federation_peer_event(
             or event_digest != computed_event_digest):
         raise FederationPeerEventVerificationError("peer_event_digest_mismatch")
     issued_at = _parse_time(issued_at_text)
-    if issued_at > now + timedelta(seconds=future_skew_seconds):
+    if (issued_at - now).total_seconds() > future_skew_seconds:
         raise FederationPeerEventVerificationError("peer_event_from_future")
-    if now - issued_at > timedelta(seconds=max_age_seconds):
+    if (now - issued_at).total_seconds() > max_age_seconds:
         raise FederationPeerEventVerificationError("peer_event_stale")
     key = catalog.lookup(peer_id=peer_id, signing_key_id=key_id, endpoint=endpoint)
     if key is None:

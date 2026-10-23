@@ -283,6 +283,7 @@ def test_signed_event_rejects_revoked_key_and_currently_expired_key():
 @pytest.mark.parametrize("issued_at,now,code", [
     ("2026-10-23T09:54:59Z", NOW, "peer_event_stale"),
     ("2026-10-23T10:00:31Z", NOW, "peer_event_from_future"),
+    (NOW_TEXT, datetime.max.replace(tzinfo=timezone.utc), "peer_event_stale"),
     ("2026-10-23T10:00:00+00:00", NOW, "peer_event_timestamp_invalid"),
     ("2026-10-23T10:00:00.000Z", NOW, "peer_event_timestamp_invalid"),
 ])
