@@ -1,16 +1,19 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 603
+## Current verified state — sequence 604
 
-Sequences 591–600 establish durable planning and epistemic evidence rules: plans are bound to execution, and stale, foreign, or withdrawn support cannot drive mutation or reactivate after recovery. Sequence 601 traced Federation Health to a tracked local snapshot and found no authenticated bridge from the private relay. Sequence 602 prevents unidentified or sentinel peer rows from inflating health and records a successful push-triggered hosted health execution receipt. Sequence 603 makes malformed federation relay SSE payloads fail closed before persistence, while leaving peer authentication, event freshness, and health-input integration unresolved.
+Sequences 591–600 establish durable planning and epistemic evidence rules: plans are bound to execution, and stale, foreign, or withdrawn support cannot drive mutation or reactivate after recovery. Sequence 601 traced Federation Health to a tracked local snapshot and found no authenticated bridge from the private relay. Sequence 602 prevents unidentified or sentinel peer rows from inflating health and records a successful push-triggered hosted health execution receipt. Sequence 603 made malformed federation relay SSE payloads fail closed. Sequence 604 bounds transport line assembly before JSON decoding, closing the gap where a delimiter-free peer line could be buffered before the parser's size check.
 
-Latest verified main: `f833f9dd131d0da19635ef13cbbd4128371ff095`, tree `c1183e45afed5f81f33233477e45bce8cbcf3ead`
-Latest construction segment: `work/construction/segments/0603-bounded-federation-relay-event-parsing.md`
-Latest segment SHA-256: `1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35`
-Sequence: 603 (verified relay parser fault containment)
+Latest verified main: `cd04b9773585de4257baf9391a681142b8ded451`, tree `866bf33ced6e3e757a41f330001a605f102b33a2`
+Latest construction segment: `work/construction/segments/0604-bounded-federation-relay-stream-framing.md`
+Latest segment SHA-256: 61f6bf1c5444a3fbcaa7e5ac1c4b91b2c788ee6e1511a9548d6b43c59f58d5b4
+Sequence: 604 (bounded relay stream framing)
 
-The 64-KiB event check applies after the HTTP library yields a line; it does not bound transport buffering. The relay remains unauthenticated and writes `logs/federation_stream.jsonl`, separate from the health report's `logs/federation_log.jsonl`. Do not infer freshness, live health, or peer identity from the configured source URL.
+Two pre-merge custody attempts found, and the candidate is correcting, stale byte/hash bindings and a checkpoint reference to a prior segment digest. The corrected publication must pass the same guard before merge.
 
-A successful post-merge Federation Health execution and App receipt publication are recorded in sequence 602, but that run was push-triggered. As of this checkpoint no fresh scheduled Federation Health run on the new main has been observed; the latest observed scheduled run is still 39871453383 on older commit `965659041bc448ba3d3166d7e618ef255abf0387`. Continue to keep scheduled evidence distinct from push-triggered execution.
+The relay remains unauthenticated and writes `logs/federation_stream.jsonl`, separate from the health report's `logs/federation_log.jsonl`. The size bound applies to retained application-level line data while reading in fixed chunks; do not infer peer trust, event freshness, live telemetry, or health from this relay.
 
-Next: investigate the missing scheduled execution, then define a read-only trust catalog and freshness-bound signed event contract only if it can bind to real operator-provisioned peer keys. Preserve fail-closed behavior until trusted, reachable inputs can be verified.
+As of this checkpoint, no scheduled Federation Health run on current main has been observed. The latest observed schedule is run 39871453383 on older commit `965659041bc448ba3d3166d7e618ef255abf0387`. Newer successful executions were push-triggered; preserve this event distinction.
+
+Next: continue observing the scheduled health execution and its App publisher receipt. Then define a read-only peer trust catalog and freshness-bound signed event contract only if it can bind to real operator-provisioned peer keys. Keep telemetry fail-closed until the identity and freshness contract is implementable.
+
