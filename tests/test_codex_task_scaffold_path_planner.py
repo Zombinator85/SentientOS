@@ -262,6 +262,10 @@ def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
         ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_transition_operator.py", "Serialize bounded resident transition operator request processing across processes"),
         ("resident_transition_operator_maintenance", "tests/test_resident_cognitive_transition_operator.py", "Prove bounded resident transition operator request processing across processes"),
         ("resident_transition_operator_maintenance", "pyproject.toml", "Align Poetry package roots with the canonical installed package metadata"),
+        ("federation_peer_projection_maintenance", "sentientos/federation/peer_health_bridge.py", "Preserve read-only authenticated peer Health projection recovery integration"),
+        ("federation_peer_projection_maintenance", "sentientos/federation/poller.py", "Preserve read-only authenticated peer Health projection recovery integration"),
+        ("federation_peer_projection_maintenance", "tests/test_federation_poller_replay_integration.py", "Prove read-only authenticated peer Health projection recovery integration"),
+        ("federation_peer_projection_maintenance", ".github/workflows/ci.yml", "Bind exact peer projection regression nodes in source validation"),
         ("production_self_reflection_custody_maintenance", "sentientos/production_self_reflection_campaign.py", "Bind production self-reflection evidence to its exact preregistered protocol"),
         ("production_self_reflection_custody_maintenance", "scripts/run_production_self_reflection_campaign.py", "Route one production trial through verified owner evidence"),
         ("production_self_reflection_custody_maintenance", "tests/test_production_self_reflection_campaign.py", "Prove production evidence identity and custody bindings"),
@@ -279,6 +283,38 @@ def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, pa
 
 
 @pytest.mark.no_legacy_skip
+def test_federation_peer_projection_maintenance_profile_is_exactly_scoped() -> None:
+    allowed_paths = (
+        "sentientos/federation/peer_health_bridge.py",
+        "sentientos/federation/poller.py",
+        "tests/test_federation_poller_replay_integration.py",
+        ".github/workflows/ci.yml",
+    )
+    for path in allowed_paths:
+        result = plan_codex_task_scaffold_paths(
+            PlannerRequest(
+                task_name="bounded Federation projection maintenance",
+                task_goal="Preserve read-only authenticated peer Health projection recovery integration",
+                subsystem_kind="federation_peer_projection_maintenance",
+                existing_target_paths=(path,),
+            )
+        )
+        assert result.status in {"ready", "ready_with_warnings"}
+        assert result.existing_target_paths == (path,)
+
+    denied = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="bounded Federation projection maintenance",
+            task_goal="Preserve read-only authenticated peer Health projection recovery integration",
+            subsystem_kind="federation_peer_projection_maintenance",
+            existing_target_paths=("sentientos/federation/peer_replay_owner.py",),
+        )
+    )
+    assert denied.status == "blocked"
+    assert "existing_maintenance_target_scope_violation" in denied.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize(
     ("scope", "path", "reason"),
     (
@@ -288,6 +324,7 @@ def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, pa
         ("bootstrap_reliability_repair", "prompt_assembler.py", "existing_maintenance_target_scope_violation"),
         ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_model_transition_experiment.py", "existing_maintenance_target_scope_violation"),
         ("production_self_reflection_custody_maintenance", "sentientosd.py", "existing_maintenance_target_scope_violation"),
+        ("federation_peer_projection_maintenance", "sentientos/federation/peer_replay_owner.py", "existing_maintenance_target_scope_violation"),
     ),
 )
 def test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets(scope: str, path: str, reason: str) -> None:

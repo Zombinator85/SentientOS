@@ -77,6 +77,12 @@ MAINTENANCE_TARGETS = {
         "docs/development/codex_validation_and_landing_contract.md",
         "pyproject.toml",
     ),
+    "federation_peer_projection_maintenance": (
+        "sentientos/federation/peer_health_bridge.py",
+        "sentientos/federation/poller.py",
+        "tests/test_federation_poller_replay_integration.py",
+        ".github/workflows/ci.yml",
+    ),
     "production_self_reflection_custody_maintenance": (
         "sentientos/production_self_reflection_campaign.py",
         "scripts/run_production_self_reflection_campaign.py",
