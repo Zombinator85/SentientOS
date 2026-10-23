@@ -16,7 +16,8 @@ def read_once(
     pending: bytearray | None = None,
     discarding: bool = False,
     limit: int = 64,
-) -> tuple[list[str], int, tuple[int, int] | None, bytearray, bool]:
+    observed_size: int | None = None,
+) -> tuple[list[str], int, tuple[int, int] | None, bytearray, bool, int | None]:
     return _read_available_lines(
         path,
         offset=offset,
@@ -24,13 +25,14 @@ def read_once(
         pending=bytearray() if pending is None else pending,
         discarding=discarding,
         max_line_bytes=limit,
+        observed_size=observed_size,
     )
 
 
 def test_incremental_reader_reads_complete_records_and_retains_partial_line(tmp_path):
     path = tmp_path / "stream.jsonl"
     path.write_bytes(b'{"event":"first"}\n{"event":"par')
-    lines, offset, identity, pending, discarding = read_once(path)
+    lines, offset, identity, pending, discarding, observed_size = read_once(path)
 
     assert lines == ['{"event":"first"}']
     assert offset == path.stat().st_size
@@ -39,13 +41,14 @@ def test_incremental_reader_reads_complete_records_and_retains_partial_line(tmp_
 
     with path.open("ab") as stream:
         stream.write(b'tial"}\n')
-    lines, offset, identity, pending, discarding = _read_available_lines(
+    lines, offset, identity, pending, discarding, observed_size = _read_available_lines(
         path,
         offset=offset,
         file_identity=identity,
         pending=pending,
         discarding=discarding,
         max_line_bytes=64,
+        observed_size=observed_size,
     )
 
     assert lines == ['{"event":"partial"}']
@@ -57,7 +60,7 @@ def test_incremental_reader_reads_only_one_bounded_chunk(tmp_path):
     path = tmp_path / "stream.jsonl"
     path.write_bytes(b"record\n" * 20000)
 
-    _, offset, _, _, _ = read_once(path)
+    _, offset, _, _, _, _ = read_once(path)
 
     assert offset == 64 * 1024
     assert offset < path.stat().st_size
@@ -75,17 +78,18 @@ def test_incremental_reader_discards_oversize_record_and_resynchronizes(tmp_path
 def test_incremental_reader_resets_after_log_truncation(tmp_path):
     path = tmp_path / "stream.jsonl"
     path.write_bytes(b"old record\n")
-    lines, offset, identity, pending, discarding = read_once(path)
+    lines, offset, identity, pending, discarding, observed_size = read_once(path)
     assert lines == ["old record"]
 
     path.write_bytes(b"new\n")
-    lines, new_offset, new_identity, pending, discarding = _read_available_lines(
+    lines, new_offset, new_identity, pending, discarding, observed_size = _read_available_lines(
         path,
         offset=offset,
         file_identity=identity,
         pending=pending,
         discarding=discarding,
         max_line_bytes=64,
+        observed_size=observed_size,
     )
 
     assert lines == ["new"]
@@ -96,7 +100,7 @@ def test_incremental_reader_resets_after_log_truncation(tmp_path):
 def test_incremental_reader_resets_after_file_replacement(tmp_path):
     path = tmp_path / "stream.jsonl"
     path.write_bytes(b"old record\n")
-    _, offset, identity, pending, discarding = read_once(path)
+    _, offset, identity, pending, discarding, observed_size = read_once(path)
     replacement = tmp_path / "replacement.jsonl"
     replacement.write_bytes(b"replacement\n")
     replacement.replace(path)
@@ -108,6 +112,7 @@ def test_incremental_reader_resets_after_file_replacement(tmp_path):
         pending=pending,
         discarding=discarding,
         max_line_bytes=64,
+        observed_size=observed_size,
     )
 
     assert lines == ["replacement"]
@@ -153,3 +158,33 @@ def test_stream_events_emits_sse_and_waits_for_complete_appended_record(
     assert next(events) == "data: partial\n\n"
     with pytest.raises(StopPolling):
         next(events)
+
+def test_incremental_reader_resets_after_in_place_truncation_beyond_cursor(tmp_path):
+    path = tmp_path / "stream.jsonl"
+    path.write_bytes(b"old\n" + b"x" * (100_000 - 4))
+    _, offset, identity, pending, discarding, observed_size = read_once(path)
+    assert offset == 64 * 1024
+    assert observed_size == 100_000
+
+    path.write_bytes(b"new\n" + b"y" * (80_000 - 4))
+    (
+        lines,
+        new_offset,
+        new_identity,
+        pending,
+        discarding,
+        new_observed_size,
+    ) = _read_available_lines(
+        path,
+        offset=offset,
+        file_identity=identity,
+        pending=pending,
+        discarding=discarding,
+        max_line_bytes=1024 * 1024,
+        observed_size=observed_size,
+    )
+
+    assert lines[0] == "new"
+    assert new_offset == 64 * 1024
+    assert new_identity == identity
+    assert new_observed_size == 80_000
