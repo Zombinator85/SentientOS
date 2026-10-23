@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a6fd190a550da814e2b569bf1eb82e2eb9f898985fd8650d34eed201e292c21c",
-    "latest_segment_sequence": 598,
-    "latest_segment_sha256": "53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011",
-    "source_commit": "bb672aa05d6a82b894ebadbfcb7b7252fb133cc4",
-    "source_tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38"
+    "checkpoint_sha256": "6319bf273b9707435ff46f2a3817e70792d8bb80876db1b6964c2abbe4fcb2e6",
+    "latest_segment_sequence": 599,
+    "latest_segment_sha256": "fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed",
+    "source_commit": "6d9d409774eb8b8af7d750d49d7e8e7834c5741b",
+    "source_tree": "cbd693a248ea5163d27304b775fc961844044859"
   },
-  "checkpoint_sha256": "a6fd190a550da814e2b569bf1eb82e2eb9f898985fd8650d34eed201e292c21c",
+  "checkpoint_sha256": "6319bf273b9707435ff46f2a3817e70792d8bb80876db1b6964c2abbe4fcb2e6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 598,
+  "latest_sequence": 599,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6945,6 +6945,19 @@
       "source_candidate_commit": "0696a5231a8ad9c724221cca91aba0b828c9008f",
       "source_commit": "bb672aa05d6a82b894ebadbfcb7b7252fb133cc4",
       "source_tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38"
+    },
+    {
+      "sequence": 599,
+      "path": "work/construction/segments/0599-admitted-epistemic-evidence-lineage.md",
+      "sha256": "fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed",
+      "bytes": 2569,
+      "predecessor": "segment-sha256:53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011",
+      "evidence_path": "work/construction/evidence/0599-admitted-epistemic-evidence-lineage.json",
+      "evidence_sha256": "198eb0e3e29a1753f4c4d79be60022e209a40083ff1d759261a6c6ce5fa2cff5",
+      "evidence_bytes": 2139,
+      "source_candidate_commit": "f330ecee7f8190781c32e6ce9a79d9d261631968",
+      "source_commit": "6d9d409774eb8b8af7d750d49d7e8e7834c5741b",
+      "source_tree": "cbd693a248ea5163d27304b775fc961844044859"
     }
   ],
   "source_acquisition": {

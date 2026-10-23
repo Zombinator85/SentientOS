@@ -1,0 +1,45 @@
+{
+  "sequence": 599,
+  "title": "Active epistemic evidence follows admitted update lineage",
+  "predecessor": {
+    "sequence": 598,
+    "sha256": "53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011"
+  },
+  "source": {
+    "candidate_commit": "f330ecee7f8190781c32e6ce9a79d9d261631968",
+    "tree": "cbd693a248ea5163d27304b775fc961844044859",
+    "parent_main": "5f9049e5da4aba273c1d1206d623684d5b10ded7"
+  },
+  "validation": {
+    "local_focused_tests": "passed: 29 tests in test_resident_epistemic_development.py, with exact candidate versions of modified source, owner, and mutation controller",
+    "targeted_mypy": "passed for resident_epistemic_development.py with imports followed silently",
+    "local_python_syntax_compilation": "passed",
+    "nearest_checkout_mypy": "not a valid current-main baseline: sequence-565 checkout reported 357 diagnostics across 74 files",
+    "ci_run": 39883318779,
+    "ci_result": "success",
+    "required_quality_gate_run": 39883318604,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39883318634,
+      "codex_ci": 39883319003,
+      "gradient_null_regression": 39883318674,
+      "invariants": 39883318605,
+      "docker": 39883318705,
+      "lint_benchmark": 39883318624
+    },
+    "result": "all eight exact-candidate PR workflows passed"
+  },
+  "integration": {
+    "pull_request": 2655,
+    "method": "normal merge",
+    "merge_commit": "6d9d409774eb8b8af7d750d49d7e8e7834c5741b",
+    "tree": "cbd693a248ea5163d27304b775fc961844044859",
+    "candidate_to_merge_files_changed": 0,
+    "first_parent": "5f9049e5da4aba273c1d1206d623684d5b10ded7"
+  },
+  "scope": "Effective binding membership now follows admitted add/remove event lineage while pending appends remain recoverable. More conservative freshness revisions supersede prior current bindings without deleting history; repeated snapshots cannot revive withdrawn records. No inference, production transition, or goal execution."
+}
