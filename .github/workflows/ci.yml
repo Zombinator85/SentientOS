@@ -298,6 +298,52 @@ jobs:
             --manifest glow/test_runs/federation_stream_relay_acceptance.json \
             --provenance glow/test_runs/federation_stream_relay_provenance.json \
             --output glow/test_runs/federation_stream_relay_acceptance_result.json
+      - name: Verify Federation replay snapshot path confinement
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_federation_poller.py::test_persist_replay_snapshot_rejects_path_traversal \
+            tests/test_federation_poller.py::test_persist_replay_snapshot_keeps_safe_peer_name \
+            tests/test_federation_poller.py::test_load_persisted_replay_rejects_filename_payload_mismatch \
+            tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_replay_directory \
+            tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_peer_file \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_replay_path_regressions
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_replay_snapshot_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_federation_poller.py::test_persist_replay_snapshot_rejects_path_traversal",
+              "tests/test_federation_poller.py::test_persist_replay_snapshot_keeps_safe_peer_name",
+              "tests/test_federation_poller.py::test_load_persisted_replay_rejects_filename_payload_mismatch",
+              "tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_replay_directory",
+              "tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_peer_file",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_replay_path_regressions",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_replay_snapshot_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": node,
+                      "rationale": "replay snapshot identity must not escape its directory or be rebound by payload content",
+                  }
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/federation_replay_snapshot_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_replay_snapshot_acceptance.json \
+            --provenance glow/test_runs/federation_replay_snapshot_provenance.json \
+            --output glow/test_runs/federation_replay_snapshot_acceptance_result.json
       - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
@@ -811,6 +857,12 @@ jobs:
             glow/test_runs/daemon_campaign_report_inspection.json
             glow/test_runs/daemon_campaign_report_inspection_acceptance.json
             glow/test_runs/daemon_campaign_report_inspection_acceptance_result.json
+            glow/test_runs/federation_stream_relay_provenance.json
+            glow/test_runs/federation_stream_relay_acceptance.json
+            glow/test_runs/federation_stream_relay_acceptance_result.json
+            glow/test_runs/federation_replay_snapshot_provenance.json
+            glow/test_runs/federation_replay_snapshot_acceptance.json
+            glow/test_runs/federation_replay_snapshot_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

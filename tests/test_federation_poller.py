@@ -1,9 +1,13 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from sentientos.federation.config import FederationConfig, PeerConfig
+from sentientos.federation.delta import DeltaResult
 from sentientos.federation.identity import NodeId
-from sentientos.federation.poller import FederationPoller
+from sentientos.federation.poller import FederationPoller, PeerReplaySnapshot
 from sentientos.federation.summary import CathedralState, ConfigState, ExperimentState, FederationSummary
 
 
@@ -85,3 +89,129 @@ def test_poller_updates_state(tmp_path, monkeypatch):
     assert any("now incompatible" in message for message in logs)
 
     assert any(event.get("kind") == "federation" for event in events)
+
+
+
+def _replay_snapshot_poller(tmp_path, logs):
+    return FederationPoller(
+        FederationConfig(
+            enabled=True,
+            node_id=NodeId(name="local", fingerprint="fp-local"),
+            state_file=str(tmp_path / "runtime" / "federation" / "state" / "local.json"),
+            peers=[],
+            poll_interval_seconds=1,
+            max_drift_peers=0,
+            max_incompatible_peers=0,
+            max_missing_peers=0,
+        ),
+        runtime=object(),
+        log_cb=logs.append,
+    )
+
+
+def _replay_snapshot(peer):
+    return PeerReplaySnapshot(
+        peer=peer,
+        severity="none",
+        delta=DeltaResult(severity="none"),
+        last_seen=datetime.now(timezone.utc),
+    )
+
+
+def _symlink_or_skip(
+    link: Path, target: Path, *, target_is_directory: bool = False
+) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (OSError, NotImplementedError):
+        pytest.skip("filesystem does not permit symlink creation")
+
+
+@pytest.mark.no_legacy_skip
+def test_persist_replay_snapshot_rejects_path_traversal(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    escaped = poller._replay_dir.parent / "outside.json"
+
+    poller._persist_replay_snapshot(_replay_snapshot("../outside"))
+
+    assert not escaped.exists()
+    assert any(
+        "Rejected unsafe federation replay peer name" in message for message in logs
+    )
+    for reserved_peer in ("CON", "con.txt", "AUX", "NUL", "COM1", "LPT9", "COM¹.log"):
+        assert not FederationPoller._safe_replay_peer_name(
+            reserved_peer, platform="nt"
+        )
+    assert FederationPoller._safe_replay_peer_name("COM0", platform="nt")
+    assert FederationPoller._safe_replay_peer_name("CON", platform="posix")
+
+
+@pytest.mark.no_legacy_skip
+def test_persist_replay_snapshot_keeps_safe_peer_name(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    target = poller._replay_dir / "peer-one.json"
+
+    poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
+
+    assert target.is_file()
+    assert json.loads(target.read_text(encoding="utf-8"))["peer"] == "peer-one"
+    assert poller._load_persisted_replay()["peer-one"].peer == "peer-one"
+
+
+@pytest.mark.no_legacy_skip
+def test_load_persisted_replay_rejects_filename_payload_mismatch(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    payload = _replay_snapshot("../outside").to_payload()
+    (poller._replay_dir / "configured-peer.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    assert poller._load_persisted_replay() == {}
+
+
+@pytest.mark.no_legacy_skip
+def test_replay_snapshot_rejects_symlinked_replay_directory(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    replay_dir = poller._replay_dir
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    replay_dir.rmdir()
+    _symlink_or_skip(replay_dir, outside, target_is_directory=True)
+    (outside / "peer-one.json").write_text(
+        json.dumps(_replay_snapshot("peer-one").to_payload()), encoding="utf-8"
+    )
+
+    poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
+
+    assert poller._load_persisted_replay() == {}
+    persisted = json.loads(
+        (outside / "peer-one.json").read_text(encoding="utf-8")
+    )
+    assert persisted["peer"] == "peer-one"
+    assert any(
+        "Rejected unsafe federation replay directory" in message for message in logs
+    )
+
+
+@pytest.mark.no_legacy_skip
+def test_replay_snapshot_rejects_symlinked_peer_file(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    outside = tmp_path / "outside.json"
+    payload = _replay_snapshot("peer-one").to_payload()
+    outside.write_text(json.dumps(payload), encoding="utf-8")
+    original = outside.read_text(encoding="utf-8")
+    target = poller._replay_dir / "peer-one.json"
+    _symlink_or_skip(target, outside)
+
+    poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
+
+    assert outside.read_text(encoding="utf-8") == original
+    assert poller._load_persisted_replay() == {}
+    assert any(
+        "Rejected unsafe federation replay path" in message for message in logs
+    )

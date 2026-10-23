@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -340,11 +341,37 @@ class FederationPoller:
             summary_digest=summary_digest(peer_summary),
         )
 
+    @staticmethod
+    def _safe_replay_peer_name(peer: object, *, platform: str | None = None) -> bool:
+        if not isinstance(peer, str) or not peer or peer in {".", ".."}:
+            return False
+        if any(separator in peer for separator in ("/", "\\", ":")):
+            return False
+        if any(ord(character) < 32 or ord(character) == 127 for character in peer):
+            return False
+        if Path(peer).name != peer:
+            return False
+        target_platform = os.name if platform is None else platform
+        if target_platform not in {"posix", "nt"}:
+            return False
+        if target_platform == "nt":
+            windows_stem = peer.split(".", 1)[0].rstrip(" .").casefold()
+            reserved = {"con", "prn", "aux", "nul", "conin$", "conout$"}
+            reserved.update(f"com{number}" for number in range(1, 10))
+            reserved.update(f"lpt{number}" for number in range(1, 10))
+            reserved.update(f"com{digit}" for digit in "¹²³")
+            reserved.update(f"lpt{digit}" for digit in "¹²³")
+            if windows_stem in reserved:
+                return False
+        return True
+
     def _load_persisted_replay(self) -> Dict[str, PeerReplaySnapshot]:
         snapshots: Dict[str, PeerReplaySnapshot] = {}
-        if not self._replay_dir.exists():
+        if not self._replay_dir.exists() or self._replay_dir.is_symlink():
             return snapshots
         for path in self._replay_dir.glob("*.json"):
+            if path.is_symlink() or not self._safe_replay_peer_name(path.stem):
+                continue
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
             except Exception:  # pragma: no cover - defensive
@@ -355,16 +382,27 @@ class FederationPoller:
                 snapshot = PeerReplaySnapshot.from_payload(data)
             except Exception:  # pragma: no cover - defensive
                 continue
-            if snapshot.peer:
+            if snapshot.peer == path.stem:
                 snapshots[snapshot.peer] = snapshot
         return snapshots
 
     def _persist_replay_snapshot(self, snapshot: PeerReplaySnapshot) -> None:
+        if not self._safe_replay_peer_name(snapshot.peer):
+            self.log_cb(f"Rejected unsafe federation replay peer name {snapshot.peer!r}")
+            return
+        if self._replay_dir.is_symlink():
+            self.log_cb("Rejected unsafe federation replay directory")
+            return
         target = self._replay_dir / f"{snapshot.peer}.json"
-        payload = snapshot.to_payload()
         try:
+            target_parent = target.resolve(strict=False).parent
+            replay_parent = self._replay_dir.resolve()
+            if target.is_symlink() or target_parent != replay_parent:
+                self.log_cb(f"Rejected unsafe federation replay path for peer {snapshot.peer!r}")
+                return
+            payload = snapshot.to_payload()
             target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-        except OSError:  # pragma: no cover - defensive
+        except (OSError, RuntimeError):  # pragma: no cover - defensive
             self.log_cb(f"Failed to persist replay snapshot for {snapshot.peer}")
 
     def _quarantine_peer_summary(self, path: Path) -> None:
