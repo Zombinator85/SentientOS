@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 597
+## Current verified state — sequence 598
 
-Sequences 591–593 connect receipt-verified outcomes to canonical planning and bind plan identity to execution. Sequence 594 verifies durable planning evidence reload and rejects foreign-proposition support. Sequence 595 proves rejected cross-proposition evidence leaves no target mutation intent or receipt. Sequence 596 covers stale support and withdrawn conclusions in recovered planning. Sequence 597 proves that an admitted all-bindings withdrawal removes support and contradiction from the active state set, preserves their immutable records and update history, and remains review-required after restart.
+Sequences 591–593 connect receipt-verified outcomes to canonical planning and bind plan identity to execution. Sequence 594 verifies durable planning evidence reload and rejects foreign-proposition support. Sequence 595 proves rejected cross-proposition evidence leaves no target mutation intent or receipt. Sequence 596 covers stale support and withdrawn conclusions in recovered planning. Sequence 597 proves an admitted all-bindings withdrawal removes support and contradiction from the active state set while preserving immutable binding history. Sequence 598 verifies that a source observation cannot declare itself fresh when its event age is stale; the world-state builder and epistemic adapter retain the stale posture.
 
-Latest verified main: `b58b2d96c72ecaa048221d383f7c3fa0b3d06d04`, tree `bcc756e3b122780a7b1bf091dcbd926c869ad125`
-Latest construction segment: `work/construction/segments/0597-admitted-evidence-withdrawal-after-recovery.md`
-Latest segment SHA-256: 80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5
-Sequence: 597 (verified source integration)
+Latest verified main: `bb672aa05d6a82b894ebadbfcb7b7252fb133cc4`, tree `eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38`
+Latest construction segment: `work/construction/segments/0598-source-age-bounds-epistemic-freshness.md`
+Latest segment SHA-256: 53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011
+Sequence: 598 (verified source integration)
 
-Next: inspect how evidence-binding freshness is established by source adapters and bound to source proofs. Determine whether `current` is adapter-derived from verified source observations or caller-declared. If a real gap exists, ensure stale observations cannot be labeled current to restore favorable canonical planning after recovery. Preserve source identity, admission binding, deterministic outcomes, and planning/execution separation.
+Next: trace the resident transition runner's direct advancement path against the authenticated operator ingress. Stage approvals are digest-checked and bound to the authenticated operator identity in the ingress, but their digest alone does not authenticate origin. Verify that no production transition effect can reach `advance` without the signed request and independent subordinate admissions. If a direct route is reachable, close it with an explicit authenticated request binding and regression tests; do not execute a production transition.

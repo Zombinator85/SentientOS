@@ -1,0 +1,46 @@
+{
+  "sequence": 598,
+  "title": "Stale source observations cannot regain current freshness",
+  "predecessor": {
+    "sequence": 597,
+    "sha256": "80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5"
+  },
+  "source": {
+    "candidate_commit": "0696a5231a8ad9c724221cca91aba0b828c9008f",
+    "tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38",
+    "parent_main": "61c982402cfd5ed2dd23ba05e499a2bf0924feb1"
+  },
+  "validation": {
+    "local_python_syntax_compilation": "passed",
+    "ci_run": 39880532343,
+    "ci_result": "success",
+    "full_pytest_suite": "passed",
+    "mypy_baseline_ratchet": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39880532337,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39880532303,
+      "codex_ci": 39880532363,
+      "gradient_null_regression": 39880532314,
+      "invariants": 39880532359,
+      "docker": 39880532341,
+      "lint_benchmark": 39880532313
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2653,
+    "method": "normal merge",
+    "merge_commit": "bb672aa05d6a82b894ebadbfcb7b7252fb133cc4",
+    "tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38",
+    "candidate_to_merge_files_changed": 0,
+    "first_parent": "61c982402cfd5ed2dd23ba05e499a2bf0924feb1"
+  },
+  "scope": "A stale source observation that declares fresh remains stale through world-state derivation and epistemic adaptation; binding retains exact source digest/time. Existing current and undated controls remain. No production effect, inference, transition, or execution."
+}
