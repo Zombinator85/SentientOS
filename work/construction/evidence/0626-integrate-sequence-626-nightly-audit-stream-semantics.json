@@ -1,0 +1,96 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 626,
+  "title": "Integrate sequence 626: configured nightly audit stream verification and append-only evidence correction",
+  "predecessor": "segment-sha256:7c39f1dea5d38c917f447092a30c85f2e6431c847428dccf822ad824042c6ecd",
+  "source": {
+    "pull_request": 2707,
+    "candidate_commit": "866549d7f2eb04e26374781880f35af945b9f705",
+    "candidate_tree": "dd76eea85e4d6298fdd3d63d7dfbf887b56caae1",
+    "parent_main": "f4faf307544f7c697a6a1cab23577521e3d8b467",
+    "source_merge": "932ddb7405015723b89d4a117cdcb80cc2327bf0",
+    "final_source_main": "932ddb7405015723b89d4a117cdcb80cc2327bf0",
+    "final_source_tree": "dd76eea85e4d6298fdd3d63d7dfbf887b56caae1",
+    "changed_paths": [
+      ".github/workflows/audit-nightly.yml",
+      ".github/workflows/nightly-self-check.yml",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "tests/test_verify_audits_dir.py"
+    ],
+    "scope": "Nightly strict audit checks use configured independent stream anchors without changing Administrator requirements, permissions, or repair authority."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate_run": 39980564757,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39980564501,
+      "invariants": 39980564483,
+      "docker": 39980564540,
+      "codex_ci": 39980564714,
+      "lint": 39980564524,
+      "release": 39980564692,
+      "gradient": 39980564700,
+      "result": "all final exact-candidate workflows passed"
+    },
+    "post_merge_main": {
+      "commit": "932ddb7405015723b89d4a117cdcb80cc2327bf0",
+      "tree": "dd76eea85e4d6298fdd3d63d7dfbf887b56caae1",
+      "quality_gate": 39981734541,
+      "ci": 39981734360,
+      "invariants": 39981734322,
+      "docs_deploy": 39981734612,
+      "docker": 39981734353,
+      "codex_ci": 39981734423,
+      "nightly_self_check": 39981734391,
+      "nightly_audit_integrity": 39981734328,
+      "forge_smoke": {
+        "run": 39981734307,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable post-merge checks passed"
+    },
+    "nightly_audit_execution": {
+      "run": 39981734328,
+      "source_commit": "932ddb7405015723b89d4a117cdcb80cc2327bf0",
+      "event": "push",
+      "administrator_preflight": "passed",
+      "strict_audit": "passed",
+      "configured_logs_valid": 4,
+      "configured_logs_total": 4,
+      "valid_percent": 100,
+      "audit_chain_status": "ok",
+      "strict_bucket": "healthy_strict",
+      "repair_job": "skipped_no_repair_required"
+    },
+    "construction_record_correction": {
+      "prior_sequence": 625,
+      "prior_evidence_path": "work/construction/evidence/0625-integrate-sequence-625-main-verification.json",
+      "prior_evidence_sha256": "1c7b34dbd7697792d3a392bac72b75d79059b7ba98e1c4039388d8a2528fa2a9",
+      "prior_recorded_changed_paths": [
+        "sentientos/federation/semantic_review_docket.py",
+        "sentientos/private_file_custody.py",
+        "tests/test_federation_semantic_review_docket.py",
+        "tests/test_invariants.py"
+      ],
+      "independently_verified_changed_paths": [
+        "sentientos/federation/semantic_review_docket.py",
+        "sentientos/private_file_custody.py",
+        "tests/integrity/test_repo_invariant_tripwire.py",
+        "tests/test_federation_peer_authentication.py"
+      ],
+      "verification_source": "GitHub PR #2705 changed-file listing and recursive candidate tree",
+      "treatment": "append-only correction; prior segment and evidence left byte-for-byte unchanged"
+    }
+  },
+  "integration": {
+    "source_pr": 2707,
+    "candidate_commit": "866549d7f2eb04e26374781880f35af945b9f705",
+    "source_merge": "932ddb7405015723b89d4a117cdcb80cc2327bf0",
+    "source_tree": "dd76eea85e4d6298fdd3d63d7dfbf887b56caae1",
+    "merge_method": "normal GitHub merge preserving candidate and merge commit history"
+  },
+  "scope": "Append-only construction record for strict configured-stream audit verification, its hosted post-merge execution, and correction of sequence-625 path attribution."
+}

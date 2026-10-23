@@ -1,5 +1,37 @@
 # Active construction checkpoint
 
+## Current verified state — sequence 626
+
+Sequence 626 restores correct nightly audit verification across the configured independent audit streams. It preserves hosted Administrator authority and the existing conditional repair workflow. On merged main `932ddb7405015723b89d4a117cdcb80cc2327bf0`, the push-triggered Nightly Audit Integrity execution verified all four logs (100.0%), `healthy_strict`, and audit-chain status `ok` without repair. Candidate and exact-main hosted checks passed.
+
+The append-only evidence also corrects a sequence-625 `source.changed_paths` attribution error using the immutable PR #2705 changed-file listing and candidate tree. The original sequence-625 evidence is unchanged. This checkpoint now names sequence 626 as current; the earlier checkpoint text had remained at sequence 624 despite its index binding to sequence 625.
+
+Latest verified main: `932ddb7405015723b89d4a117cdcb80cc2327bf0`, tree `dd76eea85e4d6298fdd3d63d7dfbf887b56caae1`
+Latest construction segment: `work/construction/segments/0626-integrate-sequence-626-nightly-audit-stream-semantics.md`
+Latest segment SHA-256: `1fbf76c49272bc893336d1bacd41428c87b60e3e5704deaa08a916eea2449d00`
+Sequence: 626 (configured nightly audit stream verification)
+
+PR #2707 candidate `866549d7f2eb04e26374781880f35af945b9f705` merged normally as `932ddb7405015723b89d4a117cdcb80cc2327bf0`. Its exact-candidate Quality Gate, strict hosted Administrator audits, acceptance binding, finalizer, separate metadata guard, CI, invariants, Docker, Codex CI, lint, release, and gradient checks passed.
+
+On exact source main, Required Quality Gate #39981734541, CI #39981734360, Invariant Tests #39981734322, Docs Deploy #39981734612, Docker #39981734353, Codex CI #39981734423, Nightly Self Check #39981734391, and Nightly Audit Integrity #39981734328 passed. CI completed integrated resource-to-cognition source validation, Mypy and pytest, strict documentation linkcheck, and Helm/Kubernetes. Forge Smoke #39981734307 was skipped by workflow conditions. The nightly audit output showed 4/4 configured logs valid, 100.0%, strict bucket `healthy_strict`, audit-chain status `ok`, and no repair required.
+
+### Sequence 625 attribution correction
+
+GitHub's changed-file list for PR #2705 is `sentientos/federation/semantic_review_docket.py`, `sentientos/private_file_custody.py`, `tests/integrity/test_repo_invariant_tripwire.py`, and `tests/test_federation_peer_authentication.py`. The prior sequence-625 evidence JSON lists two incorrect test paths; this sequence records the correction without rewriting the historical evidence.
+
+Next: examine the Federation Health snapshot's local-log boundary. Keep its stale status explicit; do not route authenticated peer claims or review receipts into Health without a separately defined and verified observation contract.
+
+## Current verified state — sequence 625
+
+Sequence 625 integrates a bounded local docket for Federation semantic-review receipts. Docket reads repeat replay and locally pinned policy validation. Entries preserve positive and adverse submitted outcomes and grant local review eligibility only; remote references remain unresolved, and canonical evidence, Federation Health, work admission, planning, execution, and decision authority remain denied.
+
+Latest verified source main: `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`, tree `486103360be93db194c2d721a2a2d70b42ae95ce`
+Latest construction segment: `work/construction/segments/0625-integrate-sequence-625-main-verification.md`
+Latest segment SHA-256: `7c39f1dea5d38c917f447092a30c85f2e6431c847428dccf822ad824042c6ecd`
+Sequence: 625 (bounded semantic-review receipt docket)
+
+PR #2705 candidate `f1e4b730f831dcd9502be0b3816a8687998949ea` merged normally as `2a396737193222e54132d2f0976c21c8fdaac452`. The App-published Federation Health receipt PR #2688 later merged as `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`; that report was a stale configured local-log snapshot, not live telemetry. Sequence 626 records the correction to the sequence-625 evidence path list.
+
 ## Current verified state — sequence 624
 
 Sequence 624 adds canonical serialization and independent replay/policy revalidation for Federation semantic-review receipts. The derived content digest detects mutation but is not authentication. Verified receipts remain local review metadata; submitted outcomes remain claims, remote evidence stays unresolved, and evidence admission, Federation Health publication, work admission, planning, execution, and decision authority remain denied.
