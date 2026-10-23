@@ -1378,8 +1378,19 @@ jobs:
 
       - name: Install FFmpeg for demo export
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y ffmpeg
+          apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          if ! sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update; then
+            echo "::warning::Ubuntu package mirror did not update within three minutes; switching the runner to archive.ubuntu.com."
+            if sudo grep -Rqs 'azure.archive.ubuntu.com' /etc/apt; then
+              sudo find /etc/apt -type f \\( -name '*.list' -o -name '*.sources' \\) \\
+                -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} +
+            else
+              echo "::warning::Azure Ubuntu mirror was not configured; retrying the current package sources once."
+            fi
+            sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" update
+          fi
+          sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" install \\
+            --no-install-recommends -y ffmpeg
 
       - name: Run parliament demo
         run: |
