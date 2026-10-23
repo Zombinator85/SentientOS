@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "6319bf273b9707435ff46f2a3817e70792d8bb80876db1b6964c2abbe4fcb2e6",
-    "latest_segment_sequence": 599,
-    "latest_segment_sha256": "fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed",
-    "source_commit": "6d9d409774eb8b8af7d750d49d7e8e7834c5741b",
-    "source_tree": "cbd693a248ea5163d27304b775fc961844044859"
+    "checkpoint_sha256": "4cb93a0c131f89e337689484b29ca2c21cbad30c7aafbf63d970f894fe1d023d",
+    "latest_segment_sequence": 600,
+    "latest_segment_sha256": "b0898fb957e8ee96f1bd8e3b6b028c6819ca407fc1feda766ee2201fc671db68",
+    "source_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
+    "source_tree": "684f8b5e83e7010707d13f2916dfd2d319249448"
   },
-  "checkpoint_sha256": "6319bf273b9707435ff46f2a3817e70792d8bb80876db1b6964c2abbe4fcb2e6",
+  "checkpoint_sha256": "4cb93a0c131f89e337689484b29ca2c21cbad30c7aafbf63d970f894fe1d023d",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 599,
+  "latest_sequence": 600,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6958,6 +6958,19 @@
       "source_candidate_commit": "f330ecee7f8190781c32e6ce9a79d9d261631968",
       "source_commit": "6d9d409774eb8b8af7d750d49d7e8e7834c5741b",
       "source_tree": "cbd693a248ea5163d27304b775fc961844044859"
+    },
+    {
+      "sequence": 600,
+      "path": "work/construction/segments/0600-epistemic-freshness-survives-restart.md",
+      "sha256": "b0898fb957e8ee96f1bd8e3b6b028c6819ca407fc1feda766ee2201fc671db68",
+      "bytes": 3120,
+      "predecessor": "segment-sha256:fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed",
+      "evidence_path": "work/construction/evidence/0600-epistemic-freshness-survives-restart.json",
+      "evidence_sha256": "8474bbf1d5132dc945e686fe376a4f1773e66008f9dfd4892947103b592fc40c",
+      "evidence_bytes": 3653,
+      "source_candidate_commit": "312c0a013a48714e46417af8917039a9c83b300b",
+      "source_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
+      "source_tree": "684f8b5e83e7010707d13f2916dfd2d319249448"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,76 @@
+{
+  "sequence": 600,
+  "title": "Epistemic freshness and withdrawal survive restart",
+  "predecessor": {
+    "sequence": 599,
+    "sha256": "fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed"
+  },
+  "source": {
+    "candidate_commit": "312c0a013a48714e46417af8917039a9c83b300b",
+    "candidate_tree": "d88e8d2ceb284870523c2b4a22849265c638de77",
+    "parent_main": "1f6fecd942cfab70c0ea59964ff870a7cfd9cf8f",
+    "changed_paths": [
+      "tests/test_resident_epistemic_development.py"
+    ]
+  },
+  "validation": {
+    "local_focused_tests": "passed: 29 tests in test_resident_epistemic_development.py",
+    "exact_source_comparison": "relevant resident epistemic source, persistent owner, mutation controller, transition source, and dependencies were independently compared byte-for-byte with verified main",
+    "local_python_syntax_compilation": "passed",
+    "targeted_mypy": "passed for resident_epistemic_development.py with imports followed silently",
+    "transition_recovery_review": {
+      "exact_main_operator_tests": "passed: 47 tests in test_resident_cognitive_transition_operator.py",
+      "expiry_window_simulation": "completed and attempt-only journal cases recovered without replay; effect_performed=false",
+      "production_transition_executed": false,
+      "finding": "no request-to-journal recovery bypass found"
+    },
+    "exact_candidate_checks": {
+      "required_quality_gate": 39886221565,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "invariants": 39886221568,
+      "ci_self_check_run": 39886221498,
+      "ci_source_validation_run": 39886221498,
+      "documentation_and_helm_run": 39886221498,
+      "gradient_null_regression": 39886221531,
+      "lint_matrix": 39886221500,
+      "validation": 39886221507,
+      "build": 39886221510,
+      "cpu_smoke": 39886221544,
+      "result": "all exact-candidate hosted workflows passed"
+    },
+    "final_main_post_merge_checks": {
+      "main_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
+      "required_quality_gate": 39886893655,
+      "source_validation_and_self_check_docs_helm": 39886893749,
+      "invariants": 39886893709,
+      "docker_and_build": 39886893806,
+      "cpu_smoke": 39886893674,
+      "additional_build": 39886893654,
+      "deploy": 39886893806,
+      "result": "all required main workflows passed"
+    }
+  },
+  "integration": {
+    "source_pull_request": 2657,
+    "source_merge_commit": "d9565001d4e9a63fae4d368fe29f9b8535ce6b83",
+    "source_tree": "d88e8d2ceb284870523c2b4a22849265c638de77",
+    "source_merge_method": "normal merge",
+    "source_first_parent": "1f6fecd942cfab70c0ea59964ff870a7cfd9cf8f",
+    "operational_receipt_pull_request": 2639,
+    "final_main_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
+    "final_main_tree": "684f8b5e83e7010707d13f2916dfd2d319249448",
+    "final_main_first_parent": "d9565001d4e9a63fae4d368fe29f9b8535ce6b83",
+    "federation_health_run": {
+      "run_id": 39871453383,
+      "source_main": "965659041bc448ba3d3166d7e618ef255abf0387",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "source_posture": "tracked local snapshot; not live telemetry"
+    },
+    "operational_receipt_merge_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825"
+  },
+  "scope": "Restart recovery preserves admitted freshness revisions and explicit withdrawal while retaining immutable evidence history. No model inference, campaign execution, production transition, or goal execution."
+}
