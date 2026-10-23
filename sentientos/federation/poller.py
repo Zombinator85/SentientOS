@@ -352,7 +352,7 @@ class FederationPoller:
 
     def _load_persisted_replay(self) -> Dict[str, PeerReplaySnapshot]:
         snapshots: Dict[str, PeerReplaySnapshot] = {}
-        if not self._replay_dir.exists():
+        if not self._replay_dir.exists() or self._replay_dir.is_symlink():
             return snapshots
         for path in self._replay_dir.glob("*.json"):
             if path.is_symlink() or not self._safe_replay_peer_name(path.stem):
@@ -374,6 +374,9 @@ class FederationPoller:
     def _persist_replay_snapshot(self, snapshot: PeerReplaySnapshot) -> None:
         if not self._safe_replay_peer_name(snapshot.peer):
             self.log_cb(f"Rejected unsafe federation replay peer name {snapshot.peer!r}")
+            return
+        if self._replay_dir.is_symlink():
+            self.log_cb("Rejected unsafe federation replay directory")
             return
         target = self._replay_dir / f"{snapshot.peer}.json"
         try:

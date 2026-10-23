@@ -153,3 +153,23 @@ def test_load_persisted_replay_rejects_filename_payload_mismatch(tmp_path):
     )
 
     assert poller._load_persisted_replay() == {}
+
+
+@pytest.mark.no_legacy_skip
+def test_replay_snapshot_rejects_symlinked_replay_directory(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    replay_dir = poller._replay_dir
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    replay_dir.rmdir()
+    replay_dir.symlink_to(outside, target_is_directory=True)
+    (outside / "peer-one.json").write_text(
+        json.dumps(_replay_snapshot("peer-one").to_payload()), encoding="utf-8"
+    )
+
+    poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
+
+    assert poller._load_persisted_replay() == {}
+    assert json.loads((outside / "peer-one.json").read_text(encoding="utf-8"))["peer"] == "peer-one"
+    assert any("Rejected unsafe federation replay directory" in message for message in logs)
