@@ -1,0 +1,123 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 634,
+  "title": "Integrate sequence 634: restart-safe authenticated peer Health projection recovery",
+  "predecessor": "segment-sha256:52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089",
+  "source": {
+    "pull_request": 2728,
+    "candidate_commit": "b9638d080a8507a8eb7a25180641aafd16805754",
+    "candidate_commits": [
+      "e4c7c1142ee6b236da319cadea525efdf7d3a934",
+      "b9638d080a8507a8eb7a25180641aafd16805754"
+    ],
+    "parent_main": "271eacb2953f58384724bca6348f58bca54fcc46",
+    "merge_commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
+    "source_tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/peer_health_bridge.py",
+      "sentientos/federation/peer_replay_owner.py",
+      "tests/test_federation_peer_health_bridge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Reconstruct the latest peer-reported Health observation from bounded immutable replay history after restart by verifying every signed record against the exact pinned trust catalog and applying current freshness to the latest event. Recovery is read-only and retains all local authority denials."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate": 40030125271,
+      "ci": 40030099357,
+      "invariants": 40030099240,
+      "docker": 40030099233,
+      "codex_ci": 40030099253,
+      "lint": 40030099307,
+      "release": 40030099229,
+      "gradient": 40030099237,
+      "all_checks": "passed",
+      "strict_administrator_audits": "passed",
+      "hosted_privileged_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "finalizer_artifact": {
+        "id": 12534099078,
+        "size_bytes": 36310,
+        "sha256": "2e368ba4b2a356164f341af51e5ef160a7390fc97bdb72677f7672f728d1f0b2",
+        "independent_local_sha256_match": true
+      },
+      "candidate_acceptance": "task_acceptance_ready",
+      "candidate_acceptance_nodes_required": 47,
+      "candidate_acceptance_nodes_passed": 47,
+      "candidate_acceptance_artifact": {
+        "id": 12535265053,
+        "size_bytes": 7056,
+        "sha256": "58907bebb34d4a42987182c0a6066081a5c7b0e272356c5f46dafecc5f943fe3",
+        "independent_local_sha256_match": true
+      },
+      "source_validation_acceptance": "task_acceptance_ready",
+      "source_validation_nodes_required": 16,
+      "source_validation_nodes_passed": 16,
+      "source_validation_tests_executed": 16,
+      "source_validation_tests_failed": 0,
+      "source_validation_artifact": {
+        "id": 12534696935,
+        "size_bytes": 537031,
+        "sha256": "5de98de428151f0bfa40b0e3c28e4858ddf22d339f170e57207d9ae36c02ee2f",
+        "independent_local_sha256_match": true,
+        "repository_sha": "b9638d080a8507a8eb7a25180641aafd16805754",
+        "acceptance_manifest_digest": "sha256:be045666b49ee7bdcf60d1cde27af42e3fe04dc5ed21fe91be565e8208a949e1",
+        "acceptance_provenance_digest": "sha256:a64c12d557948715fd31413bd6870ec6c08609b59bd1b1c99234d193b2ae5d6b",
+        "recovery_acceptance_nodes_required": 6,
+        "recovery_acceptance_nodes_passed": 6,
+        "recovery_acceptance_manifest_digest": "sha256:1ae3dd43037d3beb71dae84e98f0114204ceac0dd05b9048c23099256fb9d919",
+        "recovery_acceptance_provenance_digest": "sha256:7318292c931038909f9af1a01f2d8fdedc370caed514b24e8aaa3e0f60ab4dd6"
+      },
+      "corrective_iterations": [
+        "The first hosted source-validation attempt rejected three parameterized cases because the candidate had removed their stable pytest IDs; all tests executed but the exact acceptance identities were not present.",
+        "A follow-up commit restored ids=(unsupported_schema, additional_fields, unknown_status) and preserved the prior commit. The corrected candidate passed all 6 exact source-validation nodes and all 47 Quality Gate nodes."
+      ]
+    },
+    "post_merge_main": {
+      "commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
+      "tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db",
+      "quality_gate": 40030763241,
+      "ci": 40030763224,
+      "invariants": 40030763242,
+      "docker": 40030763228,
+      "codex_ci": 40030763315,
+      "docs_deploy": 40030763222,
+      "nightly_self_check": 40030763325,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed",
+      "source_validation_artifact": {
+        "id": 12534204650,
+        "size_bytes": 536977,
+        "sha256": "c4194d10c1c060c7a152c5de46df95be2c9ab2e85d1689aadd1846bd110e50ed",
+        "independent_local_sha256_match": true,
+        "repository_sha": "de698afc55b13f66917cabbc574ad07bdb48fbec",
+        "source_validation_manifest_digest": "sha256:bde011d1cb2431990b31bc9a4a190736f42c9740e21c8b489712350a2639cfe6",
+        "source_validation_provenance_digest": "sha256:736475a064bb2a5479fa82d208623f3a0f8aa53bd739419128fda4c5e28c29b8",
+        "recovery_acceptance_nodes_required": 6,
+        "recovery_acceptance_nodes_passed": 6,
+        "recovery_acceptance_manifest_digest": "sha256:496e8d7074052a8c4e9ada14baee2405a31990ee1b2a06addf8fc6823953231e",
+        "recovery_acceptance_provenance_digest": "sha256:b70fe14a6e831b49242aa2d8aa1628d3b89fc6bfdae1aa06f9bb50213d20e649"
+      },
+      "source_validation_nodes_passed": 16,
+      "source_validation_acceptance": "task_acceptance_ready",
+      "source_validation_tests_executed": 16,
+      "source_validation_tests_failed": 0,
+      "source_validation_nodes_required": 16
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "source_history_preserved": true,
+    "merge_method": "merge",
+    "merge_parents": [
+      "271eacb2953f58384724bca6348f58bca54fcc46",
+      "b9638d080a8507a8eb7a25180641aafd16805754"
+    ],
+    "authority_boundaries_preserved": true,
+    "production_peer_identities_configured": false,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Connect read-only peer Health projection recovery to the daemon's verified peer-projection owner; retain exact catalog binding and fail closed on catalog drift."
+  }
+}

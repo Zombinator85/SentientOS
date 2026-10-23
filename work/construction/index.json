@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "21e28a22dfd6c3e8281b7dcd57bc8431595c9305f68dc31c4e3bd5937d3b1162",
-    "latest_segment_sequence": 633,
-    "latest_segment_sha256": "52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089",
-    "source_commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
-    "source_tree": "9754b6b52b1e2a40716101dc184d281125e77116"
+    "checkpoint_sha256": "d13d5e3d25f35b304754e355745c3432d41f39e494299ca54af12f4458156d92",
+    "latest_segment_sequence": 634,
+    "latest_segment_sha256": "c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7",
+    "source_commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
+    "source_tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db"
   },
-  "checkpoint_sha256": "21e28a22dfd6c3e8281b7dcd57bc8431595c9305f68dc31c4e3bd5937d3b1162",
+  "checkpoint_sha256": "d13d5e3d25f35b304754e355745c3432d41f39e494299ca54af12f4458156d92",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 633,
+  "latest_sequence": 634,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7400,6 +7400,19 @@
       "source_candidate_commit": "abfbf28f986ed64e36fbe0944792e040050706a0",
       "source_commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
       "source_tree": "9754b6b52b1e2a40716101dc184d281125e77116"
+    },
+    {
+      "sequence": 634,
+      "path": "work/construction/segments/0634-recover-peer-health-projection-after-restart.md",
+      "sha256": "c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7",
+      "bytes": 2305,
+      "predecessor": "segment-sha256:52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089",
+      "evidence_path": "work/construction/evidence/0634-recover-peer-health-projection-after-restart.json",
+      "evidence_sha256": "18a08f70caf42d27859fd67983a44ebc837972a49d82d11947be495e2ca88441",
+      "evidence_bytes": 6240,
+      "source_candidate_commit": "b9638d080a8507a8eb7a25180641aafd16805754",
+      "source_commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
+      "source_tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db"
     }
   ],
   "source_acquisition": {
