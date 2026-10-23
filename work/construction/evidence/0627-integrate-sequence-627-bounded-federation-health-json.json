@@ -1,0 +1,109 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 627,
+  "title": "Integrate sequence 627: bounded Federation Health JSONL snapshot parsing",
+  "predecessor": "segment-sha256:1fbf76c49272bc893336d1bacd41428c87b60e3e5704deaa08a916eea2449d00",
+  "source": {
+    "pull_request": 2709,
+    "candidate_commit": "0f7ba7b9c840307310a838dce8bf73283b87ba03",
+    "candidate_tree": "09ce01f8e9501e1f8c776f786a590072c3847d0b",
+    "parent_main": "5d9d1af3373c84951fa251d3aa7b9820776f014f",
+    "source_merge": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
+    "final_source_main": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
+    "final_source_tree": "09ce01f8e9501e1f8c776f786a590072c3847d0b",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Bound and strictly parse configured local Federation Health JSONL records while preserving local-snapshot reporting and no-live-telemetry semantics."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate_run": 39986940271,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39986940854,
+      "source_validation": "passed",
+      "federation_health_parser_acceptance": "passed",
+      "same_sha_push_ci": 39986900879,
+      "invariants": 39986940261,
+      "docker_cpu_smoke": 39986940446,
+      "lint": 39986940414,
+      "build": 39986940305,
+      "validation": 39986940274,
+      "gradient": 39986940520,
+      "result": "all applicable exact-candidate checks passed"
+    },
+    "post_merge_source_main": {
+      "commit": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
+      "tree": "09ce01f8e9501e1f8c776f786a590072c3847d0b",
+      "quality_gate": 39987854318,
+      "ci": 39987854361,
+      "source_validation": "passed",
+      "self_check": "passed",
+      "invariants": 39987854267,
+      "docs_and_linkcheck": 39987854361,
+      "helm_k8s": 39987854361,
+      "docker_image": 39987854191,
+      "cpu_smoke": 39987854316,
+      "deployment": 39987854390,
+      "nightly_self_check": 39987854263,
+      "forge_smoke": {
+        "run": 39987854280,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable post-merge source checks passed"
+    },
+    "federation_health_execution": {
+      "run": 39987854382,
+      "source_commit": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
+      "event": "push",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "run_receipt": "passed",
+      "report_status": "stale",
+      "configured_nodes": 1,
+      "recent_events_24h": 0,
+      "latest_local_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false,
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c"
+    },
+    "health_receipt_publication": {
+      "pull_request": 2710,
+      "candidate_commit": "754863524e401a9cc132a21d2d858538f04826e9",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "exact_candidate_quality_gate": 39987922355,
+      "exact_candidate_ci": 39987922228,
+      "exact_candidate_source_validation": "passed",
+      "exact_candidate_self_check": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "merge_commit": "e3a247ac994ee9075febb019c9128891667e464f",
+      "current_main_before_sequence_evidence": "e3a247ac994ee9075febb019c9128891667e464f",
+      "current_main_tree_before_sequence_evidence": "45f72bbf5a3af46473e7942d4715f4f70c4a6f34",
+      "result": "Health execution receipt was verified and merged normally"
+    }
+  },
+  "construction": {
+    "source_authority": "read-only configured local log snapshot",
+    "max_record_bytes": 65536,
+    "max_json_integer_digits": 128,
+    "rejected_records": [
+      "duplicate object keys",
+      "non-finite JSON constants",
+      "overflowing floats",
+      "excessively long integer tokens",
+      "recursive-depth failures",
+      "oversized JSONL lines"
+    ],
+    "malformed_record_handling": "skip the invalid record and continue with subsequent records",
+    "boundary": "no live Federation telemetry, remote peer claims, admission, planning, execution, or decision authority",
+    "prior_evidence_preserved": true
+  }
+}
