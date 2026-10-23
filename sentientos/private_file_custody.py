@@ -159,11 +159,18 @@ def list_bounded_json_names_at(directory_fd: int, *, max_entries: int,
 
 
 def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
-                 collision_code: str, report_replace_durability: bool = False) -> bool:
+                 collision_code: str, report_replace_durability: bool = False,
+                 max_entries: int | None = None) -> bool:
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
         raise PrivateFileCustodyError("publication_unsupported")
     if not isinstance(data, bytes) or len(data) > max_bytes:
         raise PrivateFileCustodyError("payload_size_limit_exceeded")
+    if (max_entries is not None
+            and (type(max_entries) is not int or max_entries < 1)):
+        raise PrivateFileCustodyError("directory_entry_bound_invalid")
+    if (immutable and max_entries is not None
+            and os.stat not in os.supports_dir_fd):
+        raise PrivateFileCustodyError("publication_unsupported")
     directory_fd = open_private_directory(path.parent, create=True)
     directory_locked = False
     try:
@@ -173,6 +180,39 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
     except OSError as exc:
         os.close(directory_fd)
         raise PrivateFileCustodyError("publication_lock_unavailable") from exc
+    if immutable and max_entries is not None:
+        try:
+            os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+            target_exists = True
+        except FileNotFoundError:
+            target_exists = False
+        except OSError as exc:
+            try:
+                fcntl.flock(directory_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(directory_fd)
+            raise PrivateFileCustodyError("directory_entries_unavailable") from exc
+        try:
+            entry_count = 0
+            with os.scandir(directory_fd) as entries:
+                for entry in entries:
+                    if target_exists and entry.name == path.name:
+                        continue
+                    entry_count += 1
+                    if entry_count >= max_entries:
+                        raise PrivateFileCustodyError("directory_entry_limit_exceeded")
+        except PrivateFileCustodyError:
+            try:
+                fcntl.flock(directory_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(directory_fd)
+            raise
+        except OSError as exc:
+            try:
+                fcntl.flock(directory_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(directory_fd)
+            raise PrivateFileCustodyError("directory_entries_unavailable") from exc
     temporary_name = ".pending-" + os.urandom(16).hex()
     descriptor: int | None = None
     created = False
@@ -246,9 +286,13 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
 
 
 def publish_immutable_bytes(path: Path, data: bytes, *, max_bytes: int,
-                            collision_code: str = "immutable_content_conflict") -> bool:
-    """Create once; return whether this call created it, accepting identical retries."""
-    return _write_bytes(path, data, max_bytes=max_bytes, immutable=True, collision_code=collision_code)
+                            collision_code: str = "immutable_content_conflict",
+                            max_entries: int | None = None) -> bool:
+    """Create once; optionally enforce a directory-entry cap under its publication lock."""
+    return _write_bytes(
+        path, data, max_bytes=max_bytes, immutable=True,
+        collision_code=collision_code, max_entries=max_entries,
+    )
 
 
 def replace_private_bytes(path: Path, data: bytes, *, max_bytes: int) -> None:

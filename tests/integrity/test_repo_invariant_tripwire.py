@@ -184,6 +184,8 @@ FEDERATION_MODULE_ALLOWLIST = {
     "peer_replay_owner",
     # Separately pinned semantic review eligibility; no evidence admission or runtime authority.
     "peer_semantic_acceptance",
+    # Immutable, bounded local docket; reads revalidate receipts and grant no runtime authority.
+    "semantic_review_docket",
     "peer_trust_catalog",
     "poller",
     "replay",
