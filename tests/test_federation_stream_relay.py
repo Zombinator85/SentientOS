@@ -28,6 +28,7 @@ def relay(monkeypatch):
         b"{bad",
         b"\\xff",
         b"[" * 1100 + b"0" + b"]" * 1100,
+        b"9" * 5000,
     ],
 )
 def test_decode_event_line_skips_non_object_and_malformed_json(relay, payload):
