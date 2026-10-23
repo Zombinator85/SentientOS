@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "46812abe0409c075b3534587f2103d336deb7dc8a3d4c064275bd3d457875bae",
-    "latest_segment_sequence": 596,
-    "latest_segment_sha256": "373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af",
-    "source_commit": "76c93596d4d714594d9dcac246e86f6943b015af",
-    "source_tree": "c334e2c0a225843910f1c8cb406b607d667fce0d"
+    "checkpoint_sha256": "b1d27b403fe29ca1d6025af3e9cf0c4491d2361a0dba2692fc05785b2844cb44",
+    "latest_segment_sequence": 597,
+    "latest_segment_sha256": "80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5",
+    "source_commit": "b58b2d96c72ecaa048221d383f7c3fa0b3d06d04",
+    "source_tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125"
   },
-  "checkpoint_sha256": "46812abe0409c075b3534587f2103d336deb7dc8a3d4c064275bd3d457875bae",
+  "checkpoint_sha256": "b1d27b403fe29ca1d6025af3e9cf0c4491d2361a0dba2692fc05785b2844cb44",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 596,
+  "latest_sequence": 597,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6919,6 +6919,19 @@
       "source_candidate_commit": "f825749e42def5bdc831becbfc3e97c6cc5a6aea",
       "source_commit": "76c93596d4d714594d9dcac246e86f6943b015af",
       "source_tree": "c334e2c0a225843910f1c8cb406b607d667fce0d"
+    },
+    {
+      "sequence": 597,
+      "path": "work/construction/segments/0597-admitted-evidence-withdrawal-after-recovery.md",
+      "sha256": "80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5",
+      "bytes": 2619,
+      "predecessor": "segment-sha256:373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af",
+      "evidence_path": "work/construction/evidence/0597-admitted-evidence-withdrawal-after-recovery.json",
+      "evidence_sha256": "cd403f7069d98905767cc9e90d0942c80a5ab519d9211b84da72b8c2d9c4f127",
+      "evidence_bytes": 2025,
+      "source_candidate_commit": "27b19e9fbe04511eb08b7dcd181b9b8f72af7804",
+      "source_commit": "b58b2d96c72ecaa048221d383f7c3fa0b3d06d04",
+      "source_tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125"
     }
   ],
   "source_acquisition": {

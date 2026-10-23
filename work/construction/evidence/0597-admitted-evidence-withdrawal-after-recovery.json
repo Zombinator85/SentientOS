@@ -1,0 +1,46 @@
+{
+  "sequence": 597,
+  "title": "Admitted evidence withdrawal removes active bindings after recovery",
+  "predecessor": {
+    "sequence": 596,
+    "sha256": "373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af"
+  },
+  "source": {
+    "candidate_commit": "27b19e9fbe04511eb08b7dcd181b9b8f72af7804",
+    "tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125",
+    "parent_main": "658826d834c2b7c9852bdde8109685b80bdf1a44"
+  },
+  "validation": {
+    "local_python_syntax_compilation": "passed",
+    "ci_run": 39877485700,
+    "ci_result": "success",
+    "full_pytest_suite": "passed",
+    "mypy_baseline_ratchet": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39877485795,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39877485513,
+      "codex_ci": 39877485661,
+      "gradient_null_regression": 39877485949,
+      "invariants": 39877485951,
+      "docker": 39877485813,
+      "lint_benchmark": 39877485705
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2651,
+    "method": "normal merge",
+    "merge_commit": "b58b2d96c72ecaa048221d383f7c3fa0b3d06d04",
+    "tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125",
+    "candidate_to_merge_files_changed": 0,
+    "first_parent": "658826d834c2b7c9852bdde8109685b80bdf1a44"
+  },
+  "scope": "The admitted evidence_withdrawal transition removes prior support and contradiction from the recovered active set, preserves all immutable source binding records and event lineage, and leaves canonical planning review-required without execution. Only unknown stance with an empty active set is allowed; evidence-free new-evidence and supported candidates remain rejected. No inference or production transition."
+}
