@@ -1,0 +1,114 @@
+{
+  "construction": {
+    "append_only": true,
+    "authority_boundaries_preserved": true,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Connect read-only projections to the daemon runtime using operator-provisioned peer identity and exact pinned trust catalog; fail closed on missing or drifting trust.",
+    "prior_sequences_preserved": true,
+    "production_peer_identities_configured": false,
+    "source_history_preserved": true
+  },
+  "post_merge_main": {
+    "commit": "d75d7a821dbde680f53b87eb675e7daa4675ff56",
+    "fresh_origin_main_fetch": "confirmed exact merge commit and tree",
+    "merge_method": "merge",
+    "merge_parents": [
+      "6da9cd17f96e1f4101d337262981bdab7ac7db6a",
+      "324068607340d7a735595c64291e06c0a6f13fc7"
+    ],
+    "post_merge_hosted_workflow_runs": "not independently enumerated through the available GitHub connector; no result claimed",
+    "tree": "11f58e37769bf1a0e0b2bf694f41165633078286",
+    "tree_matches_candidate": true
+  },
+  "predecessor": "segment-sha256:c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 635,
+  "source": {
+    "candidate_commit": "324068607340d7a735595c64291e06c0a6f13fc7",
+    "candidate_commits": [
+      "324068607340d7a735595c64291e06c0a6f13fc7"
+    ],
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/poller.py",
+      "tests/test_federation_poller_replay_integration.py"
+    ],
+    "merge_commit": "d75d7a821dbde680f53b87eb675e7daa4675ff56",
+    "parent_main": "6da9cd17f96e1f4101d337262981bdab7ac7db6a",
+    "pull_request": 2732,
+    "scope": "Recover restart-safe authenticated peer Health into bounded read-only daemon poller projections while retaining explicit authority denials and separate empty, omitted, error, positive, and adverse outcomes.",
+    "source_tree": "11f58e37769bf1a0e0b2bf694f41165633078286"
+  },
+  "title": "Integrate sequence 635: daemon peer Health projection recovery",
+  "validation": {
+    "local": {
+      "compilation": "passed",
+      "postmerge_rerun": "blocked: canonical minimal test installation bootstrap required pip network access; direct pytest was correctly rejected by the repository test airlock",
+      "relevant_suite": "132 passed, 1 skipped before publication",
+      "targeted_mypy": "passed"
+    },
+    "prepublication": {
+      "administrator_strict_audits": "passed",
+      "audit_immutability": "passed",
+      "full_ci": 40035776783,
+      "full_ci_conclusion": "success",
+      "guard_artifact": {
+        "id": 12537032501,
+        "independent_local_sha256_match": true,
+        "sha256": "7ab56a9bb5b8871adf17c91e3b7cd0b7102c974622b90438e14ad4311dc89969",
+        "size_bytes": 37491
+      },
+      "guard_candidate_sha": "324068607340d7a735595c64291e06c0a6f13fc7",
+      "guard_ready": true,
+      "guard_tree_sha": "11f58e37769bf1a0e0b2bf694f41165633078286",
+      "invariants": 40035776707,
+      "invariants_conclusion": "success",
+      "matrix_profile": "solo; exhaustive matrix was not requested and was not required by the guard policy",
+      "quality_gate": 40035776705,
+      "quality_gate_conclusion": "success",
+      "quality_gate_evidence_artifact": {
+        "id": 12535924615,
+        "independent_local_sha256_match": true,
+        "sha256": "7791e10c80ed21f82501b53c14a000524ecab46ac123df0c5ce07e26a70c293c",
+        "size_bytes": 12519
+      },
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "task_acceptance": "task_acceptance_ready"
+    },
+    "pull_request_checks": {
+      "acceptance_sha": "324068607340d7a735595c64291e06c0a6f13fc7",
+      "acceptance_status": "task_acceptance_ready",
+      "all_applicable_runs": "passed",
+      "all_jobs_completed": true,
+      "candidate_acceptance_artifact": {
+        "id": 12538285212,
+        "independent_local_sha256_match": true,
+        "sha256": "2aa0bf0a8368d076e5b0fd2472865c5468ee30d83cd862a7a382b00984c88aae",
+        "size_bytes": 7063
+      },
+      "ci": 40037182041,
+      "ci_jobs": [
+        "source validation (unprivileged)",
+        "self-check",
+        "docs",
+        "helm-k8s-test"
+      ],
+      "codex_ci": 40037182062,
+      "docker": 40037182064,
+      "finalizer_candidate_tree": "11f58e37769bf1a0e0b2bf694f41165633078286",
+      "finalizer_status": "ready_for_pr_metadata",
+      "gradient": 40037182007,
+      "invariants": 40037182051,
+      "lint": 40037182167,
+      "pr_finalizer_artifact": {
+        "id": 12538285208,
+        "independent_local_sha256_match": true,
+        "sha256": "ff9be982b1994eddb96c9a700b621d3f8c80ed54bc5c13ceaf86c9843629e02c",
+        "size_bytes": 36813
+      },
+      "quality_gate": 40037182049,
+      "release": 40037182063,
+      "release_publish": "skipped by normal validation-only workflow condition"
+    }
+  }
+}
