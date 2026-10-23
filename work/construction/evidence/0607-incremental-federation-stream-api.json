@@ -1,0 +1,108 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 607,
+  "title": "Incremental federation stream API log consumption",
+  "predecessor": {
+    "sequence": 606,
+    "sha256": "b432521ae40b9424bf58c5f94a505355c40764f57547a1bdeee151ad45d50ccc"
+  },
+  "source": {
+    "pull_request": 2674,
+    "candidate_commit": "912edff6002936314fade9f0aad15fb4341632b2",
+    "candidate_tree": "58da62c063b67d1ce692bb68765022de0d1e00f4",
+    "parent_main": "850b4935ba6a00511749360bdc69e51149f41671",
+    "final_main": "93ed3d0a2c23a8c5c0a6c45600a3643ab90eae5c",
+    "final_main_tree": "58da62c063b67d1ce692bb68765022de0d1e00f4",
+    "changed_paths": [
+      "api/federation_stream_api.py",
+      "tests/test_federation_stream_api_incremental.py"
+    ],
+    "scope": "Incrementally read federation JSONL log records in fixed-size chunks, bound partial-record memory, discard oversized or invalid UTF-8 records, and reset the cursor after observed truncation or file replacement."
+  },
+  "validation": {
+    "local_focused_test": {
+      "result": "9 passed",
+      "compilation": "passed by importing the exact candidate module during pytest",
+      "environment": "Isolated /tmp source/test files from exact GitHub blobs; privilege preconditions stubbed; no repository workspace mutation."
+    },
+    "local_testclient_investigation": {
+      "result": "existing streaming TestClient test timed out against pre-change API; minimal finite FastAPI StreamingResponse TestClient also timed out",
+      "runtime": {
+        "fastapi": "0.141.1",
+        "starlette": "0.52.1",
+        "httpx": "0.28.1"
+      },
+      "conclusion": "local environment limitation; not reported as a passing integrated test"
+    },
+    "exact_candidate_checks": {
+      "quality_gate_run": 39904521310,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_precommit_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation_runs": [
+        39904424873,
+        39904420666
+      ],
+      "self_check_runs": [
+        39904424873,
+        39904420666
+      ],
+      "docs_runs": [
+        39904424873,
+        39904420666
+      ],
+      "helm_runs": [
+        39904424873,
+        39904420666
+      ],
+      "invariants_runs": [
+        39904424879,
+        39904420652
+      ],
+      "lint_run": 39904424906,
+      "build_run": 39904424871,
+      "cpu_smoke_run": 39904424837,
+      "validate_run": 39904424839,
+      "gradient_null_run": 39904424949,
+      "initial_quality_gate_attempt": {
+        "run": 39904424842,
+        "result": "pre-commit metadata check failed because the run captured the previous PR title",
+        "remediation": "PR title aligned to the exact head commit subject; fresh exact-candidate Quality Gate and metadata guard passed"
+      },
+      "result": "all required exact-candidate checks passed on the final PR head"
+    },
+    "post_merge_main_checks": {
+      "main_commit": "93ed3d0a2c23a8c5c0a6c45600a3643ab90eae5c",
+      "quality_gate_run": 39905021454,
+      "source_validation_docs_self_check_helm_run": 39905021472,
+      "secondary_self_check_run": 39905021445,
+      "invariants_run": 39905021458,
+      "cpu_smoke_run": 39905021503,
+      "build_runs": [
+        39905021482,
+        39905021538
+      ],
+      "deploy_run": 39905021538,
+      "result": "all post-merge checks completed successfully on exact main"
+    },
+    "federation_health": {
+      "latest_scheduled_run_id": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "second_current_main_scheduled_run_observed": false,
+      "report_status": "stale",
+      "events_last_24_hours": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "merge_commit": "93ed3d0a2c23a8c5c0a6c45600a3643ab90eae5c",
+    "tree": "58da62c063b67d1ce692bb68765022de0d1e00f4",
+    "first_parent": "850b4935ba6a00511749360bdc69e51149f41671",
+    "second_parent": "912edff6002936314fade9f0aad15fb4341632b2",
+    "merge_method": "normal merge"
+  },
+  "scope": "Bounds stream-consumer IO and per-record buffering without changing peer trust, relay production, Federation Health inputs, or authority."
+}
+

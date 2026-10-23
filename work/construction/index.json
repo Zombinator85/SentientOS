@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c17d9ef1043c1e44a6719afd7b04ee2246b62aa5d3c46712b23325874630b23c",
-    "latest_segment_sequence": 606,
-    "latest_segment_sha256": "b432521ae40b9424bf58c5f94a505355c40764f57547a1bdeee151ad45d50ccc",
-    "source_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
-    "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab"
+    "checkpoint_sha256": "d5bc70e53f749b4dd475d7cbb53c95415df2b149421d9ec98337dcd34f3b14e6",
+    "latest_segment_sequence": 607,
+    "latest_segment_sha256": "5bfbe62d39e860fceecac4a3619c125a9bb805671987ac1d6cd6c73b7fe8de4f",
+    "source_commit": "93ed3d0a2c23a8c5c0a6c45600a3643ab90eae5c",
+    "source_tree": "58da62c063b67d1ce692bb68765022de0d1e00f4"
   },
-  "checkpoint_sha256": "c17d9ef1043c1e44a6719afd7b04ee2246b62aa5d3c46712b23325874630b23c",
+  "checkpoint_sha256": "d5bc70e53f749b4dd475d7cbb53c95415df2b149421d9ec98337dcd34f3b14e6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 606,
+  "latest_sequence": 607,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7049,6 +7049,19 @@
       "source_candidate_commit": "c83640375417c48ce8fb4865166e6755430f5bb1",
       "source_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
       "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab"
+    },
+    {
+      "sequence": 607,
+      "path": "work/construction/segments/0607-incremental-federation-stream-api.md",
+      "sha256": "5bfbe62d39e860fceecac4a3619c125a9bb805671987ac1d6cd6c73b7fe8de4f",
+      "bytes": 2754,
+      "predecessor": "segment-sha256:b432521ae40b9424bf58c5f94a505355c40764f57547a1bdeee151ad45d50ccc",
+      "evidence_path": "work/construction/evidence/0607-incremental-federation-stream-api.json",
+      "evidence_sha256": "ad7a9eb5bfac253e6fd7c74133abc55e22bd53cadf225bccd1e7def0e90e3512",
+      "evidence_bytes": 4255,
+      "source_candidate_commit": "912edff6002936314fade9f0aad15fb4341632b2",
+      "source_commit": "93ed3d0a2c23a8c5c0a6c45600a3643ab90eae5c",
+      "source_tree": "58da62c063b67d1ce692bb68765022de0d1e00f4"
     }
   ],
   "source_acquisition": {
@@ -7058,7 +7071,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab",
+  "source_tree": "58da62c063b67d1ce692bb68765022de0d1e00f4",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
