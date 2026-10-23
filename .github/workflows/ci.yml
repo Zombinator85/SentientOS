@@ -402,6 +402,53 @@ jobs:
             --manifest glow/test_runs/federation_peer_replay_owner_acceptance.json \
             --provenance glow/test_runs/federation_peer_replay_owner_provenance.json \
             --output glow/test_runs/federation_peer_replay_owner_acceptance_result.json
+      - name: Verify authenticated Federation peer Health bridge regressions
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied \
+            tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence \
+            tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence \
+            tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted \
+            tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_peer_health_bridge_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied",
+              "tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence",
+              "tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence",
+              "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted",
+              "tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_peer_health_bridge_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": node,
+                      "rationale": "peer Health assertions require pinned authentication, bounded freshness, durable replay custody, and explicit denial of local authority",
+                  }
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/federation_peer_health_bridge_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_peer_health_bridge_acceptance.json \
+            --provenance glow/test_runs/federation_peer_health_bridge_provenance.json \
+            --output glow/test_runs/federation_peer_health_bridge_acceptance_result.json
+
       - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
@@ -924,6 +971,9 @@ jobs:
             glow/test_runs/federation_peer_replay_owner_provenance.json
             glow/test_runs/federation_peer_replay_owner_acceptance.json
             glow/test_runs/federation_peer_replay_owner_acceptance_result.json
+            glow/test_runs/federation_peer_health_bridge_provenance.json
+            glow/test_runs/federation_peer_health_bridge_acceptance.json
+            glow/test_runs/federation_peer_health_bridge_acceptance_result.json
             glow/test_runs/federation_health_provenance.json
             glow/test_runs/federation_health_acceptance.json
             glow/test_runs/federation_health_acceptance_result.json
