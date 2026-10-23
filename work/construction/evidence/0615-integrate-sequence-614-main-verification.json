@@ -1,0 +1,117 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 615,
+  "title": "Integrate sequence 614 and verify merged main",
+  "predecessor": {
+    "sequence": 614,
+    "sha256": "2fa5cece95430055add9f9701669fad2335c026fa640fdbe7f9a1fe66d36debb"
+  },
+  "source": {
+    "pull_request": 2684,
+    "original_candidate_commit": "f80f51e471647977ff7c7306674cd8943779fa9c",
+    "final_candidate_commit": "f80f51e471647977ff7c7306674cd8943779fa9c",
+    "final_candidate_tree": "f1a3362e141c4052bd6802aca182c68133b05455",
+    "parent_main": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+    "final_main": "9799837556f67500b3ea517494b76a0785785dad",
+    "final_main_tree": "f1a3362e141c4052bd6802aca182c68133b05455",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0615-integrate-sequence-614-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0615-integrate-sequence-614-main-verification.md"
+    ],
+    "scope": "Reconcile sequence 614 to verified main, record exact-candidate and post-merge checks, and preserve source-bound scheduled execution status."
+  },
+  "validation": {
+    "candidate_checks": {
+      "commit": "f80f51e471647977ff7c7306674cd8943779fa9c",
+      "quality_gate": 39927339307,
+      "ci_pull_request": 39927339362,
+      "ci_push": 39927326477,
+      "docker": 39927339363,
+      "codex_ci": 39927339380,
+      "invariant_pull_request": 39927339438,
+      "invariant_push": 39927326476,
+      "lint": 39927339424,
+      "gradient": 39927339386,
+      "release": 39927339433,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12489463141,
+      "name": "hosted-privileged-pr-landing-finalizer",
+      "advertised_digest": "sha256:c779a3cdbd48843888cc7528a5e8059c33390741f4260bfe06eaa46977e401c2",
+      "independent_sha256": "c779a3cdbd48843888cc7528a5e8059c33390741f4260bfe06eaa46977e401c2",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "f80f51e471647977ff7c7306674cd8943779fa9c",
+      "bound_tree": "f1a3362e141c4052bd6802aca182c68133b05455"
+    },
+    "post_merge_checks": {
+      "main_commit": "9799837556f67500b3ea517494b76a0785785dad",
+      "ci": 39931431927,
+      "quality_gate": 39931431923,
+      "docker": 39931431833,
+      "docs_deploy": 39931431856,
+      "codex_ci": 39931431826,
+      "invariants": 39931431844,
+      "strict_administrator_audits": "passed",
+      "ci_source_validation": "passed",
+      "ci_helm_kubernetes": "passed",
+      "ci_docs_linkcheck": "passed",
+      "results": "all completed successfully"
+    },
+    "integration": {
+      "pull_request": 2684,
+      "merge_commit": "9799837556f67500b3ea517494b76a0785785dad",
+      "tree": "f1a3362e141c4052bd6802aca182c68133b05455",
+      "first_parent": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "second_parent": "f80f51e471647977ff7c7306674cd8943779fa9c",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "scheduled_nightly_workflows": {
+      "latest_audit_integrity_run": 39927307722,
+      "audit_source_head": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "audit_result": "success",
+      "administrator_preflight": "passed",
+      "strict_audit_verification": "passed",
+      "repairs_needed": false,
+      "latest_self_check_run": 39756453111,
+      "self_check_source_head": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+      "self_check_result": "success",
+      "current_main_scheduled_self_check_observed": false
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 09:30:38Z",
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "run_result": "success",
+      "administrator_preflight": "passed",
+      "github_app_token_creation": "passed",
+      "publication_job": "success",
+      "artifact_id": 12479127606,
+      "artifact_advertised_digest": "sha256:3d27d122e9060a6e6521161e71149b32c0ba3203f88922cdc9525d6f403f64b3",
+      "artifact_independent_sha256": "3d27d122e9060a6e6521161e71149b32c0ba3203f88922cdc9525d6f403f64b3",
+      "receipt_run_id": 39902569701,
+      "receipt_source_sha": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "report_latest_event_utc": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false,
+      "current_main_scheduled_run_observed": false
+    }
+  },
+  "integration": {
+    "pull_request": 2684,
+    "merge_commit": "9799837556f67500b3ea517494b76a0785785dad",
+    "tree": "f1a3362e141c4052bd6802aca182c68133b05455",
+    "first_parent": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+    "second_parent": "f80f51e471647977ff7c7306674cd8943779fa9c",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; no runtime or workflow authority changes."
+}
