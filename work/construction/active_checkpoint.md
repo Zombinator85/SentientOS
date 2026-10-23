@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 595
+## Current verified state — sequence 596
 
-Sequences 591–593 connect receipt-verified outcomes to canonical planning and bind plan identity to execution. Sequence 594 verifies durable planning evidence reload and rejects foreign-proposition support. Sequence 595 proves that this rejection produces no target state event, mutation intent, or state receipt, and that restart recovery retains the prior unknown state.
+Sequences 591–593 connect receipt-verified outcomes to canonical planning and bind plan identity to execution. Sequence 594 verifies durable planning evidence reload and rejects foreign-proposition support. Sequence 595 proves rejected cross-proposition evidence leaves no target mutation intent or receipt. Sequence 596 verifies that stale-only support and an admitted withdrawal of the supported conclusion remain review-required after restart, while current exact-scope support restores planning eligibility.
 
-Latest verified main: `e33987f53a9e17a71f098cfa58fb0324353a3c05`, tree `2798dc0d71fe0ca0475be8d564884e813ef429d7`
-Latest construction segment: `work/construction/segments/0595-denied-evidence-mutation-leaves-no-recovered-state.md`
-Latest segment SHA-256: 8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f
-Sequence: 595 (verified source integration)
+Latest verified main: `76c93596d4d714594d9dcac246e86f6943b015af`, tree `c334e2c0a225843910f1c8cb406b607d667fce0d`
+Latest construction segment: `work/construction/segments/0596-recovered-planning-freshness-and-withdrawal.md`
+Latest segment SHA-256: 373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af
+Sequence: 596 (verified source integration)
 
-Next: test stale and withdrawn support through canonical planning after recovery. Verify that current, withdrawn, or stale binding status is evaluated from durable provenance and cannot preserve a previously favorable posture after restart. Keep proposition and model scope exact, and confirm planning still creates no execution side effects.
+Next: trace how immutable evidence bindings are withdrawn and superseded across the state owner, mutation controller, admission evidence, and canonical projection. The owner supports removed-binding deltas, but the resident mutation controller exposes no governed removal path. Implement and test the narrowest authority-bound removal operation, preserve the append-only binding record and update history, and prove a withdrawn binding cannot restore favorable planning posture after restart. Keep planning non-executing.
