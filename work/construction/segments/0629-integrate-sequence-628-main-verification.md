@@ -1,0 +1,9 @@
+# Sequence 629 — integrate sequence 628 main verification
+
+Sequence 629 records the normal integration and exact-main verification of the sequence 628 timestamp-offset evidence. PR #2714 was based on verified main `cc2d98665a191c31ef0e0ccddccbe422ed18d267`; candidate `6b098a18493501e1005122b443218c4b6eb18475` (tree `0ebcf2b0b94880d80542414826484cf7c74e54ec`) merged with its commit history preserved as `754e790fc8dc04dc293a301f32a6c5e79e07cecb`, with the same tree and first parent `cc2d98665a191c31ef0e0ccddccbe422ed18d267`.
+
+The exact candidate passed Required Quality Gate #39992447103, including strict hosted Administrator audits, exact acceptance, hosted landing finalizer, and the separate pre-publication metadata guard. PR CI #39992447282 and same-SHA push CI #39992427657 passed, including construction custody, source validation, integrated lifecycle, Mypy/pytest, documentation linkcheck, and Helm/Kubernetes. Invariants #39992447163, Docker #39992447224, lint #39992447213, Codex CI #39992447124, Release #39992447113, and Gradient null regression #39992447266 passed.
+
+On exact merged main `754e790fc8dc04dc293a301f32a6c5e79e07cecb` (tree `0ebcf2b0b94880d80542414826484cf7c74e54ec`), Required Quality Gate #39993950616, CI #39993950777, Invariants #39993950624, Docker Image #39993950531, Codex CI #39993950571, and Docs Deploy #39993950748 passed. Forge Smoke #39993950906 was skipped by its workflow conditions. CI completed all source validation, integrated cognition/planning regressions, Health parsing acceptance, self-check/pytest, documentation linkcheck, and Helm/Kubernetes. This evidence-only merge does not change source code; the latest verified source main remains `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b` (tree `3faa102f92bad5d542c39a7aeaf397e430005b8b`).
+
+Sequence 629 follows `segment-sha256:8c54b0a7feb7187e316204d52f721463de6fa33286abedaa26d498c29ef7808c`.
