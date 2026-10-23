@@ -184,7 +184,16 @@ def test_compute_health_skips_non_object_and_malformed_peer_rows(
     assert stats["status"] == "quiet"
 
 
-@pytest.mark.parametrize("peer_data", [{}, {"peer": "unknown"}])
+@pytest.mark.parametrize(
+    "peer_data",
+    [
+        {},
+        {"peer": "unknown"},
+        {"peer": " UNKNOWN "},
+        {"peer": "   "},
+        {"peer": None},
+    ],
+)
 def test_compute_health_does_not_count_recent_events_without_peer_identity(
     health_badge, tmp_path, monkeypatch, peer_data
 ):
