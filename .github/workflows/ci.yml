@@ -857,6 +857,12 @@ jobs:
             glow/test_runs/daemon_campaign_report_inspection.json
             glow/test_runs/daemon_campaign_report_inspection_acceptance.json
             glow/test_runs/daemon_campaign_report_inspection_acceptance_result.json
+            glow/test_runs/federation_stream_relay_provenance.json
+            glow/test_runs/federation_stream_relay_acceptance.json
+            glow/test_runs/federation_stream_relay_acceptance_result.json
+            glow/test_runs/federation_replay_snapshot_provenance.json
+            glow/test_runs/federation_replay_snapshot_acceptance.json
+            glow/test_runs/federation_replay_snapshot_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

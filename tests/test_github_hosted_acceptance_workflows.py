@@ -31,6 +31,13 @@ def test_source_validation_runs_federation_relay_json_regressions():
     assert "federation_stream_relay_acceptance.json" in source_validation
     assert "federation_stream_relay_acceptance_result.json" in source_validation
     assert "scripts.verify_task_acceptance" in source_validation
+    upload = source_validation.split("- name: Upload canonical test evidence", 1)[1]
+    for artifact in (
+        "federation_stream_relay_provenance.json",
+        "federation_stream_relay_acceptance.json",
+        "federation_stream_relay_acceptance_result.json",
+    ):
+        assert artifact in upload
 
 
 def test_source_validation_runs_federation_replay_path_regressions():
@@ -52,6 +59,13 @@ def test_source_validation_runs_federation_replay_path_regressions():
     assert "federation_replay_snapshot_acceptance.json" in source_validation
     assert "federation_replay_snapshot_acceptance_result.json" in source_validation
     assert "scripts.verify_task_acceptance" in source_validation
+    upload = source_validation.split("- name: Upload canonical test evidence", 1)[1]
+    for artifact in (
+        "federation_replay_snapshot_provenance.json",
+        "federation_replay_snapshot_acceptance.json",
+        "federation_replay_snapshot_acceptance_result.json",
+    ):
+        assert artifact in upload
 
 
 def test_source_validation_runs_verified_transition_receipt_regressions():
