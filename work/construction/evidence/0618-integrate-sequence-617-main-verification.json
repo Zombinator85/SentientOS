@@ -1,0 +1,150 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 618,
+  "title": "Integrate sequence 617 and verify merged main",
+  "predecessor": {
+    "sequence": 617,
+    "sha256": "1106a53aa93b2795567da8925335eb07e3efc65dbcd25a599900e0769c413da5"
+  },
+  "source": {
+    "pull_request": 2689,
+    "candidate_commit": "b6380053a32bcf2421d895ce434f3ca5db33f2ce",
+    "candidate_tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+    "parent_main": "aee982295a7f009140420d125c4ff402d6e3562b",
+    "final_main": "e4b0161ecebae3ac446da39c2da8a5e6626874b5",
+    "final_main_tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0618-integrate-sequence-617-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0618-integrate-sequence-617-main-verification.md"
+    ],
+    "scope": "Append-only integration evidence for sequence 617, post-merge verification, and the current scheduled Federation Health observation cutoff."
+  },
+  "validation": {
+    "candidate_checks": {
+      "candidate_commit": "b6380053a32bcf2421d895ce434f3ca5db33f2ce",
+      "candidate_tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+      "quality_gate": 39939284465,
+      "ci_pull_request": 39939284466,
+      "ci_push": 39939266025,
+      "docker": 39939284307,
+      "codex_ci": 39939284437,
+      "invariant_pull_request": 39939284404,
+      "invariant_push": 39939266050,
+      "lint": 39939284312,
+      "gradient": 39939284475,
+      "build_smoke": 39939284437,
+      "acceptance_validation": 39939284504,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12494559826,
+      "advertised_digest": "sha256:99e1dc681a6159ec6dee435ce05c73d8d2030401e9b06b64acb63ca04886bb6e",
+      "independent_sha256": "99e1dc681a6159ec6dee435ce05c73d8d2030401e9b06b64acb63ca04886bb6e",
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "b6380053a32bcf2421d895ce434f3ca5db33f2ce",
+      "bound_tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+      "validation_profile": "solo",
+      "exhaustive_matrix": "not_requested"
+    },
+    "integration": {
+      "pull_request": 2689,
+      "merge_commit": "e4b0161ecebae3ac446da39c2da8a5e6626874b5",
+      "tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+      "first_parent": "aee982295a7f009140420d125c4ff402d6e3562b",
+      "second_parent": "b6380053a32bcf2421d895ce434f3ca5db33f2ce",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "post_merge_checks": {
+      "main_commit": "e4b0161ecebae3ac446da39c2da8a5e6626874b5",
+      "ci": 39939799543,
+      "quality_gate": 39939799544,
+      "invariants": 39939799548,
+      "docs_deploy": 39939799507,
+      "codex_ci": 39939799646,
+      "docker": 39939799525,
+      "ci_source_validation": "passed",
+      "ci_self_check_and_pytest": "passed",
+      "ci_docs_linkcheck": "passed",
+      "ci_helm_kubernetes": "passed",
+      "strict_administrator_audits": "passed",
+      "results": "all completed successfully"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 10:36:07Z",
+      "latest_scheduled_run": 39936583192,
+      "event": "schedule",
+      "source_head": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "run_result": "success",
+      "administrator_preflight": "passed",
+      "health_job": "success",
+      "report_generation": "success",
+      "publisher_job": "success",
+      "github_app_token_creation": "success",
+      "artifact_id": 12493692132,
+      "artifact_advertised_digest": "sha256:aa66a47cf363d9ae8cbfb61e5c9affcd15819be2906fde2949cabe4d71db9a51",
+      "artifact_independent_sha256": "aa66a47cf363d9ae8cbfb61e5c9affcd15819be2906fde2949cabe4d71db9a51",
+      "receipt_source_sha": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "events_in_last_24_hours": 0,
+      "report_latest_event_utc": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false,
+      "scheduled_run_on_final_main_observed": false
+    },
+    "publisher_pr": {
+      "pull_request": 2688,
+      "candidate_commit": "a5c8873001d3a837f71b4787389958f785e1eb20",
+      "candidate_tree": "ec0e48480bfd8d3db460bf1fdee19dc6388812b4",
+      "candidate_parent": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "quality_gate_run": 39936653863,
+      "pr_ci_run": 39936653924,
+      "pr_ci_result": "success",
+      "push_ci_run": 39936648871,
+      "push_ci_at_cutoff": "in_progress_at_ffmpeg_install",
+      "finalizer_artifact_id": 12493374670,
+      "finalizer_digest": "sha256:1cdaa17ff4c08566dd8f8734852d9eaf9936ffb663cde88a6f7c7f8f4563af07",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "state": "open_unmerged",
+      "base_sha": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "current_main": "e4b0161ecebae3ac446da39c2da8a5e6626874b5",
+      "merge_allowed_without_refresh": false
+    },
+    "scheduled_nightly_workflows": {
+      "latest_self_check_run": 39932390030,
+      "self_check_source_head": "9799837556f67500b3ea517494b76a0785785dad",
+      "self_check_result": "success",
+      "current_main_push_self_check_result": "success",
+      "current_main_scheduled_self_check_observed": false,
+      "latest_audit_integrity_run": 39927307722,
+      "audit_source_head": "d2fe6e729c0e568f11761390a6b4b753df3966be",
+      "audit_result": "success",
+      "audit_administrator_preflight": "passed",
+      "audit_strict_audits": "passed",
+      "repairs_needed": false,
+      "current_main_scheduled_audit_observed": false
+    }
+  },
+  "integration": {
+    "pull_request": 2689,
+    "merge_commit": "e4b0161ecebae3ac446da39c2da8a5e6626874b5",
+    "tree": "66c9daa1d2063734de6af652cf14158e5e18181b",
+    "first_parent": "aee982295a7f009140420d125c4ff402d6e3562b",
+    "second_parent": "b6380053a32bcf2421d895ce434f3ca5db33f2ce",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; no runtime or workflow authority changes."
+}

@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 617
+## Current verified state — sequence 618
 
-Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–617 integrated evidence to verified main history.
+Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–618 integrated evidence to verified main history.
 
-Latest verified main: `aee982295a7f009140420d125c4ff402d6e3562b`, tree `d00d0a2301c840442d091fec527047281a69d9ab`
-Latest construction segment: `work/construction/segments/0617-integrate-sequence-616-main-verification.md`
-Latest segment SHA-256: 1106a53aa93b2795567da8925335eb07e3efc65dbcd25a599900e0769c413da5
-Sequence: 617 (sequence 616 integration and post-merge verification)
+Latest verified main: `e4b0161ecebae3ac446da39c2da8a5e6626874b5`, tree `66c9daa1d2063734de6af652cf14158e5e18181b`
+Latest construction segment: `work/construction/segments/0618-integrate-sequence-617-main-verification.md`
+Latest segment SHA-256: 06fc7ac815c6d3128e244b7d37c084892c5dc417a0ae36d19912b766c1827cbb
+Sequence: 618 (sequence 617 integration and post-merge verification)
 
 The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 
@@ -23,4 +23,8 @@ A real scheduled Federation Health run #39936583192 passed its Administrator pre
 
 As of 2026-10-23 10:24:32Z, no schedule-bound Federation Health execution on current main `aee982295a7f009140420d125c4ff402d6e3562b` had appeared. Main's post-merge CI, Quality Gate, invariants, Docs Deploy, Codex CI, and Docker all passed. The nightly runs remain successful on older source heads; no nightly repair was needed.
 
-Next: verify the next actual scheduled Federation Health execution against current main and let the publisher refresh its receipt PR. Keep relay events separate until peer identity, freshness, and revocation are operator-provisioned and verified.
+Sequence 617 merged normally through PR #2689 at `e4b0161ecebae3ac446da39c2da8a5e6626874b5`, retaining candidate `b6380053a32bcf2421d895ce434f3ca5db33f2ce`. Its exact-candidate gates and all post-merge checks passed, including strict hosted audits, source validation, self-check/pytest, docs, Helm/Kubernetes, and Docker.
+
+As of 2026-10-23 10:36:07Z, the latest scheduled Federation Health run remained #39936583192 on older current-at-run source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`. There was no schedule-bound run on current main `e4b0161ecebae3ac446da39c2da8a5e6626874b5`. The automated receipt PR #2688 still needs a refreshed source/base and fresh verification.
+
+Next: verify the next actual scheduled Federation Health execution against current main and refresh the publisher receipt PR. Continue the operator-provisioned federation peer identity, signature, freshness, and revocation dependency while keeping unauthenticated relay events isolated from Health.
