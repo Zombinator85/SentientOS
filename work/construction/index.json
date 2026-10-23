@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2a97188ee4583298ca2a01f842e7158cef6a3a509210fc0764c241982eae8b41",
-    "latest_segment_sequence": 629,
-    "latest_segment_sha256": "d251a8c2adab460d675746018872915ea85d56e54995bd9ee32daa54f13ebe46",
-    "source_commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
-    "source_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b"
+    "checkpoint_sha256": "51ceff62791345a99edb62376c31c4b7d5ccecd08dc5db9e86002192afe8c8cc",
+    "latest_segment_sequence": 630,
+    "latest_segment_sha256": "c63fda2330a1e3ec00c486ade8c508c43988156c28b85c79115d3cdf868fe1d7",
+    "source_commit": "04a37791013b598241a5204525d18a542d2281cd",
+    "source_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9"
   },
-  "checkpoint_sha256": "2a97188ee4583298ca2a01f842e7158cef6a3a509210fc0764c241982eae8b41",
+  "checkpoint_sha256": "51ceff62791345a99edb62376c31c4b7d5ccecd08dc5db9e86002192afe8c8cc",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 629,
+  "latest_sequence": 630,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7348,6 +7348,19 @@
       "source_candidate_commit": "6b098a18493501e1005122b443218c4b6eb18475",
       "source_commit": "754e790fc8dc04dc293a301f32a6c5e79e07cecb",
       "source_tree": "0ebcf2b0b94880d80542414826484cf7c74e54ec"
+    },
+    {
+      "sequence": 630,
+      "path": "work/construction/segments/0630-integrate-sequence-630-federation-health-window-and-receipt.md",
+      "sha256": "c63fda2330a1e3ec00c486ade8c508c43988156c28b85c79115d3cdf868fe1d7",
+      "bytes": 4122,
+      "predecessor": "segment-sha256:d251a8c2adab460d675746018872915ea85d56e54995bd9ee32daa54f13ebe46",
+      "evidence_path": "work/construction/evidence/0630-integrate-sequence-630-federation-health-window-and-receipt.json",
+      "evidence_sha256": "5086cee5d4585b530c5b8c6d5e5790c177aea71083d1fa42a07ed3c0beccfb87",
+      "evidence_bytes": 5243,
+      "source_candidate_commit": "dac402df86d518cf7048924e28e7aeaa2e355871",
+      "source_commit": "04a37791013b598241a5204525d18a542d2281cd",
+      "source_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9"
     }
   ],
   "source_acquisition": {
