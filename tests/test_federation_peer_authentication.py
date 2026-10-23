@@ -639,3 +639,118 @@ def test_local_semantic_policy_requires_exact_canonical_pinned_bytes():
             "peer_id": "peer-one",
             "accepted_event_schemas": ["sentientos.federation.remote_command:v1"],
         }])
+
+
+
+from sentientos.federation.peer_semantic_acceptance import (
+    semantic_acceptance_receipt_bytes,
+    semantic_acceptance_receipt_digest_for,
+    verify_semantic_acceptance_receipt_bytes,
+)
+
+
+def test_semantic_review_receipt_bytes_are_canonical_and_recomputed(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    replay = _semantic_replay(tmp_path, {
+        "schema": TRIAL_OUTCOME_SCHEMA,
+        "experiment_id": "experiment-18",
+        "outcome": "adverse",
+        "summary": "The submitted trial outcome was adverse.",
+        "evidence_refs": ["trial:run-18"],
+    })
+    receipt = accept_peer_event_for_local_review(replay, policy=policy)
+
+    encoded = semantic_acceptance_receipt_bytes(receipt)
+
+    assert encoded.endswith(b"\n")
+    parsed = json.loads(encoded)
+    assert parsed["receipt_digest"] == semantic_acceptance_receipt_digest_for(receipt)
+    verified = verify_semantic_acceptance_receipt_bytes(
+        encoded, replay=replay, policy=policy,
+    )
+    assert verified == receipt
+    assert verified.submitted_outcome == "adverse"
+    assert verified.canonical_evidence_admitted is False
+    assert verified.health_publication_permitted is False
+    assert verified.work_admission_permitted is False
+    assert verified.planning_permitted is False
+    assert verified.execution_permitted is False
+    assert verified.decision_power == "none"
+
+
+def test_semantic_review_receipt_revalidation_binds_replay_and_policy(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    event = {
+        "schema": TRIAL_OUTCOME_SCHEMA,
+        "experiment_id": "experiment-19",
+        "outcome": "positive",
+        "summary": "The submitted trial outcome was positive.",
+        "evidence_refs": ["trial:run-19"],
+    }
+    replay = _semantic_replay(tmp_path / "first", event)
+    different_replay = _semantic_replay(tmp_path / "second", {
+        **event, "summary": "A different peer-submitted trial summary.",
+    })
+    encoded = semantic_acceptance_receipt_bytes(
+        accept_peer_event_for_local_review(replay, policy=policy),
+    )
+
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_revalidation_mismatch"):
+        verify_semantic_acceptance_receipt_bytes(
+            encoded, replay=different_replay, policy=policy,
+        )
+    _, _, different_policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_revalidation_mismatch"):
+        verify_semantic_acceptance_receipt_bytes(
+            encoded, replay=replay, policy=different_policy,
+        )
+
+
+def test_semantic_review_receipt_rejects_modified_digest_and_recomputed_forgery(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    replay = _semantic_replay(tmp_path, {
+        "schema": TRIAL_OUTCOME_SCHEMA,
+        "experiment_id": "experiment-20",
+        "outcome": "positive",
+        "summary": "The peer submitted a positive outcome.",
+        "evidence_refs": [],
+    })
+    encoded = semantic_acceptance_receipt_bytes(
+        accept_peer_event_for_local_review(replay, policy=policy),
+    )
+
+    value = json.loads(encoded)
+    value["submitted_outcome"] = "adverse"
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_digest_mismatch"):
+        verify_semantic_acceptance_receipt_bytes(
+            json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode() + b"\n",
+            replay=replay, policy=policy,
+        )
+
+    body = {key: item for key, item in value.items() if key != "receipt_digest"}
+    body_bytes = (json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    forged = {
+        **body,
+        "receipt_digest": "sha256:" + hashlib.sha256(body_bytes).hexdigest(),
+    }
+    forged_bytes = (json.dumps(forged, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_revalidation_mismatch"):
+        verify_semantic_acceptance_receipt_bytes(
+            forged_bytes, replay=replay, policy=policy,
+        )
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_not_canonical"):
+        verify_semantic_acceptance_receipt_bytes(
+            encoded + b" ", replay=replay, policy=policy,
+        )
