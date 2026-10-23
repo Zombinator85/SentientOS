@@ -177,7 +177,7 @@ class FederationPeerReplayOwner:
         if type(max_records) is not int or not 1 <= max_records <= _MAX_RECORDS:
             raise FederationPeerReplayOwnerError("replay_owner_record_limit_invalid")
         if (type(max_history_bytes) is not int
-                or _MAX_RECORD_BYTES <= max_history_bytes <= _MAX_HISTORY_BYTES):
+                or not (_MAX_RECORD_BYTES <= max_history_bytes <= _MAX_HISTORY_BYTES)):
             raise FederationPeerReplayOwnerError("replay_owner_byte_limit_invalid")
         self._root = Path(root)
         self._peer_id = peer_id
