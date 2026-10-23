@@ -1,0 +1,127 @@
+{
+  "construction": {
+    "append_only": true,
+    "authority_boundaries_preserved": true,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Wire a configured projection source at the daemon boundary from explicit operator-provisioned identity and exact pinned trust-catalog inputs; fail closed on missing or changed bindings.",
+    "prior_sequences_preserved": true,
+    "production_peer_identity_configured": false,
+    "source_history_preserved": true
+  },
+  "post_merge_main": {
+    "commit": "b3231a58049fd4c572e431c8589dd9cba8dce042",
+    "fresh_origin_main_fetch": "confirmed exact merge commit and tree",
+    "merge_method": "merge",
+    "post_merge_hosted_workflow_runs": "not queried after merge; candidate PR workflows passed",
+    "tree": "d026bb640d12fb16ef02b059235d32c242bdad7d",
+    "tree_matches_candidate": true
+  },
+  "predecessor": "segment-sha256:26028576ff2bfa8b2d57f4512004551f5383e0f712a3950e212f861642e56490",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 636,
+  "source": {
+    "candidate_commit": "02456fa15b73f24a2941a880691127847243d0ca",
+    "candidate_commits": [
+      "d3b10ccf49094130ec2fcc4baef84a6f024a0b10",
+      "02456fa15b73f24a2941a880691127847243d0ca"
+    ],
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/dashboard/console.py",
+      "sentientos/dashboard/status_source.py",
+      "sentientos/runtime/shell.py",
+      "tests/test_dashboard_federation_peer_health.py"
+    ],
+    "merge_commit": "b3231a58049fd4c572e431c8589dd9cba8dce042",
+    "merge_parents": [
+      "7c8300a9c01907959e0bcf88fd7e1a1b683f3903",
+      "02456fa15b73f24a2941a880691127847243d0ca"
+    ],
+    "parent_main": "7c8300a9c01907959e0bcf88fd7e1a1b683f3903",
+    "pull_request": 2734,
+    "scope": "Expose a bounded and sanitized, peer-reported Health projection to RuntimeShell and the console without local Health or authority effects.",
+    "source_tree": "d026bb640d12fb16ef02b059235d32c242bdad7d"
+  },
+  "title": "Present bounded peer Health claims to operators",
+  "validation": {
+    "candidate_correction": {
+      "corrected_candidate_verified": true,
+      "correction": "amended unpublished candidate subject only; preserved both parents and source tree",
+      "initial_finalizer": "failed preflight because merge commit subject differed from PR title"
+    },
+    "local": {
+      "focused_tests": "4 passed",
+      "git_diff_check": "passed",
+      "legacy_console_test_invocation": "collection failed: tests/test_console_dashboard.py imports removed sentientos.cli.dashboard_cli._run_demo; not claimed as passing",
+      "python_compilation": "passed",
+      "targeted_mypy": "passed",
+      "workflow_yaml_parse": "passed"
+    },
+    "prepublication": {
+      "audit_immutability": "passed",
+      "evidence_artifact": {
+        "id": 12538227975,
+        "independent_local_sha256_match": true,
+        "sha256": "a93bc618b2a18b65af8fef9d210842a5c5b7d09bb3935ed818e0b49f17247492",
+        "size_bytes": 12519
+      },
+      "finalizer_artifact": {
+        "id": 12538392163,
+        "independent_local_sha256_match": true,
+        "sha256": "41efbae47a2c13b0b3b223d75a61d12aa0a9490492941f725f2e1da3bdc5ce03",
+        "size_bytes": 37597
+      },
+      "full_ci": 40039058742,
+      "full_ci_conclusion": "success",
+      "guard_candidate_sha": "02456fa15b73f24a2941a880691127847243d0ca",
+      "guard_ready": true,
+      "guard_tree_sha": "d026bb640d12fb16ef02b059235d32c242bdad7d",
+      "invariants": 40039058825,
+      "invariants_conclusion": "success",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "quality_gate": 40039058902,
+      "quality_gate_conclusion": "success",
+      "strict_audit": "passed",
+      "task_acceptance": "task_acceptance_ready"
+    },
+    "pull_request_checks": {
+      "acceptance_sha": "02456fa15b73f24a2941a880691127847243d0ca",
+      "acceptance_status": "task_acceptance_ready",
+      "all_applicable_runs": "passed",
+      "all_jobs_completed": true,
+      "candidate_acceptance_artifact": {
+        "id": 12537828706,
+        "independent_local_sha256_match": true,
+        "sha256": "f3152af0a5053488d749873e561bbcc28372fa384cf5e745391f4d7918e17de4",
+        "size_bytes": 7059
+      },
+      "ci": 40039065130,
+      "ci_jobs": [
+        "source validation (unprivileged)",
+        "self-check",
+        "docs",
+        "helm-k8s-test"
+      ],
+      "codex_ci": 40039065209,
+      "docker": 40039065242,
+      "evidence_artifact": {
+        "id": 12537968058,
+        "independent_local_sha256_match": true,
+        "sha256": "9ccff5953b0c339c539c51aef97a0fd91b91825cb18046bce60f9a4a64506574",
+        "size_bytes": 12517
+      },
+      "finalizer_artifact": {
+        "id": 12538172853,
+        "independent_local_sha256_match": true,
+        "sha256": "a267cbee2e6d2240b66b36ea8b4afb7506bbcd775a2b8e03b67aca46133e2f63",
+        "size_bytes": 36926
+      },
+      "gradient": 40039065135,
+      "invariants": 40039065199,
+      "lint": 40039065179,
+      "quality_gate": 40039065356,
+      "release": 40039065275,
+      "release_publish": "skipped by normal validation-only workflow condition"
+    }
+  }
+}

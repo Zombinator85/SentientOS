@@ -1,3 +1,22 @@
+## Current verified state - sequence 636
+
+Sequence 636 presents bounded authenticated peer Health projections to operators through RuntimeShell and the console. They remain explicitly peer-reported, sanitized, capped, and separate from local Health and all authority paths. No source, production peer identity, or live telemetry is configured by default.
+
+Latest verified main: `b3231a58049fd4c572e431c8589dd9cba8dce042`, tree `d026bb640d12fb16ef02b059235d32c242bdad7d`
+Latest construction segment: `work/construction/segments/0636-present-peer-health-claims-dashboard.md`
+Latest segment SHA-256: `63abf31c5a798b556be09cbdf53b689f639ee40d8d168da184f10070909ae4e4`
+Sequence: 636 (bounded peer Health operator projection)
+
+PR #2734 candidate `02456fa15b73f24a2941a880691127847243d0ca` merged normally with main `7c8300a9c01907959e0bcf88fd7e1a1b683f3903` as first parent and the candidate as second parent. Branch-push Required Quality Gate #40039058902, full CI #40039058742, and Invariants #40039058825 passed on the exact candidate; the QG's separate pre-publication metadata guard bound the exact SHA and tree. PR-triggered QG, CI (all four jobs), Invariants, Docker, Codex CI, Release, Lint, and Gradient checks all passed. All five hosted finalizer, evidence, and candidate-acceptance archives were downloaded and independently matched their GitHub digests. Strict audit and immutability artifacts passed.
+
+Four focused tests, targeted Mypy, compilation, YAML parsing, and diff checks passed locally. A legacy console test invocation failed collection due to its import of removed `sentientos.cli.dashboard_cli._run_demo`; this remains recorded and is not presented as a passing suite.
+
+Fresh `git fetch origin main` confirmed merge `b3231a58049fd4c572e431c8589dd9cba8dce042` and the exact tested tree.
+
+Next: connect a configured projection source only through explicit operator-provisioned identity and exact pinned trust-catalog inputs. Fail closed if the binding is absent or changes, and retain the separation from local Health, admission, planning, and execution.
+
+## Previous checkpoint snapshot - sequence 635
+
 ## Current verified state - sequence 635
 
 Sequence 635 integrates restart-safe authenticated peer Health recovery as separate read-only poller projections. Healthy and adverse peer claims are preserved; empty, omitted, and bounded error results remain distinct. The projection does not modify local Health, peer reports, replay events, callbacks, admission, planning, execution, or decision authority. No production peer identities, source owners, trust catalogs, or live transport are provisioned.
@@ -14,7 +33,6 @@ A clean post-merge worktree was created from the verified merge commit. Local re
 The poller currently receives no peer Health source from RuntimeShell, so peers remain explicitly omitted unless an operator-provisioned source is supplied. No production peer identity or live peer telemetry is connected.
 
 Next: wire the projection into the daemon's verified runtime owner through explicit operator-provisioned identities and exact pinned trust-catalog inputs. Preserve fail-closed behavior under missing or changed trust; do not introduce transport or authority.
-
 ## Previous checkpoint snapshot - sequence 634
 
 ## Previous checkpoint snapshot - sequence 633
