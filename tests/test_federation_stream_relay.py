@@ -138,3 +138,37 @@ def test_relay_peer_reads_bounded_chunks_and_recovers_after_oversized_line(
     assert log_path.read_text(encoding="utf-8") == (
         '{"peer": "alpha", "source": "http://node1.local:8000/presence"}\n'
     )
+
+
+@pytest.mark.parametrize("config_text", ["[]", "a scalar", "null", ""])
+def test_load_peers_returns_empty_for_non_mapping_yaml(tmp_path, config_text, relay):
+    config_path = tmp_path / "federation.yaml"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    assert relay.load_peers(config_path) == []
+
+
+def test_load_peers_skips_malformed_peer_rows_and_urls(tmp_path, relay):
+    config_path = tmp_path / "federation.yaml"
+    config_path.write_text(
+        """peers:
+  - null
+  - scalar
+  - {}
+  - url: 12
+  - url: "   "
+  - url: " http://node1.local/presence "
+""",
+        encoding="utf-8",
+    )
+
+    assert relay.load_peers(config_path) == ["http://node1.local/presence"]
+
+
+def test_load_peers_rejects_non_list_peer_collection_and_invalid_yaml(tmp_path, relay):
+    config_path = tmp_path / "federation.yaml"
+    config_path.write_text("peers: one-peer", encoding="utf-8")
+    assert relay.load_peers(config_path) == []
+
+    config_path.write_text("peers: [", encoding="utf-8")
+    assert relay.load_peers(config_path) == []

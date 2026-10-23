@@ -7,7 +7,7 @@ require_lumos_approval()
 import json
 import time
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
 import requests  # type: ignore[import-untyped]
@@ -72,14 +72,26 @@ def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
 
 
 def load_peers(config_path: Path = CONFIG_PATH) -> list[str]:
-    """Return list of peer presence URLs from config."""
+    """Return valid peer presence URLs from mapping-shaped config rows."""
     if not config_path.exists():
         return []
     try:
         data = yaml.safe_load(config_path.read_text()) or {}
     except Exception:
         return []
-    return [p.get("url", "") for p in data.get("peers", []) if p.get("url")]
+    if not isinstance(data, Mapping):
+        return []
+    peer_rows = data.get("peers")
+    if not isinstance(peer_rows, list):
+        return []
+    urls: list[str] = []
+    for peer in peer_rows:
+        if not isinstance(peer, Mapping):
+            continue
+        url = peer.get("url")
+        if isinstance(url, str) and url.strip():
+            urls.append(url.strip())
+    return urls
 
 def relay_peer(url: str, log_path: Path = LOG_PATH) -> None:
     """Subscribe to peer presence stream and append events to log."""
