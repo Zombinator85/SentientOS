@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a18ba100de5207348862419050081151100bdcbc647461f6c404a8a4dd1caa61",
-    "latest_segment_sequence": 627,
-    "latest_segment_sha256": "e24bc43344ec3f921bcaeac82ec17771a1a2814b27f7c4e0a5707c214d363b16",
-    "source_commit": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
-    "source_tree": "09ce01f8e9501e1f8c776f786a590072c3847d0b"
+    "checkpoint_sha256": "4be38af697f60aee394a9b8a4dd41fe9218588f9f2216eae5d894687fe2a3bb6",
+    "latest_segment_sequence": 628,
+    "latest_segment_sha256": "8c54b0a7feb7187e316204d52f721463de6fa33286abedaa26d498c29ef7808c",
+    "source_commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+    "source_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b"
   },
-  "checkpoint_sha256": "a18ba100de5207348862419050081151100bdcbc647461f6c404a8a4dd1caa61",
+  "checkpoint_sha256": "4be38af697f60aee394a9b8a4dd41fe9218588f9f2216eae5d894687fe2a3bb6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 627,
+  "latest_sequence": 628,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7322,6 +7322,19 @@
       "source_candidate_commit": "0f7ba7b9c840307310a838dce8bf73283b87ba03",
       "source_commit": "e55604cb24c7e20ca5e86c025dd8152651fbf593",
       "source_tree": "09ce01f8e9501e1f8c776f786a590072c3847d0b"
+    },
+    {
+      "sequence": 628,
+      "path": "work/construction/segments/0628-integrate-sequence-628-unknown-federation-health-offset.md",
+      "sha256": "8c54b0a7feb7187e316204d52f721463de6fa33286abedaa26d498c29ef7808c",
+      "bytes": 3532,
+      "predecessor": "segment-sha256:e24bc43344ec3f921bcaeac82ec17771a1a2814b27f7c4e0a5707c214d363b16",
+      "evidence_path": "work/construction/evidence/0628-integrate-sequence-628-unknown-federation-health-offset.json",
+      "evidence_sha256": "51258ec708bc8ca599aaf88ab687594efef65021d8b662278d84267c8cb79dfc",
+      "evidence_bytes": 4409,
+      "source_candidate_commit": "90e0ec864960a4b4534f6dde1a2378779ae36caf",
+      "source_commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+      "source_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b"
     }
   ],
   "source_acquisition": {
