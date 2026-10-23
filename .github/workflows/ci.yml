@@ -305,6 +305,7 @@ jobs:
             tests/test_federation_poller.py::test_persist_replay_snapshot_keeps_safe_peer_name \
             tests/test_federation_poller.py::test_load_persisted_replay_rejects_filename_payload_mismatch \
             tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_replay_directory \
+            tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_peer_file \
             tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_replay_path_regressions
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/federation_replay_snapshot_provenance.json
@@ -318,6 +319,7 @@ jobs:
               "tests/test_federation_poller.py::test_persist_replay_snapshot_keeps_safe_peer_name",
               "tests/test_federation_poller.py::test_load_persisted_replay_rejects_filename_payload_mismatch",
               "tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_replay_directory",
+              "tests/test_federation_poller.py::test_replay_snapshot_rejects_symlinked_peer_file",
               "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_replay_path_regressions",
           ]
           manifest = {
