@@ -114,6 +114,33 @@ def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdra
         if fresh_binding.binding_id in event.removed_binding_ids]
     assert revision_event.reason == "source_reliability_revision"
 
+    recovered_owner = PersistentEpistemicStateOwner(tmp_path / "epistemics",
+        allowed_namespaces=("operator",))
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    def current_sequence():
+        admissions, revocations = _ledger.load()
+        return max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions,
+            ledger=_ledger),
+        current_sequence=current_sequence, receipt_root=tmp_path / "receipts")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=runtime.config, owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=RuntimeAdmissionAuthority(definitions=definitions,
+            ledger=_ledger), admission_ledger=_ledger)
+    repeated = recovered_runtime.process_snapshot(stale_snapshot, tick=12,
+        recorded_at="2026-10-01T12:01:00+00:00")
+    assert repeated.updated_proposition_count == 0 and repeated.new_binding_count == 0
+    assert set(recovered_owner.active_binding_ids(proposition.proposition_id)) == {
+        stale_binding.binding_id}
+    state = recovered_owner.current_state(proposition.proposition_id)
+    assert state is not None and state.stance == "suspended" and state.freshness == "stale"
+
     candidate = make_epistemic_update_candidate(
         proposition_id=proposition.proposition_id,
         predecessor_state_digest=state.state_digest, proposed_stance="unknown",
@@ -124,18 +151,18 @@ def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdra
     operation = "12:withdrawal-regression:state"
     admission = runtime._issue(admission_id="epistemic-withdrawal-regression",
         effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
-        configuration_digest=runtime.controller.state_configuration_digest(
+        configuration_digest=recovered_runtime.controller.state_configuration_digest(
             candidate=candidate, operation_id=operation),
         provenance="test:admitted-withdrawal")
-    runtime.controller.commit_update_candidate(candidate=candidate, admission=admission,
+    recovered_runtime.controller.commit_update_candidate(candidate=candidate, admission=admission,
         operation_id=operation, correlation_id=operation, tick=12,
         recorded_at="2026-10-01T12:01:00+00:00")
 
-    repeated = runtime.process_snapshot(stale_snapshot, tick=13,
+    repeated = recovered_runtime.process_snapshot(stale_snapshot, tick=13,
         recorded_at="2026-10-01T12:02:00+00:00")
     assert repeated.updated_proposition_count == 0 and repeated.new_binding_count == 0
-    assert owner.active_binding_ids(proposition.proposition_id) == ()
-    assert {item.binding_id for item in owner.bindings(proposition.proposition_id)} == {
+    assert recovered_owner.active_binding_ids(proposition.proposition_id) == ()
+    assert {item.binding_id for item in recovered_owner.bindings(proposition.proposition_id)} == {
         fresh_binding.binding_id, stale_binding.binding_id}
 
 
