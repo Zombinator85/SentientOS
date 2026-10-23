@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4cb93a0c131f89e337689484b29ca2c21cbad30c7aafbf63d970f894fe1d023d",
-    "latest_segment_sequence": 600,
-    "latest_segment_sha256": "b0898fb957e8ee96f1bd8e3b6b028c6819ca407fc1feda766ee2201fc671db68",
-    "source_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
-    "source_tree": "684f8b5e83e7010707d13f2916dfd2d319249448"
+    "checkpoint_sha256": "c2d019333cbc6527e9272bf20951cb11661d49cc04f99e98724ac16aa46c8d68",
+    "latest_segment_sequence": 601,
+    "latest_segment_sha256": "2e6ac9d8269f1f315380e54ca5bcd226e167c9dfc9da98dac1fde371f59802c5",
+    "source_commit": "0dfab59ceb53176a6a7586672bdbb0bf12866613",
+    "source_tree": "a515d43ebf773062f8319423c91ddc580d2575e3"
   },
-  "checkpoint_sha256": "4cb93a0c131f89e337689484b29ca2c21cbad30c7aafbf63d970f894fe1d023d",
+  "checkpoint_sha256": "c2d019333cbc6527e9272bf20951cb11661d49cc04f99e98724ac16aa46c8d68",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 600,
+  "latest_sequence": 601,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6971,6 +6971,19 @@
       "source_candidate_commit": "312c0a013a48714e46417af8917039a9c83b300b",
       "source_commit": "a70c8b4a75e84f1fb8ee7a4ae9511c86f49f8825",
       "source_tree": "684f8b5e83e7010707d13f2916dfd2d319249448"
+    },
+    {
+      "sequence": 601,
+      "path": "work/construction/segments/0601-federation-health-producer-boundary.md",
+      "sha256": "2e6ac9d8269f1f315380e54ca5bcd226e167c9dfc9da98dac1fde371f59802c5",
+      "bytes": 2320,
+      "predecessor": "segment-sha256:b0898fb957e8ee96f1bd8e3b6b028c6819ca407fc1feda766ee2201fc671db68",
+      "evidence_path": "work/construction/evidence/0601-federation-health-producer-boundary.json",
+      "evidence_sha256": "7d7291c1da632c79ce02226159e02070c4ad60381e8b6c8dec0e28bceb3da44b",
+      "evidence_bytes": 3226,
+      "source_candidate_commit": "a0b12586f83165bcbb68b15cf4ca9847c4a6dd28",
+      "source_commit": "0dfab59ceb53176a6a7586672bdbb0bf12866613",
+      "source_tree": "a515d43ebf773062f8319423c91ddc580d2575e3"
     }
   ],
   "source_acquisition": {
