@@ -44,6 +44,9 @@ def test_compute_health_counts_nested_peers_and_timezone_aware_recent_events(
         "window_hours": 24,
         "latest_event_at": now.isoformat().replace("+00:00", "Z"),
         "live_telemetry": False,
+        "snapshot_coverage_complete": True,
+        "omitted_prefix_bytes": 0,
+        "oversized_records_omitted": 0,
     }
 
 
@@ -58,6 +61,9 @@ def test_compute_health_reports_missing_log(health_badge, tmp_path, monkeypatch)
         "window_hours": 24,
         "latest_event_at": None,
         "live_telemetry": False,
+        "snapshot_coverage_complete": None,
+        "omitted_prefix_bytes": 0,
+        "oversized_records_omitted": 0,
     }
 
 
@@ -113,6 +119,8 @@ def test_main_updates_only_requested_health_document(
         "- Nodes in configured log: 1\n"
         "- Events in last 24 hours: 1\n"
         f"- Latest event in log: {event_at.isoformat().replace('+00:00', 'Z')}\n"
+        "- Snapshot byte coverage: complete; omitted oldest-prefix bytes: 0; "
+        "oversized records skipped: 0\n"
         "- Data source: configured local log snapshot (not live federation telemetry)\n"
         "- Status: healthy\n"
     )
@@ -125,6 +133,9 @@ def test_main_updates_only_requested_health_document(
         "window_hours": 24,
         "latest_event_at": event_at.isoformat().replace("+00:00", "Z"),
         "live_telemetry": False,
+        "snapshot_coverage_complete": True,
+        "omitted_prefix_bytes": 0,
+        "oversized_records_omitted": 0,
     }
 
 
@@ -213,6 +224,9 @@ def test_compute_health_does_not_count_recent_events_without_peer_identity(
         "window_hours": 24,
         "latest_event_at": None,
         "live_telemetry": False,
+        "snapshot_coverage_complete": True,
+        "omitted_prefix_bytes": 0,
+        "oversized_records_omitted": 0,
     }
 
 
@@ -248,6 +262,37 @@ def test_compute_health_handles_positive_window_beyond_timedelta_range(
     assert stats["status"] == "healthy"
     assert stats["window_hours"] == window_hours
     assert stats["latest_event_at"] == event_at.isoformat().replace("+00:00", "Z")
+    assert stats["live_telemetry"] is False
+
+
+@pytest.mark.no_legacy_skip
+def test_compute_health_bounds_total_snapshot_and_reports_omitted_prefix(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    old = datetime.now(timezone.utc) - timedelta(days=2)
+    now = datetime.now(timezone.utc)
+    events = [
+        {"timestamp": old.isoformat(), "data": {"peer": "omitted-old"}},
+        {"timestamp": now.isoformat(), "data": {"peer": "omitted-middle"}},
+        {"timestamp": now.isoformat(), "data": {"peer": "retained"}},
+    ]
+    rows = [(json.dumps(event) + "\n").encode("utf-8") for event in events]
+    log_path.write_bytes(b"".join(rows))
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+    # Keep the final record and five preceding bytes in the tail. This starts
+    # inside the middle record, which must be discarded at its newline.
+    monkeypatch.setattr(health_badge, "MAX_SNAPSHOT_BYTES", len(rows[2]) + 5)
+
+    stats = health_badge.compute_health()
+
+    assert stats["nodes"] == 1
+    assert stats["recent"] == 1
+    assert stats["latest_event_at"] == now.isoformat().replace("+00:00", "Z")
+    assert stats["status"] == "partial"
+    assert stats["snapshot_coverage_complete"] is False
+    assert stats["omitted_prefix_bytes"] == len(rows[0]) + len(rows[1])
+    assert stats["oversized_records_omitted"] == 0
     assert stats["live_telemetry"] is False
 
 
@@ -338,8 +383,11 @@ def test_compute_health_skips_ambiguous_or_resource_heavy_json_lines(
 
     assert stats["nodes"] == 1
     assert stats["recent"] == 1
-    assert stats["status"] == "healthy"
+    assert stats["status"] == "partial"
     assert stats["latest_event_at"] == now.replace("+00:00", "Z")
+    assert stats["snapshot_coverage_complete"] is False
+    assert stats["omitted_prefix_bytes"] == 0
+    assert stats["oversized_records_omitted"] == 1
     assert stats["live_telemetry"] is False
 
 
@@ -370,4 +418,7 @@ def test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc(
         "window_hours": 24,
         "latest_event_at": None,
         "live_telemetry": False,
+        "snapshot_coverage_complete": True,
+        "omitted_prefix_bytes": 0,
+        "oversized_records_omitted": 0,
     }
