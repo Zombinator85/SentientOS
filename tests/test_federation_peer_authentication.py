@@ -269,6 +269,15 @@ def test_signed_event_rejects_mutated_event_digest_and_bad_signature():
         _verify(raw, catalog, verifier=RejectingVerifier())
 
 
+def test_signed_event_rejects_the_exact_key_expiry_instant():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    issued_at = "2027-01-01T00:00:00Z"
+    raw, _ = _signed_event(private, key_id, issued_at=issued_at)
+    boundary = datetime(2027, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_key_outside_validity"):
+        _verify(raw, catalog, now=boundary)
+
+
 def test_signed_event_rejects_revoked_key_and_currently_expired_key():
     private, _, key_id, _, _, _, _ = _make_catalog()
     revoked = _make_catalog(revoked="revoked")[5]

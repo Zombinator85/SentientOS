@@ -226,7 +226,7 @@ def verify_federation_peer_event(
         raise FederationPeerEventVerificationError("peer_event_key_revoked")
     valid_from = _parse_time(key.valid_from)
     valid_until = _parse_time(key.valid_until)
-    if not valid_from <= issued_at <= valid_until or not valid_from <= now <= valid_until:
+    if not valid_from <= issued_at < valid_until or not valid_from <= now < valid_until:
         raise FederationPeerEventVerificationError("peer_event_key_outside_validity")
     _decode_signature(signature)
     payload = canonical_federation_peer_event_signing_payload(
