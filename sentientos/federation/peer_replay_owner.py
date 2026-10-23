@@ -24,6 +24,7 @@ from sentientos.private_file_custody import (
     read_private_file_at,
 )
 from .peer_authentication import (
+    FederationPeerEventVerificationError,
     FederationPeerSignatureVerifier,
     VerifiedFederationPeerEvent,
     verify_federation_peer_event,
@@ -250,6 +251,87 @@ class FederationPeerReplayOwner:
         with self._lock:
             history, _ = self._load_history(create=False)
             return len(history)
+
+    def verified_history(
+        self,
+        *,
+        catalog: ReadOnlyFederationPeerTrustCatalog,
+        signature_verifier: FederationPeerSignatureVerifier,
+    ) -> tuple[FederationPeerReplayAcceptance, ...]:
+        """Reverify this immutable history against the exact pinned catalog.
+
+        Replay verification uses each signed event's own issue time. Freshness of
+        the latest assertion is applied later by the read-only projection layer.
+        A changed catalog pin fails closed because this owner does not retain
+        historical catalog snapshots.
+        """
+        if not isinstance(catalog, ReadOnlyFederationPeerTrustCatalog):
+            raise FederationPeerReplayOwnerError("replay_history_catalog_required")
+        if not callable(getattr(signature_verifier, "verify", None)):
+            raise FederationPeerReplayOwnerError("replay_history_verifier_required")
+        with self._lock:
+            history, _ = self._load_history(create=False)
+            verified_history: list[FederationPeerReplayAcceptance] = []
+            for sequence, record in enumerate(history, start=1):
+                if (
+                    type(record.get("catalog_version")) is not int
+                    or record.get("catalog_version") != catalog.catalog_version
+                    or record.get("catalog_digest") != catalog.catalog_digest
+                ):
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_catalog_binding_mismatch"
+                    )
+                envelope_text = record.get("signed_envelope")
+                if not isinstance(envelope_text, str):
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_envelope_invalid"
+                    )
+                try:
+                    raw = envelope_text.encode("utf-8")
+                except UnicodeEncodeError as exc:
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_envelope_invalid"
+                    ) from exc
+                envelope = _load_json(raw)
+                if not isinstance(envelope, dict) or _canonical(envelope) != raw:
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_envelope_invalid"
+                    )
+                issued_at = _utc_timestamp(envelope.get("issued_at"))
+                try:
+                    verified = verify_federation_peer_event(
+                        raw,
+                        catalog=catalog,
+                        signature_verifier=signature_verifier,
+                        now=issued_at,
+                        last_accepted_sequence=sequence - 1,
+                        max_age_seconds=1,
+                        future_skew_seconds=0,
+                    )
+                except FederationPeerEventVerificationError as exc:
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_event_verification_failed"
+                    ) from exc
+                if (
+                    verified.peer_id != self.peer_id
+                    or verified.sequence != sequence
+                    or verified.signing_key_id != record.get("signing_key_id")
+                    or verified.event_digest != record.get("event_digest")
+                    or verified.catalog_version != record.get("catalog_version")
+                    or verified.catalog_digest != record.get("catalog_digest")
+                ):
+                    raise FederationPeerReplayOwnerError(
+                        "replay_history_event_binding_mismatch"
+                    )
+                verified_history.append(
+                    FederationPeerReplayAcceptance(
+                        sequence=sequence,
+                        record_digest=str(record["record_digest"]),
+                        created=False,
+                        verified_event=verified,
+                    )
+                )
+            return tuple(verified_history)
 
     def accept(
         self,

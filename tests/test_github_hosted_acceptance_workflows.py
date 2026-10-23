@@ -174,6 +174,46 @@ def test_source_validation_runs_authenticated_peer_health_bridge_regressions():
         assert artifact in upload
 
 
+def test_source_validation_runs_restart_safe_peer_health_recovery_regressions():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify restart-safe Federation peer Health recovery" in source_validation
+    nodes = (
+        "tests/test_federation_peer_health_bridge.py::test_recovery_reverifies_history_and_returns_only_fresh_latest_projection",
+        "tests/test_federation_peer_health_bridge.py::test_recovery_returns_no_projection_for_empty_history",
+        "tests/test_federation_peer_health_bridge.py::test_recovery_rejects_stale_latest_event_without_mutation",
+        "tests/test_federation_peer_health_bridge.py::test_recovery_fails_closed_on_trust_catalog_drift",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_restart_safe_peer_health_recovery_regressions",
+        "tests/test_federation_peer_health_bridge.py::test_recovery_rejects_tampered_historical_signature",
+    )
+    for node in nodes:
+        assert node in source_validation
+    bridge = (ROOT / "sentientos/federation/peer_health_bridge.py").read_text()
+    recovery = bridge.split("def recover_latest_peer_health_observation(", 1)[1].split(
+        "\ndef accept_peer_health_event(", 1
+    )[0]
+    assert "owner.verified_history(" in recovery
+    assert "require_created=False" in recovery
+    assert "owner.accept(" not in recovery
+    assert "publish_immutable_bytes" not in recovery
+    owner = (ROOT / "sentientos/federation/peer_replay_owner.py").read_text()
+    history = owner.split("def verified_history(", 1)[1].split("\n    def accept(", 1)[0]
+    assert "_load_history(create=False)" in history
+    assert "verify_federation_peer_event(" in history
+    assert "replay_history_catalog_binding_mismatch" in history
+    for forbidden in ("publish_immutable_bytes", "create=True", "self.accept("):
+        assert forbidden not in history
+    assert "federation_peer_health_recovery_acceptance.json" in source_validation
+    assert "federation_peer_health_recovery_acceptance_result.json" in source_validation
+    upload = source_validation.split("- name: Upload canonical test evidence", 1)[1]
+    for artifact in (
+        "federation_peer_health_recovery_provenance.json",
+        "federation_peer_health_recovery_acceptance.json",
+        "federation_peer_health_recovery_acceptance_result.json",
+    ):
+        assert artifact in upload
+
+
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]

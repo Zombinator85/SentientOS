@@ -55,7 +55,7 @@ def _canonical(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def _provisioned_catalog():
+def _provisioned_catalog(*, catalog_version: int = 1):
     private = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
     public = private.public_key().public_bytes(
         encoding=serialization.Encoding.Raw,
@@ -65,7 +65,7 @@ def _provisioned_catalog():
     key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest()
     body = {
         "schema": CATALOG_SCHEMA,
-        "catalog_version": 1,
+        "catalog_version": catalog_version,
         "entries": [{
             "peer_id": "peer-one",
             "signing_key_id": key_id,
@@ -80,7 +80,7 @@ def _provisioned_catalog():
     value = {**body, "catalog_digest": catalog_digest_for(body)}
     catalog = ReadOnlyFederationPeerTrustCatalog.from_bytes(
         _canonical(value),
-        expected_catalog_version=1,
+        expected_catalog_version=catalog_version,
         expected_catalog_digest=value["catalog_digest"],
     )
     return private, key_id, catalog
@@ -242,3 +242,169 @@ def test_freshness_policy_and_clock_are_strictly_typed(tmp_path):
             )
         assert caught.value.code == expected
     assert owner.last_accepted_sequence == 0
+
+
+def test_recovery_reverifies_history_and_returns_only_fresh_latest_projection(tmp_path):
+    from sentientos.federation.peer_health_bridge import (
+        recover_latest_peer_health_observation,
+    )
+
+    private, key_id, catalog = _provisioned_catalog()
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+    for sequence, offset, status in [
+        (1, 120, "healthy"),
+        (2, 10, "unavailable"),
+    ]:
+        issued_at = NOW - timedelta(seconds=offset)
+        accept_peer_health_event(
+            _signed_health_event(
+                private, key_id, sequence=sequence, issued_at=issued_at, status=status
+            ),
+            owner=owner,
+            catalog=catalog,
+            signature_verifier=Ed25519Verifier(),
+            now=issued_at,
+        )
+
+    before = {path.name: path.read_bytes() for path in owner.root.iterdir()}
+    observation = recover_latest_peer_health_observation(
+        owner=owner,
+        catalog=catalog,
+        signature_verifier=Ed25519Verifier(),
+        now=NOW,
+        max_age_seconds=30,
+    )
+    after = {path.name: path.read_bytes() for path in owner.root.iterdir()}
+
+    assert observation is not None
+    assert observation.sequence == 2
+    assert observation.peer_reported_status == "unavailable"
+    assert observation.freshness_state == "within_bound"
+    assert observation.claim_truth_established is False
+    assert observation.local_health_publication_permitted is False
+    assert observation.work_admission_permitted is False
+    assert observation.planning_permitted is False
+    assert observation.execution_permitted is False
+    assert observation.decision_power is False
+    assert owner.last_accepted_sequence == 2
+    assert after == before
+
+
+def test_recovery_returns_no_projection_for_empty_history(tmp_path):
+    from sentientos.federation.peer_health_bridge import (
+        recover_latest_peer_health_observation,
+    )
+
+    _, _, catalog = _provisioned_catalog()
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+
+    assert recover_latest_peer_health_observation(
+        owner=owner,
+        catalog=catalog,
+        signature_verifier=Ed25519Verifier(),
+        now=NOW,
+    ) is None
+    assert owner.last_accepted_sequence == 0
+    assert not owner.root.exists()
+
+
+def test_recovery_rejects_stale_latest_event_without_mutation(tmp_path):
+    from sentientos.federation.peer_health_bridge import (
+        recover_latest_peer_health_observation,
+    )
+
+    private, key_id, catalog = _provisioned_catalog()
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+    issued_at = NOW - timedelta(seconds=100)
+    accept_peer_health_event(
+        _signed_health_event(
+            private, key_id, sequence=1, issued_at=issued_at, status="healthy"
+        ),
+        owner=owner,
+        catalog=catalog,
+        signature_verifier=Ed25519Verifier(),
+        now=issued_at,
+        max_age_seconds=120,
+    )
+    before = {path.name: path.read_bytes() for path in owner.root.iterdir()}
+
+    with pytest.raises(FederationPeerHealthBridgeError) as caught:
+        recover_latest_peer_health_observation(
+            owner=owner,
+            catalog=catalog,
+            signature_verifier=Ed25519Verifier(),
+            now=NOW,
+            max_age_seconds=60,
+        )
+
+    assert caught.value.code == "peer_health_event_stale"
+    assert owner.last_accepted_sequence == 1
+    assert {path.name: path.read_bytes() for path in owner.root.iterdir()} == before
+
+
+def test_recovery_fails_closed_on_trust_catalog_drift(tmp_path):
+    from sentientos.federation.peer_health_bridge import (
+        recover_latest_peer_health_observation,
+    )
+
+    private, key_id, catalog = _provisioned_catalog()
+    changed_catalog = _provisioned_catalog(catalog_version=2)[2]
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+    accept_peer_health_event(
+        _signed_health_event(
+            private, key_id, sequence=1, issued_at=NOW, status="degraded"
+        ),
+        owner=owner,
+        catalog=catalog,
+        signature_verifier=Ed25519Verifier(),
+        now=NOW,
+    )
+
+    with pytest.raises(FederationPeerHealthBridgeError) as caught:
+        recover_latest_peer_health_observation(
+            owner=owner,
+            catalog=changed_catalog,
+            signature_verifier=Ed25519Verifier(),
+            now=NOW,
+        )
+
+    assert caught.value.code == "replay_history_catalog_binding_mismatch"
+    assert owner.last_accepted_sequence == 1
+
+
+def test_recovery_rejects_tampered_historical_signature(tmp_path):
+    from sentientos.federation.peer_health_bridge import (
+        recover_latest_peer_health_observation,
+    )
+
+    private, key_id, catalog = _provisioned_catalog()
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+    accept_peer_health_event(
+        _signed_health_event(
+            private, key_id, sequence=1, issued_at=NOW, status="healthy"
+        ),
+        owner=owner,
+        catalog=catalog,
+        signature_verifier=Ed25519Verifier(),
+        now=NOW,
+    )
+
+    record_path = owner.root / "event-00000000000000000001.json"
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    envelope = json.loads(record["signed_envelope"])
+    envelope["signature"] = base64.urlsafe_b64encode(bytes(64)).decode("ascii").rstrip("=")
+    record["signed_envelope"] = _canonical(envelope).decode("utf-8")
+    body = {key: value for key, value in record.items() if key != "record_digest"}
+    record["record_digest"] = "sha256:" + hashlib.sha256(_canonical(body)).hexdigest()
+    record_path.write_bytes(_canonical(record))
+
+    with pytest.raises(FederationPeerHealthBridgeError) as caught:
+        recover_latest_peer_health_observation(
+            owner=owner,
+            catalog=catalog,
+            signature_verifier=Ed25519Verifier(),
+            now=NOW,
+        )
+
+    assert caught.value.code == "replay_history_event_verification_failed"
+    assert owner.last_accepted_sequence == 1

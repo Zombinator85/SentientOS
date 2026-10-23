@@ -460,6 +460,52 @@ jobs:
             --provenance glow/test_runs/federation_peer_health_bridge_provenance.json \
             --output glow/test_runs/federation_peer_health_bridge_acceptance_result.json
 
+      - name: Verify restart-safe Federation peer Health recovery
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_federation_peer_health_bridge.py::test_recovery_reverifies_history_and_returns_only_fresh_latest_projection \
+            tests/test_federation_peer_health_bridge.py::test_recovery_returns_no_projection_for_empty_history \
+            tests/test_federation_peer_health_bridge.py::test_recovery_rejects_stale_latest_event_without_mutation \
+            tests/test_federation_peer_health_bridge.py::test_recovery_fails_closed_on_trust_catalog_drift \
+            tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_restart_safe_peer_health_recovery_regressions \
+            tests/test_federation_peer_health_bridge.py::test_recovery_rejects_tampered_historical_signature
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_peer_health_recovery_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_federation_peer_health_bridge.py::test_recovery_reverifies_history_and_returns_only_fresh_latest_projection",
+              "tests/test_federation_peer_health_bridge.py::test_recovery_returns_no_projection_for_empty_history",
+              "tests/test_federation_peer_health_bridge.py::test_recovery_rejects_stale_latest_event_without_mutation",
+              "tests/test_federation_peer_health_bridge.py::test_recovery_fails_closed_on_trust_catalog_drift",
+              "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_restart_safe_peer_health_recovery_regressions",
+              "tests/test_federation_peer_health_bridge.py::test_recovery_rejects_tampered_historical_signature",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_peer_health_recovery_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": node,
+                      "rationale": "recovered peer Health projections must reverify the immutable sequence under the exact pinned catalog, apply current freshness, and remain read-only",
+                  }
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/federation_peer_health_recovery_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_peer_health_recovery_acceptance.json \
+            --provenance glow/test_runs/federation_peer_health_recovery_provenance.json \
+            --output glow/test_runs/federation_peer_health_recovery_acceptance_result.json
       - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
@@ -985,6 +1031,9 @@ jobs:
             glow/test_runs/federation_peer_health_bridge_provenance.json
             glow/test_runs/federation_peer_health_bridge_acceptance.json
             glow/test_runs/federation_peer_health_bridge_acceptance_result.json
+            glow/test_runs/federation_peer_health_recovery_provenance.json
+            glow/test_runs/federation_peer_health_recovery_acceptance.json
+            glow/test_runs/federation_peer_health_recovery_acceptance_result.json
             glow/test_runs/federation_health_provenance.json
             glow/test_runs/federation_health_acceptance.json
             glow/test_runs/federation_health_acceptance_result.json
