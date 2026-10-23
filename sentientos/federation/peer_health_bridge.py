@@ -124,6 +124,7 @@ def _project(
     *,
     now: datetime,
     max_age_seconds: int,
+    require_created: bool = True,
 ) -> FederationPeerHealthObservation:
     from .peer_replay_owner import FederationPeerReplayAcceptance
 
@@ -133,7 +134,7 @@ def _project(
     if not isinstance(event, VerifiedFederationPeerEvent):
         raise FederationPeerHealthBridgeError("peer_health_verified_event_required")
     if (type(replay.sequence) is not int or replay.sequence < 1
-            or replay.sequence != event.sequence or replay.created is not True
+            or replay.sequence != event.sequence or replay.created is not require_created
             or not isinstance(replay.record_digest, str)
             or _DIGEST.fullmatch(replay.record_digest) is None
             or not isinstance(event.peer_id, str) or _PEER_ID.fullmatch(event.peer_id) is None
@@ -171,6 +172,53 @@ def _project(
         catalog_version=event.catalog_version,
         catalog_digest=event.catalog_digest,
         max_age_seconds=max_age_seconds,
+    )
+
+
+def recover_latest_peer_health_observation(
+    *,
+    owner: FederationPeerReplayOwner,
+    catalog: ReadOnlyFederationPeerTrustCatalog,
+    signature_verifier: FederationPeerSignatureVerifier,
+    now: datetime,
+    max_age_seconds: int = 300,
+) -> FederationPeerHealthObservation | None:
+    """Reverify immutable history and project only a current latest assertion.
+
+    This operation is read-only. It does not change the replay owner, and it
+    returns no projection when history is empty. Catalog identity must match
+    the identity bound when those records were accepted.
+    """
+    clock = _utc_time(now)
+    if (
+        type(max_age_seconds) is not int
+        or not 1 <= max_age_seconds <= _MAX_PEER_HEALTH_AGE_SECONDS
+    ):
+        raise FederationPeerHealthBridgeError(
+            "peer_health_freshness_policy_invalid"
+        )
+    if not isinstance(owner, FederationPeerReplayOwner):
+        raise FederationPeerHealthBridgeError("peer_health_replay_owner_required")
+    if not isinstance(catalog, ReadOnlyFederationPeerTrustCatalog):
+        raise FederationPeerHealthBridgeError("peer_health_trust_catalog_required")
+    if not callable(getattr(signature_verifier, "verify", None)):
+        raise FederationPeerHealthBridgeError(
+            "peer_health_signature_verifier_required"
+        )
+    try:
+        history = owner.verified_history(
+            catalog=catalog,
+            signature_verifier=signature_verifier,
+        )
+    except FederationPeerReplayOwnerError as exc:
+        raise FederationPeerHealthBridgeError(exc.code) from exc
+    if not history:
+        return None
+    return _project(
+        history[-1],
+        now=clock,
+        max_age_seconds=max_age_seconds,
+        require_created=False,
     )
 
 
@@ -239,4 +287,5 @@ __all__ = [
     "FederationPeerHealthObservation",
     "PEER_HEALTH_EVENT_SCHEMA",
     "accept_peer_health_event",
+    "recover_latest_peer_health_observation",
 ]
