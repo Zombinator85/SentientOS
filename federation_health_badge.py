@@ -51,11 +51,14 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             payload = entry.get("data", entry)
             if not isinstance(payload, dict):
                 continue
-            peer = payload.get("peer", "unknown")
-            try:
-                nodes.add(peer)
-            except TypeError:
+            peer = payload.get("peer")
+            if (
+                not isinstance(peer, str)
+                or not peer.strip()
+                or peer.casefold() == "unknown"
+            ):
                 continue
+            nodes.add(peer)
             ts = entry.get("timestamp")
             try:
                 if isinstance(ts, str) and ts:
