@@ -1,0 +1,91 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 609,
+  "title": "Recover incremental federation stream cursor after observed truncation",
+  "predecessor": {
+    "sequence": 608,
+    "sha256": "6b636be1082503f688e9cadee604bd3d9ddf483ca08d0bbb82625fcdb909aa15"
+  },
+  "source": {
+    "pull_request": 2678,
+    "original_candidate_commit": "acd7aa49e455ae1968041df3b98f8ce4ecda8afa",
+    "final_candidate_commit": "af43bc7ddc5d575720e90f669887d2b37b391f0a",
+    "final_candidate_tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde",
+    "parent_main": "3d19c595031f277f73e743be3d0c95bcc10291a2",
+    "final_main": "9971c16dcc3e184958419f830aff339d645d6f20",
+    "final_main_tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde",
+    "changed_paths": [
+      "api/federation_stream_api.py",
+      "tests/test_federation_stream_api_incremental.py"
+    ],
+    "scope": "Retain one previous file-size observation so an in-place truncation detected between polls resets the cursor even when the rewritten file remains larger than the cursor."
+  },
+  "validation": {
+    "local_focused_tests": {
+      "result": "11 passed",
+      "command": "PYTHONPATH=/tmp/sentientos-stream-check python -m pytest -q /tmp/sentientos-stream-check/tests/test_federation_stream_api_incremental.py",
+      "environment": "Isolated temporary copies of the exact candidate API and test files; privilege preconditions stubbed; 11 tests passed in 0.16 seconds.",
+      "coverage": "bounded read size, complete records, partial-line completion, oversize discard, truncation, replacement, invalid bounds, and same-inode rewrite beyond the cursor"
+    },
+    "candidate_checks": {
+      "commit": "af43bc7ddc5d575720e90f669887d2b37b391f0a",
+      "quality_gate": 39909672907,
+      "ci_pull_request": 39909672878,
+      "ci_push": 39909665611,
+      "invariant_pull_request": 39909672965,
+      "invariant_push": 39909665633,
+      "docker": 39909672858,
+      "lint": 39909672859,
+      "gradient": 39909672895,
+      "codex_ci": 39909672959,
+      "release": 39909672929,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "hosted_runner_note": {
+      "ci_pull_request_ffmpeg_step": "completed successfully after approximately 27 minutes",
+      "same_candidate_push_ci": "success",
+      "interpretation": "hosted package-install delay; not reported as a passing result until the PR-triggered CI completed"
+    },
+    "post_merge_checks": {
+      "main_commit": "9971c16dcc3e184958419f830aff339d645d6f20",
+      "ci": 39912491736,
+      "quality_gate": 39912491774,
+      "docker": 39912491771,
+      "docs_deploy": 39912491705,
+      "codex_ci": 39912491753,
+      "invariants": 39912491825,
+      "nightly_self_check": 39912491747,
+      "results": "all completed successfully"
+    },
+    "testclient_limitation": {
+      "result": "the pre-change streaming TestClient test and a minimal finite StreamingResponse hang in the sandbox",
+      "runtime": {
+        "fastapi": "0.141.1",
+        "starlette": "0.52.1",
+        "httpx": "0.28.1"
+      },
+      "conclusion": "environment-specific; hosted integrated checks passed and no local TestClient pass is claimed"
+    },
+    "federation_health": {
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "current_main_scheduled_run_observed": false,
+      "report_status": "stale",
+      "events_last_24_hours": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "merge_commit": "9971c16dcc3e184958419f830aff339d645d6f20",
+    "tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde",
+    "first_parent": "3d19c595031f277f73e743be3d0c95bcc10291a2",
+    "second_parent": "af43bc7ddc5d575720e90f669887d2b37b391f0a",
+    "merge_method": "normal GitHub merge; original source commit retained"
+  },
+  "scope": "Only adds the bounded previous-size observation needed to detect this truncation case. Stream limits, peer trust, authority, and health inputs remain unchanged."
+}
