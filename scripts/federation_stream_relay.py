@@ -25,7 +25,7 @@ def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
         return None
     try:
         data = json.loads(line.split(b":", 1)[1].strip())
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
         return None
     if not isinstance(data, dict):
         return None

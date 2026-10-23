@@ -18,7 +18,18 @@ def relay(monkeypatch):
     return importlib.reload(module)
 
 
-@pytest.mark.parametrize("payload", [b"[]", b"null", b'"text"', b"17", b"{bad"])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"[]",
+        b"null",
+        b'"text"',
+        b"17",
+        b"{bad",
+        b"\\xff",
+        b"[" * 1100 + b"0" + b"]" * 1100,
+    ],
+)
 def test_decode_event_line_skips_non_object_and_malformed_json(relay, payload):
     assert relay.decode_event_line(b"data: " + payload, "http://peer.local/presence") is None
 
