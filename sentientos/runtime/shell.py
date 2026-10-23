@@ -184,7 +184,8 @@ class RuntimeShell:
                 or not isinstance(source.owner, FederationPeerReplayOwner)
                 or source.owner.peer_id != peer_name
                 or not isinstance(source.catalog, ReadOnlyFederationPeerTrustCatalog)
-                or not callable(getattr(source.signature_verifier, "verify", None))
+                or type(source.signature_verifier)
+                is not CryptographyEd25519FederationPeerSignatureVerifier
                 or type(source.max_age_seconds) is not int
                 or not 1 <= source.max_age_seconds <= 86_400
             ):
@@ -1470,6 +1471,9 @@ def _handler_targets(path: Path, handler: logging.Handler) -> bool:
     handler_path = Path(getattr(handler, "baseFilename", ""))
     return handler_path == path
 from sentientos.federation.config import load_federation_config
+from sentientos.federation.peer_authentication_ed25519 import (
+    CryptographyEd25519FederationPeerSignatureVerifier,
+)
 from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
 from sentientos.federation.peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
 from sentientos.federation.poller import (

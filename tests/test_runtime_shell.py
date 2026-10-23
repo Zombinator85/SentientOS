@@ -11,6 +11,9 @@ from typing import Any, Dict, List, Mapping, Type, cast
 import pytest
 
 from sentientos.cathedral import Amendment
+from sentientos.federation.peer_authentication_ed25519 import (
+    CryptographyEd25519FederationPeerSignatureVerifier,
+)
 from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
 from sentientos.federation.peer_trust_catalog import (
     CATALOG_SCHEMA,
@@ -125,14 +128,10 @@ def _peer_health_source(tmp_path: Path, peer_id: str) -> PeerHealthRecoverySourc
         expected_catalog_digest=str(catalog_body["catalog_digest"]),
     )
 
-    class RejectingVerifier:
-        def verify(self, **_kwargs: object) -> bool:
-            return False
-
     return PeerHealthRecoverySource(
         owner=FederationPeerReplayOwner(tmp_path / "peer-replay" / peer_id, peer_id=peer_id),
         catalog=catalog,
-        signature_verifier=RejectingVerifier(),
+        signature_verifier=CryptographyEd25519FederationPeerSignatureVerifier(),
     )
 
 
@@ -190,6 +189,14 @@ def test_runtime_shell_rejects_peer_health_sources_without_matching_peer(
         ],
     }
 
+    class UncheckedVerifier:
+        def verify(self, **_kwargs: object) -> bool:
+            return True
+
+    class OverridingEd25519Verifier(CryptographyEd25519FederationPeerSignatureVerifier):
+        def verify(self, **_kwargs: object) -> bool:
+            return True
+
     invalid_sources = (
         (
             {"unconfigured-peer": _peer_health_source(tmp_path, "unconfigured-peer")},
@@ -201,6 +208,24 @@ def test_runtime_shell_rejects_peer_health_sources_without_matching_peer(
         ),
         (
             {"peer-one": replace(_peer_health_source(tmp_path, "peer-one"), max_age_seconds=True)},
+            "peer_health_source_invalid",
+        ),
+        (
+            {
+                "peer-one": replace(
+                    _peer_health_source(tmp_path, "peer-one"),
+                    signature_verifier=UncheckedVerifier(),
+                )
+            },
+            "peer_health_source_invalid",
+        ),
+        (
+            {
+                "peer-one": replace(
+                    _peer_health_source(tmp_path, "peer-one"),
+                    signature_verifier=OverridingEd25519Verifier(),
+                )
+            },
             "peer_health_source_invalid",
         ),
     )

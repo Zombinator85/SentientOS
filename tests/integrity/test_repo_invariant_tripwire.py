@@ -38,6 +38,8 @@ EXPECTED_FEDERATION_ALL = (
     "FederationPoller",
     "FederationState",
     "PeerReplaySnapshot",
+    "CryptographyEd25519FederationPeerSignatureVerifier",
+    "FederationPeerSignatureBackendUnavailable",
     "FederationWindow",
     "build_window",
     "SyncStatus",
@@ -181,6 +183,8 @@ FEDERATION_MODULE_ALLOWLIST = {
     "peer_health_bridge",
     # Provenance-only peer verification; no relay admission, Health publication, or execution.
     "peer_authentication",
+    # Cryptography-backed Ed25519 signature verification; no signing or trust enrollment.
+    "peer_authentication_ed25519",
     # Immutable local replay custody for verified signed peer envelopes;
     # grants no relay, Health, admission, planning, or execution authority.
     "peer_replay_owner",

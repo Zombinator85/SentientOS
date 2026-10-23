@@ -20,6 +20,11 @@ from sentientos.federation.peer_authentication import (
     federation_peer_event_digest,
     verify_federation_peer_event,
 )
+from sentientos.federation.peer_authentication_ed25519 import (
+    CryptographyEd25519FederationPeerSignatureVerifier,
+    FederationPeerSignatureBackendUnavailable,
+)
+from sentientos.federation import peer_authentication_ed25519 as peer_ed25519_module
 from sentientos.federation.peer_trust_catalog import (
     CATALOG_SCHEMA,
     FederationPeerTrustCatalogError,
@@ -356,6 +361,53 @@ def test_signed_event_size_is_bounded():
     _, _, _, _, _, catalog, _ = _make_catalog()
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_size_invalid"):
         _verify(b"x" * 65_537, catalog)
+
+
+def test_cryptography_peer_verifier_authenticates_exact_signed_event():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id)
+    verifier = CryptographyEd25519FederationPeerSignatureVerifier()
+
+    accepted = _verify(raw, catalog, verifier=verifier)
+    assert accepted.sequence == 1
+    assert accepted.peer_id == "peer-one"
+
+    rogue_signer = Ed25519PrivateKey.from_private_bytes(bytes(reversed(range(32))))
+    invalid_signature_raw, _ = _signed_event(
+        private, key_id, signature_from=rogue_signer,
+    )
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_signature_invalid"):
+        _verify(invalid_signature_raw, catalog, verifier=verifier)
+
+
+def test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend(monkeypatch):
+    private, public_text, _, _, _, _, _ = _make_catalog()
+    payload = b"exact signed bytes"
+    signature = base64.urlsafe_b64encode(private.sign(payload)).decode("ascii").rstrip("=")
+    verifier = CryptographyEd25519FederationPeerSignatureVerifier()
+
+    assert verifier.verify(
+        algorithm="rsa", public_key=public_text, payload=payload, signature=signature,
+    ) is False
+    assert verifier.verify(
+        algorithm="ed25519", public_key="invalid", payload=payload, signature=signature,
+    ) is False
+    assert verifier.verify(
+        algorithm="ed25519", public_key=public_text, payload=payload, signature="invalid",
+    ) is False
+    assert verifier.verify(
+        algorithm="ed25519", public_key=public_text, payload=payload + b"!", signature=signature,
+    ) is False
+
+    def unavailable_backend():
+        raise ImportError("cryptography unavailable")
+
+    monkeypatch.setattr(peer_ed25519_module, "_load_cryptography", unavailable_backend)
+    unavailable = CryptographyEd25519FederationPeerSignatureVerifier()
+    with pytest.raises(FederationPeerSignatureBackendUnavailable):
+        unavailable.verify(
+            algorithm="ed25519", public_key=public_text, payload=payload, signature=signature,
+        )
 
 from sentientos.federation import peer_replay_owner as peer_replay_owner_module
 from sentientos.federation.peer_replay_owner import (

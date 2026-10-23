@@ -97,6 +97,9 @@ def test_source_validation_runs_federation_peer_replay_owner_regressions():
         "tests/test_federation_peer_authentication.py::test_replay_owner_derives_sequence_recovers_and_preserves_outcomes",
         "tests/test_federation_peer_authentication.py::test_replay_owner_rejects_gap_replay_and_tampered_history",
         "tests/test_federation_peer_authentication.py::test_replay_owner_bounds_history_and_fails_closed_without_posix_custody",
+        "tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_authenticates_exact_signed_event",
+        "tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend",
+        "tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_health_sources_without_matching_peer",
         "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_peer_replay_owner_regressions",
     )
     for node in nodes:
