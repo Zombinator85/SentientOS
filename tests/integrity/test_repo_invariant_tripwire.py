@@ -180,6 +180,8 @@ FEDERATION_MODULE_ALLOWLIST = {
     # Provenance-only peer verification; no relay admission, Health publication, or execution.
     "peer_authentication",
     "peer_trust_catalog",
+    # Durable peer replay ownership derives sequence from local history and has no Health or execution route.
+    "peer_replay_owner",
     "poller",
     "replay",
     "summary",
