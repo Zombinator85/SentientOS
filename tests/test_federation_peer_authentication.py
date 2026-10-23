@@ -392,7 +392,18 @@ def test_replay_owner_derives_sequence_recovers_and_preserves_outcomes(tmp_path)
     )
     assert second.sequence == 2
     assert second.verified_event.event["outcome"] == "positive"
-    assert FederationPeerReplayOwner(root, peer_id="peer-one").last_accepted_sequence == 2
+
+    expanded_raw, _ = _signed_event(
+        private, key_id, sequence=3,
+        event={"kind": "bounded_payload", "value": '"' * 30_000},
+    )
+    assert len(expanded_raw) < 65_536
+    third = recovered.accept(
+        expanded_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+    )
+    assert third.sequence == 3
+    assert (root / "event-00000000000000000003.json").stat().st_size > 70_000
+    assert FederationPeerReplayOwner(root, peer_id="peer-one").last_accepted_sequence == 3
 
 
 def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
