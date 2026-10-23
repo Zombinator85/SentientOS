@@ -61,3 +61,34 @@ def test_decode_event_line_skips_non_data_and_oversized_lines(relay):
 
 def test_decode_event_line_rejects_non_bytes_input(relay):
     assert relay.decode_event_line("data: {}", "http://peer.local") is None
+
+
+
+def test_iter_bounded_sse_lines_handles_chunk_boundaries_and_line_endings(relay):
+    chunks = [b'data: {"x":', b'1}\r\nevent: ping\n', b'data: {"y":2}']
+
+    assert list(relay.iter_bounded_sse_lines(chunks)) == [
+        b'data: {"x":1}',
+        b'event: ping',
+        b'data: {"y":2}',
+    ]
+
+
+def test_iter_bounded_sse_lines_discards_oversize_and_resynchronizes(relay):
+    chunks = [
+        b'data: ' + b'x' * 20,
+        b'y' * 20 + b'\n' + b'data: {"peer":"safe"}\n',
+    ]
+
+    assert list(relay.iter_bounded_sse_lines(chunks, max_bytes=32)) == [
+        b'data: {"peer":"safe"}',
+    ]
+
+
+def test_iter_bounded_sse_lines_rejects_invalid_bounds_or_chunk_types(relay):
+    with pytest.raises(ValueError, match="positive integer"):
+        list(relay.iter_bounded_sse_lines([], max_bytes=0))
+    with pytest.raises(ValueError, match="positive integer"):
+        list(relay.iter_bounded_sse_lines([], max_bytes=True))
+    with pytest.raises(TypeError, match="chunks must be bytes"):
+        list(relay.iter_bounded_sse_lines(["data: {}"], max_bytes=32))
