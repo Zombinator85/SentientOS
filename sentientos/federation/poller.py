@@ -8,7 +8,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Protocol, cast
+from typing import Any, Callable, Dict, Literal, Mapping, Optional, Protocol, cast
 
 from sentientos.persona_events import publish_event
 
@@ -20,6 +20,14 @@ from .summary import FederationSummary, build_local_summary, read_peer_summary, 
 from .sync_view import PeerSyncView, build_peer_sync_view
 from .window import FederationWindow, build_window
 from sentientos.trust_ledger import get_trust_ledger
+from .peer_health_bridge import (
+    FederationPeerHealthBridgeError,
+    FederationPeerHealthObservation,
+    recover_latest_peer_health_observation,
+)
+from .peer_replay_owner import FederationPeerReplayOwner
+from .peer_authentication import FederationPeerSignatureVerifier
+from .peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
 
 
 @dataclass
@@ -75,12 +83,39 @@ class PeerReplaySnapshot:
         )
 
 
+@dataclass(frozen=True)
+class PeerHealthRecoverySource:
+    """Caller-owned verifier inputs for one configured peer's read-only recovery."""
+
+    owner: FederationPeerReplayOwner
+    catalog: ReadOnlyFederationPeerTrustCatalog
+    signature_verifier: FederationPeerSignatureVerifier
+    max_age_seconds: int = 300
+
+
+@dataclass(frozen=True)
+class PeerHealthProjection:
+    """Poller view of recovered peer claims, kept separate from local Health."""
+
+    peer: str
+    outcome: Literal["recovered", "empty", "omitted", "error"]
+    observation: Optional[FederationPeerHealthObservation] = None
+    error_code: Optional[str] = None
+
+
 class _FederationRuntime(Protocol):
     def on_federation_window(self, window: FederationWindow) -> None: ...
 
 
 class FederationPoller:
-    def __init__(self, config: FederationConfig, runtime: _FederationRuntime | object, log_cb: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        config: FederationConfig,
+        runtime: _FederationRuntime | object,
+        log_cb: Callable[[str], None],
+        *,
+        peer_health_sources: Optional[Mapping[str, PeerHealthRecoverySource]] = None,
+    ) -> None:
         self.config = config
         self.runtime = runtime
         self.log_cb = log_cb
@@ -91,6 +126,11 @@ class FederationPoller:
         self._last_levels: Dict[str, DriftLevel] = {}
         self._window: Optional[FederationWindow] = None
         self._peer_sync_views: Dict[str, PeerSyncView] = {}
+        self._peer_health_sources = dict(peer_health_sources or {})
+        configured_peer_names = {peer.node_name for peer in config.peers}
+        if set(self._peer_health_sources) - configured_peer_names:
+            raise ValueError("peer_health_source_not_configured")
+        self._peer_health_projections: Dict[str, PeerHealthProjection] = {}
         self._last_sync_status: Dict[str, str] = {}
         state_path = Path(self.config.state_file)
         state_dir = state_path.parent
@@ -118,6 +158,11 @@ class FederationPoller:
     def get_peer_sync_views(self) -> Dict[str, PeerSyncView]:
         with self._lock:
             return dict(self._peer_sync_views)
+
+    def get_peer_health_projections(self) -> Dict[str, PeerHealthProjection]:
+        """Return a separate copy of per-peer authenticated claim recovery."""
+        with self._lock:
+            return dict(self._peer_health_projections)
 
     def get_replay_state(self) -> Dict[str, PeerReplaySnapshot]:
         with self._lock:
@@ -175,6 +220,7 @@ class FederationPoller:
                 self._persist_replay_snapshot(snapshot)
 
         now = datetime.now(timezone.utc)
+        peer_health_projections = self._recover_peer_health_projections(now)
         with self._lock:
             self._state.last_poll_ts = now
             self._state.peer_reports = reports
@@ -189,6 +235,7 @@ class FederationPoller:
                 peer_sync=peer_sync_views,
             )
             self._peer_sync_views = dict(peer_sync_views)
+            self._peer_health_projections = peer_health_projections
             if replay_updates:
                 self._peer_replay.update(replay_updates)
             self._state.peer_replay = dict(self._peer_replay)
@@ -203,6 +250,52 @@ class FederationPoller:
                     callback(window)
                 except Exception:  # pragma: no cover - defensive
                     self.log_cb("Federation window callback failed; continuing")
+
+    def _recover_peer_health_projections(
+        self, now: datetime
+    ) -> Dict[str, PeerHealthProjection]:
+        projections: Dict[str, PeerHealthProjection] = {}
+        for peer in self.config.peers:
+            source = self._peer_health_sources.get(peer.node_name)
+            if source is None:
+                projections[peer.node_name] = PeerHealthProjection(
+                    peer=peer.node_name, outcome="omitted"
+                )
+                continue
+            try:
+                observation = recover_latest_peer_health_observation(
+                    owner=source.owner,
+                    catalog=source.catalog,
+                    signature_verifier=source.signature_verifier,
+                    now=now,
+                    max_age_seconds=source.max_age_seconds,
+                )
+            except FederationPeerHealthBridgeError as exc:
+                projections[peer.node_name] = PeerHealthProjection(
+                    peer=peer.node_name,
+                    outcome="error",
+                    error_code=exc.code,
+                )
+            except Exception:
+                projections[peer.node_name] = PeerHealthProjection(
+                    peer=peer.node_name,
+                    outcome="error",
+                    error_code="peer_health_recovery_failed",
+                )
+            else:
+                if observation is not None and observation.peer_id != peer.node_name:
+                    projections[peer.node_name] = PeerHealthProjection(
+                        peer=peer.node_name,
+                        outcome="error",
+                        error_code="peer_health_peer_identity_mismatch",
+                    )
+                    continue
+                projections[peer.node_name] = PeerHealthProjection(
+                    peer=peer.node_name,
+                    outcome="empty" if observation is None else "recovered",
+                    observation=observation,
+                )
+        return projections
 
     def _evaluate_peer(self, peer: PeerConfig, local_summary: FederationSummary) -> tuple[DriftReport, Optional[FederationSummary]]:
         peer_summary = read_peer_summary(peer.state_file)

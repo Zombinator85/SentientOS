@@ -506,6 +506,47 @@ jobs:
             --manifest glow/test_runs/federation_peer_health_recovery_acceptance.json \
             --provenance glow/test_runs/federation_peer_health_recovery_provenance.json \
             --output glow/test_runs/federation_peer_health_recovery_acceptance_result.json
+      - name: Verify daemon peer Health projection recovery
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            tests/test_federation_poller_replay_integration.py::test_poller_exposes_restart_safe_authenticated_peer_health_projection \
+            tests/test_federation_poller_replay_integration.py::test_poller_separates_empty_omitted_and_recovery_error_outcomes \
+            tests/test_federation_poller_replay_integration.py::test_source_validation_binds_daemon_peer_health_projection_acceptance
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/federation_daemon_peer_health_projection_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_federation_poller_replay_integration.py::test_poller_exposes_restart_safe_authenticated_peer_health_projection[healthy]",
+              "tests/test_federation_poller_replay_integration.py::test_poller_exposes_restart_safe_authenticated_peer_health_projection[unavailable]",
+              "tests/test_federation_poller_replay_integration.py::test_poller_separates_empty_omitted_and_recovery_error_outcomes",
+              "tests/test_federation_poller_replay_integration.py::test_source_validation_binds_daemon_peer_health_projection_acceptance",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/federation_daemon_peer_health_projection_provenance.json",
+              "required_nodes": [
+                  {
+                      "node_id": node,
+                      "rationale": "the daemon must recover only the latest freshly reverified authenticated peer claim, preserve adverse status and authority denials, and report empty, omitted, and error outcomes separately without changing local Federation Health",
+                  }
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/federation_daemon_peer_health_projection_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/federation_daemon_peer_health_projection_acceptance.json \
+            --provenance glow/test_runs/federation_daemon_peer_health_projection_provenance.json \
+            --output glow/test_runs/federation_daemon_peer_health_projection_acceptance_result.json
       - name: Verify transition protocol, operator ingress, and receipt projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
