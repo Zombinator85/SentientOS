@@ -420,8 +420,21 @@ def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_sequence_not_next"):
         owner.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
     record_path = root / "event-00000000000000000001.json"
+    original = record_path.read_bytes()
     record_path.write_bytes(b"{}\n")
     with pytest.raises(FederationPeerReplayOwnerError, match="replay_record_fields_invalid"):
+        _ = owner.last_accepted_sequence
+
+    record_path.write_bytes(original)
+    second_raw, _ = _signed_event(private, key_id, sequence=2)
+    owner.accept(second_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    rewritten = json.loads(original)
+    rewritten["recorded_at"] = "2026-10-23T10:00:01Z"
+    rewritten["record_digest"] = peer_replay_owner_module._record_digest({
+        key: value for key, value in rewritten.items() if key != "record_digest"
+    })
+    record_path.write_bytes(peer_replay_owner_module._canonical(rewritten))
+    with pytest.raises(FederationPeerReplayOwnerError, match="replay_record_identity_invalid"):
         _ = owner.last_accepted_sequence
 
 
