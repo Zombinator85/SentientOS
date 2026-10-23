@@ -1,0 +1,125 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 633,
+  "title": "Integrate sequence 633: authenticated, freshness-bounded peer Health projection bridge",
+  "predecessor": "segment-sha256:d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73",
+  "source": {
+    "pull_request": 2726,
+    "candidate_commit": "abfbf28f986ed64e36fbe0944792e040050706a0",
+    "parent_main": "f96010f8a233bc6b843cf073ea8ad2e64eb45b11",
+    "merge_commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
+    "source_tree": "9754b6b52b1e2a40716101dc184d281125e77116",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/peer_health_bridge.py",
+      "tests/integrity/test_repo_invariant_tripwire.py",
+      "tests/test_federation_peer_health_bridge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Accept only canonical signed peer Health event shapes through the existing pinned trust catalog and immutable replay owner; bind freshness and durable sequence before projecting a peer-reported status with all local authority denied."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate": 40025353786,
+      "ci": 40025353799,
+      "invariants": 40025353873,
+      "docker": 40025353811,
+      "codex_ci": 40025353774,
+      "lint": 40025353768,
+      "release": 40025353802,
+      "gradient": 40025353772,
+      "all_checks": "passed",
+      "strict_administrator_audits": "passed",
+      "hosted_privileged_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "pr_metadata_guard_ready",
+      "finalizer_artifact": {
+        "id": 12532253011,
+        "size_bytes": 36643,
+        "sha256": "1f0a5290d3af863ef958ba2c500c8ad3388108d01fd189a5977ea8c2e3f9ed64",
+        "independent_local_sha256_match": true
+      },
+      "candidate_acceptance": "task_acceptance_ready",
+      "candidate_acceptance_nodes_required": 47,
+      "candidate_acceptance_nodes_passed": 47,
+      "source_validation_acceptance": "task_acceptance_ready",
+      "source_validation_nodes_required": 9,
+      "source_validation_nodes_passed": 9,
+      "source_validation_tests_executed": 9,
+      "source_validation_tests_failed": 0,
+      "source_validation_artifact": {
+        "id": 12533040808,
+        "size_bytes": 531861,
+        "sha256": "55b0c5e2a4b4e3ee51df1b6c1b0047801bd57a2fd8cc8585c8589943f015d049",
+        "independent_local_sha256_match": true,
+        "repository_sha": "abfbf28f986ed64e36fbe0944792e040050706a0",
+        "acceptance_manifest_digest": "sha256:af5cf87c5752d855d850c494f0a4959561eac5d03c258a0e3c442f73b3b54ff3",
+        "acceptance_provenance_digest": "sha256:4c7cf8eba17cd1e03695616a285aa0c0b3b809f8f4e74d3910e34f43e11c1cd6",
+        "required_nodes": [
+          "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[healthy]",
+          "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[unavailable]",
+          "tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence",
+          "tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unsupported_schema]",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[additional_fields]",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unknown_status]",
+          "tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed",
+          "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions"
+        ],
+        "successful_path_nodes": [
+          "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[healthy]",
+          "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[unavailable]",
+          "tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence",
+          "tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unsupported_schema]",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[additional_fields]",
+          "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unknown_status]",
+          "tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed",
+          "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions"
+        ],
+        "reasons": []
+      },
+      "corrective_iterations": [
+        "Added peer_health_bridge to the explicit Federation module tripwire allowlist after the first pre-commit run detected module drift.",
+        "Aligned the PR title with the exact candidate commit subject so hosted pre-commit reconstruction and metadata custody agreed.",
+        "Declared explicit pytest case IDs and bound all parameter-expanded cases in the acceptance manifest after the verifier rejected unparameterized node identities."
+      ]
+    },
+    "post_merge_main": {
+      "commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
+      "tree": "9754b6b52b1e2a40716101dc184d281125e77116",
+      "quality_gate": 40025995284,
+      "ci": 40025995335,
+      "invariants": 40025995264,
+      "docker": 40025995215,
+      "codex_ci": 40025995231,
+      "docs_deploy": 40025995324,
+      "nightly_self_check": 40025995299,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed",
+      "source_validation_artifact": {
+        "id": 12533340705,
+        "size_bytes": 531761,
+        "sha256": "ce9dc354134c3ffb0b1a13838e3cbf56bbc9f7a9186d53f9b4cccc3442864ce1",
+        "independent_local_sha256_match": true,
+        "repository_sha": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
+        "source_validation_acceptance": "task_acceptance_ready",
+        "source_validation_nodes_required": 9,
+        "source_validation_nodes_passed": 9
+      }
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "source_history_preserved": true,
+    "merge_method": "merge",
+    "merge_parents": [
+      "f96010f8a233bc6b843cf073ea8ad2e64eb45b11",
+      "abfbf28f986ed64e36fbe0944792e040050706a0"
+    ],
+    "authority_boundaries_preserved": true,
+    "production_peer_identities_configured": false,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Make the accepted peer assertion projection restart-safe by reconstructing its current provenance from the bounded immutable replay owner, while preserving local-only Health and denying admission, planning and execution authority."
+  }
+}

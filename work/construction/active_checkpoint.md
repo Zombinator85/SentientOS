@@ -1,4 +1,20 @@
-## Current verified state - sequence 632
+## Current verified state - sequence 633
+
+Sequence 633 integrates the bounded authenticated peer Health assertion ingress and a peer-reported projection over the existing operator-pinned trust catalog and immutable replay owner. Canonical event shape, signature, freshness, next sequence and durable custody are checked before projection. The projection states that claim truth, local Health publication, work admission, planning, execution and decision power are all denied. No production peer identity, remote endpoint, network listener or live telemetry source is configured; the local snapshot workflow remains local-only.
+
+Latest verified main: `e4ffbdef11c4c794d5d54c0477b254d2deaaff68`, tree `9754b6b52b1e2a40716101dc184d281125e77116`
+Latest construction segment: `work/construction/segments/0633-integrate-authenticated-peer-health-projection-bridge.md`
+Latest segment SHA-256: `52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089`
+Sequence: 633 (authenticated, freshness-bounded peer Health assertion projection)
+
+PR #2726 candidate `abfbf28f986ed64e36fbe0944792e040050706a0` merged normally as `e4ffbdef11c4c794d5d54c0477b254d2deaaff68`, retaining verified main `f96010f8a233bc6b843cf073ea8ad2e64eb45b11` as first parent and the tested candidate as second parent. Exact-candidate QG, privileged finalizer, separate metadata guard, source validation and all related PR workflows passed. The source-validation artifact bound nine exact bridge nodes to the candidate and reported `task_acceptance_ready`; the artifact archive SHA-256 was independently verified. On the exact merged main, QG, full CI, Invariants, Docker, Codex CI, Docs Deploy and Nightly Self Check passed. Forge Smoke was skipped by workflow conditions. The post-merge source-validation artifact was independently hashed and confirmed the same nine bridge acceptance nodes against the merge SHA.
+
+Evidence record: `work/construction/evidence/0633-integrate-authenticated-peer-health-projection-bridge.json`
+Evidence SHA-256: `e6b98149fb20cbc6a49292a34e40dcaa1ac9d3bda22740443590650dcf1a93de`
+
+Next: add restart-safe reconstruction of the current peer projection from the bounded immutable replay owner, keeping remote claims separate from local Health and denying admission, planning and execution. Connect no live transport until an operator provisions a genuine peer identity and endpoint.
+
+## Previous checkpoint snapshot - sequence 632
 
 Sequence 632 integrates malformed Federation Health record accounting, exact source validation, the refreshed App publication, and all verified main-branch checks. Malformed UTF-8/JSON observations are counted separately from oversized rows and valid out-of-schema JSON; their omission makes the Health verdict partial without misreporting byte coverage. Local snapshot status and all authority denials remain intact.
 

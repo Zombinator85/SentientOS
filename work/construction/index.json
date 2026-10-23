@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c76598e68248df48a0edb41feb0f731a64b80b3d86f62342bd763e081f9b024e",
-    "latest_segment_sequence": 632,
-    "latest_segment_sha256": "d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73",
-    "source_commit": "1b415bb52752d479dfeb9448053f7983032d6442",
-    "source_tree": "9819431d8965fee15f687e325fc44106089d8e4e"
+    "checkpoint_sha256": "21e28a22dfd6c3e8281b7dcd57bc8431595c9305f68dc31c4e3bd5937d3b1162",
+    "latest_segment_sequence": 633,
+    "latest_segment_sha256": "52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089",
+    "source_commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
+    "source_tree": "9754b6b52b1e2a40716101dc184d281125e77116"
   },
-  "checkpoint_sha256": "c76598e68248df48a0edb41feb0f731a64b80b3d86f62342bd763e081f9b024e",
+  "checkpoint_sha256": "21e28a22dfd6c3e8281b7dcd57bc8431595c9305f68dc31c4e3bd5937d3b1162",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 632,
+  "latest_sequence": 633,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7387,6 +7387,19 @@
       "source_candidate_commit": "51924e048018c23455ecba5427c97ed6426210c2",
       "source_commit": "1b415bb52752d479dfeb9448053f7983032d6442",
       "source_tree": "9819431d8965fee15f687e325fc44106089d8e4e"
+    },
+    {
+      "sequence": 633,
+      "path": "work/construction/segments/0633-integrate-authenticated-peer-health-projection-bridge.md",
+      "sha256": "52d3e03c89f280106ccd473ed8b51fa2579ea61d814f7887c49e18cb57b66089",
+      "bytes": 2640,
+      "predecessor": "segment-sha256:d87abe3def4ca091db80168507508c24af49d0b58e6a26e5b11585712054aa73",
+      "evidence_path": "work/construction/evidence/0633-integrate-authenticated-peer-health-projection-bridge.json",
+      "evidence_sha256": "e6b98149fb20cbc6a49292a34e40dcaa1ac9d3bda22740443590650dcf1a93de",
+      "evidence_bytes": 7347,
+      "source_candidate_commit": "abfbf28f986ed64e36fbe0944792e040050706a0",
+      "source_commit": "e4ffbdef11c4c794d5d54c0477b254d2deaaff68",
+      "source_tree": "9754b6b52b1e2a40716101dc184d281125e77116"
     }
   ],
   "source_acquisition": {

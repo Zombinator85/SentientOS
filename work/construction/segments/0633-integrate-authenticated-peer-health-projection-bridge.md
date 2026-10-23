@@ -1,0 +1,13 @@
+# Sequence 633 - integrate authenticated peer Health projection bridge
+
+Sequence 633 adds a bounded ingress for operator-provisioned signed peer Health assertions. It verifies the canonical event shape, pinned trust-catalog identity, signature, explicit freshness window and next sequence against the existing peer replay owner before immutable acceptance. The returned projection is explicitly peer-reported status with provenance. Claim truth, local Federation Health publication, work admission, planning, execution and decision power remain false.
+
+The implementation accepts bytes supplied by a caller; it does not create a network listener, enroll peers, mutate trust, or modify the local snapshot report. No production peer identity or live telemetry source is configured. Positive healthy and adverse unavailable assertions are preserved as peer claims, while stale, future, unsupported-schema, extra-field and unknown-status observations fail before sequence persistence.
+
+The first hosted pass exposed two integration details: the module required an explicit tripwire allowlist entry, and pytest parameterized cases required exact case IDs in acceptance evidence. Both were corrected, and the PR title was aligned with the candidate commit subject for exact pre-commit custody. The final candidate passed all eight PR workflows, the 47-node privileged Quality Gate acceptance, and nine exact source-validation nodes. The separate pre-publication metadata guard reported `pr_metadata_guard_ready`. The source-validation ZIP and finalizer ZIP were downloaded and their SHA-256 digests independently matched GitHub's artifact digests.
+
+PR #2726 candidate `abfbf28f986ed64e36fbe0944792e040050706a0` merged normally as `e4ffbdef11c4c794d5d54c0477b254d2deaaff68`, tree `9754b6b52b1e2a40716101dc184d281125e77116`, with verified main `f96010f8a233bc6b843cf073ea8ad2e64eb45b11` as first parent and the tested candidate as second parent. On that exact main, Required Quality Gate, CI, Invariants, Docker, Codex CI, Docs Deploy and Nightly Self Check all passed; Forge Smoke was skipped by workflow conditions. The post-merge source-validation ZIP was independently hashed and its nine bridge acceptance nodes were `task_acceptance_ready` against the merge commit.
+
+Evidence: `work/construction/evidence/0633-integrate-authenticated-peer-health-projection-bridge.json`.
+
+Next: add restart-safe projection recovery from the bounded immutable replay owner before wiring any actual transport or daemon consumer. Continue to label peer assertions separately from local Health; no production peer identity, endpoint or live telemetry is present.
