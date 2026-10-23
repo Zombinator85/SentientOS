@@ -68,6 +68,35 @@ def test_source_validation_runs_federation_replay_path_regressions():
         assert artifact in upload
 
 
+
+def test_source_validation_runs_federation_peer_replay_owner_regressions():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify authenticated Federation peer replay ownership" in source_validation
+    nodes = (
+        "tests/test_federation_peer_authentication.py::test_replay_owner_derives_sequence_recovers_and_preserves_outcomes",
+        "tests/test_federation_peer_authentication.py::test_replay_owner_rejects_gap_replay_and_tampered_history",
+        "tests/test_federation_peer_authentication.py::test_replay_owner_bounds_history_and_fails_closed_without_posix_custody",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_peer_replay_owner_regressions",
+    )
+    for node in nodes:
+        assert node in source_validation
+    owner = (ROOT / "sentientos/federation/peer_replay_owner.py").read_text()
+    assert "last_accepted_sequence=prior_sequence" in owner
+    assert "publish_immutable_bytes" in owner
+    for forbidden in ("requests", "socket", "urllib.request", "FederationHealth", "on_federation_window"):
+        assert forbidden not in owner
+    assert "federation_peer_replay_owner_acceptance.json" in source_validation
+    assert "federation_peer_replay_owner_acceptance_result.json" in source_validation
+    upload = source_validation.split("- name: Upload canonical test evidence", 1)[1]
+    for artifact in (
+        "federation_peer_replay_owner_provenance.json",
+        "federation_peer_replay_owner_acceptance.json",
+        "federation_peer_replay_owner_acceptance_result.json",
+    ):
+        assert artifact in upload
+
+
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
