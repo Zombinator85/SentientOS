@@ -335,7 +335,7 @@ def test_nightly_self_check_uses_minimal_read_only_authority_and_admin_for_audit
     audit = workflow.split("- name: Verify audits", 1)[1].split("- name:", 1)[0]
     assert workflow.index("Verify hosted Administrator availability") < workflow.index("Verify audits")
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in audit
-    assert "python -m scripts.verify_audits logs/ --strict --no-input" in audit
+    assert "python -m scripts.verify_audits --strict --no-input" in audit
     assert "contents: write" not in workflow
 
 
@@ -403,7 +403,7 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
         "&& needs.audit.outputs.status != '0' }}"
     )
     assert "if: needs.audit.outputs.status != '0'" not in repair_job
-    assert "python -m scripts.verify_audits logs/ --strict --no-input" in initial
+    assert "python -m scripts.verify_audits --strict --no-input" in initial
     assert 'test "$(sudo -n id -u)" = "0"' in administrator
     assert "sudo -n env" in initial
     assert 'test "$(sudo -n id -u)" = "0"' in repair_administrator
@@ -414,7 +414,7 @@ def test_nightly_audit_repair_uses_safe_plan_apply_and_repair_only_write_access(
     assert "python -m scripts.apply_audit_repairs --plan \"$plan\" --output \"$result\" --apply" in repair
     assert repair.count("sudo -n env") == 2
     assert "GITHUB_RUN_ID" in repair
-    assert "python -m scripts.verify_audits logs/ --strict --no-input" in after
+    assert "python -m scripts.verify_audits --strict --no-input" in after
     assert 'sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE"' in after
     assert "repair_receipts.jsonl" in stage and "quarantine_index.jsonl" in stage
     assert "git diff --cached --quiet -- logs/" in stage

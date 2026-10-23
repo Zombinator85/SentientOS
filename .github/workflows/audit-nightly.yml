@@ -50,7 +50,7 @@ jobs:
         run: |
           set +e
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
-            python -m scripts.verify_audits logs/ --strict --no-input
+            python -m scripts.verify_audits --strict --no-input
           status=$?
           set -e
           echo "status=$status" >> "$GITHUB_OUTPUT"
@@ -94,7 +94,7 @@ jobs:
         run: |
           set +e
           sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
-            python -m scripts.verify_audits logs/ --strict --no-input
+            python -m scripts.verify_audits --strict --no-input
           status=$?
           set -e
           echo "status=$status" >> "$GITHUB_OUTPUT"
