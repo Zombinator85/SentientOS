@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -341,14 +342,28 @@ class FederationPoller:
         )
 
     @staticmethod
-    def _safe_replay_peer_name(peer: object) -> bool:
+    def _safe_replay_peer_name(peer: object, *, platform: str | None = None) -> bool:
         if not isinstance(peer, str) or not peer or peer in {".", ".."}:
             return False
         if any(separator in peer for separator in ("/", "\\", ":")):
             return False
         if any(ord(character) < 32 or ord(character) == 127 for character in peer):
             return False
-        return Path(peer).name == peer
+        if Path(peer).name != peer:
+            return False
+        target_platform = os.name if platform is None else platform
+        if target_platform not in {"posix", "nt"}:
+            return False
+        if target_platform == "nt":
+            windows_stem = peer.split(".", 1)[0].rstrip(" .").casefold()
+            reserved = {"con", "prn", "aux", "nul", "conin$", "conout$"}
+            reserved.update(f"com{number}" for number in range(1, 10))
+            reserved.update(f"lpt{number}" for number in range(1, 10))
+            reserved.update(f"com{digit}" for digit in "¹²³")
+            reserved.update(f"lpt{digit}" for digit in "¹²³")
+            if windows_stem in reserved:
+                return False
+        return True
 
     def _load_persisted_replay(self) -> Dict[str, PeerReplaySnapshot]:
         snapshots: Dict[str, PeerReplaySnapshot] = {}

@@ -139,6 +139,12 @@ def test_persist_replay_snapshot_rejects_path_traversal(tmp_path):
     assert any(
         "Rejected unsafe federation replay peer name" in message for message in logs
     )
+    for reserved_peer in ("CON", "con.txt", "AUX", "NUL", "COM1", "LPT9", "COM¹.log"):
+        assert not FederationPoller._safe_replay_peer_name(
+            reserved_peer, platform="nt"
+        )
+    assert FederationPoller._safe_replay_peer_name("COM0", platform="nt")
+    assert FederationPoller._safe_replay_peer_name("CON", platform="posix")
 
 
 @pytest.mark.no_legacy_skip
