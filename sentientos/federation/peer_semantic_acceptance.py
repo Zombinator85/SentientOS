@@ -12,7 +12,7 @@ import hashlib
 import json
 import re
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, TypeGuard
 
 from .peer_authentication import VerifiedFederationPeerEvent
 from .peer_replay_owner import FederationPeerReplayAcceptance
@@ -185,7 +185,7 @@ class FederationPeerSemanticAcceptanceReceipt:
     decision_power: str = "none"
 
 
-def _is_bounded_text(value: object, *, maximum: int) -> bool:
+def _is_bounded_text(value: object, *, maximum: int) -> TypeGuard[str]:
     return (
         isinstance(value, str)
         and bool(value.strip())
