@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "09cf14dfde745af58e54cc806299bc1c23b021e0a88d02cdc4f24795ea65a52e",
-    "latest_segment_sequence": 605,
-    "latest_segment_sha256": "f813bf16e8b3fd95bc43ec4b4019cc56f4177bbc8ff7eb0f8b6bb9c5be633a1d",
-    "source_commit": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
-    "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1"
+    "checkpoint_sha256": "c17d9ef1043c1e44a6719afd7b04ee2246b62aa5d3c46712b23325874630b23c",
+    "latest_segment_sequence": 606,
+    "latest_segment_sha256": "b432521ae40b9424bf58c5f94a505355c40764f57547a1bdeee151ad45d50ccc",
+    "source_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
+    "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab"
   },
-  "checkpoint_sha256": "09cf14dfde745af58e54cc806299bc1c23b021e0a88d02cdc4f24795ea65a52e",
+  "checkpoint_sha256": "c17d9ef1043c1e44a6719afd7b04ee2246b62aa5d3c46712b23325874630b23c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 605,
+  "latest_sequence": 606,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7036,6 +7036,19 @@
       "source_candidate_commit": "fbfdad96418ae9fe469d07b8c8189e3721754840",
       "source_commit": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
       "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1"
+    },
+    {
+      "sequence": 606,
+      "path": "work/construction/segments/0606-fail-closed-relay-peer-config.md",
+      "sha256": "b432521ae40b9424bf58c5f94a505355c40764f57547a1bdeee151ad45d50ccc",
+      "bytes": 2291,
+      "predecessor": "segment-sha256:f813bf16e8b3fd95bc43ec4b4019cc56f4177bbc8ff7eb0f8b6bb9c5be633a1d",
+      "evidence_path": "work/construction/evidence/0606-fail-closed-relay-peer-config.json",
+      "evidence_sha256": "4ecc1e12c3fe56c596facb17c57c90fa1bce2a74e2a367da676008298134c010",
+      "evidence_bytes": 4630,
+      "source_candidate_commit": "c83640375417c48ce8fb4865166e6755430f5bb1",
+      "source_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
+      "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab"
     }
   ],
   "source_acquisition": {
@@ -7045,7 +7058,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1",
+  "source_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

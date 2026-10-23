@@ -1,0 +1,120 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 606,
+  "title": "Fail-closed federation peer configuration parsing",
+  "predecessor": {
+    "sequence": 605,
+    "sha256": "f813bf16e8b3fd95bc43ec4b4019cc56f4177bbc8ff7eb0f8b6bb9c5be633a1d"
+  },
+  "source": {
+    "candidate_commit": "c83640375417c48ce8fb4865166e6755430f5bb1",
+    "candidate_tree": "d9c38f8004301014562f9533e30fea9bc69ebdb6",
+    "parent_main": "e85508898c78cdaecfebc204ab19f7aed1a8bd4a",
+    "final_main": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
+    "final_main_tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab",
+    "changed_paths": [
+      "scripts/federation_stream_relay.py",
+      "tests/test_federation_stream_relay.py"
+    ],
+    "scope": "Fail closed on non-mapping YAML roots and non-list peer collections; skip malformed rows and non-string/blank URLs; preserve valid URL order after trimming."
+  },
+  "validation": {
+    "local_focused_test": {
+      "result": "21 passed",
+      "compilation": "passed",
+      "environment": "Isolated /tmp/seq606 exact source and test files; privilege imports stubbed and requests inert; no network requests."
+    },
+    "exact_candidate_checks": {
+      "pull_request": 2671,
+      "required_quality_gate_run": 39901911318,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation_runs": [
+        39901898089,
+        39901911369
+      ],
+      "self_check_runs": [
+        39901898089,
+        39901911369
+      ],
+      "docs_linkcheck_runs": [
+        39901898089,
+        39901911369
+      ],
+      "helm_runs": [
+        39901898089,
+        39901911369
+      ],
+      "invariants_runs": [
+        39901898003,
+        39901911354
+      ],
+      "lint_run": 39901911447,
+      "build_run": 39901911316,
+      "cpu_smoke_run": 39901911311,
+      "validate_run": 39901911377,
+      "result": "all distinct exact-candidate check names have a successful conclusion"
+    },
+    "federation_health": {
+      "latest_post_merge_scheduled_run_observed": true,
+      "scheduled_run_id": 39902569701,
+      "scheduled_run_attempt": 1,
+      "event_name": "schedule",
+      "scheduled_run_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "artifact_id": 12479127606,
+      "artifact_sha256": "3d27d122e9060a6e6521161e71149b32c0ba3203f88922cdc9525d6f403f64b3",
+      "execution_receipt": {
+        "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+        "workflow_run_id": 39902569701,
+        "event_name": "schedule",
+        "head_sha": "7a47004a30d41953436df4266d799b0cbb9d6973",
+        "ref": "refs/heads/main"
+      },
+      "report": {
+        "status": "stale",
+        "configured_nodes": 1,
+        "events_last_24_hours": 0,
+        "latest_event_at": "2025-06-05T16:25:13.805813Z",
+        "data_source": "configured local log snapshot; not live federation telemetry",
+        "live_telemetry": false
+      },
+      "app_publication": {
+        "job_status": "success",
+        "app_token_created": true,
+        "pull_request": 2672,
+        "changed_path": "docs/FEDERATION_HEALTH_EXECUTION.json",
+        "publication_status": "merged",
+        "merge_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb"
+      }
+    },
+    "post_merge_main_checks": {
+      "main_commit": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
+      "required_quality_gate_run": 39903045224,
+      "source_validation_docs_helm_self_check_run": 39903045227,
+      "invariants_run": 39903045237,
+      "cpu_smoke_run": 39903045282,
+      "build_runs": [
+        39903045217,
+        39903045251
+      ],
+      "deploy_run": 39903045251,
+      "result": "all post-merge main check names passed on the exact receipt-merged main commit"
+    }
+  },
+  "integration": {
+    "pull_request": 2671,
+    "merge_commit": "7a47004a30d41953436df4266d799b0cbb9d6973",
+    "tree": "4bdf7afc035585bc251ddf3b7bed7bf2f835ddab",
+    "first_parent": "e85508898c78cdaecfebc204ab19f7aed1a8bd4a",
+    "second_parent": "c83640375417c48ce8fb4865166e6755430f5bb1",
+    "merge_method": "normal merge",
+    "final_main": "63a6155c83c41b481f0274c877c1fc8fc803d4cb",
+    "scheduled_receipt_pr": 2672,
+    "scheduled_receipt_pr_merge": "63a6155c83c41b481f0274c877c1fc8fc803d4cb"
+  },
+  "scope": "Configuration input fault containment only. Does not authenticate peers, establish freshness, change Federation Health inputs, or enable production transitions."
+}
