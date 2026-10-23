@@ -1,0 +1,73 @@
+{
+  "sequence": 601,
+  "title": "Federation Health producer boundary and stable documentation verification",
+  "predecessor": {
+    "sequence": 600,
+    "sha256": "b0898fb957e8ee96f1bd8e3b6b028c6819ca407fc1feda766ee2201fc671db68"
+  },
+  "source": {
+    "candidate_commit": "a0b12586f83165bcbb68b15cf4ca9847c4a6dd28",
+    "candidate_tree": "a515d43ebf773062f8319423c91ddc580d2575e3",
+    "parent_main": "e27ef4e6922fb81b96c718118cbb0d3bf5a6e70d",
+    "changed_paths": [
+      "docs/architecture/fides_sentientos_comparative_invariant_audit.md"
+    ]
+  },
+  "validation": {
+    "exact_candidate_checks": {
+      "required_quality_gate": 39889620690,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation": "passed",
+      "self_check": "passed",
+      "docs_linkcheck": "passed on both exact-candidate workflow runs",
+      "helm": "passed",
+      "invariants": "passed",
+      "lint_matrix": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "result": "all exact-candidate hosted workflows passed"
+    },
+    "post_merge_main_checks": {
+      "main_commit": "0dfab59ceb53176a6a7586672bdbb0bf12866613",
+      "required_quality_gate_run": 39890804762,
+      "source_validation_self_check_docs_helm_run": 39890804743,
+      "invariants_run": 39890804789,
+      "build_and_deploy_run": 39890804803,
+      "cpu_smoke_run": 39890804755,
+      "result": "all post-merge main workflows passed"
+    },
+    "strict_docs_linkcheck_incident": {
+      "failed_post_merge_attempts": 3,
+      "endpoint": "https://www.microsoft.com/en-us/research/publication/securing-ai-agents-with-information-flow-control/",
+      "observed_failure": "HTTP 502 Bad Gateway",
+      "resolution": "retained the verified arXiv paper citation and removed the unstable publisher URL without weakening strict linkcheck"
+    },
+    "federation_health_source_review": {
+      "report_run_id": 39871453383,
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "report_source": "tracked local snapshot; not live telemetry",
+      "report_latest_event": "2025-06-05T16:25:13.805813Z",
+      "generator_input": "logs/federation_log.jsonl",
+      "generator_source_label": "configured_local_log_snapshot",
+      "live_telemetry": false,
+      "relay_output": "logs/federation_stream.jsonl",
+      "configured_peer_transport": "private .local HTTP endpoints",
+      "authenticated_bridge_verified": false,
+      "reachable_from_github_hosted_runner": false
+    }
+  },
+  "integration": {
+    "pull_request": 2659,
+    "merge_commit": "0dfab59ceb53176a6a7586672bdbb0bf12866613",
+    "tree": "a515d43ebf773062f8319423c91ddc580d2575e3",
+    "merge_method": "normal merge",
+    "first_parent": "e27ef4e6922fb81b96c718118cbb0d3bf5a6e70d",
+    "previous_evidence_merge_pr": 2658,
+    "previous_evidence_merge": "e27ef4e6922fb81b96c718118cbb0d3bf5a6e70d"
+  },
+  "scope": "Documentation reliability and architecture investigation only. No telemetry ingestion, production transition, model inference, campaign execution, or goal execution."
+}

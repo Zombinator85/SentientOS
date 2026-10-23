@@ -1,0 +1,11 @@
+# Sequence 601 — Federation Health producer boundary
+
+The Federation Health publisher now creates execution-bound report receipts through the repository-scoped GitHub App, and scheduled publication can land a report update. That verifies publication and hosted execution custody. It does not establish live federation telemetry: the generator reads `logs/federation_log.jsonl` through the configured local log path and labels the source `configured_local_log_snapshot`, with `live_telemetry: false`. The tracked snapshot’s latest event is 2025-06-05, so the report correctly remains stale.
+
+The privileged `scripts/federation_stream_relay.py` is not a usable authenticated producer for this workflow. It reads the configured `.local` peer URLs over plain HTTP, accepts JSON SSE payloads without an independent signature or freshness contract, and appends them to `logs/federation_stream.jsonl`. The health generator reads a different file, `logs/federation_log.jsonl`; no verified bridge between the relay stream and report input is present. Those private endpoints are not reachable from the GitHub-hosted runner. No live source was fabricated or inferred from successful publication.
+
+Post-merge strict documentation linkcheck exposed a separate flaky dependency: Microsoft Research’s publication URL returned HTTP 502 in three hosted attempts. PR #2659 retained the independently verified arXiv paper citation and removed that unstable publisher URL. The exact candidate changed only `docs/architecture/fides_sentientos_comparative_invariant_audit.md`; its full hosted matrix, strict Quality Gate, exact acceptance, hosted finalizer, separate metadata guard, source validation, docs, and lint passed. PR #2659 merged normally as `0dfab59ceb53176a6a7586672bdbb0bf12866613`, tree `a515d43ebf773062f8319423c91ddc580d2575e3`, with sequence 600 main `e27ef4e6922fb81b96c718118cbb0d3bf5a6e70d` as first parent.
+
+All post-merge checks on `0dfab59ceb53176a6a7586672bdbb0bf12866613` passed, including the Required Quality Gate with strict Administrator audits, exact acceptance, hosted finalizer, and separate metadata guard; source validation, self-check, docs/linkcheck, Helm, invariants, builds, CPU smoke, and deploy.
+
+Sequence: 601 (verified architecture investigation; no telemetry ingestion or production effect)
