@@ -117,6 +117,63 @@ def test_source_validation_runs_federation_peer_replay_owner_regressions():
         assert artifact in upload
 
 
+
+def test_source_validation_runs_authenticated_peer_health_bridge_regressions():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify authenticated Federation peer Health bridge regressions" in source_validation
+    nodes = (
+        "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied",
+        "tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence",
+        "tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence",
+        "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted",
+        "tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions",
+    )
+    for node in nodes:
+        assert node in source_validation
+    acceptance_nodes = (
+        "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[healthy]",
+        "tests/test_federation_peer_health_bridge.py::test_authenticated_fresh_peer_assertion_is_durable_and_authority_denied[unavailable]",
+        "tests/test_federation_peer_health_bridge.py::test_stale_peer_health_event_is_rejected_without_consuming_sequence",
+        "tests/test_federation_peer_health_bridge.py::test_future_peer_health_event_is_rejected_without_consuming_sequence",
+        "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unsupported_schema]",
+        "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[additional_fields]",
+        "tests/test_federation_peer_health_bridge.py::test_non_health_or_ambiguous_assertions_are_not_persisted[unknown_status]",
+        "tests/test_federation_peer_health_bridge.py::test_freshness_policy_and_clock_are_strictly_typed",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_authenticated_peer_health_bridge_regressions",
+    )
+    for node in acceptance_nodes:
+        assert node in source_validation
+    bridge = (ROOT / "sentientos/federation/peer_health_bridge.py").read_text()
+    assert "verify_federation_peer_event" in bridge
+    assert "owner.accept(" in bridge
+    assert "max_age_seconds=max_age_seconds" in bridge
+    for denial in (
+        "claim_truth_established: bool = False",
+        "local_health_publication_permitted: bool = False",
+        "work_admission_permitted: bool = False",
+        "planning_permitted: bool = False",
+        "execution_permitted: bool = False",
+        "decision_power: bool = False",
+    ):
+        assert denial in bridge
+    for forbidden in (
+        "requests", "socket", "urllib.request", "FederationHealth",
+        "federation_health_badge", "on_federation_window",
+    ):
+        assert forbidden not in bridge
+    assert "federation_peer_health_bridge_acceptance.json" in source_validation
+    assert "federation_peer_health_bridge_acceptance_result.json" in source_validation
+    upload = source_validation.split("- name: Upload canonical test evidence", 1)[1]
+    for artifact in (
+        "federation_peer_health_bridge_provenance.json",
+        "federation_peer_health_bridge_acceptance.json",
+        "federation_peer_health_bridge_acceptance_result.json",
+    ):
+        assert artifact in upload
+
+
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
