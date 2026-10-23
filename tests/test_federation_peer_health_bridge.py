@@ -186,6 +186,7 @@ def test_future_peer_health_event_is_rejected_without_consuming_sequence(tmp_pat
         ({"schema": PEER_HEALTH_EVENT_SCHEMA, "status": "unknown-ish"},
          "peer_health_status_invalid"),
     ],
+    ids=("unsupported_schema", "additional_fields", "unknown_status"),
 )
 def test_non_health_or_ambiguous_assertions_are_not_persisted(
     tmp_path, event, expected_code
