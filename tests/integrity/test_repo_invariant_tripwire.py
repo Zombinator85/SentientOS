@@ -179,6 +179,9 @@ FEDERATION_MODULE_ALLOWLIST = {
     "improvement_local_variant_artifact",
     # Provenance-only peer verification; no relay admission, Health publication, or execution.
     "peer_authentication",
+    # Immutable local replay custody for verified signed peer envelopes;
+    # grants no relay, Health, admission, planning, or execution authority.
+    "peer_replay_owner",
     "peer_trust_catalog",
     # Durable peer replay ownership derives sequence from local history and has no Health or execution route.
     "peer_replay_owner",
