@@ -1,0 +1,13 @@
+# Sequence 620 — Integrate sequence 620 and verify merged main
+
+Sequence 620 merged normally through PR #2694. Verified main is `fa603571ff392df775b699154df9246e578a0d73`, tree `dd7c6115d59b6f90b556864f6a7c935b9ead4bfc`. GitHub retained candidate `baa13f9cc905aed15d4aea379621019c6cddb578` as the second parent after prior main `bec349eadbdd18e8a43b4a90f343d90e8f4da0c9`.
+
+The source increment makes the Federation SSE relay reject duplicate JSON object keys at every nesting level, non-standard `NaN`/`Infinity` constants, and exponents that overflow to infinity. Outbound JSONL serialization uses `allow_nan=False`. It adds regressions for each malformed form and finite values, marks the relay suite for canonical selection, and binds the full suite into hosted source validation. It does not admit relay events into authenticated federation, Health, persistence, or execution paths.
+
+The exact candidate Quality Gate passed hosted Administrator strict audits, exact 47-node acceptance, pre-commit reconstruction, hosted PR finalization, and the separate pre-publication metadata guard. Finalizer artifact #12500030914 independently matched advertised SHA-256 `c093c1865a29a30505073a4fd321cb4fc19d040d817791914c64c46d730be59d`; both finalizer decisions and the metadata guard were ready with no reasons. Fresh PR checks passed on the candidate: QG #39948957062, CI #39948957073, Docker #39948957117, Codex CI #39948957161, invariants #39948957063, lint #39948957146, gradient #39948957103, release #39948957166, docs/linkcheck, Helm/Kubernetes, and self-check/pytest.
+
+The source-validation job ran 29 relay tests and its workflow contract. Its acceptance manifest bound nine required nodes, all passed, and the verifier returned `task_acceptance_ready` on merge ref `00290bf62ac0d1dc63f37df71dfcc347251cb51a`. The PR merge ref and main merge have identical first-parent diffs from `bec349eadbdd18e8a43b4a90f343d90e8f4da0c9`, confirming the tested tree was retained.
+
+At the 2026-10-23 11:55Z observation cutoff, the connected GitHub interface did not expose push-triggered post-merge workflow runs or commit-status entries for the main merge, so this record does not claim those checks passed. The last recorded scheduled Federation Health run in the prior sequence was #39936583192 on old source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; current scheduled-run state was not queryable through the connected interface.
+
+Next: close the peer replay snapshot filename boundary before adding a durable owner for authenticated peer sequence state. Keep local summary replay distinct from signed-event replay ownership, and keep authenticated events out of Health/admission until that owner and its custody contract are verified.
