@@ -14,6 +14,24 @@ import yaml
 
 CONFIG_PATH = Path("config/federation.yaml")
 LOG_PATH = Path("logs/federation_stream.jsonl")
+MAX_EVENT_BYTES = 64 * 1024
+
+
+def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
+    """Decode one bounded SSE event object without killing its relay worker."""
+    if not isinstance(line, bytes) or len(line) > MAX_EVENT_BYTES:
+        return None
+    if not line.startswith(b"data:"):
+        return None
+    try:
+        data = json.loads(line.split(b":", 1)[1].strip())
+    except (UnicodeDecodeError, ValueError, RecursionError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    data["source"] = source
+    return data
+
 
 def load_peers(config_path: Path = CONFIG_PATH) -> list[str]:
     """Return list of peer presence URLs from config."""
@@ -33,14 +51,11 @@ def relay_peer(url: str, log_path: Path = LOG_PATH) -> None:
             with requests.get(stream_url, stream=True, timeout=10) as resp:
                 resp.raise_for_status()
                 for line in resp.iter_lines():
-                    if not line or not line.startswith(b"data:"):
+                    if not line:
                         continue
-                    payload = line.split(b":", 1)[1].strip()
-                    try:
-                        data = json.loads(payload)
-                    except Exception:
+                    data = decode_event_line(line, url)
+                    if data is None:
                         continue
-                    data["source"] = url
                     log_path.parent.mkdir(parents=True, exist_ok=True)
                     with log_path.open("a", encoding="utf-8") as fh:
                         fh.write(json.dumps(data) + "\n")
