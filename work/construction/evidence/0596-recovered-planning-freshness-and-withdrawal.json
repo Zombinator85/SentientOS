@@ -1,0 +1,47 @@
+{
+  "sequence": 596,
+  "title": "Recovered canonical planning honors stale and withdrawn conclusions",
+  "predecessor": {
+    "sequence": 595,
+    "sha256": "8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f"
+  },
+  "source": {
+    "candidate_commit": "f825749e42def5bdc831becbfc3e97c6cc5a6aea",
+    "tree": "c334e2c0a225843910f1c8cb406b607d667fce0d",
+    "parent_main": "15904a75be16e45aab18d779172805f1fb7c8bf0"
+  },
+  "validation": {
+    "local_python_syntax_compilation": "passed",
+    "ci_run": 39876012702,
+    "ci_result": "success",
+    "full_pytest_suite": "passed",
+    "mypy_baseline_ratchet": "passed",
+    "fastapi_testclient_regression_set": "passed",
+    "integrated_resource_to_cognition_lifecycle": "passed",
+    "canonical_planning_execution_separation": "passed",
+    "required_quality_gate_run": 39876012648,
+    "strict_administrator_audits": "passed",
+    "exact_acceptance_binding": "passed",
+    "audit_immutability": "passed",
+    "hosted_finalizer": "passed",
+    "separate_metadata_guard": "passed",
+    "other_workflows": {
+      "release": 39876012682,
+      "codex_ci": 39876012971,
+      "gradient_null_regression": 39876012674,
+      "invariants": 39876012776,
+      "docker": 39876012703,
+      "lint_benchmark": 39876012733
+    },
+    "result": "all eight exact-candidate workflows passed"
+  },
+  "integration": {
+    "pull_request": 2649,
+    "method": "normal merge",
+    "merge_commit": "76c93596d4d714594d9dcac246e86f6943b015af",
+    "tree": "c334e2c0a225843910f1c8cb406b607d667fce0d",
+    "candidate_to_merge_files_changed": 0,
+    "first_parent": "15904a75be16e45aab18d779172805f1fb7c8bf0"
+  },
+  "scope": "After restart, stale-only support and an admitted withdrawal of the supported conclusion remain review-required; current exact-scope support restores eligibility; cross-model and adverse outcomes remain bounded. Planning produces no execution. The binding record remains immutable provenance; governed binding removal is an identified next dependency. No model inference or production transition."
+}

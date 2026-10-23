@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b3057bef61a1ed4cbae2d5892934d1816f71a17222d92cbe3ab41cf6b0146d9b",
-    "latest_segment_sequence": 595,
-    "latest_segment_sha256": "8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f",
-    "source_commit": "e33987f53a9e17a71f098cfa58fb0324353a3c05",
-    "source_tree": "2798dc0d71fe0ca0475be8d564884e813ef429d7"
+    "checkpoint_sha256": "46812abe0409c075b3534587f2103d336deb7dc8a3d4c064275bd3d457875bae",
+    "latest_segment_sequence": 596,
+    "latest_segment_sha256": "373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af",
+    "source_commit": "76c93596d4d714594d9dcac246e86f6943b015af",
+    "source_tree": "c334e2c0a225843910f1c8cb406b607d667fce0d"
   },
-  "checkpoint_sha256": "b3057bef61a1ed4cbae2d5892934d1816f71a17222d92cbe3ab41cf6b0146d9b",
+  "checkpoint_sha256": "46812abe0409c075b3534587f2103d336deb7dc8a3d4c064275bd3d457875bae",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 595,
+  "latest_sequence": 596,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6906,6 +6906,19 @@
       "source_candidate_commit": "28c4f199fdf84512bb055e0215e3b5ad4a392e32",
       "source_commit": "e33987f53a9e17a71f098cfa58fb0324353a3c05",
       "source_tree": "2798dc0d71fe0ca0475be8d564884e813ef429d7"
+    },
+    {
+      "sequence": 596,
+      "path": "work/construction/segments/0596-recovered-planning-freshness-and-withdrawal.md",
+      "sha256": "373300160452d8bd65d1d6a694c1399c379b5b7e4951d7a0c6e8113f148bc2af",
+      "bytes": 2523,
+      "predecessor": "segment-sha256:8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f",
+      "evidence_path": "work/construction/evidence/0596-recovered-planning-freshness-and-withdrawal.json",
+      "evidence_sha256": "3a7d440b3b7cb07f70940efb6bcaf2c7a550658c3bb9c28417094611815e59ea",
+      "evidence_bytes": 2062,
+      "source_candidate_commit": "f825749e42def5bdc831becbfc3e97c6cc5a6aea",
+      "source_commit": "76c93596d4d714594d9dcac246e86f6943b015af",
+      "source_tree": "c334e2c0a225843910f1c8cb406b607d667fce0d"
     }
   ],
   "source_acquisition": {
