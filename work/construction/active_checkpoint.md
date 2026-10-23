@@ -1,6 +1,21 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 627
+## Current verified state — sequence 628
+
+Sequence 628 rejects RFC 3339 `-00:00` timestamps as freshness evidence because that offset is explicitly unknown. It keeps legacy naive timestamps from the local repository logger interpreted as UTC and preserves Federation Health's existing local-snapshot output and no-live-telemetry boundary.
+
+Latest verified source main: `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b`, tree `3faa102f92bad5d542c39a7aeaf397e430005b8b`
+Current main at this checkpoint: `cc2d98665a191c31ef0e0ccddccbe422ed18d267`, tree `1047f05ef12c41891682ad1ea04eb3339a51c6c2`
+Latest construction segment: `work/construction/segments/0628-integrate-sequence-628-unknown-federation-health-offset.md`
+Latest segment SHA-256: `8c54b0a7feb7187e316204d52f721463de6fa33286abedaa26d498c29ef7808c`
+Sequence: 628 (unknown Federation Health timestamp offset)
+
+PR #2712 candidate `90e0ec864960a4b4534f6dde1a2378779ae36caf` merged normally as `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b`. Exact-candidate Administrator Quality Gate and separate metadata guard passed; source validation exercised the unknown-offset acceptance regression, full CI, Mypy/pytest, docs, Helm/Kubernetes, build, invariants, and CPU smoke passed. All applicable post-merge source-main checks passed.
+
+The post-merge Federation Health run #39990963059 on `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b` passed hosted Administrator preflight, report generation, and receipt binding. It accurately reports a stale configured local snapshot with one node, zero recent events, and latest local event `2025-06-05T16:25:13.805813Z`; it does not claim live telemetry. App-published receipt PR #2713 changed only `docs/FEDERATION_HEALTH_EXECUTION.json`, passed its exact-candidate gate and metadata guard, and merged normally as `cc2d98665a191c31ef0e0ccddccbe422ed18d267`.
+
+## Verified history — sequence 627
+
 
 Sequence 627 bounds and hardens parsing of the configured local Federation Health JSONL snapshot while retaining the report's existing schema, local-only source label, and `live_telemetry: false`. Oversized, ambiguous, non-finite, excessively large integer, and recursive records are skipped without losing later valid rows.
 

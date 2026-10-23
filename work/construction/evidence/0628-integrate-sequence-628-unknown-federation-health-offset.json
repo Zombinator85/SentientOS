@@ -1,0 +1,101 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 628,
+  "title": "Integrate sequence 628: reject unknown Federation Health timestamp offsets",
+  "predecessor": "segment-sha256:e24bc43344ec3f921bcaeac82ec17771a1a2814b27f7c4e0a5707c214d363b16",
+  "source": {
+    "pull_request": 2712,
+    "candidate_commit": "90e0ec864960a4b4534f6dde1a2378779ae36caf",
+    "candidate_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b",
+    "parent_main": "769bcc2201a2b42eb793ab378b3567e1dde9075c",
+    "source_merge": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+    "final_source_main": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+    "final_source_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Reject RFC 3339 unknown-offset timestamps as freshness evidence while retaining legacy naive-UTC local-log entries."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate_run": 39990260982,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39991023817,
+      "source_validation": "passed",
+      "unknown_offset_acceptance": "passed",
+      "same_sha_push_ci": 39991017967,
+      "invariants": 39991023756,
+      "cpu_smoke": 39991023806,
+      "lint": 39991023800,
+      "build": 39991023734,
+      "validation": 39991023822,
+      "gradient": 39991023811,
+      "result": "all applicable exact-candidate checks passed"
+    },
+    "post_merge_source_main": {
+      "commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+      "tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b",
+      "quality_gate": 39990963499,
+      "ci": 39990963274,
+      "source_validation": "passed",
+      "self_check": 39990963274,
+      "invariants": 39990962917,
+      "docs_and_linkcheck": 39990963274,
+      "helm_k8s": 39990963274,
+      "cpu_smoke": 39990963208,
+      "deployment": 39990963068,
+      "nightly_self_check": 39990963171,
+      "forge_smoke": {
+        "run": 39990963154,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable post-merge source checks passed",
+      "docker_image": 39990963150
+    },
+    "federation_health_execution": {
+      "run": 39990963059,
+      "source_commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+      "event": "push",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "run_receipt": "passed",
+      "report_status": "stale",
+      "configured_nodes": 1,
+      "recent_events_24h": 0,
+      "latest_local_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false,
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c"
+    },
+    "health_receipt_publication": {
+      "pull_request": 2713,
+      "candidate_commit": "02ea391abb16e7f30aace25b54377bad7b856200",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "exact_candidate_quality_gate": 39991023953,
+      "exact_candidate_ci": 39991023817,
+      "exact_candidate_source_validation": "passed",
+      "exact_candidate_self_check": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "merge_commit": "cc2d98665a191c31ef0e0ccddccbe422ed18d267",
+      "current_main_before_sequence_evidence": "cc2d98665a191c31ef0e0ccddccbe422ed18d267",
+      "current_main_tree_before_sequence_evidence": "1047f05ef12c41891682ad1ea04eb3339a51c6c2",
+      "result": "Health execution receipt was verified and merged normally"
+    }
+  },
+  "construction": {
+    "timestamp_interpretation": "the RFC 3339 -00:00 marker is unknown offset, not UTC",
+    "legacy_timestamp_policy": "naive timestamps emitted by the repository logger continue to be interpreted as UTC",
+    "rejected_event_use": "unknown-offset timestamps do not update freshness or recent-event calculations",
+    "source_authority": "read-only configured local log snapshot",
+    "boundary": "no live Federation telemetry, remote peer claims, admission, planning, execution, or decision authority",
+    "prior_evidence_preserved": true
+  }
+}
