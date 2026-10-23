@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "f64684b9edf3ebc79d094a1fa75d4c43a158cbe6eadccb2ecb19683e548bb6ca",
-    "latest_segment_sequence": 594,
-    "latest_segment_sha256": "a907a00fbda14eee93c5f6e085e9fde23b6248ff11099e4a20ff584a2e593bc5",
-    "source_commit": "c79b84f7fcaf1ab484cd7157f61666edf9016e45",
-    "source_tree": "4231ebb733ed10ebdffeb573670197e3e7c90b45"
+    "checkpoint_sha256": "b3057bef61a1ed4cbae2d5892934d1816f71a17222d92cbe3ab41cf6b0146d9b",
+    "latest_segment_sequence": 595,
+    "latest_segment_sha256": "8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f",
+    "source_commit": "e33987f53a9e17a71f098cfa58fb0324353a3c05",
+    "source_tree": "2798dc0d71fe0ca0475be8d564884e813ef429d7"
   },
-  "checkpoint_sha256": "f64684b9edf3ebc79d094a1fa75d4c43a158cbe6eadccb2ecb19683e548bb6ca",
+  "checkpoint_sha256": "b3057bef61a1ed4cbae2d5892934d1816f71a17222d92cbe3ab41cf6b0146d9b",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 594,
+  "latest_sequence": 595,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6893,6 +6893,19 @@
       "source_candidate_commit": "9edb578344eebb85f96ae64ea7168fb690e4c6d3",
       "source_commit": "c79b84f7fcaf1ab484cd7157f61666edf9016e45",
       "source_tree": "4231ebb733ed10ebdffeb573670197e3e7c90b45"
+    },
+    {
+      "sequence": 595,
+      "path": "work/construction/segments/0595-denied-evidence-mutation-leaves-no-recovered-state.md",
+      "sha256": "8d9d1e839254d5185da4110dca1176b0c9b79ae313f6284793e712e951e2d79f",
+      "bytes": 1922,
+      "predecessor": "segment-sha256:a907a00fbda14eee93c5f6e085e9fde23b6248ff11099e4a20ff584a2e593bc5",
+      "evidence_path": "work/construction/evidence/0595-denied-evidence-mutation-leaves-no-recovered-state.json",
+      "evidence_sha256": "8b21dcee3e1067f5ad8f2226a68ec8e91a75e71e49ab186b21d5e2271bcade1a",
+      "evidence_bytes": 1722,
+      "source_candidate_commit": "28c4f199fdf84512bb055e0215e3b5ad4a392e32",
+      "source_commit": "e33987f53a9e17a71f098cfa58fb0324353a3c05",
+      "source_tree": "2798dc0d71fe0ca0475be8d564884e813ef429d7"
     }
   ],
   "source_acquisition": {
