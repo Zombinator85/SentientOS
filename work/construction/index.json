@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "92529a96d3f0c7bcbc50dfaccb38a6d7034a0b48b6cc0d4afc19286e9b65567c",
-    "latest_segment_sequence": 608,
-    "latest_segment_sha256": "6b636be1082503f688e9cadee604bd3d9ddf483ca08d0bbb82625fcdb909aa15",
-    "source_commit": "ef1b2539fdfb6e993eaa99d4ee4c829f6f944293",
-    "source_tree": "ddf9272772b36dc82678b0bff76d7a627515c3ab"
+    "checkpoint_sha256": "cf0d2bcf32c104c59940e44ce324a24b28f04a194ae6d2f70b5bcc7bfef4d2f8",
+    "latest_segment_sequence": 609,
+    "latest_segment_sha256": "b1de5f5b31eac25649fe031df146cfbb733114424f759992cfc6b840af99b0d0",
+    "source_commit": "9971c16dcc3e184958419f830aff339d645d6f20",
+    "source_tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde"
   },
-  "checkpoint_sha256": "92529a96d3f0c7bcbc50dfaccb38a6d7034a0b48b6cc0d4afc19286e9b65567c",
+  "checkpoint_sha256": "cf0d2bcf32c104c59940e44ce324a24b28f04a194ae6d2f70b5bcc7bfef4d2f8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 608,
+  "latest_sequence": 609,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7075,6 +7075,19 @@
       "source_candidate_commit": "da7f32a29988847e0b94430afe2d4ddebfc5bcf8",
       "source_commit": "ef1b2539fdfb6e993eaa99d4ee4c829f6f944293",
       "source_tree": "ddf9272772b36dc82678b0bff76d7a627515c3ab"
+    },
+    {
+      "sequence": 609,
+      "path": "work/construction/segments/0609-incremental-stream-truncation-recovery.md",
+      "sha256": "b1de5f5b31eac25649fe031df146cfbb733114424f759992cfc6b840af99b0d0",
+      "bytes": 2509,
+      "predecessor": "segment-sha256:6b636be1082503f688e9cadee604bd3d9ddf483ca08d0bbb82625fcdb909aa15",
+      "evidence_path": "work/construction/evidence/0609-incremental-stream-truncation-recovery.json",
+      "evidence_sha256": "b53dcc8c0ea5d7f6b2b2af26064bb9a196d2bfaeb56809a3489bbb790b97c9cf",
+      "evidence_bytes": 4222,
+      "source_candidate_commit": "af43bc7ddc5d575720e90f669887d2b37b391f0a",
+      "source_commit": "9971c16dcc3e184958419f830aff339d645d6f20",
+      "source_tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde"
     }
   ],
   "source_acquisition": {
@@ -7084,7 +7097,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "ddf9272772b36dc82678b0bff76d7a627515c3ab",
+  "source_tree": "f6201ff99694da8b26f01c36d3ea07acbc3e7fde",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
