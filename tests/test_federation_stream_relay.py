@@ -35,7 +35,6 @@ def test_decode_event_line_skips_non_object_and_malformed_json(relay, payload):
     assert relay.decode_event_line(b"data: " + payload, "http://peer.local/presence") is None
 
 
-
 @pytest.mark.parametrize(
     "payload",
     [
@@ -52,13 +51,11 @@ def test_decode_event_line_rejects_ambiguous_or_nonstandard_json(relay, payload)
     assert relay.decode_event_line(b"data: " + payload, "http://peer.local") is None
 
 
-
 def test_decode_event_line_accepts_finite_float(relay):
     assert relay.decode_event_line(
         b'data: {"measurement":1.25e2}',
         "http://peer.local",
     ) == {"measurement": 125.0, "source": "http://peer.local"}
-
 
 
 def test_decode_event_line_accepts_object_and_binds_configured_source(relay):
