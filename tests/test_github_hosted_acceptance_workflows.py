@@ -14,10 +14,11 @@ def test_source_validation_runs_federation_health_freshness_regression():
         "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines",
         "tests/test_federation_health_badge.py::test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc",
         "tests/test_federation_health_badge.py::test_compute_health_handles_positive_window_beyond_timedelta_range",
+        "tests/test_federation_health_badge.py::test_compute_health_bounds_total_snapshot_and_reports_omitted_prefix",
         "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
         "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression",
     )
-    assert "- name: Verify Federation Health freshness, timestamps, bounded parsing, and large-window arithmetic" in source_validation
+    assert "- name: Verify Federation Health freshness, bounded snapshot coverage, timestamps, and arithmetic" in source_validation
     for node in nodes:
         assert node in source_validation
     assert "federation_health_acceptance.json" in source_validation
@@ -30,6 +31,12 @@ def test_source_validation_runs_federation_health_freshness_regression():
     assert 'ts.endswith("-00:00")' in source
     assert "except OverflowError:" in source
     assert "datetime.min.replace(tzinfo=timezone.utc)" in source
+    assert "MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024" in source
+    assert "os.fstat(log_file.fileno()).st_size" in source
+    assert "_discard_to_line_boundary" in source
+    assert "snapshot_coverage_complete" in source
+    assert "omitted_prefix_bytes" in source
+    assert "oversized_records_omitted" in source
 
 
 def test_source_validation_runs_federation_relay_json_regressions():

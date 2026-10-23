@@ -3,6 +3,7 @@ from logging_config import get_log_path
 
 import argparse
 import json
+import os
 from math import isfinite
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -16,21 +17,41 @@ require_lumos_approval()
 
 LOG_PATH = get_log_path("federation_log.jsonl")
 
-# Federation Health is a bounded local snapshot reader. These limits apply to
-# each independent JSONL record; they do not change the log or its writer.
+# Federation Health is a bounded local snapshot reader. These limits do not
+# change the log or its writer.
 MAX_RECORD_BYTES = 64 * 1024
+MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024
 MAX_JSON_INTEGER_DIGITS = 128
 
 
-def _bounded_lines(log_file: BinaryIO) -> Iterator[bytes]:
-    """Yield complete log records only when they fit the per-record byte bound."""
-    while True:
-        raw_line = log_file.readline(MAX_RECORD_BYTES + 1)
+def _discard_to_line_boundary(log_file: BinaryIO, *, byte_limit: int) -> int:
+    """Discard the partial first record in a bounded tail snapshot."""
+    discarded = 0
+    remaining = byte_limit
+    while remaining > 0:
+        chunk = log_file.readline(min(MAX_RECORD_BYTES + 1, remaining))
+        if not chunk:
+            break
+        discarded += len(chunk)
+        remaining -= len(chunk)
+        if chunk.endswith(b"\n"):
+            break
+    return discarded
+
+
+def _bounded_lines(log_file: BinaryIO, *, byte_limit: int) -> Iterator[bytes | None]:
+    """Yield bounded records; None marks a skipped overlong record."""
+    remaining = byte_limit
+    while remaining > 0:
+        raw_line = log_file.readline(min(MAX_RECORD_BYTES + 1, remaining))
         if not raw_line:
             return
+        remaining -= len(raw_line)
         if len(raw_line) > MAX_RECORD_BYTES:
-            while raw_line and not raw_line.endswith(b"\n"):
-                raw_line = log_file.readline(MAX_RECORD_BYTES + 1)
+            while raw_line and not raw_line.endswith(b"\n") and remaining > 0:
+                raw_line = log_file.readline(min(MAX_RECORD_BYTES + 1, remaining))
+                remaining -= len(raw_line)
+            yield None
             continue
         yield raw_line
 
@@ -76,6 +97,9 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             "window_hours": hours,
             "latest_event_at": None,
             "live_telemetry": False,
+            "snapshot_coverage_complete": None,
+            "omitted_prefix_bytes": 0,
+            "oversized_records_omitted": 0,
         }
     now = datetime.now(timezone.utc)
     try:
@@ -87,7 +111,25 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     recent = 0
     latest_event_at: datetime | None = None
     with LOG_PATH.open("rb") as log_file:
-        for raw_line in _bounded_lines(log_file):
+        file_size = os.fstat(log_file.fileno()).st_size
+        scan_start = max(0, file_size - MAX_SNAPSHOT_BYTES)
+        omitted_prefix_bytes = scan_start
+        if scan_start:
+            log_file.seek(scan_start - 1)
+            previous_byte = log_file.read(1)
+            log_file.seek(scan_start)
+            if previous_byte != b"\n":
+                discarded = _discard_to_line_boundary(
+                    log_file, byte_limit=MAX_SNAPSHOT_BYTES
+                )
+                omitted_prefix_bytes += discarded
+                scan_start += discarded
+        bytes_to_read = max(0, file_size - scan_start)
+        oversized_records_omitted = 0
+        for raw_line in _bounded_lines(log_file, byte_limit=bytes_to_read):
+            if raw_line is None:
+                oversized_records_omitted += 1
+                continue
             try:
                 line = raw_line.decode("utf-8")
             except UnicodeDecodeError:
@@ -128,7 +170,12 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
                         recent += 1
             except (TypeError, ValueError):
                 continue
-    if recent > 0:
+    snapshot_coverage_complete = (
+        omitted_prefix_bytes == 0 and oversized_records_omitted == 0
+    )
+    if not snapshot_coverage_complete:
+        status = "partial"
+    elif recent > 0:
         status = "healthy"
     elif latest_event_at is not None and latest_event_at < cutoff:
         status = "stale"
@@ -147,6 +194,9 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
         "window_hours": hours,
         "latest_event_at": latest,
         "live_telemetry": False,
+        "snapshot_coverage_complete": snapshot_coverage_complete,
+        "omitted_prefix_bytes": omitted_prefix_bytes,
+        "oversized_records_omitted": oversized_records_omitted,
     }
 
 
@@ -156,11 +206,22 @@ def main() -> None:  # pragma: no cover - CLI
     ap.add_argument("--output", type=Path, default=Path("docs/FEDERATION_HEALTH.md"))
     args = ap.parse_args()
     stats = compute_health(args.hours)
+    coverage_complete = stats["snapshot_coverage_complete"]
+    if coverage_complete is None:
+        coverage = "unavailable (no configured local log)"
+    else:
+        coverage_status = "complete" if coverage_complete else "partial"
+        coverage = (
+            f"{coverage_status}; omitted oldest-prefix bytes: "
+            f"{stats['omitted_prefix_bytes']}; oversized records skipped: "
+            f"{stats['oversized_records_omitted']}"
+        )
     content = (
         "# Federation Health\n\n"
         f"- Nodes in configured log: {stats['nodes']}\n"
         f"- Events in last {stats['window_hours']} hours: {stats['recent']}\n"
         f"- Latest event in log: {stats['latest_event_at'] or 'none'}\n"
+        f"- Snapshot byte coverage: {coverage}\n"
         "- Data source: configured local log snapshot (not live federation telemetry)\n"
         f"- Status: {stats['status']}\n"
     )
