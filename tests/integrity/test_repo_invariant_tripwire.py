@@ -177,6 +177,8 @@ FEDERATION_MODULE_ALLOWLIST = {
     "improvement_intake_receipt",
     "improvement_lineage_comparison_receipt",
     "improvement_local_variant_artifact",
+    # Authenticated freshness-bounded peer Health projection; reports no local Health state or authority.
+    "peer_health_bridge",
     # Provenance-only peer verification; no relay admission, Health publication, or execution.
     "peer_authentication",
     # Immutable local replay custody for verified signed peer envelopes;
