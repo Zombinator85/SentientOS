@@ -1,6 +1,22 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 628
+## Current verified state — sequence 629
+
+Sequence 629 integrates the normal merge and exact-main verification of sequence 628's unknown Federation Health timestamp-offset correction. It preserves the exact candidate, all prior construction evidence, and the source-to-verification bindings.
+
+Latest verified source main: `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b`, tree `3faa102f92bad5d542c39a7aeaf397e430005b8b`
+Current main at this checkpoint: `754e790fc8dc04dc293a301f32a6c5e79e07cecb`, tree `0ebcf2b0b94880d80542414826484cf7c74e54ec`
+Latest construction segment: `work/construction/segments/0629-integrate-sequence-628-main-verification.md`
+Latest segment SHA-256: `d251a8c2adab460d675746018872915ea85d56e54995bd9ee32daa54f13ebe46`
+Sequence: 629 (integrate sequence 628 main verification)
+
+PR #2714 candidate `6b098a18493501e1005122b443218c4b6eb18475` merged normally as `754e790fc8dc04dc293a301f32a6c5e79e07cecb`. Its exact-candidate Quality Gate, strict Administrator audits, acceptance binding, landing finalizer, separate metadata guard, CI, source validation, docs linkcheck, Docker, invariants, lint, build, and gradient checks passed. Post-merge main Quality Gate, CI/source validation, docs linkcheck, Docker, deployment, invariants, and Codex CI passed; Forge Smoke was skipped by its workflow condition.
+
+The most recent substantive source remains the sequence 628 correction in `36458e4c5e3724f1e642b53ca4160cf24eb7ab4b`. Federation Health's report continues to describe its configured local snapshot only; no new telemetry or authority was added.
+
+## Verified history — sequence 628
+
+## Verified history — sequence 628
 
 Sequence 628 rejects RFC 3339 `-00:00` timestamps as freshness evidence because that offset is explicitly unknown. It keeps legacy naive timestamps from the local repository logger interpreted as UTC and preserves Federation Health's existing local-snapshot output and no-live-telemetry boundary.
 

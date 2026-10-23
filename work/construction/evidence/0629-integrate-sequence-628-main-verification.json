@@ -1,0 +1,76 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 629,
+  "title": "Integrate sequence 628: exact-main verification",
+  "predecessor": "segment-sha256:8c54b0a7feb7187e316204d52f721463de6fa33286abedaa26d498c29ef7808c",
+  "source": {
+    "pull_request": 2714,
+    "candidate_commit": "6b098a18493501e1005122b443218c4b6eb18475",
+    "candidate_tree": "0ebcf2b0b94880d80542414826484cf7c74e54ec",
+    "parent_main": "cc2d98665a191c31ef0e0ccddccbe422ed18d267",
+    "merge_commit": "754e790fc8dc04dc293a301f32a6c5e79e07cecb",
+    "final_main": "754e790fc8dc04dc293a301f32a6c5e79e07cecb",
+    "final_tree": "0ebcf2b0b94880d80542414826484cf7c74e54ec",
+    "source_main": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+    "source_tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0628-integrate-sequence-628-unknown-federation-health-offset.json",
+      "work/construction/index.json",
+      "work/construction/segments/0628-integrate-sequence-628-unknown-federation-health-offset.md"
+    ]
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate": 39992447103,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "pr_ci": 39992447282,
+      "same_sha_push_ci": 39992427657,
+      "invariants": 39992447163,
+      "docker_image": 39992447224,
+      "lint_benchmark": 39992447213,
+      "codex_ci": 39992447124,
+      "release": 39992447113,
+      "gradient_null_regression": 39992447266,
+      "result": "all applicable exact-candidate checks passed"
+    },
+    "post_merge_main": {
+      "commit": "754e790fc8dc04dc293a301f32a6c5e79e07cecb",
+      "tree": "0ebcf2b0b94880d80542414826484cf7c74e54ec",
+      "quality_gate": 39993950616,
+      "ci": 39993950777,
+      "invariants": 39993950624,
+      "docker_image": 39993950531,
+      "codex_ci": 39993950571,
+      "docs_deploy": 39993950748,
+      "forge_smoke": {
+        "run": 39993950906,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "ci_coverage": [
+        "source-validation and construction custody",
+        "integrated resource-to-cognition lifecycle",
+        "canonical planning/execution separation",
+        "Federation Health timestamp and bounded JSON acceptance",
+        "Mypy and pytest",
+        "documentation linkcheck",
+        "Helm/Kubernetes"
+      ],
+      "result": "all applicable post-merge main checks passed"
+    },
+    "source_change": {
+      "commit": "36458e4c5e3724f1e642b53ca4160cf24eb7ab4b",
+      "tree": "3faa102f92bad5d542c39a7aeaf397e430005b8b",
+      "result": "sequence 629 integrates verification evidence only; no source files changed"
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "merge_history_preserved": true,
+    "authority_boundaries_preserved": true
+  }
+}
