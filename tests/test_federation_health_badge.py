@@ -247,3 +247,68 @@ def test_compute_health_skips_invalid_utf8_record_without_losing_valid_rows(
     assert stats["nodes"] == 2
     assert stats["recent"] == 2
     assert stats["status"] == "healthy"
+
+
+
+@pytest.mark.no_legacy_skip
+def test_compute_health_skips_ambiguous_or_resource_heavy_json_lines(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    now = datetime.now(timezone.utc).isoformat()
+    records = [
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"duplicate-first"},"data":{"peer":"duplicate-last"}}'
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"nested"},"extra":{"state":{"value":1,"value":2}}}'
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"nan"},"extra":NaN}'
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"overflow-float"},"extra":1e9999}'
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"oversized-integer"},"extra":'
+            + "9" * (health_badge.MAX_JSON_INTEGER_DIGITS + 1)
+            + "}"
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"deep"},"extra":'
+            + "[" * 2000
+            + "0"
+            + "]" * 2000
+            + "}"
+        ),
+        (
+            '{"timestamp":'
+            + json.dumps(now)
+            + ',"data":{"peer":"overlong"},"padding":"'
+            + "x" * health_badge.MAX_RECORD_BYTES
+            + '"}'
+        ),
+        json.dumps({"timestamp": now, "data": {"peer": "valid-after-invalid"}}),
+    ]
+    log_path.write_text("\n".join(records) + "\n", encoding="utf-8")
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+
+    assert stats["nodes"] == 1
+    assert stats["recent"] == 1
+    assert stats["status"] == "healthy"
+    assert stats["latest_event_at"] == now.replace("+00:00", "Z")
+    assert stats["live_telemetry"] is False

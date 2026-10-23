@@ -11,14 +11,20 @@ def test_source_validation_runs_federation_health_freshness_regression():
     source_validation = workflow.split("\n  self-check:", 1)[0]
     nodes = (
         "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window",
+        "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines",
         "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
         "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression",
     )
-    assert "- name: Verify Federation Health snapshot freshness" in source_validation
+    assert "- name: Verify Federation Health snapshot freshness and bounded JSON parsing" in source_validation
     for node in nodes:
         assert node in source_validation
     assert "federation_health_acceptance.json" in source_validation
     assert "federation_health_acceptance_result.json" in source_validation
+    source = (ROOT / "federation_health_badge.py").read_text()
+    assert "MAX_RECORD_BYTES = 64 * 1024" in source
+    assert "object_pairs_hook=_reject_duplicate_json_keys" in source
+    assert "parse_float=_parse_finite_json_float" in source
+    assert "parse_constant=_reject_json_constant" in source
 
 
 def test_source_validation_runs_federation_relay_json_regressions():
