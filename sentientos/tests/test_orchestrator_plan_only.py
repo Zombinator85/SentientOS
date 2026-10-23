@@ -1643,8 +1643,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     # An admitted withdrawal of the supported conclusion is durable. The
     # immutable source remains available as provenance, but cannot preserve a
     # favorable planning posture after recovery.
-    withdrawn = update(stance="unknown", binding_ids=(support.binding_id,),
-        added_binding_ids=(), tick=5, recorded_at="2026-10-16T09:07:00Z",
+    withdrawn = update(stance="unknown", binding_ids=(), added_binding_ids=(),
+        tick=5, recorded_at="2026-10-16T09:07:00Z",
         reason="evidence_withdrawal")
     withdrawn_plan = recover_and_plan("2026-10-16T09:08:00Z")
     assert withdrawn_plan.work_plan is None
@@ -1656,8 +1656,14 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     withdrawn_position = withdrawn_artifact["deferred_goals"][0]["epistemic_positions"][0]
     assert withdrawn_position["posture"] == "review_required"
     assert withdrawn_position["identity"]["state_id"] == withdrawn.successor_state_id
-    assert withdrawn_position["identity"]["supporting_binding_ids"] == [
-        support.binding_id]
+    assert withdrawn_position["identity"]["supporting_binding_ids"] == []
     assert withdrawn_position["identity"]["contradicting_binding_ids"] == []
+    assert owner.active_binding_ids(proposition.proposition_id) == ()
+    assert {item.binding_id for item in owner.bindings(proposition.proposition_id)} == {
+        stale_support.binding_id, support.binding_id, adverse.binding_id}
+    withdrawal_event = owner.update_events(proposition.proposition_id)[-1]
+    assert withdrawal_event.reason == "evidence_withdrawal"
+    assert set(withdrawal_event.removed_binding_ids) == {
+        support.binding_id, adverse.binding_id}
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
 

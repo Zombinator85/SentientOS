@@ -632,7 +632,9 @@ def make_epistemic_update_candidate(**kwargs: Any) -> EpistemicUpdateCandidate:
     elif (raw.model_id is not None or raw.proposer_kind != "deterministic_rule"
           or not raw.proposer_id or len(raw.proposer_id) > 256):
         raise EpistemicStateError("epistemic_candidate_shape_invalid")
-    if raw.reason != "initialization" and not raw.evidence_binding_ids:
+    if (not raw.evidence_binding_ids and raw.reason != "initialization"
+            and not (raw.reason == "evidence_withdrawal"
+                     and raw.proposed_stance == "unknown")):
         raise EpistemicStateError("epistemic_candidate_evidence_required")
     _authority(raw.authority)
     candidate_id, _ = _identity("epistemic-candidate", raw.payload())
