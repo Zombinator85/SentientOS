@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "51ceff62791345a99edb62376c31c4b7d5ccecd08dc5db9e86002192afe8c8cc",
-    "latest_segment_sequence": 630,
-    "latest_segment_sha256": "c63fda2330a1e3ec00c486ade8c508c43988156c28b85c79115d3cdf868fe1d7",
-    "source_commit": "04a37791013b598241a5204525d18a542d2281cd",
-    "source_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9"
+    "checkpoint_sha256": "7e6c9f0731564013ab68ad444ca9193f429a31ac484c49ff73763bcd3e3f02de",
+    "latest_segment_sequence": 631,
+    "latest_segment_sha256": "e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309",
+    "source_commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
+    "source_tree": "1244a039c332c6cb58a5106699b6dcb8104c0371"
   },
-  "checkpoint_sha256": "51ceff62791345a99edb62376c31c4b7d5ccecd08dc5db9e86002192afe8c8cc",
+  "checkpoint_sha256": "7e6c9f0731564013ab68ad444ca9193f429a31ac484c49ff73763bcd3e3f02de",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 630,
+  "latest_sequence": 631,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7361,6 +7361,19 @@
       "source_candidate_commit": "dac402df86d518cf7048924e28e7aeaa2e355871",
       "source_commit": "04a37791013b598241a5204525d18a542d2281cd",
       "source_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9"
+    },
+    {
+      "sequence": 631,
+      "path": "work/construction/segments/0631-integrate-bounded-federation-health-snapshot.md",
+      "sha256": "e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309",
+      "bytes": 3260,
+      "predecessor": "segment-sha256:c63fda2330a1e3ec00c486ade8c508c43988156c28b85c79115d3cdf868fe1d7",
+      "evidence_path": "work/construction/evidence/0631-integrate-bounded-federation-health-snapshot.json",
+      "evidence_sha256": "3c09b789e6c2dda99c41f5356dc1f3e24f591c93c1c22c8998c650aef1adf667",
+      "evidence_bytes": 3646,
+      "source_candidate_commit": "594a6ae5960b804d019e60dbbecad62ed3807828",
+      "source_commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
+      "source_tree": "1244a039c332c6cb58a5106699b6dcb8104c0371"
     }
   ],
   "source_acquisition": {

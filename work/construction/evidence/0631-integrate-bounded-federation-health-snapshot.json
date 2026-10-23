@@ -1,0 +1,97 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 631,
+  "title": "Integrate sequence 631: bounded Federation Health snapshot and push execution receipt",
+  "predecessor": "segment-sha256:c63fda2330a1e3ec00c486ade8c508c43988156c28b85c79115d3cdf868fe1d7",
+  "source": {
+    "pull_request": 2720,
+    "candidate_commit": "594a6ae5960b804d019e60dbbecad62ed3807828",
+    "parent_main": "e87d81fb2fe2e63650e3f347f0bb6bcc84f2eed5",
+    "source_merge": "a5d41eea9ae64ce44e475033dbf2956585103478",
+    "source_tree": "93cfa838cbd59b8e3541c0ea64461916fcc736c1",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Bound local Federation Health snapshot tail and record lengths; surface omitted prefix and overlong rows without granting telemetry authority"
+  },
+  "validation": {
+    "source_candidate": {
+      "quality_gate": 40003011984,
+      "ci": 40003012167,
+      "invariants": 40003012182,
+      "docker": 40003011939,
+      "codex_ci": 40003011975,
+      "lint": 40003012235,
+      "release": 40003012032,
+      "gradient": 40003012154,
+      "all_checks": "passed"
+    },
+    "source_main": {
+      "commit": "a5d41eea9ae64ce44e475033dbf2956585103478",
+      "tree": "93cfa838cbd59b8e3541c0ea64461916fcc736c1",
+      "quality_gate": 40004661051,
+      "ci": 40004661014,
+      "invariants": 40004660828,
+      "docker": 40004660920,
+      "codex_ci": 40004660710,
+      "docs_deploy": 40004660934,
+      "nightly_self_check": 40004660752,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed"
+    },
+    "federation_health_execution": {
+      "run": 40004661027,
+      "event": "push",
+      "source_commit": "a5d41eea9ae64ce44e475033dbf2956585103478",
+      "conclusion": "success",
+      "administrator_preflight": "passed",
+      "generator": "completed_successfully",
+      "receipt_bound": true,
+      "report_sha256": "8e1f7a49f3153b3c65d411970cf91cc4e86ef031c005e152be0af5eda602710d",
+      "report_status": "stale",
+      "source": "configured_local_log_snapshot",
+      "live_telemetry": false,
+      "nodes": 1,
+      "recent_events_24h": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "omitted_prefix_bytes": 0,
+      "oversized_records_omitted": 0,
+      "snapshot_coverage_complete": true
+    },
+    "receipt_publication": {
+      "pull_request": 2721,
+      "candidate_commit": "b4a5b663f310e61a462473e2433c9319570cf3c2",
+      "merge_commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
+      "tree": "1244a039c332c6cb58a5106699b6dcb8104c0371",
+      "quality_gate": 40004724791,
+      "ci": 40004724593,
+      "invariants": 40004724714,
+      "docker": 40004724797,
+      "codex_ci": 40004725000,
+      "lint": 40004724534,
+      "release": 40004724674,
+      "gradient": 40004724998,
+      "all_checks": "passed"
+    },
+    "post_receipt_main": {
+      "commit": "34a2936c457a62d29ced2a3809446675c4cb2790",
+      "tree": "1244a039c332c6cb58a5106699b6dcb8104c0371",
+      "quality_gate": 40005405105,
+      "ci": 40005405273,
+      "invariants": 40005405228,
+      "docker": 40005405276,
+      "codex_ci": 40005405501,
+      "docs_deploy": 40005405287,
+      "forge_smoke": "skipped_by_workflow_conditions",
+      "all_applicable_checks": "passed"
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "authority_boundaries_preserved": true,
+    "next_dependency": "Count malformed UTF-8/JSON rows separately from schema-valid non-Health records; remain local-only"
+  }
+}

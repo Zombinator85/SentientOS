@@ -1,3 +1,18 @@
+## Current verified state - sequence 631
+
+Sequence 631 integrates bounded Federation Health snapshot scanning and an App-published push-triggered execution receipt. PR #2720 source merged as `a5d41eea9ae64ce44e475033dbf2956585103478`, tree `93cfa838cbd59b8e3541c0ea64461916fcc736c1`, and its exact-candidate plus post-merge workflows passed. A 16-MiB total scan bound and 64-KiB row bound report omitted oldest-prefix bytes and oversized rows; incomplete coverage is marked partial.
+
+Federation Health push run #40004661027 succeeded on that source SHA with hosted Administrator preflight, complete byte coverage, zero omitted-prefix bytes, zero oversized rows, and a stale configured local-log snapshot (latest event 2025-06-05T16:25:13.805813Z). It does not claim live telemetry or a scheduled execution. The report and execution receipt were integrated through PR #2721, normally merged as current main `34a2936c457a62d29ced2a3809446675c4cb2790`, tree `1244a039c332c6cb58a5106699b6dcb8104c0371`. All applicable post-merge workflows passed.
+
+Latest verified main: `34a2936c457a62d29ced2a3809446675c4cb2790`, tree `1244a039c332c6cb58a5106699b6dcb8104c0371`
+Latest construction segment: `work/construction/segments/0631-integrate-bounded-federation-health-snapshot.md`
+Latest segment SHA-256: `e68cb28dd15e4b79276281b75f017efbbbc784af6e1a97920d0c8f6dab81d309`
+Sequence: 631 (bounded Federation Health local snapshot and verified receipt)
+
+Next: count skipped malformed UTF-8/JSON records separately from valid records outside the Health schema, retaining byte bounds, partial coverage semantics, stale local-only labeling, and no remote admission or execution authority.
+
+## Previous checkpoint snapshot - sequence 630
+
 ## Current verified state — sequence 630
 
 Sequence 630 integrates the positive-window overflow correction, exact-candidate and post-merge verification, and the Federation Health run and receipt.
