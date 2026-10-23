@@ -478,3 +478,164 @@ def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_
     with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_custody_unavailable"):
         unsupported.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
     assert not unsupported_root.exists()
+
+
+
+from sentientos.federation.peer_semantic_acceptance import (
+    CLAIM_EVIDENCE_SCHEMA,
+    TRIAL_OUTCOME_SCHEMA,
+    FederationPeerSemanticAcceptanceError,
+    FederationPeerSemanticAcceptancePolicy,
+    accept_peer_event_for_local_review,
+    semantic_policy_digest_for,
+)
+
+
+def _local_semantic_policy(peer_rules):
+    body = {
+        "schema": "sentientos.federation.peer_semantic_policy:v1",
+        "policy_version": 1,
+        "peers": peer_rules,
+    }
+    value = {**body, "policy_digest": semantic_policy_digest_for(body)}
+    raw = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    policy = FederationPeerSemanticAcceptancePolicy.from_bytes(
+        raw, expected_policy_version=1, expected_policy_digest=value["policy_digest"])
+    return raw, value["policy_digest"], policy
+
+
+def _semantic_replay(tmp_path, event):
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id, event=event)
+    owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
+    return owner.accept(
+        raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+    )
+
+
+def test_peer_claim_semantics_require_local_policy_and_only_enable_review(tmp_path):
+    _, policy_digest, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])
+    replay = _semantic_replay(tmp_path, {
+        "schema": CLAIM_EVIDENCE_SCHEMA,
+        "claim": "The bounded trial preserved adverse outcomes.",
+        "epistemic_status": "uncertain",
+        "evidence_refs": ["trial:record-4"],
+    })
+
+    receipt = accept_peer_event_for_local_review(replay, policy=policy)
+
+    assert receipt.decision == "accepted_for_local_review"
+    assert receipt.semantic_kind == "claim_evidence"
+    assert receipt.submitted_claim == "The bounded trial preserved adverse outcomes."
+    assert receipt.submitted_epistemic_status == "uncertain"
+    assert receipt.remote_evidence_refs == ("trial:record-4",)
+    assert receipt.remote_evidence_resolved_locally is False
+    assert receipt.claim_truth_established is False
+    assert receipt.canonical_evidence_admitted is False
+    assert receipt.health_publication_permitted is False
+    assert receipt.work_admission_permitted is False
+    assert receipt.planning_permitted is False
+    assert receipt.execution_permitted is False
+    assert receipt.decision_power == "none"
+    assert receipt.policy_digest == policy_digest
+    assert receipt.replay_record_digest == replay.record_digest
+    assert receipt.event_digest == replay.verified_event.event_digest
+    with pytest.raises(TypeError, match="locally pinned canonical bytes"):
+        FederationPeerSemanticAcceptancePolicy(1, policy_digest, {})
+
+
+@pytest.mark.parametrize("outcome", ["positive", "adverse", "mixed", "inconclusive"])
+def test_peer_trial_outcomes_preserve_positive_and_adverse_labels(tmp_path, outcome):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    replay = _semantic_replay(tmp_path, {
+        "schema": TRIAL_OUTCOME_SCHEMA,
+        "experiment_id": "experiment-17",
+        "outcome": outcome,
+        "summary": "Outcome submitted by the authenticated peer.",
+        "evidence_refs": ["trial:run-17"],
+    })
+
+    receipt = accept_peer_event_for_local_review(replay, policy=policy)
+
+    assert receipt.decision == "accepted_for_local_review"
+    assert receipt.semantic_kind == "trial_outcome"
+    assert receipt.experiment_id == "experiment-17"
+    assert receipt.submitted_outcome == outcome
+    assert receipt.submitted_summary == "Outcome submitted by the authenticated peer."
+    assert receipt.remote_evidence_refs == ("trial:run-17",)
+    assert receipt.remote_evidence_resolved_locally is False
+    assert receipt.canonical_evidence_admitted is False
+    assert receipt.execution_permitted is False
+
+
+def test_peer_event_schema_and_peer_must_be_explicitly_permitted(tmp_path):
+    _, _, policy = _local_semantic_policy([])
+    replay = _semantic_replay(tmp_path, {
+        "schema": CLAIM_EVIDENCE_SCHEMA,
+        "claim": "A peer claim.",
+        "epistemic_status": "unknown",
+        "evidence_refs": [],
+    })
+
+    receipt = accept_peer_event_for_local_review(replay, policy=policy)
+
+    assert receipt.decision == "rejected"
+    assert receipt.reason_code == "semantic_peer_or_schema_not_permitted"
+    assert receipt.semantic_kind is None
+    assert receipt.submitted_claim is None
+
+
+@pytest.mark.parametrize("event", [
+    {
+        "schema": CLAIM_EVIDENCE_SCHEMA,
+        "claim": "A peer claim.",
+        "epistemic_status": "supported",
+        "evidence_refs": ["../../outside"],
+    },
+    {
+        "schema": CLAIM_EVIDENCE_SCHEMA,
+        "claim": "A peer claim.",
+        "epistemic_status": "supported",
+        "evidence_refs": [],
+        "execute": True,
+    },
+])
+def test_peer_claim_shape_rejects_unresolved_paths_and_extra_authority_fields(tmp_path, event):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])
+    replay = _semantic_replay(tmp_path, event)
+
+    receipt = accept_peer_event_for_local_review(replay, policy=policy)
+
+    assert receipt.decision == "rejected"
+    assert receipt.semantic_kind is None
+    assert receipt.canonical_evidence_admitted is False
+    assert receipt.execution_permitted is False
+
+
+def test_local_semantic_policy_requires_exact_canonical_pinned_bytes():
+    raw, digest, _ = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_policy_digest_mismatch"):
+        FederationPeerSemanticAcceptancePolicy.from_bytes(
+            raw, expected_policy_version=1, expected_policy_digest="sha256:" + "0" * 64,
+        )
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_policy_not_canonical"):
+        FederationPeerSemanticAcceptancePolicy.from_bytes(
+            raw + b" ", expected_policy_version=1, expected_policy_digest=digest,
+        )
+    with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_policy_schemas_invalid"):
+        _local_semantic_policy([{
+            "peer_id": "peer-one",
+            "accepted_event_schemas": ["sentientos.federation.remote_command:v1"],
+        }])
