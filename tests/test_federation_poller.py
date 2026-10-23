@@ -1,9 +1,13 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from sentientos.federation.config import FederationConfig, PeerConfig
+from sentientos.federation.delta import DeltaResult
 from sentientos.federation.identity import NodeId
-from sentientos.federation.poller import FederationPoller
+from sentientos.federation.poller import FederationPoller, PeerReplaySnapshot
 from sentientos.federation.summary import CathedralState, ConfigState, ExperimentState, FederationSummary
 
 
@@ -85,3 +89,67 @@ def test_poller_updates_state(tmp_path, monkeypatch):
     assert any("now incompatible" in message for message in logs)
 
     assert any(event.get("kind") == "federation" for event in events)
+
+
+
+def _replay_snapshot_poller(tmp_path, logs):
+    return FederationPoller(
+        FederationConfig(
+            enabled=True,
+            node_id=NodeId(name="local", fingerprint="fp-local"),
+            state_file=str(tmp_path / "runtime" / "federation" / "state" / "local.json"),
+            peers=[],
+            poll_interval_seconds=1,
+            max_drift_peers=0,
+            max_incompatible_peers=0,
+            max_missing_peers=0,
+        ),
+        runtime=object(),
+        log_cb=logs.append,
+    )
+
+
+def _replay_snapshot(peer):
+    return PeerReplaySnapshot(
+        peer=peer,
+        severity="none",
+        delta=DeltaResult(severity="none"),
+        last_seen=datetime.now(timezone.utc),
+    )
+
+
+@pytest.mark.no_legacy_skip
+def test_persist_replay_snapshot_rejects_path_traversal(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    escaped = poller._replay_dir.parent / "outside.json"
+
+    poller._persist_replay_snapshot(_replay_snapshot("../outside"))
+
+    assert not escaped.exists()
+    assert any("Rejected unsafe federation replay peer name" in message for message in logs)
+
+
+@pytest.mark.no_legacy_skip
+def test_persist_replay_snapshot_keeps_safe_peer_name(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    target = poller._replay_dir / "peer-one.json"
+
+    poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
+
+    assert target.is_file()
+    assert json.loads(target.read_text(encoding="utf-8"))["peer"] == "peer-one"
+    assert poller._load_persisted_replay()["peer-one"].peer == "peer-one"
+
+
+@pytest.mark.no_legacy_skip
+def test_load_persisted_replay_rejects_filename_payload_mismatch(tmp_path):
+    logs = []
+    poller = _replay_snapshot_poller(tmp_path, logs)
+    payload = _replay_snapshot("../outside").to_payload()
+    (poller._replay_dir / "configured-peer.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    assert poller._load_persisted_replay() == {}

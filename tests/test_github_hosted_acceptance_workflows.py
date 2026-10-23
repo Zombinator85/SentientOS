@@ -33,6 +33,25 @@ def test_source_validation_runs_federation_relay_json_regressions():
     assert "scripts.verify_task_acceptance" in source_validation
 
 
+def test_source_validation_runs_federation_replay_path_regressions():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_validation = workflow.split("\n  self-check:", 1)[0]
+    assert "- name: Verify Federation replay snapshot path confinement" in source_validation
+    nodes = (
+        "tests/test_federation_poller.py::test_persist_replay_snapshot_rejects_path_traversal",
+        "tests/test_federation_poller.py::test_persist_replay_snapshot_keeps_safe_peer_name",
+        "tests/test_federation_poller.py::test_load_persisted_replay_rejects_filename_payload_mismatch",
+        "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_replay_path_regressions",
+    )
+    for node in nodes:
+        assert node in source_validation
+    poller_tests = (ROOT / "tests/test_federation_poller.py").read_text()
+    assert poller_tests.count("@pytest.mark.no_legacy_skip") >= 3
+    assert "federation_replay_snapshot_acceptance.json" in source_validation
+    assert "federation_replay_snapshot_acceptance_result.json" in source_validation
+    assert "scripts.verify_task_acceptance" in source_validation
+
+
 def test_source_validation_runs_verified_transition_receipt_regressions():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_validation = workflow.split("\n  self-check:", 1)[0]
