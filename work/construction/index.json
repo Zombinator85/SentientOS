@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d13d5e3d25f35b304754e355745c3432d41f39e494299ca54af12f4458156d92",
-    "latest_segment_sequence": 634,
-    "latest_segment_sha256": "c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7",
-    "source_commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
-    "source_tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db"
+    "checkpoint_sha256": "c8a0c19faef564da11a567aa7bad58c1a105dfdc860f9173bf856d746667ab90",
+    "latest_segment_sequence": 635,
+    "latest_segment_sha256": "26028576ff2bfa8b2d57f4512004551f5383e0f712a3950e212f861642e56490",
+    "source_commit": "d75d7a821dbde680f53b87eb675e7daa4675ff56",
+    "source_tree": "11f58e37769bf1a0e0b2bf694f41165633078286"
   },
-  "checkpoint_sha256": "d13d5e3d25f35b304754e355745c3432d41f39e494299ca54af12f4458156d92",
+  "checkpoint_sha256": "c8a0c19faef564da11a567aa7bad58c1a105dfdc860f9173bf856d746667ab90",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 634,
+  "latest_sequence": 635,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7413,6 +7413,19 @@
       "source_candidate_commit": "b9638d080a8507a8eb7a25180641aafd16805754",
       "source_commit": "de698afc55b13f66917cabbc574ad07bdb48fbec",
       "source_tree": "72dbbf7fe887ec0b07215f3997b394b04584a9db"
+    },
+    {
+      "sequence": 635,
+      "path": "work/construction/segments/0635-integrate-daemon-peer-health-projection.md",
+      "sha256": "26028576ff2bfa8b2d57f4512004551f5383e0f712a3950e212f861642e56490",
+      "bytes": 3578,
+      "predecessor": "segment-sha256:c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7",
+      "evidence_path": "work/construction/evidence/0635-integrate-daemon-peer-health-projection.json",
+      "evidence_sha256": "33c81d172b09ed030205adbd737b2f5dcfdccd9fca13d58940d228ea1ec9f2e1",
+      "evidence_bytes": 4867,
+      "source_candidate_commit": "324068607340d7a735595c64291e06c0a6f13fc7",
+      "source_commit": "d75d7a821dbde680f53b87eb675e7daa4675ff56",
+      "source_tree": "11f58e37769bf1a0e0b2bf694f41165633078286"
     }
   ],
   "source_acquisition": {
