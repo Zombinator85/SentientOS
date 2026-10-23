@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "eca79512d115746b1098ba571e8bc5d4431b0451b9b83e59e6a1fdfd8ba6391d",
-    "latest_segment_sequence": 604,
-    "latest_segment_sha256": "61f6bf1c5444a3fbcaa7e5ac1c4b91b2c788ee6e1511a9548d6b43c59f58d5b4",
-    "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
-    "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"
+    "checkpoint_sha256": "09cf14dfde745af58e54cc806299bc1c23b021e0a88d02cdc4f24795ea65a52e",
+    "latest_segment_sequence": 605,
+    "latest_segment_sha256": "f813bf16e8b3fd95bc43ec4b4019cc56f4177bbc8ff7eb0f8b6bb9c5be633a1d",
+    "source_commit": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
+    "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1"
   },
-  "checkpoint_sha256": "eca79512d115746b1098ba571e8bc5d4431b0451b9b83e59e6a1fdfd8ba6391d",
+  "checkpoint_sha256": "09cf14dfde745af58e54cc806299bc1c23b021e0a88d02cdc4f24795ea65a52e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 604,
+  "latest_sequence": 605,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7023,6 +7023,19 @@
       "source_candidate_commit": "cbd8ef7938e18c3337eab5e279a3aeee15d35d00",
       "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
       "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"
+    },
+    {
+      "sequence": 605,
+      "path": "work/construction/segments/0605-bounded-relay-transport-integration.md",
+      "sha256": "f813bf16e8b3fd95bc43ec4b4019cc56f4177bbc8ff7eb0f8b6bb9c5be633a1d",
+      "bytes": 1716,
+      "predecessor": "segment-sha256:61f6bf1c5444a3fbcaa7e5ac1c4b91b2c788ee6e1511a9548d6b43c59f58d5b4",
+      "evidence_path": "work/construction/evidence/0605-bounded-relay-transport-integration.json",
+      "evidence_sha256": "2fba058ae60fb1de4443c79156b479a9731fbff1c2ee70a284bc782b87226d8b",
+      "evidence_bytes": 2822,
+      "source_candidate_commit": "fbfdad96418ae9fe469d07b8c8189e3721754840",
+      "source_commit": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
+      "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1"
     }
   ],
   "source_acquisition": {
@@ -7032,7 +7045,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2",
+  "source_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
