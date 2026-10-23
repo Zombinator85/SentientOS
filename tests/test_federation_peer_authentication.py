@@ -1,0 +1,343 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+from datetime import datetime, timezone
+
+import pytest
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+
+from sentientos.federation.peer_authentication import (
+    PEER_EVENT_SCHEMA,
+    FederationPeerEventVerificationError,
+    canonical_federation_peer_event_signing_payload,
+    federation_peer_event_digest,
+    verify_federation_peer_event,
+)
+from sentientos.federation.peer_trust_catalog import (
+    CATALOG_SCHEMA,
+    FederationPeerTrustCatalogError,
+    ReadOnlyFederationPeerTrustCatalog,
+    catalog_digest_for,
+)
+
+pytestmark = pytest.mark.no_legacy_skip
+
+NOW = datetime(2026, 10, 23, 10, 0, 0, tzinfo=timezone.utc)
+NOW_TEXT = "2026-10-23T10:00:00Z"
+ENDPOINT = "https://peer.example.test/presence"
+
+
+class Ed25519Verifier:
+    def verify(self, *, algorithm: str, public_key: str, payload: bytes, signature: str) -> bool:
+        assert algorithm == "ed25519"
+        raw_public = base64.urlsafe_b64decode(public_key + "=" * (-len(public_key) % 4))
+        raw_signature = base64.urlsafe_b64decode(signature + "=" * (-len(signature) % 4))
+        try:
+            Ed25519PublicKey.from_public_bytes(raw_public).verify(raw_signature, payload)
+        except InvalidSignature:
+            return False
+        return True
+
+
+class AcceptingVerifier:
+    def verify(self, **_kwargs) -> bool:
+        return True
+
+
+class TruthyVerifier:
+    def verify(self, **_kwargs):
+        return 1
+
+
+class RejectingVerifier:
+    def verify(self, **_kwargs) -> bool:
+        return False
+
+
+def _make_catalog(*, revoked: str = "active", valid_from: str = "2026-01-01T00:00:00Z",
+                  valid_until: str = "2027-01-01T00:00:00Z"):
+    private = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    public_text = base64.urlsafe_b64encode(public).decode("ascii").rstrip("=")
+    key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest()
+    body = {
+        "schema": CATALOG_SCHEMA,
+        "catalog_version": 4,
+        "entries": [{
+            "peer_id": "peer-one",
+            "signing_key_id": key_id,
+            "endpoint": ENDPOINT,
+            "algorithm": "ed25519",
+            "public_key": public_text,
+            "valid_from": valid_from,
+            "valid_until": valid_until,
+            "revocation_status": revoked,
+        }],
+    }
+    value = {**body, "catalog_digest": catalog_digest_for(body)}
+    raw = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    catalog = ReadOnlyFederationPeerTrustCatalog.from_bytes(
+        raw, expected_catalog_version=4, expected_catalog_digest=value["catalog_digest"])
+    return private, public_text, key_id, value["catalog_digest"], raw, catalog, value
+
+
+def _signed_event(private, key_id: str, *, peer_id: str = "peer-one",
+                  endpoint: str = ENDPOINT, sequence: int = 1,
+                  issued_at: str = NOW_TEXT, event=None, signature_from=None):
+    payload_event = {"kind": "heartbeat", "metrics": {"load": 0.25}} if event is None else event
+    digest = federation_peer_event_digest(payload_event)
+    signing_payload = canonical_federation_peer_event_signing_payload(
+        peer_id=peer_id, signing_key_id=key_id, endpoint=endpoint, sequence=sequence,
+        issued_at=issued_at, event_digest=digest)
+    signer = private if signature_from is None else signature_from
+    signature = base64.urlsafe_b64encode(signer.sign(signing_payload)).decode("ascii").rstrip("=")
+    envelope = {
+        "schema": PEER_EVENT_SCHEMA,
+        "peer_id": peer_id,
+        "signing_key_id": key_id,
+        "endpoint": endpoint,
+        "sequence": sequence,
+        "issued_at": issued_at,
+        "event": payload_event,
+        "event_digest": digest,
+        "signature": signature,
+    }
+    raw = (json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    return raw, envelope
+
+
+def _verify(raw, catalog, *, now=NOW, last=0, verifier=None):
+    return verify_federation_peer_event(
+        raw,
+        catalog=catalog,
+        signature_verifier=verifier or Ed25519Verifier(),
+        now=now,
+        last_accepted_sequence=last,
+    )
+
+
+def test_catalog_is_operator_pinned_lookup_only_and_exact_tuple_bound():
+    _, public, key_id, digest, _, catalog, _ = _make_catalog()
+    entry = catalog.lookup(peer_id="peer-one", signing_key_id=key_id, endpoint=ENDPOINT)
+    assert entry is not None
+    assert entry.public_key == public
+    assert entry.revocation_status == "active"
+    assert catalog.catalog_digest == digest
+    assert catalog.lookup(peer_id="peer-two", signing_key_id=key_id, endpoint=ENDPOINT) is None
+    assert catalog.lookup(peer_id="peer-one", signing_key_id=key_id, endpoint=ENDPOINT + "/stream") is None
+    assert not hasattr(catalog, "enroll")
+    assert not hasattr(catalog, "revoke")
+    with pytest.raises(TypeError, match="pinned canonical bytes"):
+        ReadOnlyFederationPeerTrustCatalog(4, digest, {})
+
+
+def test_catalog_load_uses_explicit_file_and_digest_pin(tmp_path):
+    _, _, _, digest, raw, _, _ = _make_catalog()
+    path = tmp_path / "peer-trust.json"
+    path.write_bytes(raw)
+    catalog = ReadOnlyFederationPeerTrustCatalog.load(
+        path, expected_catalog_version=4, expected_catalog_digest=digest)
+    assert catalog.catalog_digest == digest
+
+
+@pytest.mark.parametrize("kwargs,code", [
+    ({"expected_catalog_version": True}, "expected_catalog_version_invalid"),
+    ({"expected_catalog_version": 5}, "catalog_version_mismatch"),
+    ({"expected_catalog_digest": "sha256:" + "0" * 64}, "catalog_digest_mismatch"),
+    ({"expected_catalog_digest": "not-a-digest"}, "expected_catalog_digest_invalid"),
+])
+def test_catalog_rejects_version_and_digest_mismatch(kwargs, code):
+    _, _, _, digest, raw, _, _ = _make_catalog()
+    args = {"expected_catalog_version": 4, "expected_catalog_digest": digest}
+    args.update(kwargs)
+    with pytest.raises(FederationPeerTrustCatalogError, match=code):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(raw, **args)
+
+
+def test_catalog_rejects_duplicate_json_keys_noncanonical_bytes_and_oversize():
+    _, _, _, digest, raw, _, _ = _make_catalog()
+    with pytest.raises(FederationPeerTrustCatalogError, match="catalog_json_duplicate_key"):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            b'{"schema":"a","schema":"b"}',
+            expected_catalog_version=4, expected_catalog_digest=digest)
+    with pytest.raises(FederationPeerTrustCatalogError, match="catalog_not_canonical"):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            raw + b" ",
+            expected_catalog_version=4, expected_catalog_digest=digest)
+    with pytest.raises(FederationPeerTrustCatalogError, match="catalog_size_invalid"):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            b"x" * 1_048_577,
+            expected_catalog_version=4, expected_catalog_digest=digest)
+
+
+@pytest.mark.parametrize("change,code", [
+    (lambda row: row.update(peer_id="../peer"), "catalog_peer_id_invalid"),
+    (lambda row: row.update(endpoint="https://user:secret@peer.example.test/presence"),
+     "catalog_endpoint_invalid"),
+    (lambda row: row.update(endpoint="https://peer.example.test/presence?token=x"),
+     "catalog_endpoint_invalid"),
+    (lambda row: row.update(endpoint="https://peer.example.test:0/presence"),
+     "catalog_endpoint_invalid"),
+    (lambda row: row.update(revocation_status=[]), "catalog_revocation_status_invalid"),
+    (lambda row: row.update(valid_until="2025-01-01T00:00:00Z"), "catalog_validity_invalid"),
+    (lambda row: row.update(algorithm="rsa"), "catalog_algorithm_invalid"),
+    (lambda row: row.update(public_key="***"), "catalog_public_key_invalid"),
+    (lambda row: row.update(signing_key_id="ed25519-sha256:" + "0" * 64),
+     "catalog_key_id_mismatch"),
+])
+def test_catalog_rejects_invalid_trust_fields(change, code):
+    _, _, _, _, _, _, value = _make_catalog()
+    mutated = json.loads(json.dumps(value))
+    change(mutated["entries"][0])
+    body = dict(mutated)
+    body.pop("catalog_digest")
+    mutated["catalog_digest"] = catalog_digest_for(body)
+    raw = (json.dumps(mutated, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+    with pytest.raises(FederationPeerTrustCatalogError, match=code):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            raw, expected_catalog_version=4, expected_catalog_digest=mutated["catalog_digest"])
+
+
+def test_catalog_rejects_duplicate_peer_key_endpoint_tuple():
+    _, _, _, _, _, _, value = _make_catalog()
+    value["entries"].append(dict(value["entries"][0]))
+    body = dict(value)
+    body.pop("catalog_digest")
+    value["catalog_digest"] = catalog_digest_for(body)
+    raw = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    with pytest.raises(FederationPeerTrustCatalogError, match="catalog_trust_tuple_duplicate"):
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            raw, expected_catalog_version=4, expected_catalog_digest=value["catalog_digest"])
+
+
+def test_signed_event_verifies_and_returns_deeply_immutable_provenance():
+    private, _, key_id, digest, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id)
+    verified = _verify(raw, catalog)
+    assert verified.peer_id == "peer-one"
+    assert verified.sequence == 1
+    assert verified.catalog_digest == digest
+    assert verified.event["kind"] == "heartbeat"
+    with pytest.raises(TypeError):
+        verified.event["kind"] = "changed"
+    with pytest.raises(TypeError):
+        verified.event["metrics"]["load"] = 0.75
+    assert not hasattr(verified, "accept")
+    assert not hasattr(verified, "persist")
+
+
+def test_signed_event_requires_exact_next_replay_sequence():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id, sequence=3)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_sequence_not_next"):
+        _verify(raw, catalog, last=1)
+
+
+def test_signed_event_rejects_peer_or_endpoint_substitution():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    for raw, _ in (
+        _signed_event(private, key_id, peer_id="peer-two"),
+        _signed_event(private, key_id, endpoint=ENDPOINT + "/stream"),
+    ):
+        with pytest.raises(FederationPeerEventVerificationError, match="peer_event_trust_not_found"):
+            _verify(raw, catalog)
+
+
+def test_signed_event_rejects_mutated_event_digest_and_bad_signature():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, envelope = _signed_event(private, key_id)
+    changed = dict(envelope)
+    changed["event"] = {"kind": "forged"}
+    changed_raw = (json.dumps(changed, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_digest_mismatch"):
+        _verify(changed_raw, catalog)
+    forged_private = Ed25519PrivateKey.from_private_bytes(bytes(reversed(range(32))))
+    bad_signature, _ = _signed_event(private, key_id, signature_from=forged_private)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_signature_invalid"):
+        _verify(bad_signature, catalog)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_signature_invalid"):
+        _verify(raw, catalog, verifier=RejectingVerifier())
+
+
+def test_signed_event_rejects_revoked_key_and_currently_expired_key():
+    private, _, key_id, _, _, _, _ = _make_catalog()
+    revoked = _make_catalog(revoked="revoked")[5]
+    raw, _ = _signed_event(private, key_id)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_key_revoked"):
+        _verify(raw, revoked)
+    expired = _make_catalog(valid_until="2026-10-22T00:00:00Z")[5]
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_key_outside_validity"):
+        _verify(raw, expired)
+
+
+@pytest.mark.parametrize("issued_at,now,code", [
+    ("2026-10-23T09:54:59Z", NOW, "peer_event_stale"),
+    ("2026-10-23T10:00:31Z", NOW, "peer_event_from_future"),
+    ("2026-10-23T10:00:00+00:00", NOW, "peer_event_timestamp_invalid"),
+    ("2026-10-23T10:00:00.000Z", NOW, "peer_event_timestamp_invalid"),
+])
+def test_signed_event_enforces_canonical_freshness_window(issued_at, now, code):
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id, issued_at=issued_at)
+    with pytest.raises(FederationPeerEventVerificationError, match=code):
+        _verify(raw, catalog, now=now)
+
+
+def test_signed_event_rejects_noncanonical_duplicate_and_extra_fields():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, envelope = _signed_event(private, key_id)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_not_canonical"):
+        _verify(raw.rstrip(b"\n"), catalog)
+    duplicate = raw[:-1].replace(b'"schema":', b'"schema":"sentientos.federation.peer_event:v1","schema":', 1) + b"\n"
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_json_duplicate_key"):
+        _verify(duplicate, catalog)
+    extra = dict(envelope)
+    extra["authority"] = "execute"
+    extra_raw = (json.dumps(extra, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_fields_not_exact"):
+        _verify(extra_raw, catalog)
+
+
+def test_signed_event_rejects_bad_sequence_types_and_json_constants():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, envelope = _signed_event(private, key_id)
+    bad_sequence = dict(envelope)
+    bad_sequence["sequence"] = True
+    encoded = (json.dumps(bad_sequence, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_claim_invalid"):
+        _verify(encoded, catalog)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_json_nonfinite_number"):
+        _verify(b'{"x":NaN}', catalog)
+
+
+def test_verifier_requires_real_true_boolean_and_bounded_policy_inputs():
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    raw, _ = _signed_event(private, key_id)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_signature_invalid"):
+        _verify(raw, catalog, verifier=TruthyVerifier())
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_replay_state_invalid"):
+        _verify(raw, catalog, last=True)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_freshness_policy_invalid"):
+        verify_federation_peer_event(
+            raw, catalog=catalog, signature_verifier=AcceptingVerifier(),
+            now=NOW, last_accepted_sequence=0, max_age_seconds=True)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_clock_invalid"):
+        verify_federation_peer_event(
+            raw, catalog=catalog, signature_verifier=AcceptingVerifier(),
+            now=datetime(2026, 10, 23), last_accepted_sequence=0)
+
+
+def test_signed_event_size_is_bounded():
+    _, _, _, _, _, catalog, _ = _make_catalog()
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_size_invalid"):
+        _verify(b"x" * 65_537, catalog)
