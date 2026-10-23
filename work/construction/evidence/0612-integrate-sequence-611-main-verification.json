@@ -1,0 +1,92 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 612,
+  "title": "Integrate sequence 611 and verify merged main",
+  "predecessor": {
+    "sequence": 611,
+    "sha256": "37a68f248b904a6ed5566df0297af3c531e4e933a156cd92cebe64d27b412426"
+  },
+  "source": {
+    "pull_request": 2681,
+    "original_candidate_commit": "b13fcd3122b60d65e43cc7b3d19ece520d288a22",
+    "final_candidate_commit": "b13fcd3122b60d65e43cc7b3d19ece520d288a22",
+    "final_candidate_tree": "5bd9c7f27770cff0f6809633a93a06e3a9b10c0b",
+    "parent_main": "1cb46340663931866f7a73ec19c88415f2b51583",
+    "final_main": "7f056a1997899ea013a99e21a8b3bd604dc6f430",
+    "final_main_tree": "5bd9c7f27770cff0f6809633a93a06e3a9b10c0b",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0612-integrate-sequence-611-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0612-integrate-sequence-611-main-verification.md"
+    ],
+    "scope": "Reconcile sequence 611's evidence PR merge and complete post-merge verification to exact main history; capture scheduled workflow status without substituting manual runs."
+  },
+  "validation": {
+    "candidate_checks": {
+      "commit": "b13fcd3122b60d65e43cc7b3d19ece520d288a22",
+      "quality_gate": 39919409435,
+      "ci_pull_request": 39919409453,
+      "docker": 39919409506,
+      "codex_ci": 39919409458,
+      "invariant_pull_request": 39919409551,
+      "lint": 39919409425,
+      "gradient": 39919409483,
+      "release": 39919409545,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "all_results": "success"
+    },
+    "post_merge_checks": {
+      "main_commit": "7f056a1997899ea013a99e21a8b3bd604dc6f430",
+      "ci": 39922337693,
+      "quality_gate": 39922337317,
+      "docker": 39922337567,
+      "docs_deploy": 39922337520,
+      "codex_ci": 39922337537,
+      "invariants": 39922337475,
+      "strict_administrator_audits": "passed in push-triggered Quality Gate",
+      "integrated_resource_to_cognition_and_authority_checks": "passed",
+      "results": "all completed successfully"
+    },
+    "integration": {
+      "pull_request": 2681,
+      "merge_commit": "7f056a1997899ea013a99e21a8b3bd604dc6f430",
+      "tree": "5bd9c7f27770cff0f6809633a93a06e3a9b10c0b",
+      "first_parent": "1cb46340663931866f7a73ec19c88415f2b51583",
+      "second_parent": "b13fcd3122b60d65e43cc7b3d19ece520d288a22",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23T08:11:17Z",
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "artifact_sha256": "3d27d122e9060a6e6521161e71149b32c0ba3203f88922cdc9525d6f403f64b3",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "publication_pr": 2672,
+      "publication_pr_merged": true,
+      "current_main_scheduled_run_observed": false,
+      "report_status": "stale",
+      "events_last_24_hours": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false
+    },
+    "scheduled_nightly_workflows": {
+      "latest_audit_integrity_run": 39751183422,
+      "latest_self_check_run": 39756453111,
+      "source_head": "7d55b9757a10322d680f6fb450691de7ff7f8506",
+      "results": "both succeeded on 2026-10-22; no scheduled execution on sequence 611 main observed by cutoff"
+    }
+  },
+  "integration": {
+    "pull_request": 2681,
+    "merge_commit": "7f056a1997899ea013a99e21a8b3bd604dc6f430",
+    "tree": "5bd9c7f27770cff0f6809633a93a06e3a9b10c0b",
+    "first_parent": "1cb46340663931866f7a73ec19c88415f2b51583",
+    "second_parent": "b13fcd3122b60d65e43cc7b3d19ece520d288a22",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only. No runtime code, governance gate, or workflow authority changed."
+}
