@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "90651c1ee74452bfd65dd63c40431f78e8993696aae54d78a2a4ca5167d2b641",
-    "latest_segment_sequence": 603,
-    "latest_segment_sha256": "1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35",
-    "source_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
-    "source_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead"
+    "checkpoint_sha256": "656c4e41242ac9228ea33e0b3d07de6196ecf4c50dba7e142da030ddbc34d261",
+    "latest_segment_sequence": 604,
+    "latest_segment_sha256": "d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0",
+    "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
+    "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"
   },
-  "checkpoint_sha256": "90651c1ee74452bfd65dd63c40431f78e8993696aae54d78a2a4ca5167d2b641",
+  "checkpoint_sha256": "656c4e41242ac9228ea33e0b3d07de6196ecf4c50dba7e142da030ddbc34d261",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 603,
+  "latest_sequence": 604,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7010,6 +7010,19 @@
       "source_candidate_commit": "67904570359beb8785d8b724c61c1b54d4148b1a",
       "source_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
       "source_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead"
+    },
+    {
+      "sequence": 604,
+      "path": "work/construction/segments/0604-bounded-federation-relay-stream-framing.md",
+      "sha256": "d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0",
+      "bytes": 2278,
+      "predecessor": "segment-sha256:1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35",
+      "evidence_path": "work/construction/evidence/0604-bounded-federation-relay-stream-framing.json",
+      "evidence_sha256": "dab61d028392a72bffac2550705fa10c31ee500b10d5a60446e7452abc60a1ba",
+      "evidence_bytes": 3542,
+      "source_candidate_commit": "cbd8ef7938e18c3337eab5e279a3aeee15d35d00",
+      "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
+      "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"
     }
   ],
   "source_acquisition": {
@@ -7019,7 +7032,7 @@
     "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
     "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
   },
-  "source_tree": "24360d2bbf2592e4810ff011f9fc6520569e156c",
+  "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2",
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",

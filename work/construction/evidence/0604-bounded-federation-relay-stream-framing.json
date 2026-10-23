@@ -1,0 +1,94 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 604,
+  "title": "Bounded federation relay stream framing",
+  "predecessor": {
+    "sequence": 603,
+    "sha256": "1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35"
+  },
+  "source": {
+    "candidate_commit": "cbd8ef7938e18c3337eab5e279a3aeee15d35d00",
+    "candidate_tree": "866bf33ced6e3e757a41f330001a605f102b33a2",
+    "parent_main": "a111013f843d26aae839af58d56f051ed8cac53a",
+    "final_main": "cd04b9773585de4257baf9391a681142b8ded451",
+    "final_main_tree": "866bf33ced6e3e757a41f330001a605f102b33a2",
+    "changed_paths": [
+      "scripts/federation_stream_relay.py",
+      "tests/test_federation_stream_relay.py"
+    ],
+    "scope": "Bound relay SSE line assembly with 8-KiB response chunks and a 64-KiB retained-line cap; discard oversized lines through the delimiter and recover at the next line."
+  },
+  "validation": {
+    "local_focused_test": {
+      "result": "14 passed",
+      "environment": "Exact candidate files in isolated /tmp/seq604; privilege imports stubbed and requests import inert. Pure framing and decoding tests make no network requests."
+    },
+    "exact_candidate_checks": {
+      "required_quality_gate_run": 39899011006,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation_runs": [
+        39898997412,
+        39899011052
+      ],
+      "self_check_runs": [
+        39898997412,
+        39899011052
+      ],
+      "docs_linkcheck_runs": [
+        39898997412,
+        39899011052
+      ],
+      "helm_runs": [
+        39898997412,
+        39899011052
+      ],
+      "invariants_runs": [
+        39898997434,
+        39899011009
+      ],
+      "lint_run": 39899011214,
+      "build_run": 39899010983,
+      "cpu_smoke_run": 39899011014,
+      "result": "all distinct exact-candidate check names have a successful conclusion"
+    },
+    "post_merge_main_checks": {
+      "main_commit": "cd04b9773585de4257baf9391a681142b8ded451",
+      "required_quality_gate_run": 39899391563,
+      "source_validation_docs_helm_run": 39899391704,
+      "duplicate_self_check_run": 39899391726,
+      "invariants_run": 39899391562,
+      "build_runs": [
+        39899391620,
+        39899391716
+      ],
+      "cpu_smoke_run": 39899391661,
+      "deploy_run": 39899391716,
+      "result": "all post-merge checks passed on the exact main commit"
+    },
+    "federation_health": {
+      "latest_post_merge_scheduled_run_observed": false,
+      "latest_observed_scheduled_run_id": 39871453383,
+      "latest_observed_scheduled_head": "965659041bc448ba3d3166d7e618ef255abf0387",
+      "latest_newer_main_successful_health_execution": {
+        "event_name": "push",
+        "run_id": 39894532452,
+        "head_sha": "d5f16f60cd33e3e757cf943716ee5299dad815ab",
+        "status": "success"
+      },
+      "report_status": "stale",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "pull_request": 2667,
+    "merge_commit": "cd04b9773585de4257baf9391a681142b8ded451",
+    "tree": "866bf33ced6e3e757a41f330001a605f102b33a2",
+    "first_parent": "a111013f843d26aae839af58d56f051ed8cac53a",
+    "second_parent": "cbd8ef7938e18c3337eab5e279a3aeee15d35d00",
+    "merge_method": "normal merge"
+  },
+  "scope": "Transport line-buffer hardening only. Does not authenticate federation peers, establish event freshness, change Federation Health inputs, or enable production transitions."
+}
