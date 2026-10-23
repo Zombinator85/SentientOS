@@ -1,0 +1,97 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 608,
+  "title": "Reconcile bounded federation stream validation and evidence",
+  "predecessor": {
+    "sequence": 607,
+    "sha256": "5bfbe62d39e860fceecac4a3619c125a9bb805671987ac1d6cd6c73b7fe8de4f"
+  },
+  "source": {
+    "pull_requests": [
+      2676,
+      2675
+    ],
+    "final_candidate_commit": "da7f32a29988847e0b94430afe2d4ddebfc5bcf8",
+    "final_candidate_tree": "ddf9272772b36dc82678b0bff76d7a627515c3ab",
+    "parent_main": "b4c27c6c2962f425661d6c070d5bbf1d70731ef5",
+    "final_main": "ef1b2539fdfb6e993eaa99d4ee4c829f6f944293",
+    "final_main_tree": "ddf9272772b36dc82678b0bff76d7a627515c3ab",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0608-reconcile-federation-stream-evidence.json",
+      "work/construction/index.json",
+      "work/construction/segments/0608-reconcile-federation-stream-evidence.md"
+    ],
+    "scope": "Record public SSE generator validation and reconcile exact-candidate, merge-history, and post-merge checks."
+  },
+  "validation": {
+    "focused_tests": {
+      "result": "10 passed",
+      "candidate": "712aa22db7b86cf4f87242a9ec7e317eb3d2413e",
+      "scope": "bounded incremental reader and direct public SSE generator"
+    },
+    "testclient": {
+      "result": "pre-change streaming TestClient test and minimal finite StreamingResponse hang in sandbox",
+      "runtime": {
+        "fastapi": "0.141.1",
+        "starlette": "0.52.1",
+        "httpx": "0.28.1"
+      },
+      "conclusion": "environment limitation; hosted integrated checks used"
+    },
+    "generator_candidate": {
+      "commit": "712aa22db7b86cf4f87242a9ec7e317eb3d2413e",
+      "quality_gate": 39907127003,
+      "ci": 39907126888,
+      "invariants": 39907126957,
+      "docker": 39907127033,
+      "lint": 39907126846,
+      "gradient": 39907126887,
+      "codex_ci": 39907126982,
+      "release": 39907126865,
+      "result": "all success"
+    },
+    "evidence_candidate": {
+      "commit": "da7f32a29988847e0b94430afe2d4ddebfc5bcf8",
+      "quality_gate": 39908036948,
+      "ci": 39908037194,
+      "invariants": 39908036992,
+      "docker": 39908036979,
+      "lint": 39908036957,
+      "gradient": 39908036984,
+      "codex_ci": 39908036961,
+      "release": 39908036976,
+      "strict_administrator_audits": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "result": "all success"
+    },
+    "post_merge": {
+      "commit": "ef1b2539fdfb6e993eaa99d4ee4c829f6f944293",
+      "ci": 39908500701,
+      "quality_gate": 39908500790,
+      "docker": 39908500739,
+      "docs_deploy": 39908500765,
+      "codex_ci": 39908500710,
+      "invariants": 39908500845,
+      "result": "all success"
+    },
+    "federation_health": {
+      "latest_scheduled_run": 39902569701,
+      "source_head": "7a47004a30d41953436df4266d799b0cbb9d6973",
+      "current_main_schedule_observed": false,
+      "report_status": "stale",
+      "events_last_24_hours": 0,
+      "latest_event_at": "2025-06-05T16:25:13.805813Z",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "generator_test_merge": "b4c27c6c2962f425661d6c070d5bbf1d70731ef5",
+    "evidence_merge": "ef1b2539fdfb6e993eaa99d4ee4c829f6f944293",
+    "first_parent": "b4c27c6c2962f425661d6c070d5bbf1d70731ef5",
+    "second_parent": "da7f32a29988847e0b94430afe2d4ddebfc5bcf8",
+    "method": "normal merge commits; original sequence 607 evidence commit retained"
+  },
+  "scope": "Evidence only. No federation identity, telemetry, or authority boundary was changed."
+}
