@@ -1,0 +1,131 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 602,
+  "title": "Federation Health peer identity and execution custody",
+  "predecessor": {
+    "sequence": 601,
+    "sha256": "2e6ac9d8269f1f315380e54ca5bcd226e167c9dfc9da98dac1fde371f59802c5"
+  },
+  "source": {
+    "candidate_commit": "52cfc9aedf79c41a4d0be8ab674de27324d6c0dc",
+    "candidate_tree": "ea458795d3790ad7917505dd65a7a3e2ae6c171b",
+    "parent_main": "d1221816b27da18341e7594927a2b2abc0be998f",
+    "final_main": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
+    "final_main_tree": "790eda70740d955a8fef3f545b5e931ae96479e0",
+    "changed_paths": [
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py"
+    ],
+    "scope": "Reject unidentified peer rows before they can contribute to recent event health; trim peer identity before sentinel validation."
+  },
+  "validation": {
+    "local_focused_test": {
+      "command": "pytest -q test_federation_health_badge.py",
+      "result": "14 passed",
+      "environment": "Exact candidate source and test files; auxiliary imports from preserved /tmp/sentientos-seq599 checkout."
+    },
+    "exact_candidate_checks": {
+      "pr_2661": {
+        "candidate_commit": "55747bddf22edad34d36e1193c7b98e10ee76b43",
+        "required_quality_gate_run": 39892472455,
+        "strict_administrator_audits": "passed",
+        "exact_acceptance_binding": "passed",
+        "hosted_finalizer": "passed",
+        "separate_metadata_guard": "passed",
+        "source_validation": "passed",
+        "self_check": "passed",
+        "docs_linkcheck": "passed",
+        "helm": "passed",
+        "invariants": "passed",
+        "lint_matrix": "passed",
+        "build": "passed",
+        "cpu_smoke": "passed",
+        "result": "all exact candidate check runs passed"
+      },
+      "pr_2663": {
+        "candidate_commit": "52cfc9aedf79c41a4d0be8ab674de27324d6c0dc",
+        "required_quality_gate_run": 39894153926,
+        "strict_administrator_audits": "passed",
+        "exact_acceptance_binding": "passed",
+        "hosted_finalizer": "passed",
+        "separate_metadata_guard": "passed",
+        "source_validation": "passed",
+        "self_check": "passed",
+        "docs_linkcheck": "passed",
+        "helm": "passed",
+        "invariants": "passed",
+        "lint_matrix": "passed",
+        "build": "passed",
+        "cpu_smoke": "passed",
+        "result": "all exact candidate check runs passed"
+      },
+      "publisher_receipt_pr_2662": {
+        "candidate_commit": "84da8bf84537e994d33d58d1a8724f8ef2e781f0",
+        "required_quality_gate_run": 39894576287,
+        "strict_administrator_audits": "passed",
+        "exact_acceptance_binding": "passed",
+        "hosted_finalizer": "passed",
+        "separate_metadata_guard": "passed",
+        "source_validation": "passed",
+        "self_check": "passed",
+        "docs_linkcheck": "passed",
+        "helm": "passed",
+        "invariants": "passed",
+        "lint_matrix": "passed",
+        "build": "passed",
+        "cpu_smoke": "passed",
+        "result": "all exact candidate check runs passed"
+      }
+    },
+    "post_merge_main_checks": {
+      "main_commit": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
+      "required_quality_gate_run": 39895011925,
+      "source_validation_self_check_docs_helm_run": 39895011957,
+      "invariants_run": 39895011934,
+      "build_run": 39895011906,
+      "cpu_smoke_run": 39895011916,
+      "deploy_run": 39895011887,
+      "result": "all post-merge main checks passed"
+    },
+    "federation_health_execution": {
+      "run_id": 39894532452,
+      "event_name": "push",
+      "head_sha": "d5f16f60cd33e3e757cf943716ee5299dad815ab",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "artifact_id": 12475779510,
+      "artifact_sha256": "44fa612c5421af73e82494a91318c6411c7285be9b94913bd2490fae77e21ff0",
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "report_status": "stale",
+      "report_latest_event": "2025-06-05T16:25:13.805813Z",
+      "report_source": "configured local snapshot; not live telemetry",
+      "live_telemetry": false,
+      "publication_pr": 2662,
+      "publication_merge": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
+      "scheduled_post_merge_execution": "not observed",
+      "latest_observed_scheduled_run_id": 39871453383,
+      "latest_observed_scheduled_head": "965659041bc448ba3d3166d7e618ef255abf0387"
+    }
+  },
+  "integration": {
+    "source_pr_2661": {
+      "merge_commit": "d1221816b27da18341e7594927a2b2abc0be998f",
+      "tree": "3c365d224de19f5b5e864dde1b0bd33d1b5c0158",
+      "first_parent": "61a5cfd1c812f5110a96ade342cebd7ba066709f",
+      "merge_method": "normal merge"
+    },
+    "source_pr_2663": {
+      "merge_commit": "d5f16f60cd33e3e757cf943716ee5299dad815ab",
+      "tree": "ea458795d3790ad7917505dd65a7a3e2ae6c171b",
+      "first_parent": "d1221816b27da18341e7594927a2b2abc0be998f",
+      "merge_method": "normal merge"
+    },
+    "receipt_pr_2662": {
+      "merge_commit": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
+      "tree": "790eda70740d955a8fef3f545b5e931ae96479e0",
+      "first_parent": "d5f16f60cd33e3e757cf943716ee5299dad815ab",
+      "merge_method": "normal merge"
+    }
+  },
+  "scope": "Health report identity validation and hosted execution receipt custody. Does not establish a live authenticated federation telemetry source, scheduled post-merge execution, production transition, model inference, or goal execution."
+}
