@@ -80,6 +80,17 @@
       },
       "report_status": "stale",
       "live_telemetry": false
+    },
+    "construction_custody_repair": {
+      "initial_evidence_pr": 2668,
+      "initial_source_validation_run": 39899955043,
+      "initial_guard_failures": [
+        "segment_604_byte_count_mismatch",
+        "segment_604_sha256_mismatch",
+        "active_checkpoint_sha256_mismatch"
+      ],
+      "cause": "Temporary local copies included an extra trailing newline compared with the exact GitHub blob content.",
+      "resolution": "Recompute UTF-8 byte counts and SHA-256 from the exact blob strings, update segment/index/checkpoint bindings, then require a successful hosted custody rerun."
     }
   },
   "integration": {

@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "656c4e41242ac9228ea33e0b3d07de6196ecf4c50dba7e142da030ddbc34d261",
+    "checkpoint_sha256": "10c74ae756b6015aaaf26edacaa6d8c892d99a50df1b464936b94b054e03e353",
     "latest_segment_sequence": 604,
-    "latest_segment_sha256": "d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0",
+    "latest_segment_sha256": "464625cff4eb0aa5e893d67a7cdbb219ca0d61ae6e3ae9491f63f3a3cc1cae21",
     "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
     "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"
   },
-  "checkpoint_sha256": "656c4e41242ac9228ea33e0b3d07de6196ecf4c50dba7e142da030ddbc34d261",
+  "checkpoint_sha256": "10c74ae756b6015aaaf26edacaa6d8c892d99a50df1b464936b94b054e03e353",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -7014,12 +7014,12 @@
     {
       "sequence": 604,
       "path": "work/construction/segments/0604-bounded-federation-relay-stream-framing.md",
-      "sha256": "d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0",
-      "bytes": 2278,
+      "sha256": "464625cff4eb0aa5e893d67a7cdbb219ca0d61ae6e3ae9491f63f3a3cc1cae21",
+      "bytes": 2601,
       "predecessor": "segment-sha256:1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35",
       "evidence_path": "work/construction/evidence/0604-bounded-federation-relay-stream-framing.json",
-      "evidence_sha256": "dab61d028392a72bffac2550705fa10c31ee500b10d5a60446e7452abc60a1ba",
-      "evidence_bytes": 3542,
+      "evidence_sha256": "62314aeec75d651e50dda3e7c9fd0207237fa631a5462ee7574158154021a76c",
+      "evidence_bytes": 4143,
       "source_candidate_commit": "cbd8ef7938e18c3337eab5e279a3aeee15d35d00",
       "source_commit": "cd04b9773585de4257baf9391a681142b8ded451",
       "source_tree": "866bf33ced6e3e757a41f330001a605f102b33a2"

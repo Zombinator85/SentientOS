@@ -9,6 +9,8 @@ Latest construction segment: `work/construction/segments/0604-bounded-federation
 Latest segment SHA-256: d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0
 Sequence: 604 (bounded relay stream framing)
 
+A first custody attempt on PR #2668 rejected mismatched segment and checkpoint hashes because of a local trailing-newline discrepancy; the corrected publication must pass the same guard before merge.
+
 The relay remains unauthenticated and writes `logs/federation_stream.jsonl`, separate from the health report's `logs/federation_log.jsonl`. The size bound applies to retained application-level line data while reading in fixed chunks; do not infer peer trust, event freshness, live telemetry, or health from this relay.
 
 As of this checkpoint, no scheduled Federation Health run on current main has been observed. The latest observed schedule is run 39871453383 on older commit `965659041bc448ba3d3166d7e618ef255abf0387`. Newer successful executions were push-triggered; preserve this event distinction.
