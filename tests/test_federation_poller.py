@@ -171,5 +171,10 @@ def test_replay_snapshot_rejects_symlinked_replay_directory(tmp_path):
     poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
 
     assert poller._load_persisted_replay() == {}
-    assert json.loads((outside / "peer-one.json").read_text(encoding="utf-8"))["peer"] == "peer-one"
-    assert any("Rejected unsafe federation replay directory" in message for message in logs)
+    persisted = json.loads(
+        (outside / "peer-one.json").read_text(encoding="utf-8")
+    )
+    assert persisted["peer"] == "peer-one"
+    assert any(
+        "Rejected unsafe federation replay directory" in message for message in logs
+    )
