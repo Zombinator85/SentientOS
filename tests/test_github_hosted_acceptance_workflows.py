@@ -26,6 +26,8 @@ def test_source_validation_runs_federation_relay_json_regressions():
     source_validation = workflow.split("\n  self-check:", 1)[0]
     assert "- name: Verify Federation stream relay JSON strictness" in source_validation
     assert "tests/test_federation_stream_relay.py" in source_validation
+    relay_tests = (ROOT / "tests/test_federation_stream_relay.py").read_text()
+    assert "pytestmark = pytest.mark.no_legacy_skip" in relay_tests
     assert "federation_stream_relay_acceptance.json" in source_validation
     assert "federation_stream_relay_acceptance_result.json" in source_validation
     assert "scripts.verify_task_acceptance" in source_validation

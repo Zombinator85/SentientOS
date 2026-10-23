@@ -8,6 +8,8 @@ import pytest
 
 import sentientos.privilege as privilege
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 @pytest.fixture
 def relay(monkeypatch):
