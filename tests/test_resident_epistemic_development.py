@@ -609,6 +609,37 @@ def test_running_model_observation_preserves_observation_time_not_load_time() ->
     assert binding.evidence_relation == "supports"
 
 
+def test_stale_observation_cannot_become_current_by_declaring_freshness() -> None:
+    observed_at = "2026-09-25T12:00:00+00:00"
+    record = {
+        "source_kind": "runtime_supervisor", "source_id": "resident-serving:session-old",
+        "schema_version": "runtime.test.v1", "subject_id": "session-old",
+        "subject_kind": "observed_running_model", "stage": "observation",
+        "disposition": "observed", "evidence_strength": "serving_session_observation",
+        "observed_at": observed_at,
+        "staleness": "fresh",
+        "payload": {
+            "running_model_identity_observed": {"model_id": "model-a"},
+            "serving_session_id": "session-old",
+            "event_time_posture": "serving_session_observation_time_not_model_load_time",
+            "authority": False, "effect_proven": False,
+        },
+    }
+    snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    fact = snapshot.facts[0]
+    assert fact.source.staleness == "stale"
+
+    rule = EpistemicDevelopmentRule(
+        "rule-model", "proposition-model", "a" * 64, {}, "supports",
+        "independently_sourced_observation", "serving_owner_observation")
+    proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(snapshot, fact, rule)
+    assert proof.recorded_at == observed_at
+    assert binding.source_digest == fact.source.digest
+    assert binding.observation_time == observed_at
+    assert binding.freshness == "stale"
+
+
 def test_running_model_without_recorded_observation_time_is_not_current() -> None:
     record = {
         "source_kind": "runtime_supervisor", "source_id": "resident-serving:session-a:unknown",
