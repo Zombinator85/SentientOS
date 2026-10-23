@@ -1,7 +1,7 @@
 {
   "administrator_preflight": "passed",
-  "event_name": "push",
-  "head_sha": "b3a9152e6f4b5cbefbfeac9dd630cfd158ea9524",
+  "event_name": "schedule",
+  "head_sha": "51edf223c46c2098a84f9a415b0083d6ffa74b2f",
   "health_generator": "completed_successfully",
   "ref": "refs/heads/main",
   "report_path": "docs/FEDERATION_HEALTH.md",
@@ -9,5 +9,5 @@
   "schema_version": "sentientos.federation_health_execution:v1",
   "workflow": "Federation Health Update",
   "workflow_run_attempt": 1,
-  "workflow_run_id": 40010610075
+  "workflow_run_id": 40032577889
 }
