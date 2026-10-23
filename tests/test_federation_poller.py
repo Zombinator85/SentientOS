@@ -118,6 +118,15 @@ def _replay_snapshot(peer):
     )
 
 
+def _symlink_or_skip(
+    link: Path, target: Path, *, target_is_directory: bool = False
+) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except (OSError, NotImplementedError):
+        pytest.skip("filesystem does not permit symlink creation")
+
+
 @pytest.mark.no_legacy_skip
 def test_persist_replay_snapshot_rejects_path_traversal(tmp_path):
     logs = []
@@ -127,7 +136,9 @@ def test_persist_replay_snapshot_rejects_path_traversal(tmp_path):
     poller._persist_replay_snapshot(_replay_snapshot("../outside"))
 
     assert not escaped.exists()
-    assert any("Rejected unsafe federation replay peer name" in message for message in logs)
+    assert any(
+        "Rejected unsafe federation replay peer name" in message for message in logs
+    )
 
 
 @pytest.mark.no_legacy_skip
@@ -163,7 +174,7 @@ def test_replay_snapshot_rejects_symlinked_replay_directory(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     replay_dir.rmdir()
-    replay_dir.symlink_to(outside, target_is_directory=True)
+    _symlink_or_skip(replay_dir, outside, target_is_directory=True)
     (outside / "peer-one.json").write_text(
         json.dumps(_replay_snapshot("peer-one").to_payload()), encoding="utf-8"
     )
@@ -189,7 +200,7 @@ def test_replay_snapshot_rejects_symlinked_peer_file(tmp_path):
     outside.write_text(json.dumps(payload), encoding="utf-8")
     original = outside.read_text(encoding="utf-8")
     target = poller._replay_dir / "peer-one.json"
-    target.symlink_to(outside)
+    _symlink_or_skip(target, outside)
 
     poller._persist_replay_snapshot(_replay_snapshot("peer-one"))
 
