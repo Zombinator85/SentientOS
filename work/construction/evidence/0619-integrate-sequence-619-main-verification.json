@@ -1,0 +1,119 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 619,
+  "title": "Integrate sequence 619 and verify merged main",
+  "predecessor": {
+    "sequence": 618,
+    "sha256": "06fc7ac815c6d3128e244b7d37c084892c5dc417a0ae36d19912b766c1827cbb"
+  },
+  "source": {
+    "pull_request": 2691,
+    "candidate_commit": "61cc4c7de532a0b167786e14c4006131604cd6a4",
+    "candidate_tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+    "parent_main": "3ae10dc782d055960ed1944e846d401ffcdfe4b0",
+    "final_main": "428cbce5423cdfc33e4cd1aaabb4740d83b4c901",
+    "final_main_tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0619-integrate-sequence-619-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0619-integrate-sequence-619-main-verification.md"
+    ],
+    "source_changed_paths": [
+      "sentientos/federation/peer_authentication.py",
+      "sentientos/federation/peer_trust_catalog.py",
+      "tests/integrity/test_repo_invariant_tripwire.py",
+      "tests/test_federation_peer_authentication.py"
+    ],
+    "scope": "Append-only sequence 619 integration evidence, exact-candidate verification, post-merge checks, and the Federation Health observation cutoff."
+  },
+  "validation": {
+    "candidate_checks": {
+      "candidate_commit": "61cc4c7de532a0b167786e14c4006131604cd6a4",
+      "candidate_tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+      "quality_gate_runs": [
+        39942313409,
+        39942328215
+      ],
+      "quality_gate_earlier_failure": {
+        "run": 39942304190,
+        "reason": "PR title did not yet match the final candidate commit subject; final matching title passed on the exact same candidate."
+      },
+      "ci_pull_request": 39942304101,
+      "ci_push": 39942297487,
+      "docker": 39942304132,
+      "codex_ci": 39942304094,
+      "invariant_pull_request": 39942304153,
+      "invariant_push": 39942297360,
+      "lint": 39942304175,
+      "gradient": 39942304137,
+      "release": 39942304221,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "full_source_validation": "passed",
+      "all_final_candidate_results": "success"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12495888763,
+      "advertised_digest": "sha256:b3ae2bf75dd25cb5503208d1bc562e6cbe80712a3ef750e650bd55908b790023",
+      "independent_sha256": "b3ae2bf75dd25cb5503208d1bc562e6cbe80712a3ef750e650bd55908b790023",
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "61cc4c7de532a0b167786e14c4006131604cd6a4",
+      "bound_tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+      "validation_profile": "solo",
+      "exhaustive_matrix": "not_requested_for_solo_profile"
+    },
+    "integration": {
+      "pull_request": 2691,
+      "merge_commit": "428cbce5423cdfc33e4cd1aaabb4740d83b4c901",
+      "tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+      "first_parent": "3ae10dc782d055960ed1944e846d401ffcdfe4b0",
+      "second_parent": "61cc4c7de532a0b167786e14c4006131604cd6a4",
+      "merge_method": "normal GitHub merge; candidate commit retained"
+    },
+    "post_merge_checks": {
+      "main_commit": "428cbce5423cdfc33e4cd1aaabb4740d83b4c901",
+      "ci": 39942872925,
+      "quality_gate": 39942873055,
+      "invariants": 39942873052,
+      "docs_deploy": 39942872979,
+      "codex_ci": 39942872928,
+      "docker": 39942873038,
+      "push_self_check": 39942872954,
+      "helm_k8s": "passed in CI run 39942872925",
+      "source_validation": "passed in CI run 39942872925",
+      "ci_docs_linkcheck": "passed in CI run 39942872925",
+      "strict_administrator_audits": "passed in QG run 39942873055",
+      "results": "all completed successfully"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 11:03:27Z",
+      "latest_scheduled_run": 39936583192,
+      "event": "schedule",
+      "source_head": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "run_result": "success",
+      "publisher_pr": 2688,
+      "publisher_pr_head": "a5c8873001d3a837f71b4787389958f785e1eb20",
+      "publisher_pr_base": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "publisher_pr_status": "stale_open_unmerged",
+      "current_main": "428cbce5423cdfc33e4cd1aaabb4740d83b4c901",
+      "scheduled_execution_on_current_main_observed": false,
+      "report_is_live_telemetry": false
+    }
+  },
+  "integration": {
+    "pull_request": 2691,
+    "merge_commit": "428cbce5423cdfc33e4cd1aaabb4740d83b4c901",
+    "tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
+    "first_parent": "3ae10dc782d055960ed1944e846d401ffcdfe4b0",
+    "second_parent": "61cc4c7de532a0b167786e14c4006131604cd6a4",
+    "merge_method": "normal GitHub merge"
+  },
+  "scope": "Append-only construction evidence and checkpoint reconciliation only; no runtime, trust-enrollment, workflow, or authority changes."
+}
