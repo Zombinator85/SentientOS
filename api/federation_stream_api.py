@@ -26,17 +26,23 @@ def _read_available_lines(
     pending: bytearray,
     discarding: bool,
     max_line_bytes: int,
-) -> tuple[list[str], int, tuple[int, int] | None, bytearray, bool]:
-    """Read one bounded append-only log increment, resetting on rotation."""
+    observed_size: int | None = None,
+) -> tuple[list[str], int, tuple[int, int] | None, bytearray, bool, int | None]:
+    """Read one bounded log increment, resetting on rotation or truncation."""
     try:
         handle = path.open("rb")
     except FileNotFoundError:
-        return [], 0, None, bytearray(), False
+        return [], 0, None, bytearray(), False, None
 
     with handle:
         metadata = os.fstat(handle.fileno())
         current_identity = (metadata.st_dev, metadata.st_ino)
-        if file_identity != current_identity or metadata.st_size < offset:
+        current_size = metadata.st_size
+        if (
+            file_identity != current_identity
+            or metadata.st_size < offset
+            or (observed_size is not None and current_size < observed_size)
+        ):
             offset = 0
             pending = bytearray()
             discarding = False
@@ -72,7 +78,7 @@ def _read_available_lines(
             break
         start = newline + 1
 
-    return lines, offset, current_identity, pending, discarding
+    return lines, offset, current_identity, pending, discarding, current_size
 
 
 def stream_events(
@@ -93,16 +99,18 @@ def stream_events(
 
     offset = 0
     file_identity: tuple[int, int] | None = None
+    observed_size: int | None = None
     pending = bytearray()
     discarding = False
     while True:
-        lines, offset, file_identity, pending, discarding = _read_available_lines(
+        lines, offset, file_identity, pending, discarding, observed_size = _read_available_lines(
             path,
             offset=offset,
             file_identity=file_identity,
             pending=pending,
             discarding=discarding,
             max_line_bytes=max_line_bytes,
+            observed_size=observed_size,
         )
         for line in lines:
             yield f"data: {line}\n\n"
