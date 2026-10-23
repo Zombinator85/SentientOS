@@ -78,7 +78,11 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             "live_telemetry": False,
         }
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=hours)
+    try:
+        cutoff = now - timedelta(hours=hours)
+    except OverflowError:
+        # A larger positive window includes every representable event timestamp.
+        cutoff = datetime.min.replace(tzinfo=timezone.utc)
     nodes = set()
     recent = 0
     latest_event_at: datetime | None = None
