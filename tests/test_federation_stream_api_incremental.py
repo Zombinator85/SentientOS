@@ -55,7 +55,7 @@ def test_incremental_reader_reads_complete_records_and_retains_partial_line(tmp_
 
 def test_incremental_reader_reads_only_one_bounded_chunk(tmp_path):
     path = tmp_path / "stream.jsonl"
-    path.write_bytes(b"record\\n" * 20000)
+    path.write_bytes(b"record\n" * 20000)
 
     _, offset, _, _, _ = read_once(path)
 
@@ -131,7 +131,7 @@ def test_stream_events_emits_sse_and_waits_for_complete_appended_record(
     tmp_path, monkeypatch
 ):
     path = tmp_path / "stream.jsonl"
-    path.write_bytes(b"first\\npartial")
+    path.write_bytes(b"first\npartial")
     sleep_calls = 0
 
     class StopPolling(BaseException):
@@ -142,14 +142,14 @@ def test_stream_events_emits_sse_and_waits_for_complete_appended_record(
         sleep_calls += 1
         if sleep_calls == 1:
             with path.open("ab") as stream:
-                stream.write(b"\\n")
+                stream.write(b"\n")
         else:
             raise StopPolling
 
     monkeypatch.setattr(federation_stream_api.time, "sleep", fake_sleep)
     events = stream_events(path, poll_interval=0.01)
 
-    assert next(events) == "data: first\\n\\n"
-    assert next(events) == "data: partial\\n\\n"
+    assert next(events) == "data: first\n\n"
+    assert next(events) == "data: partial\n\n"
     with pytest.raises(StopPolling):
         next(events)
