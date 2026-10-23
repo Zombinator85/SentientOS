@@ -113,6 +113,8 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             ts = entry.get("timestamp")
             try:
                 if isinstance(ts, str) and ts:
+                    if ts.endswith("-00:00"):
+                        raise ValueError("timestamp UTC offset is unknown")
                     parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     if parsed.tzinfo is None:
                         parsed = parsed.replace(tzinfo=timezone.utc)
