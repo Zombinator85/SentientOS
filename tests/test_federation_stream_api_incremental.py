@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from api import federation_stream_api
 from api.federation_stream_api import _read_available_lines, stream_events
 
 
@@ -123,3 +124,32 @@ def test_stream_events_rejects_invalid_poll_intervals(tmp_path, poll_interval):
 def test_stream_events_rejects_invalid_line_bound(tmp_path):
     with pytest.raises(ValueError, match="max_line_bytes"):
         next(stream_events(tmp_path / "missing", max_line_bytes=True))
+
+
+
+def test_stream_events_emits_sse_and_waits_for_complete_appended_record(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "stream.jsonl"
+    path.write_bytes(b"first\\npartial")
+    sleep_calls = 0
+
+    class StopPolling(BaseException):
+        pass
+
+    def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+        if sleep_calls == 1:
+            with path.open("ab") as stream:
+                stream.write(b"\\n")
+        else:
+            raise StopPolling
+
+    monkeypatch.setattr(federation_stream_api.time, "sleep", fake_sleep)
+    events = stream_events(path, poll_interval=0.01)
+
+    assert next(events) == "data: first\\n\\n"
+    assert next(events) == "data: partial\\n\\n"
+    with pytest.raises(StopPolling):
+        next(events)
