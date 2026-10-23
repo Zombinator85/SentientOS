@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 618
+## Current verified state — sequence 620
 
-Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–618 integrated evidence to verified main history.
+Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated evidence to verified main history; sequence 619 added operator-pinned federation peer event provenance.
 
-Latest verified main: `e4b0161ecebae3ac446da39c2da8a5e6626874b5`, tree `66c9daa1d2063734de6af652cf14158e5e18181b`
-Latest construction segment: `work/construction/segments/0618-integrate-sequence-617-main-verification.md`
-Latest segment SHA-256: 06fc7ac815c6d3128e244b7d37c084892c5dc417a0ae36d19912b766c1827cbb
-Sequence: 618 (sequence 617 integration and post-merge verification)
+Latest verified main: `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, tree `8fe7ab9a11874887cb9d9f40d0d746647d777484`
+Latest construction segment: `work/construction/segments/0620-integrate-sequence-619-main-verification.md`
+Latest segment SHA-256: __SEGMENT_SHA__
+Sequence: 620 (sequence 619 integration and post-merge verification)
 
 The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 
@@ -28,3 +28,12 @@ Sequence 617 merged normally through PR #2689 at `e4b0161ecebae3ac446da39c2da8a5
 As of 2026-10-23 10:36:07Z, the latest scheduled Federation Health run remained #39936583192 on older current-at-run source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`. There was no schedule-bound run on current main `e4b0161ecebae3ac446da39c2da8a5e6626874b5`. The automated receipt PR #2688 still needs a refreshed source/base and fresh verification.
 
 Next: verify the next actual scheduled Federation Health execution against current main and refresh the publisher receipt PR. Continue the operator-provisioned federation peer identity, signature, freshness, and revocation dependency while keeping unauthenticated relay events isolated from Health.
+
+
+Sequence 619 adds a read-only operator-pinned trust catalog and canonical Ed25519 peer-event provenance verification. The verifier binds peer identity, key, endpoint, event digest, validity, revocation, freshness, and the exact next sequence supplied by its caller. It never mutates that caller-owned replay state or admits events to the relay, Health, or execution paths.
+
+PR #2691 merged normally as `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, retaining candidate `61cc4c7de532a0b167786e14c4006131604cd6a4` as the second parent. The final candidate's hosted QG, CI on PR and push, invariants on PR and push, Docker, lint, release, gradient, Codex CI, and full integrated source validation passed. Its finalizer artifact and separate metadata guard bound the exact candidate/tree with ready decisions and no guard reasons. Earlier module-drift and title-metadata failures were corrected and rerun on the final candidate.
+
+All post-merge checks passed on main `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, including strict hosted Administrator audits, source validation, self-check/pytest, docs/linkcheck, Helm/Kubernetes, invariants, Docker, and deployment. As of 2026-10-23 11:03:27Z, the next scheduled Federation Health execution on this main had not yet appeared; the latest scheduled report remained a stale local-log snapshot from source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`.
+
+Next: verify the next actual scheduled Federation Health execution on current main and continue examining the replay-state owner before integrating authenticated peer events with any admission or Health path.
