@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 619
+## Current verified state — sequence 620
 
-Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–619 integrated evidence to verified main history; sequence 619 added operator-pinned federation peer event provenance.
+Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated incremental federation work to verified main history; sequence 619 added operator-pinned federation peer event provenance, and sequence 620 hardened relay JSON handling.
 
-Latest verified main: `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, tree `8fe7ab9a11874887cb9d9f40d0d746647d777484`
-Latest construction segment: `work/construction/segments/0619-integrate-sequence-619-main-verification.md`
-Latest segment SHA-256: 3615514ad342eaddb57cff0f8f92dda2a9074d7c34f60dce828065a7fe1b90b8
-Sequence: 619 (sequence 619 integration and post-merge verification)
+Latest verified main: `fa603571ff392df775b699154df9246e578a0d73`, tree `dd7c6115d59b6f90b556864f6a7c935b9ead4bfc`
+Latest construction segment: `work/construction/segments/0620-integrate-sequence-620-main-verification.md`
+Latest segment SHA-256: 66a652d10c2d69f64879722988ef47fcac9f3ab1e0489167b9700e85211a468b
+Sequence: 620 (sequence 620 integration and main-source verification)
 
 The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 
@@ -36,4 +36,12 @@ PR #2691 merged normally as `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, retainin
 
 All post-merge checks passed on main `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, including strict hosted Administrator audits, source validation, self-check/pytest, docs/linkcheck, Helm/Kubernetes, invariants, Docker, and deployment. As of 2026-10-23 11:03:27Z, the next scheduled Federation Health execution on this main had not yet appeared; the latest scheduled report remained a stale local-log snapshot from source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`.
 
-Next: verify the next actual scheduled Federation Health execution on current main and continue examining the replay-state owner before integrating authenticated peer events with any admission or Health path.
+Sequence 620 integrates strict JSON handling in the Federation SSE relay. PR #2694 merged normally as `fa603571ff392df775b699154df9246e578a0d73`, retaining candidate `baa13f9cc905aed15d4aea379621019c6cddb578`. The final tree is `dd7c6115d59b6f90b556864f6a7c935b9ead4bfc`; the main merge and tested PR merge ref have identical first-parent diffs from `bec349eadbdd18e8a43b4a90f343d90e8f4da0c9`.
+
+The relay rejects duplicate object keys at any nesting level, non-standard non-finite constants, and numeric exponents that overflow to infinity; outbound JSON serialization rejects non-finite values. Its 29-test file is now selected by the canonical source-validation marker filter and bound to exact acceptance. The relay remains outside authenticated event admission, Federation Health, persistence, and execution authority.
+
+The exact candidate Quality Gate passed hosted Administrator audits, its 47-node acceptance, pre-commit reconstruction, hosted finalization, and the separate pre-publication metadata guard. The finalizer artifact independently matched its advertised digest. Fresh PR workflows on the current candidate passed source validation, self-check/pytest, docs, Helm/Kubernetes, Docker, invariants, lint, release, gradient, and Codex CI. The source-validation relay manifest selected all nine declared acceptance nodes; all passed and the verifier returned `task_acceptance_ready` on merge ref `00290bf62ac0d1dc63f37df71dfcc347251cb51a`, whose first-parent diff matches the merged main commit.
+
+At the 2026-10-23 11:55Z verification cutoff, the connected GitHub workflow-run API exposed PR-triggered runs but not the push-triggered post-merge run set; the combined status endpoint returned no status entries for `fa603571ff392df775b699154df9246e578a0d73`. The main commit and source tree were verified, but no post-merge push checks are claimed here. The last Federation Health schedule observation recorded in sequence 619 was run #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; this session could not query a newer schedule through the available connector.
+
+Next: close the peer replay snapshot filename boundary before adding a durable owner for authenticated peer sequence state. Keep local summary replay distinct from signed-event replay ownership, and keep authenticated events out of Health/admission until that owner and its custody contract are verified.

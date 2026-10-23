@@ -1,0 +1,98 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 620,
+  "title": "Integrate sequence 620 and verify merged main",
+  "predecessor": "segment-sha256:3615514ad342eaddb57cff0f8f92dda2a9074d7c34f60dce828065a7fe1b90b8",
+  "source": {
+    "pull_request": 2694,
+    "candidate_commit": "baa13f9cc905aed15d4aea379621019c6cddb578",
+    "candidate_tree": "dd7c6115d59b6f90b556864f6a7c935b9ead4bfc",
+    "parent_main": "bec349eadbdd18e8a43b4a90f343d90e8f4da0c9",
+    "final_main": "fa603571ff392df775b699154df9246e578a0d73",
+    "final_main_tree": "dd7c6115d59b6f90b556864f6a7c935b9ead4bfc",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0620-integrate-sequence-620-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0620-integrate-sequence-620-main-verification.md"
+    ],
+    "source_changed_paths": [
+      ".github/workflows/ci.yml",
+      "scripts/federation_stream_relay.py",
+      "tests/test_federation_stream_relay.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Append-only sequence 620 integration evidence for strict Federation SSE relay JSON parsing, exact-candidate verification, and main-branch source confirmation."
+  },
+  "validation": {
+    "candidate_checks": {
+      "candidate_commit": "baa13f9cc905aed15d4aea379621019c6cddb578",
+      "candidate_tree": "dd7c6115d59b6f90b556864f6a7c935b9ead4bfc",
+      "quality_gate_runs": [
+        39948957062
+      ],
+      "ci_pull_request": 39948957073,
+      "source_validation_job": 120398428240,
+      "docker": 39948957117,
+      "codex_ci": 39948957161,
+      "invariant_pull_request": 39948957063,
+      "lint": 39948957146,
+      "gradient": 39948957103,
+      "release": 39948957166,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "federation_relay_tests": "29 tests passed locally; hosted source validation ran the full relay test file plus its workflow contract test",
+      "federation_relay_acceptance": "9 required nodes passed; task_acceptance_ready on the exact merge-ref tree",
+      "docs_linkcheck": "passed",
+      "helm_k8s": "passed",
+      "self_check_pytest": "passed",
+      "results": "all fresh PR-triggered candidate workflows completed successfully"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12500030914,
+      "advertised_digest": "sha256:c093c1865a29a30505073a4fd321cb4fc19d040d817791914c64c46d730be59d",
+      "independent_sha256": "c093c1865a29a30505073a4fd321cb4fc19d040d817791914c64c46d730be59d",
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "baa13f9cc905aed15d4aea379621019c6cddb578",
+      "bound_tree": "dd7c6115d59b6f90b556864f6a7c935b9ead4bfc",
+      "validation_profile": "solo",
+      "exhaustive_matrix": "not_requested_for_solo_profile"
+    },
+    "source_validation": {
+      "run": 39948957073,
+      "job": 120398428240,
+      "merge_ref_commit": "00290bf62ac0d1dc63f37df71dfcc347251cb51a",
+      "acceptance_status": "task_acceptance_ready",
+      "required_nodes": 9,
+      "node_outcomes": "all passed",
+      "merge_ref_to_main_diff": "identical first-parent diff; merge base bec349eadbdd18e8a43b4a90f343d90e8f4da0c9"
+    },
+    "post_merge_checks": {
+      "main_commit": "fa603571ff392df775b699154df9246e578a0d73",
+      "status": "not_observed",
+      "detail": "The available connector lists PR-triggered workflow runs only and returned no commit-status entries for the main merge. No post-merge push result is inferred."
+    },
+    "federation_health": {
+      "prior_checkpoint_cutoff_utc": "2026-10-23 11:03:27Z",
+      "prior_checkpoint_latest_scheduled_run": 39936583192,
+      "prior_checkpoint_source_head": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "report_is_live_telemetry": false,
+      "current_schedule_query": "not available via the connected workflow-run interface"
+    }
+  },
+  "integration": {
+    "pull_request": 2694,
+    "merge_commit": "fa603571ff392df775b699154df9246e578a0d73",
+    "tree": "dd7c6115d59b6f90b556864f6a7c935b9ead4bfc",
+    "first_parent": "bec349eadbdd18e8a43b4a90f343d90e8f4da0c9",
+    "second_parent": "baa13f9cc905aed15d4aea379621019c6cddb578",
+    "merge_method": "normal GitHub merge; candidate commit retained"
+  },
+  "scope": "Append-only sequence 620 integration evidence and checkpoint update; no runtime, trust-enrollment, Health, or execution-authority changes."
+}
