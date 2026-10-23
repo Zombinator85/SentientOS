@@ -1,0 +1,146 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 622,
+  "title": "Integrate sequence 622: authenticated Federation replay ownership and hosted CI resilience",
+  "predecessor": "segment-sha256:a04cf54dae90eb06ebbab21d6f0a20bc457956ea94ec3339b7321e769b6f198e",
+  "source": {
+    "pull_request": 2698,
+    "candidate_commit": "1aa18e5466aa173db0f4227419d5080eb9aed4cf",
+    "candidate_tree": "cc6b5240de83612781a5acdfce3d099d4f1cafcf",
+    "parent_main": "3f2101e0f8219b491fcebbd93a4be4474c84b566",
+    "final_main": "3493b1751f1d3ed9ff35b4a0726fb61bdb11e9f9",
+    "final_main_tree": "64ba43d1e2777996adae4c9f4bbd2b8e08b506bf",
+    "related_infrastructure_pull_request": 2699,
+    "related_candidate_commit": "8429a11e86abe61fe7f805ace8b5e672cbb21edb",
+    "intermediate_main": "74d95e6d0c828db4bfc0cd2b6e43627c7add7d8f",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0622-integrate-sequence-622-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0622-integrate-sequence-622-main-verification.md"
+    ],
+    "source_changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/peer_replay_owner.py",
+      "tests/test_federation_peer_authentication.py",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "tests/integrity/test_repo_invariant_tripwire.py"
+    ],
+    "scope": "Append-only verification of authenticated Federation peer replay ownership and bounded hosted FFmpeg mirror fallback; no network, Health, admission, planning, or execution authority added."
+  },
+  "validation": {
+    "candidate_checks": {
+      "federation_peer_replay_owner": {
+        "candidate_commit": "1aa18e5466aa173db0f4227419d5080eb9aed4cf",
+        "candidate_tree": "cc6b5240de83612781a5acdfce3d099d4f1cafcf",
+        "quality_gate_run": 39958626631,
+        "ci_pull_request": 39958626546,
+        "ci_push": 39958618829,
+        "source_validation_job": 120430662561,
+        "source_validation_push_job": 120430640357,
+        "docker": 39958626571,
+        "codex_ci": 39958626680,
+        "invariant_pull_request": 39958626661,
+        "invariant_push": 39958618808,
+        "lint": 39958626615,
+        "release": 39958626559,
+        "gradient": 39958626620,
+        "strict_administrator_audits": "passed",
+        "exact_acceptance_binding": "passed",
+        "hosted_landing_finalizer": "passed",
+        "separate_prepublication_metadata_guard": "passed",
+        "replay_owner_acceptance": "all four exact required nodes passed on the exact candidate",
+        "results": "all exact candidate PR and push checks passed"
+      },
+      "ffmpeg_mirror_fallback": {
+        "candidate_commit": "8429a11e86abe61fe7f805ace8b5e672cbb21edb",
+        "candidate_tree": "64ba43d1e2777996adae4c9f4bbd2b8e08b506bf",
+        "parent_main": "74d95e6d0c828db4bfc0cd2b6e43627c7add7d8f",
+        "quality_gate_run": 39962094887,
+        "ci_pull_request": 39962094852,
+        "ci_push": 39962037342,
+        "source_validation_job": 120442366303,
+        "self_check_job": 120442366537,
+        "docker": 39962094836,
+        "codex_ci": 39962094963,
+        "invariant_pull_request": 39962094517,
+        "invariant_push": 39962037283,
+        "lint": 39962094609,
+        "release": 39962094551,
+        "gradient": 39962094686,
+        "strict_administrator_audits": "passed",
+        "exact_acceptance_binding": "passed",
+        "hosted_landing_finalizer": "passed",
+        "separate_prepublication_metadata_guard": "passed",
+        "self_check": "52 steps passed; FFmpeg installation and demo export passed",
+        "results": "all exact candidate PR and push checks passed"
+      },
+      "landing_finalizer_artifacts": [
+        {
+          "pull_request": 2698,
+          "artifact_id": 12504110965,
+          "advertised_digest": "sha256:a948c4363b1595804c2e222875bbabcfd798830a822dda43afb01c7cc8567a3f",
+          "metadata_guard_status": "pr_metadata_guard_ready",
+          "metadata_guard_reasons": []
+        },
+        {
+          "pull_request": 2699,
+          "artifact_id": 12504997957,
+          "advertised_digest": "sha256:e98e387a382e29f439df6834be35e379d2046c14e219407ec38f5cdb091675f3",
+          "metadata_guard_status": "pr_metadata_guard_ready",
+          "metadata_guard_reasons": []
+        }
+      ],
+      "post_merge_checks": {
+        "main_commit": "3493b1751f1d3ed9ff35b4a0726fb61bdb11e9f9",
+        "main_tree": "64ba43d1e2777996adae4c9f4bbd2b8e08b506bf",
+        "status": "all applicable checks passed",
+        "required_quality_gate": 39962765728,
+        "ci": 39962765915,
+        "source_validation_job": 120444685198,
+        "self_check_job": 120444685020,
+        "docs_job": 120444685223,
+        "helm_job": 120444685504,
+        "docs_deploy": 39962765559,
+        "docker": 39962765735,
+        "codex_ci": 39962765551,
+        "invariants": 39962765820,
+        "forge_smoke": {
+          "run": 39962765652,
+          "status": "skipped_by_workflow_conditions"
+        },
+        "ffmpeg_install": "passed in 23 seconds on the post-merge self-check; parliament demo succeeded",
+        "obsolete_run": {
+          "run": 39959808084,
+          "source": "74d95e6d0c828db4bfc0cd2b6e43627c7add7d8f",
+          "status": "in_progress_at_old_workflow_ffmpeg_install",
+          "superseded_by": 39962765915
+        }
+      },
+      "federation_health": {
+        "latest_scheduled_run": 39936583192,
+        "latest_scheduled_source": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+        "current_main": "3493b1751f1d3ed9ff35b4a0726fb61bdb11e9f9",
+        "execution_status": "health, receipt, and app-backed publication jobs succeeded",
+        "receipt_pull_request": 2688,
+        "receipt_pull_request_base": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+        "report_is_live_telemetry": false,
+        "disposition": "preserve as historical generated output; do not merge the stale-base receipt without a fresh run and verification"
+      }
+    }
+  },
+  "integration": {
+    "pull_request": 2698,
+    "merge_commit": "74d95e6d0c828db4bfc0cd2b6e43627c7add7d8f",
+    "tree": "cc6b5240de83612781a5acdfce3d099d4f1cafcf",
+    "first_parent": "3f2101e0f8219b491fcebbd93a4be4474c84b566",
+    "second_parent": "1aa18e5466aa173db0f4227419d5080eb9aed4cf",
+    "merge_method": "normal GitHub merge; candidate commit retained",
+    "related_pull_request": 2699,
+    "related_merge_commit": "3493b1751f1d3ed9ff35b4a0726fb61bdb11e9f9",
+    "related_first_parent": "74d95e6d0c828db4bfc0cd2b6e43627c7add7d8f",
+    "related_second_parent": "8429a11e86abe61fe7f805ace8b5e672cbb21edb",
+    "related_merge_method": "normal GitHub merge; candidate commit retained"
+  },
+  "scope": "Append-only construction evidence for verified Federation replay ownership and hosted FFmpeg mirror fallback, bound to exact candidates and merged main source."
+}

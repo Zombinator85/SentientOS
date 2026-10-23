@@ -1,15 +1,17 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 621
+## Current verified state — sequence 622
 
 Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated incremental federation work to verified main history; sequence 619 added operator-pinned federation peer event provenance, and sequence 620 hardened relay JSON handling.
 
-Latest verified main: `db51776cf10752ec74f2c560c9548d448edb7d65`, tree `d26a60e881047912d323cdcf982c6d0e5991460d`
-Latest construction segment: `work/construction/segments/0621-integrate-sequence-621-main-verification.md`
-Latest segment SHA-256: a04cf54dae90eb06ebbab21d6f0a20bc457956ea94ec3339b7321e769b6f198e
-Sequence: 621 (sequence 621 integration and main-source verification)
+The latest scheduled Federation Health execution is #39936583192 on source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; its Administrator preflight, source-bound receipt, and App-backed publication succeeded. The generated report is still a configured local-log snapshot, not live telemetry, and PR #2688 remains based on that older main.
 
-The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
+Latest verified main: `3493b1751f1d3ed9ff35b4a0726fb61bdb11e9f9`, tree `64ba43d1e2777996adae4c9f4bbd2b8e08b506bf`
+Latest construction segment: `work/construction/segments/0622-integrate-sequence-622-main-verification.md`
+Latest segment SHA-256: 544de0e40b938ec6519a1cc3a5595dcd3938d36472733f9f7ff1846fa652e07e
+Sequence: 622 (authenticated Federation peer replay ownership and hosted CI resilience)
+
+Sequence 622 adds a local authenticated peer replay owner with bounded immutable signed-envelope custody and no downstream authority. It also bounds the self-check FFmpeg package install and falls back to the public Ubuntu archive when the Azure mirror is slow. The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 
 PR #2686 passed exact-candidate Quality Gate, strict hosted Administrator audit, acceptance binding, hosted landing finalizer, separate metadata guard, CI on PR and push events, Docker, Codex CI, invariants, release, gradient, and lint. The first PR attempt was correctly blocked because its commit subject did not match its PR title; it was closed and the same verified tree passed all gates with matching metadata on PR #2686. Its finalizer artifact digest was independently verified, and the metadata guard bound the exact candidate commit/tree with no reasons. Main's post-merge CI, Quality Gate, Docker, Docs Deploy, Codex CI, and invariants all passed on `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`.
 
@@ -27,7 +29,7 @@ Sequence 617 merged normally through PR #2689 at `e4b0161ecebae3ac446da39c2da8a5
 
 As of 2026-10-23 10:36:07Z, the latest scheduled Federation Health run remained #39936583192 on older current-at-run source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`. There was no schedule-bound run on current main `e4b0161ecebae3ac446da39c2da8a5e6626874b5`. The automated receipt PR #2688 still needs a refreshed source/base and fresh verification.
 
-Next: implement durable ownership of authenticated federation peer replay sequence state. Derive sequence from verified owner history, persist signed-envelope provenance with immutable bounded records, and keep accepted events outside Health, admission, planning, and execution.
+Next: define and verify a distinct local semantic-acceptance contract for authenticated peer events. Keep signature provenance and replay custody separate from permission to treat remote claims as local evidence. Do not connect authenticated events to Health, admission, planning, or execution until that contract is explicit and tested.
 
 
 Sequence 619 adds a read-only operator-pinned trust catalog and canonical Ed25519 peer-event provenance verification. The verifier binds peer identity, key, endpoint, event digest, validity, revocation, freshness, and the exact next sequence supplied by its caller. It never mutates that caller-owned replay state or admits events to the relay, Health, or execution paths.
@@ -51,4 +53,4 @@ Sequence 621 integrates PR #2696, which confines local federation replay snapsho
 
 Main `db51776cf10752ec74f2c560c9548d448edb7d65` (tree `d26a60e881047912d323cdcf982c6d0e5991460d`) passed post-merge Required Quality Gate, CI, Docs Deploy, Docker, Codex CI, invariants, and Nightly Self Check. The CI source-validation lane completed, including the integrated resource-to-cognition lifecycle and planning/transition checks. The latest scheduled Federation Health report remains run #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; no schedule-bound execution on current main was observed. Its report is a stale local-log snapshot, not live telemetry. Automated receipt PR #2688 is based on that older source and must be refreshed and reverified.
 
-Next: implement durable ownership of authenticated federation peer replay sequence state. Derive expected sequence from the owner's verified history, persist exact signed-envelope provenance in immutable bounded records, and fail closed when custody or history validation is unavailable. Keep authenticated events out of Health, admission, planning, and execution.
+Next: define and verify a distinct local semantic-acceptance contract for authenticated peer events. Keep signature provenance and replay custody separate from permission to treat remote claims as local evidence. Do not connect authenticated events to Health, admission, planning, or execution until that contract is explicit and tested.
