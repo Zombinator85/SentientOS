@@ -7,6 +7,7 @@ require_lumos_approval()
 import json
 import time
 import threading
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import requests  # type: ignore[import-untyped]
@@ -15,6 +16,43 @@ import yaml
 CONFIG_PATH = Path("config/federation.yaml")
 LOG_PATH = Path("logs/federation_stream.jsonl")
 MAX_EVENT_BYTES = 64 * 1024
+
+
+def iter_bounded_sse_lines(
+    chunks: Iterable[bytes], max_bytes: int = MAX_EVENT_BYTES
+) -> Iterator[bytes]:
+    """Yield SSE lines while bounding buffering and resynchronizing after oversize."""
+    if type(max_bytes) is not int or max_bytes <= 0:
+        raise ValueError("max_bytes must be a positive integer")
+    buffer = bytearray()
+    discarding = False
+    for chunk in chunks:
+        if not isinstance(chunk, bytes):
+            raise TypeError("stream chunks must be bytes")
+        start = 0
+        while start < len(chunk):
+            newline = chunk.find(b"\n", start)
+            end = len(chunk) if newline < 0 else newline
+            piece_length = end - start
+            if discarding:
+                if newline >= 0:
+                    discarding = False
+                    buffer.clear()
+            elif len(buffer) + piece_length > max_bytes:
+                buffer.clear()
+                discarding = newline < 0
+            else:
+                buffer.extend(chunk[start:end])
+                if newline >= 0:
+                    line = bytes(buffer)
+                    yield line[:-1] if line.endswith(b"\r") else line
+                    buffer.clear()
+            if newline < 0:
+                break
+            start = newline + 1
+    if not discarding and buffer:
+        line = bytes(buffer)
+        yield line[:-1] if line.endswith(b"\r") else line
 
 
 def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
@@ -50,7 +88,7 @@ def relay_peer(url: str, log_path: Path = LOG_PATH) -> None:
         try:
             with requests.get(stream_url, stream=True, timeout=10) as resp:
                 resp.raise_for_status()
-                for line in resp.iter_lines():
+                for line in iter_bounded_sse_lines(resp.iter_content(chunk_size=8192)):
                     if not line:
                         continue
                     data = decode_event_line(line, url)
