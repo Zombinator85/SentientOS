@@ -312,3 +312,33 @@ def test_compute_health_skips_ambiguous_or_resource_heavy_json_lines(
     assert stats["status"] == "healthy"
     assert stats["latest_event_at"] == now.replace("+00:00", "Z")
     assert stats["live_telemetry"] is False
+
+
+
+@pytest.mark.no_legacy_skip
+def test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    unknown_offset = datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "-00:00"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": unknown_offset,
+                "data": {"peer": "unknown-offset"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    assert health_badge.compute_health() == {
+        "nodes": 1,
+        "recent": 0,
+        "status": "quiet",
+        "source": "configured_local_log_snapshot",
+        "window_hours": 24,
+        "latest_event_at": None,
+        "live_telemetry": False,
+    }
