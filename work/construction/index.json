@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b1d27b403fe29ca1d6025af3e9cf0c4491d2361a0dba2692fc05785b2844cb44",
-    "latest_segment_sequence": 597,
-    "latest_segment_sha256": "80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5",
-    "source_commit": "b58b2d96c72ecaa048221d383f7c3fa0b3d06d04",
-    "source_tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125"
+    "checkpoint_sha256": "a6fd190a550da814e2b569bf1eb82e2eb9f898985fd8650d34eed201e292c21c",
+    "latest_segment_sequence": 598,
+    "latest_segment_sha256": "53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011",
+    "source_commit": "bb672aa05d6a82b894ebadbfcb7b7252fb133cc4",
+    "source_tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38"
   },
-  "checkpoint_sha256": "b1d27b403fe29ca1d6025af3e9cf0c4491d2361a0dba2692fc05785b2844cb44",
+  "checkpoint_sha256": "a6fd190a550da814e2b569bf1eb82e2eb9f898985fd8650d34eed201e292c21c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 597,
+  "latest_sequence": 598,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6932,6 +6932,19 @@
       "source_candidate_commit": "27b19e9fbe04511eb08b7dcd181b9b8f72af7804",
       "source_commit": "b58b2d96c72ecaa048221d383f7c3fa0b3d06d04",
       "source_tree": "bcc756e3b122780a7b1bf091dcbd926c869ad125"
+    },
+    {
+      "sequence": 598,
+      "path": "work/construction/segments/0598-source-age-bounds-epistemic-freshness.md",
+      "sha256": "53dba1e50462ab8eafdbf0617915684ce0da35145ec4d84fdb4cd84230296011",
+      "bytes": 1965,
+      "predecessor": "segment-sha256:80dd4de092d0ae4bede02694bafa6c87a21b497e57e39aa5ea48d561009908f5",
+      "evidence_path": "work/construction/evidence/0598-source-age-bounds-epistemic-freshness.json",
+      "evidence_sha256": "64fbb20e7461be5e78bef5527f0906dd6fb1f4541d0c2de6472e6d034d906992",
+      "evidence_bytes": 1869,
+      "source_candidate_commit": "0696a5231a8ad9c724221cca91aba0b828c9008f",
+      "source_commit": "bb672aa05d6a82b894ebadbfcb7b7252fb133cc4",
+      "source_tree": "eb2efd3212dcfb0d4e0dcf7e9d9b045466991b38"
     }
   ],
   "source_acquisition": {
