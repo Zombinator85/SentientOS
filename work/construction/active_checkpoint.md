@@ -1,4 +1,20 @@
-# Active construction checkpoint
+## Current verified state — sequence 630
+
+Sequence 630 integrates the positive-window overflow correction, exact-candidate and post-merge verification, and the Federation Health run and receipt.
+
+Latest verified source main: `04a37791013b598241a5204525d18a542d2281cd`, tree `74e407056a2e0777633b704d7b52ada57a9ffef9`
+Current main at this checkpoint: `0b34c1d7756dd1d6e0bf03ebe6df7080495b3ab0`, tree `faf3320ef3f4c41184709f67c6a129b44dc65cc4`
+Latest construction segment: `work/construction/segments/0630-integrate-sequence-630-federation-health-window-and-receipt.md`
+Latest segment SHA-256: `ef2500af79172aaf98117479cc052f14767ddd3676c9be54abde5708e9d4c0ba`
+Sequence: 630 (large Federation Health windows and post-merge execution receipt)
+
+PR #2716 candidate `dac402df86d518cf7048924e28e7aeaa2e355871` merged normally as `04a37791013b598241a5204525d18a542d2281cd`. Its hosted Quality Gate, strict Administrator audits, exact acceptance, landing finalizer, separate pre-publication metadata guard, source validation, full CI, and related exact-candidate checks passed. On that exact source main, the Quality Gate, CI, invariants, Docker, Codex CI, docs deployment, and Nightly Self Check passed. The Federation Health run #39997721950 passed hosted Administrator preflight, report generation, and receipt binding. It reports a stale configured local snapshot only: one configured node, zero recent events, and latest local event `2025-06-05T16:25:13.805813Z`; live telemetry is false.
+
+The publisher's PR #2717 changed only the execution receipt. Its exact-candidate Quality Gate, strict Administrator audits, exact acceptance, hosted finalizer, separate metadata guard, CI, invariants, Docker, lint, Codex CI, Release, and Gradient checks passed. It merged normally as `0b34c1d7756dd1d6e0bf03ebe6df7080495b3ab0`. On current main, the Required Quality Gate, CI, invariants, Docker, Codex CI, and Docs Deploy passed; Forge Smoke was skipped by workflow conditions.
+
+The sequence 630 evidence records these verified changes. The source's local-snapshot-only Health boundary and authority limits are unchanged.
+
+## Previous checkpoint snapshot — sequence 629
 
 ## Current verified state — sequence 629
 

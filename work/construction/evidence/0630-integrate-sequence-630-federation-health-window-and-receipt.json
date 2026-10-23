@@ -1,0 +1,128 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 630,
+  "title": "Integrate sequence 630: Federation Health window arithmetic and execution receipt",
+  "predecessor": "segment-sha256:d251a8c2adab460d675746018872915ea85d56e54995bd9ee32daa54f13ebe46",
+  "source": {
+    "pull_request": 2716,
+    "candidate_commit": "dac402df86d518cf7048924e28e7aeaa2e355871",
+    "candidate_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9",
+    "parent_main": "1cfaa8609d18db66c3d1cae7b3c4b550cad006d2",
+    "source_merge": "04a37791013b598241a5204525d18a542d2281cd",
+    "source_main": "04a37791013b598241a5204525d18a542d2281cd",
+    "source_tree": "74e407056a2e0777633b704d7b52ada57a9ffef9",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "federation_health_badge.py",
+      "tests/test_federation_health_badge.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Handle positive Federation Health windows beyond timedelta range without an arbitrary cap; bind the regression in hosted source validation."
+  },
+  "validation": {
+    "exact_candidate": {
+      "quality_gate": 39996927733,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39996927789,
+      "source_validation": "passed; large-window arithmetic regression executed",
+      "same_sha_push_ci": 39996912242,
+      "invariants": 39996927738,
+      "docker_image": 39996927775,
+      "lint": 39996927716,
+      "codex_ci": 39996927732,
+      "release": 39996927904,
+      "gradient_null_regression": 39996927996,
+      "result": "all applicable exact-candidate checks passed"
+    },
+    "post_merge_source_main": {
+      "commit": "04a37791013b598241a5204525d18a542d2281cd",
+      "tree": "74e407056a2e0777633b704d7b52ada57a9ffef9",
+      "quality_gate": 39997722316,
+      "ci": 39997722005,
+      "invariants": 39997722313,
+      "docker_image": 39997722311,
+      "codex_ci": 39997721915,
+      "docs_deploy": 39997721935,
+      "nightly_self_check": 39997721969,
+      "forge_smoke": {
+        "run": 39997721954,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable post-merge source checks passed"
+    },
+    "federation_health_execution": {
+      "run": 39997721950,
+      "source_commit": "04a37791013b598241a5204525d18a542d2281cd",
+      "event": "push",
+      "administrator_preflight": "passed",
+      "health_generator": "completed_successfully",
+      "receipt_binding": "passed",
+      "artifact_publication": "passed",
+      "report_status": "stale",
+      "configured_nodes": 1,
+      "recent_events_24h": 0,
+      "latest_local_event_at": "2025-06-05T16:25:13.805813Z",
+      "data_source": "configured local log snapshot",
+      "live_telemetry": false,
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c"
+    },
+    "health_receipt_publication": {
+      "pull_request": 2717,
+      "candidate_commit": "314dcad0270ffa26840908ff16bff4e8bb625877",
+      "changed_paths": [
+        "docs/FEDERATION_HEALTH_EXECUTION.json"
+      ],
+      "receipt_binds_source_commit": "04a37791013b598241a5204525d18a542d2281cd",
+      "receipt_binds_workflow_run": 39997721950,
+      "receipt_binds_report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "exact_candidate_quality_gate": 39997779654,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39997779468,
+      "same_sha_push_ci": 39997776005,
+      "invariants": 39997779560,
+      "same_sha_push_invariants": 39997776026,
+      "docker_image": 39997779557,
+      "lint": 39997779605,
+      "codex_ci": 39997779536,
+      "release": 39997779540,
+      "gradient_null_regression": 39997779507,
+      "merge_commit": "0b34c1d7756dd1d6e0bf03ebe6df7080495b3ab0",
+      "result": "receipt-only PR passed exact-candidate checks and merged normally"
+    },
+    "post_receipt_main": {
+      "commit": "0b34c1d7756dd1d6e0bf03ebe6df7080495b3ab0",
+      "tree": "faf3320ef3f4c41184709f67c6a129b44dc65cc4",
+      "quality_gate": 39998777779,
+      "ci": 39998777660,
+      "invariants": 39998777532,
+      "docker_image": 39998777411,
+      "codex_ci": 39998777501,
+      "docs_deploy": 39998777604,
+      "forge_smoke": {
+        "run": 39998777370,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "ci_coverage": [
+        "source validation including large-window arithmetic regression",
+        "Mypy and pytest",
+        "documentation linkcheck",
+        "Helm/Kubernetes"
+      ],
+      "result": "all applicable post-merge main checks passed"
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "merge_history_preserved": true,
+    "authority_boundaries_preserved": true,
+    "report_boundary": "configured local log snapshot; no live telemetry claim",
+    "window_semantics": "overflowing positive duration includes all representable event timestamps; no arbitrary upper bound"
+  }
+}
