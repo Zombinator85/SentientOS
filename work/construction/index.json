@@ -7288,7 +7288,7 @@
       "sequence": 625,
       "path": "work/construction/segments/0625-integrate-sequence-625-main-verification.md",
       "sha256": "050e504883e4ea450461629d659ec6ed24221a988222aee152930bdc9b757180",
-      "bytes": 3163,
+      "bytes": 3165,
       "predecessor": "segment-sha256:b7364d3b39c48fec6fde7a883fecb106fe91591b1d5625f7c86c69371c1d2673",
       "evidence_path": "work/construction/evidence/0625-integrate-sequence-625-main-verification.json",
       "evidence_sha256": "1c7b34dbd7697792d3a392bac72b75d79059b7ba98e1c4039388d8a2528fa2a9",
