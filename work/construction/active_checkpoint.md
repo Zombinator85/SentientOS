@@ -92,7 +92,7 @@ Sequence 625 integrates a bounded local docket for Federation semantic-review re
 
 Latest verified main: `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`, tree `486103360be93db194c2d721a2a2d70b42ae95ce`
 Latest construction segment: `work/construction/segments/0625-integrate-sequence-625-main-verification.md`
-Latest segment SHA-256: 050e504883e4ea450461629d659ec6ed24221a988222aee152930bdc9b757180
+Latest segment SHA-256: 7c39f1dea5d38c917f447092a30c85f2e6431c847428dccf822ad824042c6ecd
 Sequence: 625 (bounded semantic-review receipt docket)
 
 PR #2705 candidate `f1e4b730f831dcd9502be0b3816a8687998949ea` merged normally as `2a396737193222e54132d2f0976c21c8fdaac452`. Its exact-candidate Quality Gate, strict Administrator audits, acceptance binding, finalizer, separate metadata guard, CI, invariants, Docker, Codex CI, lint, release, and gradient checks passed. Post-merge checks passed on the source merge. The later App-published Federation Health receipt PR #2688 merged normally as `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`; its scheduled report is a stale configured local-log snapshot, not live telemetry.

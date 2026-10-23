@@ -2,7 +2,7 @@
 
 Sequence 625 adds a bounded local docket for Federation semantic-review receipts that have already been independently revalidated against the exact replay acceptance and locally pinned policy. Writes are append-only, content-addressed, and locally custody-bound; reads re-run semantic validation and preserve positive, adverse, mixed, and inconclusive submitted outcomes. The docket grants only local review eligibility. It does not resolve remote evidence references or grant canonical evidence admission, Federation Health publication, work admission, planning, execution, or decision authority.
 
-PR #2705 candidate `f1e4b730f831dcd9502be0b3816a8687998949ea` (tree `3f035731a2c1c5937614dcfb6207904c6b3c599f`) merged normally as `2a396737193222e54132d2f0976c21c8fdaac452` (tree `3f035731a2c1c5937614dcfb6207904c6b3c599f`), retaining the candidate as second parent of `94cb87d2b0643a136311a31a5eac488238875751`.
+PR #2705 candidate `f1e4b730f831dcd9502be0b3816a8687998949ea` (tree `3f035731a2c1c5937614dcfb6207904c6b3c599f`) merged normally as `2a396737193222e54132d2f0976c21c8fdaac452` (tree `3f035731a2c1c5937614dcfb6207904c6b3c599f`), retaining the candidate and merge history.
 
 ## Candidate verification
 
