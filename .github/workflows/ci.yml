@@ -218,10 +218,11 @@ jobs:
             --manifest glow/test_runs/canonical_planning_acceptance.json \
             --provenance glow/test_runs/canonical_planning_provenance.json \
             --output glow/test_runs/canonical_planning_acceptance_result.json
-      - name: Verify Federation Health snapshot freshness
+      - name: Verify Federation Health snapshot freshness and bounded JSON parsing
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
             tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window \
+            tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines \
             tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope \
             tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression
           cp glow/test_runs/test_run_provenance.json \
@@ -232,9 +233,10 @@ jobs:
           from pathlib import Path
 
           node = "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window"
+          parser_node = "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines"
           publisher_node = "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
           contract_node = "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression"
-          nodes = [node, publisher_node, contract_node]
+          nodes = [node, parser_node, publisher_node, contract_node]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
               "task_classification": "behavior_adding",
@@ -242,8 +244,9 @@ jobs:
               "test_provenance_path": "glow/test_runs/federation_health_provenance.json",
               "required_nodes": [
                   {"node_id": node, "rationale": "stale local snapshots must not be reported as quiet health"},
+                  {"node_id": parser_node, "rationale": "ambiguous and resource-heavy local JSONL records must be skipped without losing later valid observations"},
                   {"node_id": publisher_node, "rationale": "the hosted App token publisher must use its non-deprecated client identifier input with narrow permissions"},
-                  {"node_id": contract_node, "rationale": "CI must bind the Federation Health publisher contract to source-validation acceptance"},
+                  {"node_id": contract_node, "rationale": "CI must bind the Federation Health source contract to source-validation acceptance"},
               ],
               "successful_path_nodes": nodes,
           }
@@ -255,6 +258,7 @@ jobs:
             --manifest glow/test_runs/federation_health_acceptance.json \
             --provenance glow/test_runs/federation_health_provenance.json \
             --output glow/test_runs/federation_health_acceptance_result.json
+
       - name: Verify Federation stream relay JSON strictness
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
@@ -908,6 +912,9 @@ jobs:
             glow/test_runs/federation_peer_replay_owner_provenance.json
             glow/test_runs/federation_peer_replay_owner_acceptance.json
             glow/test_runs/federation_peer_replay_owner_acceptance_result.json
+            glow/test_runs/federation_health_provenance.json
+            glow/test_runs/federation_health_acceptance.json
+            glow/test_runs/federation_health_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

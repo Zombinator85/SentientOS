@@ -3,9 +3,10 @@ from logging_config import get_log_path
 
 import argparse
 import json
+from math import isfinite
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict
+from typing import Any, BinaryIO, Dict, Iterator
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
@@ -14,6 +15,51 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 LOG_PATH = get_log_path("federation_log.jsonl")
+
+# Federation Health is a bounded local snapshot reader. These limits apply to
+# each independent JSONL record; they do not change the log or its writer.
+MAX_RECORD_BYTES = 64 * 1024
+MAX_JSON_INTEGER_DIGITS = 128
+
+
+def _bounded_lines(log_file: BinaryIO) -> Iterator[bytes]:
+    """Yield complete log records only when they fit the per-record byte bound."""
+    while True:
+        raw_line = log_file.readline(MAX_RECORD_BYTES + 1)
+        if not raw_line:
+            return
+        if len(raw_line) > MAX_RECORD_BYTES:
+            while raw_line and not raw_line.endswith(b"\n"):
+                raw_line = log_file.readline(MAX_RECORD_BYTES + 1)
+            continue
+        yield raw_line
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
+def _parse_bounded_json_integer(token: str) -> int:
+    digits = token[1:] if token.startswith("-") else token
+    if len(digits) > MAX_JSON_INTEGER_DIGITS:
+        raise ValueError("JSON integer exceeds the health snapshot limit")
+    return int(token)
+
+
+def _parse_finite_json_float(token: str) -> float:
+    value = float(token)
+    if not isfinite(value):
+        raise ValueError("JSON float is not finite")
+    return value
+
+
+def _reject_json_constant(token: str) -> None:
+    raise ValueError(f"non-standard JSON constant: {token}")
 
 
 def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
@@ -37,14 +83,20 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     recent = 0
     latest_event_at: datetime | None = None
     with LOG_PATH.open("rb") as log_file:
-        for raw_line in log_file:
+        for raw_line in _bounded_lines(log_file):
             try:
                 line = raw_line.decode("utf-8")
             except UnicodeDecodeError:
                 continue
             try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
+                entry = json.loads(
+                    line,
+                    object_pairs_hook=_reject_duplicate_json_keys,
+                    parse_int=_parse_bounded_json_integer,
+                    parse_float=_parse_finite_json_float,
+                    parse_constant=_reject_json_constant,
+                )
+            except (json.JSONDecodeError, RecursionError, ValueError):
                 continue
             if not isinstance(entry, dict):
                 continue
