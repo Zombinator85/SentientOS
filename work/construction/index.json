@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d12ed84f9fa1f4b906913a2b1df930fac352480e013527be13da802cc68a7bff",
-    "latest_segment_sequence": 602,
-    "latest_segment_sha256": "3d6673deaecf3fcedca83e590a527f0fb2213e1110bbca72bf59876c256f7e68",
-    "source_commit": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
-    "source_tree": "790eda70740d955a8fef3f545b5e931ae96479e0"
+    "checkpoint_sha256": "90651c1ee74452bfd65dd63c40431f78e8993696aae54d78a2a4ca5167d2b641",
+    "latest_segment_sequence": 603,
+    "latest_segment_sha256": "1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35",
+    "source_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
+    "source_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead"
   },
-  "checkpoint_sha256": "d12ed84f9fa1f4b906913a2b1df930fac352480e013527be13da802cc68a7bff",
+  "checkpoint_sha256": "90651c1ee74452bfd65dd63c40431f78e8993696aae54d78a2a4ca5167d2b641",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 602,
+  "latest_sequence": 603,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -6997,6 +6997,19 @@
       "source_candidate_commit": "52cfc9aedf79c41a4d0be8ab674de27324d6c0dc",
       "source_commit": "6d138c83e65fb168dbff74a5c73b962a7b6c8245",
       "source_tree": "790eda70740d955a8fef3f545b5e931ae96479e0"
+    },
+    {
+      "sequence": 603,
+      "path": "work/construction/segments/0603-bounded-federation-relay-event-parsing.md",
+      "sha256": "1e2004a996f7f38bd1a59251bee56261425136baedb2469144290c0a1715ed35",
+      "bytes": 2732,
+      "predecessor": "segment-sha256:3d6673deaecf3fcedca83e590a527f0fb2213e1110bbca72bf59876c256f7e68",
+      "evidence_path": "work/construction/evidence/0603-bounded-federation-relay-event-parsing.json",
+      "evidence_sha256": "579efed03493b390e7d160a8f592f129485331a5b58f668006c61fc76fe72d2e",
+      "evidence_bytes": 3804,
+      "source_candidate_commit": "67904570359beb8785d8b724c61c1b54d4148b1a",
+      "source_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
+      "source_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead"
     }
   ],
   "source_acquisition": {
