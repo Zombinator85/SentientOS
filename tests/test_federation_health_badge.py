@@ -39,7 +39,7 @@ def test_compute_health_counts_nested_peers_and_timezone_aware_recent_events(
     assert health_badge.compute_health() == {
         "nodes": 2,
         "recent": 1,
-        "status": "healthy",
+        "status": "partial",
         "source": "configured_local_log_snapshot",
         "window_hours": 24,
         "latest_event_at": now.isoformat().replace("+00:00", "Z"),
@@ -47,6 +47,7 @@ def test_compute_health_counts_nested_peers_and_timezone_aware_recent_events(
         "snapshot_coverage_complete": True,
         "omitted_prefix_bytes": 0,
         "oversized_records_omitted": 0,
+        "malformed_records_omitted": 1,
     }
 
 
@@ -64,6 +65,7 @@ def test_compute_health_reports_missing_log(health_badge, tmp_path, monkeypatch)
         "snapshot_coverage_complete": None,
         "omitted_prefix_bytes": 0,
         "oversized_records_omitted": 0,
+        "malformed_records_omitted": 0,
     }
 
 
@@ -120,7 +122,7 @@ def test_main_updates_only_requested_health_document(
         "- Events in last 24 hours: 1\n"
         f"- Latest event in log: {event_at.isoformat().replace('+00:00', 'Z')}\n"
         "- Snapshot byte coverage: complete; omitted oldest-prefix bytes: 0; "
-        "oversized records skipped: 0\n"
+        "oversized records skipped: 0; malformed UTF-8/JSON records skipped: 0\n"
         "- Data source: configured local log snapshot (not live federation telemetry)\n"
         "- Status: healthy\n"
     )
@@ -136,6 +138,7 @@ def test_main_updates_only_requested_health_document(
         "snapshot_coverage_complete": True,
         "omitted_prefix_bytes": 0,
         "oversized_records_omitted": 0,
+        "malformed_records_omitted": 0,
     }
 
 
@@ -227,6 +230,7 @@ def test_compute_health_does_not_count_recent_events_without_peer_identity(
         "snapshot_coverage_complete": True,
         "omitted_prefix_bytes": 0,
         "oversized_records_omitted": 0,
+        "malformed_records_omitted": 0,
     }
 
 
@@ -320,7 +324,9 @@ def test_compute_health_skips_invalid_utf8_record_without_losing_valid_rows(
 
     assert stats["nodes"] == 2
     assert stats["recent"] == 2
-    assert stats["status"] == "healthy"
+    assert stats["status"] == "partial"
+    assert stats["snapshot_coverage_complete"] is True
+    assert stats["malformed_records_omitted"] == 1
 
 
 
@@ -388,8 +394,44 @@ def test_compute_health_skips_ambiguous_or_resource_heavy_json_lines(
     assert stats["snapshot_coverage_complete"] is False
     assert stats["omitted_prefix_bytes"] == 0
     assert stats["oversized_records_omitted"] == 1
+    assert stats["malformed_records_omitted"] == 6
     assert stats["live_telemetry"] is False
 
+
+
+@pytest.mark.no_legacy_skip
+def test_compute_health_accounts_for_malformed_records_not_valid_offschema_rows(
+    health_badge, tmp_path, monkeypatch
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    now = datetime.now(timezone.utc).isoformat()
+    valid_a = (json.dumps({"timestamp": now, "data": {"peer": "alpha"}}) + "\n").encode()
+    valid_b = (json.dumps({"timestamp": now, "data": {"peer": "beta"}}) + "\n").encode()
+    duplicate = (
+        '{"timestamp":' + json.dumps(now) +
+        ',"data":{"peer":"bad"},"data":{"peer":"ambiguous"}}\n'
+    ).encode("utf-8")
+    offschema = [
+        b'null\n',
+        b'[]\n',
+        (json.dumps({"timestamp": now, "data": {"peer": ["not-a-string"]}}) + "\n").encode(),
+        b'{"event":"unrelated"}\n',
+    ]
+    log_path.write_bytes(
+        valid_a + b'{"timestamp":"broken-utf8-\xff"}\n'
+        + b'{"timestamp":\n' + duplicate + b"".join(offschema) + valid_b
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    stats = health_badge.compute_health()
+    assert stats["nodes"] == 2
+    assert stats["recent"] == 2
+    assert stats["status"] == "partial"
+    assert stats["snapshot_coverage_complete"] is True
+    assert stats["omitted_prefix_bytes"] == 0
+    assert stats["oversized_records_omitted"] == 0
+    assert stats["malformed_records_omitted"] == 3
+    assert stats["live_telemetry"] is False
 
 
 @pytest.mark.no_legacy_skip
@@ -421,4 +463,5 @@ def test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc(
         "snapshot_coverage_complete": True,
         "omitted_prefix_bytes": 0,
         "oversized_records_omitted": 0,
+        "malformed_records_omitted": 0,
     }
