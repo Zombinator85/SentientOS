@@ -12,6 +12,7 @@ def test_source_validation_runs_federation_health_freshness_regression():
     nodes = (
         "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window",
         "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines",
+        "tests/test_federation_health_badge.py::test_compute_health_accounts_for_malformed_records_not_valid_offschema_rows",
         "tests/test_federation_health_badge.py::test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc",
         "tests/test_federation_health_badge.py::test_compute_health_handles_positive_window_beyond_timedelta_range",
         "tests/test_federation_health_badge.py::test_compute_health_bounds_total_snapshot_and_reports_omitted_prefix",
@@ -37,6 +38,7 @@ def test_source_validation_runs_federation_health_freshness_regression():
     assert "snapshot_coverage_complete" in source
     assert "omitted_prefix_bytes" in source
     assert "oversized_records_omitted" in source
+    assert "malformed_records_omitted" in source
 
 
 def test_source_validation_runs_federation_relay_json_regressions():

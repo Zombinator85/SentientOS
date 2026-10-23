@@ -226,6 +226,7 @@ jobs:
             tests/test_federation_health_badge.py::test_compute_health_handles_positive_window_beyond_timedelta_range \
             tests/test_federation_health_badge.py::test_compute_health_bounds_total_snapshot_and_reports_omitted_prefix \
             tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines \
+            tests/test_federation_health_badge.py::test_compute_health_accounts_for_malformed_records_not_valid_offschema_rows \
             tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope \
             tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression
           cp glow/test_runs/test_run_provenance.json \
@@ -237,12 +238,13 @@ jobs:
 
           node = "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window"
           parser_node = "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines"
+          malformed_node = "tests/test_federation_health_badge.py::test_compute_health_accounts_for_malformed_records_not_valid_offschema_rows"
           timestamp_node = "tests/test_federation_health_badge.py::test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc"
           window_node = "tests/test_federation_health_badge.py::test_compute_health_handles_positive_window_beyond_timedelta_range"
           coverage_node = "tests/test_federation_health_badge.py::test_compute_health_bounds_total_snapshot_and_reports_omitted_prefix"
           publisher_node = "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope"
           contract_node = "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression"
-          nodes = [node, parser_node, timestamp_node, window_node, coverage_node, publisher_node, contract_node]
+          nodes = [node, parser_node, malformed_node, timestamp_node, window_node, coverage_node, publisher_node, contract_node]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
               "task_classification": "behavior_adding",
@@ -251,6 +253,7 @@ jobs:
               "required_nodes": [
                   {"node_id": node, "rationale": "stale local snapshots must not be reported as quiet health"},
                   {"node_id": parser_node, "rationale": "ambiguous and resource-heavy local JSONL records must be skipped without losing later valid observations"},
+                  {"node_id": malformed_node, "rationale": "malformed UTF-8/JSON rows must be counted without counting valid out-of-schema JSON rows as malformed"},
                   {"node_id": timestamp_node, "rationale": "an RFC 3339 unknown offset must not be interpreted as UTC freshness"},
                   {"node_id": window_node, "rationale": "a very large positive history window must include representable timestamps without timedelta overflow"},
                   {"node_id": coverage_node, "rationale": "the local log scan must be byte-bounded and report omitted prefix and overlong-record evidence"},

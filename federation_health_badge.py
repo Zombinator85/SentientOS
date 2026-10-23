@@ -100,6 +100,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             "snapshot_coverage_complete": None,
             "omitted_prefix_bytes": 0,
             "oversized_records_omitted": 0,
+            "malformed_records_omitted": 0,
         }
     now = datetime.now(timezone.utc)
     try:
@@ -126,6 +127,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
                 scan_start += discarded
         bytes_to_read = max(0, file_size - scan_start)
         oversized_records_omitted = 0
+        malformed_records_omitted = 0
         for raw_line in _bounded_lines(log_file, byte_limit=bytes_to_read):
             if raw_line is None:
                 oversized_records_omitted += 1
@@ -133,6 +135,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
             try:
                 line = raw_line.decode("utf-8")
             except UnicodeDecodeError:
+                malformed_records_omitted += 1
                 continue
             try:
                 entry = json.loads(
@@ -143,6 +146,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
                     parse_constant=_reject_json_constant,
                 )
             except (json.JSONDecodeError, RecursionError, ValueError):
+                malformed_records_omitted += 1
                 continue
             if not isinstance(entry, dict):
                 continue
@@ -173,7 +177,9 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
     snapshot_coverage_complete = (
         omitted_prefix_bytes == 0 and oversized_records_omitted == 0
     )
-    if not snapshot_coverage_complete:
+    # Byte coverage and parse integrity are distinct: malformed retained rows
+    # do not reduce byte coverage, but the health verdict must remain partial.
+    if not snapshot_coverage_complete or malformed_records_omitted > 0:
         status = "partial"
     elif recent > 0:
         status = "healthy"
@@ -197,6 +203,7 @@ def compute_health(hours: int = 24) -> Dict[str, int | str | bool | None]:
         "snapshot_coverage_complete": snapshot_coverage_complete,
         "omitted_prefix_bytes": omitted_prefix_bytes,
         "oversized_records_omitted": oversized_records_omitted,
+        "malformed_records_omitted": malformed_records_omitted,
     }
 
 
@@ -214,7 +221,8 @@ def main() -> None:  # pragma: no cover - CLI
         coverage = (
             f"{coverage_status}; omitted oldest-prefix bytes: "
             f"{stats['omitted_prefix_bytes']}; oversized records skipped: "
-            f"{stats['oversized_records_omitted']}"
+            f"{stats['oversized_records_omitted']}; malformed UTF-8/JSON records skipped: "
+            f"{stats['malformed_records_omitted']}"
         )
     content = (
         "# Federation Health\n\n"
