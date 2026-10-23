@@ -15,8 +15,6 @@ Next: add an append-only local review docket for revalidated receipts. Docket re
 
 ## Current verified state — sequence 623
 
-## Current verified state — sequence 623
-
 Sequence 623 adds locally pinned semantic review eligibility for authenticated Federation peer events. The policy permits exact peer/schema pairs for bounded claim-evidence and trial-outcome events; receipts bind replay, event, trust-catalog, and policy identities, preserve positive and adverse outcomes, and deny evidence admission, Health publication, work admission, planning, execution, and decision power.
 
 Latest verified main: `86d1471f01a26786b61cc7a5df6b957e8e21551c`, tree `eff0790235ae33716c0094a78d1354e5df1e79c6`
