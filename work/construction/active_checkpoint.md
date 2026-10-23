@@ -1,6 +1,21 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 626
+## Current verified state — sequence 627
+
+Sequence 627 bounds and hardens parsing of the configured local Federation Health JSONL snapshot while retaining the report's existing schema, local-only source label, and `live_telemetry: false`. Oversized, ambiguous, non-finite, excessively large integer, and recursive records are skipped without losing later valid rows.
+
+Latest verified source main: `e55604cb24c7e20ca5e86c025dd8152651fbf593`, tree `09ce01f8e9501e1f8c776f786a590072c3847d0b`
+Current main at this checkpoint: `e3a247ac994ee9075febb019c9128891667e464f`, tree `45f72bbf5a3af46473e7942d4715f4f70c4a6f34`
+Latest construction segment: `work/construction/segments/0627-integrate-sequence-627-bounded-federation-health-json.md`
+Latest segment SHA-256: `e24bc43344ec3f921bcaeac82ec17771a1a2814b27f7c4e0a5707c214d363b16`
+Sequence: 627 (bounded local Federation Health JSONL parsing)
+
+PR #2709 candidate `0f7ba7b9c840307310a838dce8bf73283b87ba03` merged normally as `e55604cb24c7e20ca5e86c025dd8152651fbf593`. Exact-candidate Quality Gate, strict hosted Administrator audits, acceptance binding, privileged finalizer, separate metadata guard, CI, invariants, Docker, lint, build, docs, Helm/Kubernetes, and gradient checks passed. On exact source main, the hosted Quality Gate, full CI/source validation, self-check, docs, Helm/Kubernetes, invariants, Docker, deployment, and Nightly Self Check passed.
+
+The post-merge Federation Health run #39987854382 executed on `e55604cb24c7e20ca5e86c025dd8152651fbf593` with hosted Administrator authority and successfully generated and bound a report receipt. It reports one configured node, zero recent events, and a stale local snapshot whose last event is `2025-06-05T16:25:13.805813Z`; it does not claim live telemetry. The repository-scoped App publisher created receipt PR #2710, which changed only `docs/FEDERATION_HEALTH_EXECUTION.json` and merged normally as `e3a247ac994ee9075febb019c9128891667e464f` after its exact-candidate checks, privileged finalizer, and metadata guard passed.
+
+## Verified history — sequence 626
+
 
 Sequence 626 restores correct nightly audit verification across the configured independent audit streams. It preserves hosted Administrator authority and the existing conditional repair workflow. On merged main `932ddb7405015723b89d4a117cdcb80cc2327bf0`, the push-triggered Nightly Audit Integrity execution verified all four logs (100.0%), `healthy_strict`, and audit-chain status `ok` without repair. Candidate and exact-main hosted checks passed.
 
