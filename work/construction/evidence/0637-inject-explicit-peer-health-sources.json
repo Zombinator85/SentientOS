@@ -1,0 +1,122 @@
+{
+  "construction": {
+    "append_only": true,
+    "authority_boundaries_preserved": true,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Implement the concrete read-only Ed25519 verifier, then add an operator-pinned trust and replay-owner composition path with platform-appropriate custody.",
+    "prior_sequences_preserved": true,
+    "production_peer_identities_configured": false,
+    "source_history_preserved": true,
+    "source_provenance_attested_by_runtime_seam": false
+  },
+  "post_merge_main": {
+    "commit": "767578a95d28fecdad7f422700530ffd911f0920",
+    "fresh_origin_main_fetch": "confirmed exact merge commit and tree",
+    "merge_method": "merge",
+    "post_merge_hosted_workflow_runs": "not included in this record; exact-candidate PR checks passed",
+    "tree": "db5aead4ff1e12c45256f29f0fda0a24bce639c8",
+    "tree_matches_candidate": true
+  },
+  "predecessor": "segment-sha256:63abf31c5a798b556be09cbdf53b689f639ee40d8d168da184f10070909ae4e4",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 637,
+  "source": {
+    "candidate_commit": "4124c3115b8eaf68ee7611eb04c46e0acc695616",
+    "candidate_commits": [
+      "4124c3115b8eaf68ee7611eb04c46e0acc695616"
+    ],
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/runtime/shell.py",
+      "tests/test_runtime_shell.py"
+    ],
+    "merge_commit": "767578a95d28fecdad7f422700530ffd911f0920",
+    "merge_parents": [
+      "bc03d8ebfc2da22abee3e52b92cb603cb910a06f",
+      "4124c3115b8eaf68ee7611eb04c46e0acc695616"
+    ],
+    "parent_main": "bc03d8ebfc2da22abee3e52b92cb603cb910a06f",
+    "pull_request": 2736,
+    "scope": "Add a typed, fail-closed RuntimeShell dependency injection seam for authenticated peer Health replay sources; configure no trust or peer identity by default.",
+    "source_tree": "db5aead4ff1e12c45256f29f0fda0a24bce639c8"
+  },
+  "title": "Inject explicit peer Health recovery sources",
+  "validation": {
+    "local": {
+      "focused_tests": "6 passed",
+      "git_diff_check": "passed",
+      "mypy_baseline": "mypy_baseline_improved; 0 new errors; 1,050 existing errors matched; 40 retired",
+      "python_compilation": "passed",
+      "workflow_yaml_parse": "passed"
+    },
+    "prepublication": {
+      "audit_immutability": "passed",
+      "evidence_artifact": {
+        "id": 12539660218,
+        "independent_local_sha256_match": true,
+        "sha256": "61552d46480c4d215546675160ab70d3af44db1860579827a209425359d8e4f0",
+        "size_bytes": 12516
+      },
+      "finalizer_artifact": {
+        "id": 12539461637,
+        "independent_local_sha256_match": true,
+        "sha256": "000b7ab414c175bc61d585f9078b55d899327f69428cbff2fd9336803ff330c6",
+        "size_bytes": 37327
+      },
+      "full_ci": 40040889833,
+      "full_ci_conclusion": "success",
+      "guard_candidate_sha": "4124c3115b8eaf68ee7611eb04c46e0acc695616",
+      "guard_ready": true,
+      "guard_tree_sha": "db5aead4ff1e12c45256f29f0fda0a24bce639c8",
+      "invariants": 40040889849,
+      "invariants_conclusion": "success",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "quality_gate": 40040889836,
+      "quality_gate_conclusion": "success",
+      "strict_audit": "passed",
+      "task_acceptance": "task_acceptance_ready"
+    },
+    "pull_request_checks": {
+      "acceptance_sha": "4124c3115b8eaf68ee7611eb04c46e0acc695616",
+      "acceptance_status": "task_acceptance_ready",
+      "all_applicable_runs": "passed",
+      "all_jobs_completed": true,
+      "candidate_acceptance_artifact": {
+        "id": 12539227469,
+        "independent_local_sha256_match": true,
+        "sha256": "bd4aa882cdb88c55362fb25295ca0f0e12ef9778c4697ca89d98019e9e1c51c1",
+        "size_bytes": 7058
+      },
+      "ci": 40041280308,
+      "ci_jobs": [
+        "source validation (unprivileged)",
+        "self-check",
+        "docs",
+        "helm-k8s-test"
+      ],
+      "codex_ci": 40041280380,
+      "docker": 40041280303,
+      "evidence_artifact": {
+        "id": 12539327706,
+        "independent_local_sha256_match": true,
+        "sha256": "a576c8202803fb6a7786de8ff3dd0a44d56637b2c5e8ad51a25d11eca2d0da16",
+        "size_bytes": 12510
+      },
+      "finalizer_artifact": {
+        "id": 12539770679,
+        "independent_local_sha256_match": true,
+        "sha256": "d9da90e38221c5af1c86ec70b1fa0324655da4da6b87a00e5c8069d47904396f",
+        "size_bytes": 36660
+      },
+      "gradient": 40041280381,
+      "invariants": 40041280324,
+      "lint": 40041280317,
+      "quality_gates": [
+        40041322401,
+        40041280318
+      ],
+      "release": 40041280348,
+      "release_publish": "skipped by normal validation-only workflow condition"
+    }
+  }
+}

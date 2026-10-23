@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d70ec07e72b60b65bd93e719159064fad9b8447b9a0cf75d3a4fcf636600d4fa",
-    "latest_segment_sequence": 636,
-    "latest_segment_sha256": "63abf31c5a798b556be09cbdf53b689f639ee40d8d168da184f10070909ae4e4",
-    "source_commit": "b3231a58049fd4c572e431c8589dd9cba8dce042",
-    "source_tree": "d026bb640d12fb16ef02b059235d32c242bdad7d"
+    "checkpoint_sha256": "a2372991305ae92f2d2d299826f507534845fff1333e986770df53fd058cbe58",
+    "latest_segment_sequence": 637,
+    "latest_segment_sha256": "f16652871a4be0dd334a0fd32423319fef9024d1132d1df14030a4f51ba2f043",
+    "source_commit": "767578a95d28fecdad7f422700530ffd911f0920",
+    "source_tree": "db5aead4ff1e12c45256f29f0fda0a24bce639c8"
   },
-  "checkpoint_sha256": "d70ec07e72b60b65bd93e719159064fad9b8447b9a0cf75d3a4fcf636600d4fa",
+  "checkpoint_sha256": "a2372991305ae92f2d2d299826f507534845fff1333e986770df53fd058cbe58",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 636,
+  "latest_sequence": 637,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7439,6 +7439,19 @@
       "source_candidate_commit": "02456fa15b73f24a2941a880691127847243d0ca",
       "source_commit": "b3231a58049fd4c572e431c8589dd9cba8dce042",
       "source_tree": "d026bb640d12fb16ef02b059235d32c242bdad7d"
+    },
+    {
+      "bytes": 3681,
+      "evidence_bytes": 4709,
+      "evidence_path": "work/construction/evidence/0637-inject-explicit-peer-health-sources.json",
+      "evidence_sha256": "b05fc95e2aec7c18a0ed574262e6c133501c8f55fb08df72ac9fe2e0a07184aa",
+      "path": "work/construction/segments/0637-inject-explicit-peer-health-sources.md",
+      "predecessor": "segment-sha256:63abf31c5a798b556be09cbdf53b689f639ee40d8d168da184f10070909ae4e4",
+      "sequence": 637,
+      "sha256": "f16652871a4be0dd334a0fd32423319fef9024d1132d1df14030a4f51ba2f043",
+      "source_candidate_commit": "4124c3115b8eaf68ee7611eb04c46e0acc695616",
+      "source_commit": "767578a95d28fecdad7f422700530ffd911f0920",
+      "source_tree": "db5aead4ff1e12c45256f29f0fda0a24bce639c8"
     }
   ],
   "source_acquisition": {

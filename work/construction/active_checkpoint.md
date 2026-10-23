@@ -1,3 +1,20 @@
+## Current verified state - sequence 637
+
+Sequence 637 adds an explicit optional RuntimeShell injection seam for typed peer Health sources. It does not load trust or attest its caller's source provisioning. No peer identity, transport, or live peer telemetry is configured; read-only claims remain separate from local Health and all authority paths.
+
+Latest verified main: `767578a95d28fecdad7f422700530ffd911f0920`, tree `db5aead4ff1e12c45256f29f0fda0a24bce639c8`
+Latest construction segment: `work/construction/segments/0637-inject-explicit-peer-health-sources.md`
+Latest segment SHA-256: `f16652871a4be0dd334a0fd32423319fef9024d1132d1df14030a4f51ba2f043`
+Sequence: 637 (explicit peer Health source dependency injection)
+
+PR #2736 candidate `4124c3115b8eaf68ee7611eb04c46e0acc695616` merged normally as the second parent of main `767578a95d28fecdad7f422700530ffd911f0920`. Branch-push Required Quality Gate #40040889836, full CI #40040889833, and Invariants #40040889849 passed on the exact candidate. The separate metadata guard bound its SHA and tree and was ready. Both branch-gate artifacts and all three selected PR-gate artifacts independently matched GitHub's published SHA-256 values. PR-triggered QG, full CI, invariants, Docker, Lint, Codex CI, Release, and Gradient checks passed. Privileged strict audit, audit immutability, and exact-candidate acceptance artifacts passed.
+
+Six focused tests passed. The repository Mypy baseline reported zero new errors, matching 1,050 existing and retiring 40. Compilation, YAML parsing, and diff checks passed.
+
+No actual source provisioning or live peer telemetry was enabled. Next: supply the concrete read-only Federation Ed25519 verifier, then establish a pinned trust/replay-owner composition boundary with platform-appropriate custody.
+
+## Previous checkpoint snapshot - sequence 636
+
 ## Current verified state - sequence 636
 
 Sequence 636 presents bounded authenticated peer Health projections to operators through RuntimeShell and the console. They remain explicitly peer-reported, sanitized, capped, and separate from local Health and all authority paths. No source, production peer identity, or live telemetry is configured by default.
@@ -14,7 +31,6 @@ Four focused tests, targeted Mypy, compilation, YAML parsing, and diff checks pa
 Fresh `git fetch origin main` confirmed merge `b3231a58049fd4c572e431c8589dd9cba8dce042` and the exact tested tree.
 
 Next: connect a configured projection source only through explicit operator-provisioned identity and exact pinned trust-catalog inputs. Fail closed if the binding is absent or changes, and retain the separation from local Health, admission, planning, and execution.
-
 ## Previous checkpoint snapshot - sequence 635
 
 ## Current verified state - sequence 635
