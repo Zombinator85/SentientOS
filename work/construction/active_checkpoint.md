@@ -1,5 +1,18 @@
 # Active construction checkpoint
 
+## Current verified state — sequence 624
+
+Sequence 624 adds canonical serialization and independent replay/policy revalidation for Federation semantic-review receipts. The derived content digest detects mutation but is not authentication. Verified receipts remain local review metadata; submitted outcomes remain claims, remote evidence stays unresolved, and evidence admission, Federation Health publication, work admission, planning, execution, and decision authority remain denied.
+
+Latest verified main: `5e84efb35168da01c48318995cb061b126f838b7`, tree `feac0dc595e2d93a9fe4913d7f82dd8aa13f9eef`
+Latest construction segment: `work/construction/segments/0624-integrate-sequence-624-main-verification.md`
+Latest segment SHA-256: `b7364d3b39c48fec6fde7a883fecb106fe91591b1d5625f7c86c69371c1d2673`
+Sequence: 624 (canonical semantic-review receipts)
+
+PR #2703 candidate `ba64b9ea21702b43f22517ea834d6629713c0c11` merged normally as `5e84efb35168da01c48318995cb061b126f838b7`. Exact-candidate hosted Quality Gate, metadata guard, PR and push CI, invariants, Docker, Codex CI, lint, release, and gradient checks passed. On the merged source, Required Quality Gate, CI (source validation, self-check, docs, Helm), Docs Deploy, Docker, Codex CI, Invariant Tests, and Nightly Self Check passed. Forge Smoke was skipped by its workflow condition. No post-merge schedule-bound Federation Health execution had appeared by 14:55 UTC; the older local-log snapshot is not live telemetry.
+
+Next: add an append-only local review docket for revalidated receipts. Docket reads must revalidate replay and pinned policy provenance. Keep the docket out of canonical evidence, Health publication, work admission, planning, execution, and decision authority.
+
 ## Current verified state — sequence 623
 
 Sequence 623 adds locally pinned semantic review eligibility for authenticated Federation peer events. The policy permits exact peer/schema pairs for bounded claim-evidence and trial-outcome events; receipts bind replay, event, trust-catalog, and policy identities, preserve positive and adverse outcomes, and deny evidence admission, Health publication, work admission, planning, execution, and decision power.

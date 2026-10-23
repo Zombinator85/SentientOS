@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3cbbf76d8549b5d374db1ed79499a0b1af0eeabf8f08983ebb798625ddf0fc3f",
-    "latest_segment_sequence": 623,
-    "latest_segment_sha256": "bb6257f0f5c89a99d738c2dddf1f33627c0c035f58b7a63700441f718970d921",
-    "source_commit": "86d1471f01a26786b61cc7a5df6b957e8e21551c",
-    "source_tree": "eff0790235ae33716c0094a78d1354e5df1e79c6"
+    "checkpoint_sha256": "203354c3f20ce2cd19bcd690cce6fd55d875cf09950f29f734c5a6a62c1caaff",
+    "latest_segment_sequence": 624,
+    "latest_segment_sha256": "b7364d3b39c48fec6fde7a883fecb106fe91591b1d5625f7c86c69371c1d2673",
+    "source_commit": "5e84efb35168da01c48318995cb061b126f838b7",
+    "source_tree": "feac0dc595e2d93a9fe4913d7f82dd8aa13f9eef"
   },
-  "checkpoint_sha256": "3cbbf76d8549b5d374db1ed79499a0b1af0eeabf8f08983ebb798625ddf0fc3f",
+  "checkpoint_sha256": "203354c3f20ce2cd19bcd690cce6fd55d875cf09950f29f734c5a6a62c1caaff",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 623,
+  "latest_sequence": 624,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7270,6 +7270,19 @@
       "source_candidate_commit": "10767a8e9b411d76a3ef6273ef5b0847c4d30bf0",
       "source_commit": "86d1471f01a26786b61cc7a5df6b957e8e21551c",
       "source_tree": "eff0790235ae33716c0094a78d1354e5df1e79c6"
+    },
+    {
+      "sequence": 624,
+      "path": "work/construction/segments/0624-integrate-sequence-624-main-verification.md",
+      "sha256": "b7364d3b39c48fec6fde7a883fecb106fe91591b1d5625f7c86c69371c1d2673",
+      "bytes": 3762,
+      "predecessor": "segment-sha256:bb6257f0f5c89a99d738c2dddf1f33627c0c035f58b7a63700441f718970d921",
+      "evidence_path": "work/construction/evidence/0624-integrate-sequence-624-main-verification.json",
+      "evidence_sha256": "0b7bde13a33409d6e9aa6deb1cfcac7d5ff8fddcb86eb50a145e6edf228e91a4",
+      "evidence_bytes": 4437,
+      "source_candidate_commit": "ba64b9ea21702b43f22517ea834d6629713c0c11",
+      "source_commit": "5e84efb35168da01c48318995cb061b126f838b7",
+      "source_tree": "feac0dc595e2d93a9fe4913d7f82dd8aa13f9eef"
     }
   ],
   "source_acquisition": {
