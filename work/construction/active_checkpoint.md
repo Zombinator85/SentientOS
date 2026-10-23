@@ -6,10 +6,10 @@ Sequences 591–600 establish durable planning and epistemic evidence rules: pla
 
 Latest verified main: `cd04b9773585de4257baf9391a681142b8ded451`, tree `866bf33ced6e3e757a41f330001a605f102b33a2`
 Latest construction segment: `work/construction/segments/0604-bounded-federation-relay-stream-framing.md`
-Latest segment SHA-256: d27429706953a27ed771fd00888f1adbff186e99bc21c3f3a628384cb79ef7c0
+Latest segment SHA-256: 61f6bf1c5444a3fbcaa7e5ac1c4b91b2c788ee6e1511a9548d6b43c59f58d5b4
 Sequence: 604 (bounded relay stream framing)
 
-A first custody attempt on PR #2668 rejected mismatched segment and checkpoint hashes because of a local trailing-newline discrepancy; the corrected publication must pass the same guard before merge.
+Two pre-merge custody attempts found, and the candidate is correcting, stale byte/hash bindings and a checkpoint reference to a prior segment digest. The corrected publication must pass the same guard before merge.
 
 The relay remains unauthenticated and writes `logs/federation_stream.jsonl`, separate from the health report's `logs/federation_log.jsonl`. The size bound applies to retained application-level line data while reading in fixed chunks; do not infer peer trust, event freshness, live telemetry, or health from this relay.
 

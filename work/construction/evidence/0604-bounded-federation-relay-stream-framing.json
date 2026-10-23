@@ -82,15 +82,30 @@
       "live_telemetry": false
     },
     "construction_custody_repair": {
-      "initial_evidence_pr": 2668,
-      "initial_source_validation_run": 39899955043,
-      "initial_guard_failures": [
-        "segment_604_byte_count_mismatch",
-        "segment_604_sha256_mismatch",
-        "active_checkpoint_sha256_mismatch"
+      "attempts": [
+        {
+          "candidate_commit": "454fa1158597fa1ffbb6b78e55bd14a985af089b",
+          "source_validation_run": 39899955043,
+          "failures": [
+            "segment_604_byte_count_mismatch",
+            "segment_604_sha256_mismatch",
+            "active_checkpoint_sha256_mismatch"
+          ],
+          "cause": "Temporary local files had an extra trailing newline compared with the exact GitHub blob content."
+        },
+        {
+          "candidate_commit": "2678c0f7198e6b197a5507d030871bc47c2b651e",
+          "source_validation_run": 39900135518,
+          "quality_gate_run": 39900140056,
+          "failures": [
+            "active_checkpoint_latest_segment_contradiction",
+            "active_checkpoint_segment_reference_digest_mismatch:work/construction/segments/0604-bounded-federation-relay-stream-framing.md",
+            "precommit_reconstruction_preflight_failed"
+          ],
+          "cause": "The checkpoint still referenced the prior segment digest; the QG invocation also captured the prior PR title before its metadata was updated."
+        }
       ],
-      "cause": "Temporary local copies included an extra trailing newline compared with the exact GitHub blob content.",
-      "resolution": "Recompute UTF-8 byte counts and SHA-256 from the exact blob strings, update segment/index/checkpoint bindings, then require a successful hosted custody rerun."
+      "resolution": "Final candidate updates the checkpoint's exact latest-segment SHA-256, rebinds its checkpoint digest and index values, and aligns PR title with the exact new commit subject before publishing the new head. The required hosted custody guard and independent metadata guard remain blocking."
     }
   },
   "integration": {
