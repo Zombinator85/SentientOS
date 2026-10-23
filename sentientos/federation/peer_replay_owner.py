@@ -33,7 +33,7 @@ from .peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
 REPLAY_RECORD_SCHEMA = "sentientos.federation.peer_replay_record:v1"
 _MAX_SEQUENCE = 2**63 - 1
 _MAX_RECORDS = 4096
-_MAX_RECORD_BYTES = 70_000
+_MAX_RECORD_BYTES = 140_000
 _MAX_HISTORY_BYTES = 67_108_864
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _PEER_ID = re.compile(r"[a-z0-9][a-z0-9._:-]{0,127}\Z")
