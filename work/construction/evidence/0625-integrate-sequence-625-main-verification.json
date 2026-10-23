@@ -1,0 +1,87 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 625,
+  "title": "Integrate sequence 625: bounded Federation semantic-review receipt docket",
+  "predecessor": "segment-sha256:b7364d3b39c48fec6fde7a883fecb106fe91591b1d5625f7c86c69371c1d2673",
+  "source": {
+    "pull_request": 2705,
+    "candidate_commit": "f1e4b730f831dcd9502be0b3816a8687998949ea",
+    "candidate_tree": "3f035731a2c1c5937614dcfb6207904c6b3c599f",
+    "parent_main": "94cb87d2b0643a136311a31a5eac488238875751",
+    "source_merge": "2a396737193222e54132d2f0976c21c8fdaac452",
+    "final_main": "75ce144b3efc12a73dbeb1f2298bbef62bc435fb",
+    "final_main_tree": "486103360be93db194c2d721a2a2d70b42ae95ce",
+    "changed_paths": [
+      "sentientos/federation/semantic_review_docket.py",
+      "sentientos/private_file_custody.py",
+      "tests/test_federation_semantic_review_docket.py",
+      "tests/test_invariants.py"
+    ],
+    "scope": "A bounded local docket retains only independently revalidated semantic-review receipts. Docket contents grant no canonical evidence, Health, work, planning, execution, or decision authority."
+  },
+  "validation": {
+    "candidate": {
+      "quality_gate_run": 39975986415,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "ci": 39975986523,
+      "invariants": 39975986092,
+      "docker": 39975986297,
+      "codex_ci": 39975986062,
+      "lint": 39975986177,
+      "release": 39975985994,
+      "gradient": 39975986212,
+      "result": "all final exact-candidate checks passed"
+    },
+    "source_post_merge": {
+      "main_commit": "2a396737193222e54132d2f0976c21c8fdaac452",
+      "required_quality_gate": 39976753861,
+      "ci": 39976753666,
+      "docs_deploy": 39976753654,
+      "docker": 39976753708,
+      "codex_ci": 39976753690,
+      "invariants": 39976753686,
+      "nightly_self_check": 39976753714,
+      "forge_smoke": {
+        "run": 39976753697,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable post-merge checks passed"
+    },
+    "federation_health": {
+      "scheduled_run": 39975228325,
+      "report_sha256": "e6a98f8e9d89cc626eb6a329fb9c0c26d289f8de6200db37a577044ca793959c",
+      "publisher_pr": 2688,
+      "publisher_commit": "456248fa8a8737889061639d805b36bb69348a60",
+      "merge_commit": "75ce144b3efc12a73dbeb1f2298bbef62bc435fb",
+      "report_status": "stale configured local-log snapshot; not live telemetry"
+    },
+    "final_main": {
+      "commit": "75ce144b3efc12a73dbeb1f2298bbef62bc435fb",
+      "tree": "486103360be93db194c2d721a2a2d70b42ae95ce",
+      "quality_gate": 39977073701,
+      "ci": 39977073503,
+      "invariants": 39977073431,
+      "docs_deploy": 39977073649,
+      "docker": 39977073384,
+      "codex_ci": 39977073574,
+      "forge_smoke": {
+        "run": 39977073396,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "result": "all applicable exact-main checks passed; source validation, self-check/pytest, docs/linkcheck, and Helm/Kubernetes completed successfully"
+    }
+  },
+  "integration": {
+    "source_pr": 2705,
+    "candidate_commit": "f1e4b730f831dcd9502be0b3816a8687998949ea",
+    "source_merge": "2a396737193222e54132d2f0976c21c8fdaac452",
+    "health_receipt_pr": 2688,
+    "final_merge": "75ce144b3efc12a73dbeb1f2298bbef62bc435fb",
+    "final_tree": "486103360be93db194c2d721a2a2d70b42ae95ce",
+    "merge_method": "normal GitHub merge; source candidate and receipt commit history retained"
+  },
+  "scope": "Append-only construction evidence for bounded semantic-review docket integration, exact candidate validation, scheduled Health receipt, and final main verification."
+}
