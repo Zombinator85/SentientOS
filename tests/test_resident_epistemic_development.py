@@ -83,6 +83,62 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert state.evidence_set_digest
 
 
+def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    fresh_snapshot = snapshot()
+    first = runtime.process_snapshot(fresh_snapshot, tick=10, recorded_at=NOW)
+    assert first.status == "state_advanced"
+    [fresh_binding] = owner.bindings(proposition.proposition_id)
+    assert fresh_binding.freshness == "current"
+
+    stale_snapshot = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(
+        "2026-10-01T12:00:00+00:00")).build([{
+            "source_kind": "runtime_supervisor", "source_id": "supervisor-a",
+            "subject_kind": "service", "subject_id": "service-a",
+            "stage": "observation", "disposition": "nominal",
+            "observed_at": NOW, "payload": {"check": "nominal"},
+        }])
+    revised = runtime.process_snapshot(stale_snapshot, tick=11,
+        recorded_at="2026-10-01T12:00:00+00:00")
+
+    bindings = owner.bindings(proposition.proposition_id)
+    assert revised.new_binding_count == 1 and revised.updated_proposition_count == 1
+    assert len(bindings) == 2  # append-only history retains both freshness versions
+    stale_binding = next(item for item in bindings if item.freshness == "stale")
+    assert stale_binding.source_artifact_id == fresh_binding.source_artifact_id
+    assert set(owner.active_binding_ids(proposition.proposition_id)) == {
+        stale_binding.binding_id}
+    state = owner.current_state(proposition.proposition_id)
+    assert state is not None and state.stance == "suspended" and state.freshness == "stale"
+    [revision_event] = [event for event in owner.update_events(proposition.proposition_id)
+        if fresh_binding.binding_id in event.removed_binding_ids]
+    assert revision_event.reason == "source_reliability_revision"
+
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id,
+        predecessor_state_digest=state.state_digest, proposed_stance="unknown",
+        evidence_binding_ids=(), reason="evidence_withdrawal",
+        rationale="explicitly withdraw the active stale observation",
+        uncertainty="high", model_id=None, proposer_kind="deterministic_rule",
+        proposer_id="withdrawal-regression")
+    operation = "12:withdrawal-regression:state"
+    admission = runtime._issue(admission_id="epistemic-withdrawal-regression",
+        effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+        configuration_digest=runtime.controller.state_configuration_digest(
+            candidate=candidate, operation_id=operation),
+        provenance="test:admitted-withdrawal")
+    runtime.controller.commit_update_candidate(candidate=candidate, admission=admission,
+        operation_id=operation, correlation_id=operation, tick=12,
+        recorded_at="2026-10-01T12:01:00+00:00")
+
+    repeated = runtime.process_snapshot(stale_snapshot, tick=13,
+        recorded_at="2026-10-01T12:02:00+00:00")
+    assert repeated.updated_proposition_count == 0 and repeated.new_binding_count == 0
+    assert owner.active_binding_ids(proposition.proposition_id) == ()
+    assert {item.binding_id for item in owner.bindings(proposition.proposition_id)} == {
+        fresh_binding.binding_id, stale_binding.binding_id}
+
+
 def test_existing_bindings_do_not_starve_new_evidence_and_omissions_are_stable(tmp_path):
     owner, proposition, _ledger, runtime = fixture(tmp_path)
     runtime.config = replace(runtime.config, max_new_bindings_per_tick=1)
