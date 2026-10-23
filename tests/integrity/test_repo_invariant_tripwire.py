@@ -177,6 +177,9 @@ FEDERATION_MODULE_ALLOWLIST = {
     "improvement_intake_receipt",
     "improvement_lineage_comparison_receipt",
     "improvement_local_variant_artifact",
+    # Provenance-only peer verification; no relay admission, Health publication, or execution.
+    "peer_authentication",
+    "peer_trust_catalog",
     "poller",
     "replay",
     "summary",
