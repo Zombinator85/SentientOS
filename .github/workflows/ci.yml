@@ -1379,19 +1379,31 @@ jobs:
       - name: Install FFmpeg for demo export
         run: |
           apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          if ! sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update; then
-            echo "::warning::Ubuntu package mirror did not update within three minutes; switching the runner to archive.ubuntu.com."
+          mirror_switched=false
+          switch_to_public_archive() {
             if sudo grep -Rqs 'azure.archive.ubuntu.com' /etc/apt; then
               sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) \
                 -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} +
             else
               echo "::warning::Azure Ubuntu mirror was not configured; retrying the current package sources once."
             fi
-            sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" update
+            mirror_switched=true
+          }
+          if ! sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update; then
+            echo "::warning::Ubuntu package index refresh timed out; switching the runner to archive.ubuntu.com."
+            switch_to_public_archive
+            sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update
           fi
-          sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" install \
-            --no-install-recommends -y ffmpeg
-
+          if ! sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" install \
+            --no-install-recommends -y ffmpeg; then
+            echo "::warning::FFmpeg package download or install timed out; retrying after refreshing the public Ubuntu archive."
+            if [[ "$mirror_switched" != true ]]; then
+              switch_to_public_archive
+            fi
+            sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update
+            sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" install \
+              --no-install-recommends -y ffmpeg
+          fi
       - name: Run parliament demo
         run: |
           mkdir -p demos

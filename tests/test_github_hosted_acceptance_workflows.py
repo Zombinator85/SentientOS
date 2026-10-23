@@ -1357,3 +1357,27 @@ def test_windows_custody_workflow_runs_bounded_subprocess_regressions() -> None:
     assert '"tests/test_codex_landing_process_supervision.py"' in workflow
     assert "Run bounded subprocess supervision regressions" in workflow
     assert "python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q" in workflow
+
+
+def test_self_check_retries_required_ffmpeg_install_after_mirror_timeout() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    step = workflow.split("- name: Install FFmpeg for demo export", 1)[1].split(
+        "- name: Run parliament demo", 1
+    )[0]
+
+    initial_install = (
+        'if ! sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" install'
+    )
+    fallback_update = (
+        'sudo timeout --kill-after=10s 180s apt-get "${apt_options[@]}" update'
+    )
+    fallback_install = (
+        'sudo timeout --kill-after=10s 300s apt-get "${apt_options[@]}" install'
+    )
+    assert initial_install in step
+    assert "switch_to_public_archive" in step
+    assert "archive.ubuntu.com" in step
+    assert fallback_update in step
+    assert fallback_install in step
+    assert step.index(initial_install) < step.rindex(fallback_update) < step.index(fallback_install)
+    assert "--no-install-recommends -y ffmpeg" in step
