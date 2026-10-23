@@ -1,5 +1,22 @@
 # Active construction checkpoint
 
+## Current verified state — sequence 623
+
+Sequence 623 adds locally pinned semantic review eligibility for authenticated Federation peer events. The policy permits exact peer/schema pairs for bounded claim-evidence and trial-outcome events; receipts bind replay, event, trust-catalog, and policy identities, preserve positive and adverse outcomes, and deny evidence admission, Health publication, work admission, planning, execution, and decision power.
+
+Latest verified main: `86d1471f01a26786b61cc7a5df6b957e8e21551c`, tree `eff0790235ae33716c0094a78d1354e5df1e79c6`
+Latest construction segment: `work/construction/segments/0623-integrate-sequence-623-main-verification.md`
+Latest segment SHA-256: `bb6257f0f5c89a99d738c2dddf1f33627c0c035f58b7a63700441f718970d921`
+Sequence: 623 (local semantic review boundary and verified Ubuntu mirror-list fallback)
+
+PR #2701 candidate `10767a8e9b411d76a3ef6273ef5b0847c4d30bf0` merged normally as `86d1471f01a26786b61cc7a5df6b957e8e21551c`, retaining the candidate as its second parent. Its exact-candidate Quality Gate, PR and push CI, source validation, self-check, invariants, Docker, Codex CI, lint, release validation, and gradient regression passed. The slow push self-check confirmed the fallback rewrote the runner's `/etc/apt/apt-mirrors.txt`: FFmpeg packages downloaded from `archive.ubuntu.com`, installation succeeded, and the parliament demo ran. The initial metadata-snapshot and mirror-list failures were corrected before merge and are recorded in the append-only sequence segment.
+
+Post-merge Quality Gate, CI (including the integrated resource-to-cognition lifecycle and read-only campaign checks), Nightly Self Check, Docs Deploy, Docker, Codex CI, and invariants passed on `86d1471f01a26786b61cc7a5df6b957e8e21551c`. Forge Smoke was skipped by its workflow condition.
+
+As of 2026-10-23 14:36 UTC, no schedule-bound Federation Health execution on `86d1471f01a26786b61cc7a5df6b957e8e21551c` had appeared. The latest scheduled run was #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; its report is a configured local-log snapshot, not live telemetry or post-merge evidence.
+
+Next: canonicalize and independently revalidate semantic-review receipts before any local durable review docket. Keep remote references unresolved and the explicit evidence, Health, admission, planning, and execution denials intact.
+
 ## Current verified state — sequence 622
 
 Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated incremental federation work to verified main history; sequence 619 added operator-pinned federation peer event provenance, and sequence 620 hardened relay JSON handling.
