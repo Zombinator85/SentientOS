@@ -5,8 +5,9 @@ require_admin_banner()
 require_lumos_approval()
 
 import json
-import time
+import math
 import threading
+import time
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
@@ -55,6 +56,29 @@ def iter_bounded_sse_lines(
         yield line[:-1] if line.endswith(b"\r") else line
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject ambiguous duplicate keys at every nesting level."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite_json_constant(value: str) -> object:
+    """Reject JavaScript numeric extensions that are not valid JSON."""
+    raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _parse_finite_json_float(value: str) -> float:
+    """Reject exponents that overflow Python's finite JSON number model."""
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError("non-finite JSON number")
+    return parsed
+
+
 def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
     """Decode one bounded SSE event object without killing its relay worker."""
     if not isinstance(line, bytes) or len(line) > MAX_EVENT_BYTES:
@@ -62,7 +86,12 @@ def decode_event_line(line: bytes, source: str) -> dict[str, object] | None:
     if not line.startswith(b"data:"):
         return None
     try:
-        data = json.loads(line.split(b":", 1)[1].strip())
+        data = json.loads(
+            line.split(b":", 1)[1].strip(),
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_nonfinite_json_constant,
+            parse_float=_parse_finite_json_float,
+        )
     except (UnicodeDecodeError, ValueError, RecursionError):
         return None
     if not isinstance(data, dict):
@@ -108,7 +137,7 @@ def relay_peer(url: str, log_path: Path = LOG_PATH) -> None:
                         continue
                     log_path.parent.mkdir(parents=True, exist_ok=True)
                     with log_path.open("a", encoding="utf-8") as fh:
-                        fh.write(json.dumps(data) + "\n")
+                        fh.write(json.dumps(data, allow_nan=False) + "\n")
         except Exception:
             time.sleep(5)
 
