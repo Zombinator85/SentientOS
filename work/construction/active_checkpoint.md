@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 620
+## Current verified state — sequence 619
 
-Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated evidence to verified main history; sequence 619 added operator-pinned federation peer event provenance.
+Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–619 integrated evidence to verified main history; sequence 619 added operator-pinned federation peer event provenance.
 
 Latest verified main: `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, tree `8fe7ab9a11874887cb9d9f40d0d746647d777484`
-Latest construction segment: `work/construction/segments/0620-integrate-sequence-619-main-verification.md`
-Latest segment SHA-256: __SEGMENT_SHA__
-Sequence: 620 (sequence 619 integration and post-merge verification)
+Latest construction segment: `work/construction/segments/0619-integrate-sequence-619-main-verification.md`
+Latest segment SHA-256: 3615514ad342eaddb57cff0f8f92dda2a9074d7c34f60dce828065a7fe1b90b8
+Sequence: 619 (sequence 619 integration and post-merge verification)
 
 The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 

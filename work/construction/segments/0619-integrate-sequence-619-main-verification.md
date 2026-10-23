@@ -1,4 +1,4 @@
-# Sequence 620 — Integrate sequence 619 and verify merged main
+# Sequence 619 — Integrate sequence 619 and verify merged main
 
 Sequence 619 merged normally through PR #2691. Verified main is `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, tree `8fe7ab9a11874887cb9d9f40d0d746647d777484`. GitHub retained candidate `61cc4c7de532a0b167786e14c4006131604cd6a4` as the second parent after prior main `3ae10dc782d055960ed1944e846d401ffcdfe4b0`.
 

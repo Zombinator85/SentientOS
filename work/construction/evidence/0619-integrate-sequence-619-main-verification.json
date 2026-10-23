@@ -1,6 +1,6 @@
 {
   "schema_version": "sentientos.construction_evidence:v1",
-  "sequence": 620,
+  "sequence": 619,
   "title": "Integrate sequence 619 and verify merged main",
   "predecessor": {
     "sequence": 618,
@@ -15,9 +15,9 @@
     "final_main_tree": "8fe7ab9a11874887cb9d9f40d0d746647d777484",
     "changed_paths": [
       "work/construction/active_checkpoint.md",
-      "work/construction/evidence/0620-integrate-sequence-619-main-verification.json",
+      "work/construction/evidence/0619-integrate-sequence-619-main-verification.json",
       "work/construction/index.json",
-      "work/construction/segments/0620-integrate-sequence-619-main-verification.md"
+      "work/construction/segments/0619-integrate-sequence-619-main-verification.md"
     ],
     "source_changed_paths": [
       "sentientos/federation/peer_authentication.py",
@@ -25,7 +25,7 @@
       "tests/integrity/test_repo_invariant_tripwire.py",
       "tests/test_federation_peer_authentication.py"
     ],
-    "scope": "Append-only integration evidence for sequence 619, exact-candidate verification, post-merge checks, and the Federation Health observation cutoff."
+    "scope": "Append-only sequence 619 integration evidence, exact-candidate verification, post-merge checks, and the Federation Health observation cutoff."
   },
   "validation": {
     "candidate_checks": {
