@@ -1401,7 +1401,8 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     operation_number = 0
 
     def update(*, stance: str, binding_ids: tuple[str, ...],
-            added_binding_ids: tuple[str, ...], tick: int, recorded_at: str):
+            added_binding_ids: tuple[str, ...], tick: int, recorded_at: str,
+            reason: str | None = None):
         nonlocal operation_number
         operation_number += 1
         operation_id = f"outcome-planning-update-{operation_number}"
@@ -1410,7 +1411,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
             proposition_id=proposition.proposition_id,
             predecessor_state_digest=(previous.state_digest if previous else None),
             proposed_stance=stance, evidence_binding_ids=binding_ids,
-            reason="initialization" if previous is None else "new_evidence",
+            reason=reason or ("initialization" if previous is None else "new_evidence"),
             rationale="authority-bound measured outcome planning regression",
             uncertainty="unknown" if stance == "unknown" else "low", model_id="fixture")
         admission = authority.issue(
@@ -1515,24 +1516,52 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert owner.current_state(proposition.proposition_id) == state_before_foreign
     assert owner.update_events(proposition.proposition_id) == events_before_foreign
 
+    stale_support = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="developmental-run:stale-positive-episode",
+        source_digest="sha256:" + "a" * 64,
+        source_schema="sentientos.developmental_run:v1",
+        source_class="deterministic_task_family_evaluation",
+        observation_time="2026-10-16T09:02:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group=None,
+        upstream_binding_ids=(), freshness="stale", reliability_posture="supports")
+    owner.bind_evidence(stale_support)
+    stale_state = update(stance="supported", binding_ids=(stale_support.binding_id,),
+        added_binding_ids=(stale_support.binding_id,), tick=2,
+        recorded_at="2026-10-16T09:02:00Z")
+    stale_plan = recover_and_plan("2026-10-16T09:02:30Z")
+    assert stale_plan.work_plan is None
+    assert {row.goal_id: row.reason for row in stale_plan.allocation.deferred} == {
+        "g_outcome": "epistemic_review_required"}
+    assert stale_plan.allocation_artifact_path is not None
+    stale_artifact = json.loads((tmp_path / stale_plan.allocation_artifact_path).read_text(
+        encoding="utf-8"))
+    stale_position = stale_artifact["deferred_goals"][0]["epistemic_positions"][0]
+    assert stale_position["posture"] == "review_required"
+    assert stale_position["identity"]["state_id"] == stale_state.successor_state_id
+    assert stale_position["identity"]["supporting_binding_ids"] == [
+        stale_support.binding_id]
+
+    # A fresh, exact proposition and model binding may change the planning
+    # posture after durable recovery; the stale positive record is superseded.
     support = make_evidence_binding(
         proposition_id=proposition.proposition_id,
         source_artifact_id="developmental-run:positive-episode",
         source_digest="sha256:" + "b" * 64,
         source_schema="sentientos.developmental_run:v1",
         source_class="deterministic_task_family_evaluation",
-        observation_time="2026-10-16T09:02:00Z", evidence_relation="supports",
+        observation_time="2026-10-16T09:03:00Z", evidence_relation="supports",
         dependency_kind="independently_sourced_observation", dependency_group=None,
         upstream_binding_ids=(), freshness="current", reliability_posture="supports")
     owner.bind_evidence(support)
     supported = update(stance="supported", binding_ids=(support.binding_id,),
-        added_binding_ids=(support.binding_id,), tick=2,
-        recorded_at="2026-10-16T09:02:00Z")
-    positive = recover_and_plan("2026-10-16T09:03:00Z")
+        added_binding_ids=(support.binding_id,), tick=3,
+        recorded_at="2026-10-16T09:03:00Z")
+    positive = recover_and_plan("2026-10-16T09:03:30Z")
     assert positive.work_plan is not None
     assert positive.work_plan.selected_goals == ("g_outcome",)
     assert positive.target_active_model_identity_digest == identity_digest
-    assert positive.target_identity_observed_at == "2026-10-16T09:03:00Z"
+    assert positive.target_identity_observed_at == "2026-10-16T09:03:30Z"
     evidence = json.loads((tmp_path / positive.work_plan_evidence_path).read_text(
         encoding="utf-8"))
     reloaded_evidence = load_work_plan_evidence(tmp_path, positive.work_plan)
@@ -1575,7 +1604,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     # Retained support is model-bound: a different observed model cannot inherit
     # the previous model's successful outcome.
     observer.identity = {"provider": "fixture", "model": "developmental-model-v2"}
-    cross_model = recover_and_plan("2026-10-16T09:03:30Z")
+    cross_model = recover_and_plan("2026-10-16T09:04:00Z")
     assert cross_model.target_active_model_identity_digest == (
         "sha256:" + digest_payload(observer.identity))
     assert cross_model.work_plan is None
@@ -1590,15 +1619,15 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         source_digest="sha256:" + "c" * 64,
         source_schema="sentientos.developmental_run:v1",
         source_class="deterministic_task_family_evaluation",
-        observation_time="2026-10-16T09:04:00Z", evidence_relation="contradicts",
+        observation_time="2026-10-16T09:05:00Z", evidence_relation="contradicts",
         dependency_kind="independently_sourced_observation", dependency_group=None,
         upstream_binding_ids=(), freshness="current", reliability_posture="contradicts")
     owner.bind_evidence(adverse)
     contradicted = update(stance="contradicted",
         binding_ids=(support.binding_id, adverse.binding_id),
-        added_binding_ids=(adverse.binding_id,), tick=3,
-        recorded_at="2026-10-16T09:04:00Z")
-    negative = recover_and_plan("2026-10-16T09:05:00Z")
+        added_binding_ids=(adverse.binding_id,), tick=4,
+        recorded_at="2026-10-16T09:05:00Z")
+    negative = recover_and_plan("2026-10-16T09:06:00Z")
     assert negative.work_plan is None
     assert {row.goal_id: row.reason for row in negative.allocation.deferred} == {
         "g_outcome": "epistemic_review_required"}
@@ -1609,5 +1638,26 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert negative_position["identity"]["state_id"] == contradicted.successor_state_id
     assert negative_position["identity"]["contradicting_binding_ids"] == [
         adverse.binding_id]
+    assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
+
+    # An admitted withdrawal of the supported conclusion is durable. The
+    # immutable source remains available as provenance, but cannot preserve a
+    # favorable planning posture after recovery.
+    withdrawn = update(stance="unknown", binding_ids=(support.binding_id,),
+        added_binding_ids=(), tick=5, recorded_at="2026-10-16T09:07:00Z",
+        reason="evidence_withdrawal")
+    withdrawn_plan = recover_and_plan("2026-10-16T09:08:00Z")
+    assert withdrawn_plan.work_plan is None
+    assert {row.goal_id: row.reason for row in withdrawn_plan.allocation.deferred} == {
+        "g_outcome": "epistemic_review_required"}
+    assert withdrawn_plan.allocation_artifact_path is not None
+    withdrawn_artifact = json.loads(
+        (tmp_path / withdrawn_plan.allocation_artifact_path).read_text(encoding="utf-8"))
+    withdrawn_position = withdrawn_artifact["deferred_goals"][0]["epistemic_positions"][0]
+    assert withdrawn_position["posture"] == "review_required"
+    assert withdrawn_position["identity"]["state_id"] == withdrawn.successor_state_id
+    assert withdrawn_position["identity"]["supporting_binding_ids"] == [
+        support.binding_id]
+    assert withdrawn_position["identity"]["contradicting_binding_ids"] == []
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
 
