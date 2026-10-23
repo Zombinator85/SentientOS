@@ -6,6 +6,7 @@ Sequences 591–593 connect receipt-verified outcomes to canonical planning and 
 
 Latest verified main: `6d9d409774eb8b8af7d750d49d7e8e7834c5741b`, tree `cbd693a248ea5163d27304b775fc961844044859`
 Latest construction segment: `work/construction/segments/0599-admitted-epistemic-evidence-lineage.md`
+Latest segment SHA-256: fbbc5d06da5fa344c92b0429a1abb88c95d92cbdb7349af2d93b81680f6411ed
 Sequence: 599 (verified source integration)
 
 Next: continue tracing the authenticated resident transition ingress, particularly whether recovered request receipts and request-to-journal identity remain bound after a stage commit but before receipt publication. Keep production transition execution disabled; add only a deterministic recovery-boundary regression if an actual gap exists.
