@@ -52,6 +52,16 @@ def test_incremental_reader_reads_complete_records_and_retains_partial_line(tmp_
     assert discarding is False
 
 
+def test_incremental_reader_reads_only_one_bounded_chunk(tmp_path):
+    path = tmp_path / "stream.jsonl"
+    path.write_bytes(b"record\\n" * 20000)
+
+    _, offset, _, _, _ = read_once(path)
+
+    assert offset == 64 * 1024
+    assert offset < path.stat().st_size
+
+
 def test_incremental_reader_discards_oversize_record_and_resynchronizes(tmp_path):
     path = tmp_path / "stream.jsonl"
     path.write_bytes(b"x" * 20 + b"\nvalid\n")
