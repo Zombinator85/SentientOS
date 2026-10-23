@@ -489,6 +489,14 @@ from sentientos.federation.peer_semantic_acceptance import (
     accept_peer_event_for_local_review,
     semantic_policy_digest_for,
 )
+from sentientos.federation.semantic_review_docket import (
+    FederationPeerSemanticReviewDocket,
+    FederationPeerSemanticReviewDocketError,
+)
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    publish_immutable_bytes,
+)
 
 
 def _local_semantic_policy(peer_rules):
@@ -753,4 +761,188 @@ def test_semantic_review_receipt_rejects_modified_digest_and_recomputed_forgery(
     with pytest.raises(FederationPeerSemanticAcceptanceError, match="semantic_receipt_not_canonical"):
         verify_semantic_acceptance_receipt_bytes(
             encoded + b" ", replay=replay, policy=policy,
+        )
+
+
+def _docket_replay(tmp_path, *, experiment_id, outcome, summary=None):
+    value = {
+        "schema": TRIAL_OUTCOME_SCHEMA,
+        "experiment_id": experiment_id,
+        "outcome": outcome,
+        "summary": summary or f"Submitted {outcome} outcome for {experiment_id}.",
+        "evidence_refs": [f"trial:{experiment_id}"],
+    }
+    return _semantic_replay(tmp_path, value)
+
+
+def test_semantic_review_docket_round_trips_all_outcomes_immutably(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    docket = FederationPeerSemanticReviewDocket(tmp_path / "semantic-docket")
+    accepted = []
+    for index, outcome in enumerate(("positive", "adverse", "mixed", "inconclusive")):
+        replay = _docket_replay(
+            tmp_path / f"owner-{index}",
+            experiment_id=f"experiment-{index}",
+            outcome=outcome,
+        )
+        appended = docket.append(replay, policy=policy)
+        assert appended.created is True
+        assert appended.receipt.submitted_outcome == outcome
+        assert appended.receipt.canonical_evidence_admitted is False
+        assert appended.receipt.health_publication_permitted is False
+        assert appended.receipt.work_admission_permitted is False
+        assert appended.receipt.planning_permitted is False
+        assert appended.receipt.execution_permitted is False
+        assert appended.receipt.decision_power == "none"
+        assert docket.read(
+            appended.receipt_digest, replay=replay, policy=policy,
+        ) == appended.receipt
+        accepted.append((replay, appended.receipt_digest))
+
+        retry = docket.append(replay, policy=policy)
+        assert retry.created is False
+        assert retry.receipt_digest == appended.receipt_digest
+
+    assert set(docket.list_receipt_digests()) == {
+        digest for _, digest in accepted
+    }
+
+
+def test_semantic_review_docket_read_revalidates_replay_and_policy(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    replay = _docket_replay(
+        tmp_path / "owner-first",
+        experiment_id="experiment-docket",
+        outcome="adverse",
+    )
+    docket = FederationPeerSemanticReviewDocket(tmp_path / "semantic-docket")
+    appended = docket.append(replay, policy=policy)
+
+    different_replay = _docket_replay(
+        tmp_path / "owner-second",
+        experiment_id="experiment-docket",
+        outcome="adverse",
+        summary="A different locally replayed peer submission.",
+    )
+    with pytest.raises(
+        FederationPeerSemanticAcceptanceError,
+        match="semantic_receipt_revalidation_mismatch",
+    ):
+        docket.read(appended.receipt_digest, replay=different_replay, policy=policy)
+
+    _, _, different_policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])
+    with pytest.raises(
+        FederationPeerSemanticAcceptanceError,
+        match="semantic_receipt_revalidation_mismatch",
+    ):
+        docket.read(
+            appended.receipt_digest, replay=replay, policy=different_policy,
+        )
+
+
+def test_semantic_review_docket_rejects_tampering_and_unbound_names(tmp_path):
+    _, _, policy = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])
+    replay = _docket_replay(
+        tmp_path / "owner",
+        experiment_id="experiment-tamper",
+        outcome="positive",
+    )
+    docket = FederationPeerSemanticReviewDocket(tmp_path / "semantic-docket")
+    appended = docket.append(replay, policy=policy)
+    stored = docket.root / f"{appended.receipt_digest[7:]}.json"
+    stored.write_bytes(b"{}\n")
+
+    with pytest.raises(
+        FederationPeerSemanticAcceptanceError,
+        match="semantic_receipt_fields_invalid",
+    ):
+        docket.read(appended.receipt_digest, replay=replay, policy=policy)
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_docket_digest_invalid",
+    ):
+        docket.read("sha256:../outside", replay=replay, policy=policy)
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_docket_entry_missing",
+    ):
+        docket.read("sha256:" + "0" * 64, replay=replay, policy=policy)
+
+
+def test_semantic_review_docket_bounds_records_and_requires_eligible_events(tmp_path):
+    policy_for_outcomes = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
+    }])[2]
+    docket = FederationPeerSemanticReviewDocket(
+        tmp_path / "one-entry-docket", max_entries=1,
+    )
+    first = _docket_replay(
+        tmp_path / "first-owner",
+        experiment_id="experiment-first",
+        outcome="positive",
+    )
+    second = _docket_replay(
+        tmp_path / "second-owner",
+        experiment_id="experiment-second",
+        outcome="adverse",
+    )
+    docket.append(first, policy=policy_for_outcomes)
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_docket_limit_exceeded",
+    ):
+        docket.append(second, policy=policy_for_outcomes)
+
+    claim_only = _local_semantic_policy([{
+        "peer_id": "peer-one",
+        "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
+    }])[2]
+    rejected_docket = FederationPeerSemanticReviewDocket(tmp_path / "rejected-docket")
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_receipt_not_eligible",
+    ):
+        rejected_docket.append(first, policy=claim_only)
+    assert rejected_docket.list_receipt_digests() == ()
+
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_docket_root_must_be_absolute",
+    ):
+        FederationPeerSemanticReviewDocket("relative/docket")
+    with pytest.raises(
+        FederationPeerSemanticReviewDocketError,
+        match="semantic_review_docket_limit_invalid",
+    ):
+        FederationPeerSemanticReviewDocket(tmp_path / "bad-limit", max_entries=True)
+
+
+def test_private_immutable_publication_enforces_entry_cap_under_lock(tmp_path):
+    first = tmp_path / "bounded" / "first.json"
+    second = tmp_path / "bounded" / "second.json"
+    assert publish_immutable_bytes(
+        first, b"first\n", max_bytes=32, max_entries=1,
+    ) is True
+    assert publish_immutable_bytes(
+        first, b"first\n", max_bytes=32, max_entries=1,
+    ) is False
+    with pytest.raises(
+        PrivateFileCustodyError,
+        match="directory_entry_limit_exceeded",
+    ):
+        publish_immutable_bytes(
+            second, b"second\n", max_bytes=32, max_entries=1,
         )
