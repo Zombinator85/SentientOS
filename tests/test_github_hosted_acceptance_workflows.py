@@ -13,10 +13,11 @@ def test_source_validation_runs_federation_health_freshness_regression():
         "tests/test_federation_health_badge.py::test_compute_health_marks_snapshot_stale_when_latest_event_predates_window",
         "tests/test_federation_health_badge.py::test_compute_health_skips_ambiguous_or_resource_heavy_json_lines",
         "tests/test_federation_health_badge.py::test_compute_health_does_not_treat_unknown_timestamp_offset_as_utc",
+        "tests/test_federation_health_badge.py::test_compute_health_handles_positive_window_beyond_timedelta_range",
         "tests/test_github_hosted_acceptance_workflows.py::test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope",
         "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_health_freshness_regression",
     )
-    assert "- name: Verify Federation Health snapshot freshness, timestamps, and bounded JSON parsing" in source_validation
+    assert "- name: Verify Federation Health freshness, timestamps, bounded parsing, and large-window arithmetic" in source_validation
     for node in nodes:
         assert node in source_validation
     assert "federation_health_acceptance.json" in source_validation
@@ -27,6 +28,8 @@ def test_source_validation_runs_federation_health_freshness_regression():
     assert "parse_float=_parse_finite_json_float" in source
     assert "parse_constant=_reject_json_constant" in source
     assert 'ts.endswith("-00:00")' in source
+    assert "except OverflowError:" in source
+    assert "datetime.min.replace(tzinfo=timezone.utc)" in source
 
 
 def test_source_validation_runs_federation_relay_json_regressions():

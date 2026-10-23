@@ -222,6 +222,35 @@ def test_compute_health_rejects_non_positive_window(health_badge, hours):
         health_badge.compute_health(hours)
 
 
+@pytest.mark.no_legacy_skip
+def test_compute_health_handles_positive_window_beyond_timedelta_range(
+    health_badge, tmp_path, monkeypatch
+):
+    event_at = datetime.now(timezone.utc)
+    log_path = tmp_path / "federation_log.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": event_at.isoformat(),
+                "data": {"peer": "large-window"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    window_hours = 10**12
+    stats = health_badge.compute_health(window_hours)
+
+    assert stats["nodes"] == 1
+    assert stats["recent"] == 1
+    assert stats["status"] == "healthy"
+    assert stats["window_hours"] == window_hours
+    assert stats["latest_event_at"] == event_at.isoformat().replace("+00:00", "Z")
+    assert stats["live_telemetry"] is False
+
+
 def test_compute_health_skips_invalid_utf8_record_without_losing_valid_rows(
     health_badge, tmp_path, monkeypatch
 ):
