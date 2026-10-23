@@ -1,0 +1,17 @@
+# Sequence 619 — Integrate sequence 619 and verify merged main
+
+Sequence 619 merged normally through PR #2691. Verified main is `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`, tree `8fe7ab9a11874887cb9d9f40d0d746647d777484`. GitHub retained candidate `61cc4c7de532a0b167786e14c4006131604cd6a4` as the second parent after prior main `3ae10dc782d055960ed1944e846d401ffcdfe4b0`.
+
+The source increment adds a read-only, operator-pinned peer trust catalog and a canonical signed-event provenance verifier. It checks peer, key, endpoint, event digest, signature, freshness, validity, revocation, and the next caller-supplied sequence. The caller continues to own replay state. It performs no enrollment, persistence, network access, relay admission, Health publication, or execution. The module-drift invariant now explicitly inventories these two modules and explains their provenance-only scope.
+
+The final exact candidate changed four paths: `sentientos/federation/peer_trust_catalog.py`, `sentientos/federation/peer_authentication.py`, `tests/test_federation_peer_authentication.py`, and `tests/integrity/test_repo_invariant_tripwire.py`. Focused local verification passed 32 tests at 87% coverage; compilation and targeted mypy passed. Hosted CI on PR and push passed the full source-validation lifecycle, self-check/pytest, docs/link check, Helm/Kubernetes, and all other workflow jobs. Docker, lint, invariants, gradient, release, and Codex CI passed.
+
+The final candidate's required Quality Gate passed on runs #39942313409 and #39942328215, including hosted Administrator strict audits, exact acceptance binding, pre-commit reconstruction, privileged finalization, and the separate pre-publication metadata guard. Finalizer artifact #12495888763 was independently verified against GitHub's advertised SHA-256 digest `b3ae2bf75dd25cb5503208d1bc562e6cbe80712a3ef750e650bd55908b790023`. It binds the exact candidate head and tree; the metadata guard status was ready with no reasons. The run used the solo profile; exhaustive matrix was not requested.
+
+Earlier attempts exposed two actual integration issues and were corrected: the package inventory initially rejected the two new modules, so the explicit allowlist gained a justification; one gate attempt used a PR title stale from before the latest commit, so the title was aligned to the exact latest commit subject and the gate reran successfully. The final candidate checks and metadata guard above are the successful final-head results.
+
+All post-merge checks passed on `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`: Required Quality Gate, CI, invariants, Docker, Docs Deploy, Codex CI, push self-check, and Helm/Kubernetes. GitHub reports a two-parent merge with the source candidate retained.
+
+As of 2026-10-23 11:03:27Z, no scheduled Federation Health execution had run on current main `428cbce5423cdfc33e4cd1aaabb4740d83b4c901`. The latest scheduled run remained #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; its report is a stale configured local-log snapshot, not live telemetry. Automated receipt PR #2688 still targets that older source and is not mergeable without refresh and fresh verification.
+
+Next: observe the next real scheduled Federation Health execution against current main. Continue by examining the caller-owned replay-state boundary before connecting this provenance verifier to any event-admission or Health path.
