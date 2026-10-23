@@ -1,0 +1,117 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 621,
+  "title": "Integrate sequence 621 and verify merged main",
+  "predecessor": "segment-sha256:66a652d10c2d69f64879722988ef47fcac9f3ab1e0489167b9700e85211a468b",
+  "source": {
+    "pull_request": 2696,
+    "candidate_commit": "729df3851a9d3b027663ce490739e432b7446725",
+    "candidate_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+    "parent_main": "109f0177e3c56b83f0d0b973b64cc6f0c0aafee9",
+    "final_main": "db51776cf10752ec74f2c560c9548d448edb7d65",
+    "final_main_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+    "changed_paths": [
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0621-integrate-sequence-621-main-verification.json",
+      "work/construction/index.json",
+      "work/construction/segments/0621-integrate-sequence-621-main-verification.md"
+    ],
+    "source_changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/poller.py",
+      "tests/test_federation_poller.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ],
+    "scope": "Append-only sequence 621 integration evidence for confined Federation replay snapshot filenames, exact-candidate hosted verification, and post-merge main confirmation."
+  },
+  "validation": {
+    "candidate_checks": {
+      "candidate_commit": "729df3851a9d3b027663ce490739e432b7446725",
+      "candidate_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+      "quality_gate_runs": [
+        39953836694
+      ],
+      "ci_pull_request": 39953836924,
+      "ci_push": 39953827342,
+      "source_validation_job": 120414624715,
+      "docker": 39953836985,
+      "codex_ci": 39953836978,
+      "invariant_pull_request": 39953836728,
+      "invariant_push": 39953827329,
+      "lint": 39953836857,
+      "release": 39953836904,
+      "gradient": 39953837081,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "precommit_reconstruction": "passed",
+      "hosted_landing_finalizer": "passed",
+      "separate_prepublication_metadata_guard": "passed",
+      "federation_replay_tests": "six exact acceptance nodes passed on the candidate merge tree, including five replay-path regressions and the workflow contract test",
+      "federation_replay_acceptance": "6 required nodes passed; task_acceptance_ready on the exact candidate merge tree",
+      "docs": "passed",
+      "results": "all fresh candidate PR and push checks completed successfully"
+    },
+    "landing_finalizer_artifact": {
+      "artifact_id": 12501223592,
+      "advertised_digest": "sha256:301e2f0ff231a0f2571959acc7e99904ad291ee5bf776d5fbf707eb9955c8401",
+      "independent_sha256": null,
+      "digest_comparison": "GitHub artifact API digest matched the Actions uploader log digest",
+      "artifact_readback": "ZIP not independently downloaded or hashed in this session because the execution workspace was unavailable",
+      "precommit_status": "ready_to_commit",
+      "pr_metadata_status": "ready_for_pr_metadata",
+      "metadata_guard_status": "pr_metadata_guard_ready",
+      "metadata_guard_reasons": [],
+      "bound_candidate": "729df3851a9d3b027663ce490739e432b7446725",
+      "bound_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+      "validation_profile": "solo",
+      "exhaustive_matrix": "not_requested_for_solo_profile"
+    },
+    "source_validation": {
+      "run": 39953836924,
+      "job": 120414624715,
+      "merge_ref_commit": "6c6eaef034bf0412659a32097c1d28b1dd5539ac",
+      "acceptance_status": "task_acceptance_ready",
+      "required_nodes": 6,
+      "node_outcomes": "all passed",
+      "merge_ref_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+      "merge_ref_to_main_diff": "candidate merge tree matched the tested source tree"
+    },
+    "post_merge_checks": {
+      "main_commit": "db51776cf10752ec74f2c560c9548d448edb7d65",
+      "main_tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+      "status": "all applicable checks passed",
+      "required_quality_gate": 39955072196,
+      "ci": 39955072169,
+      "docs_deploy": 39955072171,
+      "docker": 39955072250,
+      "codex_ci": 39955072172,
+      "invariants": 39955072366,
+      "nightly_self_check": 39955072372,
+      "forge_smoke": {
+        "run": 39955072153,
+        "status": "skipped_by_workflow_conditions"
+      },
+      "ci_source_validation": "passed, including integrated resource-to-cognition lifecycle and planning/transition checks"
+    },
+    "federation_health": {
+      "observation_cutoff_utc": "2026-10-23 12:44Z",
+      "latest_scheduled_run": 39936583192,
+      "latest_scheduled_source": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "current_main": "db51776cf10752ec74f2c560c9548d448edb7d65",
+      "current_main_schedule_observed": false,
+      "report_is_live_telemetry": false,
+      "automated_receipt_pr": 2688,
+      "automated_receipt_pr_base": "aea0feb665e4cd4c0432c7ecae0453e8cf372fab",
+      "disposition": "refresh and reverify against current main before considering integration"
+    }
+  },
+  "integration": {
+    "pull_request": 2696,
+    "merge_commit": "db51776cf10752ec74f2c560c9548d448edb7d65",
+    "tree": "d26a60e881047912d323cdcf982c6d0e5991460d",
+    "first_parent": "109f0177e3c56b83f0d0b973b64cc6f0c0aafee9",
+    "second_parent": "729df3851a9d3b027663ce490739e432b7446725",
+    "merge_method": "normal GitHub merge; candidate commit retained"
+  },
+  "scope": "Append-only sequence 621 integration evidence and checkpoint update; no runtime, trust-enrollment, Health, or execution-authority changes."
+}

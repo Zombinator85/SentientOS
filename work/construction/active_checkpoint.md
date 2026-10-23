@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-## Current verified state — sequence 620
+## Current verified state — sequence 621
 
 Sequences 591–600 establish durable planning and epistemic evidence rules. Sequences 601–606 traced Federation Health's local snapshot boundary and hardened relay parsing and transport framing. Sequences 607–608 implemented bounded incremental SSE log consumption; sequence 609 fixed observed same-inode truncation recovery. Sequences 610–620 integrated incremental federation work to verified main history; sequence 619 added operator-pinned federation peer event provenance, and sequence 620 hardened relay JSON handling.
 
-Latest verified main: `fa603571ff392df775b699154df9246e578a0d73`, tree `dd7c6115d59b6f90b556864f6a7c935b9ead4bfc`
-Latest construction segment: `work/construction/segments/0620-integrate-sequence-620-main-verification.md`
-Latest segment SHA-256: 66a652d10c2d69f64879722988ef47fcac9f3ab1e0489167b9700e85211a468b
-Sequence: 620 (sequence 620 integration and main-source verification)
+Latest verified main: `db51776cf10752ec74f2c560c9548d448edb7d65`, tree `d26a60e881047912d323cdcf982c6d0e5991460d`
+Latest construction segment: `work/construction/segments/0621-integrate-sequence-621-main-verification.md`
+Latest segment SHA-256: a04cf54dae90eb06ebbab21d6f0a20bc457956ea94ec3339b7321e769b6f198e
+Sequence: 621 (sequence 621 integration and main-source verification)
 
 The stream API reads fixed-size chunks, emits only complete records, bounds partial-line retention, and resets its cursor after file replacement or an observed in-place size decrease. The relay writes to a separate JSONL path from Federation Health; unauthenticated peer events do not feed the health report.
 
@@ -27,7 +27,7 @@ Sequence 617 merged normally through PR #2689 at `e4b0161ecebae3ac446da39c2da8a5
 
 As of 2026-10-23 10:36:07Z, the latest scheduled Federation Health run remained #39936583192 on older current-at-run source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`. There was no schedule-bound run on current main `e4b0161ecebae3ac446da39c2da8a5e6626874b5`. The automated receipt PR #2688 still needs a refreshed source/base and fresh verification.
 
-Next: verify the next actual scheduled Federation Health execution against current main and refresh the publisher receipt PR. Continue the operator-provisioned federation peer identity, signature, freshness, and revocation dependency while keeping unauthenticated relay events isolated from Health.
+Next: implement durable ownership of authenticated federation peer replay sequence state. Derive sequence from verified owner history, persist signed-envelope provenance with immutable bounded records, and keep accepted events outside Health, admission, planning, and execution.
 
 
 Sequence 619 adds a read-only operator-pinned trust catalog and canonical Ed25519 peer-event provenance verification. The verifier binds peer identity, key, endpoint, event digest, validity, revocation, freshness, and the exact next sequence supplied by its caller. It never mutates that caller-owned replay state or admits events to the relay, Health, or execution paths.
@@ -45,3 +45,10 @@ The exact candidate Quality Gate passed hosted Administrator audits, its 47-node
 At the 2026-10-23 11:55Z verification cutoff, the connected GitHub workflow-run API exposed PR-triggered runs but not the push-triggered post-merge run set; the combined status endpoint returned no status entries for `fa603571ff392df775b699154df9246e578a0d73`. The main commit and source tree were verified, but no post-merge push checks are claimed here. The last Federation Health schedule observation recorded in sequence 619 was run #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; this session could not query a newer schedule through the available connector.
 
 Next: close the peer replay snapshot filename boundary before adding a durable owner for authenticated peer sequence state. Keep local summary replay distinct from signed-event replay ownership, and keep authenticated events out of Health/admission until that owner and its custody contract are verified.
+
+
+Sequence 621 integrates PR #2696, which confines local federation replay snapshot filenames, rejects symlinked replay roots and peer files, and validates filename-to-payload identity. Its six-node exact-candidate acceptance and all candidate workflows passed. The change remains isolated from authenticated peer events and Health/admission/execution paths.
+
+Main `db51776cf10752ec74f2c560c9548d448edb7d65` (tree `d26a60e881047912d323cdcf982c6d0e5991460d`) passed post-merge Required Quality Gate, CI, Docs Deploy, Docker, Codex CI, invariants, and Nightly Self Check. The CI source-validation lane completed, including the integrated resource-to-cognition lifecycle and planning/transition checks. The latest scheduled Federation Health report remains run #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; no schedule-bound execution on current main was observed. Its report is a stale local-log snapshot, not live telemetry. Automated receipt PR #2688 is based on that older source and must be refreshed and reverified.
+
+Next: implement durable ownership of authenticated federation peer replay sequence state. Derive expected sequence from the owner's verified history, persist exact signed-envelope provenance in immutable bounded records, and fail closed when custody or history validation is unavailable. Keep authenticated events out of Health, admission, planning, and execution.
