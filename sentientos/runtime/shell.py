@@ -85,7 +85,12 @@ ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 class RuntimeShell:
     """Manage SentientOS runtime services on Windows."""
 
-    def __init__(self, config: Mapping[str, object]) -> None:
+    def __init__(
+        self,
+        config: Mapping[str, object],
+        *,
+        peer_health_sources: Optional[Mapping[str, PeerHealthRecoverySource]] = None,
+    ) -> None:
         self._config = dict(config)
         runtime_section = _ensure_runtime_config(self._config)
         runtime_root_value = runtime_section.get("root") or bootstrap.get_base_dir()
@@ -169,6 +174,21 @@ class RuntimeShell:
         )
         self._federation_config = federation_config
         self._federation_poller: Optional[FederationPoller] = None
+        self._peer_health_sources = dict(peer_health_sources or {})
+        configured_peer_names = {peer.node_name for peer in federation_config.peers}
+        if set(self._peer_health_sources) - configured_peer_names:
+            raise ValueError("peer_health_source_not_configured")
+        for peer_name, source in self._peer_health_sources.items():
+            if (
+                not isinstance(source, PeerHealthRecoverySource)
+                or not isinstance(source.owner, FederationPeerReplayOwner)
+                or source.owner.peer_id != peer_name
+                or not isinstance(source.catalog, ReadOnlyFederationPeerTrustCatalog)
+                or not callable(getattr(source.signature_verifier, "verify", None))
+                or type(source.max_age_seconds) is not int
+                or not 1 <= source.max_age_seconds <= 86_400
+            ):
+                raise ValueError("peer_health_source_invalid")
         if federation_warnings:
             for warning in federation_warnings:
                 self._log("Federation configuration warning", extra={"warning": warning})
@@ -1020,7 +1040,12 @@ class RuntimeShell:
         if not self._federation_config.enabled:
             return
         if self._federation_poller is None:
-            self._federation_poller = FederationPoller(self._federation_config, self, self._log)
+            self._federation_poller = FederationPoller(
+                self._federation_config,
+                self,
+                self._log,
+                peer_health_sources=self._peer_health_sources,
+            )
         self._federation_poller.start()
 
     def _build_world_sources(self, config: Mapping[str, object]) -> List[WorldSource]:
@@ -1445,4 +1470,11 @@ def _handler_targets(path: Path, handler: logging.Handler) -> bool:
     handler_path = Path(getattr(handler, "baseFilename", ""))
     return handler_path == path
 from sentientos.federation.config import load_federation_config
-from sentientos.federation.poller import FederationPoller, FederationState, PeerHealthProjection
+from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
+from sentientos.federation.peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
+from sentientos.federation.poller import (
+    FederationPoller,
+    FederationState,
+    PeerHealthProjection,
+    PeerHealthRecoverySource,
+)

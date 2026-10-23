@@ -550,7 +550,9 @@ jobs:
       - name: Verify peer Health claim dashboard projection
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
-            tests/test_dashboard_federation_peer_health.py
+            tests/test_dashboard_federation_peer_health.py \
+            tests/test_runtime_shell.py::test_runtime_shell_forwards_only_configured_peer_health_sources \
+            tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_health_sources_without_matching_peer
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/federation_peer_health_dashboard_provenance.json
           python - <<'PYCODE'
@@ -563,6 +565,8 @@ jobs:
               "tests/test_dashboard_federation_peer_health.py::test_status_source_projects_bounded_peer_claim_fields_only",
               "tests/test_dashboard_federation_peer_health.py::test_status_source_limits_peer_health_projection_count_to_64",
               "tests/test_dashboard_federation_peer_health.py::test_console_labels_peer_health_as_claims_separate_from_local_health",
+              "tests/test_runtime_shell.py::test_runtime_shell_forwards_only_configured_peer_health_sources",
+              "tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_health_sources_without_matching_peer",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",
@@ -572,7 +576,7 @@ jobs:
               "required_nodes": [
                   {
                       "node_id": node,
-                      "rationale": "peer-reported Health must be presented as a bounded claim with local Health and authority boundaries explicit",
+                      "rationale": "peer-reported Health must be presented as a bounded claim with local Health and authority boundaries explicit; runtime wiring accepts only explicit configured peer owner and trust inputs",
                   }
                   for node in nodes
               ],

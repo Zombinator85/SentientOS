@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Type, cast
@@ -10,6 +11,13 @@ from typing import Any, Dict, List, Mapping, Type, cast
 import pytest
 
 from sentientos.cathedral import Amendment
+from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
+from sentientos.federation.peer_trust_catalog import (
+    CATALOG_SCHEMA,
+    ReadOnlyFederationPeerTrustCatalog,
+    catalog_digest_for,
+)
+from sentientos.federation.poller import PeerHealthRecoverySource
 from sentientos.runtime.shell import (
     DEFAULT_RUNTIME_CONFIG,
     RuntimeShell,
@@ -99,6 +107,106 @@ def runtime_config(tmp_path: Path) -> RuntimeTestConfig:
     config_path = config_dir / "runtime.json"
     config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
     return config
+
+
+def _peer_health_source(tmp_path: Path, peer_id: str) -> PeerHealthRecoverySource:
+    catalog_body: Dict[str, object] = {
+        "schema": CATALOG_SCHEMA,
+        "catalog_version": 1,
+        "entries": [],
+    }
+    catalog_body["catalog_digest"] = catalog_digest_for(catalog_body)
+    raw_catalog = (
+        json.dumps(catalog_body, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
+    catalog = ReadOnlyFederationPeerTrustCatalog.from_bytes(
+        raw_catalog,
+        expected_catalog_version=1,
+        expected_catalog_digest=str(catalog_body["catalog_digest"]),
+    )
+
+    class RejectingVerifier:
+        def verify(self, **_kwargs: object) -> bool:
+            return False
+
+    return PeerHealthRecoverySource(
+        owner=FederationPeerReplayOwner(tmp_path / "peer-replay" / peer_id, peer_id=peer_id),
+        catalog=catalog,
+        signature_verifier=RejectingVerifier(),
+    )
+
+
+@pytest.mark.no_legacy_skip
+def test_runtime_shell_forwards_only_configured_peer_health_sources(
+    runtime_config: RuntimeTestConfig,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_root = Path(str(runtime_config["runtime"]["root"]))
+    runtime_config["federation"] = {
+        "enabled": True,
+        "state_file": str(runtime_root / "federation" / "state" / "local.json"),
+        "peers": [
+            {
+                "node_name": "peer-one",
+                "state_file": str(runtime_root / "federation" / "state" / "peer-one.json"),
+            }
+        ],
+    }
+    source = _peer_health_source(tmp_path, "peer-one")
+    sources = {"peer-one": source}
+    shell = RuntimeShell(runtime_config, peer_health_sources=sources)
+    sources["peer-two"] = _peer_health_source(tmp_path, "peer-two")
+    captured: Dict[str, object] = {}
+
+    class PollerStub:
+        def __init__(self, _config: object, _runtime: object, _log: object, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def start(self) -> None:
+            captured["started"] = True
+
+    monkeypatch.setattr("sentientos.runtime.shell.FederationPoller", PollerStub)
+    shell._start_federation_poller()
+
+    assert captured["peer_health_sources"] == {"peer-one": source}
+    assert captured["started"] is True
+
+
+@pytest.mark.no_legacy_skip
+def test_runtime_shell_rejects_peer_health_sources_without_matching_peer(
+    runtime_config: RuntimeTestConfig,
+    tmp_path: Path,
+) -> None:
+    runtime_root = Path(str(runtime_config["runtime"]["root"]))
+    runtime_config["federation"] = {
+        "enabled": True,
+        "state_file": str(runtime_root / "federation" / "state" / "local.json"),
+        "peers": [
+            {
+                "node_name": "peer-one",
+                "state_file": str(runtime_root / "federation" / "state" / "peer-one.json"),
+            }
+        ],
+    }
+
+    invalid_sources = (
+        (
+            {"unconfigured-peer": _peer_health_source(tmp_path, "unconfigured-peer")},
+            "peer_health_source_not_configured",
+        ),
+        (
+            {"peer-one": _peer_health_source(tmp_path, "different-peer-id")},
+            "peer_health_source_invalid",
+        ),
+        (
+            {"peer-one": replace(_peer_health_source(tmp_path, "peer-one"), max_age_seconds=True)},
+            "peer_health_source_invalid",
+        ),
+    )
+    for sources, error_code in invalid_sources:
+        with pytest.raises(ValueError, match=error_code):
+            RuntimeShell(runtime_config, peer_health_sources=sources)
 
 
 def _patch_thread(monkeypatch: pytest.MonkeyPatch) -> None:
