@@ -184,6 +184,29 @@ def test_compute_health_skips_non_object_and_malformed_peer_rows(
     assert stats["status"] == "quiet"
 
 
+@pytest.mark.parametrize("peer_data", [{}, {"peer": "unknown"}])
+def test_compute_health_does_not_count_recent_events_without_peer_identity(
+    health_badge, tmp_path, monkeypatch, peer_data
+):
+    log_path = tmp_path / "federation_log.jsonl"
+    now = datetime.now(timezone.utc)
+    log_path.write_text(
+        json.dumps({"timestamp": now.isoformat(), "data": peer_data}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health_badge, "LOG_PATH", log_path)
+
+    assert health_badge.compute_health() == {
+        "nodes": 0,
+        "recent": 0,
+        "status": "quiet",
+        "source": "configured_local_log_snapshot",
+        "window_hours": 24,
+        "latest_event_at": None,
+        "live_telemetry": False,
+    }
+
+
 @pytest.mark.parametrize("hours", [0, -1])
 def test_compute_health_rejects_non_positive_window(health_badge, hours):
     with pytest.raises(ValueError, match="hours must be positive"):
