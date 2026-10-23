@@ -1,0 +1,73 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 605,
+  "title": "Bounded relay transport integration regression",
+  "predecessor": {
+    "sequence": 604,
+    "sha256": "61f6bf1c5444a3fbcaa7e5ac1c4b91b2c788ee6e1511a9548d6b43c59f58d5b4"
+  },
+  "source": {
+    "candidate_commit": "fbfdad96418ae9fe469d07b8c8189e3721754840",
+    "candidate_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1",
+    "parent_main": "c1db6855ccc3920ea4cafaa2fe9d25bb09fb5724",
+    "final_main": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
+    "final_main_tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1",
+    "changed_paths": [
+      "tests/test_federation_stream_relay.py"
+    ],
+    "scope": "Add a mocked relay_peer response integration test proving 8-KiB iter_content wiring, oversized-line drop, newline resynchronization, and persistence of the next valid source-bound event."
+  },
+  "validation": {
+    "local_focused_test": {
+      "result": "15 passed",
+      "compilation": "passed",
+      "environment": "Isolated /tmp/seq605 copy with privilege imports stubbed and requests mocked; no network connection."
+    },
+    "exact_candidate_checks": {
+      "pull_request": 2669,
+      "required_quality_gate_run": 39900914154,
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation_run": 39900914092,
+      "self_check_runs": [
+        39900902204,
+        39900914092
+      ],
+      "docs_linkcheck_runs": [
+        39900902204,
+        39900914092
+      ],
+      "helm_runs": [
+        39900902204,
+        39900914092
+      ],
+      "invariants_runs": [
+        39900902205,
+        39900914103
+      ],
+      "lint_run": 39900914087,
+      "build_run": 39900914086,
+      "cpu_smoke_run": 39900914105,
+      "validate_run": 39900914191,
+      "result": "all distinct exact-candidate check names have a successful conclusion"
+    },
+    "federation_health": {
+      "latest_post_merge_scheduled_run_observed": false,
+      "latest_observed_scheduled_run_id": 39871453383,
+      "latest_observed_scheduled_head": "965659041bc448ba3d3166d7e618ef255abf0387",
+      "report_status": "stale",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "pull_request": 2669,
+    "merge_commit": "c4daa4c30c6fa4d45ed7053bb184bba143b381a9",
+    "tree": "9c37f416b260ea29b6ebe886a8c839f3e8a870a1",
+    "first_parent": "c1db6855ccc3920ea4cafaa2fe9d25bb09fb5724",
+    "second_parent": "fbfdad96418ae9fe469d07b8c8189e3721754840",
+    "merge_method": "normal merge"
+  },
+  "scope": "Regression coverage for bounded relay streaming only. Does not create live traffic or authenticate peers, establish freshness, change Federation Health input, or enable production transitions."
+}
