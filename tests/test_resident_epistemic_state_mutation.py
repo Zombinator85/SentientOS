@@ -365,6 +365,39 @@ def test_cross_stage_broad_revoked_and_tampered_evidence_fail_without_mutation(t
     assert owner.verify() == before
 
 
+def test_empty_candidate_is_limited_to_explicit_unknown_evidence_withdrawal(tmp_path) -> None:
+    _owner, proposition, _authority, _controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id,
+        predecessor_state_digest=None,
+        proposed_stance="unknown",
+        evidence_binding_ids=(),
+        reason="evidence_withdrawal",
+        rationale="withdraw the supported conclusion without deleting its immutable source",
+        uncertainty="unknown",
+        model_id="caller")
+    assert candidate.evidence_binding_ids == ()
+    with pytest.raises(EpistemicStateError, match="epistemic_candidate_evidence_required"):
+        make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None,
+            proposed_stance="unknown",
+            evidence_binding_ids=(),
+            reason="new_evidence",
+            rationale="an evidence-bearing update must retain its source scope",
+            uncertainty="unknown",
+            model_id="caller")
+    with pytest.raises(EpistemicStateError, match="epistemic_candidate_evidence_required"):
+        make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None,
+            proposed_stance="supported",
+            evidence_binding_ids=(),
+            reason="evidence_withdrawal",
+            rationale="withdrawal cannot preserve a positive stance without evidence",
+            uncertainty="low",
+            model_id="caller")
+
 def test_candidate_tamper_missing_evidence_authority_and_stale_cas_fail(tmp_path) -> None:
     owner, proposition, authority, controller, binding, proof = setup(tmp_path)
     evidence = issue(authority, admission_id="E", effects=EVIDENCE_BINDING_EFFECTS,
