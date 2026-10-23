@@ -1,0 +1,83 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 603,
+  "title": "Bounded federation relay event parsing",
+  "predecessor": {
+    "sequence": 602,
+    "sha256": "3d6673deaecf3fcedca83e590a527f0fb2213e1110bbca72bf59876c256f7e68"
+  },
+  "source": {
+    "candidate_commit": "67904570359beb8785d8b724c61c1b54d4148b1a",
+    "candidate_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead",
+    "parent_main": "964916158558ac6dde3ec084d0350bbf0d972fc6",
+    "final_main": "f833f9dd131d0da19635ef13cbbd4128371ff095",
+    "final_main_tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead",
+    "changed_paths": [
+      "scripts/federation_stream_relay.py",
+      "tests/test_federation_stream_relay.py"
+    ],
+    "scope": "Skip malformed, non-object, recursive, oversized-integer, and over-64-KiB SSE payloads before persistence; retain source binding for accepted objects."
+  },
+  "validation": {
+    "local_focused_test": {
+      "result": "11 passed",
+      "environment": "Exact candidate source and test files; preserved auxiliary checkout lacks requests, so tests inject an inert requests module. No network path is invoked.",
+      "transport_buffering_limit": "64-KiB check runs after requests.iter_lines yields a line; it does not bound prior transport buffering."
+    },
+    "exact_candidate_checks": {
+      "required_quality_gate_run": 39896927312,
+      "superseded_title_mismatch_attempts": [
+        39896591644,
+        39896572156
+      ],
+      "title_mismatch_resolution": "PR title updated to exactly match the latest commit subject; gate rerun on the unchanged candidate source.",
+      "strict_administrator_audits": "passed",
+      "exact_acceptance_binding": "passed",
+      "hosted_finalizer": "passed",
+      "separate_metadata_guard": "passed",
+      "source_validation": "passed",
+      "self_check": "passed",
+      "docs_linkcheck": "passed",
+      "helm": "passed",
+      "invariants": "passed",
+      "lint_matrix": "passed",
+      "build": "passed",
+      "cpu_smoke": "passed",
+      "result": "all exact-candidate check names have a successful run"
+    },
+    "post_merge_main_checks": {
+      "main_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
+      "required_quality_gate_run": 39897216309,
+      "source_validation_docs_helm_run": 39897216281,
+      "self_check_ci_run": "39897216281 (duplicate execution remained in progress; equivalent self-check success separately recorded below)",
+      "nightly_self_check_push_run": 39897216233,
+      "invariants_run": 39897216256,
+      "build_run": 39897216365,
+      "cpu_smoke_run": 39897216284,
+      "deploy_run": 39897216334,
+      "result": "all post-merge main check names passed; one redundant CI self-check attempt remained in progress while an exact-main self-check passed"
+    },
+    "remaining_federation_health": {
+      "latest_post_merge_scheduled_run_observed": false,
+      "latest_observed_scheduled_run_id": 39871453383,
+      "latest_observed_scheduled_head": "965659041bc448ba3d3166d7e618ef255abf0387",
+      "latest_newer_main_execution": {
+        "run_id": 39894532452,
+        "event_name": "push",
+        "head_sha": "d5f16f60cd33e3e757cf943716ee5299dad815ab",
+        "status": "success"
+      },
+      "report_status": "stale",
+      "live_telemetry": false
+    }
+  },
+  "integration": {
+    "pull_request": 2665,
+    "merge_commit": "f833f9dd131d0da19635ef13cbbd4128371ff095",
+    "tree": "c1183e45afed5f81f33233477e45bce8cbcf3ead",
+    "first_parent": "964916158558ac6dde3ec084d0350bbf0d972fc6",
+    "second_parent": "67904570359beb8785d8b724c61c1b54d4148b1a",
+    "merge_method": "normal merge"
+  },
+  "scope": "Relay parse fault containment only. Does not authenticate federation peers, establish event freshness, modify health input, or enable production transitions."
+}
