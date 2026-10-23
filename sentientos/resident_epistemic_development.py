@@ -10,7 +10,7 @@ import hashlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION,
@@ -159,6 +159,53 @@ class ResidentEpistemicDevelopmentRuntime:
                 raise EpistemicDevelopmentError("proposition_digest_mismatch")
             if proposition.namespace not in config.allowed_namespaces or proposition.namespace not in owner.allowed_namespaces:
                 raise EpistemicDevelopmentError("proposition_namespace_not_allowed")
+
+    @staticmethod
+    def _binding_semantics(binding: EvidenceBinding) -> tuple[Any, ...]:
+        """Identity shared by freshness revisions of one exact source fact."""
+        return (binding.proposition_id, binding.source_artifact_id, binding.source_digest,
+            binding.source_schema, binding.source_class, binding.observation_time,
+            binding.evidence_relation, binding.dependency_kind, binding.dependency_group,
+            binding.upstream_binding_ids, binding.reliability_posture,
+            binding.schema_version, tuple(sorted(binding.authority.items())))
+
+    def _effective_bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
+        """Recover active plus uncommitted evidence without reviving removed history.
+
+        Evidence records are append-only. Update events, rather than the registry,
+        define active membership. An unreferenced record is a pending append whose
+        state transaction did not complete, so it remains eligible for recovery.
+        When one source fact has multiple freshness revisions, retain the most
+        conservative posture while preserving every immutable registry record.
+        """
+        records = self.owner.bindings(proposition_id)
+        events = self.owner.update_events(proposition_id)
+        accounted = {binding_id for event in events
+            for binding_id in (*event.added_binding_ids, *event.removed_binding_ids)}
+        eligible_ids = set(self.owner.active_binding_ids(proposition_id)) | {
+            item.binding_id for item in records if item.binding_id not in accounted}
+        rank = {"current": 0, "stale": 1, "unknown": 2}
+        by_semantics: dict[tuple[Any, ...], EvidenceBinding] = {}
+        for item in records:
+            if item.binding_id not in eligible_ids or item.withdrawn:
+                continue
+            key = self._binding_semantics(item)
+            previous = by_semantics.get(key)
+            if (previous is None or (rank[item.freshness], item.binding_id)
+                    > (rank[previous.freshness], previous.binding_id)):
+                by_semantics[key] = item
+        return tuple(sorted(by_semantics.values(), key=lambda item: item.binding_id))
+
+    @classmethod
+    def _freshness_revision(cls, proposition_id: str,
+            effective: Sequence[EvidenceBinding], active_ids: Sequence[str],
+            records: Sequence[EvidenceBinding]) -> bool:
+        prior = {item.binding_id: item for item in records
+            if item.binding_id in set(active_ids)}
+        return any(old.freshness == "current" and new.freshness in {"stale", "unknown"}
+            and cls._binding_semantics(old) == cls._binding_semantics(new)
+            for old in prior.values() for new in effective
+            if old.proposition_id == proposition_id)
 
     def trace_proposition(self, *, proposition_id: str, reconstructed_at: str,
             max_events: int = 16, cognitive_tick: int | None = None) -> dict[str, Any]:
@@ -1006,14 +1053,14 @@ class ResidentEpistemicDevelopmentRuntime:
                 binding=binding, source_proof=proof, admission=admission,
                 operation_id=operation, correlation_id=f"tick:{tick}:{rule_id}:{run_id}")
             evidence_receipts = (evidence_receipt.receipt_id,)
-        bindings = tuple(item for item in self.owner.bindings(rule.proposition_id)
-            if not item.withdrawn)
+        bindings = self._effective_bindings(rule.proposition_id)
         if len(bindings) > MAX_ACTIVE_EVIDENCE:
             raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
         active_ids = tuple(sorted(item.binding_id for item in bindings))
         prior = self.owner.current_state(rule.proposition_id)
-        if prior is not None and set(active_ids) == set(
-                self.owner.active_binding_ids(rule.proposition_id)):
+        prior_active_ids = self.owner.active_binding_ids(rule.proposition_id)
+        all_records = self.owner.bindings(rule.proposition_id)
+        if prior is not None and set(active_ids) == set(prior_active_ids):
             return EpistemicDevelopmentFeedback("already_applied", run_id, 1, 1,
                 0, 0, (), (), (), ())
         if binding.evidence_relation == "contextualizes":
@@ -1039,8 +1086,10 @@ class ResidentEpistemicDevelopmentRuntime:
             proposition_id=rule.proposition_id,
             predecessor_state_digest=prior.state_digest if prior else None,
             proposed_stance=stance, evidence_binding_ids=active_ids,
-            reason="contradiction_arrival" if binding.evidence_relation == "contradicts"
-                else "new_evidence",
+            reason=("source_reliability_revision" if self._freshness_revision(
+                rule.proposition_id, bindings, prior_active_ids, all_records)
+                else "contradiction_arrival" if binding.evidence_relation == "contradicts"
+                else "new_evidence"),
             rationale=f"{QUALITATIVE_RULE}:{posture['posture']}; fixture scope preserved",
             uncertainty="high" if posture["dependency_unresolved"] else "medium",
             model_id=None, proposer_kind="deterministic_rule", proposer_id=rule_id)
@@ -1122,7 +1171,7 @@ class ResidentEpistemicDevelopmentRuntime:
         state_candidates: list[tuple[str, tuple[EvidenceBinding, ...], Any,
             tuple[str, ...], set[str], Mapping[str, Any], str]] = []
         for proposition_id in sorted(touched):
-            bindings = tuple(item for item in self.owner.bindings(proposition_id) if not item.withdrawn)
+            bindings = self._effective_bindings(proposition_id)
             if len(bindings) > MAX_ACTIVE_EVIDENCE:
                 raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
             active_ids = tuple(sorted(item.binding_id for item in bindings))
@@ -1152,7 +1201,10 @@ class ResidentEpistemicDevelopmentRuntime:
                 posture, stance) in bounded_state_candidates:
             new_relations = {item.evidence_relation for item in bindings
                 if not prior or item.binding_id not in prior_active_ids}
-            reason = "contradiction_arrival" if "contradicts" in new_relations else "new_evidence"
+            reason = ("source_reliability_revision" if self._freshness_revision(
+                proposition_id, bindings, tuple(prior_active_ids),
+                self.owner.bindings(proposition_id)) else
+                "contradiction_arrival" if "contradicts" in new_relations else "new_evidence")
             rules = sorted(rule.rule_id for rule in self.config.rules if rule.proposition_id == proposition_id)
             candidate = make_epistemic_update_candidate(proposition_id=proposition_id,
                 predecessor_state_digest=prior.state_digest if prior else None, proposed_stance=stance,
