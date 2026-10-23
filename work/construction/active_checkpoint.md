@@ -84,3 +84,19 @@ Sequence 621 integrates PR #2696, which confines local federation replay snapsho
 Main `db51776cf10752ec74f2c560c9548d448edb7d65` (tree `d26a60e881047912d323cdcf982c6d0e5991460d`) passed post-merge Required Quality Gate, CI, Docs Deploy, Docker, Codex CI, invariants, and Nightly Self Check. The CI source-validation lane completed, including the integrated resource-to-cognition lifecycle and planning/transition checks. The latest scheduled Federation Health report remains run #39936583192 on older source `aea0feb665e4cd4c0432c7ecae0453e8cf372fab`; no schedule-bound execution on current main was observed. Its report is a stale local-log snapshot, not live telemetry. Automated receipt PR #2688 is based on that older source and must be refreshed and reverified.
 
 Next: define and verify a distinct local semantic-acceptance contract for authenticated peer events. Keep signature provenance and replay custody separate from permission to treat remote claims as local evidence. Do not connect authenticated events to Health, admission, planning, or execution until that contract is explicit and tested.
+
+
+## Current verified state — sequence 625
+
+Sequence 625 integrates a bounded local docket for Federation semantic-review receipts. Docket reads repeat replay and locally pinned policy validation. Entries preserve positive and adverse submitted outcomes and grant local review eligibility only; remote references remain unresolved, and canonical evidence, Federation Health, work admission, planning, execution, and decision authority remain denied.
+
+Latest verified main: `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`, tree `486103360be93db194c2d721a2a2d70b42ae95ce`
+Latest construction segment: `work/construction/segments/0625-integrate-sequence-625-main-verification.md`
+Latest segment SHA-256: 7c39f1dea5d38c917f447092a30c85f2e6431c847428dccf822ad824042c6ecd
+Sequence: 625 (bounded semantic-review receipt docket)
+
+PR #2705 candidate `f1e4b730f831dcd9502be0b3816a8687998949ea` merged normally as `2a396737193222e54132d2f0976c21c8fdaac452`. Its exact-candidate Quality Gate, strict Administrator audits, acceptance binding, finalizer, separate metadata guard, CI, invariants, Docker, Codex CI, lint, release, and gradient checks passed. Post-merge checks passed on the source merge. The later App-published Federation Health receipt PR #2688 merged normally as `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`; its scheduled report is a stale configured local-log snapshot, not live telemetry.
+
+Final main checks passed on exact commit `75ce144b3efc12a73dbeb1f2298bbef62bc435fb`: Required Quality Gate #39977073701, CI #39977073503 including source validation, self-check/pytest, docs/linkcheck, and Helm/Kubernetes, Invariants #39977073431, Docs Deploy #39977073649, Docker #39977073384, and Codex CI #39977073574. Forge Smoke #39977073396 was skipped by its workflow condition.
+
+Next: correct nightly audit workflow calls that currently pass `logs/` into directory-chain mode. The independent configured audit streams must be verified using the verifier's configured-stream semantics; do not run a cross-file repair or relax Administrator requirements.
