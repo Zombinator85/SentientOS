@@ -183,8 +183,6 @@ FEDERATION_MODULE_ALLOWLIST = {
     # grants no relay, Health, admission, planning, or execution authority.
     "peer_replay_owner",
     "peer_trust_catalog",
-    # Durable peer replay ownership derives sequence from local history and has no Health or execution route.
-    "peer_replay_owner",
     "poller",
     "replay",
     "summary",
