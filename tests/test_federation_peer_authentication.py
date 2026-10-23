@@ -26,6 +26,11 @@ from sentientos.federation.peer_trust_catalog import (
     ReadOnlyFederationPeerTrustCatalog,
     catalog_digest_for,
 )
+from sentientos.federation.peer_replay_owner import (
+    FederationPeerReplayOwner,
+    FederationPeerReplayOwnerError,
+)
+from sentientos.federation import peer_replay_owner as peer_replay_owner_module
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -351,3 +356,79 @@ def test_signed_event_size_is_bounded():
     _, _, _, _, _, catalog, _ = _make_catalog()
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_size_invalid"):
         _verify(b"x" * 65_537, catalog)
+
+from sentientos.federation import peer_replay_owner as peer_replay_owner_module
+from sentientos.federation.peer_replay_owner import (
+    FederationPeerReplayOwner,
+    FederationPeerReplayOwnerError,
+)
+
+
+def test_replay_owner_derives_sequence_recovers_and_preserves_outcomes(tmp_path):
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    root = tmp_path / "peer-one"
+    owner = FederationPeerReplayOwner(root, peer_id="peer-one")
+    adverse_raw, _ = _signed_event(
+        private, key_id, sequence=1,
+        event={"kind": "trial_outcome", "outcome": "adverse", "reason": "timeout"},
+    )
+    first = owner.accept(
+        adverse_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+    )
+    assert first.sequence == 1
+    assert first.created is True
+    assert first.verified_event.event["outcome"] == "adverse"
+    stored_first = json.loads((root / "event-00000000000000000001.json").read_text())
+    assert stored_first["signed_envelope"] == adverse_raw.decode("utf-8")
+    recovered = FederationPeerReplayOwner(root, peer_id="peer-one")
+    assert recovered.last_accepted_sequence == 1
+
+    positive_raw, _ = _signed_event(
+        private, key_id, sequence=2,
+        event={"kind": "trial_outcome", "outcome": "positive", "reason": "completed"},
+    )
+    second = recovered.accept(
+        positive_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW,
+    )
+    assert second.sequence == 2
+    assert second.verified_event.event["outcome"] == "positive"
+    assert FederationPeerReplayOwner(root, peer_id="peer-one").last_accepted_sequence == 2
+
+
+def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    root = tmp_path / "peer-one"
+    owner = FederationPeerReplayOwner(root, peer_id="peer-one")
+    gap_raw, _ = _signed_event(private, key_id, sequence=2)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_sequence_not_next"):
+        owner.accept(gap_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    assert owner.last_accepted_sequence == 0
+
+    first_raw, _ = _signed_event(private, key_id, sequence=1)
+    owner.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    with pytest.raises(FederationPeerEventVerificationError, match="peer_event_sequence_not_next"):
+        owner.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    record_path = root / "event-00000000000000000001.json"
+    record_path.write_bytes(b"{}\n")
+    with pytest.raises(FederationPeerReplayOwnerError, match="replay_record_fields_invalid"):
+        _ = owner.last_accepted_sequence
+
+
+def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_path, monkeypatch):
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    root = tmp_path / "peer-one"
+    owner = FederationPeerReplayOwner(root, peer_id="peer-one", max_records=1)
+    first_raw, _ = _signed_event(private, key_id, sequence=1)
+    owner.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    second_raw, _ = _signed_event(private, key_id, sequence=2)
+    with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_record_limit_exceeded"):
+        owner.accept(second_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+
+    unsupported_root = tmp_path / "unsupported"
+    unsupported = FederationPeerReplayOwner(unsupported_root, peer_id="peer-one")
+    def unsupported_directory(*_args, **_kwargs):
+        raise peer_replay_owner_module.PrivateFileCustodyError("directory_custody_unsupported")
+    monkeypatch.setattr(peer_replay_owner_module, "open_private_directory", unsupported_directory)
+    with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_custody_unavailable"):
+        unsupported.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
+    assert not unsupported_root.exists()
