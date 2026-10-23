@@ -92,3 +92,49 @@ def test_iter_bounded_sse_lines_rejects_invalid_bounds_or_chunk_types(relay):
         list(relay.iter_bounded_sse_lines([], max_bytes=True))
     with pytest.raises(TypeError, match="chunks must be bytes"):
         list(relay.iter_bounded_sse_lines(["data: {}"], max_bytes=32))
+
+
+def test_relay_peer_reads_bounded_chunks_and_recovers_after_oversized_line(
+    relay, tmp_path, monkeypatch
+):
+    calls = 0
+    source_url = "http://node1.local:8000/presence"
+    log_path = tmp_path / "federation_stream.jsonl"
+
+    class StopRelay(BaseException):
+        pass
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, *, chunk_size):
+            assert chunk_size == 8192
+            yield b"data: " + b"x" * (relay.MAX_EVENT_BYTES + 1) + b"\n"
+            yield b'data: {"peer":"alpha"}\n'
+
+    def fake_get(url, *, stream, timeout):
+        nonlocal calls
+        calls += 1
+        assert url == source_url + "/stream"
+        assert stream is True
+        assert timeout == 10
+        if calls == 1:
+            return Response()
+        raise StopRelay
+
+    monkeypatch.setattr(relay.requests, "get", fake_get, raising=False)
+
+    with pytest.raises(StopRelay):
+        relay.relay_peer(source_url, log_path)
+
+    assert calls == 2
+    assert log_path.read_text(encoding="utf-8") == (
+        '{"peer": "alpha", "source": "http://node1.local:8000/presence"}\n'
+    )
