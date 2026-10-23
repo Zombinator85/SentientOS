@@ -1,4 +1,24 @@
-## Current verified state - sequence 633
+## Current verified state - sequence 634
+
+Sequence 634 makes authenticated peer Health projection recovery restart-safe without turning a remote claim into local Health or authority. Recovery revalidates the entire bounded immutable history against the exact pinned trust-catalog version and digest, verifies each signed event at its issue time, and freshness-checks only the latest event for projection. Empty history yields no projection; tampering, stale latest events, and catalog drift fail closed. No replay files are modified.
+
+The catalog must remain exactly pinned for recovery. Historical catalog custody is not yet implemented, so a trust-catalog rotation causes recovery to fail closed. No network transport, production peer identity, local Health publication, admission, planning, execution, or decision authority is introduced.
+
+Latest verified main: `de698afc55b13f66917cabbc574ad07bdb48fbec`, tree `72dbbf7fe887ec0b07215f3997b394b04584a9db`
+Latest construction segment: `work/construction/segments/0634-recover-peer-health-projection-after-restart.md`
+Latest segment SHA-256: `c91968cff5446b87ba0739e31b834c03ccb59ec8a1e532571cfc8b1a151f8eb7`
+Sequence: 634 (restart-safe authenticated peer Health projection recovery)
+
+PR #2728 candidate `b9638d080a8507a8eb7a25180641aafd16805754` merged normally as `de698afc55b13f66917cabbc574ad07bdb48fbec`, preserving candidate history and retaining `271eacb2953f58384724bca6348f58bca54fcc46` as first parent. Its exact-candidate Quality Gate, strict hosted Administrator audits, 47-node acceptance, hosted finalizer, separate pre-publication metadata guard, CI, source validation, Invariants, Docker, Codex CI, lint, Release, and Gradient checks passed. One failed source-validation attempt on the superseded first commit exposed lost pytest parameter IDs; the second commit restored those IDs, and the corrected candidate passed all 16 source-validation nodes, including six exact recovery nodes.
+
+Post-merge main `de698afc55b13f66917cabbc574ad07bdb48fbec` passed Required Quality Gate, full CI and its four jobs (self-check/pytest, docs linkcheck, Helm/Kubernetes, and source validation), Invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check. Forge Smoke was skipped by workflow conditions. The source-validation artifact's SHA-256 was independently matched and its 16 nodes, including all six recovery nodes, were ready against the exact merge SHA.
+
+Evidence: `work/construction/evidence/0634-recover-peer-health-projection-after-restart.json`
+Evidence SHA-256: `18a08f70caf42d27859fd67983a44ebc837972a49d82d11947be495e2ca88441`.
+
+Next: connect read-only peer Health projection recovery to the daemon's verified peer-projection owner. Preserve the exact trust-catalog binding and fail closed on catalog drift; do not connect live transport or grant local Health, admission, planning, execution, or decision authority.
+
+## Previous checkpoint snapshot - sequence 633
 
 Sequence 633 integrates the bounded authenticated peer Health assertion ingress and a peer-reported projection over the existing operator-pinned trust catalog and immutable replay owner. Canonical event shape, signature, freshness, next sequence and durable custody are checked before projection. The projection states that claim truth, local Health publication, work admission, planning, execution and decision power are all denied. No production peer identity, remote endpoint, network listener or live telemetry source is configured; the local snapshot workflow remains local-only.
 
