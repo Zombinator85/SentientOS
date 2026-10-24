@@ -41,6 +41,21 @@ def verify_private_handle_acl(handle: int) -> None:
     closed. Write grants matter because they let an untrusted principal replace
     a locally pinned trust root even when the reader itself is race-safe.
     """
+    _verify_handle_acl(handle, require_private=True)
+
+
+def verify_replay_ancestor_handle_acl(handle: int) -> None:
+    """Reject ancestry whose owner or replacement rights can reset replay custody.
+
+    Public directory traversal/read and child creation are permitted. Existing
+    private children must not be removable by an untrusted parent owner, delete-
+    child grant, ownership grant, or DACL grant. TrustedInstaller is trusted only
+    for OS ancestry; it receives no private replay-file grant here.
+    """
+    _verify_handle_acl(handle, require_private=False)
+
+
+def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
     if os.name != "nt" or type(handle) is not int or handle <= 0:
         raise WindowsHandleCustodyError("private_acl_handle_invalid")
     import ctypes
@@ -110,16 +125,25 @@ def verify_private_handle_acl(handle: int) -> None:
         if not token_info(token, 1, token_buffer, needed.value, ctypes.byref(needed)):
             raise WindowsHandleCustodyError("private_acl_current_user_unavailable")
         current_user = ctypes.cast(token_buffer, ctypes.POINTER(ctypes.c_void_p)).contents
-        if not current_user.value or not equal_sid(owner, current_user):
+        if not current_user.value:
             raise WindowsHandleCustodyError("private_acl_owner_mismatch")
 
         trusted: list[ctypes.c_void_p] = [current_user]
-        for sid_text in ("S-1-5-18", "S-1-5-32-544"):
+        trusted_names = ["S-1-5-18", "S-1-5-32-544"]
+        if not require_private:
+            trusted_names.append(
+                "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464")
+        for sid_text in trusted_names:
             sid = ctypes.c_void_p()
             if not convert_sid(sid_text, ctypes.byref(sid)) or not sid.value:
                 raise WindowsHandleCustodyError("private_acl_trusted_sid_unavailable")
             known_sids.append(sid)
             trusted.append(sid)
+        if require_private:
+            if not equal_sid(owner, current_user):
+                raise WindowsHandleCustodyError("private_acl_owner_mismatch")
+        elif not any(equal_sid(owner, sid) for sid in trusted):
+            raise WindowsHandleCustodyError("ancestor_acl_owner_untrusted")
 
         class ACL_SIZE_INFORMATION(ctypes.Structure):
             _fields_ = [("AceCount", wintypes.DWORD),
@@ -136,6 +160,9 @@ def verify_private_handle_acl(handle: int) -> None:
             | 0x00000010 | 0x00000040 | 0x00000100 | 0x00010000
             | 0x00040000 | 0x00080000 | 0x01000000
         )
+        if not require_private:
+            read_mask = 0
+            write_mask = 0x10000000 | 0x40 | 0x10000 | 0x40000 | 0x80000 | 0x01000000
         for index in range(info.AceCount):
             ace = ctypes.c_void_p()
             if not get_ace(dacl, index, ctypes.byref(ace)) or not ace.value:
@@ -160,6 +187,8 @@ def verify_private_handle_acl(handle: int) -> None:
             if not any(equal_sid(sid_ptr, trusted_sid) for trusted_sid in trusted):
                 if mask & read_mask:
                     raise WindowsHandleCustodyError("private_acl_broad_read_grant")
+                if not require_private:
+                    raise WindowsHandleCustodyError("ancestor_acl_replacement_grant")
                 raise WindowsHandleCustodyError("private_acl_broad_write_grant")
 
     finally:

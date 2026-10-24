@@ -4,6 +4,7 @@ import csv
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,8 @@ from sentientos.windows_handle_custody import (
     read_regular_files,
 )
 from sentientos import windows_handle_custody as windows_custody_module
+from sentientos import windows_peer_replay_custody as publication_module
+from sentientos.federation.peer_authentication import FederationPeerEventVerificationError
 from sentientos.work_plan import (
     WORK_PLAN_EVIDENCE_DIR,
     WorkPlanError,
@@ -279,9 +282,9 @@ def _provision_private_replay_history(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
-def test_windows_replay_recovers_signed_history_without_publication(tmp_path: Path) -> None:
+def test_windows_replay_recovers_signed_history_without_mutation(tmp_path: Path) -> None:
     root = tmp_path / "peer-one"
-    private, key_id, catalog = _provision_private_replay_history(root)
+    _, _, catalog = _provision_private_replay_history(root)
     before = {p.name: p.read_bytes() for p in root.iterdir()}
     owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
     verifier = CryptographyEd25519FederationPeerSignatureVerifier()
@@ -290,10 +293,6 @@ def test_windows_replay_recovers_signed_history_without_publication(tmp_path: Pa
     assert owner.last_accepted_sequence == 2
     assert [entry.verified_event.event["outcome"] for entry in history] == ["adverse", "positive"]
     assert all(entry.created is False for entry in history)
-    next_raw, _ = _signed_event(private, key_id, sequence=3)
-    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
-                       match="replay_owner_custody_unavailable"):
-        owner.accept(next_raw, catalog=catalog, signature_verifier=verifier, now=NOW)
     assert {p.name: p.read_bytes() for p in root.iterdir()} == before
 
 
@@ -347,3 +346,199 @@ def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path
         load_operator_pinned_peer_health_sources(tmp_path / "absent-pin.json",
             runtime_root=tmp_path, configured_peer_ids=("peer-one",))
     assert not (tmp_path / "absent-pin.json").exists()
+
+
+def _publish_test_record(root: Path, data: bytes = b"record-one", *, max_entries: int = 8) -> bool:
+    return publication_module.publish_immutable_replay_bytes(
+        root / replay_module._record_name(1), data, max_bytes=140_000, max_entries=max_entries)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="exercises the non-Windows refusal")
+def test_windows_replay_publication_refuses_other_platforms_without_effects(tmp_path: Path) -> None:
+    root = tmp_path / "not-created"
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+                       match="windows_replay_publication_unsupported"):
+        _publish_test_record(root)
+    assert not root.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows immutable publication")
+def test_windows_replay_publication_create_retry_and_conflict(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    assert _publish_test_record(tmp_path) is True
+    target = tmp_path / replay_module._record_name(1)
+    assert read_explicit_file(target, max_bytes=64, require_private_acl=True) == b"record-one"
+    assert _publish_test_record(tmp_path) is False
+    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+        _publish_test_record(tmp_path, b"conflicting record")
+    assert target.read_bytes() == b"record-one"
+    assert [p.name for p in tmp_path.iterdir()] == [target.name]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows no-replace rename")
+def test_windows_replay_publication_preserves_destination_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    target = tmp_path / replay_module._record_name(1)
+
+    def create_conflict(phase: str) -> None:
+        if phase == "prepared":
+            target.write_bytes(b"foreign conflict")
+            _make_current_user_private(target, directory=False)
+
+    monkeypatch.setattr(publication_module, "_publication_boundary", create_conflict)
+    with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
+        _publish_test_record(tmp_path)
+    assert target.read_bytes() == b"foreign conflict"
+    assert [p.name for p in tmp_path.iterdir()] == [target.name]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows held-handle sharing")
+def test_windows_replay_publication_blocks_root_and_stage_substitution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    observed: list[str] = []
+    moved_stage_paths: list[Path] = []
+
+    def attempt_substitution(phase: str) -> None:
+        if phase == "prepared":
+            stage, = tmp_path.glob(".pending-*")
+            with pytest.raises(PermissionError):
+                tmp_path.rename(tmp_path.with_name(tmp_path.name + "-substituted"))
+            with pytest.raises(PermissionError):
+                stage.write_bytes(b"substituted bytes")
+            moved_stage = tmp_path / "substituted-stage"
+            try:
+                stage.rename(moved_stage)
+            except PermissionError:
+                pass
+            else:
+                assert moved_stage.exists()
+                moved_stage_paths.append(moved_stage)
+            observed.append(phase)
+
+    monkeypatch.setattr(publication_module, "_publication_boundary", attempt_substitution)
+    assert _publish_test_record(tmp_path) is True
+    assert observed == ["prepared"]
+    assert (tmp_path / replay_module._record_name(1)).read_bytes() == b"record-one"
+    assert not (tmp_path / "substituted-stage").exists()
+    assert all(not path.exists() for path in moved_stage_paths)
+    assert not list(tmp_path.glob(".pending-*"))
+
+
+@pytest.mark.parametrize("phase", ["prepared", "committed"])
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows abrupt process death")
+def test_windows_replay_publication_crash_retry_preserves_evidence(tmp_path: Path, phase: str) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    script = """import json, os, sys
+from pathlib import Path
+from sentientos import windows_peer_replay_custody as publication
+def boundary(phase):
+    if phase == sys.argv[2]:
+        os._exit(71)
+publication._publication_boundary = boundary
+print(json.dumps({'pid': os.getpid()}), flush=True)
+publication.publish_immutable_replay_bytes(Path(sys.argv[1]) / 'event-00000000000000000001.json',
+    b'record-one', max_bytes=140000, max_entries=8)
+"""
+    child = subprocess.run([sys.executable, "-c", script, str(tmp_path), phase],
+        capture_output=True, text=True, timeout=30)
+    assert child.returncode == 71, child.stderr
+    assert json.loads(child.stdout)["pid"] != os.getpid()
+    stale = {p.name: p.read_bytes() for p in tmp_path.glob(".pending-*")}
+    target = tmp_path / replay_module._record_name(1)
+    if phase == "prepared":
+        assert len(stale) == 1 and not target.exists()
+        assert _publish_test_record(tmp_path) is True
+    else:
+        assert not stale and target.read_bytes() == b"record-one"
+        assert _publish_test_record(tmp_path) is False
+    assert target.read_bytes() == b"record-one"
+    assert {p.name: p.read_bytes() for p in tmp_path.glob(".pending-*")} == stale
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows visible-commit recovery")
+def test_windows_replay_publication_preserves_commit_after_flush_boundary_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+
+    def fail_before_directory_flush(phase: str) -> None:
+        if phase == "before_directory_flush":
+            raise publication_module.WindowsReplayCustodyError("injected_directory_flush_failure")
+
+    monkeypatch.setattr(publication_module, "_publication_boundary", fail_before_directory_flush)
+    with pytest.raises(publication_module.WindowsReplayCustodyError, match="injected_directory_flush_failure"):
+        _publish_test_record(tmp_path)
+    target = tmp_path / replay_module._record_name(1)
+    assert target.read_bytes() == b"record-one"
+    monkeypatch.setattr(publication_module, "_publication_boundary", lambda _phase: None)
+    assert _publish_test_record(tmp_path) is False
+    assert [p.name for p in tmp_path.iterdir()] == [target.name]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows protected ancestry")
+def test_windows_replay_publication_enforces_bounds_and_parent_custody(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    ignored = tmp_path / "unrelated.txt"
+    ignored.write_bytes(b"preserve")
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+                       match="windows_replay_directory_bound_exceeded"):
+        _publish_test_record(tmp_path, max_entries=1)
+    assert ignored.read_bytes() == b"preserve" and not list(tmp_path.glob(".pending-*"))
+    parent = tmp_path / "unsafe-parent"
+    parent.mkdir()
+    _make_current_user_private(parent, directory=True)
+    root = parent / "private-root"
+    root.mkdir()
+    _make_current_user_private(root, directory=True)
+    subprocess.run(["icacls", str(parent), "/grant:r", "*S-1-1-0:(RX)"],
+                   check=True, capture_output=True, text=True, timeout=20)
+    assert _publish_test_record(root) is True
+    protected = {p.name: p.read_bytes() for p in root.iterdir()}
+    subprocess.run(["icacls", str(parent), "/grant:r", "*S-1-1-0:(DC)"],
+                   check=True, capture_output=True, text=True, timeout=20)
+    with pytest.raises(publication_module.WindowsReplayCustodyError, match="ancestor_acl_replacement_grant"):
+        _publish_test_record(root)
+    assert {p.name: p.read_bytes() for p in root.iterdir()} == protected
+    missing = tmp_path / "missing"
+    with pytest.raises(publication_module.WindowsReplayCustodyError):
+        _publish_test_record(missing)
+    assert not missing.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows single-link custody")
+def test_windows_replay_publication_rejects_aliased_existing_record(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    assert _publish_test_record(tmp_path) is True
+    target = tmp_path / replay_module._record_name(1)
+    alias = tmp_path / "alias.txt"
+    os.link(target, alias)
+    with pytest.raises(publication_module.WindowsReplayCustodyError, match="windows_replay_file_unbounded_or_aliased"):
+        _publish_test_record(tmp_path)
+    assert target.read_bytes() == alias.read_bytes() == b"record-one"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows signed replay publication")
+def test_windows_replay_owner_publishes_and_reverifies_signed_outcomes(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    verifier = CryptographyEd25519FederationPeerSignatureVerifier()
+    owner = replay_module.FederationPeerReplayOwner(tmp_path, peer_id="peer-one")
+    for sequence, outcome in enumerate(("adverse", "positive"), start=1):
+        raw, _ = _signed_event(private, key_id, sequence=sequence,
+            event={"kind": "trial_outcome", "outcome": outcome})
+        accepted = owner.accept(raw, catalog=catalog, signature_verifier=verifier, now=NOW)
+        assert accepted.created is True and accepted.sequence == sequence
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    bad, _ = _signed_event(private, key_id, sequence=3,
+        signature_from=Ed25519PrivateKey.from_private_bytes(bytes(reversed(range(32)))))
+    with pytest.raises(FederationPeerEventVerificationError):
+        owner.accept(bad, catalog=catalog, signature_verifier=verifier, now=NOW)
+    recovered = replay_module.FederationPeerReplayOwner(tmp_path, peer_id="peer-one")
+    history = recovered.verified_history(catalog=catalog, signature_verifier=verifier)
+    assert recovered.last_accepted_sequence == 2
+    assert [record.verified_event.event["outcome"] for record in history] == ["adverse", "positive"]
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before

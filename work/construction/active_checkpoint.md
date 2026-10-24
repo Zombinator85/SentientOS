@@ -1,3 +1,20 @@
+## Current verified state - sequence 643
+
+Sequence 643 retains Windows replay input handles through complete bounded history inspection and repeats custody checks at the terminal boundary. Sequences 642 and 643 are now both recorded as immutable linked evidence. Windows immutable publication is the active next construction increment; it remains unmerged and unverified.
+
+Latest verified main: `02602fc5f1ff0c03de8845f97a0a69ede5fc8157`, tree `991335491bae471f840f3cc73ae9539b0f6bcae7`
+Latest construction segment: `work/construction/segments/0643-retain-windows-replay-inputs-through-read.md`
+Latest segment SHA-256: `d7112a2a5ec1c3881d60e735ef140b7927cf2e64963ec8c8fc921aecb54d2716`
+Sequence: 643 (retain replay inputs through complete read)
+
+PR #2748 merged normally with the exact tested tree. Branch and PR checks, hosted Administrator finalizer, metadata guard, exact native Windows acceptance, and every applicable merged-main check passed. Local validation passed 155 tests, 6 exact acceptance nodes, targeted mypy, and the mypy baseline with zero new errors. Independent artifact ZIP-byte verification was unavailable under session network policy; GitHub digests are recorded as advertised and are not represented as independently matched.
+
+Evidence record: `work/construction/evidence/0643-retain-windows-replay-inputs-through-read.json`
+
+Next: prove handle-bound immutable Windows replay publication with no-replace semantics, durable file and directory flush, independent readback, custody checks, and crash/retry behavior. Runtime peer-source composition remains disabled until separately validated.
+
+## Previous checkpoint snapshot - sequence 641
+
 ## Current verified state - sequence 641
 
 Sequence 641 constrains Windows custody names before replay-store construction. A real alternate-stream fixture is rejected while ordinary selected reads succeed. Case aliases, unsafe components, and oversized or malformed UTF-16 names fail closed. Windows replay publication and source composition remain disabled.
