@@ -368,7 +368,18 @@ jobs:
             tests/test_federation_peer_authentication.py::test_replay_owner_bounds_history_and_fails_closed_without_posix_custody \
             tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_authenticates_exact_signed_event \
             tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend \
-            tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_health_sources_without_matching_peer \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_composes_exact_catalog_and_durable_peer_owner \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_catalog_digest_drift \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_catalog_containing_another_peer \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_unconfigured_peer \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_requires_private_file_custody \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_fails_closed_without_replay_owner_platform_custody \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_invalid_path_argument \
+            tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_string_configured_peer_collection \
+            tests/test_runtime_shell.py::test_runtime_shell_forwards_only_configured_peer_health_sources \
+            tests/test_runtime_shell.py::test_runtime_shell_keeps_peer_health_omitted_without_explicit_pin \
+            tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_pin_when_federation_is_disabled \
+            tests/test_runtime_shell.py::test_runtime_shell_rejects_non_path_peer_health_pin_configuration \
             tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_peer_replay_owner_regressions
           cp glow/test_runs/test_run_provenance.json \
             glow/test_runs/federation_peer_replay_owner_provenance.json
@@ -383,7 +394,18 @@ jobs:
               "tests/test_federation_peer_authentication.py::test_replay_owner_bounds_history_and_fails_closed_without_posix_custody",
               "tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_authenticates_exact_signed_event",
               "tests/test_federation_peer_authentication.py::test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend",
-              "tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_health_sources_without_matching_peer",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_composes_exact_catalog_and_durable_peer_owner",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_catalog_digest_drift",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_catalog_containing_another_peer",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_unconfigured_peer",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_requires_private_file_custody",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_fails_closed_without_replay_owner_platform_custody",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_invalid_path_argument",
+              "tests/test_federation_peer_health_source_factory.py::test_operator_pin_rejects_string_configured_peer_collection",
+              "tests/test_runtime_shell.py::test_runtime_shell_forwards_only_configured_peer_health_sources",
+              "tests/test_runtime_shell.py::test_runtime_shell_keeps_peer_health_omitted_without_explicit_pin",
+              "tests/test_runtime_shell.py::test_runtime_shell_rejects_peer_pin_when_federation_is_disabled",
+              "tests/test_runtime_shell.py::test_runtime_shell_rejects_non_path_peer_health_pin_configuration",
               "tests/test_github_hosted_acceptance_workflows.py::test_source_validation_runs_federation_peer_replay_owner_regressions",
           ]
           manifest = {
@@ -394,7 +416,7 @@ jobs:
               "required_nodes": [
                   {
                       "node_id": node,
-                      "rationale": "authenticated peer signatures must use a real Ed25519 verifier, RuntimeShell must reject verifier overrides, and replay must derive sequence from bounded immutable local custody while preserving exact signed outcomes",
+                      "rationale": "authenticated peer sources must be composed from protected exact catalog pins, remain bound to configured peer identities and POSIX replay custody, use a concrete Ed25519 verifier, and remain omitted when no operator pin is configured",
                   }
                   for node in nodes
               ],
