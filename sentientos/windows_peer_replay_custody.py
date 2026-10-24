@@ -387,7 +387,7 @@ def publish_immutable_replay_bytes(
         if status & 0xFFFFFFFF == 0xC0000035:
             return durable_existing(root_handle)
         if status < 0:
-            fail("windows_replay_no_replace_rename_failed")
+            fail(f"windows_replay_no_replace_rename_failed_0x{status & 0xFFFFFFFF:08x}")
         committed = True
         _publication_boundary("committed")
         installed = open_at(root_handle, path.name, sharing=7)
