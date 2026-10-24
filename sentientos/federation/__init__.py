@@ -135,6 +135,10 @@ from .summary import (
 )
 from .drift import DriftReport, DriftLevel, compare_summaries
 from .poller import FederationPoller, FederationState, PeerReplaySnapshot
+from .peer_authentication_ed25519 import (
+    CryptographyEd25519FederationPeerSignatureVerifier,
+    FederationPeerSignatureBackendUnavailable,
+)
 from .window import FederationWindow, build_window
 from .sync_view import (
     SyncStatus,
@@ -176,6 +180,8 @@ __all__ = [
     "FederationPoller",
     "FederationState",
     "PeerReplaySnapshot",
+    "CryptographyEd25519FederationPeerSignatureVerifier",
+    "FederationPeerSignatureBackendUnavailable",
     "FederationWindow",
     "build_window",
     "SyncStatus",
