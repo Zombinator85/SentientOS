@@ -371,7 +371,9 @@ def test_windows_replay_rejects_recomputed_signature_tamper(tmp_path: Path) -> N
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
-def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path) -> None:
+def test_windows_replay_requires_existing_private_bounded_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     root = tmp_path / "peer-one"
     with pytest.raises(replay_module.FederationPeerReplayOwnerError,
                        match="replay_owner_root_identity_required"):
@@ -402,6 +404,9 @@ def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path
     with pytest.raises(replay_module.FederationPeerReplayOwnerError,
                        match="replay_owner_custody_unavailable"):
         _ = owner.last_accepted_sequence
+    from sentientos.federation import peer_health_source_factory as factory
+
+    monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: False)
     with pytest.raises(FederationPeerHealthSourceFactoryError,
                        match="peer_replay_owner_custody_unsupported"):
         load_operator_pinned_peer_health_sources(tmp_path / "absent-pin.json",
@@ -434,7 +439,9 @@ def test_windows_factory_binds_operator_pin_to_existing_replay_root(tmp_path: Pa
     pin["peers"][0]["root_identity"] = {
         "volume_serial_number": identity[0], "file_id": identity[1].hex(),
     }
-    pin_path.write_text(json.dumps(pin, sort_keys=True, separators=(",", ":")) + "\n")
+    from sentientos.federation import peer_health_source_factory as factory
+
+    pin_path.write_bytes(factory._canonical(pin))
     _make_current_user_private(pin_path, directory=False)
 
     sources = load_operator_pinned_peer_health_sources(
