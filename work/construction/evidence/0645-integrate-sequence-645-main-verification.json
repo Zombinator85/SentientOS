@@ -1,0 +1,314 @@
+{
+  "post_merge": {
+    "ci_jobs": {
+      "CI": {
+        "docs": "success",
+        "helm-k8s-test": "success",
+        "run_id": 40119020749,
+        "self-check": "success",
+        "source-validation-unprivileged": "success"
+      },
+      "docs_linkcheck": "success"
+    },
+    "commit": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+    "main_acceptance_status": "task_acceptance_ready",
+    "main_passed_acceptance_nodes": 48,
+    "main_required_acceptance_nodes": 48,
+    "parents": [
+      "71dd659bcf4c1dbe2f64927be38011fa61b45a83",
+      "a03ed6521aa36c2a55818cbb7a44250f345159ac"
+    ],
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020714,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020749,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020743,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119021291,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020730,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020808,
+        "name": "Docs Deploy",
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "event": "push",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119020719,
+        "name": "Forge Smoke",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "schedule",
+        "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+        "id": 40119459027,
+        "name": "Federation Health Update",
+        "status": "completed"
+      }
+    ],
+    "tree": "cae6b7697027b0cf1563ad195574d1ecbfe3082c"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 645,
+  "source": {
+    "candidate_commit": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+    "merge_commit": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+    "merge_parents": [
+      "71dd659bcf4c1dbe2f64927be38011fa61b45a83",
+      "a03ed6521aa36c2a55818cbb7a44250f345159ac"
+    ],
+    "parent_main": "71dd659bcf4c1dbe2f64927be38011fa61b45a83",
+    "pull_request": 2750,
+    "source_tree": "cae6b7697027b0cf1563ad195574d1ecbfe3082c",
+    "tree_matches_candidate": true
+  },
+  "title": "Integrate verified sequence 645 evidence on main",
+  "validation": {
+    "artifact_verification": "All eight listed branch, PR, and main Quality Gate, finalizer, acceptance, source-validation, and Federation Health artifact ZIPs were independently downloaded and their SHA-256 values matched GitHub-advertised digests. This claim applies only to these eight listed archives.",
+    "artifacts": {
+      "branch": [
+        {
+          "digest": "sha256:7b0441ca2431a15accc6506da9e63ea5bd05808d92314a7c2fccfc855d620735",
+          "id": 12569362745,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:576ace58f16897e7a33bdfcd798a24d9412ae97ec01277add47e3f177ab8e0fa",
+          "id": 12570457600,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        }
+      ],
+      "main": [
+        {
+          "digest": "sha256:003833e17293f7ea6226b05da5e2a403e6b0109e1f9e55938d2db99e2ac2c3bb",
+          "id": 12569573307,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:0a171648026e18e6cdf0e5d1acf3ddf2e2f77b7a3fed12dda9b142e7165926d4",
+          "id": 12570429230,
+          "name": "source-validation-66dec47a35c44e7efbe5a28d197f57e62ce6b8f6"
+        },
+        {
+          "digest": "sha256:52f12c00137d0d00398b8a2e4000891b3e0013cf94dd781890836b35f1f0a25f",
+          "id": 12570493098,
+          "name": "federation-health-40119459027"
+        }
+      ],
+      "pr": [
+        {
+          "digest": "sha256:4268fd72625ffe3d4b2f2265aad8ce6a8495d12d62ae676aab29578178ecab5f",
+          "id": 12569263520,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:809834a5412e25d54b01bf427e1928b03ca39311d5587a322a745afd9866573e",
+          "id": 12569998530,
+          "name": "exact-pr-candidate-acceptance"
+        },
+        {
+          "digest": "sha256:ef53126487e99ecb53e34bb912cbdda958115b1a22bd60cdd33c5193b92f3884",
+          "id": 12570028471,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        }
+      ]
+    },
+    "branch_runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118104930,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118104913,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118105101,
+        "name": "Invariant Tests",
+        "status": "completed"
+      }
+    ],
+    "candidate_runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484976,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484955,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484988,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484944,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484924,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484985,
+        "name": "Lint Benchmark",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118484956,
+        "name": "Release",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118485022,
+        "name": "Gradient null regression",
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "event": "pull_request_target",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "id": 40118485028,
+        "name": "First PR Welcome",
+        "status": "completed"
+      }
+    ],
+    "hosted_finalizers": {
+      "branch": {
+        "artifact_sha256": "sha256:576ace58f16897e7a33bdfcd798a24d9412ae97ec01277add47e3f177ab8e0fa",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "reasons": [],
+        "run_id": 40118104930,
+        "tree_sha": "cae6b7697027b0cf1563ad195574d1ecbfe3082c"
+      },
+      "pr": {
+        "acceptance_sha256": "sha256:809834a5412e25d54b01bf427e1928b03ca39311d5587a322a745afd9866573e",
+        "artifact_sha256": "sha256:ef53126487e99ecb53e34bb912cbdda958115b1a22bd60cdd33c5193b92f3884",
+        "head_sha": "a03ed6521aa36c2a55818cbb7a44250f345159ac",
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "passed_acceptance_nodes": 48,
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "reasons": [],
+        "required_acceptance_nodes": 48,
+        "run_id": 40118484976,
+        "tree_sha": "cae6b7697027b0cf1563ad195574d1ecbfe3082c"
+      }
+    },
+    "local": {
+      "candidate_source_preflight": "candidate_integrity_ready_for_blob_upload",
+      "construction_custody_status": "construction_continuation_custody_ready",
+      "construction_segments_verified": 644,
+      "diff_check": "passed",
+      "production_source_changes": false
+    },
+    "quality_gate": {
+      "branch_run_id": 40118104930,
+      "main_acceptance_passed_nodes": 48,
+      "main_acceptance_required_nodes": 48,
+      "main_administrator_verified": true,
+      "main_audit_immutability_ok": true,
+      "main_effective_uid": 0,
+      "main_run_id": 40119020714,
+      "main_strict_audit_ok": true,
+      "pr_run_id": 40118484976
+    },
+    "scheduled_federation_health": {
+      "administrator_preflight": "passed",
+      "artifact_id": 12570493098,
+      "artifact_sha256": "sha256:52f12c00137d0d00398b8a2e4000891b3e0013cf94dd781890836b35f1f0a25f",
+      "changed_output_pr": "skipped",
+      "configured_nodes": 1,
+      "data_source": "configured local log snapshot (not live federation telemetry)",
+      "event": "schedule",
+      "events_last_24_hours": 0,
+      "head_sha": "66dec47a35c44e7efbe5a28d197f57e62ce6b8f6",
+      "latest_event": "2025-06-05T16:25:13.805813Z",
+      "publish_job": "success",
+      "run_id": 40119459027,
+      "snapshot_byte_coverage": "complete",
+      "status": "stale"
+    }
+  }
+}
