@@ -1,0 +1,213 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 640,
+  "title": "Reject broad write grants on private Windows custody",
+  "predecessor": "segment-sha256:0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa",
+  "source": {
+    "candidate_commit": "cf5cd51a7d60e6743d8db596977bed138f4f1eaa",
+    "candidate_commits": [
+      "e4ba890b6bb6a998a6d4915be84175f1fa5f0bbc",
+      "e5d8e59193f924fc0cc88da7eed99964e04ec8b7",
+      "cf5cd51a7d60e6743d8db596977bed138f4f1eaa"
+    ],
+    "parent_main": "6d08beac8d18a8df49ed270555e95f6096ef00a9",
+    "source_tree": "ad464fce66c7d69ba5d6b013a78bbac123ae8e89",
+    "pull_request": 2744,
+    "merge_commit": "9cb0fb3d56b9a84257d8796863519c0a128e1e54",
+    "merge_parents": [
+      "6d08beac8d18a8df49ed270555e95f6096ef00a9",
+      "cf5cd51a7d60e6743d8db596977bed138f4f1eaa"
+    ],
+    "scope": "Reject broad untrusted write grants on handle-bound private Windows trust-root files and directories, bind native ACL acceptance to exact candidate identity, and align all hosted acceptance validators with the 48-node contract.",
+    "changed_paths": [
+      ".github/workflows/required-quality-gate.yml",
+      ".github/workflows/windows-custody.yml",
+      "sentientos/windows_handle_custody.py",
+      "sentientos/tests/test_windows_handle_custody.py",
+      "tests/test_github_hosted_acceptance_workflows.py"
+    ]
+  },
+  "validation": {
+    "local": {
+      "focused_workflow_contract_tests": "3 passed after exact required-node correction",
+      "source_regressions": "55 passed; 6 native-Windows cases skipped on the local non-Windows host",
+      "compilation": "passed",
+      "workflow_yaml_parse": "passed",
+      "git_diff_check": "passed",
+      "mypy_baseline": "no new errors"
+    },
+    "prepublication": {
+      "branch_quality_gate": {
+        "id": 40050607010,
+        "conclusion": "success"
+      },
+      "branch_ci": {
+        "id": 40050607124,
+        "conclusion": "success"
+      },
+      "branch_invariants": {
+        "id": 40050607035,
+        "conclusion": "success"
+      },
+      "source_sha": "cf5cd51a7d60e6743d8db596977bed138f4f1eaa",
+      "source_tree": "ad464fce66c7d69ba5d6b013a78bbac123ae8e89",
+      "strict_audit": "passed",
+      "audit_immutability": "passed",
+      "hosted_finalizer": "ready",
+      "metadata_guard": "pr_metadata_guard_ready; zero reasons",
+      "acceptance": "task_acceptance_ready; 48 exact nodes",
+      "validation_profile": "solo; exhaustive matrix not requested",
+      "artifacts": [
+        {
+          "id": 12543610410,
+          "sha256": "7cab75d0238517fa94361b90e49f6a192dc06913d34c5f89342657dfcb2d9240",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12543018766,
+          "sha256": "fff2008cdded44685a2234ecfff3c690c063577ecfbeaddf427d0a9cde01a863",
+          "independent_local_sha256_match": true
+        }
+      ]
+    },
+    "pull_request_checks": {
+      "quality_gate": {
+        "id": 40050610805,
+        "conclusion": "success"
+      },
+      "ci": {
+        "id": 40050610791,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "id": 40050610767,
+        "conclusion": "success"
+      },
+      "windows_custody": {
+        "id": 40050610846,
+        "conclusion": "success"
+      },
+      "docker": {
+        "id": 40050610811,
+        "conclusion": "success"
+      },
+      "lint": {
+        "id": 40050610803,
+        "conclusion": "success"
+      },
+      "release": {
+        "id": 40050610795,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "id": 40050610778,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "id": 40050610802,
+        "conclusion": "success"
+      },
+      "windows_acceptance": "both directory and file broad-write cases passed; 7/7 Windows custody tests",
+      "artifacts": [
+        {
+          "id": 12543291683,
+          "sha256": "718322b15fafa66b39506904c60edfa1dad2dedfd41d806fc64465ee09fd5bde",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12543146893,
+          "sha256": "85ec6f2f55fd660bab4f8e0630f55af0643cee4e64beecc7763cf096391e89aa",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12542728335,
+          "sha256": "f204737503f76f9b19690d275b6a69d1573db32db59335c4cc29fef2333ea5e8",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12543485913,
+          "sha256": "d39f0735eb3e300d14d50f2909ef45ea8396d524c6ac70d02174b06732f946da",
+          "independent_local_sha256_match": true
+        }
+      ]
+    },
+    "post_merge_main": {
+      "commit": "9cb0fb3d56b9a84257d8796863519c0a128e1e54",
+      "tree": "ad464fce66c7d69ba5d6b013a78bbac123ae8e89",
+      "tree_matches_candidate": true,
+      "merge_method": "merge",
+      "workflow_runs": {
+        "required_quality_gate": {
+          "id": 40051026149,
+          "conclusion": "success"
+        },
+        "ci": {
+          "id": 40051026116,
+          "conclusion": "success",
+          "jobs": [
+            "source validation (unprivileged)",
+            "self-check",
+            "docs",
+            "helm-k8s-test"
+          ]
+        },
+        "invariants": {
+          "id": 40051026189,
+          "conclusion": "success"
+        },
+        "docker": {
+          "id": 40051026131,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "id": 40051026119,
+          "conclusion": "success"
+        },
+        "windows_custody": {
+          "id": 40051026136,
+          "conclusion": "success"
+        },
+        "docs_deploy": {
+          "id": 40051026147,
+          "conclusion": "success"
+        },
+        "nightly_self_check": {
+          "id": 40051026170,
+          "conclusion": "success"
+        },
+        "forge_smoke": {
+          "id": 40051026120,
+          "conclusion": "skipped_by_workflow_condition"
+        }
+      },
+      "artifacts": [
+        {
+          "id": 12543411870,
+          "sha256": "362935b25b463e94ef7c4f9db91109fc4dfe19630f45365d3bc17c24a9e38103",
+          "independent_local_sha256_match": true,
+          "strict_audit": true,
+          "audit_immutability": true,
+          "acceptance_bound_to_merge": true
+        },
+        {
+          "id": 12543317262,
+          "sha256": "513adfbaed89f8cc5919e6417d6b6d9ff3f4fafabb190c4324799ffa48f0caf5",
+          "independent_local_sha256_match": true,
+          "windows_nodes_passed": 2,
+          "tests_passed": 7,
+          "tests_failed": 0,
+          "acceptance_bound_to_merge": true
+        }
+      ]
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "source_history_preserved": true,
+    "authority_boundaries_preserved": true,
+    "production_peer_identities_configured": false,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Develop native Windows immutable publication for peer replay only with handle-bound directory custody, exclusive no-replace creation, durable write/flush/readback, crash/retry behavior, bounded listing, private ACL enforcement, and exact hosted Windows acceptance; retain fail-closed behavior until all parity checks pass."
+  }
+}

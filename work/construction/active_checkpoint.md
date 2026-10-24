@@ -1,4 +1,22 @@
-## Current verified state - sequence 639
+## Current verified state - sequence 640
+
+Sequence 640 rejects broad untrusted write grants on Windows private custody handles for both files and containing directories. The ACL regression and hosted acceptance bind to the exact candidate and merged main. This closes a local trust-root replacement path; it does not add Windows replay publication, and unsupported replay-owner custody remains fail-closed.
+
+Latest verified main: `9cb0fb3d56b9a84257d8796863519c0a128e1e54`, tree `ad464fce66c7d69ba5d6b013a78bbac123ae8e89`
+Latest construction segment: `work/construction/segments/0640-reject-broad-windows-custody-write-grants.md`
+Latest segment SHA-256: `06a7bdef1463bfef277b471976e240c35025ebaaf3f381a8128dfe2a8197b8d0`
+Sequence: 640 (Windows private custody write-grant rejection)
+
+PR #2744 candidate `cf5cd51a7d60e6743d8db596977bed138f4f1eaa` merged normally as second parent of main `9cb0fb3d56b9a84257d8796863519c0a128e1e54`; merge tree `ad464fce66c7d69ba5d6b013a78bbac123ae8e89` equals the candidate tree. Branch and PR Required Quality Gates, CI, invariants, Windows Custody, Docker, and supporting release/lint/gradient checks passed; the PR gate's hosted Administrator finalizer and separate pre-publication metadata guard passed. Main Required Quality Gate, all four CI jobs, invariants, Windows Custody, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition.
+
+Native Windows acceptance on merged main independently binds both broad-write regressions to the merge SHA: 7 tests passed, 0 failed. Main strict audit, audit immutability, and quality-gate acceptance also bind to the merge SHA. The final 48-node candidate acceptance profile was solo; exhaustive matrix was not requested. The earlier 47-node validator mismatch was repaired before final candidate verification; no verification gate was weakened.
+
+Evidence record: `work/construction/evidence/0640-reject-broad-windows-custody-write-grants.json`
+Evidence SHA-256: `663136dd01e3655edb5b92800ee9bbf872c089df8b7962245d0f41bf372f23a8`
+
+Next: develop the Windows peer replay owner's immutable publication contract only with handle-bound directory custody, exclusive no-replace creation, durable write/flush/readback, crash/retry behavior, bounded listing, private ACL enforcement, and native hosted acceptance. Keep unsupported replay publication fail-closed until that parity is proven.
+
+## Previous checkpoint snapshot - sequence 639
 
 Sequence 639 connects daemon peer Health recovery to an installation-owned trust pin. Runtime validates pin custody, configured peer identity, exact catalog version/digest, and the concrete Ed25519 verifier before pairing the source with its durable per-peer replay owner. Without a pin, peer sources remain omitted; unsupported custody fails closed. This grants no transport, local Health, admission, planning, execution, or decision authority.
 

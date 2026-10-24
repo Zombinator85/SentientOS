@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "50e86f6cc52cd07cebb2f385b8caead44d0c17857e09a6bb543db4ea35cab823",
-    "latest_segment_sequence": 639,
-    "latest_segment_sha256": "0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa",
-    "source_commit": "f6dad73867618d4439bf84c33d355617268dd70f",
-    "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4"
+    "checkpoint_sha256": "dd3ed408f04c1b66291744c7cc0757eae605aca237fcf0148b793aba25a6aa11",
+    "latest_segment_sequence": 640,
+    "latest_segment_sha256": "06a7bdef1463bfef277b471976e240c35025ebaaf3f381a8128dfe2a8197b8d0",
+    "source_commit": "9cb0fb3d56b9a84257d8796863519c0a128e1e54",
+    "source_tree": "ad464fce66c7d69ba5d6b013a78bbac123ae8e89"
   },
-  "checkpoint_sha256": "50e86f6cc52cd07cebb2f385b8caead44d0c17857e09a6bb543db4ea35cab823",
+  "checkpoint_sha256": "dd3ed408f04c1b66291744c7cc0757eae605aca237fcf0148b793aba25a6aa11",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 639,
+  "latest_sequence": 640,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7478,6 +7478,19 @@
       "source_candidate_commit": "2d9cf78d46418c0dc32a135e83ecd38ae0f29140",
       "source_commit": "f6dad73867618d4439bf84c33d355617268dd70f",
       "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4"
+    },
+    {
+      "sequence": 640,
+      "path": "work/construction/segments/0640-reject-broad-windows-custody-write-grants.md",
+      "bytes": 5360,
+      "sha256": "06a7bdef1463bfef277b471976e240c35025ebaaf3f381a8128dfe2a8197b8d0",
+      "predecessor": "segment-sha256:0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa",
+      "evidence_path": "work/construction/evidence/0640-reject-broad-windows-custody-write-grants.json",
+      "evidence_bytes": 7229,
+      "evidence_sha256": "663136dd01e3655edb5b92800ee9bbf872c089df8b7962245d0f41bf372f23a8",
+      "source_candidate_commit": "cf5cd51a7d60e6743d8db596977bed138f4f1eaa",
+      "source_commit": "9cb0fb3d56b9a84257d8796863519c0a128e1e54",
+      "source_tree": "ad464fce66c7d69ba5d6b013a78bbac123ae8e89"
     }
   ],
   "source_acquisition": {
