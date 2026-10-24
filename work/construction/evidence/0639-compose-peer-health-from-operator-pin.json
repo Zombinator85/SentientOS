@@ -1,0 +1,179 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 639,
+  "title": "Compose peer Health from an operator trust pin",
+  "predecessor": "segment-sha256:5c03d904d31373342c0f599dc085e2cfdfe7550859badcca5b72c67adeb54cbb",
+  "source": {
+    "candidate_commit": "2d9cf78d46418c0dc32a135e83ecd38ae0f29140",
+    "candidate_commits": [
+      "e936a8549c6177c16f5b3c3711f5a56a20a35a30",
+      "2d9cf78d46418c0dc32a135e83ecd38ae0f29140"
+    ],
+    "parent_main": "09d76be238433854cddd86f806b5dd75983c2535",
+    "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4",
+    "pull_request": 2742,
+    "merge_commit": "f6dad73867618d4439bf84c33d355617268dd70f",
+    "merge_parents": [
+      "09d76be238433854cddd86f806b5dd75983c2535",
+      "2d9cf78d46418c0dc32a135e83ecd38ae0f29140"
+    ],
+    "scope": "Compose daemon peer Health recovery only from a locally protected operator trust pin, exact per-peer catalog identity, durable replay owner, and concrete Ed25519 verifier; update stale hosted acceptance nodes.",
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "docs/federation_peer_health_recovery.md",
+      "sentientos/federation/peer_health_source_factory.py",
+      "sentientos/federation/peer_trust_catalog.py",
+      "sentientos/runtime/shell.py",
+      "tests/integrity/test_repo_invariant_tripwire.py",
+      "tests/test_federation_peer_health_source_factory.py",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "tests/test_runtime_shell.py"
+    ]
+  },
+  "validation": {
+    "local": {
+      "focused_tests": "156 passed across peer pin composition, RuntimeShell, peer authentication, Health bridge, replay integration, hosted-workflow contract, and invariants",
+      "poller_regression": "5 passed, 1 existing skip",
+      "dashboard_acceptance": "6 passed",
+      "mypy_baseline": "mypy_baseline_improved; zero new errors; 40 retired",
+      "python_compilation": "passed",
+      "workflow_yaml_parse": "passed",
+      "git_diff_check": "passed"
+    },
+    "prepublication": {
+      "quality_gate": {
+        "id": 40046927819,
+        "conclusion": "success"
+      },
+      "full_ci": {
+        "id": 40046927820,
+        "attempt": 2,
+        "conclusion": "success"
+      },
+      "invariants": {
+        "id": 40046927837,
+        "conclusion": "success"
+      },
+      "metadata_guard": "pr_metadata_guard_ready; landing_evidence_binding_ready; ready_for_pr_metadata",
+      "source_sha": "2d9cf78d46418c0dc32a135e83ecd38ae0f29140",
+      "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4",
+      "strict_audit": "passed",
+      "audit_immutability": "passed"
+    },
+    "pull_request_checks": {
+      "quality_gate": {
+        "id": 40047930896,
+        "conclusion": "success"
+      },
+      "ci": {
+        "id": 40047712849,
+        "conclusion": "success",
+        "jobs": [
+          "source validation (unprivileged)",
+          "self-check",
+          "docs",
+          "helm-k8s-test"
+        ]
+      },
+      "invariants": {
+        "id": 40047712799,
+        "conclusion": "success"
+      },
+      "docker": {
+        "id": 40047712838,
+        "conclusion": "success"
+      },
+      "codex_ci": {
+        "id": 40047712825,
+        "conclusion": "success"
+      },
+      "release": {
+        "id": 40047712785,
+        "conclusion": "success"
+      },
+      "gradient": {
+        "id": 40047712805,
+        "conclusion": "success"
+      },
+      "lint": {
+        "id": 40047712834,
+        "conclusion": "success"
+      },
+      "acceptance": "task_acceptance_ready",
+      "metadata_guard": "pr_metadata_guard_ready; zero reasons",
+      "validation_profile": "solo; exhaustive matrix not requested",
+      "artifacts": [
+        {
+          "id": 12542570144,
+          "sha256": "e57c16f639e9f49fffa70c7f8b295e7645dfbaca4313a57a8df49039576efd61",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12542181146,
+          "sha256": "b6410b5a850a68f1a9a6ccd06408f0194322e84aa9abbb5b39495a51d884d20b",
+          "independent_local_sha256_match": true
+        },
+        {
+          "id": 12541777957,
+          "sha256": "b9ea8f9580c9b7b6583c1f14ab6b843e5c66e2823a1ae3f0eef8cc12ff7bc0fb",
+          "independent_local_sha256_match": true
+        }
+      ]
+    },
+    "post_merge_main": {
+      "commit": "f6dad73867618d4439bf84c33d355617268dd70f",
+      "tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4",
+      "tree_matches_candidate": true,
+      "merge_method": "merge",
+      "workflow_runs": {
+        "required_quality_gate": {
+          "id": 40048225856,
+          "conclusion": "success"
+        },
+        "ci": {
+          "id": 40048225871,
+          "conclusion": "success",
+          "jobs": [
+            "source validation (unprivileged)",
+            "self-check",
+            "docs",
+            "helm-k8s-test"
+          ]
+        },
+        "invariants": {
+          "id": 40048225935,
+          "conclusion": "success"
+        },
+        "docker": {
+          "id": 40048225936,
+          "conclusion": "success"
+        },
+        "codex_ci": {
+          "id": 40048225833,
+          "conclusion": "success"
+        },
+        "docs_deploy": {
+          "id": 40048225922,
+          "conclusion": "success"
+        },
+        "nightly_self_check": {
+          "id": 40048225945,
+          "conclusion": "success"
+        },
+        "forge_smoke": {
+          "id": 40048225949,
+          "conclusion": "skipped_by_workflow_condition"
+        }
+      }
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "prior_sequences_preserved": true,
+    "source_history_preserved": true,
+    "authority_boundaries_preserved": true,
+    "production_peer_identities_configured": false,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Develop independently verified Windows handle-bound immutable publication for the peer replay owner, with private ACL validation, append/retry semantics, crash consistency, bounded listing and readback, and Windows-hosted acceptance; keep unsupported platforms fail-closed until the parity contract passes."
+  }
+}

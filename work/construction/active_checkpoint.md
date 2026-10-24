@@ -1,18 +1,20 @@
-## Current verified state - sequence 638
+## Current verified state - sequence 639
 
-Sequence 638 adds the concrete Ed25519 verifier and prevents permissive verifier substitution in the RuntimeShell composition seam. No peer trust catalog is loaded by runtime, no trust-pin source is established, and no production peer or live telemetry is configured. Signature verification alone does not authenticate who provisioned the catalog.
+Sequence 639 connects daemon peer Health recovery to an installation-owned trust pin. Runtime validates pin custody, configured peer identity, exact catalog version/digest, and the concrete Ed25519 verifier before pairing the source with its durable per-peer replay owner. Without a pin, peer sources remain omitted; unsupported custody fails closed. This grants no transport, local Health, admission, planning, execution, or decision authority.
 
-Latest verified main: `30dbb4bdf19afd988dd32700134a6f618ecd47f0`, tree `c701f263e641b2e44b378e268653080b45fca825`
-Latest construction segment: `work/construction/segments/0638-verify-federation-peer-ed25519-backend.md`
-Latest segment SHA-256: `5c03d904d31373342c0f599dc085e2cfdfe7550859badcca5b72c67adeb54cbb`
-Sequence: 638 (concrete Federation Ed25519 verification)
+Latest verified main: `f6dad73867618d4439bf84c33d355617268dd70f`, tree `c98aad6462ae10c94e5957e1f35fdf176fad00b4`
+Latest construction segment: `work/construction/segments/0639-compose-peer-health-from-operator-pin.md`
+Latest segment SHA-256: `0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa`
+Sequence: 639 (operator-pinned peer Health source composition)
 
-PR #2738 candidate `9265bee67e69d5a2a83e1017790a0c207a723239` merged normally with its candidate commit preserved as the second parent. Branch-push Quality Gate, full CI, and invariants passed; exact-candidate PR Quality Gate (including the pre-publication metadata guard), full CI, invariants, Docker, Lint, Codex CI, Release, and Gradient checks passed. Required audit/finalizer artifacts were independently downloaded and their SHA-256 values matched GitHub. Post-merge Required Quality Gate, full CI (source validation, self-check, docs, and Helm/Kubernetes), invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check all passed on the exact main merge commit. Forge Smoke was skipped by workflow condition. The merge tree equals the tested candidate tree.
+PR #2742 candidate `2d9cf78d46418c0dc32a135e83ecd38ae0f29140` merged normally with candidate history preserved as the second parent. Branch-push Quality Gate, full CI, and invariants passed. PR Quality Gate's separate pre-publication metadata guard and hosted finalizer bound the exact candidate SHA/tree; Administrator audit, audit immutability, and acceptance passed. The three PR gate artifacts were downloaded and independently matched GitHub's SHA-256 digests. Exact-candidate CI, invariants, Docker, Codex CI, lint, Release, and Gradient checks passed. Post-merge Quality Gate, all four CI jobs, invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed; Forge Smoke was skipped by workflow condition.
 
-Focused federation, RuntimeShell, hosted-workflow, and integrity checks passed locally; Mypy reported zero new baseline errors. Construction-custody validation passed through sequence 637 before this append.
+Local focused verification: 156 tests passed; Federation poller regressions were 5 passed/1 existing skip; dashboard acceptance selection was 6 passed. Compilation, workflow YAML parsing, and diff checks passed. Mypy reported zero new baseline errors and 40 retired.
 
-Next: provision an operator-controlled exact trust-catalog pin and compose it with the correct durable per-peer replay owner under platform-appropriate custody. Keep missing, changed, or unsupported identity/custody fail closed; add no network or local Health authority by implication.
+Evidence record: `work/construction/evidence/0639-compose-peer-health-from-operator-pin.json`
+Evidence SHA-256: `b2d3616e04206a00db3e2a384faa5d9a68d9ea34bfe710bb2b031ab4f7c23809`
 
+Next: replace the peer replay owner's POSIX-only immutable publication with an independently verified Windows implementation, or keep Windows fail-closed until handle-bound ACL, immutable write, crash/retry, and hosted Windows regression checks meet the same custody contract.
 ## Previous checkpoint snapshot - sequence 637
 
 Sequence 637 adds an explicit optional RuntimeShell injection seam for typed peer Health sources. It does not load trust or attest its caller's source provisioning. No peer identity, transport, or live peer telemetry is configured; read-only claims remain separate from local Health and all authority paths.
