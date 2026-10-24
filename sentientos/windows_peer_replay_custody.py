@@ -169,8 +169,57 @@ def publish_immutable_replay_bytes(
         backing = ctypes.create_unicode_buffer(name)
         length = len(name.encode("utf-16-le"))
         text = UNICODE_STRING(length, length + 2, ctypes.cast(backing, wintypes.LPWSTR))
+        security_descriptor = None
+        if exclusive_create:
+            advapi = getattr(ctypes, "WinDLL")("advapi32", use_last_error=True)
+            current_process = kernel.GetCurrentProcess
+            current_process.restype = wintypes.HANDLE
+            open_token = advapi.OpenProcessToken
+            open_token.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+            open_token.restype = wintypes.BOOL
+            get_token_information = advapi.GetTokenInformation
+            get_token_information.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+            get_token_information.restype = wintypes.BOOL
+            sid_to_string = advapi.ConvertSidToStringSidW
+            sid_to_string.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)]
+            sid_to_string.restype = wintypes.BOOL
+            sddl_to_descriptor = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
+            sddl_to_descriptor.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
+                ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.DWORD)]
+            sddl_to_descriptor.restype = wintypes.BOOL
+            local_free = kernel.LocalFree
+            local_free.argtypes = [ctypes.c_void_p]
+            local_free.restype = ctypes.c_void_p
+            token, sid_text = wintypes.HANDLE(), wintypes.LPWSTR()
+            try:
+                needed = wintypes.DWORD()
+                if not open_token(current_process(), 0x0008, ctypes.byref(token)):
+                    fail("windows_replay_current_user_unavailable")
+                get_token_information(token, 1, None, 0, ctypes.byref(needed))
+                if not 0 < needed.value <= 65_536:
+                    fail("windows_replay_current_user_unavailable")
+                token_buffer = ctypes.create_string_buffer(needed.value)
+                if not get_token_information(token, 1, token_buffer, needed.value, ctypes.byref(needed)):
+                    fail("windows_replay_current_user_unavailable")
+                sid = ctypes.cast(token_buffer, ctypes.POINTER(ctypes.c_void_p)).contents
+                if not sid.value or not sid_to_string(sid, ctypes.byref(sid_text)) or not sid_text.value:
+                    fail("windows_replay_current_user_unavailable")
+                descriptor_text = (
+                    f"O:{sid_text.value}D:P(A;;FA;;;{sid_text.value})"
+                    "(A;;FA;;;SY)(A;;FA;;;BA)"
+                )
+                security_descriptor = ctypes.c_void_p()
+                if not sddl_to_descriptor(descriptor_text, 1, ctypes.byref(security_descriptor), None):
+                    security_descriptor = None
+                    fail("windows_replay_private_acl_creation_unavailable")
+            finally:
+                if sid_text:
+                    local_free(sid_text)
+                if token:
+                    close(token)
         attributes = OBJECT_ATTRIBUTES(ctypes.sizeof(OBJECT_ATTRIBUTES), parent,
-            ctypes.pointer(text), 0x40 | 0x1000, None, None)
+            ctypes.pointer(text), 0x40 | 0x1000, security_descriptor, None)
         handle, iosb = wintypes.HANDLE(), IO_STATUS_BLOCK()
         access = 0x1 | 0x80 | 0x20000 | 0x100000
         if writable:
@@ -180,8 +229,13 @@ def publish_immutable_replay_bytes(
         options = (0x1 if directory else 0x40) | 0x20 | 0x00200000
         if exclusive_create:
             options |= 0x2  # FILE_WRITE_THROUGH
-        status = nt_create(ctypes.byref(handle), access, ctypes.byref(attributes), ctypes.byref(iosb),
-            None, 0x80 if exclusive_create else 0, sharing, 2 if exclusive_create else 1, options, None, 0)
+        try:
+            status = nt_create(ctypes.byref(handle), access, ctypes.byref(attributes), ctypes.byref(iosb),
+                None, 0x80 if exclusive_create else 0, sharing, 2 if exclusive_create else 1,
+                options, None, 0)
+        finally:
+            if security_descriptor:
+                local_free(security_descriptor)
         if status < 0 or not handle.value:
             fail("windows_replay_open_unavailable")
         value = int(handle.value)
