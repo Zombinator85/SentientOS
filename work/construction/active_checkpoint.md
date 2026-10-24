@@ -1,4 +1,20 @@
-## Current verified state - sequence 646
+## Current verified state - sequence 647
+
+Sequence 647 integrates sequence 646's verified-main record and refreshes the active checkpoint to the exact main merge of PR #2752. The change is evidence-only; all applicable exact-head and post-merge checks passed.
+
+Latest verified main: `c6d13e75ea1d8071da1334a73516e5941975909e`, tree `9a6535c435c12b403e4ff26cdbd2eccbc77ea1dc`
+Latest construction segment: `work/construction/segments/0647-integrate-sequence-647-main-verification.md`
+Latest segment SHA-256: a3a6ecc1a23d16e68d6d47f249f3ccac00efb8dbd7a9f7dc81310bc94f49a2c0
+Sequence: 647 (sequence 646 verified-main integration)
+
+PR #2752 candidate `58ddf6e82986b39801cc89677cb3dadc77dd12eb` merged normally as `c6d13e75ea1d8071da1334a73516e5941975909e`, retaining the exact tested tree. Main Quality Gate accepted all 48 required nodes; hosted Administrator strict audit and audit immutability passed. All six listed branch/PR/main evidence archives were independently downloaded and SHA-256 matched.
+
+Evidence record: `work/construction/evidence/0647-integrate-sequence-647-main-verification.json`
+Evidence SHA-256: 87e88a28d5aca5abbc178c05909fe7e7948fe805fc3094ab4475c49292e15461
+
+Next: bind the existing Windows peer replay root to an operator-provisioned filesystem identity and enforce that pin on reads and immutable writes. Keep unpinned, missing, or changed roots fail-closed; do not infer transport, live telemetry, Health publication, admission, planning, execution, or decision authority.
+
+## Previous checkpoint snapshot - sequence 646
 
 Sequence 646 integrates sequence 645's verified-main record and refreshes the construction checkpoint to the exact main merge of PR #2751. The update is evidence-only; PR checks, hosted audit/finalization, 48-node acceptance, and all applicable post-merge checks passed.
 

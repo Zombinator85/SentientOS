@@ -1,0 +1,278 @@
+{
+  "post_merge": {
+    "ci_jobs": {
+      "docs": "success",
+      "helm-k8s-test": "success",
+      "run_id": 40121744293,
+      "self-check": "success",
+      "source-validation-unprivileged": "success"
+    },
+    "commit": "c6d13e75ea1d8071da1334a73516e5941975909e",
+    "docs_linkcheck": "success",
+    "main_acceptance_passed_nodes": 48,
+    "main_acceptance_required_nodes": 48,
+    "main_acceptance_status": "task_acceptance_ready",
+    "parents": [
+      "554b446b951e690068112475f0af7c3d215eca8e",
+      "58ddf6e82986b39801cc89677cb3dadc77dd12eb"
+    ],
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744299,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744293,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744347,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744284,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744290,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744332,
+        "name": "Docs Deploy",
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "event": "push",
+        "head_sha": "c6d13e75ea1d8071da1334a73516e5941975909e",
+        "id": 40121744356,
+        "name": "Forge Smoke",
+        "status": "completed"
+      }
+    ],
+    "tree": "9a6535c435c12b403e4ff26cdbd2eccbc77ea1dc"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 647,
+  "source": {
+    "candidate_commit": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+    "merge_commit": "c6d13e75ea1d8071da1334a73516e5941975909e",
+    "merge_parents": [
+      "554b446b951e690068112475f0af7c3d215eca8e",
+      "58ddf6e82986b39801cc89677cb3dadc77dd12eb"
+    ],
+    "parent_main": "554b446b951e690068112475f0af7c3d215eca8e",
+    "pull_request": 2752,
+    "source_tree": "9a6535c435c12b403e4ff26cdbd2eccbc77ea1dc",
+    "tree_matches_candidate": true
+  },
+  "title": "Integrate verified sequence 647 evidence on main",
+  "validation": {
+    "artifact_verification": "All six listed branch, PR, and main Quality Gate, finalizer, and acceptance ZIP archives were independently downloaded and SHA-256 matched GitHub-advertised digests. This applies only to these six listed archives.",
+    "artifacts": {
+      "branch": [
+        {
+          "digest": "sha256:61356ded62705404837e0ff259387d09fe8139e044294027b0d66f7c2f097f20",
+          "id": 12571112455,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:b63de30b21147433d5875c4973fa9e498bfc8aa08be68b25039e7e74eb107d7c",
+          "id": 12571022855,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        }
+      ],
+      "main": [
+        {
+          "digest": "sha256:3af2090b2c2f774b7ad6f14b8a651de0a801dfcbbe8178d334a8fa26cb486c25",
+          "id": 12571751511,
+          "name": "required-quality-gate-evidence"
+        }
+      ],
+      "pr": [
+        {
+          "digest": "sha256:99b4caf7a752d553e5e447605e870dd7af93b152aa6abda502e50c50aaa736a0",
+          "id": 12571248246,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:86541be205e2f7a61c5437c9d08b5deb0068b0c6452497c9a2b64d93686ba784",
+          "id": 12571168397,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        },
+        {
+          "digest": "sha256:dba4665906da14b637067fd4859533e1e0ea6d1ba3e866763468fe1d48d2762d",
+          "id": 12570868585,
+          "name": "exact-pr-candidate-acceptance"
+        }
+      ]
+    },
+    "branch_runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40120993857,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40120993923,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40120993889,
+        "name": "Invariant Tests",
+        "status": "completed"
+      }
+    ],
+    "candidate_runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462509,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462524,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462482,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462517,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462514,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462485,
+        "name": "Lint Benchmark",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462505,
+        "name": "Release",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462444,
+        "name": "Gradient null regression",
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "event": "pull_request_target",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "id": 40121462428,
+        "name": "First PR Welcome",
+        "status": "completed"
+      }
+    ],
+    "hosted_finalizers": {
+      "branch": {
+        "artifact_sha256": "sha256:b63de30b21147433d5875c4973fa9e498bfc8aa08be68b25039e7e74eb107d7c",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "metadata_guard_reasons": [],
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "run_id": 40120993857,
+        "tree_sha": "9a6535c435c12b403e4ff26cdbd2eccbc77ea1dc"
+      },
+      "pr": {
+        "acceptance_passed_nodes": 48,
+        "acceptance_required_nodes": 48,
+        "acceptance_sha256": "sha256:dba4665906da14b637067fd4859533e1e0ea6d1ba3e866763468fe1d48d2762d",
+        "artifact_sha256": "sha256:86541be205e2f7a61c5437c9d08b5deb0068b0c6452497c9a2b64d93686ba784",
+        "head_sha": "58ddf6e82986b39801cc89677cb3dadc77dd12eb",
+        "metadata_guard_reasons": [],
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "run_id": 40121462509,
+        "tree_sha": "9a6535c435c12b403e4ff26cdbd2eccbc77ea1dc"
+      }
+    },
+    "local": {
+      "candidate_source_preflight": "candidate_integrity_ready_for_blob_upload",
+      "construction_custody_status": "construction_continuation_custody_ready",
+      "construction_segments_verified": 646,
+      "diff_check": "passed",
+      "production_source_changes": false
+    },
+    "quality_gate": {
+      "branch_run_id": 40120993857,
+      "main_acceptance_passed_nodes": 48,
+      "main_acceptance_required_nodes": 48,
+      "main_administrator_verified": true,
+      "main_audit_immutability_ok": true,
+      "main_effective_uid": 0,
+      "main_run_id": 40121744299,
+      "main_strict_audit_ok": true,
+      "pr_run_id": 40121462509
+    }
+  }
+}
