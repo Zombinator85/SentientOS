@@ -1502,6 +1502,9 @@ def test_windows_custody_workflow_binds_native_acl_tests_to_exact_acceptance() -
     assert "Bind native ACL regressions to exact task acceptance" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[directory]" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[file]" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_existing_alternate_data_stream" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_reader_rejects_case_alias_selection_before_open" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order" in workflow
     assert "python scripts/verify_task_acceptance.py" in workflow
     assert "windows-custody-exact-acceptance" in workflow
 

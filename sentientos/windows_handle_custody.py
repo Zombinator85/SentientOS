@@ -20,6 +20,18 @@ class WindowsHandleCustodyError(ValueError):
         super().__init__(code)
 
 
+def _safe_child_name(name: object) -> bool:
+    """Accept one literal Windows component, never a stream or path expression."""
+    if (not isinstance(name, str) or not name or name in {".", ".."}
+            or name.endswith((".", " "))
+            or any(ord(character) < 32 or character in '<>:"/\\|?*' for character in name)):
+        return False
+    try:
+        return len(name.encode("utf-16-le")) <= 510
+    except UnicodeEncodeError:
+        return False
+
+
 def verify_private_handle_acl(handle: int) -> None:
     """Require current-user ownership and deny broad data readers or writers.
 
@@ -261,9 +273,9 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     """
     invalid_names = selected_names is not None and (
         not isinstance(selected_names, tuple) or len(selected_names) > max_entries
-        or any(not isinstance(name, str) or not name or name in {".", ".."}
-            or "/" in name or "\\" in name for name in selected_names)
-        or (isinstance(selected_names, tuple) and len(selected_names) != len(set(selected_names))))
+        or any(not _safe_child_name(name) for name in selected_names)
+        or (isinstance(selected_names, tuple)
+            and len(selected_names) != len({name.casefold() for name in selected_names})))
     if (type(max_entries) is not int or max_entries < 1
             or type(max_file_bytes) is not int or max_file_bytes < 1
             or type(max_total_bytes) is not int or max_total_bytes < 1
@@ -350,6 +362,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         raise error from cause
 
     def nt_open(parent: int | None, name: str, *, directory: bool) -> int:
+        if not _safe_child_name(name):
+            fail("windows_custody_child_name_invalid")
         backing = ctypes.create_unicode_buffer(name)
         byte_length = len(name.encode("utf-16-le"))
         unicode_name = UNICODE_STRING(byte_length, byte_length + 2, ctypes.cast(backing, wintypes.LPWSTR))
@@ -413,7 +427,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         if not standard.Directory:
             fail("cognition_observation_windows_root_not_directory")
         for component in path.parts[1:]:
-            if component in {"", ".", "..", "\\"}:
+            if not _safe_child_name(component):
                 fail("cognition_observation_windows_root_component_invalid")
             child = nt_open(current, component, directory=True)
             opened_handles.append(child)
@@ -473,9 +487,14 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             fail("cognition_observation_windows_root_identity_changed")
         result: list[tuple[str, bytes]] = []
         total = 0
+        seen_names: set[str] = set()
         for name, _directory_attrs in sorted(entries):
-            if not name or "\\" in name or "/" in name or name in {".", ".."}:
-                fail("cognition_observation_not_regular")
+            if not _safe_child_name(name):
+                fail("windows_custody_child_name_invalid")
+            folded_name = name.casefold()
+            if folded_name in seen_names:
+                fail("windows_custody_child_name_ambiguous")
+            seen_names.add(folded_name)
             handle = nt_open(root_handle, name, directory=False)
             try:
                 before_id = file_id(handle)
