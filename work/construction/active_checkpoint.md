@@ -1,4 +1,19 @@
-## Current verified state - sequence 637
+## Current verified state - sequence 638
+
+Sequence 638 adds the concrete Ed25519 verifier and prevents permissive verifier substitution in the RuntimeShell composition seam. No peer trust catalog is loaded by runtime, no trust-pin source is established, and no production peer or live telemetry is configured. Signature verification alone does not authenticate who provisioned the catalog.
+
+Latest verified main: `30dbb4bdf19afd988dd32700134a6f618ecd47f0`, tree `c701f263e641b2e44b378e268653080b45fca825`
+Latest construction segment: `work/construction/segments/0638-verify-federation-peer-ed25519-backend.md`
+Latest segment SHA-256: `5c03d904d31373342c0f599dc085e2cfdfe7550859badcca5b72c67adeb54cbb`
+Sequence: 638 (concrete Federation Ed25519 verification)
+
+PR #2738 candidate `9265bee67e69d5a2a83e1017790a0c207a723239` merged normally with its candidate commit preserved as the second parent. Branch-push Quality Gate, full CI, and invariants passed; exact-candidate PR Quality Gate (including the pre-publication metadata guard), full CI, invariants, Docker, Lint, Codex CI, Release, and Gradient checks passed. Required audit/finalizer artifacts were independently downloaded and their SHA-256 values matched GitHub. Post-merge Required Quality Gate, full CI (source validation, self-check, docs, and Helm/Kubernetes), invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check all passed on the exact main merge commit. Forge Smoke was skipped by workflow condition. The merge tree equals the tested candidate tree.
+
+Focused federation, RuntimeShell, hosted-workflow, and integrity checks passed locally; Mypy reported zero new baseline errors. Construction-custody validation passed through sequence 637 before this append.
+
+Next: provision an operator-controlled exact trust-catalog pin and compose it with the correct durable per-peer replay owner under platform-appropriate custody. Keep missing, changed, or unsupported identity/custody fail closed; add no network or local Health authority by implication.
+
+## Previous checkpoint snapshot - sequence 637
 
 Sequence 637 adds an explicit optional RuntimeShell injection seam for typed peer Health sources. It does not load trust or attest its caller's source provisioning. No peer identity, transport, or live peer telemetry is configured; read-only claims remain separate from local Health and all authority paths.
 
