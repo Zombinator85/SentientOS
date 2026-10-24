@@ -1,0 +1,91 @@
+{
+  "construction": {
+    "append_only": true,
+    "authority_boundaries_preserved": true,
+    "live_peer_telemetry_connected": false,
+    "next_dependency": "Establish an operator-controlled exact trust-catalog pin and compose it with the correct durable per-peer replay owner under platform-appropriate custody; keep missing or changed pins fail closed.",
+    "prior_sequences_preserved": true,
+    "production_peer_identities_configured": false,
+    "source_history_preserved": true,
+    "trust_catalog_provisioning_authenticated_by_verifier": false
+  },
+  "post_merge_main": {
+    "commit": "30dbb4bdf19afd988dd32700134a6f618ecd47f0",
+    "fresh_origin_main_fetch": "confirmed exact merge commit and tree",
+    "merge_method": "merge",
+    "tree": "c701f263e641b2e44b378e268653080b45fca825",
+    "tree_matches_candidate": true,
+    "workflow_runs": {
+      "ci": {"id": 40044396366, "conclusion": "success", "jobs": ["source validation (unprivileged)", "self-check", "docs", "helm-k8s-test"]},
+      "codex_ci": {"id": 40044396355, "conclusion": "success"},
+      "docs_deploy": {"id": 40044396388, "conclusion": "success"},
+      "docker": {"id": 40044396377, "conclusion": "success"},
+      "forge_smoke": {"id": 40044396351, "conclusion": "skipped_by_workflow_condition"},
+      "invariants": {"id": 40044396390, "conclusion": "success"},
+      "nightly_self_check": {"id": 40044396382, "conclusion": "success"},
+      "required_quality_gate": {"id": 40044396343, "conclusion": "success"}
+    }
+  },
+  "predecessor": "segment-sha256:f16652871a4be0dd334a0fd32423319fef9024d1132d1df14030a4f51ba2f043",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 638,
+  "source": {
+    "candidate_commit": "9265bee67e69d5a2a83e1017790a0c207a723239",
+    "candidate_commits": ["9265bee67e69d5a2a83e1017790a0c207a723239"],
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "sentientos/federation/__init__.py",
+      "sentientos/federation/peer_authentication_ed25519.py",
+      "sentientos/runtime/shell.py",
+      "tests/integrity/test_repo_invariant_tripwire.py",
+      "tests/test_federation_peer_authentication.py",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "tests/test_runtime_shell.py"
+    ],
+    "merge_commit": "30dbb4bdf19afd988dd32700134a6f618ecd47f0",
+    "merge_parents": ["898d5a1a4078b2719c1a7077fd6795ad39f346b8", "9265bee67e69d5a2a83e1017790a0c207a723239"],
+    "parent_main": "898d5a1a4078b2719c1a7077fd6795ad39f346b8",
+    "pull_request": 2738,
+    "scope": "Implement the concrete Ed25519 signature-verification backend and enforce exact verifier composition without provisioning trust or enabling peer telemetry.",
+    "source_tree": "c701f263e641b2e44b378e268653080b45fca825"
+  },
+  "title": "Verify Federation peer signatures with Ed25519",
+  "validation": {
+    "local": {
+      "focused_tests": "passed: Federation peer authentication, RuntimeShell, hosted-workflow and integrity acceptance",
+      "git_diff_check": "passed",
+      "mypy_baseline": "mypy_baseline_improved; zero new errors; 40 retired",
+      "python_compilation": "passed",
+      "workflow_yaml_parse": "passed"
+    },
+    "prepublication": {
+      "artifacts": [
+        {"id": 12540232956, "sha256": "ce41a24c283f7fd58a01239acb91bc5d75f06a1577e19276a5156cf7142f849f", "independent_local_sha256_match": true},
+        {"id": 12540048354, "sha256": "4abd2c653763228cabc5d8bce2ed8d9ef2e7e94eb45da02ed6f359e0e0cf025c", "independent_local_sha256_match": true}
+      ],
+      "full_ci": {"id": 40043688034, "conclusion": "success"},
+      "guard_candidate_sha": "9265bee67e69d5a2a83e1017790a0c207a723239",
+      "guard_ready": true,
+      "guard_tree_sha": "c701f263e641b2e44b378e268653080b45fca825",
+      "invariants": {"id": 40043687990, "conclusion": "success"},
+      "metadata_guard": "landing_evidence_binding_ready; ready_for_pr_metadata",
+      "quality_gate": {"id": 40043687936, "conclusion": "success"},
+      "strict_audit": "passed; no issues",
+      "audit_immutability": "passed; no issues"
+    },
+    "pull_request_checks": {
+      "all_applicable_runs": "passed on exact candidate SHA",
+      "ci": {"id": 40043692802, "conclusion": "success", "jobs": ["source validation (unprivileged)", "self-check", "docs", "helm-k8s-test"]},
+      "codex_ci": {"id": 40043692861, "conclusion": "success"},
+      "docker": {"id": 40043692918, "conclusion": "success"},
+      "gradient": {"id": 40043692795, "conclusion": "success"},
+      "invariants": {"id": 40043692845, "conclusion": "success"},
+      "lint": {"id": 40043692852, "conclusion": "success"},
+      "quality_gates": [40043692842, 40043703238],
+      "release": {"id": 40043692983, "conclusion": "success"},
+      "quality_gate_artifacts_independently_hashed": true,
+      "strict_audit": "passed",
+      "audit_immutability": "passed"
+    }
+  }
+}
