@@ -1,0 +1,65 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": "success; docs, self-check, source validation, and helm-k8s-test passed",
+      "codex_ci": "success",
+      "docker": "success",
+      "docs_deploy": "success",
+      "forge_smoke": "skipped by condition",
+      "invariants": "success",
+      "required_quality_gate": "success"
+    },
+    "commit": "761308d48b098832cbac559882ebdf0d4179c5d5",
+    "github_quality_gate_artifact": {
+      "id": 12574581948,
+      "name": "required-quality-gate-evidence",
+      "sha256": "41dc4e87c4ccb10dd19abf19d27e5ba91f1e07fda21fd2c57ed59106a7e82a7c"
+    },
+    "tree": "c6c15c18112dc421abe6ed79b0517e9d483db868"
+  },
+  "pull_request": {
+    "checks": {
+      "ci": "success",
+      "codex_ci": "success",
+      "docker": "success",
+      "gradient_null_regression": "success",
+      "invariants": "success",
+      "lint_benchmark": "success",
+      "release": "success",
+      "required_quality_gate": "success"
+    },
+    "github_artifacts": [
+      {
+        "id": 12574696465,
+        "name": "required-quality-gate-evidence",
+        "sha256": "f2f7181ea3355a9542b664ecfb01958008022aad7041769c0271624565a54221"
+      },
+      {
+        "id": 12574966410,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "477b1570e88d04d20440b031a952af564382e544e66a35baeace4ae1e96237de"
+      },
+      {
+        "id": 12574786635,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "da82e35265fe52183dd2b1df4eb7efeb83983442a1c9bedc3d7fa765a9b05175"
+      }
+    ],
+    "state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "evidence-only integration of sequence 650 verified main; no production source or runtime authority changes",
+  "sequence": 651,
+  "source": {
+    "candidate_commit": "eed5a18ba96557f0471366dc1187047e38ca64f1",
+    "merge_commit": "761308d48b098832cbac559882ebdf0d4179c5d5",
+    "merge_parents": [
+      "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
+      "eed5a18ba96557f0471366dc1187047e38ca64f1"
+    ],
+    "parent_main": "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
+    "pull_request": 2758,
+    "source_tree": "c6c15c18112dc421abe6ed79b0517e9d483db868",
+    "tree_matches_candidate": true
+  }
+}

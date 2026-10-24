@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0bc63798e7d53c89b9a285cd853f4c646e87a55daef504332f41f01d03ec1999",
-    "latest_segment_sequence": 650,
-    "latest_segment_sha256": "74dfd2364994e52edc5cf464832cb0b20e2768548e921569157d61cda12a2f40",
-    "source_commit": "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
-    "source_tree": "0d9a5fb0def2e51c88673b4f9b8b91dc63ae7372"
+    "checkpoint_sha256": "3c5dbe5b05e800cdd22bb962fa11b19dc9a72664de55a12ac407751e8c62f0db",
+    "latest_segment_sequence": 651,
+    "latest_segment_sha256": "f7c83eb65e1fcd3653ffb9eac1b71dc4ae3f2c8ab90e14407a758163481c9048",
+    "source_commit": "761308d48b098832cbac559882ebdf0d4179c5d5",
+    "source_tree": "c6c15c18112dc421abe6ed79b0517e9d483db868"
   },
-  "checkpoint_sha256": "0bc63798e7d53c89b9a285cd853f4c646e87a55daef504332f41f01d03ec1999",
+  "checkpoint_sha256": "3c5dbe5b05e800cdd22bb962fa11b19dc9a72664de55a12ac407751e8c62f0db",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 650,
+  "latest_sequence": 651,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7621,6 +7621,19 @@
       "source_candidate_commit": "d8e51bfe83753e2900dec868526ba7a7f0b8a533",
       "source_commit": "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
       "source_tree": "0d9a5fb0def2e51c88673b4f9b8b91dc63ae7372"
+    },
+    {
+      "bytes": 1268,
+      "evidence_bytes": 2225,
+      "evidence_path": "work/construction/evidence/0651-integrate-sequence-651-main-verification.json",
+      "evidence_sha256": "fa9c8961f33ad576028aab179f869a0afad42a1dcb303f9f3ecd07b5d123c2b5",
+      "path": "work/construction/segments/0651-integrate-sequence-651-main-verification.md",
+      "predecessor": "segment-sha256:74dfd2364994e52edc5cf464832cb0b20e2768548e921569157d61cda12a2f40",
+      "sequence": 651,
+      "sha256": "f7c83eb65e1fcd3653ffb9eac1b71dc4ae3f2c8ab90e14407a758163481c9048",
+      "source_candidate_commit": "eed5a18ba96557f0471366dc1187047e38ca64f1",
+      "source_commit": "761308d48b098832cbac559882ebdf0d4179c5d5",
+      "source_tree": "c6c15c18112dc421abe6ed79b0517e9d483db868"
     }
   ],
   "source_acquisition": {
