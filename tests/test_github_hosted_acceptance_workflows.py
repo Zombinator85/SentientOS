@@ -911,7 +911,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
     assert 'env["PYTHONPATH"] = workspace' in precommit
-    assert 'len(nodes) != 47' in precommit
+    assert 'len(nodes) != 48' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
     assert "finalizer_exit_code=$?" in precommit
@@ -931,7 +931,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
     )[1].split("- name: Verify pre-publication PR metadata guard", 1)[0]
-    assert 'len(nodes) != 47' in finalizer
+    assert 'len(nodes) != 48' in finalizer
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
     assert 'test "$(sudo -n id -u)" = "0"' in finalizer
     assert '"HOME=$HOME"' in finalizer
@@ -949,7 +949,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
     assert 'provenance.get("git_sha") != expected_head' in finalizer
-    assert 'candidate acceptance must contain the exact 47 required nodes' in finalizer
+    assert 'candidate acceptance must contain the exact 48 required nodes' in finalizer
     candidate_verify = finalizer.index(
         'PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py"'
     )

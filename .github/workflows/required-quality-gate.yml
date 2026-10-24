@@ -217,8 +217,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           candidate = json.loads(Path(source_provenance).read_text())
           nodes = candidate.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 47 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("hosted candidate acceptance must contain the exact 47 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 48 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("hosted candidate acceptance must contain the exact 48 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = os.environ.copy()
@@ -314,8 +314,8 @@ jobs:
           source_provenance, workspace, expected_head, test_run_dir = sys.argv[1:]
           initial = json.loads(Path(source_provenance).read_text())
           nodes = initial.get("selected_node_ids")
-          if not isinstance(nodes, list) or len(nodes) != 47 or not all(isinstance(node, str) for node in nodes):
-              raise SystemExit("candidate acceptance must contain the exact 47 required nodes")
+          if not isinstance(nodes, list) or len(nodes) != 48 or not all(isinstance(node, str) for node in nodes):
+              raise SystemExit("candidate acceptance must contain the exact 48 required nodes")
           run_dir = Path(test_run_dir)
           run_dir.mkdir(parents=True, exist_ok=True)
           env = {**os.environ, "PYTHONPATH": workspace, "SENTIENTOS_TEST_RUN_DIR": str(run_dir)}
