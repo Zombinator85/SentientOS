@@ -22,6 +22,42 @@ from sentientos.work_plan import (
 pytestmark = pytest.mark.no_legacy_skip
 
 
+@pytest.mark.parametrize("name", [
+    "receipt.json:claim", "receipt.json::$DATA", "C:receipt.json", "a/b.json",
+    "a\\b.json", "receipt.json\x00", "receipt\n.json", "receipt?.json",
+    "receipt*.json", 'receipt".json', "receipt<.json", "receipt>.json",
+    "receipt|.json", "receipt.json.", "receipt.json ", ".", "..", "",
+    "a" * 256, "\ud800.json",
+])
+def test_reader_rejects_nonliteral_selected_names_before_open(
+    tmp_path: Path, name: str,
+) -> None:
+    with pytest.raises(WindowsHandleCustodyError, match="windows_custody_read_limits_invalid"):
+        read_regular_files(tmp_path / "absent", max_entries=1,
+            max_file_bytes=64, max_total_bytes=64, selected_names=(name,))
+    assert not (tmp_path / "absent").exists()
+
+
+def test_reader_rejects_case_alias_selection_before_open(tmp_path: Path) -> None:
+    with pytest.raises(WindowsHandleCustodyError, match="windows_custody_read_limits_invalid"):
+        read_regular_files(tmp_path, max_entries=2, max_file_bytes=64,
+            max_total_bytes=128, selected_names=("receipt.json", "RECEIPT.JSON"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows alternate data streams")
+def test_windows_reader_rejects_existing_alternate_data_stream(tmp_path: Path) -> None:
+    source = tmp_path / "receipt.json"
+    stream = tmp_path / "receipt.json:claim"
+    source.write_bytes(b'{"status":"rejected"}')
+    stream.write_bytes(b'{"status":"verified"}')
+    assert stream.read_bytes() == b'{"status":"verified"}'
+
+    with pytest.raises(WindowsHandleCustodyError, match="windows_custody_read_limits_invalid"):
+        read_explicit_file(stream, max_bytes=64)
+    assert read_explicit_file(source, max_bytes=64) == b'{"status":"rejected"}'
+    assert stream.read_bytes() == b'{"status":"verified"}'
+
+
 def _make_current_user_private(path: Path, *, directory: bool) -> None:
     if os.name != "nt":
         raise RuntimeError("private_windows_acl_fixture_requires_windows")
