@@ -21,11 +21,13 @@ class WindowsHandleCustodyError(ValueError):
 
 
 def verify_private_handle_acl(handle: int) -> None:
-    """Require the current user to own a Windows handle and deny broad readers.
+    """Require current-user ownership and deny broad data readers or writers.
 
     The check is performed against the same handle used by the bounded reader.
     Only the current user, LocalSystem, and local Administrators may receive
-    data-read rights. Unsupported or conditional ACE forms fail closed.
+    data-read or data-write rights. Unsupported or conditional ACE forms fail
+    closed. Write grants matter because they let an untrusted principal replace
+    a locally pinned trust root even when the reader itself is race-safe.
     """
     if os.name != "nt" or type(handle) is not int or handle <= 0:
         raise WindowsHandleCustodyError("private_acl_handle_invalid")
@@ -117,6 +119,11 @@ def verify_private_handle_acl(handle: int) -> None:
         if info.AceCount > 4096:
             raise WindowsHandleCustodyError("private_acl_ace_bound_exceeded")
         read_mask = 0x80000000 | 0x10000000 | 0x00000001 | 0x00000008 | 0x00000080 | 0x00020000
+        write_mask = (
+            0x40000000 | 0x10000000 | 0x00000002 | 0x00000004
+            | 0x00000010 | 0x00000040 | 0x00000100 | 0x00010000
+            | 0x00040000 | 0x00080000 | 0x01000000
+        )
         for index in range(info.AceCount):
             ace = ctypes.c_void_p()
             if not get_ace(dacl, index, ctypes.byref(ace)) or not ace.value:
@@ -133,13 +140,15 @@ def verify_private_handle_acl(handle: int) -> None:
             if ace_type != 0:  # conditional/object grants need a richer evaluator
                 raise WindowsHandleCustodyError("private_acl_ace_form_unsupported")
             mask = struct.unpack_from("<I", ctypes.string_at(ace, 8), 4)[0]
-            if not (mask & read_mask):
+            if not (mask & (read_mask | write_mask)):
                 continue
             sid_ptr = ctypes.c_void_p(ace.value + 8)
             if (not is_valid_sid(sid_ptr) or sid_length(sid_ptr) > ace_size - 8):
                 raise WindowsHandleCustodyError("private_acl_ace_sid_invalid")
             if not any(equal_sid(sid_ptr, trusted_sid) for trusted_sid in trusted):
-                raise WindowsHandleCustodyError("private_acl_broad_read_grant")
+                if mask & read_mask:
+                    raise WindowsHandleCustodyError("private_acl_broad_read_grant")
+                raise WindowsHandleCustodyError("private_acl_broad_write_grant")
 
     finally:
         for sid in known_sids:

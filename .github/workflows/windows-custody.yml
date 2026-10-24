@@ -32,6 +32,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -41,5 +43,35 @@ jobs:
         run: python -m pip install --no-deps -e .
       - name: Run Windows custody regressions
         run: python -m scripts.run_tests sentientos/tests/test_windows_handle_custody.py -q
+      - name: Bind native ACL regressions to exact task acceptance
+        run: |
+          $ErrorActionPreference = "Stop"
+          $head = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nodes = @(
+            "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[directory]",
+            "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[file]"
+          )
+          $manifest = [ordered]@{
+            schema_version = "sentientos.task_acceptance:v1"
+            task_classification = "behavior_adding"
+            repository_sha = $head
+            test_provenance_path = "glow/test_runs/test_run_provenance.json"
+            required_nodes = @($nodes | ForEach-Object { @{ node_id = $_ } })
+            successful_path_nodes = $nodes
+          }
+          $manifestPath = Join-Path $env:RUNNER_TEMP "windows-custody-acceptance.json"
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding utf8NoBOM
+          python scripts/verify_task_acceptance.py --manifest $manifestPath --provenance glow\test_runs\test_run_provenance.json --output (Join-Path $env:RUNNER_TEMP "windows-custody-acceptance-result.json")
+      - name: Upload exact Windows custody acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-custody-exact-acceptance
+          path: |
+            ${{ runner.temp }}/windows-custody-acceptance.json
+            ${{ runner.temp }}/windows-custody-acceptance-result.json
+            glow/test_runs/test_run_provenance.json
+          if-no-files-found: ignore
       - name: Run bounded subprocess supervision regressions
         run: python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q

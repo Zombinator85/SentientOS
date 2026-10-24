@@ -118,3 +118,22 @@ def test_windows_reader_verifies_private_acl_on_open_handle(tmp_path: Path) -> N
     _make_current_user_private(path, directory=False)
 
     assert read_explicit_file(path, max_bytes=32, require_private_acl=True) == path.read_bytes()
+
+
+@pytest.mark.parametrize("grant_target", ["directory", "file"])
+@pytest.mark.skipif(os.name != "nt", reason="requires Windows handle ACL inspection")
+def test_private_acl_rejects_broad_write_grants(
+    tmp_path: Path, grant_target: str,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    path = tmp_path / "private.json"
+    path.write_bytes(b'{"pinned":true}')
+    _make_current_user_private(path, directory=False)
+    target = tmp_path if grant_target == "directory" else path
+    subprocess.run(
+        ["icacls", str(target), "/grant:r", "*S-1-1-0:(W)"],
+        check=True, capture_output=True, text=True,
+    )
+
+    with pytest.raises(WindowsHandleCustodyError, match="private_acl_broad_write_grant"):
+        read_explicit_file(path, max_bytes=64, require_private_acl=True)
