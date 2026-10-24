@@ -39,8 +39,9 @@ def publish_immutable_replay_bytes(
 
     Errors after rename preserve the complete visible destination and issue no
     success acknowledgement. An interrupted pre-rename stage remains diagnostic
-    only; a fresh retry never promotes it. Cooperating writers serialize through
-    an exclusively shared root handle and fail closed on sharing conflicts.
+    only; a fresh retry never promotes it. The final root handle stays bound while
+    every ancestor remains held against replacement. Atomic no-replace rename
+    resolves canonical-name races without replacing an existing record.
     """
     if os.name != "nt":
         raise WindowsReplayCustodyError("windows_replay_publication_unsupported")
@@ -347,7 +348,8 @@ def publish_immutable_replay_bytes(
                 fail("windows_replay_directory_invalid")
             verify_replay_ancestor_handle_acl(current)
             last = index == len(root.parts[1:]) - 1
-            current = open_at(current, component, directory=True, writable=last, sharing=0 if last else 1)
+            current = open_at(current, component, directory=True, writable=last,
+                sharing=7 if last else 1)
             directories.append(current)
         root_handle = current
         root_identity = identity(root_handle)
@@ -391,6 +393,7 @@ def publish_immutable_replay_bytes(
             fail(f"windows_replay_no_replace_rename_failed_0x{status & 0xFFFFFFFF:08x}")
         committed = True
         _publication_boundary("committed")
+        names_at(root_handle)
         installed = open_at(root_handle, path.name, sharing=7)
         if identity(installed) != staging_identity or read_back(installed) != data:
             fail("windows_replay_destination_identity_mismatch")
