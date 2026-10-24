@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "3038313c50642221a47d9ac00eb696f59b0651c1566247e4ffe64c7ceac7da9a",
-    "latest_segment_sequence": 638,
-    "latest_segment_sha256": "5c03d904d31373342c0f599dc085e2cfdfe7550859badcca5b72c67adeb54cbb",
-    "source_commit": "30dbb4bdf19afd988dd32700134a6f618ecd47f0",
-    "source_tree": "c701f263e641b2e44b378e268653080b45fca825"
+    "checkpoint_sha256": "50e86f6cc52cd07cebb2f385b8caead44d0c17857e09a6bb543db4ea35cab823",
+    "latest_segment_sequence": 639,
+    "latest_segment_sha256": "0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa",
+    "source_commit": "f6dad73867618d4439bf84c33d355617268dd70f",
+    "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4"
   },
-  "checkpoint_sha256": "3038313c50642221a47d9ac00eb696f59b0651c1566247e4ffe64c7ceac7da9a",
+  "checkpoint_sha256": "50e86f6cc52cd07cebb2f385b8caead44d0c17857e09a6bb543db4ea35cab823",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 638,
+  "latest_sequence": 639,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7465,6 +7465,19 @@
       "source_candidate_commit": "9265bee67e69d5a2a83e1017790a0c207a723239",
       "source_commit": "30dbb4bdf19afd988dd32700134a6f618ecd47f0",
       "source_tree": "c701f263e641b2e44b378e268653080b45fca825"
+    },
+    {
+      "sequence": 639,
+      "path": "work/construction/segments/0639-compose-peer-health-from-operator-pin.md",
+      "bytes": 4591,
+      "sha256": "0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa",
+      "predecessor": "segment-sha256:5c03d904d31373342c0f599dc085e2cfdfe7550859badcca5b72c67adeb54cbb",
+      "evidence_path": "work/construction/evidence/0639-compose-peer-health-from-operator-pin.json",
+      "evidence_bytes": 6103,
+      "evidence_sha256": "b2d3616e04206a00db3e2a384faa5d9a68d9ea34bfe710bb2b031ab4f7c23809",
+      "source_candidate_commit": "2d9cf78d46418c0dc32a135e83ecd38ae0f29140",
+      "source_commit": "f6dad73867618d4439bf84c33d355617268dd70f",
+      "source_tree": "c98aad6462ae10c94e5957e1f35fdf176fad00b4"
     }
   ],
   "source_acquisition": {

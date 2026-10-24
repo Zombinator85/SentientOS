@@ -1,4 +1,21 @@
-## Current verified state - sequence 638
+## Current verified state - sequence 639
+
+Sequence 639 connects daemon peer Health recovery to an installation-owned trust pin. Runtime validates pin custody, configured peer identity, exact catalog version/digest, and the concrete Ed25519 verifier before pairing the source with its durable per-peer replay owner. Without a pin, peer sources remain omitted; unsupported custody fails closed. This grants no transport, local Health, admission, planning, execution, or decision authority.
+
+Latest verified main: `f6dad73867618d4439bf84c33d355617268dd70f`, tree `c98aad6462ae10c94e5957e1f35fdf176fad00b4`
+Latest construction segment: `work/construction/segments/0639-compose-peer-health-from-operator-pin.md`
+Latest segment SHA-256: `0fc3cf0c27674f44abbad0d2407a81c73819175cb3c6ed97b8a3da8b8c2dbbfa`
+Sequence: 639 (operator-pinned peer Health source composition)
+
+PR #2742 candidate `2d9cf78d46418c0dc32a135e83ecd38ae0f29140` merged normally with candidate history preserved as the second parent. Branch-push Quality Gate, full CI, and invariants passed. PR Quality Gate's separate pre-publication metadata guard and hosted finalizer bound the exact candidate SHA/tree; Administrator audit, audit immutability, and acceptance passed. The three PR gate artifacts were downloaded and independently matched GitHub's SHA-256 digests. Exact-candidate CI, invariants, Docker, Codex CI, lint, Release, and Gradient checks passed. Post-merge Quality Gate, all four CI jobs, invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed; Forge Smoke was skipped by workflow condition.
+
+Local focused verification: 156 tests passed; Federation poller regressions were 5 passed/1 existing skip; dashboard acceptance selection was 6 passed. Compilation, workflow YAML parsing, and diff checks passed. Mypy reported zero new baseline errors and 40 retired.
+
+Evidence record: `work/construction/evidence/0639-compose-peer-health-from-operator-pin.json`
+Evidence SHA-256: `b2d3616e04206a00db3e2a384faa5d9a68d9ea34bfe710bb2b031ab4f7c23809`
+
+Next: replace the peer replay owner's POSIX-only immutable publication with an independently verified Windows implementation, or keep Windows fail-closed until handle-bound ACL, immutable write, crash/retry, and hosted Windows regression checks meet the same custody contract.
+## Previous checkpoint snapshot - sequence 638
 
 Sequence 638 adds the concrete Ed25519 verifier and prevents permissive verifier substitution in the RuntimeShell composition seam. No peer trust catalog is loaded by runtime, no trust-pin source is established, and no production peer or live telemetry is configured. Signature verification alone does not authenticate who provisioned the catalog.
 
