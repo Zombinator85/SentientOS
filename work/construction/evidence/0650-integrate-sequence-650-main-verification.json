@@ -1,0 +1,66 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 650,
+  "source": {
+    "pull_request": 2757,
+    "candidate_commit": "d8e51bfe83753e2900dec868526ba7a7f0b8a533",
+    "merge_commit": "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
+    "parent_main": "69587ba50f08c798b7512bfc82d8f189d059a5e0",
+    "merge_parents": [
+      "69587ba50f08c798b7512bfc82d8f189d059a5e0",
+      "d8e51bfe83753e2900dec868526ba7a7f0b8a533"
+    ],
+    "source_tree": "0d9a5fb0def2e51c88673b4f9b8b91dc63ae7372",
+    "tree_matches_candidate": true
+  },
+  "pull_request": {
+    "state": "merged",
+    "checks": {
+      "required_quality_gate": "success",
+      "ci": "success",
+      "invariants": "success",
+      "docker": "success",
+      "codex_ci": "success",
+      "lint_benchmark": "success",
+      "release": "success",
+      "gradient_null_regression": "success"
+    },
+    "acceptance": "exact task-acceptance evidence uploaded by the successful Required Quality Gate",
+    "github_artifacts": [
+      {
+        "id": 12574311145,
+        "name": "required-quality-gate-evidence",
+        "sha256": "2f8fb03df159558026ceca360ba917dcdc198b7f370f55fe50f1bd8a1eb1a595"
+      },
+      {
+        "id": 12574276433,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "5f728547b7d7376d32e1f2d25ede7ac59ca7682df5ee76229be7fbbcdbdf2856"
+      },
+      {
+        "id": 12574481236,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "30bc0f27ca416c590aa8175b798cdbb62d6240bd447ec557787a65f188f0f55b"
+      }
+    ]
+  },
+  "post_merge": {
+    "commit": "91c0545f4f21f06d740c89acd2b9b3f0028ea5e0",
+    "tree": "0d9a5fb0def2e51c88673b4f9b8b91dc63ae7372",
+    "checks": {
+      "required_quality_gate": "success",
+      "ci": "success; docs, self-check, source validation, and helm-k8s-test passed",
+      "invariants": "success",
+      "docker": "success",
+      "codex_ci": "success",
+      "docs_deploy": "success",
+      "forge_smoke": "skipped by condition"
+    },
+    "github_quality_gate_artifact": {
+      "id": 12574481703,
+      "name": "required-quality-gate-evidence",
+      "sha256": "4a240349e0b7711bf3d884649f7b49b8cc9471a587086d5ace9ad6237879b081"
+    }
+  },
+  "scope": "evidence-only integration of the Windows replay-root pin documentation update"
+}
