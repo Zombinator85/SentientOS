@@ -1510,6 +1510,9 @@ def test_windows_custody_workflow_binds_native_acl_tests_to_exact_acceptance() -
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_publication" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_retains_earlier_handles_until_complete" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[directory]" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]" in workflow
     assert "python scripts/verify_task_acceptance.py" in workflow
     assert "windows-custody-exact-acceptance" in workflow
 

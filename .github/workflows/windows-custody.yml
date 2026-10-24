@@ -59,7 +59,10 @@ jobs:
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_publication",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper",
-            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history"
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_retains_earlier_handles_until_complete",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[directory]",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]"
           )
           $manifest = [ordered]@{
             schema_version = "sentientos.task_acceptance:v1"
