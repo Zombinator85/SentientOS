@@ -247,6 +247,11 @@ class ReadOnlyFederationPeerTrustCatalog:
         """Look up an exact configured identity tuple; this catalog cannot enroll or mutate."""
         return self._entries.get((peer_id, signing_key_id, endpoint))
 
+    @property
+    def peer_ids(self) -> frozenset[str]:
+        """Return only peer identifiers present in this immutable catalog."""
+        return frozenset(key.peer_id for key in self._entries.values())
+
 
 __all__ = [
     "CATALOG_SCHEMA",

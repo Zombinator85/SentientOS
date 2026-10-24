@@ -188,6 +188,8 @@ FEDERATION_MODULE_ALLOWLIST = {
     # Immutable local replay custody for verified signed peer envelopes;
     # grants no relay, Health, admission, planning, or execution authority.
     "peer_replay_owner",
+    # Operator-controlled exact catalog pin composition; no enrollment or transport.
+    "peer_health_source_factory",
     # Separately pinned semantic review eligibility; no evidence admission or runtime authority.
     "peer_semantic_acceptance",
     # Immutable, bounded local docket; reads revalidate receipts and grant no runtime authority.

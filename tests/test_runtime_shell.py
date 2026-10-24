@@ -3,24 +3,22 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import replace
+import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Type, cast
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sentientos.cathedral import Amendment
-from sentientos.federation.peer_authentication_ed25519 import (
-    CryptographyEd25519FederationPeerSignatureVerifier,
-)
-from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
 from sentientos.federation.peer_trust_catalog import (
     CATALOG_SCHEMA,
-    ReadOnlyFederationPeerTrustCatalog,
     catalog_digest_for,
 )
-from sentientos.federation.poller import PeerHealthRecoverySource
+from sentientos.federation.peer_health_source_factory import PIN_SCHEMA
 from sentientos.runtime.shell import (
     DEFAULT_RUNTIME_CONFIG,
     RuntimeShell,
@@ -112,27 +110,43 @@ def runtime_config(tmp_path: Path) -> RuntimeTestConfig:
     return config
 
 
-def _peer_health_source(tmp_path: Path, peer_id: str) -> PeerHealthRecoverySource:
+def _write_peer_health_pin(runtime_root: Path, pin_path: Path, peer_id: str = "peer-one") -> None:
+    catalog_path = runtime_root / "federation" / "peer_trust_catalogs" / f"{peer_id}.json"
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    private = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    public_text = base64.urlsafe_b64encode(public).decode("ascii").rstrip("=")
+    key_id = "ed25519-sha256:" + hashlib.sha256(public).hexdigest()
     catalog_body: Dict[str, object] = {
         "schema": CATALOG_SCHEMA,
-        "catalog_version": 1,
-        "entries": [],
+        "catalog_version": 4,
+        "entries": [{
+            "peer_id": peer_id,
+            "signing_key_id": key_id,
+            "endpoint": "https://peer.example.test/presence",
+            "algorithm": "ed25519",
+            "public_key": public_text,
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_until": "2027-01-01T00:00:00Z",
+            "revocation_status": "active",
+        }],
     }
     catalog_body["catalog_digest"] = catalog_digest_for(catalog_body)
-    raw_catalog = (
-        json.dumps(catalog_body, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode("utf-8")
-    catalog = ReadOnlyFederationPeerTrustCatalog.from_bytes(
-        raw_catalog,
-        expected_catalog_version=1,
-        expected_catalog_digest=str(catalog_body["catalog_digest"]),
-    )
-
-    return PeerHealthRecoverySource(
-        owner=FederationPeerReplayOwner(tmp_path / "peer-replay" / peer_id, peer_id=peer_id),
-        catalog=catalog,
-        signature_verifier=CryptographyEd25519FederationPeerSignatureVerifier(),
-    )
+    catalog_path.write_text(json.dumps(catalog_body, sort_keys=True, separators=(",", ":")) + "\n")
+    pin = {
+        "schema": PIN_SCHEMA,
+        "peers": [{
+            "peer_id": peer_id,
+            "catalog_version": 4,
+            "catalog_digest": catalog_body["catalog_digest"],
+            "max_age_seconds": 300,
+        }],
+    }
+    pin_path.write_text(json.dumps(pin, sort_keys=True, separators=(",", ":")) + "\n")
+    pin_path.chmod(0o600)
 
 
 @pytest.mark.no_legacy_skip
@@ -151,11 +165,10 @@ def test_runtime_shell_forwards_only_configured_peer_health_sources(
                 "state_file": str(runtime_root / "federation" / "state" / "peer-one.json"),
             }
         ],
+        "peer_health_trust_pin_path": str(tmp_path / "peer-health-pin.json"),
     }
-    source = _peer_health_source(tmp_path, "peer-one")
-    sources = {"peer-one": source}
-    shell = RuntimeShell(runtime_config, peer_health_sources=sources)
-    sources["peer-two"] = _peer_health_source(tmp_path, "peer-two")
+    _write_peer_health_pin(runtime_root, Path(str(runtime_config["federation"]["peer_health_trust_pin_path"])))
+    shell = RuntimeShell(runtime_config)
     captured: Dict[str, object] = {}
 
     class PollerStub:
@@ -168,14 +181,17 @@ def test_runtime_shell_forwards_only_configured_peer_health_sources(
     monkeypatch.setattr("sentientos.runtime.shell.FederationPoller", PollerStub)
     shell._start_federation_poller()
 
-    assert captured["peer_health_sources"] == {"peer-one": source}
+    sources = cast(Dict[str, object], captured["peer_health_sources"])
+    assert set(sources) == {"peer-one"}
+    source = sources["peer-one"]
+    assert getattr(source, "owner").peer_id == "peer-one"
+    assert getattr(source, "catalog").peer_ids == frozenset({"peer-one"})
     assert captured["started"] is True
 
 
 @pytest.mark.no_legacy_skip
-def test_runtime_shell_rejects_peer_health_sources_without_matching_peer(
+def test_runtime_shell_keeps_peer_health_omitted_without_explicit_pin(
     runtime_config: RuntimeTestConfig,
-    tmp_path: Path,
 ) -> None:
     runtime_root = Path(str(runtime_config["runtime"]["root"]))
     runtime_config["federation"] = {
@@ -188,50 +204,41 @@ def test_runtime_shell_rejects_peer_health_sources_without_matching_peer(
             }
         ],
     }
+    shell = RuntimeShell(runtime_config)
+    assert shell._peer_health_sources == {}
 
-    class UncheckedVerifier:
-        def verify(self, **_kwargs: object) -> bool:
-            return True
 
-    class OverridingEd25519Verifier(CryptographyEd25519FederationPeerSignatureVerifier):
-        def verify(self, **_kwargs: object) -> bool:
-            return True
+@pytest.mark.no_legacy_skip
+def test_runtime_shell_rejects_peer_pin_when_federation_is_disabled(
+    runtime_config: RuntimeTestConfig,
+    tmp_path: Path,
+) -> None:
+    runtime_root = Path(str(runtime_config["runtime"]["root"]))
+    pin_path = tmp_path / "peer-health-pin.json"
+    _write_peer_health_pin(runtime_root, pin_path)
+    runtime_config["federation"] = {"peer_health_trust_pin_path": str(pin_path)}
 
-    invalid_sources = (
-        (
-            {"unconfigured-peer": _peer_health_source(tmp_path, "unconfigured-peer")},
-            "peer_health_source_not_configured",
-        ),
-        (
-            {"peer-one": _peer_health_source(tmp_path, "different-peer-id")},
-            "peer_health_source_invalid",
-        ),
-        (
-            {"peer-one": replace(_peer_health_source(tmp_path, "peer-one"), max_age_seconds=True)},
-            "peer_health_source_invalid",
-        ),
-        (
-            {
-                "peer-one": replace(
-                    _peer_health_source(tmp_path, "peer-one"),
-                    signature_verifier=UncheckedVerifier(),
-                )
-            },
-            "peer_health_source_invalid",
-        ),
-        (
-            {
-                "peer-one": replace(
-                    _peer_health_source(tmp_path, "peer-one"),
-                    signature_verifier=OverridingEd25519Verifier(),
-                )
-            },
-            "peer_health_source_invalid",
-        ),
-    )
-    for sources, error_code in invalid_sources:
-        with pytest.raises(ValueError, match=error_code):
-            RuntimeShell(runtime_config, peer_health_sources=sources)
+    with pytest.raises(ValueError, match="peer_health_source_federation_disabled"):
+        RuntimeShell(runtime_config)
+
+
+@pytest.mark.no_legacy_skip
+def test_runtime_shell_rejects_non_path_peer_health_pin_configuration(
+    runtime_config: RuntimeTestConfig,
+) -> None:
+    runtime_root = Path(str(runtime_config["runtime"]["root"]))
+    runtime_config["federation"] = {
+        "enabled": True,
+        "state_file": str(runtime_root / "federation" / "state" / "local.json"),
+        "peers": [{
+            "node_name": "peer-one",
+            "state_file": str(runtime_root / "federation" / "state" / "peer-one.json"),
+        }],
+        "peer_health_trust_pin_path": 42,
+    }
+
+    with pytest.raises(ValueError, match="peer_health_pin_path_invalid"):
+        RuntimeShell(runtime_config)
 
 
 def _patch_thread(monkeypatch: pytest.MonkeyPatch) -> None:

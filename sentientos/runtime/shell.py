@@ -88,8 +88,6 @@ class RuntimeShell:
     def __init__(
         self,
         config: Mapping[str, object],
-        *,
-        peer_health_sources: Optional[Mapping[str, PeerHealthRecoverySource]] = None,
     ) -> None:
         self._config = dict(config)
         runtime_section = _ensure_runtime_config(self._config)
@@ -174,22 +172,21 @@ class RuntimeShell:
         )
         self._federation_config = federation_config
         self._federation_poller: Optional[FederationPoller] = None
-        self._peer_health_sources = dict(peer_health_sources or {})
         configured_peer_names = {peer.node_name for peer in federation_config.peers}
-        if set(self._peer_health_sources) - configured_peer_names:
-            raise ValueError("peer_health_source_not_configured")
-        for peer_name, source in self._peer_health_sources.items():
-            if (
-                not isinstance(source, PeerHealthRecoverySource)
-                or not isinstance(source.owner, FederationPeerReplayOwner)
-                or source.owner.peer_id != peer_name
-                or not isinstance(source.catalog, ReadOnlyFederationPeerTrustCatalog)
-                or type(source.signature_verifier)
-                is not CryptographyEd25519FederationPeerSignatureVerifier
-                or type(source.max_age_seconds) is not int
-                or not 1 <= source.max_age_seconds <= 86_400
-            ):
-                raise ValueError("peer_health_source_invalid")
+        federation_section = _ensure_federation_config(self._config)
+        trust_pin_path = federation_section.get("peer_health_trust_pin_path")
+        if trust_pin_path is None:
+            self._peer_health_sources: Mapping[str, PeerHealthRecoverySource] = {}
+        else:
+            if not federation_config.enabled:
+                raise ValueError("peer_health_source_federation_disabled")
+            if not isinstance(trust_pin_path, (str, Path)):
+                raise ValueError("peer_health_pin_path_invalid")
+            self._peer_health_sources = load_operator_pinned_peer_health_sources(
+                trust_pin_path,
+                runtime_root=self._runtime_root,
+                configured_peer_ids=configured_peer_names,
+            )
         if federation_warnings:
             for warning in federation_warnings:
                 self._log("Federation configuration warning", extra={"warning": warning})
@@ -1471,11 +1468,9 @@ def _handler_targets(path: Path, handler: logging.Handler) -> bool:
     handler_path = Path(getattr(handler, "baseFilename", ""))
     return handler_path == path
 from sentientos.federation.config import load_federation_config
-from sentientos.federation.peer_authentication_ed25519 import (
-    CryptographyEd25519FederationPeerSignatureVerifier,
+from sentientos.federation.peer_health_source_factory import (
+    load_operator_pinned_peer_health_sources,
 )
-from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
-from sentientos.federation.peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
 from sentientos.federation.poller import (
     FederationPoller,
     FederationState,
