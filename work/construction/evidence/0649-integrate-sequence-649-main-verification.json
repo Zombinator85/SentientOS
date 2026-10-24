@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 649,
+  "source": {
+    "pull_request": 2755,
+    "candidate_commit": "c9fedcf4e3d447990e54be47216e4e350cb7d827",
+    "merge_commit": "edeec5313381452b58638272ab0cbe50d6da7eb2",
+    "parent_main": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+    "merge_parents": [
+      "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+      "c9fedcf4e3d447990e54be47216e4e350cb7d827"
+    ],
+    "source_tree": "5e3966dbc1621d44e9df329e2ea36ad3cc86dd01",
+    "tree_matches_candidate": true
+  },
+  "pull_request": {
+    "state": "merged",
+    "branch_checks": "required quality gate, CI, and invariants passed",
+    "pr_checks": "quality gate, CI (all four jobs), invariants, Codex CI, Docker, Lint Benchmark, Release, and Gradient passed",
+    "candidate_acceptance": "48 of 48 required nodes passed",
+    "hosted_finalizer": "ready_to_commit and ready_for_pr_metadata",
+    "metadata_guard": "ready"
+  },
+  "post_merge": {
+    "commit": "edeec5313381452b58638272ab0cbe50d6da7eb2",
+    "tree": "5e3966dbc1621d44e9df329e2ea36ad3cc86dd01",
+    "main_acceptance_status": "task_acceptance_ready",
+    "main_acceptance_passed_nodes": 48,
+    "main_acceptance_required_nodes": 48,
+    "strict_administrator_audit": "passed; effective UID 0; strict audit and immutability verified",
+    "checks": {
+      "required_quality_gate": "success",
+      "ci": "success; docs, self-check, source validation, and helm-k8s-test passed",
+      "invariants": "success",
+      "docker": "success",
+      "codex_ci": "success",
+      "docs_deploy": "success",
+      "forge_smoke": "skipped by condition"
+    },
+    "quality_gate_artifact": {
+      "id": 12572957869,
+      "sha256": "b08e3cfc7e1255b9beef2a3df37bafdbf4aab432751e007d0453d9cfac0d3c11",
+      "digest_matched": true
+    }
+  },
+  "scope": "evidence-only integration; no production source or runtime authority changes"
+}

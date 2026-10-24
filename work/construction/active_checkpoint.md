@@ -1,3 +1,21 @@
+## Current verified state - sequence 649
+
+Sequence 649 integrates the verified-main record for sequence 648 and refreshes the checkpoint to the exact main merge of PR #2755. This is an evidence-only update; applicable branch, PR, and post-merge checks passed.
+
+Latest verified main: `edeec5313381452b58638272ab0cbe50d6da7eb2`, tree `5e3966dbc1621d44e9df329e2ea36ad3cc86dd01`
+Latest construction segment: `work/construction/segments/0649-integrate-sequence-649-main-verification.md`
+Latest segment SHA-256: bd6a1c362d7633ee0dcb209ead05b741868e3492b94ea26deb377ec804cbb568
+Sequence: 649 (sequence 648 verified-main integration)
+
+PR #2755 candidate `c9fedcf4e3d447990e54be47216e4e350cb7d827` merged normally as `edeec5313381452b58638272ab0cbe50d6da7eb2`, retaining the exact candidate tree. PR acceptance passed 48/48 required nodes; main Quality Gate passed 48/48 with hosted Administrator strict audit and audit immutability. All applicable post-merge CI, Invariants, Docker, Codex CI, and Docs Deploy checks passed.
+
+Evidence record: `work/construction/evidence/0649-integrate-sequence-649-main-verification.json`
+Evidence SHA-256: 16bdcd169518de92755dee89e1a22d87f29b1dc9a66e476c9598488192ac9de7
+
+Next: select a separately bounded, safe construction increment from the current open-work roadmap. Preserve operator authority, explicit custody, and fail-closed behavior; do not infer transport, live telemetry, Health publication, admission, planning, execution, or decision authority.
+
+## Previous checkpoint snapshot - sequence 648
+
 ## Current verified state - sequence 648
 
 Sequence 648 integrates the Windows peer replay root-identity increment and refreshes the construction checkpoint to the exact main merge of PR #2754. The integration is evidence-only; all applicable exact-head and post-merge checks passed.
