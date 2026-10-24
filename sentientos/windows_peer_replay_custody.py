@@ -231,7 +231,8 @@ def publish_immutable_replay_bytes(
             options |= 0x2  # FILE_WRITE_THROUGH
         try:
             status = nt_create(ctypes.byref(handle), access, ctypes.byref(attributes), ctypes.byref(iosb),
-                None, 0x80 if exclusive_create else 0, sharing, 2 if exclusive_create else 1,
+                None, 0x80 if exclusive_create else 0,
+                5 if exclusive_create else sharing, 2 if exclusive_create else 1,
                 options, None, 0)
         finally:
             if security_descriptor:

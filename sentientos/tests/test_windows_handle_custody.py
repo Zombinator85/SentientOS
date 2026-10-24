@@ -406,15 +406,21 @@ def test_windows_replay_publication_blocks_root_and_stage_substitution(
             with pytest.raises(PermissionError):
                 tmp_path.rename(tmp_path.with_name(tmp_path.name + "-substituted"))
             with pytest.raises(PermissionError):
-                stage.rename(tmp_path / "substituted-stage")
-            with pytest.raises(PermissionError):
                 stage.write_bytes(b"substituted bytes")
+            moved_stage = tmp_path / "substituted-stage"
+            try:
+                stage.rename(moved_stage)
+            except PermissionError:
+                pass
+            else:
+                assert moved_stage.read_bytes() == b"record-one"
             observed.append(phase)
 
     monkeypatch.setattr(publication_module, "_publication_boundary", attempt_substitution)
     assert _publish_test_record(tmp_path) is True
     assert observed == ["prepared"]
     assert (tmp_path / replay_module._record_name(1)).read_bytes() == b"record-one"
+    assert not (tmp_path / "substituted-stage").exists()
     assert not list(tmp_path.glob(".pending-*"))
 
 
