@@ -385,6 +385,7 @@ def test_windows_replay_publication_preserves_destination_race(
     def create_conflict(phase: str) -> None:
         if phase == "prepared":
             target.write_bytes(b"foreign conflict")
+            _make_current_user_private(target, directory=False)
 
     monkeypatch.setattr(publication_module, "_publication_boundary", create_conflict)
     with pytest.raises(publication_module.WindowsReplayCustodyError, match="replay_owner_record_conflict"):
@@ -399,6 +400,7 @@ def test_windows_replay_publication_blocks_root_and_stage_substitution(
 ) -> None:
     _make_current_user_private(tmp_path, directory=True)
     observed: list[str] = []
+    moved_stage_paths: list[Path] = []
 
     def attempt_substitution(phase: str) -> None:
         if phase == "prepared":
@@ -413,7 +415,8 @@ def test_windows_replay_publication_blocks_root_and_stage_substitution(
             except PermissionError:
                 pass
             else:
-                assert moved_stage.read_bytes() == b"record-one"
+                assert moved_stage.exists()
+                moved_stage_paths.append(moved_stage)
             observed.append(phase)
 
     monkeypatch.setattr(publication_module, "_publication_boundary", attempt_substitution)
@@ -421,6 +424,7 @@ def test_windows_replay_publication_blocks_root_and_stage_substitution(
     assert observed == ["prepared"]
     assert (tmp_path / replay_module._record_name(1)).read_bytes() == b"record-one"
     assert not (tmp_path / "substituted-stage").exists()
+    assert all(not path.exists() for path in moved_stage_paths)
     assert not list(tmp_path.glob(".pending-*"))
 
 
