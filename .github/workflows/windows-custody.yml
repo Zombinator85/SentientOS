@@ -6,6 +6,7 @@ on:
       - ".github/workflows/windows-custody.yml"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
+      - "sentientos/federation/peer_replay_owner.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
       - "sentientos/bounded_subprocess.py"
@@ -13,10 +14,12 @@ on:
   push:
     branches:
       - main
+      - 'codex/construct-sentientos*'
     paths:
       - ".github/workflows/windows-custody.yml"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
+      - "sentientos/federation/peer_replay_owner.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
       - "sentientos/bounded_subprocess.py"
@@ -53,7 +56,10 @@ jobs:
             "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[file]",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_existing_alternate_data_stream",
             "sentientos/tests/test_windows_handle_custody.py::test_reader_rejects_case_alias_selection_before_open",
-            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order"
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_publication",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history"
           )
           $manifest = [ordered]@{
             schema_version = "sentientos.task_acceptance:v1"
