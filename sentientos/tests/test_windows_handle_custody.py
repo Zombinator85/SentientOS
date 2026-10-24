@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sentientos.windows_handle_custody import (
     WindowsHandleCustodyError,
@@ -17,6 +19,16 @@ from sentientos.work_plan import (
     WorkPlanError,
     _open_work_plan_evidence_directory,
 )
+from sentientos.federation import peer_replay_owner as replay_module
+from sentientos.federation.peer_authentication_ed25519 import (
+    CryptographyEd25519FederationPeerSignatureVerifier,
+)
+from sentientos.federation.peer_health_source_factory import (
+    FederationPeerHealthSourceFactoryError,
+    load_operator_pinned_peer_health_sources,
+)
+from sentientos.federation.peer_trust_catalog import ReadOnlyFederationPeerTrustCatalog
+from tests.test_federation_peer_authentication import NOW, _make_catalog, _signed_event
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -173,3 +185,100 @@ def test_private_acl_rejects_broad_write_grants(
 
     with pytest.raises(WindowsHandleCustodyError, match="private_acl_broad_write_grant"):
         read_explicit_file(path, max_bytes=64, require_private_acl=True)
+
+
+def _provision_private_replay_history(
+    root: Path,
+) -> tuple[Ed25519PrivateKey, str, ReadOnlyFederationPeerTrustCatalog]:
+    """Explicit test provisioning; the runtime reader never writes these records."""
+    root.mkdir()
+    _make_current_user_private(root, directory=True)
+    private, _, key_id, _, _, catalog, _ = _make_catalog()
+    previous_digest = None
+    for sequence, outcome in enumerate(("adverse", "positive"), start=1):
+        raw, envelope = _signed_event(private, key_id, sequence=sequence,
+            event={"kind": "trial_outcome", "outcome": outcome})
+        body = {
+            "schema": replay_module.REPLAY_RECORD_SCHEMA,
+            "peer_id": "peer-one", "sequence": sequence,
+            "previous_digest": previous_digest, "recorded_at": "2026-10-23T10:00:00Z",
+            "signed_envelope": raw.decode(), "signing_key_id": key_id,
+            "event_digest": envelope["event_digest"],
+            "catalog_version": catalog.catalog_version, "catalog_digest": catalog.catalog_digest,
+        }
+        previous_digest = replay_module._record_digest(body)
+        path = root / replay_module._record_name(sequence)
+        path.write_bytes(replay_module._canonical({**body, "record_digest": previous_digest}))
+        _make_current_user_private(path, directory=False)
+    return private, key_id, catalog
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
+def test_windows_replay_recovers_signed_history_without_publication(tmp_path: Path) -> None:
+    root = tmp_path / "peer-one"
+    private, key_id, catalog = _provision_private_replay_history(root)
+    before = {p.name: p.read_bytes() for p in root.iterdir()}
+    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    verifier = CryptographyEd25519FederationPeerSignatureVerifier()
+
+    history = owner.verified_history(catalog=catalog, signature_verifier=verifier)
+    assert owner.last_accepted_sequence == 2
+    assert [entry.verified_event.event["outcome"] for entry in history] == ["adverse", "positive"]
+    assert all(entry.created is False for entry in history)
+    next_raw, _ = _signed_event(private, key_id, sequence=3)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        owner.accept(next_raw, catalog=catalog, signature_verifier=verifier, now=NOW)
+    assert {p.name: p.read_bytes() for p in root.iterdir()} == before
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
+def test_windows_replay_rejects_recomputed_signature_tamper(tmp_path: Path) -> None:
+    root = tmp_path / "peer-one"
+    _, _, catalog = _provision_private_replay_history(root)
+    path = root / replay_module._record_name(2)
+    record = json.loads(path.read_bytes())
+    envelope = json.loads(record["signed_envelope"])
+    signature = envelope["signature"]
+    envelope["signature"] = ("A" if signature[0] != "A" else "B") + signature[1:]
+    record["signed_envelope"] = replay_module._canonical(envelope).decode()
+    record["record_digest"] = replay_module._record_digest({
+        key: value for key, value in record.items() if key != "record_digest"})
+    path.write_bytes(replay_module._canonical(record))
+    before = path.read_bytes()
+    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    assert owner.last_accepted_sequence == 2  # hash-chain integrity is not signature proof
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_history_event_verification_failed"):
+        owner.verified_history(catalog=catalog,
+            signature_verifier=CryptographyEd25519FederationPeerSignatureVerifier())
+    assert path.read_bytes() == before
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
+def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path) -> None:
+    root = tmp_path / "peer-one"
+    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        _ = owner.last_accepted_sequence
+    assert not root.exists()
+    root.mkdir()
+    _make_current_user_private(root, directory=True)
+    assert owner.last_accepted_sequence == 0
+    root.rmdir()
+    _provision_private_replay_history(root)
+    bounded = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one", max_records=1)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_record_limit_exceeded"):
+        _ = bounded.last_accepted_sequence
+    subprocess.run(["icacls", str(root), "/grant:r", "*S-1-1-0:(W)"],
+                   check=True, capture_output=True, text=True)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        _ = owner.last_accepted_sequence
+    with pytest.raises(FederationPeerHealthSourceFactoryError,
+                       match="peer_replay_owner_custody_unsupported"):
+        load_operator_pinned_peer_health_sources(tmp_path / "absent-pin.json",
+            runtime_root=tmp_path, configured_peer_ids=("peer-one",))
+    assert not (tmp_path / "absent-pin.json").exists()

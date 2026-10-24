@@ -1,3 +1,21 @@
+## Current verified state - sequence 641
+
+Sequence 641 constrains Windows custody names before replay-store construction. A real alternate-stream fixture is rejected while ordinary selected reads succeed. Case aliases, unsafe components, and oversized or malformed UTF-16 names fail closed. Windows replay publication and source composition remain disabled.
+
+Latest verified main: `78fbab1f935061da09e9e04c64ea93f019447946`, tree `868b3f1827e8c7f24e80c821b0035505221d38cc`
+Latest construction segment: `work/construction/segments/0641-constrain-windows-custody-child-namespace.md`
+Latest segment SHA-256: `948d72857275dd33f55657942349c76285a458846eb21a44f099d1d2b3211b8b`
+Sequence: 641 (literal Windows custody namespace)
+
+PR #2746 merged normally with the exact tested tree. All exact-candidate and merged-main checks passed, including native Windows acceptance, the Administrator quality gate, strict audit and immutability, all four CI jobs, and Nightly Self Check. The local run passed 93 tests and all 23 task-required nodes. Artifact manifests and decoded logs were read; independent ZIP readback was blocked by session network policy and is not claimed.
+
+Evidence record: `work/construction/evidence/0641-constrain-windows-custody-child-namespace.json`
+Evidence SHA-256: `3f9a66bd2207c9df7b0b7da308d613e355bfdddc0e3ac8e3e985323d47b0931c`
+
+Next: read-only Windows replay-history recovery with native acceptance. Keep publication and runtime source composition fail-closed until handle-bound immutable publication parity is proven.
+
+## Previous checkpoint snapshot - sequence 640
+
 ## Current verified state - sequence 640
 
 Sequence 640 rejects broad untrusted write grants on Windows private custody handles for both files and containing directories. The ACL regression and hosted acceptance bind to the exact candidate and merged main. This closes a local trust-root replacement path; it does not add Windows replay publication, and unsupported replay-owner custody remains fail-closed.

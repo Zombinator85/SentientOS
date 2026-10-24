@@ -14,7 +14,7 @@ import os
 import re
 import threading
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from sentientos.private_file_custody import (
     PrivateFileCustodyError,
@@ -23,6 +23,7 @@ from sentientos.private_file_custody import (
     publish_immutable_bytes,
     read_private_file_at,
 )
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 from .peer_authentication import (
     FederationPeerEventVerificationError,
     FederationPeerSignatureVerifier,
@@ -162,8 +163,10 @@ class FederationPeerReplayOwner:
     """Own one peer's next accepted sequence under explicit private local custody.
 
     The owner, rather than the caller, supplies the verifier's prior sequence.
-    Records are immutable, canonical, bounded, and hash-linked. Directory and
-    file custody is POSIX-only; unsupported platforms fail closed.
+    Records are immutable, canonical, bounded, and hash-linked. New directory
+    creation and record publication remain POSIX-only. Windows can inspect an already provisioned
+    private history through bounded, reparse-safe handles; it cannot create or
+    publish replay state. Runtime source composition remains fail-closed there.
     """
 
     __slots__ = ("_root", "_peer_id", "_max_records", "_max_history_bytes", "_lock")
@@ -203,6 +206,18 @@ class FederationPeerReplayOwner:
         return self._max_history_bytes
 
     def _load_history(self, *, create: bool) -> tuple[list[dict[str, Any]], int]:
+        if os.name == "nt":
+            if create:
+                raise FederationPeerReplayOwnerError("replay_owner_custody_unavailable")
+            try:
+                entries = read_regular_files(
+                    self.root, max_entries=self.max_records + 1024,
+                    max_file_bytes=_MAX_RECORD_BYTES,
+                    max_total_bytes=self.max_history_bytes, require_private_acl=True,
+                )
+            except WindowsHandleCustodyError as exc:
+                raise FederationPeerReplayOwnerError("replay_owner_custody_unavailable") from exc
+            return self._validate_history_entries(entries)
         try:
             directory_fd = open_private_directory(self.root, create=create)
         except PrivateFileCustodyError as exc:
@@ -214,36 +229,47 @@ class FederationPeerReplayOwner:
                 directory_fd, max_entries=self.max_records,
                 max_directory_entries=self.max_records + 1024,
             )
-            history: list[dict[str, Any]] = []
-            total_bytes = 0
-            previous_digest: str | None = None
-            for expected_sequence, name in enumerate(names, start=1):
-                if name != _record_name(expected_sequence):
-                    raise FederationPeerReplayOwnerError("replay_history_sequence_gap")
-                try:
-                    raw = read_private_file_at(
-                        directory_fd, name, max_bytes=_MAX_RECORD_BYTES,
-                        require_private_mode=True,
-                    )
-                except PrivateFileCustodyError as exc:
-                    raise FederationPeerReplayOwnerError("replay_history_record_unavailable") from exc
-                total_bytes += len(raw)
-                if total_bytes > self.max_history_bytes:
-                    raise FederationPeerReplayOwnerError("replay_history_byte_limit_exceeded")
-                record = _load_json(raw)
-                if not isinstance(record, dict):
-                    raise FederationPeerReplayOwnerError("replay_record_fields_invalid")
-                digest = _validate_record(
-                    record, raw=raw, peer_id=self.peer_id,
-                    sequence=expected_sequence, previous_digest=previous_digest,
-                )
-                previous_digest = digest
-                history.append(record)
-            return history, total_bytes
+            def records() -> Iterable[tuple[str, bytes]]:
+                for expected_sequence, name in enumerate(names, start=1):
+                    if name != _record_name(expected_sequence):
+                        raise FederationPeerReplayOwnerError("replay_history_sequence_gap")
+                    try:
+                        raw = read_private_file_at(
+                            directory_fd, name, max_bytes=_MAX_RECORD_BYTES,
+                            require_private_mode=True,
+                        )
+                    except PrivateFileCustodyError as exc:
+                        raise FederationPeerReplayOwnerError("replay_history_record_unavailable") from exc
+                    yield name, raw
+            return self._validate_history_entries(records())
         except PrivateFileCustodyError as exc:
             raise FederationPeerReplayOwnerError("replay_history_unavailable") from exc
         finally:
             os.close(directory_fd)
+
+    def _validate_history_entries(
+        self, entries: Iterable[tuple[str, bytes]],
+    ) -> tuple[list[dict[str, Any]], int]:
+        history: list[dict[str, Any]] = []
+        total_bytes = 0
+        previous_digest: str | None = None
+        for expected_sequence, (name, raw) in enumerate(entries, start=1):
+            if expected_sequence > self.max_records:
+                raise FederationPeerReplayOwnerError("replay_owner_record_limit_exceeded")
+            if name != _record_name(expected_sequence):
+                raise FederationPeerReplayOwnerError("replay_history_sequence_gap")
+            total_bytes += len(raw)
+            if total_bytes > self.max_history_bytes:
+                raise FederationPeerReplayOwnerError("replay_history_byte_limit_exceeded")
+            record = _load_json(raw)
+            if not isinstance(record, dict):
+                raise FederationPeerReplayOwnerError("replay_record_fields_invalid")
+            previous_digest = _validate_record(
+                record, raw=raw, peer_id=self.peer_id,
+                sequence=expected_sequence, previous_digest=previous_digest,
+            )
+            history.append(record)
+        return history, total_bytes
 
     @property
     def last_accepted_sequence(self) -> int:
