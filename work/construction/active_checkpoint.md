@@ -1,4 +1,22 @@
-## Current verified state - sequence 643
+## Current verified state - sequence 644
+
+Sequence 644 implements immutable Windows publication for the explicitly invoked peer replay owner, using an existing private root, protected staging, handle-bound readback, atomic no-replace commit, durable flush, and terminal custody verification. Native acceptance covers publication, retry/conflict, race, substitution, process-death, and commit-boundary behavior. Windows runtime peer-source composition remains disabled; the root is not created automatically and no downstream authority is granted.
+
+Latest verified main: `71dd659bcf4c1dbe2f64927be38011fa61b45a83`, tree `ecc26ec076cda02f5fdeee28ac0ba1e7aef6b867`
+Latest construction segment: `work/construction/segments/0644-publish-immutable-windows-peer-replay-records.md`
+Latest segment SHA-256: e3dd0c3528598a4b9d3d921b8a08910afb5a7eb793ab658ff93e77a4941c5059
+Sequence: 644 (immutable Windows peer replay publication)
+
+PR #2749 candidate `85b031b25c82c11c81c740d25ca44816ea4ecef6` merged normally as `71dd659bcf4c1dbe2f64927be38011fa61b45a83`, with `02602fc5f1ff0c03de8845f97a0a69ede5fc8157` as first parent and the exact tested candidate as second parent. The corrected PR Quality Gate and all exact-head checks passed; the initial PR gate failure was a title/commit-subject preflight mismatch and was superseded by a successful run after metadata alignment. All post-merge checks passed on the exact main commit, with Forge Smoke skipped by workflow condition. The native Windows acceptance passed all 20 exact nodes on candidate and main; main Quality Gate acceptance passed all 48 nodes. Local focused tests: 156 passed; exact acceptance: seven nodes ready; targeted Mypy clean with zero new baseline errors.
+
+Hosted PR finalizers and metadata guard bound the exact candidate SHA/tree and passed. Main hosted Administrator verification confirmed UID 0, strict audit success, and audit immutability. The nine listed branch/PR/main Quality Gate, finalizer, acceptance, and Windows artifact ZIPs were independently downloaded and matched their GitHub-advertised SHA-256 values.
+
+Evidence record: `work/construction/evidence/0644-publish-immutable-windows-peer-replay-records.json`
+Evidence SHA-256: 3f96f12884ec91a3520c233db617c2fbccadb51fe3ed8f3a61bb03a13eece6ce
+
+Next: establish an explicit, operator-provisioned Windows replay-root identity/custody binding before any runtime source composition. Preserve fail-closed behavior for missing or changed roots; do not infer transport, live telemetry, local Health, admission, planning, execution, or decision authority from durable publication.
+
+## Previous checkpoint snapshot - sequence 643
 
 Sequence 643 retains Windows replay input handles through complete bounded history inspection and repeats custody checks at the terminal boundary. Sequences 642 and 643 are now both recorded as immutable linked evidence. Windows immutable publication is the active next construction increment; it remains unmerged and unverified.
 
