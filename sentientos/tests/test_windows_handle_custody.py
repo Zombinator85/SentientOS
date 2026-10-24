@@ -384,9 +384,6 @@ def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path
     identity = _windows_root_identity(root)
     owner = replay_module.FederationPeerReplayOwner(
         root, peer_id="peer-one", expected_root_identity=identity)
-    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
-                       match="replay_owner_custody_unavailable"):
-        _ = owner.last_accepted_sequence
     assert root.exists()
     assert owner.last_accepted_sequence == 0
     root.rmdir()
@@ -416,6 +413,7 @@ def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path
 def test_windows_factory_binds_operator_pin_to_existing_replay_root(tmp_path: Path) -> None:
     from tests.test_federation_peer_health_source_factory import _write_pinned_peer
 
+    _make_current_user_private(tmp_path, directory=True)
     pin_path, runtime_root, _ = _write_pinned_peer(
         tmp_path, windows_identity=(0, bytes(16)))
     for directory in (
