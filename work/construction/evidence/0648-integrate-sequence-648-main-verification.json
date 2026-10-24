@@ -1,0 +1,344 @@
+{
+  "post_merge": {
+    "ci_jobs": {
+      "docs": "success",
+      "helm-k8s-test": "success",
+      "run_id": 40125814196,
+      "self-check": "success",
+      "source-validation-unprivileged": "success"
+    },
+    "commit": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+    "forge_smoke": "skipped by condition",
+    "main_acceptance_passed_nodes": 48,
+    "main_acceptance_required_nodes": 48,
+    "main_acceptance_status": "task_acceptance_ready",
+    "parents": [
+      "12db7db480497cdf362c01654a245c64280eadf5",
+      "8c7105b4f1c67c4376af28d204171333b105f531"
+    ],
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814212,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814196,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814320,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814270,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814151,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814253,
+        "name": "Docs Deploy",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814183,
+        "name": "Windows Custody",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814128,
+        "name": "Nightly Self Check",
+        "status": "completed"
+      },
+      {
+        "conclusion": "skipped",
+        "event": "push",
+        "head_sha": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+        "id": 40125814144,
+        "name": "Forge Smoke",
+        "status": "completed"
+      }
+    ],
+    "tree": "a42113b431f6f06b8537fa628748a9eb6ad12a4b",
+    "windows_acceptance_passed_nodes": 24,
+    "windows_acceptance_required_nodes": 24,
+    "windows_acceptance_status": "task_acceptance_ready"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 648,
+  "source": {
+    "candidate_commit": "8c7105b4f1c67c4376af28d204171333b105f531",
+    "merge_commit": "742a91a0b22b9c56a7b096fcacf491a1260710ad",
+    "merge_parents": [
+      "12db7db480497cdf362c01654a245c64280eadf5",
+      "8c7105b4f1c67c4376af28d204171333b105f531"
+    ],
+    "parent_main": "12db7db480497cdf362c01654a245c64280eadf5",
+    "pull_request": 2754,
+    "source_tree": "a42113b431f6f06b8537fa628748a9eb6ad12a4b",
+    "tree_matches_candidate": true
+  },
+  "title": "Integrate verified sequence 648 evidence on main",
+  "validation": {
+    "artifact_verification": "All nine listed branch, PR, and main Quality Gate, finalizer, and Windows acceptance ZIP archives were independently downloaded and SHA-256 matched GitHub-advertised digests. The PR exact-candidate acceptance ZIP was also independently downloaded and matched its advertised digest.",
+    "artifacts": {
+      "branch": [
+        {
+          "digest": "sha256:6ccdfdd3b2bf9966cb7ae3d67731d4d02eaec404b106c01e3102d27ddfa55ae6",
+          "id": 12572394363,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:9eba919a2cc58c5f2596feee6a4cccfe37811992c9f897dfbf80c8ee54bb5890",
+          "id": 12572199590,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        },
+        {
+          "digest": "sha256:3890b2a194671c71d3ed97a9fdbc27943cea86cbc279d53e38922c475182c1a3",
+          "id": 12573000490,
+          "name": "windows-custody-exact-acceptance"
+        }
+      ],
+      "main": [
+        {
+          "digest": "sha256:73324141ed8bd859e2a9c8a202dd37c5b8060cbc9e9a93ff0dbf299813b17495",
+          "id": 12572761892,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:966fd2621b49f1cd385bb060e797afc906d26d3b6adcbd4b8d1aeccd05c2866f",
+          "id": 12573770801,
+          "name": "windows-custody-exact-acceptance"
+        }
+      ],
+      "pr": [
+        {
+          "digest": "sha256:7e525cf013bc59897acc2fce37d6794e5ffeee8c7ba0d36a1315a747f217e6c8",
+          "id": 12573465408,
+          "name": "required-quality-gate-evidence"
+        },
+        {
+          "digest": "sha256:74cffd456b1ebeaa279fd657df8d20737ec4d19d038332349fc21383da39fe2c",
+          "id": 12572996383,
+          "name": "hosted-privileged-pr-landing-finalizer"
+        },
+        {
+          "digest": "sha256:b91d9ddaaf3e762d36e81d6355f2432d7528b64035643bd1d845c3bda7882bc1",
+          "id": 12572861512,
+          "name": "exact-pr-candidate-acceptance"
+        },
+        {
+          "digest": "sha256:be9cba897e73bfcf5f89fa416d663695cd8707bb22ee5f09be8e688eab74ff54",
+          "id": 12572931289,
+          "name": "windows-custody-exact-acceptance"
+        }
+      ]
+    },
+    "branch_runs": [
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40124889995,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40124890439,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40124889998,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40124890000,
+        "name": "Windows Custody",
+        "status": "completed"
+      }
+    ],
+    "candidate_runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445362,
+        "name": "Required Quality Gate",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445340,
+        "name": "CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445314,
+        "name": "Invariant Tests",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445322,
+        "name": "Windows Custody",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445223,
+        "name": "Codex CI",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445236,
+        "name": "Docker Image",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445285,
+        "name": "Lint Benchmark",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445311,
+        "name": "Release",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "id": 40125445232,
+        "name": "Gradient null regression",
+        "status": "completed"
+      }
+    ],
+    "hosted_finalizers": {
+      "branch": {
+        "artifact_sha256": "sha256:9eba919a2cc58c5f2596feee6a4cccfe37811992c9f897dfbf80c8ee54bb5890",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "metadata_guard_reasons": [],
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "run_id": 40124889995,
+        "tree_sha": "a42113b431f6f06b8537fa628748a9eb6ad12a4b"
+      },
+      "pr": {
+        "acceptance_passed_nodes": 48,
+        "acceptance_required_nodes": 48,
+        "acceptance_sha256": "sha256:b91d9ddaaf3e762d36e81d6355f2432d7528b64035643bd1d845c3bda7882bc1",
+        "artifact_sha256": "sha256:74cffd456b1ebeaa279fd657df8d20737ec4d19d038332349fc21383da39fe2c",
+        "head_sha": "8c7105b4f1c67c4376af28d204171333b105f531",
+        "metadata_guard_reasons": [],
+        "metadata_guard_status": "pr_metadata_guard_ready",
+        "pr_metadata_status": "ready_for_pr_metadata",
+        "precommit_status": "ready_to_commit",
+        "run_id": 40125445362,
+        "tree_sha": "a42113b431f6f06b8537fa628748a9eb6ad12a4b"
+      }
+    },
+    "local": {
+      "candidate_preflight_base_commit": "c54e09d8ea3d9f498e7f468d098829577c643561",
+      "candidate_preflight_base_tree": "a42113b431f6f06b8537fa628748a9eb6ad12a4b",
+      "candidate_source_preflight": "candidate_integrity_ready_for_ref_update",
+      "construction_custody_status": "construction_continuation_custody_ready",
+      "construction_segments_verified": 647,
+      "diff_check": "passed",
+      "focused_tests": "35 passed, 26 skipped on Linux; Windows-only cases separately passed natively",
+      "production_source_changes": false,
+      "remote_main_tree_match": true
+    },
+    "quality_gate": {
+      "branch_run_id": 40124889995,
+      "main_acceptance_passed_nodes": 48,
+      "main_acceptance_required_nodes": 48,
+      "main_administrator_verified": true,
+      "main_audit_immutability_ok": true,
+      "main_effective_uid": 0,
+      "main_run_id": 40125814212,
+      "main_strict_audit_ok": true,
+      "pr_run_id": 40125445362
+    },
+    "windows_acceptance": {
+      "branch": {
+        "artifact_sha256": "sha256:3890b2a194671c71d3ed97a9fdbc27943cea86cbc279d53e38922c475182c1a3",
+        "passed_nodes": 24,
+        "required_nodes": 24,
+        "run_id": 40124890000
+      },
+      "main": {
+        "artifact_sha256": "sha256:966fd2621b49f1cd385bb060e797afc906d26d3b6adcbd4b8d1aeccd05c2866f",
+        "passed_nodes": 24,
+        "required_nodes": 24,
+        "run_id": 40125814183
+      },
+      "pr": {
+        "artifact_sha256": "sha256:be9cba897e73bfcf5f89fa416d663695cd8707bb22ee5f09be8e688eab74ff54",
+        "passed_nodes": 24,
+        "required_nodes": 24,
+        "run_id": 40125445322
+      }
+    }
+  }
+}
