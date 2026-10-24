@@ -267,8 +267,10 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     walked component-by-component from the volume root with NtCreateFile,
     OBJ_DONT_REPARSE, and FILE_OPEN_REPARSE_POINT.  Children are then opened
     relative to the held directory handle.  Read-only sharing deliberately
-    denies concurrent write/delete opens; unsupported filesystems/APIs fail
-    closed.  This code is syntax-checked on non-Windows hosts, not runtime
+    denies concurrent write/delete opens. All selected file handles remain held
+    through terminal identity, metadata, and optional private-ACL checks; an
+    earlier input cannot be replaced while a later input is read. Unsupported
+    filesystems/APIs fail closed. This code is syntax-checked on non-Windows hosts, not runtime
     verified there.
     """
     invalid_names = selected_names is not None and (
@@ -488,6 +490,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         result: list[tuple[str, bytes]] = []
         total = 0
         seen_names: set[str] = set()
+        retained_files: list[tuple[int, tuple[int, bytes], int]] = []
         for name, _directory_attrs in sorted(entries):
             if not _safe_child_name(name):
                 fail("windows_custody_child_name_invalid")
@@ -496,44 +499,63 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                 fail("windows_custody_child_name_ambiguous")
             seen_names.add(folded_name)
             handle = nt_open(root_handle, name, directory=False)
-            try:
-                before_id = file_id(handle)
-                if require_private_acl:
-                    verify_private_handle_acl(handle)
-                attrs, standard = attrs_and_standard(handle)
-                if standard.Directory or standard.EndOfFile < 0 or standard.EndOfFile > max_file_bytes:
-                    fail("cognition_observation_not_regular")
-                if standard.NumberOfLinks != 1:
-                    fail("cognition_observation_windows_file_alias_rejected")
-                size = int(standard.EndOfFile)
-                data = bytearray()
-                while len(data) <= max_file_bytes:
-                    amount = min(65_536, max_file_bytes + 1 - len(data))
-                    if amount <= 0:
-                        break
-                    buffer = ctypes.create_string_buffer(amount)
-                    read_count = wintypes.DWORD()
-                    if not read_file(wintypes.HANDLE(handle), buffer, amount, ctypes.byref(read_count), None):
-                        fail("cognition_observation_windows_read_failed")
-                    if not read_count.value:
-                        break
-                    data.extend(buffer.raw[:read_count.value])
-                after_attrs, after_standard = attrs_and_standard(handle)
-                if (len(data) != size or int(after_standard.EndOfFile) != size
-                        or file_id(handle) != before_id or file_id(root_handle) != root_identity):
-                    fail("cognition_observation_windows_file_changed")
-                total += len(data)
-                if total > max_total_bytes:
-                    fail("cognition_observation_retention_limit_exceeded")
-                result.append((name, bytes(data)))
-            finally:
-                close(handle)
+            # Keep every input's read-only sharing contract until the entire
+            # bounded read is complete, including terminal metadata checks.
+            opened_handles.append(handle)
+            before_id = file_id(handle)
+            if require_private_acl:
+                verify_private_handle_acl(handle)
+            attrs, standard = attrs_and_standard(handle)
+            if standard.Directory or standard.EndOfFile < 0 or standard.EndOfFile > max_file_bytes:
+                fail("cognition_observation_not_regular")
+            if standard.NumberOfLinks != 1:
+                fail("cognition_observation_windows_file_alias_rejected")
+            size = int(standard.EndOfFile)
+            data = bytearray()
+            while len(data) <= max_file_bytes:
+                amount = min(65_536, max_file_bytes + 1 - len(data))
+                if amount <= 0:
+                    break
+                buffer = ctypes.create_string_buffer(amount)
+                read_count = wintypes.DWORD()
+                if not read_file(wintypes.HANDLE(handle), buffer, amount, ctypes.byref(read_count), None):
+                    fail("cognition_observation_windows_read_failed")
+                if not read_count.value:
+                    break
+                data.extend(buffer.raw[:read_count.value])
+            after_attrs, after_standard = attrs_and_standard(handle)
+            if (len(data) != size or int(after_standard.EndOfFile) != size
+                    or file_id(handle) != before_id or file_id(root_handle) != root_identity):
+                fail("cognition_observation_windows_file_changed")
+            total += len(data)
+            if total > max_total_bytes:
+                fail("cognition_observation_retention_limit_exceeded")
+            result.append((name, bytes(data)))
+            retained_files.append((handle, before_id, size))
+        if file_id(root_handle) != root_identity:
+            fail("cognition_observation_windows_root_identity_changed")
+        if require_private_acl:
+            verify_private_handle_acl(root_handle)
+        for retained, identity, size in retained_files:
+            _, standard = attrs_and_standard(retained)
+            if (standard.Directory or standard.NumberOfLinks != 1
+                    or int(standard.EndOfFile) != size or file_id(retained) != identity):
+                fail("cognition_observation_windows_file_changed")
+            if require_private_acl:
+                verify_private_handle_acl(retained)
         return result
     except WindowsHandleCustodyError:
         raise
     except (OSError, UnicodeError, ValueError, TypeError) as exc:
         fail("cognition_observation_windows_recovery_failed", exc)
     finally:
+        close_error: WindowsHandleCustodyError | None = None
         for handle in reversed(opened_handles):
-            close(handle)
+            try:
+                close(handle)
+            except WindowsHandleCustodyError as exc:
+                if close_error is None:
+                    close_error = exc
+        if close_error is not None:
+            raise close_error
 

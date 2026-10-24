@@ -14,6 +14,7 @@ from sentientos.windows_handle_custody import (
     read_explicit_file,
     read_regular_files,
 )
+from sentientos import windows_handle_custody as windows_custody_module
 from sentientos.work_plan import (
     WORK_PLAN_EVIDENCE_DIR,
     WorkPlanError,
@@ -185,6 +186,70 @@ def test_private_acl_rejects_broad_write_grants(
 
     with pytest.raises(WindowsHandleCustodyError, match="private_acl_broad_write_grant"):
         read_explicit_file(path, max_bytes=64, require_private_acl=True)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows sharing contracts")
+def test_windows_reader_retains_earlier_handles_until_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    first, second = tmp_path / "a.json", tmp_path / "b.json"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    for path in (first, second):
+        _make_current_user_private(path, directory=False)
+    real_check = windows_custody_module.verify_private_handle_acl
+    checks = 0
+
+    def check_and_attempt_mutation(handle: int) -> None:
+        nonlocal checks
+        real_check(handle)
+        checks += 1
+        if checks == 3:  # root, first file, then second file
+            with pytest.raises(PermissionError):
+                first.write_bytes(b"replacement")
+            with pytest.raises(PermissionError):
+                first.unlink()
+
+    monkeypatch.setattr(windows_custody_module, "verify_private_handle_acl", check_and_attempt_mutation)
+    assert read_regular_files(tmp_path, max_entries=2, max_file_bytes=64,
+        max_total_bytes=128, selected_names=("a.json", "b.json"),
+        require_private_acl=True) == [("a.json", b"first"), ("b.json", b"second")]
+    assert checks >= 3
+    first.write_bytes(b"released")
+    first.unlink()
+
+
+@pytest.mark.parametrize("grant_target", ["directory", "earlier_file"])
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows terminal ACL inspection")
+def test_windows_reader_rechecks_acl_before_releasing_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, grant_target: str,
+) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    first, second = tmp_path / "a.json", tmp_path / "b.json"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    for path in (first, second):
+        _make_current_user_private(path, directory=False)
+    real_check = windows_custody_module.verify_private_handle_acl
+    checks = 0
+
+    def check_and_change_acl(handle: int) -> None:
+        nonlocal checks
+        real_check(handle)
+        checks += 1
+        if checks == 3:
+            target = tmp_path if grant_target == "directory" else first
+            subprocess.run(["icacls", str(target), "/grant:r", "*S-1-1-0:(W)"],
+                check=True, capture_output=True, text=True, timeout=20)
+
+    monkeypatch.setattr(windows_custody_module, "verify_private_handle_acl", check_and_change_acl)
+    with pytest.raises(WindowsHandleCustodyError, match="private_acl_broad_write_grant"):
+        read_regular_files(tmp_path, max_entries=2, max_file_bytes=64,
+            max_total_bytes=128, selected_names=("a.json", "b.json"), require_private_acl=True)
+    assert checks >= 3
+    first.write_bytes(b"released after rejection")
+    second.unlink()
 
 
 def _provision_private_replay_history(
