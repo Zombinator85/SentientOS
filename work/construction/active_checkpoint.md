@@ -1,4 +1,22 @@
-## Current verified state - sequence 644
+## Current verified state - sequence 645
+
+Sequence 645 integrates sequence 644's Windows immutable replay publication evidence into the append-only construction index and active checkpoint. PR #2750 merged the evidence-only update normally; its candidate and main content trees are identical. All applicable exact-candidate and post-merge checks passed. The scheduled Federation Health execution on this main SHA is a successful, source-bound but stale local-log snapshot; it is not live telemetry.
+
+Latest verified main: `66dec47a35c44e7efbe5a28d197f57e62ce6b8f6`, tree `cae6b7697027b0cf1563ad195574d1ecbfe3082c`
+Latest construction segment: `work/construction/segments/0645-integrate-sequence-645-main-verification.md`
+Latest segment SHA-256: b76966f5a02900883f3e24ea1c5af17a2adeb363b0fb4e24f1a966e947ea087b
+Sequence: 645 (sequence 644 verified main integration)
+
+PR #2750 candidate `a03ed6521aa36c2a55818cbb7a44250f345159ac` merged normally as `66dec47a35c44e7efbe5a28d197f57e62ce6b8f6`, with `71dd659bcf4c1dbe2f64927be38011fa61b45a83` as first parent and candidate as second parent. The exact PR gate passed all 48 required acceptance nodes, and all PR checks and applicable main checks passed. Hosted Administrator verification confirmed UID 0; strict audit and audit immutability passed. All eight listed branch/PR/main evidence archives were independently downloaded and hash-matched.
+
+Scheduled Federation Health #40119459027 ran on this exact main SHA and passed its Administrator preflight, report generation, and publication job. Its configured local snapshot reports one node, zero recent events, latest event 2025-06-05T16:25:13.805813Z, and stale status; live telemetry remains unobserved.
+
+Evidence record: `work/construction/evidence/0645-integrate-sequence-645-main-verification.json`
+Evidence SHA-256: e529ef8fd4a1dd27c3d3df0740c5b49de38c0d5151e068ee23fc7dc2824b0ccc
+
+Next: establish an explicit, operator-provisioned Windows replay-root identity/custody binding before runtime source composition. Keep missing or changed roots fail-closed and retain the separation from transport, live telemetry, local Health, admission, planning, execution, and decision authority.
+
+## Previous checkpoint snapshot - sequence 644
 
 Sequence 644 implements immutable Windows publication for the explicitly invoked peer replay owner, using an existing private root, protected staging, handle-bound readback, atomic no-replace commit, durable flush, and terminal custody verification. Native acceptance covers publication, retry/conflict, race, substitution, process-death, and commit-boundary behavior. Windows runtime peer-source composition remains disabled; the root is not created automatically and no downstream authority is granted.
 
