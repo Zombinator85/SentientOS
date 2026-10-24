@@ -87,3 +87,5 @@ jobs:
           if-no-files-found: ignore
       - name: Run bounded subprocess supervision regressions
         run: python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q
+      - name: Probe disposable Windows directory durability prerequisites
+        run: python work/research/probe_windows_directory_flush.py
