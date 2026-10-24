@@ -1,3 +1,21 @@
+## Current verified state - sequence 650
+
+Sequence 650 integrates the verified-main result for the Windows replay-root pin documentation update and refreshes the checkpoint to the exact main merge of PR #2757. The documentation build and all applicable hosted checks passed.
+
+Latest verified main: `91c0545f4f21f06d740c89acd2b9b3f0028ea5e0`, tree `0d9a5fb0def2e51c88673b4f9b8b91dc63ae7372`
+Latest construction segment: `work/construction/segments/0650-integrate-sequence-650-main-verification.md`
+Latest segment SHA-256: 74dfd2364994e52edc5cf464832cb0b20e2768548e921569157d61cda12a2f40
+Sequence: 650 (Windows replay-root pin documentation)
+
+PR #2757 candidate `d8e51bfe83753e2900dec868526ba7a7f0b8a533` merged normally as `91c0545f4f21f06d740c89acd2b9b3f0028ea5e0`, retaining the exact tested tree. Its Required Quality Gate, CI, Invariants, Docker, Codex CI, Lint Benchmark, Release, and Gradient checks passed. Main Required Quality Gate, all four CI jobs, Invariants, Docker, Codex CI, and Docs Deploy passed. Forge Smoke was skipped by condition.
+
+Evidence record: `work/construction/evidence/0650-integrate-sequence-650-main-verification.json`
+Evidence SHA-256: 25612079e72490152f48872a9167a4a8d3b033126179dc9eafbd4225197e5c14
+
+Next: select another separately bounded, safe construction increment from the current roadmap. Preserve operator authority, explicit custody, and fail-closed behavior.
+
+## Previous checkpoint snapshot - sequence 649
+
 ## Current verified state - sequence 649
 
 Sequence 649 integrates the verified-main record for sequence 648 and refreshes the checkpoint to the exact main merge of PR #2755. This is an evidence-only update; applicable branch, PR, and post-merge checks passed.
