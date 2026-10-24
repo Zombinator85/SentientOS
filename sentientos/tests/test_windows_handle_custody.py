@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sentientos.windows_handle_custody import (
     WindowsHandleCustodyError,
+    observe_private_directory_identity,
     read_explicit_file,
     read_regular_files,
 )
@@ -99,6 +100,54 @@ def _make_current_user_private(path: Path, *, directory: bool) -> None:
         ["icacls", str(path), "/setowner", f"*{user_sid}"],
         check=True, capture_output=True, text=True,
     )
+
+
+def _windows_root_identity(path: Path) -> tuple[int, bytes]:
+    return observe_private_directory_identity(path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows filesystem identity")
+def test_windows_private_root_identity_is_observed_without_mutation(tmp_path: Path) -> None:
+    missing = tmp_path / "missing-root"
+    with pytest.raises(WindowsHandleCustodyError):
+        observe_private_directory_identity(missing)
+    assert not missing.exists()
+
+    _make_current_user_private(tmp_path, directory=True)
+    identity = observe_private_directory_identity(tmp_path)
+    assert type(identity[0]) is int and 0 <= identity[0] <= 2**64 - 1
+    assert type(identity[1]) is bytes and len(identity[1]) == 16
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows root identity enforcement")
+def test_windows_reader_rejects_changed_operator_pinned_root(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    expected = _windows_root_identity(tmp_path)
+    wrong = (expected[0], bytes([expected[1][0] ^ 1]) + expected[1][1:])
+    with pytest.raises(WindowsHandleCustodyError, match="windows_custody_root_identity_mismatch"):
+        read_regular_files(tmp_path, max_entries=1, max_file_bytes=64,
+            max_total_bytes=64, selected_names=(), require_private_acl=True,
+            expected_root_identity=wrong)
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows immutable publication")
+def test_windows_replay_publication_rejects_changed_operator_pinned_root(tmp_path: Path) -> None:
+    _make_current_user_private(tmp_path, directory=True)
+    expected = _windows_root_identity(tmp_path)
+    wrong = (expected[0], bytes([expected[1][0] ^ 1]) + expected[1][1:])
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+                       match="windows_replay_root_identity_mismatch"):
+        publication_module.publish_immutable_replay_bytes(
+            tmp_path / replay_module._record_name(1), b"record-one",
+            max_bytes=64, max_entries=8, expected_root_identity=wrong)
+    assert list(tmp_path.iterdir()) == []
+    with pytest.raises(publication_module.WindowsReplayCustodyError,
+                       match="windows_replay_root_identity_required"):
+        publication_module.publish_immutable_replay_bytes(
+            tmp_path / replay_module._record_name(1), b"record-one",
+            max_bytes=64, max_entries=8)
 
 
 def test_explicit_file_reader_returns_bounded_regular_file(tmp_path: Path) -> None:
@@ -286,7 +335,8 @@ def test_windows_replay_recovers_signed_history_without_mutation(tmp_path: Path)
     root = tmp_path / "peer-one"
     _, _, catalog = _provision_private_replay_history(root)
     before = {p.name: p.read_bytes() for p in root.iterdir()}
-    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    owner = replay_module.FederationPeerReplayOwner(
+        root, peer_id="peer-one", expected_root_identity=_windows_root_identity(root))
     verifier = CryptographyEd25519FederationPeerSignatureVerifier()
 
     history = owner.verified_history(catalog=catalog, signature_verifier=verifier)
@@ -310,7 +360,8 @@ def test_windows_replay_rejects_recomputed_signature_tamper(tmp_path: Path) -> N
         key: value for key, value in record.items() if key != "record_digest"})
     path.write_bytes(replay_module._canonical(record))
     before = path.read_bytes()
-    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    owner = replay_module.FederationPeerReplayOwner(
+        root, peer_id="peer-one", expected_root_identity=_windows_root_identity(root))
     assert owner.last_accepted_sequence == 2  # hash-chain integrity is not signature proof
     with pytest.raises(replay_module.FederationPeerReplayOwnerError,
                        match="replay_history_event_verification_failed"):
@@ -322,17 +373,30 @@ def test_windows_replay_rejects_recomputed_signature_tamper(tmp_path: Path) -> N
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows replay custody")
 def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path) -> None:
     root = tmp_path / "peer-one"
-    owner = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
     with pytest.raises(replay_module.FederationPeerReplayOwnerError,
-                       match="replay_owner_custody_unavailable"):
-        _ = owner.last_accepted_sequence
+                       match="replay_owner_root_identity_required"):
+        replay_module.FederationPeerReplayOwner(root, peer_id="peer-one")
+    with pytest.raises(WindowsHandleCustodyError):
+        observe_private_directory_identity(root)
     assert not root.exists()
     root.mkdir()
     _make_current_user_private(root, directory=True)
+    identity = _windows_root_identity(root)
+    owner = replay_module.FederationPeerReplayOwner(
+        root, peer_id="peer-one", expected_root_identity=identity)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        _ = owner.last_accepted_sequence
+    assert root.exists()
     assert owner.last_accepted_sequence == 0
     root.rmdir()
     _provision_private_replay_history(root)
-    bounded = replay_module.FederationPeerReplayOwner(root, peer_id="peer-one", max_records=1)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        _ = owner.last_accepted_sequence
+    bounded = replay_module.FederationPeerReplayOwner(
+        root, peer_id="peer-one", max_records=1,
+        expected_root_identity=_windows_root_identity(root))
     with pytest.raises(replay_module.FederationPeerReplayOwnerError,
                        match="replay_owner_record_limit_exceeded"):
         _ = bounded.last_accepted_sequence
@@ -348,9 +412,53 @@ def test_windows_replay_requires_existing_private_bounded_history(tmp_path: Path
     assert not (tmp_path / "absent-pin.json").exists()
 
 
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows operator pin custody")
+def test_windows_factory_binds_operator_pin_to_existing_replay_root(tmp_path: Path) -> None:
+    from tests.test_federation_peer_health_source_factory import _write_pinned_peer
+
+    pin_path, runtime_root, _ = _write_pinned_peer(
+        tmp_path, windows_identity=(0, bytes(16)))
+    for directory in (
+        runtime_root,
+        runtime_root / "federation",
+        runtime_root / "federation" / "peer_trust_catalogs",
+    ):
+        _make_current_user_private(directory, directory=True)
+    catalog_path = runtime_root / "federation" / "peer_trust_catalogs" / "peer-one.json"
+    _make_current_user_private(catalog_path, directory=False)
+
+    replay_root = runtime_root / "federation" / "peer_health_replay" / "peer-one"
+    replay_root.mkdir(parents=True)
+    _make_current_user_private(runtime_root / "federation" / "peer_health_replay", directory=True)
+    _make_current_user_private(replay_root, directory=True)
+    identity = _windows_root_identity(replay_root)
+    pin = json.loads(pin_path.read_text())
+    pin["peers"][0]["root_identity"] = {
+        "volume_serial_number": identity[0], "file_id": identity[1].hex(),
+    }
+    pin_path.write_text(json.dumps(pin, sort_keys=True, separators=(",", ":")) + "\n")
+    _make_current_user_private(pin_path, directory=False)
+
+    sources = load_operator_pinned_peer_health_sources(
+        pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
+    owner = sources["peer-one"].owner
+    assert owner.expected_root_identity == identity
+    assert owner.last_accepted_sequence == 0
+
+    replay_root.rename(replay_root.with_name("peer-one-old"))
+    replay_root.mkdir()
+    _make_current_user_private(replay_root, directory=True)
+    with pytest.raises(replay_module.FederationPeerReplayOwnerError,
+                       match="replay_owner_custody_unavailable"):
+        _ = owner.last_accepted_sequence
+    assert list(replay_root.iterdir()) == []
+
+
 def _publish_test_record(root: Path, data: bytes = b"record-one", *, max_entries: int = 8) -> bool:
+    expected = _windows_root_identity(root) if os.name == "nt" and root.exists() else None
     return publication_module.publish_immutable_replay_bytes(
-        root / replay_module._record_name(1), data, max_bytes=140_000, max_entries=max_entries)
+        root / replay_module._record_name(1), data, max_bytes=140_000,
+        max_entries=max_entries, expected_root_identity=expected)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="exercises the non-Windows refusal")
@@ -435,13 +543,15 @@ def test_windows_replay_publication_crash_retry_preserves_evidence(tmp_path: Pat
     script = """import json, os, sys
 from pathlib import Path
 from sentientos import windows_peer_replay_custody as publication
+from sentientos.windows_handle_custody import observe_private_directory_identity
 def boundary(phase):
     if phase == sys.argv[2]:
         os._exit(71)
 publication._publication_boundary = boundary
 print(json.dumps({'pid': os.getpid()}), flush=True)
 publication.publish_immutable_replay_bytes(Path(sys.argv[1]) / 'event-00000000000000000001.json',
-    b'record-one', max_bytes=140000, max_entries=8)
+    b'record-one', max_bytes=140000, max_entries=8,
+    expected_root_identity=observe_private_directory_identity(Path(sys.argv[1])))
 """
     child = subprocess.run([sys.executable, "-c", script, str(tmp_path), phase],
         capture_output=True, text=True, timeout=30)
@@ -526,7 +636,9 @@ def test_windows_replay_owner_publishes_and_reverifies_signed_outcomes(tmp_path:
     _make_current_user_private(tmp_path, directory=True)
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     verifier = CryptographyEd25519FederationPeerSignatureVerifier()
-    owner = replay_module.FederationPeerReplayOwner(tmp_path, peer_id="peer-one")
+    identity = _windows_root_identity(tmp_path)
+    owner = replay_module.FederationPeerReplayOwner(
+        tmp_path, peer_id="peer-one", expected_root_identity=identity)
     for sequence, outcome in enumerate(("adverse", "positive"), start=1):
         raw, _ = _signed_event(private, key_id, sequence=sequence,
             event={"kind": "trial_outcome", "outcome": outcome})
@@ -537,7 +649,8 @@ def test_windows_replay_owner_publishes_and_reverifies_signed_outcomes(tmp_path:
         signature_from=Ed25519PrivateKey.from_private_bytes(bytes(reversed(range(32)))))
     with pytest.raises(FederationPeerEventVerificationError):
         owner.accept(bad, catalog=catalog, signature_verifier=verifier, now=NOW)
-    recovered = replay_module.FederationPeerReplayOwner(tmp_path, peer_id="peer-one")
+    recovered = replay_module.FederationPeerReplayOwner(
+        tmp_path, peer_id="peer-one", expected_root_identity=_windows_root_identity(tmp_path))
     history = recovered.verified_history(catalog=catalog, signature_verifier=verifier)
     assert recovered.last_accepted_sequence == 2
     assert [record.verified_event.event["outcome"] for record in history] == ["adverse", "positive"]

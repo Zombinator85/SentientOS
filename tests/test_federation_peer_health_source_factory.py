@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -15,16 +16,22 @@ from sentientos.federation.peer_authentication_ed25519 import (
 )
 from sentientos.federation.peer_health_source_factory import (
     PIN_SCHEMA,
+    WINDOWS_PIN_SCHEMA,
     FederationPeerHealthSourceFactoryError,
     load_operator_pinned_peer_health_sources,
 )
 from sentientos.federation.peer_replay_owner import FederationPeerReplayOwner
 from sentientos.federation.peer_trust_catalog import CATALOG_SCHEMA, catalog_digest_for
 
-pytestmark = pytest.mark.no_legacy_skip
+pytestmark = [
+    pytest.mark.no_legacy_skip,
+    pytest.mark.skipif(os.name == "nt", reason="uses POSIX private-file fixtures"),
+]
 
 
-def _write_pinned_peer(tmp_path: Path, *, peer_id: str = "peer-one") -> tuple[Path, Path, str]:
+def _write_pinned_peer(
+    tmp_path: Path, *, peer_id: str = "peer-one", windows_identity: tuple[int, bytes] | None = None,
+) -> tuple[Path, Path, str]:
     runtime_root = tmp_path / "runtime"
     catalog_path = runtime_root / "federation" / "peer_trust_catalogs" / f"{peer_id}.json"
     catalog_path.parent.mkdir(parents=True)
@@ -54,14 +61,20 @@ def _write_pinned_peer(tmp_path: Path, *, peer_id: str = "peer-one") -> tuple[Pa
     catalog_path.write_bytes(catalog_raw)
 
     pin_path = tmp_path / "peer-health-pin.json"
-    pin = {
-        "schema": PIN_SCHEMA,
-        "peers": [{
+    row = {
             "peer_id": peer_id,
             "catalog_version": 4,
             "catalog_digest": catalog["catalog_digest"],
             "max_age_seconds": 300,
-        }],
+        }
+    if windows_identity is not None:
+        row["root_identity"] = {
+            "volume_serial_number": windows_identity[0],
+            "file_id": windows_identity[1].hex(),
+        }
+    pin = {
+        "schema": WINDOWS_PIN_SCHEMA if windows_identity is not None else PIN_SCHEMA,
+        "peers": [row],
     }
     pin_path.write_text(json.dumps(pin, sort_keys=True, separators=(",", ":")) + "\n")
     pin_path.chmod(0o600)
@@ -145,6 +158,67 @@ def test_operator_pin_fails_closed_without_replay_owner_platform_custody(
     with pytest.raises(FederationPeerHealthSourceFactoryError, match="peer_replay_owner_custody_unsupported"):
         load_operator_pinned_peer_health_sources(
             pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
+
+
+def test_windows_operator_pin_binds_existing_private_replay_root_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    identity = (0x123456789ABCDEF0, bytes(range(16)))
+    pin_path, runtime_root, _ = _write_pinned_peer(tmp_path, windows_identity=identity)
+    owner_root = runtime_root / "federation" / "peer_health_replay" / "peer-one"
+    monkeypatch.setattr(factory, "_requires_windows_root_identity", lambda: True)
+    monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: True)
+    monkeypatch.setattr(factory, "observe_private_directory_identity", lambda _root: identity)
+
+    sources = load_operator_pinned_peer_health_sources(
+        pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
+
+    assert sources["peer-one"].owner.root == owner_root
+    assert sources["peer-one"].owner.expected_root_identity == identity
+
+
+def test_windows_operator_pin_rejects_root_identity_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    pinned = (7, bytes(range(16)))
+    replacement = (7, bytes(reversed(range(16))))
+    pin_path, runtime_root, _ = _write_pinned_peer(tmp_path, windows_identity=pinned)
+    monkeypatch.setattr(factory, "_requires_windows_root_identity", lambda: True)
+    monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: True)
+    monkeypatch.setattr(factory, "observe_private_directory_identity", lambda _root: replacement)
+
+    with pytest.raises(FederationPeerHealthSourceFactoryError,
+                       match="peer_health_replay_root_identity_mismatch"):
+        load_operator_pinned_peer_health_sources(
+            pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
+    assert not (runtime_root / "federation" / "peer_health_replay" / "peer-one").exists()
+
+
+def test_windows_operator_pin_rejects_legacy_unpinned_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
+    monkeypatch.setattr(factory, "_requires_windows_root_identity", lambda: True)
+    monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: True)
+
+    with pytest.raises(FederationPeerHealthSourceFactoryError,
+                       match="peer_health_pin_root_identity_required"):
+        load_operator_pinned_peer_health_sources(
+            pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
+    assert not (runtime_root / "federation" / "peer_health_replay" / "peer-one").exists()
+
+
+def test_windows_operator_pin_rejects_malformed_root_identity(tmp_path: Path):
+    pin_path, runtime_root, _ = _write_pinned_peer(
+        tmp_path, windows_identity=(1, bytes(range(16))))
+    pin = json.loads(pin_path.read_text())
+    pin["peers"][0]["root_identity"]["file_id"] = "A" * 32
+    pin_path.write_text(json.dumps(pin, sort_keys=True, separators=(",", ":")) + "\n")
+    pin_path.chmod(0o600)
+
+    with pytest.raises(FederationPeerHealthSourceFactoryError,
+                       match="peer_health_pin_root_identity_invalid"):
+        factory._load_pin(pin_path)
 
 
 def test_operator_pin_rejects_invalid_path_argument(tmp_path: Path):

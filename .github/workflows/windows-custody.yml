@@ -8,6 +8,7 @@ on:
       - "sentientos/windows_handle_custody.py"
       - "sentientos/windows_peer_replay_custody.py"
       - "sentientos/federation/peer_replay_owner.py"
+      - "sentientos/federation/peer_health_source_factory.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
       - "sentientos/bounded_subprocess.py"
@@ -22,6 +23,7 @@ on:
       - "sentientos/windows_handle_custody.py"
       - "sentientos/windows_peer_replay_custody.py"
       - "sentientos/federation/peer_replay_owner.py"
+      - "sentientos/federation/peer_health_source_factory.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
       - "sentientos/bounded_subprocess.py"
@@ -59,9 +61,13 @@ jobs:
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_existing_alternate_data_stream",
             "sentientos/tests/test_windows_handle_custody.py::test_reader_rejects_case_alias_selection_before_open",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_private_root_identity_is_observed_without_mutation",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_changed_operator_pinned_root",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_rejects_changed_operator_pinned_root",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_mutation",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_factory_binds_operator_pin_to_existing_replay_root",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_retains_earlier_handles_until_complete",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[directory]",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]",

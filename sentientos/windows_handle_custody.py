@@ -9,7 +9,7 @@ import os
 import stat
 import struct
 from pathlib import Path
-from typing import NoReturn
+from typing import Literal, NoReturn, overload
 
 
 class WindowsHandleCustodyError(ValueError):
@@ -286,10 +286,33 @@ def verify_explicit_directory(path: Path, *, require_private_acl: bool = False) 
         max_total_bytes=1, selected_names=(), require_private_acl=require_private_acl)
 
 
+@overload
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
                        selected_names: tuple[str, ...] | None = None,
-                       require_private_acl: bool = False) -> list[tuple[str, bytes]]:
+                       require_private_acl: bool = False,
+                       expected_root_identity: tuple[int, bytes] | None = None,
+                       return_root_identity: Literal[False] = False
+                       ) -> list[tuple[str, bytes]]: ...
+
+
+@overload
+def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
+                       max_total_bytes: int, suffix: str = ".json",
+                       selected_names: tuple[str, ...] | None = None,
+                       require_private_acl: bool = False,
+                       expected_root_identity: tuple[int, bytes] | None = None,
+                       return_root_identity: Literal[True]
+                       ) -> tuple[list[tuple[str, bytes]], tuple[int, bytes]]: ...
+
+
+def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
+                       max_total_bytes: int, suffix: str = ".json",
+                       selected_names: tuple[str, ...] | None = None,
+                       require_private_acl: bool = False,
+                       expected_root_identity: tuple[int, bytes] | None = None,
+                       return_root_identity: bool = False
+                       ) -> list[tuple[str, bytes]] | tuple[list[tuple[str, bytes]], tuple[int, bytes]]:
     """Read bounded regular files through bound Windows handles.
 
     Win32 path opens are not used for descendants.  The configured root is
@@ -312,6 +335,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             or type(max_total_bytes) is not int or max_total_bytes < 1
             or not isinstance(suffix, str) or "/" in suffix or "\\" in suffix
             or type(require_private_acl) is not bool
+            or type(return_root_identity) is not bool
+            or (expected_root_identity is not None and not _valid_file_identity(expected_root_identity))
             or invalid_names):
         raise WindowsHandleCustodyError("windows_custody_read_limits_invalid")
     if os.name != "nt":
@@ -469,6 +494,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
 
         root_handle = current
         root_identity = file_id(root_handle)
+        if expected_root_identity is not None and root_identity != expected_root_identity:
+            fail("windows_custody_root_identity_mismatch")
         if require_private_acl:
             verify_private_handle_acl(root_handle)
         entries: list[tuple[str, int]] = []
@@ -514,7 +541,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                     offset += next_offset
                 if len(entries) > max_entries:
                     fail("cognition_observation_retention_limit_exceeded")
-        if file_id(root_handle) != root_identity:
+        if (file_id(root_handle) != root_identity
+                or (expected_root_identity is not None and root_identity != expected_root_identity)):
             fail("cognition_observation_windows_root_identity_changed")
         result: list[tuple[str, bytes]] = []
         total = 0
@@ -572,6 +600,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                 fail("cognition_observation_windows_file_changed")
             if require_private_acl:
                 verify_private_handle_acl(retained)
+        if return_root_identity:
+            return result, root_identity
         return result
     except WindowsHandleCustodyError:
         raise
@@ -587,4 +617,21 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                     close_error = exc
         if close_error is not None:
             raise close_error
+
+
+def _valid_file_identity(value: object) -> bool:
+    return (isinstance(value, tuple) and len(value) == 2
+            and type(value[0]) is int and 0 <= value[0] <= 2**64 - 1
+            and type(value[1]) is bytes and len(value[1]) == 16)
+
+
+def observe_private_directory_identity(root: Path) -> tuple[int, bytes]:
+    """Return a reparse-safe identity for an existing private Windows directory."""
+    result = read_regular_files(
+        root, max_entries=1, max_file_bytes=1, max_total_bytes=1,
+        selected_names=(), require_private_acl=True, return_root_identity=True,
+    )
+    if not isinstance(result, tuple) or len(result) != 2 or result[0]:
+        raise WindowsHandleCustodyError("windows_custody_root_identity_unavailable")
+    return result[1]
 
