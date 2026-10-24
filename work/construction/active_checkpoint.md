@@ -1,4 +1,20 @@
-## Current verified state - sequence 645
+## Current verified state - sequence 646
+
+Sequence 646 integrates sequence 645's verified-main record and refreshes the construction checkpoint to the exact main merge of PR #2751. The update is evidence-only; PR checks, hosted audit/finalization, 48-node acceptance, and all applicable post-merge checks passed.
+
+Latest verified main: `554b446b951e690068112475f0af7c3d215eca8e`, tree `62b0d69ac4c448d359be4352c3740e0fe3744f80`
+Latest construction segment: `work/construction/segments/0646-integrate-sequence-646-main-verification.md`
+Latest segment SHA-256: 20d1ea31e77e1c2713e5b147137459e6b57ecfe904aba1ac92553cf5f6ab4fba
+Sequence: 646 (sequence 645 verified-main integration)
+
+PR #2751 candidate `5760cad603558b63f826ad0bb281bf31526e058d` merged normally as `554b446b951e690068112475f0af7c3d215eca8e`, retaining the exact tested tree. All applicable PR and main gates passed; Forge Smoke was skipped by condition. Main hosted Quality Gate accepted all 48 nodes, and Administrator strict audit and immutability passed. All seven listed branch/PR/main evidence archives were independently downloaded and SHA-256 matched.
+
+Evidence record: `work/construction/evidence/0646-integrate-sequence-646-main-verification.json`
+Evidence SHA-256: fb1869e38724cd3b082acaf228cacdd5b4758d0dbbd6545dfaa89469c08d1139
+
+Next: bind the existing Windows peer replay root to an operator-provisioned filesystem identity and enforce that pin on reads and immutable writes. Keep missing, changed, or unpinned roots fail-closed and do not infer transport, live telemetry, Health publication, admission, planning, execution, or decision authority.
+
+## Previous checkpoint snapshot - sequence 645
 
 Sequence 645 integrates sequence 644's Windows immutable replay publication evidence into the append-only construction index and active checkpoint. PR #2750 merged the evidence-only update normally; its candidate and main content trees are identical. All applicable exact-candidate and post-merge checks passed. The scheduled Federation Health execution on this main SHA is a successful, source-bound but stale local-log snapshot; it is not live telemetry.
 
