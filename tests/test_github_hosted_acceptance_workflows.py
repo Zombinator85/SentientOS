@@ -596,10 +596,10 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 47
+    assert selection.count("tests/") == 48
     node_lines = [line for line in selection.splitlines() if "tests/" in line]
     assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
-    assert "len(nodes)==47" in workflow
+    assert "len(nodes)==48" in workflow
     assert "tests/test_experiment_chain.py::test_pending_nondeterministic_adapter_waits_for_approval" in selection
     assert "tests/test_experiment_chain.py::test_nondeterministic_adapter_runs_after_consensus_approval" in selection
     assert "tests/test_experiment_chain.py::test_pending_deterministic_adapter_keeps_existing_execution_behavior" in selection
@@ -628,7 +628,7 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
     selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/test_") == 47
+    assert selection.count("tests/test_") == 48
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -1493,6 +1493,17 @@ def test_windows_custody_workflow_runs_bounded_subprocess_regressions() -> None:
     assert '"tests/test_codex_landing_process_supervision.py"' in workflow
     assert "Run bounded subprocess supervision regressions" in workflow
     assert "python -m scripts.run_tests tests/test_codex_landing_process_supervision.py -q" in workflow
+
+
+def test_windows_custody_workflow_binds_native_acl_tests_to_exact_acceptance() -> None:
+    workflow = (ROOT / ".github/workflows/windows-custody.yml").read_text()
+
+    assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in workflow
+    assert "Bind native ACL regressions to exact task acceptance" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[directory]" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_private_acl_rejects_broad_write_grants[file]" in workflow
+    assert "python scripts/verify_task_acceptance.py" in workflow
+    assert "windows-custody-exact-acceptance" in workflow
 
 
 def test_self_check_retries_required_ffmpeg_install_after_mirror_timeout() -> None:
