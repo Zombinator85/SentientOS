@@ -6,6 +6,7 @@ on:
       - ".github/workflows/windows-custody.yml"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
+      - "sentientos/windows_peer_replay_custody.py"
       - "sentientos/federation/peer_replay_owner.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
@@ -19,6 +20,7 @@ on:
       - ".github/workflows/windows-custody.yml"
       - "requirements-codex.txt"
       - "sentientos/windows_handle_custody.py"
+      - "sentientos/windows_peer_replay_custody.py"
       - "sentientos/federation/peer_replay_owner.py"
       - "sentientos/work_plan.py"
       - "sentientos/tests/test_windows_handle_custody.py"
@@ -57,12 +59,21 @@ jobs:
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rejects_existing_alternate_data_stream",
             "sentientos/tests/test_windows_handle_custody.py::test_reader_rejects_case_alias_selection_before_open",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order",
-            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_publication",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_mutation",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_retains_earlier_handles_until_complete",
             "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[directory]",
-            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]"
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_create_retry_and_conflict",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_preserves_destination_race",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_blocks_root_and_stage_substitution",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_crash_retry_preserves_evidence[prepared]",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_crash_retry_preserves_evidence[committed]",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_preserves_commit_after_flush_boundary_failure",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_enforces_bounds_and_parent_custody",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_publication_rejects_aliased_existing_record",
+            "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_owner_publishes_and_reverifies_signed_outcomes"
           )
           $manifest = [ordered]@{
             schema_version = "sentientos.task_acceptance:v1"

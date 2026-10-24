@@ -1507,12 +1507,25 @@ def test_windows_custody_workflow_binds_native_acl_tests_to_exact_acceptance() -
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_returns_selected_files_in_deterministic_order" in workflow
     assert workflow.count('"sentientos/federation/peer_replay_owner.py"') == 2
     assert "- 'codex/construct-sentientos*'" in workflow
-    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_publication" in workflow
+    assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_recovers_signed_history_without_mutation" in workflow
+    assert workflow.count('"sentientos/windows_peer_replay_custody.py"') == 2
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_rejects_recomputed_signature_tamper" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_replay_requires_existing_private_bounded_history" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_retains_earlier_handles_until_complete" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[directory]" in workflow
     assert "sentientos/tests/test_windows_handle_custody.py::test_windows_reader_rechecks_acl_before_releasing_inputs[earlier_file]" in workflow
+    for name in (
+        "test_windows_replay_publication_create_retry_and_conflict",
+        "test_windows_replay_publication_preserves_destination_race",
+        "test_windows_replay_publication_blocks_root_and_stage_substitution",
+        "test_windows_replay_publication_crash_retry_preserves_evidence[prepared]",
+        "test_windows_replay_publication_crash_retry_preserves_evidence[committed]",
+        "test_windows_replay_publication_preserves_commit_after_flush_boundary_failure",
+        "test_windows_replay_publication_enforces_bounds_and_parent_custody",
+        "test_windows_replay_publication_rejects_aliased_existing_record",
+        "test_windows_replay_owner_publishes_and_reverifies_signed_outcomes",
+    ):
+        assert f"sentientos/tests/test_windows_handle_custody.py::{name}" in workflow
     assert "python scripts/verify_task_acceptance.py" in workflow
     assert "windows-custody-exact-acceptance" in workflow
 

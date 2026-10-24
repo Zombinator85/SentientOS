@@ -1,0 +1,373 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 643,
+  "title": "Retain Windows replay read handles through complete bounded inspection",
+  "source": {
+    "candidate_commit": "d1ede149d939b184d12d246efeb20e997b6eeb4d",
+    "parent_main": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+    "source_tree": "991335491bae471f840f3cc73ae9539b0f6bcae7",
+    "pull_request": 2748,
+    "merge_commit": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157",
+    "merge_parents": [
+      "3c415a11fa924105c94a949725cf3dfad84e8f36",
+      "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+    ],
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "local": {
+      "focused_tests_passed": 155,
+      "failed": 0,
+      "exact_acceptance_nodes": 6,
+      "exact_acceptance_status": "task_acceptance_ready",
+      "mypy_targeted": "passed",
+      "mypy_baseline": {
+        "new_errors": 0,
+        "matched_existing": 1050,
+        "retired": 40
+      },
+      "construction_segments_verified": 641
+    },
+    "candidate_runs": [
+      {
+        "id": 40112342303,
+        "name": "First PR Welcome",
+        "event": "pull_request_target",
+        "status": "completed",
+        "conclusion": "skipped",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342147,
+        "name": "Release",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342187,
+        "name": "Gradient null regression",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342155,
+        "name": "Invariant Tests",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342150,
+        "name": "Codex CI",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342154,
+        "name": "Docker Image",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342312,
+        "name": "Windows Custody",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342193,
+        "name": "Lint Benchmark",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342212,
+        "name": "Required Quality Gate",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112342247,
+        "name": "CI",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112074209,
+        "name": "Invariant Tests",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112074193,
+        "name": "Windows Custody",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112074195,
+        "name": "Required Quality Gate",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      },
+      {
+        "id": 40112074237,
+        "name": "CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "d1ede149d939b184d12d246efeb20e997b6eeb4d"
+      }
+    ],
+    "post_merge_runs": [
+      {
+        "id": 40113314812,
+        "name": "Invariant Tests",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314807,
+        "name": "Docs Deploy",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314765,
+        "name": "Forge Smoke",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "skipped",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314774,
+        "name": "Codex CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314762,
+        "name": "Nightly Self Check",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314748,
+        "name": "Required Quality Gate",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314772,
+        "name": "Windows Custody",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314750,
+        "name": "Docker Image",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314766,
+        "name": "CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      }
+    ],
+    "hosted_finalizers": {
+      "branch": {
+        "run_id": 40112074195,
+        "artifact_sha256": "901b61d109b298137062970aaf5e79a8d81ac62612a0d25f3a5d6f8ab50b473c",
+        "native_acceptance_sha256": "89e38afe565725e22f3109d5a2e2391be5ce3a52a884c9ec2396df2654bc621a"
+      },
+      "pr": {
+        "run_id": 40112342212,
+        "artifact_sha256": "2c0d2ccb653d0d52c2eb15842056cdcd4e23d92cf896eb0d8426b3e914befd8f",
+        "native_acceptance_sha256": "341ec5f32154be158c91c8b704634630cf0111ddfa60c8d4158f71358fc19977",
+        "candidate_acceptance_sha256": "0c7f5241654264ff93dbf99ba2f7fbc28f11485f6ce5ca87fc69c760b199db7e"
+      }
+    },
+    "windows": {
+      "required_nodes": 11,
+      "status": "task_acceptance_ready",
+      "source_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157",
+      "reader_retained_all_input_handles_through_complete_bounded_read": true,
+      "terminal_metadata_and_private_acl_rechecked": true,
+      "directory_creation": false
+    },
+    "artifacts": {
+      "branch": [
+        {
+          "id": 12567201157,
+          "name": "required-quality-gate-evidence",
+          "digest": "sha256:b0862c8d14e1a3543798dc5aa5f615bf32a037a6b107609e4201c63b4dd25678"
+        },
+        {
+          "id": 12566498247,
+          "name": "hosted-privileged-pr-landing-finalizer",
+          "digest": "sha256:901b61d109b298137062970aaf5e79a8d81ac62612a0d25f3a5d6f8ab50b473c"
+        },
+        {
+          "id": 12567280811,
+          "name": "windows-custody-exact-acceptance",
+          "digest": "sha256:89e38afe565725e22f3109d5a2e2391be5ce3a52a884c9ec2396df2654bc621a"
+        }
+      ],
+      "pr": [
+        {
+          "id": 12567590394,
+          "name": "hosted-privileged-pr-landing-finalizer",
+          "digest": "sha256:2c0d2ccb653d0d52c2eb15842056cdcd4e23d92cf896eb0d8426b3e914befd8f"
+        },
+        {
+          "id": 12567281525,
+          "name": "exact-pr-candidate-acceptance",
+          "digest": "sha256:0c7f5241654264ff93dbf99ba2f7fbc28f11485f6ce5ca87fc69c760b199db7e"
+        },
+        {
+          "id": 12566649776,
+          "name": "required-quality-gate-evidence",
+          "digest": "sha256:f1820efc33e6d39d4da59026a30674a033ee5e7aeb68e5c2c2275f6cc83fc0ca"
+        },
+        {
+          "id": 12566903465,
+          "name": "windows-custody-exact-acceptance",
+          "digest": "sha256:341ec5f32154be158c91c8b704634630cf0111ddfa60c8d4158f71358fc19977"
+        }
+      ],
+      "main": [
+        {
+          "id": 12566768954,
+          "name": "required-quality-gate-evidence",
+          "digest": "sha256:168d4464d3e7ecb6a00a8a0a1f04ca21f840176feb2c9acb8cfad67596151c42"
+        },
+        {
+          "id": 12567263079,
+          "name": "windows-custody-exact-acceptance",
+          "digest": "sha256:c71ef12a281cdaeb9a034aa727ca3c789845909467fed6860ceafb43cc143979"
+        }
+      ]
+    },
+    "artifact_verification_limit": "GitHub artifact manifests and decoded workflow logs were inspected. Independent ZIP-byte readback was unavailable under this session network policy; only GitHub-advertised artifact digest values are recorded."
+  },
+  "post_merge": {
+    "commit": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157",
+    "tree": "991335491bae471f840f3cc73ae9539b0f6bcae7",
+    "runs": [
+      {
+        "id": 40113314812,
+        "name": "Invariant Tests",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314807,
+        "name": "Docs Deploy",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314765,
+        "name": "Forge Smoke",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "skipped",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314774,
+        "name": "Codex CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314762,
+        "name": "Nightly Self Check",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314748,
+        "name": "Required Quality Gate",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314772,
+        "name": "Windows Custody",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314750,
+        "name": "Docker Image",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      },
+      {
+        "id": 40113314766,
+        "name": "CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157"
+      }
+    ]
+  }
+}

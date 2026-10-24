@@ -24,6 +24,10 @@ from sentientos.private_file_custody import (
     read_private_file_at,
 )
 from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from sentientos.windows_peer_replay_custody import (
+    WindowsReplayCustodyError,
+    publish_immutable_replay_bytes,
+)
 from .peer_authentication import (
     FederationPeerEventVerificationError,
     FederationPeerSignatureVerifier,
@@ -163,10 +167,10 @@ class FederationPeerReplayOwner:
     """Own one peer's next accepted sequence under explicit private local custody.
 
     The owner, rather than the caller, supplies the verifier's prior sequence.
-    Records are immutable, canonical, bounded, and hash-linked. New directory
-    creation and record publication remain POSIX-only. Windows can inspect an already provisioned
-    private history through bounded, reparse-safe handles; it cannot create or
-    publish replay state. Runtime source composition remains fail-closed there.
+    Records are immutable, canonical, bounded, and hash-linked. Windows requires
+    an already provisioned private local root and never creates directories.
+    Its publication uses held handles, no-replace rename, flush and readback.
+    Automatic runtime source composition remains fail-closed on Windows.
     """
 
     __slots__ = ("_root", "_peer_id", "_max_records", "_max_history_bytes", "_lock")
@@ -207,8 +211,6 @@ class FederationPeerReplayOwner:
 
     def _load_history(self, *, create: bool) -> tuple[list[dict[str, Any]], int]:
         if os.name == "nt":
-            if create:
-                raise FederationPeerReplayOwnerError("replay_owner_custody_unavailable")
             try:
                 entries = read_regular_files(
                     self.root, max_entries=self.max_records + 1024,
@@ -408,12 +410,18 @@ class FederationPeerReplayOwner:
             if total_bytes + len(record_bytes) > self.max_history_bytes:
                 raise FederationPeerReplayOwnerError("replay_owner_byte_limit_exceeded")
             try:
-                created = publish_immutable_bytes(
-                    self.root / _record_name(verified.sequence), record_bytes,
-                    max_bytes=_MAX_RECORD_BYTES,
-                    collision_code="replay_owner_record_conflict",
-                )
-            except PrivateFileCustodyError as exc:
+                if os.name == "nt":
+                    created = publish_immutable_replay_bytes(
+                        self.root / _record_name(verified.sequence), record_bytes,
+                        max_bytes=_MAX_RECORD_BYTES, max_entries=self.max_records + 1024,
+                    )
+                else:
+                    created = publish_immutable_bytes(
+                        self.root / _record_name(verified.sequence), record_bytes,
+                        max_bytes=_MAX_RECORD_BYTES,
+                        collision_code="replay_owner_record_conflict",
+                    )
+            except (PrivateFileCustodyError, WindowsReplayCustodyError) as exc:
                 raise FederationPeerReplayOwnerError("replay_owner_publication_failed") from exc
             persisted, _ = self._load_history(create=False)
             if (len(persisted) != verified.sequence

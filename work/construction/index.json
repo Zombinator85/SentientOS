@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c52dda8d3b509ce572e2670d0128cf1124d341eb2e8ba76c12c5429d01fe491e",
-    "latest_segment_sequence": 641,
-    "latest_segment_sha256": "948d72857275dd33f55657942349c76285a458846eb21a44f099d1d2b3211b8b",
-    "source_commit": "78fbab1f935061da09e9e04c64ea93f019447946",
-    "source_tree": "868b3f1827e8c7f24e80c821b0035505221d38cc"
+    "checkpoint_sha256": "4f47d87b2398f5e9527b5be29906820e2c09b6c6a0de1c3f96cbf2a63c04d551",
+    "latest_segment_sequence": 643,
+    "latest_segment_sha256": "d7112a2a5ec1c3881d60e735ef140b7927cf2e64963ec8c8fc921aecb54d2716",
+    "source_commit": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157",
+    "source_tree": "991335491bae471f840f3cc73ae9539b0f6bcae7"
   },
-  "checkpoint_sha256": "c52dda8d3b509ce572e2670d0128cf1124d341eb2e8ba76c12c5429d01fe491e",
+  "checkpoint_sha256": "4f47d87b2398f5e9527b5be29906820e2c09b6c6a0de1c3f96cbf2a63c04d551",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 641,
+  "latest_sequence": 643,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7504,6 +7504,32 @@
       "source_candidate_commit": "0b3651186eea48446ac56aa3f99797a2ed92731e",
       "source_commit": "78fbab1f935061da09e9e04c64ea93f019447946",
       "source_tree": "868b3f1827e8c7f24e80c821b0035505221d38cc"
+    },
+    {
+      "sequence": 642,
+      "path": "work/construction/segments/0642-recover-windows-peer-replay-history.md",
+      "bytes": 1117,
+      "sha256": "80d1ca41e7b32eed4a4703d72b4505fb04e6a1b2ea8c005b67f6ee3f6e9d1775",
+      "predecessor": "segment-sha256:948d72857275dd33f55657942349c76285a458846eb21a44f099d1d2b3211b8b",
+      "evidence_path": "work/construction/evidence/0642-recover-windows-peer-replay-history.json",
+      "evidence_bytes": 10874,
+      "evidence_sha256": "c788d5723ca083e44426b2851465f4508e718c811b59fb943be8482493387f33",
+      "source_candidate_commit": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+      "source_commit": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+      "source_tree": "95d1db2168420f1d8d517dc130271d1932e15adc"
+    },
+    {
+      "sequence": 643,
+      "path": "work/construction/segments/0643-retain-windows-replay-inputs-through-read.md",
+      "bytes": 1225,
+      "sha256": "d7112a2a5ec1c3881d60e735ef140b7927cf2e64963ec8c8fc921aecb54d2716",
+      "predecessor": "segment-sha256:80d1ca41e7b32eed4a4703d72b4505fb04e6a1b2ea8c005b67f6ee3f6e9d1775",
+      "evidence_path": "work/construction/evidence/0643-retain-windows-replay-inputs-through-read.json",
+      "evidence_bytes": 11751,
+      "evidence_sha256": "86438dc9914a5ccb5756e0ff83e262f27543c8d195a3a8b364a9d22fd928f3a1",
+      "source_candidate_commit": "d1ede149d939b184d12d246efeb20e997b6eeb4d",
+      "source_commit": "02602fc5f1ff0c03de8845f97a0a69ede5fc8157",
+      "source_tree": "991335491bae471f840f3cc73ae9539b0f6bcae7"
     }
   ],
   "source_acquisition": {

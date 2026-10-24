@@ -34,16 +34,20 @@ version and SHA-256 digest to a bounded freshness interval:
 The pin file must be an absolute, regular, non-linked path secured for the runtime
 identity. On the supported POSIX path it must be owned by the current user with no
 group or other permissions. The shared handle reader can check the Windows ACL shape,
-but peer source composition currently fails closed on Windows because the replay owner
-does not yet provide immutable Windows publication. The trust catalog for each peer is read from
+but runtime peer source composition remains disabled on Windows. The explicit
+replay-owner API can publish into an already provisioned private local Windows
+root through handle-bound no-replace rename, flush, and independent readback;
+it does not create Windows directories or enable runtime source composition.
+The trust catalog for each peer is read from
 `<runtime.root>/federation/peer_trust_catalogs/<peer_id>.json`. Its exact digest and
 version must match the protected pin, and it must contain entries for that peer only.
 Catalog bytes are public, but the pin file supplies the local operator trust root.
 
 Replay custody is bound to
 `<runtime.root>/federation/peer_health_replay/<peer_id>`. The current immutable replay
-owner requires POSIX descriptor-bound private custody; configuring peer Health
-recovery on a platform without that owner fails closed. No replay directory is
+owner uses POSIX descriptor-bound custody or explicitly provisioned Windows
+handle custody. Runtime source composition still requires the supported POSIX
+owner; configuring peer Health recovery elsewhere fails closed. No replay directory is
 created while sources are composed. The runtime does not accept new events through
 this recovery projection; it only reconstructs claims already present in the local
 verified replay owner. An empty history remains an empty projection.

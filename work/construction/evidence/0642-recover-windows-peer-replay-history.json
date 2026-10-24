@@ -1,0 +1,325 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 642,
+  "title": "Recover already provisioned private Windows peer replay histories",
+  "source": {
+    "candidate_commit": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+    "parent_main": "78fbab1f935061da09e9e04c64ea93f019447946",
+    "source_tree": "95d1db2168420f1d8d517dc130271d1932e15adc",
+    "pull_request": 2747,
+    "merge_commit": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+    "merge_parents": [
+      "78fbab1f935061da09e9e04c64ea93f019447946",
+      "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7"
+    ],
+    "tree_matches_candidate": true,
+    "changed_paths": [
+      ".github/workflows/windows-custody.yml",
+      "sentientos/federation/peer_replay_owner.py",
+      "sentientos/tests/test_windows_handle_custody.py",
+      "tests/test_github_hosted_acceptance_workflows.py",
+      "work/construction/active_checkpoint.md",
+      "work/construction/evidence/0641-constrain-windows-custody-child-namespace.json",
+      "work/construction/index.json",
+      "work/construction/segments/0641-constrain-windows-custody-child-namespace.md"
+    ]
+  },
+  "validation": {
+    "local": {
+      "tests_passed": 155,
+      "tests_failed": 0,
+      "exact_acceptance_nodes": 6,
+      "exact_acceptance_status": "task_acceptance_ready",
+      "mypy_targeted": "passed for owner and native test module",
+      "mypy_baseline": {
+        "new_errors": 0,
+        "matched_existing": 1050,
+        "retired": 40
+      },
+      "construction_segments_verified": 641
+    },
+    "candidate_runs": [
+      {
+        "id": 40058036143,
+        "name": "Lint Benchmark",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058036018,
+        "name": "Invariant Tests",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058036009,
+        "name": "Gradient null regression",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035915,
+        "name": "First PR Welcome",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request_target",
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 40058035964,
+        "name": "Release",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035961,
+        "name": "Codex CI",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035939,
+        "name": "Docker Image",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035958,
+        "name": "Windows Custody",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035942,
+        "name": "Required Quality Gate",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40058035967,
+        "name": "CI",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40057801871,
+        "name": "Invariant Tests",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40057801828,
+        "name": "Windows Custody",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40057801810,
+        "name": "Required Quality Gate",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 40057801894,
+        "name": "CI",
+        "head_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "branch_artifacts": [
+      {
+        "id": 12546133045,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "digest": "sha256:bb8da0c6e392773f5c0ec2f9c4a0847f07ef9b05a2f95529ff697833ce528adb"
+      },
+      {
+        "id": 12545632908,
+        "name": "required-quality-gate-evidence",
+        "digest": "sha256:27db68715591a67910858e28b05adfc2eb753ed44f30e1d65656ef2875cb7fbc"
+      },
+      {
+        "id": 12546028202,
+        "name": "windows-custody-exact-acceptance",
+        "digest": "sha256:27ebd4223d1bfe42f9a46ca0c3021322afd19992defb43b5f2e24b611a1c5edd"
+      }
+    ],
+    "pr_artifacts": [
+      {
+        "id": 12546351771,
+        "name": "required-quality-gate-evidence",
+        "digest": "sha256:b33c089cb8d6ad5e5ef556d4b6221ccae81cdd4e2e35306b7426e40a5191cd85"
+      },
+      {
+        "id": 12545932736,
+        "name": "exact-pr-candidate-acceptance",
+        "digest": "sha256:8243dc753408c7ee20ea4ccf3b9284fa90be72d5008e5add9141ff7910c4e88f"
+      },
+      {
+        "id": 12545608507,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "digest": "sha256:326179b07d9d84c91d34e0849e2e19b84496d911da1c40bbf166f577e6e34e26"
+      },
+      {
+        "id": 12546163212,
+        "name": "windows-custody-exact-acceptance",
+        "digest": "sha256:fdab0fa3f17b6882a1aa37a71333f918b1a617bac6a8bde608147b88282a3b5a"
+      }
+    ],
+    "native_exact_acceptance": {
+      "candidate_sha": "73dfe7e66a3e6baa5c62434e1beea1c42eb436b7",
+      "required_nodes_passed": 8,
+      "status": "task_acceptance_ready",
+      "new_successful_path": "test_windows_replay_recovers_signed_history_without_publication",
+      "new_refusals": [
+        "recomputed-signature forgery",
+        "missing root",
+        "record bound",
+        "private ACL violation",
+        "Windows write attempt",
+        "runtime peer-source composition"
+      ]
+    },
+    "hosted_landing": {
+      "actual_administrator_strict_audit": "passed",
+      "audit_immutability": "passed",
+      "precommit": "ready_to_commit",
+      "postcommit": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready"
+    },
+    "post_merge": {
+      "commit": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+      "tree": "95d1db2168420f1d8d517dc130271d1932e15adc",
+      "runs": [
+        {
+          "id": 40111851104,
+          "name": "Forge Smoke",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "id": 40111851038,
+          "name": "Invariant Tests",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111850972,
+          "name": "Windows Custody",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851079,
+          "name": "Docs Deploy",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851107,
+          "name": "Required Quality Gate",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851089,
+          "name": "Codex CI",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851009,
+          "name": "Nightly Self Check",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851114,
+          "name": "Docker Image",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 40111851075,
+          "name": "CI",
+          "head_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+          "event": "push",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "native_exact_acceptance_sha": "3c415a11fa924105c94a949725cf3dfad84e8f36",
+      "native_exact_acceptance_status": "task_acceptance_ready",
+      "artifacts": [
+        {
+          "id": 12566388185,
+          "name": "required-quality-gate-evidence",
+          "digest": "sha256:ca57679ce5d2dad8e2f04e462e9b69f898f1a598245cceb427b46cdbc110abb5"
+        },
+        {
+          "id": 12567041735,
+          "name": "windows-custody-exact-acceptance",
+          "digest": "sha256:ab908c5dd4bcbc85b9165bb5ccde1459b925ed0b8efc4c080f11b688947f4df4"
+        }
+      ]
+    },
+    "artifact_custody": {
+      "advertised_and_upload_log_digests_matched": true,
+      "decoded_job_logs_read": true,
+      "independent_zip_hash_match": false,
+      "limitation": "Session destination policy denied independent artifact ZIP readback; manifests and logs are not independent archive-byte custody."
+    }
+  },
+  "construction": {
+    "append_only": true,
+    "previous_segments_preserved": true,
+    "windows_read_only_recovery_implemented": true,
+    "windows_replay_publication_enabled": false,
+    "windows_runtime_peer_sources_enabled": false,
+    "production_peer_identities_configured": false,
+    "live_peer_telemetry_connected": false,
+    "authority_boundaries_preserved": true,
+    "next_dependency": "Retain every Windows replay input handle through complete bounded reads and terminal metadata/ACL checks; prove immutable publication prerequisites separately before enabling Windows writes."
+  }
+}
