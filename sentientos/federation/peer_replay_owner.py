@@ -23,7 +23,11 @@ from sentientos.private_file_custody import (
     publish_immutable_bytes,
     read_private_file_at,
 )
-from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from sentientos.windows_handle_custody import (
+    WindowsHandleCustodyError,
+    _valid_file_identity,
+    read_regular_files,
+)
 from sentientos.windows_peer_replay_custody import (
     WindowsReplayCustodyError,
     publish_immutable_replay_bytes,
@@ -170,14 +174,16 @@ class FederationPeerReplayOwner:
     Records are immutable, canonical, bounded, and hash-linked. Windows requires
     an already provisioned private local root and never creates directories.
     Its publication uses held handles, no-replace rename, flush and readback.
-    Automatic runtime source composition remains fail-closed on Windows.
+    Windows operations require the operator-pinned filesystem identity on every read and write.
     """
 
-    __slots__ = ("_root", "_peer_id", "_max_records", "_max_history_bytes", "_lock")
+    __slots__ = ("_root", "_peer_id", "_max_records", "_max_history_bytes",
+                 "_expected_root_identity", "_lock")
 
     def __init__(self, root: str | Path, *, peer_id: str,
                  max_records: int = _MAX_RECORDS,
-                 max_history_bytes: int = _MAX_HISTORY_BYTES) -> None:
+                 max_history_bytes: int = _MAX_HISTORY_BYTES,
+                 expected_root_identity: tuple[int, bytes] | None = None) -> None:
         if not isinstance(root, (str, Path)) or not Path(root).is_absolute():
             raise FederationPeerReplayOwnerError("replay_owner_root_must_be_absolute")
         if not isinstance(peer_id, str) or _PEER_ID.fullmatch(peer_id) is None:
@@ -187,10 +193,15 @@ class FederationPeerReplayOwner:
         if (type(max_history_bytes) is not int
                 or not (_MAX_RECORD_BYTES <= max_history_bytes <= _MAX_HISTORY_BYTES)):
             raise FederationPeerReplayOwnerError("replay_owner_byte_limit_invalid")
+        if expected_root_identity is not None and not _valid_file_identity(expected_root_identity):
+            raise FederationPeerReplayOwnerError("replay_owner_root_identity_invalid")
+        if os.name == "nt" and expected_root_identity is None:
+            raise FederationPeerReplayOwnerError("replay_owner_root_identity_required")
         self._root = Path(root)
         self._peer_id = peer_id
         self._max_records = max_records
         self._max_history_bytes = max_history_bytes
+        self._expected_root_identity = expected_root_identity
         self._lock = threading.RLock()
 
     @property
@@ -209,6 +220,10 @@ class FederationPeerReplayOwner:
     def max_history_bytes(self) -> int:
         return self._max_history_bytes
 
+    @property
+    def expected_root_identity(self) -> tuple[int, bytes] | None:
+        return self._expected_root_identity
+
     def _load_history(self, *, create: bool) -> tuple[list[dict[str, Any]], int]:
         if os.name == "nt":
             try:
@@ -216,6 +231,7 @@ class FederationPeerReplayOwner:
                     self.root, max_entries=self.max_records + 1024,
                     max_file_bytes=_MAX_RECORD_BYTES,
                     max_total_bytes=self.max_history_bytes, require_private_acl=True,
+                    expected_root_identity=self.expected_root_identity,
                 )
             except WindowsHandleCustodyError as exc:
                 raise FederationPeerReplayOwnerError("replay_owner_custody_unavailable") from exc
@@ -414,6 +430,7 @@ class FederationPeerReplayOwner:
                     created = publish_immutable_replay_bytes(
                         self.root / _record_name(verified.sequence), record_bytes,
                         max_bytes=_MAX_RECORD_BYTES, max_entries=self.max_records + 1024,
+                        expected_root_identity=self.expected_root_identity,
                     )
                 else:
                     created = publish_immutable_bytes(

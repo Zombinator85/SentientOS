@@ -15,6 +15,7 @@ from typing import NoReturn
 from sentientos.windows_handle_custody import (
     WindowsHandleCustodyError,
     _safe_child_name,
+    _valid_file_identity,
     verify_private_handle_acl,
     verify_replay_ancestor_handle_acl,
 )
@@ -34,6 +35,7 @@ def _publication_boundary(_phase: str) -> None:
 
 def publish_immutable_replay_bytes(
     path: Path, data: bytes, *, max_bytes: int, max_entries: int,
+    expected_root_identity: tuple[int, bytes] | None = None,
 ) -> bool:
     """Return True for one new record or False for an exact durable retry.
 
@@ -45,6 +47,8 @@ def publish_immutable_replay_bytes(
     """
     if os.name != "nt":
         raise WindowsReplayCustodyError("windows_replay_publication_unsupported")
+    if expected_root_identity is None:
+        raise WindowsReplayCustodyError("windows_replay_root_identity_required")
     if not isinstance(path, Path):
         raise WindowsReplayCustodyError("windows_replay_publication_arguments_invalid")
     path = Path(os.fspath(path))
@@ -54,7 +58,9 @@ def publish_immutable_replay_bytes(
             or type(data) is not bytes or not data
             or type(max_bytes) is not int or not 1 <= max_bytes <= 1_048_576
             or len(data) > max_bytes
-            or type(max_entries) is not int or not 1 <= max_entries <= 8192):
+            or type(max_entries) is not int or not 1 <= max_entries <= 8192
+            or (expected_root_identity is not None
+                and not _valid_file_identity(expected_root_identity))):
         raise WindowsReplayCustodyError("windows_replay_publication_arguments_invalid")
     root = PureWindowsPath(os.path.abspath(path.parent))
     if (not root.is_absolute() or len(root.drive) != 2 or root.drive[1] != ":"
@@ -353,6 +359,8 @@ def publish_immutable_replay_bytes(
             directories.append(current)
         root_handle = current
         root_identity = identity(root_handle)
+        if expected_root_identity is not None and root_identity != expected_root_identity:
+            fail("windows_replay_root_identity_mismatch")
         validate_directories()
         names = names_at(root_handle)
         if any(name.casefold() == path.name.casefold() for name in names):
