@@ -1,3 +1,18 @@
+## Current recovery state - sequence 677
+
+PR #2770 merged normally as `49cc5dafe35bf60c6d5ee8081f8b369880218c3a` with candidate tree `40bee94199962e6b1095006405b617a5d95b337a` retained. All applicable exact-head PR checks and post-merge Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, and Docker Image checks passed; Forge Smoke was skipped by workflow condition. The post-merge self-check, source validation, Helm/Kubernetes test, docs build/linkcheck, and Docker test/build jobs completed successfully.
+
+Custody on verified main was ready through sequence 676 before this record. The v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0`; its original checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`.
+
+Latest verified main: `49cc5dafe35bf60c6d5ee8081f8b369880218c3a`, tree `40bee94199962e6b1095006405b617a5d95b337a`
+Latest construction segment: `work/construction/segments/0677-integrate-pr-2770-v2-custody.md`
+Latest segment SHA-256: `99fc7e8afe59b346ce968442a28eba26dffb2276a1876d60c8406f943e4ef885`
+Sequence: 677 (integrate PR 2770 and record post-merge verification)
+Evidence: `work/construction/evidence/0677-integrate-pr-2770-v2-custody.json`
+Evidence SHA-256: `f748b318a1d06f645584edaf661fe68ec269c6bc5bdc2ae4de35c953593938a1`
+
+Recovery: continue bounded v2-shard construction from verified main and preserve the frozen v1 anchor and all prior shard bytes.
+
 ## Current recovery state - sequence 676
 
 PR #2769 integrated the bounded v2 construction-index migration as `1ec3a08164492957138dcf589905a25da0be9418` with the exact candidate tree retained. Corrected-head Required Quality Gate and all applicable PR checks passed; main Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, Docker Image, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition. The initial exact-head Quality Gate found five new mypy-baseline errors in the custody verifier; the targeted typing correction passed local baseline validation with zero new errors and the repeated hosted finalizer passed.

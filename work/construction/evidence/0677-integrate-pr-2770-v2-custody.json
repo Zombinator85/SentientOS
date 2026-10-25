@@ -1,0 +1,106 @@
+{
+  "construction_custody_before_sequence_677": {
+    "segments_verified": 676,
+    "status": "construction_continuation_custody_ready"
+  },
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40234095099
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40234095076
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40234095096
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40234095073
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40234095097
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40234095120
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40234095100
+      }
+    },
+    "commit": "49cc5dafe35bf60c6d5ee8081f8b369880218c3a",
+    "tree": "40bee94199962e6b1095006405b617a5d95b337a"
+  },
+  "publication": {
+    "branch": "codex/construct-sentientos-s677-postmerge",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40233742693
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40233742689
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40233742769
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40233742692
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40233742701
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40233742821
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40233742771
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40233742772
+      }
+    },
+    "pr_state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2770 and v2 continuation custody",
+  "sequence": 677,
+  "source": {
+    "base_commit": "1ec3a08164492957138dcf589905a25da0be9418",
+    "base_tree": "d04e5570e8f0c845bdd7eb51ef550f314eda5b68",
+    "candidate_commit": "aaef18aabe749ad86516cb6774eac98fe79ddf4a",
+    "candidate_tree": "40bee94199962e6b1095006405b617a5d95b337a",
+    "merge_commit": "49cc5dafe35bf60c6d5ee8081f8b369880218c3a",
+    "merge_parents": [
+      "1ec3a08164492957138dcf589905a25da0be9418",
+      "aaef18aabe749ad86516cb6774eac98fe79ddf4a"
+    ],
+    "merge_tree": "40bee94199962e6b1095006405b617a5d95b337a",
+    "pull_request": 2770,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2770",
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "post_merge_docker_tests_and_image_build": "passed",
+    "post_merge_documentation_and_linkcheck": "passed",
+    "post_merge_helm_k8s_test": "passed",
+    "post_merge_self_check": "passed",
+    "post_merge_source_validation": "passed"
+  }
+}
