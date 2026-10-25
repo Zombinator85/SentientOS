@@ -108,6 +108,18 @@ def test_repository_local_root_rejected_and_no_git_or_host_mutation(tmp_path):
     ev=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(result, output_root='runtime_artifacts', grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
     assert 'repository_local_runtime_root_rejected' in ev.findings
 
+def test_sibling_prefix_external_root_is_accepted(tmp_path, monkeypatch):
+    issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    repository=tmp_path/'repository'; repository.mkdir()
+    output=tmp_path/'repository-artifacts'
+    monkeypatch.chdir(repository)
+    ev=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(result, output_root=output, grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
+    assert ev.status in {'ready_for_executor_contract_review','ready_for_executor_contract_review_with_conditions'}
+    assert ev.persisted is True and output.is_dir()
+    assert ev.backend_declaration['backend_loaded'] is False
+    assert ev.dry_run_plan['dry_run_executed'] is False
+    assert ev.readiness_receipt['executor_implemented'] is False
+
 def test_exact_current_evidence_adversarial_blocks_zero_calls(tmp_path):
     from dataclasses import replace
     from sentientos.local_authorization_grant import build_local_authorization_grant_revocation_receipt, build_local_authorization_grant_ledger, local_authorization_grant_digest, build_local_authorization_grant_expiry_evaluation

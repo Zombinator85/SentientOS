@@ -1,18 +1,36 @@
-## Current construction state - sequence 659
+## Current construction state - sequence 661
 
-Sequence 659 is a locally validated, uncommitted security candidate on verified main. Cathedral config, ledger, and rollback storage targets are resolved and constrained beneath the runtime root before directory creation. External and symlink escape configurations fail without effects; in-root overrides remain operational. No PR or merge has been attempted for this candidate.
+Sequence 661 is a locally validated construction candidate on verified main. Component-aware path ancestry now rejects roots inside the repository while accepting sibling-prefix external output roots. Exact task acceptance, canonical regression, targeted mypy, documentation build, diff check, and construction custody passed. The change remains metadata-only and adds no host execution authority. PR #2764 is published; hosted checks are pending.
 
-Verified base main: `70500dec36dbe1b8c853cb34aa52be7643d38943`, tree `d80d9295ec621e2633c1bfbf9dd987a0f674664e`
-Latest construction segment: `work/construction/segments/0659-validate-cathedral-storage-path-ancestry.md`
-Latest segment SHA-256: 11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b
-Sequence: 659 (Cathedral storage path ancestry)
+Verified base main: `e3e2c12919b36248c6a018fcf193c35658a5b9e0`, tree `8860d5b6016a50b51a6c7cc3248bb476074c4fdd`
+Latest construction segment: `work/construction/segments/0661-validate-readiness-output-root-ancestry.md`
+Latest segment SHA-256: 1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017
+Sequence: 661 (readiness output root ancestry)
 
-Canonical regression: run `afd175ad615e40309341d9c8c9677815`, 153 passed, 16 skipped, zero failed. Exact task acceptance is ready. Targeted mypy, docs dependency check and 616-page build, and diff check passed. Custody verified 658 preceding segments. Bootstrap status: ready.
+Canonical regression: 168 passed, 16 skipped, zero failed. Docs build generated 616 pages. Construction custody verified 660 preceding segments.
 
-Evidence record: `work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json`
-Evidence SHA-256: 6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318
+Evidence record: `work/construction/evidence/0661-validate-readiness-output-root-ancestry.json`
+Evidence SHA-256: 3c885ae72cbf51a1f45c6960f02049f9b6775141ccee8e51076916e781bad796
 
-Next: validate candidate tree, publish an `[untested]` construction PR, require hosted Quality Gate and CI, merge only after green checks, record post-merge evidence, then continue with the next bounded dependency.
+Next: run construction preflight and candidate integrity verification, publish through normal PR, hosted Quality Gate and CI, merge only after green checks, then record post-merge evidence and continue with the next bounded dependency.
+
+## Previous checkpoint snapshot - sequence 660
+
+## Current verified state - sequence 660
+
+Sequence 660 integrates PR #2763 and its verified main merge. Local validation, all applicable PR workflows, and all applicable post-merge checks passed.
+
+Latest verified main: `e3e2c12919b36248c6a018fcf193c35658a5b9e0`, tree `8860d5b6016a50b51a6c7cc3248bb476074c4fdd`
+Latest construction segment: `work/construction/segments/0660-integrate-pr-2763-main-verification.md`
+Latest segment SHA-256: 3857a176e7dc367055fd0d6d8d878c621d834a130177df8891c5cd254efa57e3
+Sequence: 660 (PR #2763 post-merge integration)
+
+PR #2763 candidate `0af70114dbd6be7c8837205fe9682914cec317e8` merged normally as `e3e2c12919b36248c6a018fcf193c35658a5b9e0`, preserving the exact tested candidate tree. Required Quality Gate, CI, Invariants, Docker, Codex CI, Lint Benchmark, Release, and Gradient regression passed on the PR head. On main, Required Quality Gate, all four CI jobs, Invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed. Forge Smoke was skipped by condition.
+
+Evidence record: `work/construction/evidence/0660-integrate-pr-2763-main-verification.json`
+Evidence SHA-256: 45a97410cf1570bd3ff7b884104844c8134730bb32c7cc6dcb63927cb071a7f0
+
+Next: select another bounded, independently researched architectural dependency under the roadmap; preserve all closed runtime authorities and use fresh-current and bootstrap gates.
 
 ## Previous checkpoint snapshot - sequence 654
 

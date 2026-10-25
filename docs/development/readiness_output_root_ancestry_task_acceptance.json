@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_host_fulfillment_executor_readiness_runtime.py::test_repository_local_root_rejected_and_no_git_or_host_mutation",
+      "rationale": "An output root within the repository remains rejected."
+    },
+    {
+      "node_id": "tests/test_host_fulfillment_executor_readiness_runtime.py::test_sibling_prefix_external_root_is_accepted",
+      "rationale": "A sibling-prefix external output root is accepted and remains metadata-only."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_host_fulfillment_executor_readiness_runtime.py::test_sibling_prefix_external_root_is_accepted"
+  ]
+}

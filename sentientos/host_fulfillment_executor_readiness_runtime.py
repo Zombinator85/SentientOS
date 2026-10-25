@@ -247,7 +247,7 @@ def validate_persisted_readiness_bundle(bundle_root:str|Path, *, expected_bundle
 
 
 def _host_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
-    return host_local_digest_record(snapshot)
+    return str(host_local_digest_record(snapshot))
 
 def _canonical_empty_revocation_digest(grant_id: str, snapshot_id: str, snapshot_digest: str) -> str:
     return _sha({"kind":"current_snapshot_applicable_revocation_set","grant_id":grant_id,"snapshot_id":snapshot_id,"snapshot_digest":snapshot_digest,"local_revocations":[],"host_local_revocations":[]})
@@ -484,7 +484,8 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         req=replace(req,digest=digest_record(req))
         plan=self.plan(req,result,evidence)
         root=Path(output_root).resolve()
-        if str(root).startswith(str(Path.cwd().resolve())): return HostFulfillmentExecutorReadinessEvaluation("blocked_contract_package",("repository_local_runtime_root_rejected",),req,plan,None,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
+        repository_root=Path.cwd().resolve()
+        if root == repository_root or repository_root in root.parents: return HostFulfillmentExecutorReadinessEvaluation("blocked_contract_package",("repository_local_runtime_root_rejected",),req,plan,None,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
         lock=_LOCKS.setdefault(str(root), threading.Lock())
         semantic={"request":req.digest,"evidence":evidence.digest,"requested_fulfillment_domain":req.requested_fulfillment_domain,"executor_domain":req.executor_domain,"backend_class":req.backend_class,"backend_label":backend_label,"scope":req.requested_scope_labels,"targets":req.target_labels,"time":req.requested_time,"correlation":req.correlation_id}
         with lock:
