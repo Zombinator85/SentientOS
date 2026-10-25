@@ -1,3 +1,18 @@
+## Current recovery state - sequence 676
+
+PR #2769 integrated the bounded v2 construction-index migration as `1ec3a08164492957138dcf589905a25da0be9418` with the exact candidate tree retained. Corrected-head Required Quality Gate and all applicable PR checks passed; main Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, Docker Image, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition. The initial exact-head Quality Gate found five new mypy-baseline errors in the custody verifier; the targeted typing correction passed local baseline validation with zero new errors and the repeated hosted finalizer passed.
+
+Custody on verified main is ready through sequence 675 before this post-merge record. The v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0` and the original v1 checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`. The separately preserved CI self-check patch is excluded from the migration.
+
+Latest verified main: `1ec3a08164492957138dcf589905a25da0be9418`, tree `d04e5570e8f0c845bdd7eb51ef550f314eda5b68`
+Latest construction segment: `work/construction/segments/0676-integrate-pr-2769-v2-migration.md`
+Latest segment SHA-256: `dd2f83b98ad51ec14343ba2659c3f55a5bcd7df62c31b3ea5a26506bb7731ea8`
+Sequence: 676 (integrate PR 2769 v2 migration)
+Evidence: `work/construction/evidence/0676-integrate-pr-2769-v2-migration.json`
+Evidence SHA-256: `a7192efe4a11ae4c13e1572937a81a5ba07cecb28d71c38ee9e71765d2de8dda`
+
+Recovery: continue from verified main and the bounded v2 shards. Select the next independently validated architectural dependency from current source evidence; preserve the v1 anchor, prior shard bytes, and construction authority boundaries.
+
 ## Current recovery state - sequence 675
 
 The v2 verifier now enforces canonical shard file paths bound to descriptor sequence and range. A tampered path to another safe repository file fails custody. The focused suite passed 28/28; custody is ready through sequence 675. No external publication was attempted.
