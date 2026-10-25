@@ -1,0 +1,67 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {"conclusion": "success", "run_id": 40170183555},
+      "codex_ci": {"conclusion": "success", "run_id": 40170183575},
+      "docker": {"conclusion": "success", "run_id": 40170183569},
+      "docs_deploy": {"conclusion": "success", "run_id": 40170183589},
+      "forge_smoke": {"conclusion": "skipped", "reason": "workflow condition", "run_id": 40170183553},
+      "invariants": {"conclusion": "success", "run_id": 40170183556},
+      "nightly_self_check": {"conclusion": "success", "run_id": 40170183576},
+      "required_quality_gate": {"conclusion": "success", "run_id": 40170183567}
+    },
+    "commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12589243109,
+      "name": "required-quality-gate-evidence",
+      "sha256": "f6da891d3ca3c8817278901f11d281e9779af80a13f563a1b04579d530d21819"
+    },
+    "tree": "c68ad621fa6797f92febfa25b42f597629bf6884"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "remote_tree": "c68ad621fa6797f92febfa25b42f597629bf6884",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "checks": {
+      "ci": {"conclusion": "success", "run_id": 40169835867},
+      "codex_ci": {"conclusion": "success", "run_id": 40169835858},
+      "docker": {"conclusion": "success", "run_id": 40169835859},
+      "gradient_null_regression": {"conclusion": "success", "run_id": 40169835879},
+      "invariants": {"conclusion": "success", "run_id": 40169835854},
+      "lint_benchmark": {"conclusion": "success", "run_id": 40169835906},
+      "release": {"conclusion": "success", "run_id": 40169835891},
+      "required_quality_gate": {"conclusion": "success", "run_id": 40169835917}
+    },
+    "exact_head_sha": "45e3ff87a10bac7b80c34a2863ca2eaa7ddb3184",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2766"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2766 and verified main; evidence-only checkpoint",
+  "scope_note": "Sequence 665 repaired roadmap freshness verification to consume the declared history archive. Its canonical full local regression attempt stalled without a result and is not reported as passing. Focused tests, exact acceptance, targeted mypy, docs dependency check and build passed. Exact-head hosted QG and CI passed, and applicable post-merge workflows passed. No runtime or governance authority changed.",
+  "sequence": 666,
+  "source": {
+    "candidate_commit": "45e3ff87a10bac7b80c34a2863ca2eaa7ddb3184",
+    "candidate_tree": "c68ad621fa6797f92febfa25b42f597629bf6884",
+    "merge_commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "merge_parents": [
+      "46cabb0dbb4a5230c29477702c319e49b2985353",
+      "45e3ff87a10bac7b80c34a2863ca2eaa7ddb3184"
+    ],
+    "parent_main": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "pull_request": 2766,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "candidate_evidence": "work/construction/evidence/0665-reconcile-roadmap-freshness-archive.json",
+    "candidate_evidence_sha256": "ab742cefad2ab680ad7b31b56b4297c6dc1ab72d7ac9755695de196eb687e1b3",
+    "construction_custody_before_sequence_666": {
+      "segments_verified": 665,
+      "status": "construction_continuation_custody_ready"
+    }
+  }
+}

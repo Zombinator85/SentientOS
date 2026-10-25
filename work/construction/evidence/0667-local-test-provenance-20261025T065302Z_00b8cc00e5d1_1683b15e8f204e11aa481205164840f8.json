@@ -1,0 +1,101 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_operating_doctrine_docs.py::test_acceptance_contract_rejects_aggregate_only_proof": 0,
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked": 0,
+    "tests/test_codex_operating_doctrine_docs.py::test_root_agents_is_compact_map_and_moved_doctrine_links_resolve": 0,
+    "tests/test_codex_operating_doctrine_docs.py::test_stable_law_has_one_policy_and_one_command_reference": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 4,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-seq667/glow/test_runs/pytest_junitxml_340e1dbf33c0458aa0ec89d053bb95ee.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_root_agents_is_compact_map_and_moved_doctrine_links_resolve",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_stable_law_has_one_policy_and_one_command_reference",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_acceptance_contract_rejects_aggregate_only_proof",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "997d18013dabb96d421a5f623b6a543bd06ee2d50aadc40c7ec161877439dfe5",
+  "provenance_hash": "e86ecc94ba44064b550a84081acf51041e55b4f1e5a3eec0b4600dae4c5bee35",
+  "pytest_args": [
+    "tests/test_codex_operating_doctrine_docs.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-verification-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-seq667",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "4265666bc4934d44ae115a122ef43d7e",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_codex_operating_doctrine_docs.py::test_root_agents_is_compact_map_and_moved_doctrine_links_resolve",
+    "tests/test_codex_operating_doctrine_docs.py::test_stable_law_has_one_policy_and_one_command_reference",
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+    "tests/test_codex_operating_doctrine_docs.py::test_acceptance_contract_rejects_aggregate_only_proof"
+  ],
+  "selection_flags": [
+    "tests/test_codex_operating_doctrine_docs.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 4,
+  "tests_executed": 4,
+  "tests_failed": 0,
+  "tests_passed": 4,
+  "tests_selected": 4,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-25T06:53:02.191957+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
