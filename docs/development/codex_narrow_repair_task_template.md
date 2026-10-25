@@ -16,7 +16,7 @@ List only files touched by the repair.
 
 
 ## Bootstrap invocation contract
-When bootstrap is required, follow the supported invocation and stop-on-blocked rules in the canonical [`bootstrap invocation contract`](codex_bootstrap_invocation_contract.md). An explicitly authorized bounded construction task may use the [`AGENTS.md` construction exception](../../AGENTS.md); mark that work `[untested]`.
+When bootstrap is required, follow the supported invocation and stop-on-blocked rules in the canonical [`bootstrap invocation contract`](codex_bootstrap_invocation_contract.md). An explicitly authorized bounded construction task may use the construction exception in the repository's `AGENTS.md`; mark that work `[untested]`.
 
 ## Focused tests
 Run targeted tests that prove the localized fix.

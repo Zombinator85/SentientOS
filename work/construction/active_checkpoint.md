@@ -1,4 +1,36 @@
-## Current construction state - sequence 668
+## Current recovery state - sequence 670
+
+Sequence 670 records an automatic approval review rejection while preparing the sequence 669 correction for normal PR publication. The review rejected uploading the full construction index, citing its extensive project history and metadata and the GitHub destination. A read-only lookup confirmed the required corrected blob was not already present. No alternate publication route, ref update, or PR update was attempted. The prior PR #2768 branch head remains `433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7`.
+
+The local correction is ready: `AGENTS.md` is now inline code, the focused developer-doctrine tests pass 4/4, the local docs build generated 616 pages, and custody verifies through sequence 669. Hosted Required Quality Gate passed on the published PR head; CI documentation linkcheck failed only on the previous root-file cross-reference. The correction remains local until the blocked upload has explicit user approval and the normal branch update can be completed.
+
+Latest verified main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0670-publication-review-recovery-checkpoint.md`
+Latest segment SHA-256: `b1e606f034bc776318c88e9d6581c1ea8cc45222cfb494de34d93fcf6c8a6f43`
+Sequence: 670 (publication review recovery checkpoint)
+
+Evidence record: `work/construction/evidence/0670-publication-review-recovery-checkpoint.json`
+Evidence SHA-256: `d27e55290740f7c94ed73aa3c43fa3a518282731e0763f8017aeafa628ae7c61`
+
+Recovery: obtain the user's explicit approval for the exact construction-index upload described in the automatic review rejection. After approval, continue the normal PR branch update using the recorded exact local candidate bytes, independently verify remote blobs and tree, rerun exact-head Quality Gate and CI, merge only after green, and record post-merge evidence. Do not bypass review by switching publication transports.
+
+## Previous checkpoint snapshot - sequence 669
+
+Sequence 669 records a hosted documentation linkcheck correction for PR #2768. Its Required Quality Gate passed hosted reconstruction, privileged landing finalization, and metadata guard, but the CI docs linkcheck failed because Sphinx treated a relative root `AGENTS.md` link as a missing source document. The template now renders `AGENTS.md` as inline code and retains the canonical bootstrap contract link. The focused doctrine docs regression passes 4/4 and the local 616-page docs build passes; hosted linkcheck and the rest of exact-head CI must pass on the corrected head before merge.
+
+PR #2768 remains open and unmerged. The source candidate was `433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7` from verified main `00b8cc00e5d1b30e892fe380ec95bb6978f17712`. No governance checks are bypassed.
+
+Latest verified main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0669-correct-documentation-root-linkcheck.md`
+Latest segment SHA-256: `7bf85a3161ab51319c8262ed61a5b7b67990f9a1b86b962dd1bf5696ed8d8778`
+Sequence: 669 (correct documentation root-link check)
+
+Evidence record: `work/construction/evidence/0669-correct-documentation-root-linkcheck.json`
+Evidence SHA-256: `915a0b2a590f79a0a973a2088796b495ab913045e2402a68d8f4ef2ebca7ac1b`
+
+Recovery: stage this exact correction with the sequence 669 custody record, verify candidate integrity and remote blob readback, push the update to PR #2768, require successful exact-head Quality Gate and CI, then merge only after all required checks pass. Record the exact merge and post-merge checks in the next sequence.
+
+## Previous checkpoint snapshot - sequence 668
 
 Sequence 668 records recovery from PR #2767's exact-head hosted Required Quality Gate failure. The hosted gate rejected local provenance changes under `glow/test_runs/` as unknown dirty paths during exact pre-commit reconstruction; PR #2767 was closed without merge. The original branch and worktree remain preserved. A successor is being rebuilt from the verified main commit with the same provenance bytes held only in indexed construction evidence, leaving protected glow paths equal to main.
 

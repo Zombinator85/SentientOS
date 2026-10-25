@@ -1,0 +1,29 @@
+{
+  "authority_boundary": "Records a publication review rejection and local recovery state; no external ref was updated and no review was bypassed.",
+  "blocked_action": {
+    "action": "Upload full updated construction index as a GitHub blob for normal PR branch update",
+    "result": "rejected by automatic approval review",
+    "stated_reason": "The full internal construction index includes extensive project history and metadata; the destination was an unverified GitHub repository.",
+    "alternate_route_attempted": false,
+    "remote_blob_sha_checked": "51600232dd5dd2f4ed0c3175ea3a7bbf19a0f986",
+    "remote_blob_lookup": "404 Not Found",
+    "remote_branch_ref_updated": false,
+    "pull_request_updated": false
+  },
+  "recoverable_work": {
+    "pull_request": 2768,
+    "published_head": "433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7",
+    "local_documentation_correction": "renders AGENTS.md as inline code to avoid a missing Sphinx source warning",
+    "focused_regression": "passed 4/4; run 4e05e496674f497da8873cb548fd8a8a",
+    "documentation_build": "passed; 616 pages",
+    "construction_custody": "ready through sequence 669"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 670,
+  "source": {
+    "verified_main": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "local_branch": "codex/construct-sentientos-s668-retry-docs-from-main",
+    "local_base_candidate": "433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7",
+    "publication_status": "local_update_prepared_unpublished_pending_user_approval"
+  }
+}

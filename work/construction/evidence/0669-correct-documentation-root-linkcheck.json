@@ -1,0 +1,40 @@
+{
+  "authority_boundary": "Documentation-only correction for one hosted linkcheck failure; no runtime or authority change is claimed.",
+  "prior_candidate": {
+    "commit": "433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7",
+    "pull_request": 2768,
+    "required_quality_gate_run": 40171720538,
+    "required_quality_gate_conclusion": "success",
+    "ci_run": 40171720536,
+    "docs_job": 121103764067,
+    "docs_job_conclusion": "failure",
+    "failed_step": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "warning": "Unknown source document '.../AGENTS' [myst.xref_missing]"
+  },
+  "correction": {
+    "path": "docs/development/codex_narrow_repair_task_template.md",
+    "change": "Render the repository AGENTS.md reference as inline code so Sphinx does not resolve the root file as a missing docs source.",
+    "canonical_bootstrap_contract_link_preserved": true
+  },
+  "validation": {
+    "focused_regression": {
+      "run_id": "4e05e496674f497da8873cb548fd8a8a",
+      "tests_executed": 4,
+      "tests_passed": 4,
+      "tests_failed": 0,
+      "provenance_path": "/tmp/sentientos-seq669-test-runs/test_run_provenance.json",
+      "provenance_sha256": "15c210d5efbc755985e4452897f55af0a6a347b61f53d904737274b4f9bcbfba"
+    },
+    "documentation_build": "passed; 616 pages",
+    "hosted_linkcheck": "rerun_required_on_updated_exact_head"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 669,
+  "source": {
+    "base_commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "previous_candidate_commit": "433a1cbc6baf71ab94a073c0eb4acc8d0ccca5a7",
+    "publication_status": "pull_request_open_correction_in_progress",
+    "worktree": "/workspace/SentientOS-seq668",
+    "branch": "codex/construct-sentientos-s668-retry-docs-from-main"
+  }
+}
