@@ -1,0 +1,135 @@
+{
+  "construction_custody_before_sequence_682": {
+    "segments_verified": 681,
+    "status": "construction_continuation_custody_ready"
+  },
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40239483851
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40239483866
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40239483838
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40239483831
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40239483842
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40239483889
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40239483865
+      },
+      "required_quality_gate": {
+        "artifact": {
+          "id": 12616356512,
+          "name": "required-quality-gate-evidence",
+          "sha256": "442ccc4099607271da3d1b4ebb7989e184114d350d0c5d6ef2e89855cd6b46dc",
+          "size_bytes": 12575
+        },
+        "conclusion": "success",
+        "run_id": 40239483830
+      }
+    },
+    "commit": "adfd97d8ec513ffdb0916ca74e76146eaf55f88e",
+    "source_validation_artifact": {
+      "id": 12616611347,
+      "name": "source-validation-adfd97d8ec513ffdb0916ca74e76146eaf55f88e",
+      "sha256": "8a7773e1c487c0206f2315a0a4b4c0f57c3cbebf5d29a2c47141d10df520ca74",
+      "size_bytes": 541950
+    },
+    "tree": "9140d73da9e839a61f50bbb94bf6e20bb509d12b"
+  },
+  "publication": {
+    "base_commit": "6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9",
+    "base_tree": "431dd718bb8398f3deac7259879760fe337146b5",
+    "candidate_commit": "134c5ad1a4e5ec926ff697ed3f3a43f551921463",
+    "candidate_tree": "9140d73da9e839a61f50bbb94bf6e20bb509d12b",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40239080970
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40239080987
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40239081058
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40239080975
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40239081007
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40239080977
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40239081010
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40239080971
+      }
+    },
+    "merge_parents": [
+      "6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9",
+      "134c5ad1a4e5ec926ff697ed3f3a43f551921463"
+    ],
+    "pull_request": 2775,
+    "remote_candidate_blob_readback": {
+      "matched_files": 8,
+      "mismatches": 0
+    },
+    "source_preflight": "candidate_integrity_ready_for_ref_update",
+    "status": "merged",
+    "tree_matches_candidate": true,
+    "url": "https://github.com/Zombinator85/SentientOS/pull/2775"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2775 strict JSON integer typing of custody byte counts",
+  "sequence": 682,
+  "source": {
+    "base_commit": "6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9",
+    "base_tree": "431dd718bb8398f3deac7259879760fe337146b5",
+    "candidate_commit": "134c5ad1a4e5ec926ff697ed3f3a43f551921463",
+    "candidate_tree": "9140d73da9e839a61f50bbb94bf6e20bb509d12b",
+    "merge_commit": "adfd97d8ec513ffdb0916ca74e76146eaf55f88e",
+    "merge_tree": "9140d73da9e839a61f50bbb94bf6e20bb509d12b",
+    "pull_request": 2775,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "documentation_build": "hosted make docs and warning-as-error Sphinx linkcheck passed",
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 43
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "mypy_baseline_new_errors": 0,
+    "mypy_baseline_status": "mypy_baseline_improved",
+    "post_merge_custody_segments_verified": 681
+  }
+}
