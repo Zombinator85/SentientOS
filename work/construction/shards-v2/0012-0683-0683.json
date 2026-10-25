@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 12,
+  "first_sequence": 683,
+  "last_sequence": 683,
+  "predecessor": "shard-sha256:5e97daab1f4eaad7c3bef0455877556a8aa09acc5620f067bdcd9c82b4938732",
+  "segments": [
+    {
+      "sequence": 683,
+      "path": "work/construction/segments/0683-reject-boolean-anchor-checkpoint-sequence.md",
+      "predecessor": "segment-sha256:cc6461d9d8ba3373500456fefd498f6e77aa5d6676a4dba67d4184ffb72a250a",
+      "bytes": 1126,
+      "sha256": "86fa14ac6321c1e5588f350e3b951e888b89159caaa542fa49debae6ab5bedea",
+      "evidence_path": "work/construction/evidence/0683-reject-boolean-anchor-checkpoint-sequence.json",
+      "evidence_bytes": 1857,
+      "evidence_sha256": "7d36e4c44176d10b9168021ab6d7a19135727e217b21cfe5471e529390ff56ea",
+      "source_commit": "fef16ad78303c7acacecc5ed52cadc7cbf30a623",
+      "source_tree": "13152da5c2dd37f38cc7874863ddcb62781aa2b1"
+    }
+  ]
+}
