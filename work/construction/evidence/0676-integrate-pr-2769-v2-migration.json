@@ -1,0 +1,146 @@
+{
+  "construction_custody_before_sequence_676": {
+    "segments_verified": 675,
+    "status": "construction_continuation_custody_ready"
+  },
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40233152673
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40233152697
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40233152676
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40233152686
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40233152677
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40233152713
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40233152700
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40233152693
+      }
+    },
+    "commit": "1ec3a08164492957138dcf589905a25da0be9418",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12613488104,
+      "name": "required-quality-gate-evidence",
+      "sha256": "61de2a85a35eebd2df4b0ebaf5bff335fd0bb924db438334f855172c8fc2ed4d",
+      "size_bytes": 12583
+    },
+    "source_validation_artifact_advertised_by_github": {
+      "id": 12614195851,
+      "name": "source-validation-1ec3a08164492957138dcf589905a25da0be9418",
+      "sha256": "d509db35bfce94736066a38eaf1975af9cc04aee7f38b8a4089ed292a869fd91",
+      "size_bytes": 542074
+    },
+    "tree": "d04e5570e8f0c845bdd7eb51ef550f314eda5b68"
+  },
+  "publication": {
+    "branch": "codex/construct-sentientos-s673-sharded-index",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40232790149
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40232790156
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40232790145
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40232790260
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40232790137
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40232790270
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40232790172
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40232790796
+      }
+    },
+    "corrected_head_sha": "5098c606da8ac17d6d05955fbd16a7e36640e580",
+    "correction": {
+      "commit": "5098c606da8ac17d6d05955fbd16a7e36640e580",
+      "local_mypy_baseline_new_errors": 0,
+      "tree": "d04e5570e8f0c845bdd7eb51ef550f314eda5b68",
+      "verifier_blob_sha": "7594e849a4c29b2a214cdf5f653e24b4b8dcdc1b"
+    },
+    "initial_quality_gate_failure": {
+      "affected_path": "scripts/verify_construction_continuation_custody.py",
+      "failed_stage": "mypy_baseline",
+      "head_sha": "b66640d81550363ead03f53e5ef3962641875d44",
+      "new_errors": 5,
+      "run_id": 40232526686
+    },
+    "pr_state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2769 sharded-index migration",
+  "scope_note": "The v2 migration is integrated without modifying the frozen v1 index/checkpoint or the separately preserved CI self-check patch. The initial hosted mypy failure was fixed in the exact PR branch; only corrected-head and post-merge successes are reported as passing.",
+  "sequence": 676,
+  "source": {
+    "base_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "base_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "candidate_commit": "5098c606da8ac17d6d05955fbd16a7e36640e580",
+    "candidate_tree": "d04e5570e8f0c845bdd7eb51ef550f314eda5b68",
+    "merge_commit": "1ec3a08164492957138dcf589905a25da0be9418",
+    "merge_parents": [
+      "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+      "5098c606da8ac17d6d05955fbd16a7e36640e580"
+    ],
+    "merge_tree": "d04e5570e8f0c845bdd7eb51ef550f314eda5b68",
+    "pull_request": 2769,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2769",
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "documentation_build_pages": 616,
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 27
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "mypy_baseline_new_errors": 0,
+    "remote_candidate_blob_readback": {
+      "matched_files": 22,
+      "mismatches": 0
+    },
+    "source_preflight": {
+      "failures": [],
+      "status": "candidate_integrity_ready_for_ref_update"
+    }
+  }
+}
