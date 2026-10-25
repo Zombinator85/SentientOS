@@ -1,3 +1,16 @@
+## Current recovery state - sequence 682
+
+PR #2775 integrated strict JSON integer typing for legacy-journal and segment byte counts as `adfd97d8ec513ffdb0916ca74e76146eaf55f88e` with the exact candidate tree retained. All eight exact-head PR workflows and all applicable post-merge workflows passed; Forge Smoke was skipped by condition. Focused tests passed 43/43, custody was ready through 681 before this record, and mypy baseline added zero errors with overall improvement. The frozen v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0`; the original checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`.
+
+Latest verified main: `adfd97d8ec513ffdb0916ca74e76146eaf55f88e`, tree `9140d73da9e839a61f50bbb94bf6e20bb509d12b`
+Latest construction segment: `work/construction/segments/0682-integrate-pr-2775-boolean-anchor-checkpoint-types.md`
+Latest segment SHA-256: `cc6461d9d8ba3373500456fefd498f6e77aa5d6676a4dba67d4184ffb72a250a`
+Sequence: 682 (integrate PR 2775 and verify post-merge evidence)
+Evidence: `work/construction/evidence/0682-integrate-pr-2775-boolean-anchor-checkpoint-types.json`
+Evidence SHA-256: `fa2d07027f2662f28f540f3cf6924e72573cd6a3756fc9bb8cfc21abafd66f3d`
+
+Recovery: continue bounded v2 shards. A separate probe found that v2 history-anchor checkpoint bindings also need exact integer typing: `latest_segment_sequence: true` passed when the anchor contains one segment. The verifier change and regression test are locally staged in the preserved sequence 683 worktree based on `adfd97d8ec513ffdb0916ca74e76146eaf55f88e`; reapply them to the latest main after this record is integrated.
+
 ## Current recovery state - sequence 681
 
 The bounded v2 custody verifier now rejects boolean legacy-journal and segment byte counts. A one-byte payload with `bytes: true` passed before the fix; the verifier and candidate publication tests now reject both malformed fields. Focused custody/publication tests passed 43/43, custody verified through sequence 680, and mypy baseline added zero errors with an overall improvement. The code-only tested tree is `986a689646c3cd5217abfef3a014db96a3064ed5`, based on verified main `6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9` / `431dd718bb8398f3deac7259879760fe337146b5`.

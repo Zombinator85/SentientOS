@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 11,
+  "first_sequence": 682,
+  "last_sequence": 682,
+  "predecessor": "shard-sha256:ba359ee7dc1fa7d1c92bf052aa8c94e93ebeb0a981f42a8feafdab67a644978e",
+  "segments": [
+    {
+      "sequence": 682,
+      "path": "work/construction/segments/0682-integrate-pr-2775-boolean-anchor-checkpoint-types.md",
+      "predecessor": "segment-sha256:347ee25bfdaf20c712f7e7e91ea05d9977da6e1101614b8bb592a9d888330bd8",
+      "bytes": 1325,
+      "sha256": "cc6461d9d8ba3373500456fefd498f6e77aa5d6676a4dba67d4184ffb72a250a",
+      "evidence_path": "work/construction/evidence/0682-integrate-pr-2775-boolean-anchor-checkpoint-types.json",
+      "evidence_bytes": 4253,
+      "evidence_sha256": "fa2d07027f2662f28f540f3cf6924e72573cd6a3756fc9bb8cfc21abafd66f3d",
+      "source_commit": "adfd97d8ec513ffdb0916ca74e76146eaf55f88e",
+      "source_tree": "9140d73da9e839a61f50bbb94bf6e20bb509d12b"
+    }
+  ]
+}
