@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2594d3d7b25e412cb8e77c0085a244b55deb6751cf2310a52136fa3ac38b9dc3",
-    "latest_segment_sequence": 659,
-    "latest_segment_sha256": "11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
-    "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
-    "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e"
+    "checkpoint_sha256": "085f330befbea058ea4bada7567d6370e7987293f3a5cddf342b4470d6407fbf",
+    "latest_segment_sequence": 661,
+    "latest_segment_sha256": "1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017",
+    "source_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "source_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
   },
-  "checkpoint_sha256": "2594d3d7b25e412cb8e77c0085a244b55deb6751cf2310a52136fa3ac38b9dc3",
+  "checkpoint_sha256": "085f330befbea058ea4bada7567d6370e7987293f3a5cddf342b4470d6407fbf",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 659,
+  "latest_sequence": 661,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7687,52 +7687,76 @@
       "source_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2"
     },
     {
-      "sequence": 656,
-      "path": "work/construction/segments/0656-integrate-pr-2761-main-verification.md",
       "bytes": 1612,
-      "sha256": "140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
-      "predecessor": "segment-sha256:2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910",
-      "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
-      "source_tree": "88601a321e70018e1464977635e056e5f86264e9",
-      "evidence_path": "work/construction/evidence/0656-integrate-pr-2761-main-verification.json",
       "evidence_bytes": 4973,
-      "evidence_sha256": "33cb0b453c30480bed5d59cfc2f540c2adb3e83a66b856a29edd5f73d89a2f24"
-    },
-    {
-      "sequence": 657,
-      "path": "work/construction/segments/0657-component-aware-cathedral-path-safety.md",
-      "bytes": 1734,
-      "sha256": "5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
-      "predecessor": "segment-sha256:140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
+      "evidence_path": "work/construction/evidence/0656-integrate-pr-2761-main-verification.json",
+      "evidence_sha256": "33cb0b453c30480bed5d59cfc2f540c2adb3e83a66b856a29edd5f73d89a2f24",
+      "path": "work/construction/segments/0656-integrate-pr-2761-main-verification.md",
+      "predecessor": "segment-sha256:2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910",
+      "sequence": 656,
+      "sha256": "140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
       "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
-      "source_tree": "88601a321e70018e1464977635e056e5f86264e9",
-      "evidence_path": "work/construction/evidence/0657-component-aware-cathedral-path-safety.json",
+      "source_tree": "88601a321e70018e1464977635e056e5f86264e9"
+    },
+    {
+      "bytes": 1734,
       "evidence_bytes": 3948,
-      "evidence_sha256": "10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e"
+      "evidence_path": "work/construction/evidence/0657-component-aware-cathedral-path-safety.json",
+      "evidence_sha256": "10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e",
+      "path": "work/construction/segments/0657-component-aware-cathedral-path-safety.md",
+      "predecessor": "segment-sha256:140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
+      "sequence": 657,
+      "sha256": "5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
+      "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+      "source_tree": "88601a321e70018e1464977635e056e5f86264e9"
     },
     {
-      "sequence": 658,
-      "path": "work/construction/segments/0658-integrate-pr-2762-main-verification.md",
       "bytes": 1644,
-      "sha256": "96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
-      "predecessor": "segment-sha256:5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
-      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
-      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
-      "evidence_path": "work/construction/evidence/0658-integrate-pr-2762-main-verification.json",
       "evidence_bytes": 4768,
-      "evidence_sha256": "cb0c0b70e8201a622362af093636f6a479bc345798585229be56a5ceeda845c7"
+      "evidence_path": "work/construction/evidence/0658-integrate-pr-2762-main-verification.json",
+      "evidence_sha256": "cb0c0b70e8201a622362af093636f6a479bc345798585229be56a5ceeda845c7",
+      "path": "work/construction/segments/0658-integrate-pr-2762-main-verification.md",
+      "predecessor": "segment-sha256:5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
+      "sequence": 658,
+      "sha256": "96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
+      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e"
     },
     {
-      "sequence": 659,
-      "path": "work/construction/segments/0659-validate-cathedral-storage-path-ancestry.md",
       "bytes": 1495,
-      "sha256": "11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
-      "predecessor": "segment-sha256:96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
-      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
-      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
-      "evidence_path": "work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json",
       "evidence_bytes": 4072,
-      "evidence_sha256": "6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318"
+      "evidence_path": "work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json",
+      "evidence_sha256": "6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318",
+      "path": "work/construction/segments/0659-validate-cathedral-storage-path-ancestry.md",
+      "predecessor": "segment-sha256:96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
+      "sequence": 659,
+      "sha256": "11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
+      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e"
+    },
+    {
+      "bytes": 1537,
+      "evidence_bytes": 4771,
+      "evidence_path": "work/construction/evidence/0660-integrate-pr-2763-main-verification.json",
+      "evidence_sha256": "45a97410cf1570bd3ff7b884104844c8134730bb32c7cc6dcb63927cb071a7f0",
+      "path": "work/construction/segments/0660-integrate-pr-2763-main-verification.md",
+      "predecessor": "segment-sha256:11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
+      "sequence": 660,
+      "sha256": "3857a176e7dc367055fd0d6d8d878c621d834a130177df8891c5cd254efa57e3",
+      "source_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+      "source_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
+    },
+    {
+      "bytes": 1119,
+      "evidence_bytes": 2092,
+      "evidence_path": "work/construction/evidence/0661-validate-readiness-output-root-ancestry.json",
+      "evidence_sha256": "3c885ae72cbf51a1f45c6960f02049f9b6775141ccee8e51076916e781bad796",
+      "path": "work/construction/segments/0661-validate-readiness-output-root-ancestry.md",
+      "predecessor": "segment-sha256:3857a176e7dc367055fd0d6d8d878c621d834a130177df8891c5cd254efa57e3",
+      "sequence": 661,
+      "sha256": "1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017",
+      "source_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+      "source_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
     }
   ],
   "source_acquisition": {

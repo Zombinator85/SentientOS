@@ -1,0 +1,157 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40166473797
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40166473815
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40166473816
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40166473780
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40166473872
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40166473848
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40166473767
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40166473760
+      }
+    },
+    "commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12588352999,
+      "name": "required-quality-gate-evidence",
+      "sha256": "a05b7a8db6147bb8ee38861d59f82a9f1db2cfcd73f0b7bdeccc0571f61d5a65"
+    },
+    "tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "remote_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "artifacts_advertised_by_github": [
+      {
+        "id": 12588836604,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "15b8a62ecfa824820999da86091770ea61cf523705fecc3cfa6ba68e2fb39659"
+      },
+      {
+        "id": 12588731849,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "e37082086e162de13989ff1f18beb2f852e3917fb79d86f5a4bbb0c3c8794f9d"
+      },
+      {
+        "id": 12587993051,
+        "name": "required-quality-gate-evidence",
+        "sha256": "7bbc44749a6143aeafd38830861f24631832c3d544711bed34ef120720c02a84"
+      }
+    ],
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40166161862
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40166161855
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40166161799
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40166161990
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40166161930
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40166161922
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40166161981
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_finalizer": "success",
+        "pr_metadata_guard": "success",
+        "run_id": 40166161874
+      }
+    },
+    "exact_head_sha": "0af70114dbd6be7c8837205fe9682914cec317e8",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2763"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2763 and verified main; evidence-only checkpoint",
+  "sequence": 660,
+  "source": {
+    "candidate_commit": "0af70114dbd6be7c8837205fe9682914cec317e8",
+    "candidate_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd",
+    "merge_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "merge_parents": [
+      "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "0af70114dbd6be7c8837205fe9682914cec317e8"
+    ],
+    "parent_main": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "pull_request": 2763,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "candidate_evidence": "work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json",
+    "candidate_evidence_sha256": "6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318",
+    "canonical_regression": {
+      "provenance_sha256": "c8646b9acb9ce69cfb974a2d743c0d8195e4207332f3a8ab1be2f28a5fc30ad7",
+      "run_id": "afd175ad615e40309341d9c8c9677815",
+      "tests_failed": 0,
+      "tests_passed": 153,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_660": {
+      "segments_verified": 659,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build_pages": 616,
+    "targeted_mypy": "passed",
+    "task_acceptance": "task_acceptance_ready"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "authority_boundary": "External output location readiness is metadata-only; no executor backend invocation, dry run, host action, git action, or runtime authority grant is added.",
+  "bootstrap": {
+    "blocker_codes": [],
+    "status": "ready",
+    "subsystem_kind": "runtime_safety"
+  },
+  "change": {
+    "summary": "Use Path component ancestry to reject repository-local readiness output roots while allowing external sibling-prefix roots. Metadata-only behavior and host execution boundaries remain intact.",
+    "task_acceptance_manifest": "docs/development/readiness_output_root_ancestry_task_acceptance.json",
+    "task_acceptance_manifest_sha256": "c8c714442ca582932ed9a3c28a2e6747e15da18a083508ce3000543223d0cd97",
+    "tested_paths": [
+      "sentientos/host_fulfillment_executor_readiness_runtime.py",
+      "tests/test_host_fulfillment_executor_readiness_runtime.py",
+      "pytest.ini"
+    ]
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "validated local candidate: component-aware readiness output root ancestry",
+  "sequence": 661,
+  "source": {
+    "base_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "base_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd",
+    "candidate_commit": null,
+    "publication_status": "not_published"
+  },
+  "validation": {
+    "canonical_regression": {
+      "provenance_sha256": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+      "pytest_exit_code": 0,
+      "run_id": "71c5902d86314d9f9164e5ff8ad38e39",
+      "tests_collected": 184,
+      "tests_executed": 168,
+      "tests_failed": 0,
+      "tests_passed": 168,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_661": {
+      "segments_verified": 660,
+      "status": "construction_continuation_custody_ready"
+    },
+    "diff_check": "passed",
+    "docs_build_pages": 616,
+    "docs_dependencies": "passed",
+    "targeted_mypy": "passed",
+    "task_acceptance": "task_acceptance_ready",
+    "task_acceptance_result_sha256": "c30ea0801c274a6a8ef4062f756dbf49250c7a7ddbbf02d1d68c51f640c5afdc"
+  }
+}
