@@ -1,0 +1,7 @@
+# Sequence 680: integrate PR 2773 strict construction custody typing
+
+PR #2773 merged normally as `9ae2495567931cab068d9f4f20c248bdd86c4c89` from the final evidence-bearing candidate `b5ec40e85b8df9c4c59a067fc15bdd49b3932a99`, preserving candidate tree `2968aedcffca098b832875327a86facdbe529ad0`. The verified parent main was `b525b13937e290e578ed2160157f5dcb687c7ae3` with tree `70238aad60af7709bc31490f8f6b0758291930ae`. The change rejects JSON booleans wherever construction schema and sequence fields require exact integers; sequence 679's indexed evidence and v2 shard are included in the exact merged tree.
+
+All eight applicable exact-head PR workflows passed: Required Quality Gate, CI, Release, Gradient null regression, Codex CI, Invariant Tests, Docker Image, and Lint Benchmark. On main commit `9ae2495567931cab068d9f4f20c248bdd86c4c89`, Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, Docker Image, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition. Main custody verifies through sequence 679. The frozen v1 index/checkpoint and all preceding shard bytes remain unchanged.
+
+Local focused custody/publication tests passed 39/39, the docs build generated 616 pages, and mypy baseline reported zero new errors with an overall baseline improvement. The final candidate source preflight reported no failures and all nine candidate blobs read back byte-for-byte.

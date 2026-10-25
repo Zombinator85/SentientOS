@@ -1,3 +1,18 @@
+## Current recovery state - sequence 680
+
+PR #2773 integrated strict integer typing for construction schema and sequence custody. It merged as `9ae2495567931cab068d9f4f20c248bdd86c4c89` with the exact candidate tree retained. All eight applicable exact-head PR workflows and all applicable main checks passed; Forge Smoke was skipped by condition. The post-merge source-validation, self-check, docs/linkcheck, Helm, and Docker jobs completed successfully. Local focused tests passed 39/39; docs generated 616 pages; mypy baseline added zero errors and improved overall.
+
+Custody on verified main was ready through sequence 679 before this record. The v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0`; the original v1 checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`.
+
+Latest verified main: `9ae2495567931cab068d9f4f20c248bdd86c4c89`, tree `2968aedcffca098b832875327a86facdbe529ad0`
+Latest construction segment: `work/construction/segments/0680-integrate-pr-2773-strict-custody-types.md`
+Latest segment SHA-256: `4d5292c35d544503466acb45766535e1edd388e2cbc91f475587608dfce00550`
+Sequence: 680 (integrate PR 2773 and record post-merge verification)
+Evidence: `work/construction/evidence/0680-integrate-pr-2773-strict-custody-types.json`
+Evidence SHA-256: `3da79cbb3fa21a39614bcaf4e0a8810ea5dd59cd94677fea6d89e9c96a966bee`
+
+Recovery: continue with bounded v2 shards. A remaining strict-typing check is whether legacy journal and segment byte-count fields reject JSON booleans; verify against current indexed data and add a bounded regression if the verifier currently accepts the malformed value.
+
 ## Current recovery state - sequence 679
 
 Strict construction custody typing now rejects booleans where exact integers are required for schema versions, sequence counters, shard ranges, and checkpoint bindings. The observed v1 `schema_version: true` acceptance is covered by regression tests. Focused custody/publication tests passed 39/39, the docs build generated 616 pages, and mypy baseline reported zero new errors with overall baseline improvement. Custody verified through sequence 678 before this record; the frozen v1 index/checkpoint and all prior shards remain unchanged.
