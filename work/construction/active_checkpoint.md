@@ -1,3 +1,21 @@
+## Current verified state - sequence 655
+
+Sequence 655 integrates PR #2760 and its verified main merge. The local canonical regression suite, docs build, and custody checks passed; applicable PR and post-merge hosted checks passed.
+
+Latest verified main: `92e362ba76d9f2559e79d4d28142624bc7b77f97`, tree `473f00d80b0159d2bf5b806937e69f7eef128bb2`
+Latest construction segment: `work/construction/segments/0655-integrate-pr-2760-main-verification.md`
+Latest segment SHA-256: 2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910
+Sequence: 655 (PR #2760 post-merge integration)
+
+PR #2760 candidate `66b26122cef562b594a95280e70d2b4c29bf7e6c` merged normally with the candidate tree preserved. Required Quality Gate and its exact acceptance, hosted finalizer and metadata guard passed, as did all applicable PR workflows. Main Quality Gate, CI (all four jobs), Invariants, Docker, Codex CI, and Docs Deploy passed. Forge Smoke was skipped by workflow condition.
+
+Evidence record: `work/construction/evidence/0655-integrate-pr-2760-main-verification.json`
+Evidence SHA-256: 432708e0ceac6010376f8d1fcc58a597bb6eff9b41a4f8f33f31ef004314a0bf
+
+Next: inspect the current open-work roadmap and select a bounded architectural dependency grounded in source and authority boundaries.
+
+## Previous checkpoint snapshot - sequence 654
+
 ## Current recovery state - sequence 654
 
 Sequence 654 records validation and recovery status for the preserved local candidate. The latest verified remote main is `22de4777961f5301a8d9a62d432c4ce561a79939`, tree `3312b3007d4133ec4f6ffc59de3445c58e68d056`. The local candidate is `c58d9d2bb9790a7ec1aa5bf0770174b22389f52d`, tree `02e08b8355e2b1b2ff1a7d25ad2bb5bc125b77f4`; the source preflight reports `unpublished_candidate_requires_reconciliation` and the worktree is clean.

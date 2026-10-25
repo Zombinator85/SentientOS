@@ -1,10 +1,6 @@
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
-
 """Simple GUI launcher for SentientOS."""
+
+from __future__ import annotations
 
 import os
 import subprocess
@@ -29,14 +25,27 @@ def _read_log_lines(limit: int = 20) -> str:
 
 
 def _launch(flags: List[str]) -> None:
-    cmd = ["start", "cmd", "/k", "launch_sentientos.bat"] + flags
-    if os.name == "nt":
-        subprocess.Popen(" ".join(cmd), shell=True)
-    else:  # pragma: no cover - windows only
-        subprocess.Popen(["bash", "-c", " ".join(cmd)])
+    allowed_flags = {"--debug", "--headless", "--safe"}
+    if any(flag not in allowed_flags for flag in flags):
+        raise ValueError("unsupported launcher flag")
+    if os.name != "nt":  # pragma: no cover - Windows-only launcher.
+        raise OSError("SentientOS GUI launcher is only supported on Windows")
+
+    command_interpreter = os.environ.get("COMSPEC", "cmd.exe")
+    command = [command_interpreter, "/k", "call", "launch_sentientos.bat", *flags]
+    subprocess.Popen(
+        command,
+        shell=False,
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
 
 
 def main() -> None:  # pragma: no cover - manual
+    from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+    require_admin_banner()
+    require_lumos_approval()
+
     if tk is None:
         print("Tkinter not available")
         return

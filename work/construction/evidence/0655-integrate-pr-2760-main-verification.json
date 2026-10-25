@@ -1,0 +1,167 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40162195579
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40162195482
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40162195503
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40162195524
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40162195480
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40162195532
+      },
+      "required_quality_gate": {
+        "administrator_strict_audit": "success",
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "run_id": 40162195517
+      }
+    },
+    "commit": "92e362ba76d9f2559e79d4d28142624bc7b77f97",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12586203426,
+      "name": "required-quality-gate-evidence",
+      "sha256": "522d7e622c2409872e531492b4b6815df8d3dd1f2306f8cd50f48f08d4854ba5"
+    },
+    "tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "92e362ba76d9f2559e79d4d28142624bc7b77f97",
+    "remote_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "artifacts_advertised_by_github": [
+      {
+        "id": 12586827697,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "87d4a0e168bc644d685b820dbf73554a9d36ed612f8dd905cc7677151f6a3b62"
+      },
+      {
+        "id": 12586632851,
+        "name": "required-quality-gate-evidence",
+        "sha256": "f02701f7e08413aeb4e2e22e360f0c0a90ee115f817018ce5b8eb33c1984f908"
+      },
+      {
+        "id": 12586158290,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "db53b77795a871130427fcb535cf0bfb6cba4081824a9263ab5cf04779e3b37a"
+      }
+    ],
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40161983506
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40161983402
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40161983416
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40161983355
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40161983404
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40161983424
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40161983390
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_finalizer": "success",
+        "pr_metadata_guard": "success",
+        "run_id": 40161983396
+      }
+    },
+    "exact_head_sha": "66b26122cef562b594a95280e70d2b4c29bf7e6c",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2760"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2760 and verified main; evidence-only increment, no production source or runtime authority changes",
+  "sequence": 655,
+  "source": {
+    "candidate_commit": "66b26122cef562b594a95280e70d2b4c29bf7e6c",
+    "candidate_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2",
+    "changed_files": 9,
+    "merge_commit": "92e362ba76d9f2559e79d4d28142624bc7b77f97",
+    "merge_parents": [
+      "22de4777961f5301a8d9a62d432c4ce561a79939",
+      "66b26122cef562b594a95280e70d2b4c29bf7e6c"
+    ],
+    "parent_main": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "pull_request": 2760,
+    "pull_request_title": "[codex:custody] [untested] record regression timeout checkpoint",
+    "source_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2",
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "canonical_regression": {
+      "command": "/tmp/sentientos-verification-venv/bin/python -m scripts.run_tests -q",
+      "execution_tool_network_permission": "enabled; no proxy settings changed",
+      "git_sha": "66b26122cef562b594a95280e70d2b4c29bf7e6c",
+      "metrics_status": "ok",
+      "provenance_copy": "/tmp/sentientos-regression-provenance-66b26122.json",
+      "provenance_sha256": "54c0a33b4045841fcd24138a5ac83210058e596b094006eeb2b0be2a75209d7d",
+      "pytest_exit_code": 0,
+      "run_id": "de1a71b5b2854baa89eae33b3e0a282c",
+      "status": "passed",
+      "tests_failed": 0,
+      "tests_passed": 143,
+      "tests_skipped": 13
+    },
+    "construction_custody_before_sequence_655": {
+      "segments_verified": 654,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build": {
+      "environment": "/tmp/sentientos-verification-venv",
+      "generated_pages": 616,
+      "status": "passed"
+    },
+    "docs_dependency_check": "passed",
+    "git_diff_check": "passed; generated test residue restored and worktree clean"
+  }
+}
