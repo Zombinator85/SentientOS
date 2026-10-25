@@ -161,6 +161,40 @@ def _candidate_track_results(text: str) -> list[dict[str, Any]]:
     return results
 
 
+def _active_next_work_results(text: str) -> list[dict[str, Any]]:
+    match = re.search(r"## Available next work(?P<body>.*?)(?:\n## |\Z)", text, flags=re.S)
+    body = match.group("body") if match else ""
+    candidates = [line[2:].strip() for line in body.splitlines() if line.startswith("- ")]
+    expected = (
+        "Documentation/readability consolidation that removes duplication without weakening canonical controls.",
+        "Developer-workflow proof hardening grounded in an observed mechanical gap.",
+        "A separately researched and operator-selected bounded subsystem with explicit authority boundaries and observable acceptance proof.",
+    )
+    results = [
+        _check(
+            "candidate_track.active_available_next_work",
+            tuple(candidates) == expected,
+            f"Active next-work options match the canonical set; candidates={candidates}.",
+        ),
+        _check(
+            "candidate_track.active_selection_remains_external",
+            "operator-named target" in _norm(text)
+            and "separately selected safe candidate" in _norm(text)
+            and "must pass clean fresh-current and bootstrap gates" in _norm(text),
+            "Active options preserve separate operator selection and fresh-current/bootstrap gates.",
+        ),
+        _check(
+            "candidate_track.active_non_authority",
+            "does not authorize implementation" not in _norm(body)
+            and "no implementation authority" not in _norm(body)
+            and "no runtime authority" not in _norm(body)
+            and "must preserve all root authority boundaries" in _norm(text),
+            "Active options remain bounded by root authority boundaries.",
+        ),
+    ]
+    return results
+
+
 def _sentences(text: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
 
@@ -190,14 +224,36 @@ def _forbidden_authority_results(text: str) -> list[dict[str, Any]]:
 
 
 def verify_roadmap_text(text: str, roadmap_path: str, *, source_bytes: bytes | None = None) -> dict[str, Any]:
+    return _verify_roadmap_text(
+        text,
+        roadmap_path,
+        source_bytes=source_bytes,
+        history_text=None,
+        candidate_text=text,
+    )
+
+
+def _verify_roadmap_text(
+    text: str,
+    roadmap_path: str,
+    *,
+    source_bytes: bytes | None,
+    history_text: str | None,
+    candidate_text: str,
+) -> dict[str, Any]:
     raw = source_bytes if source_bytes is not None else text.encode("utf-8")
+    freshness_text = text if history_text is None else f"{text}\n{history_text}"
     groups = {
-        "consumed_work_results": _consumed_work_results(text),
-        "blocked_surface_results": _blocked_surface_results(text),
-        "bootstrap_contract_results": _bootstrap_contract_results(text),
-        "candidate_track_results": _candidate_track_results(text),
-        "repository_mutation_custody_results": _repository_mutation_custody_results(text),
-        "forbidden_authority_results": _forbidden_authority_results(text),
+        "consumed_work_results": _consumed_work_results(freshness_text),
+        "blocked_surface_results": _blocked_surface_results(freshness_text),
+        "bootstrap_contract_results": _bootstrap_contract_results(freshness_text),
+        "candidate_track_results": (
+            _active_next_work_results(candidate_text)
+            if history_text is not None
+            else _candidate_track_results(candidate_text)
+        ),
+        "repository_mutation_custody_results": _repository_mutation_custody_results(freshness_text),
+        "forbidden_authority_results": _forbidden_authority_results(freshness_text),
     }
     checks = [check for values in groups.values() for check in values]
     violations = [check for check in checks if not check["passed"] and check["severity"] == "violation"]
@@ -227,7 +283,43 @@ def verify_roadmap_file(path: Path) -> dict[str, Any]:
     text = raw.decode("utf-8")
     if not text.strip():
         raise ValueError("roadmap file is empty")
-    return verify_roadmap_text(text, str(path), source_bytes=raw)
+    archive_links = re.findall(r"\]\(([^)#]*codex_open_work_roadmap_archive_[^/)]+\.md)\)", text)
+    if not archive_links and path.name != DEFAULT_ROADMAP_PATH.name:
+        return verify_roadmap_text(text, str(path), source_bytes=raw)
+    if len(archive_links) != 1:
+        raise ValueError("active roadmap must declare exactly one consumed-history archive")
+    archive_path = (path.parent / archive_links[0]).resolve()
+    if archive_path.parent != path.parent.resolve():
+        raise ValueError("roadmap archive must be a sibling file")
+    archive_raw = archive_path.read_bytes()
+    if not archive_raw:
+        raise ValueError("roadmap archive file is empty")
+    archive_text = archive_raw.decode("utf-8")
+    if not archive_text.strip():
+        raise ValueError("roadmap archive file is empty")
+    source_manifest = json.dumps(
+        {
+            "active_index": {"path": path.name, "sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)},
+            "consumed_history_archive": {
+                "path": archive_path.name,
+                "sha256": hashlib.sha256(archive_raw).hexdigest(),
+                "bytes": len(archive_raw),
+            },
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    report = _verify_roadmap_text(
+        text,
+        str(path),
+        source_bytes=source_manifest,
+        history_text=archive_text,
+        candidate_text=text,
+    )
+    report["source_digest_algo"] = "sha256-canonical-input-manifest"
+    report["source_byte_size"] = len(source_manifest)
+    report["source_inputs"] = json.loads(source_manifest)
+    return report
 
 
 def dumps_report(report: Mapping[str, Any]) -> str:
@@ -254,7 +346,13 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "| Field | Value |",
         "| --- | --- |",
     ]
-    for key in ("verifier_id", "metadata_only", "verifier_only", "roadmap_path", "source_digest_algo", "source_digest", "source_byte_size"):
+    source_summary_keys = [
+        "verifier_id", "metadata_only", "verifier_only", "roadmap_path",
+        "source_digest_algo", "source_digest", "source_byte_size",
+    ]
+    if "source_inputs" in report:
+        source_summary_keys.append("source_inputs")
+    for key in source_summary_keys:
         sections.append(f"| {_cell(key)} | {_cell(report.get(key, ''))} |")
     sections.extend(["", "## Verification status", f"`{_cell(report.get('verification_status', ''))}`", ""])
     section_map = (

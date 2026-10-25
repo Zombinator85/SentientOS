@@ -1,0 +1,73 @@
+{
+  "authority_boundary": "The verifier remains deterministic metadata-only review evidence. It does not select work or grant runtime, repository, commit, or PR authority.",
+  "bootstrap": {
+    "blocker_codes": [],
+    "status": "ready",
+    "subsystem_kind": "developer_workflow_metadata",
+    "task_slug": "reconcile_roadmap_freshness_verification_with_archive"
+  },
+  "change": {
+    "paths": [
+      "sentientos/codex_open_work_roadmap_freshness_verifier.py",
+      "tests/test_codex_open_work_roadmap_freshness_verifier.py",
+      "tests/test_codex_open_work_roadmap_index.py",
+      "docs/development/codex_open_work_roadmap_freshness_verifier.md"
+    ],
+    "summary": "Make roadmap freshness verification read consumed history from the active index's declared sibling archive, bind both exact inputs, check available work only in the active index, and update focused tests and contract documentation."
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded developer-workflow verification repair: reconcile roadmap freshness checks with the compact index and declared history archive",
+  "sequence": 665,
+  "source": {
+    "base_commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "base_tree": "239b673d680b720ae549d7f8b2f854316ce474a",
+    "candidate_commit": null,
+    "candidate_tree": null,
+    "publication_status": "not_published"
+  },
+  "validation": {
+    "canonical_full_regression_attempt": {
+      "command": "python -m scripts.run_tests -q",
+      "elapsed_seconds_approx": 384,
+      "note": "The canonical runner produced no completion summary or finalized run evidence and was stopped after a prolonged stall. It is not counted as a pass.",
+      "observed_progress_percent": 39,
+      "status": "interrupted_without_result",
+      "tests_counted": null
+    },
+    "construction_custody_before_sequence_665": {
+      "segments_verified": 664,
+      "status": "construction_continuation_custody_ready"
+    },
+    "diff_check": "passed",
+    "docs_build_pages": 616,
+    "docs_dependencies": "passed",
+    "focused_regression": {
+      "command": "python -m scripts.run_tests -q tests/test_codex_open_work_roadmap_freshness_verifier.py tests/test_codex_open_work_roadmap_index.py",
+      "provenance_path": "work/construction/evidence/0665-roadmap-freshness-focused-test-provenance.json",
+      "provenance_sha256": "fcd9308d7069022dd592757b567ad29978806e2bac0b480c3ca36b6b259bf6c8",
+      "run_id": "1127f0ad65614fa8ad6b31c61b686975",
+      "tests_collected": 29,
+      "tests_executed": 29,
+      "tests_failed": 0,
+      "tests_passed": 29,
+      "tests_skipped": 0
+    },
+    "mypy": {
+      "command": "python -m mypy sentientos/codex_open_work_roadmap_freshness_verifier.py",
+      "status": "passed"
+    },
+    "roadmap_freshness": {
+      "status": "codex_open_work_roadmap_freshness_verified",
+      "violation_count": 0
+    },
+    "task_acceptance": {
+      "manifest_path": "work/construction/evidence/0665-roadmap-freshness-task-acceptance-manifest.json",
+      "manifest_sha256": "3fc3cf86c4a3f979acee0326c83ee84ef4f255604abf0563d6d54d2ca6e62cef",
+      "provenance_path": "work/construction/evidence/0665-roadmap-freshness-focused-test-provenance.json",
+      "provenance_sha256": "fcd9308d7069022dd592757b567ad29978806e2bac0b480c3ca36b6b259bf6c8",
+      "result_path": "work/construction/evidence/0665-roadmap-freshness-task-acceptance-result.json",
+      "result_sha256": "359778213b9300ba4a8a0ea387631d75a9ef46eba8e3726b637149ad5e30699d",
+      "result_status": "task_acceptance_ready"
+    }
+  }
+}

@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "989e46fc2480c5fa5577d79cc37e87043b023603840d31a3a8d62cdb2a473dd8",
-    "latest_segment_sequence": 663,
-    "latest_segment_sha256": "c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59",
-    "source_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
-    "source_tree": "3654448252c61cad2e92dd6be35f95388318b912"
+    "checkpoint_sha256": "22f9c4400d9d96648f3715fc4c5944a56ca3db7c36e622d101d0684acb28c109",
+    "latest_segment_sequence": 665,
+    "latest_segment_sha256": "08f22f3a4146666c39325ba678383803217548fa63434b30e5bd6b05d4051dd6",
+    "source_commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "source_tree": "239b673d680b720ae549d7f8b2f854316ce474a"
   },
-  "checkpoint_sha256": "989e46fc2480c5fa5577d79cc37e87043b023603840d31a3a8d62cdb2a473dd8",
+  "checkpoint_sha256": "22f9c4400d9d96648f3715fc4c5944a56ca3db7c36e622d101d0684acb28c109",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 663,
+  "latest_sequence": 665,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7781,6 +7781,31 @@
       "sha256": "c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59",
       "source_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
       "source_tree": "3654448252c61cad2e92dd6be35f95388318b912"
+    },
+    {
+      "bytes": 1295,
+      "evidence_bytes": 3856,
+      "evidence_path": "work/construction/evidence/0664-integrate-pr-2765-main-verification.json",
+      "evidence_sha256": "be6db774bf08f91b23d0266078534d22eb9ac2f6515bd4a6dde754ec46336fee",
+      "path": "work/construction/segments/0664-integrate-pr-2765-main-verification.md",
+      "predecessor": "segment-sha256:c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59",
+      "sequence": 664,
+      "sha256": "2be42c15e6c3ec475aa7e6b4a8996309204adf1ce99ae4822bce930b9afcde59",
+      "source_candidate_commit": "1033f8850a0033c6a6338306b320541698ffafc8",
+      "source_commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+      "source_tree": "239b673d680b720ae549d7f8b2f854316ce474a"
+    },
+    {
+      "bytes": 1561,
+      "evidence_bytes": 3571,
+      "evidence_path": "work/construction/evidence/0665-reconcile-roadmap-freshness-archive.json",
+      "evidence_sha256": "ab742cefad2ab680ad7b31b56b4297c6dc1ab72d7ac9755695de196eb687e1b3",
+      "path": "work/construction/segments/0665-reconcile-roadmap-freshness-archive.md",
+      "predecessor": "segment-sha256:2be42c15e6c3ec475aa7e6b4a8996309204adf1ce99ae4822bce930b9afcde59",
+      "sequence": 665,
+      "sha256": "08f22f3a4146666c39325ba678383803217548fa63434b30e5bd6b05d4051dd6",
+      "source_commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+      "source_tree": "239b673d680b720ae549d7f8b2f854316ce474a"
     }
   ],
   "source_acquisition": {

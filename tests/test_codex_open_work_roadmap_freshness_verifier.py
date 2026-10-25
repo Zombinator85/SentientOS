@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from sentientos.codex_open_work_roadmap_freshness_verifier import (
     VERIFIED,
     dumps_report,
     render_markdown,
+    verify_roadmap_file,
     verify_roadmap_text,
 )
 
@@ -71,6 +73,59 @@ def test_source_digest_and_byte_size_are_deterministic() -> None:
     assert report["source_digest"] == hashlib.sha256(text.encode()).hexdigest()
     assert report["source_byte_size"] == len(text.encode())
     assert verify_roadmap_text(text, "roadmap.md")["source_digest"] == report["source_digest"]
+
+
+def test_file_verification_uses_declared_archive_and_active_candidates(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    index = root / "docs/development/codex_open_work_roadmap_index.md"
+    archive = root / "docs/development/codex_open_work_roadmap_archive_2026-07.md"
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    copied_index = docs / index.name
+    copied_archive = docs / archive.name
+    copied_index.write_bytes(index.read_bytes())
+    copied_archive.write_bytes(archive.read_bytes())
+
+    report = verify_roadmap_file(copied_index)
+
+    assert report["verification_status"] == VERIFIED
+    assert report["source_digest_algo"] == "sha256-canonical-input-manifest"
+    assert report["source_inputs"]["active_index"]["sha256"] == hashlib.sha256(index.read_bytes()).hexdigest()
+    assert report["source_inputs"]["consumed_history_archive"]["sha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert "source_inputs" in render_markdown(report)
+    candidate_ids = {item["check_id"] for item in report["candidate_track_results"]}
+    assert "candidate_track.active_available_next_work" in candidate_ids
+    assert "candidate_track.consent_ladder_index_readability_consolidation" not in candidate_ids
+
+
+def test_standalone_roadmap_file_without_archive_keeps_text_verification(tmp_path: Path) -> None:
+    roadmap = tmp_path / "roadmap.md"
+    roadmap.write_text(valid_roadmap(), encoding="utf-8")
+
+    report = verify_roadmap_file(roadmap)
+
+    assert report["verification_status"] == VERIFIED
+    assert "source_inputs" not in report
+
+
+def test_file_verification_fails_when_archived_consumed_history_drifts(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    index = root / "docs/development/codex_open_work_roadmap_index.md"
+    archive = root / "docs/development/codex_open_work_roadmap_archive_2026-07.md"
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    copied_index = docs / index.name
+    copied_archive = docs / archive.name
+    copied_index.write_bytes(index.read_bytes())
+    copied_archive.write_bytes(archive.read_bytes())
+    verified_digest = verify_roadmap_file(copied_index)["source_digest"]
+    copied_archive.write_bytes(archive.read_bytes().replace(b"PR #1919", b"PR missing", 1))
+
+    report = verify_roadmap_file(copied_index)
+
+    assert report["verification_status"] == FAILED
+    assert "consumed_work.pr_1919" in report["violation_summary"]["violation_check_ids"]
+    assert report["source_digest"] != verified_digest
 
 
 def test_output_json_is_deterministic() -> None:

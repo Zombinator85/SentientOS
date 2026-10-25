@@ -1,4 +1,35 @@
-## Current construction state - sequence 663
+## Current construction state - sequence 665
+
+Sequence 665 is a bounded roadmap freshness verifier repair on verified main. The active index points to an archive for consumed history; file verification now checks the archive for historical controls, the active index for available work, and binds both exact inputs. Focused regression (29/29), exact task acceptance, targeted mypy, docs dependency check and 616-page build, freshness verification, and diff check passed. The canonical full local suite was interrupted after a prolonged stall at approximately 39%, without a completion result; it is not reported as passing. The candidate is not yet published.
+
+Verified base main: `46cabb0dbb4a5230c29477702c319e49b2985353`, tree `239b673d680b720ae549d7f8b2f854316ce474a`
+Latest construction segment: `work/construction/segments/0665-reconcile-roadmap-freshness-archive.md`
+Latest segment SHA-256: 08f22f3a4146666c39325ba678383803217548fa63434b30e5bd6b05d4051dd6
+Sequence: 665 (roadmap freshness archive reconciliation)
+
+Evidence record: `work/construction/evidence/0665-reconcile-roadmap-freshness-archive.json`
+Evidence SHA-256: ab742cefad2ab680ad7b31b56b4297c6dc1ab72d7ac9755695de196eb687e1b3
+
+Next: verify exact candidate bytes, publish the candidate through the normal PR and hosted gates, merge only after green exact-head checks, record post-merge evidence, then select the next bounded dependency.
+
+
+## Previous checkpoint snapshot - sequence 664
+
+Sequence 664 integrates PR #2765 and its verified main merge. Exact-head hosted acceptance, privileged finalization, PR metadata guard, applicable PR workflows, and applicable post-merge checks passed. The exact candidate tree is retained on main. The local repeat full regression on sequence 663 was interrupted without a result; hosted CI source validation and documentation linkcheck passed.
+
+Latest verified main: `46cabb0dbb4a5230c29477702c319e49b2985353`, tree `239b673d680b720ae549d7f8b2f854316ce474a`
+Latest construction segment: `work/construction/segments/0664-integrate-pr-2765-main-verification.md`
+Latest segment SHA-256: 2be42c15e6c3ec475aa7e6b4a8996309204adf1ce99ae4822bce930b9afcde59
+Sequence: 664 (PR #2765 post-merge integration)
+
+Evidence record: `work/construction/evidence/0664-integrate-pr-2765-main-verification.json`
+Evidence SHA-256: be6db774bf08f91b23d0266078534d22eb9ac2f6515bd4a6dde754ec46336fee
+
+Next: complete the bounded roadmap freshness archive repair on this verified base, validate it, and continue through normal hosted governance.
+
+
+
+## Previous checkpoint snapshot - sequence 663
 
 Sequence 663 is a locally validated documentation candidate on verified main. The host fulfillment executor readiness architecture guide now records the component-aware resolved path ancestry enforced by sequence 661 and retains the metadata-only authority boundary. The docs dependency check and 616-page build passed. A repeat canonical regression after the documentation edit stalled and was stopped without a result; the unchanged implementation source has a verified 168-pass, 16-skip, zero-failure regression run on the exact candidate tree.
 
@@ -11,6 +42,7 @@ Evidence record: `work/construction/evidence/0663-document-readiness-output-root
 Evidence SHA-256: ad6cf6e65e1ed187c9fd40c7f0552fa89e450631f9c62894d198078643342c8d
 
 Next: validate the staged candidate, publish through the normal PR, hosted Quality Gate and CI, merge only after exact-head checks are green, then integrate verified main and continue.
+
 
 ## Previous checkpoint snapshot - sequence 662
 
