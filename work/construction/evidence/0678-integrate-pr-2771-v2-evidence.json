@@ -1,0 +1,127 @@
+{
+  "construction_custody_before_sequence_678": {
+    "segments_verified": 677,
+    "status": "construction_continuation_custody_ready"
+  },
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40235195726
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40235195683
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40235195645
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40235195663
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40235195660
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40235195707
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40235195672
+      }
+    },
+    "commit": "835e47f5e030f39c9844356c3146f4ebd0c41248",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12614198935,
+      "name": "required-quality-gate-evidence",
+      "sha256": "3de4108192caf37187bd7b17c4deca47d3d6afe6f9c45db7cd6554bfbfcd4992",
+      "size_bytes": 12575
+    },
+    "source_validation_artifact_advertised_by_github": {
+      "id": 12615140388,
+      "name": "source-validation-835e47f5e030f39c9844356c3146f4ebd0c41248",
+      "sha256": "31cb0ed846892b4c3789ddb410ea238ea7c5db1c2404a4e178929d0a20f9a89b",
+      "size_bytes": 542093
+    },
+    "tree": "975eebda721daa3e788bdf3e32d8012e902031fc"
+  },
+  "publication": {
+    "branch": "codex/construct-sentientos-s677-main-evidence",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40234819795
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40234819627
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40234819621
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40234819641
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40234819636
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40234819654
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40234819589
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40234819676
+      }
+    },
+    "pr_state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2771 and sequence 677 custody record",
+  "sequence": 678,
+  "source": {
+    "base_commit": "49cc5dafe35bf60c6d5ee8081f8b369880218c3a",
+    "base_tree": "40bee94199962e6b1095006405b617a5d95b337a",
+    "candidate_commit": "fba3f99dcfd65e837eb6f68ae65a384ce36a2de0",
+    "candidate_tree": "975eebda721daa3e788bdf3e32d8012e902031fc",
+    "merge_commit": "835e47f5e030f39c9844356c3146f4ebd0c41248",
+    "merge_parents": [
+      "49cc5dafe35bf60c6d5ee8081f8b369880218c3a",
+      "fba3f99dcfd65e837eb6f68ae65a384ce36a2de0"
+    ],
+    "merge_tree": "975eebda721daa3e788bdf3e32d8012e902031fc",
+    "pull_request": 2771,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2771",
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "documentation_build_pages": 616,
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 27
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "post_merge_custody_segments_verified": 677,
+    "remote_candidate_blob_readback": {
+      "matched_files": 5,
+      "mismatches": 0
+    },
+    "source_preflight": {
+      "failures": [],
+      "status": "candidate_integrity_ready_for_ref_update"
+    }
+  }
+}

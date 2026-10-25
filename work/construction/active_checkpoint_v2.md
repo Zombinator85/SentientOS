@@ -1,3 +1,18 @@
+## Current recovery state - sequence 678
+
+PR #2771 merged as `835e47f5e030f39c9844356c3146f4ebd0c41248` with the tested candidate tree retained. All eight exact-head PR workflows passed; post-merge Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, and Docker Image passed. Forge Smoke was skipped by workflow condition. The post-merge source-validation and self-check jobs completed successfully, as did Helm/Kubernetes tests, docs and linkcheck, and Docker tests/image build.
+
+Custody on verified main is ready through sequence 677 before this record. The v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0`; its original checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`.
+
+Latest verified main: `835e47f5e030f39c9844356c3146f4ebd0c41248`, tree `975eebda721daa3e788bdf3e32d8012e902031fc`
+Latest construction segment: `work/construction/segments/0678-integrate-pr-2771-v2-evidence.md`
+Latest segment SHA-256: `d6582b21828e17b8f88833e3bff5122b5c2ca8a103c0af29300775dae9062169`
+Sequence: 678 (integrate PR 2771 and verify sequence 677 on main)
+Evidence: `work/construction/evidence/0678-integrate-pr-2771-v2-evidence.json`
+Evidence SHA-256: `c38755f3b8ac2653a546edbecac9b38b5a914bca64d93dd5e1286d1e09d6f7f3`
+
+Recovery: continue bounded v2-shard construction from freshly verified main, preserving the v1 anchor and prior shard bytes. Next selected gap: reject boolean values where construction custody schema versions and sequence counters require exact integers; the current v1 verifier accepts JSON `true` as integer `1` for `schema_version` while reporting custody ready.
+
 ## Current recovery state - sequence 677
 
 PR #2770 merged normally as `49cc5dafe35bf60c6d5ee8081f8b369880218c3a` with candidate tree `40bee94199962e6b1095006405b617a5d95b337a` retained. All applicable exact-head PR checks and post-merge Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, and Docker Image checks passed; Forge Smoke was skipped by workflow condition. The post-merge self-check, source validation, Helm/Kubernetes test, docs build/linkcheck, and Docker test/build jobs completed successfully.
