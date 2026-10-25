@@ -5,6 +5,8 @@ import tarfile
 from pathlib import Path
 import hashlib
 
+import pytest
+
 from scripts.export_test_provenance_bundle import main as export_main
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 from scripts.read_test_provenance_bundle import read_bundle_runs
@@ -113,3 +115,39 @@ def test_read_bundle_runs_returns_ordered_runs(tmp_path, monkeypatch) -> None:
     assert len(result.runs) == 3
     assert result.runs[0]["timestamp"] == "2026-01-01T00:00:00+00:00"
     assert result.runs[-1]["timestamp"] == "2026-01-01T00:00:02+00:00"
+
+
+@pytest.mark.no_legacy_skip
+def test_verify_bundle_rejects_boolean_integer_manifest_fields(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    provenance_dir = tmp_path / "glow" / "test_runs" / "provenance"
+    bundles_dir = tmp_path / "glow" / "test_runs" / "bundles"
+    provenance_dir.mkdir(parents=True)
+    _write_snapshot(provenance_dir / "a.json", "2026-01-01T00:00:00+00:00", "GENESIS")
+
+    assert export_main(["--dir", str(provenance_dir), "--out", str(bundles_dir), "--last", "1"]) == 0
+    original_bundle = sorted(bundles_dir.glob("*.tar.gz"))[0]
+    extracted = tmp_path / "extracted"
+    extracted.mkdir()
+    with tarfile.open(original_bundle, mode="r:gz") as archive:
+        archive.extractall(extracted)
+
+    manifest_path = extracted / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = True
+    manifest["bundle_window"]["count"] = True
+    manifest_path.write_text(f"{json.dumps(manifest, indent=2, sort_keys=True)}\n", encoding="utf-8")
+
+    malformed_bundle = tmp_path / "boolean-schema.tar.gz"
+    with tarfile.open(malformed_bundle, mode="w:gz") as archive:
+        for file_path in sorted(path for path in extracted.rglob("*") if path.is_file()):
+            archive.add(file_path, arcname=file_path.relative_to(extracted))
+
+    verification_out = tmp_path / "boolean_schema_verification.json"
+    assert verify_main([str(malformed_bundle), "--output", str(verification_out)]) == 1
+    report = json.loads(verification_out.read_text(encoding="utf-8"))
+    assert report["verified"] is False
+    assert report["schema_ok"] is False
+    assert "manifest.schema_version missing/invalid" in report["errors"]
+    assert "manifest.bundle_window.count missing/invalid" in report["errors"]
+    assert "manifest.schema_version must be 1" in report["errors"]

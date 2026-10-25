@@ -1,0 +1,32 @@
+{
+  "baseline_reproduction": {
+    "bundle_window_count_true": [],
+    "prior_bundle_verifier_verified": true,
+    "schema_version_true": []
+  },
+  "change_paths": [
+    "scripts/verify_test_provenance_bundle.py",
+    "tests/test_provenance_bundle_scripts.py"
+  ],
+  "construction_custody_before_batch_append": {
+    "segments_verified": 685,
+    "status": "construction_continuation_custody_ready"
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject booleans for integer-typed provenance bundle manifest fields",
+  "sequence": 687,
+  "source": {
+    "tested_code_only_tree": "ed4dd8618ad2e6889c27b19183d9ec58bf57bea9",
+    "verified_main_commit": "427a6f7339e8a2d1e2a887e72182050e006370f8",
+    "verified_main_tree": "aef5943ebd550def1043556caf73dc5e64336991"
+  },
+  "validation": {
+    "docs": "not_required_unchanged",
+    "focused_regression": "passed",
+    "node": "tests/test_provenance_bundle_scripts.py::test_verify_bundle_rejects_boolean_integer_manifest_fields",
+    "runner": "scripts.run_tests",
+    "targeted_mypy": "success: no issues found in 1 source file"
+  }
+}

@@ -41,13 +41,16 @@ def _validate_manifest_schema(manifest: dict[str, Any]) -> list[str]:
 
     for key, expected_type in required.items():
         value = manifest.get(key)
-        if not isinstance(value, expected_type):
+        valid_type = type(value) is int if expected_type is int else isinstance(value, expected_type)
+        if not valid_type:
             errors.append(f"manifest.{key} missing/invalid")
 
     bundle_window = manifest.get("bundle_window")
     if isinstance(bundle_window, dict):
         for key, expected_type in (("from", str), ("to", str), ("count", int)):
-            if not isinstance(bundle_window.get(key), expected_type):
+            value = bundle_window.get(key)
+            valid_type = type(value) is int if expected_type is int else isinstance(value, expected_type)
+            if not valid_type:
                 errors.append(f"manifest.bundle_window.{key} missing/invalid")
 
     files = manifest.get("files")
@@ -61,7 +64,7 @@ def _validate_manifest_schema(manifest: dict[str, Any]) -> list[str]:
             if not isinstance(entry.get("provenance_hash"), str):
                 errors.append(f"manifest.files[{index}].provenance_hash missing/invalid")
 
-    if manifest.get("schema_version") != 1:
+    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != 1:
         errors.append("manifest.schema_version must be 1")
     if manifest.get("hash_algo") != HASH_ALGO:
         errors.append(f"manifest.hash_algo must be {HASH_ALGO}")
