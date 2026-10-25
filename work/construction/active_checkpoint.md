@@ -1,18 +1,18 @@
-## Current verified state - sequence 655
+## Current construction state - sequence 657
 
-Sequence 655 integrates PR #2760 and its verified main merge. The local canonical regression suite, docs build, and custody checks passed; applicable PR and post-merge hosted checks passed.
+Sequence 657 is a locally validated, uncommitted security candidate on verified main. Cathedral path-like amendment values now require resolved component ancestry; exact regression nodes are included in canonical test selection. No PR or merge has been attempted for this candidate.
 
-Latest verified main: `92e362ba76d9f2559e79d4d28142624bc7b77f97`, tree `473f00d80b0159d2bf5b806937e69f7eef128bb2`
-Latest construction segment: `work/construction/segments/0655-integrate-pr-2760-main-verification.md`
-Latest segment SHA-256: 2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910
-Sequence: 655 (PR #2760 post-merge integration)
+Verified base main: `93706511d5e0389f4a4820c771e84b5b3a47587f`, tree `88601a321e70018e1464977635e056e5f86264e9`
+Latest construction segment: `work/construction/segments/0657-component-aware-cathedral-path-safety.md`
+Latest segment SHA-256: 5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941
+Sequence: 657 (component-aware Cathedral path safety)
 
-PR #2760 candidate `66b26122cef562b594a95280e70d2b4c29bf7e6c` merged normally with the candidate tree preserved. Required Quality Gate and its exact acceptance, hosted finalizer and metadata guard passed, as did all applicable PR workflows. Main Quality Gate, CI (all four jobs), Invariants, Docker, Codex CI, and Docs Deploy passed. Forge Smoke was skipped by workflow condition.
+Canonical regression: run `c520a88294d6492ab8d018edf3cf1e6c`, 150 passed, 16 skipped, zero failed. Exact-node acceptance is ready. Targeted mypy and diff check passed. Docs dependency check and 616-page build passed. Construction custody verified 656 preceding segments. The task's source file identities and provenance hashes are in the evidence record. Bootstrap status: ready.
 
-Evidence record: `work/construction/evidence/0655-integrate-pr-2760-main-verification.json`
-Evidence SHA-256: 432708e0ceac6010376f8d1fcc58a597bb6eff9b41a4f8f33f31ef004314a0bf
+Evidence record: `work/construction/evidence/0657-component-aware-cathedral-path-safety.json`
+Evidence SHA-256: 10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e
 
-Next: inspect the current open-work roadmap and select a bounded architectural dependency grounded in source and authority boundaries.
+Next: complete candidate-tree preflight, publish an `[untested]` construction PR, wait for hosted Quality Gate and CI, merge only on green, verify post-merge main evidence, then select the next bounded roadmap dependency.
 
 ## Previous checkpoint snapshot - sequence 654
 

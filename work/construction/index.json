@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "1c6e6fff4100847e1d48c126140f7adeb62cb23c6bc7e5f04c36fc9a40a773e5",
-    "latest_segment_sequence": 655,
-    "latest_segment_sha256": "2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910",
-    "source_commit": "92e362ba76d9f2559e79d4d28142624bc7b77f97",
-    "source_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2"
+    "checkpoint_sha256": "45a10a067c8a2c9e5f0d80dc4a41c0c45d62c62911aac5ae6f4bc26eec651326",
+    "latest_segment_sequence": 657,
+    "latest_segment_sha256": "5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
+    "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+    "source_tree": "88601a321e70018e1464977635e056e5f86264e9"
   },
-  "checkpoint_sha256": "1c6e6fff4100847e1d48c126140f7adeb62cb23c6bc7e5f04c36fc9a40a773e5",
+  "checkpoint_sha256": "45a10a067c8a2c9e5f0d80dc4a41c0c45d62c62911aac5ae6f4bc26eec651326",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 655,
+  "latest_sequence": 657,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7685,6 +7685,30 @@
       "source_candidate_commit": "66b26122cef562b594a95280e70d2b4c29bf7e6c",
       "source_commit": "92e362ba76d9f2559e79d4d28142624bc7b77f97",
       "source_tree": "473f00d80b0159d2bf5b806937e69f7eef128bb2"
+    },
+    {
+      "sequence": 656,
+      "path": "work/construction/segments/0656-integrate-pr-2761-main-verification.md",
+      "bytes": 1612,
+      "sha256": "140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
+      "predecessor": "segment-sha256:2179aac783f7015f449bcab8f5561a999ba9e9c8d7624a308beb77ce899b1910",
+      "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+      "source_tree": "88601a321e70018e1464977635e056e5f86264e9",
+      "evidence_path": "work/construction/evidence/0656-integrate-pr-2761-main-verification.json",
+      "evidence_bytes": 4973,
+      "evidence_sha256": "33cb0b453c30480bed5d59cfc2f540c2adb3e83a66b856a29edd5f73d89a2f24"
+    },
+    {
+      "sequence": 657,
+      "path": "work/construction/segments/0657-component-aware-cathedral-path-safety.md",
+      "bytes": 1734,
+      "sha256": "5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
+      "predecessor": "segment-sha256:140e9d50cd980e286c7bddcb9b68e7923fd384288a4a12f82c46ff0c272c8a91",
+      "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+      "source_tree": "88601a321e70018e1464977635e056e5f86264e9",
+      "evidence_path": "work/construction/evidence/0657-component-aware-cathedral-path-safety.json",
+      "evidence_bytes": 3948,
+      "evidence_sha256": "10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e"
     }
   ],
   "source_acquisition": {

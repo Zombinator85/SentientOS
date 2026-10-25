@@ -83,3 +83,35 @@ def test_applicator_rejects_forbidden_domain(runtime_config: dict[str, object]) 
     assert "source_code" in result.errors
     ledger_path = Path(runtime_config["cathedral"]["ledger_path"])  # type: ignore[index]
     assert not ledger_path.exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_path_values_require_component_aware_base_ancestry(
+    runtime_config: dict[str, object],
+) -> None:
+    applicator = AmendmentApplicator(runtime_config)
+    base_dir = Path(runtime_config["runtime"]["root"])  # type: ignore[index]
+
+    assert applicator._is_safe_value(str(base_dir / "config" / "nested.json"))
+    assert not applicator._is_safe_value(str(base_dir) + "-backup/config.json")
+    assert not applicator._is_safe_value(str(base_dir / ".." / "outside.json"))
+
+
+@pytest.mark.no_legacy_skip
+def test_sibling_prefix_path_amendment_is_rejected_without_persistence(
+    runtime_config: dict[str, object],
+) -> None:
+    applicator = AmendmentApplicator(runtime_config)
+    base_dir = Path(runtime_config["runtime"]["root"])  # type: ignore[index]
+    sibling_path = str(base_dir) + "-backup/payload.json"
+    amendment = _make_amendment(
+        "cfg-sibling-prefix-path",
+        {"config": {"runtime": {"watchdog_interval": sibling_path}}},
+    )
+
+    result = applicator.apply(amendment)
+
+    assert result.status == "error"
+    assert result.errors["config.runtime.watchdog_interval"] == "Unsafe value rejected"
+    assert not Path(sibling_path).exists()
+    assert not Path(runtime_config["cathedral"]["ledger_path"]).exists()  # type: ignore[index]

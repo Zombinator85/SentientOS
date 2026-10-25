@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_cathedral_apply.py::test_path_values_require_component_aware_base_ancestry",
+      "rationale": "Canonical path ancestry accepts a real descendant and rejects sibling-prefix and traversal paths."
+    },
+    {
+      "node_id": "tests/test_cathedral_apply.py::test_sibling_prefix_path_amendment_is_rejected_without_persistence",
+      "rationale": "A sibling-prefix path amendment is rejected before persistence or ledger effects."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_cathedral_apply.py::test_path_values_require_component_aware_base_ancestry"
+  ]
+}
