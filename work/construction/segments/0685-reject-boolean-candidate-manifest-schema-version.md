@@ -1,0 +1,3 @@
+# Sequence 685: reject boolean candidate manifest schema version
+
+A malformed candidate manifest with JSON schema_version true was accepted because Python treats True == 1. Candidate preflight now requires exact integer type, and a regression test verifies rejection. Code-only tree f243fc45197e34723ab49e9f84a7b9f19169ebfc was based on verified main 9a21c7b95da0b3f63967c401ff493f17fe239df0 / 15af5562b7548f010df06d1c00ce6d5dafe8bbb7. Focused publication and custody tests passed 45/45, custody was ready through 683, and mypy baseline added zero errors with 42 retired. Only scripts/construction_source_preflight.py and tests/test_construction_candidate_publication.py changed; docs and v1/v2 schema behavior are otherwise unchanged.

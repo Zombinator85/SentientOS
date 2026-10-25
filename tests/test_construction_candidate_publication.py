@@ -44,6 +44,18 @@ def test_exact_tested_tree_and_remote_blobs_admit_publication(tmp_path: Path) ->
         'candidate_integrity_ready_for_blob_upload')
 
 
+def test_candidate_guard_rejects_boolean_manifest_schema_version(
+    tmp_path: Path,
+) -> None:
+    manifest, _ = candidate(tmp_path)
+    manifest["schema_version"] = True
+
+    result = verify_candidate_publication(tmp_path, manifest)
+
+    assert result["status"] == "invalid"
+    assert "candidate_unreadable:candidate_manifest_identity_invalid" in result["failures"]
+
+
 @pytest.mark.parametrize('corruption', ['remote_blob', 'local_digest', 'omitted_path', 'null_source'])
 def test_candidate_guard_rejects_source_or_transport_corruption(tmp_path: Path, corruption: str) -> None:
     source = b'value = 1\x00\n' if corruption == 'null_source' else b'value = 1\n'
