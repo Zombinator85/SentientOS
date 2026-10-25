@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 17,
+  "first_sequence": 692,
+  "last_sequence": 693,
+  "predecessor": "shard-sha256:309010ffcbdf81064db9441ed9671892ecaa2da60ebae15982c76e0c3977f07a",
+  "segments": [
+    {
+      "sequence": 692,
+      "path": "work/construction/segments/0692-integrate-pr-2781-main-verification.md",
+      "predecessor": "segment-sha256:8ed93ed87c122f1f3859f33a113348ae73b7b71ee184c9ed42110c5e5008693c",
+      "bytes": 1398,
+      "sha256": "941e56a186e06a95773cea9bcfac9e10b7e6f9403e859b312f92a010597ba9cc",
+      "evidence_path": "work/construction/evidence/0692-integrate-pr-2781-main-verification.json",
+      "evidence_bytes": 1626,
+      "evidence_sha256": "cfbe7f0b502f650247ad937421424fe20c085c0c576fa411208770c518fce0f5",
+      "source_commit": "4cb5b1bdd7c10b16da16ed969fe796a9c4219f53",
+      "source_tree": "742d0e0b30c1efb08b7994ab0be360a2992722ed"
+    },
+    {
+      "sequence": 693,
+      "path": "work/construction/segments/0693-reject-boolean-and-nonfinite-provenance-metrics.md",
+      "predecessor": "segment-sha256:941e56a186e06a95773cea9bcfac9e10b7e6f9403e859b312f92a010597ba9cc",
+      "bytes": 1191,
+      "sha256": "ff7f91072dbbc5a7471b38613262fcc6d6708645463bf9fc8faf9a7a76ddf276",
+      "evidence_path": "work/construction/evidence/0693-reject-boolean-and-nonfinite-provenance-metrics.json",
+      "evidence_bytes": 1347,
+      "evidence_sha256": "cd7f0fa03cc4f62e56b013b5f360186b5811d57e9231be9dacd0a3a062181db5",
+      "source_commit": "4cb5b1bdd7c10b16da16ed969fe796a9c4219f53",
+      "source_tree": "742d0e0b30c1efb08b7994ab0be360a2992722ed"
+    }
+  ]
+}

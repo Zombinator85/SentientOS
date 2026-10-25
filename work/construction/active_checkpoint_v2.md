@@ -1,3 +1,18 @@
+# Recovery state - sequence 693
+
+PR #2781 integrated sequence 691 at verified main `4cb5b1bdd7c10b16da16ed969fe796a9c4219f53` / `742d0e0b30c1efb08b7994ab0be360a2992722ed`, with all eight applicable exact-head checks and all seven applicable post-merge workflows green; Forge Smoke was skipped by condition. Sequence 692 records that integration. Sequence 693 makes provenance trend metrics reject booleans, non-finite numbers, and overflowing integers. Its tested code-only tree is `a80f079479fa19609642af1e5f12f87aaccf6ea7`; the focused regression passed and targeted source mypy is clean.
+
+Latest verified main: `4cb5b1bdd7c10b16da16ed969fe796a9c4219f53`, tree `742d0e0b30c1efb08b7994ab0be360a2992722ed`
+Latest construction segment: `work/construction/segments/0693-reject-boolean-and-nonfinite-provenance-metrics.md`
+Latest segment SHA-256: `ff7f91072dbbc5a7471b38613262fcc6d6708645463bf9fc8faf9a7a76ddf276`
+Sequence: 693
+Evidence: `work/construction/evidence/0693-reject-boolean-and-nonfinite-provenance-metrics.json`
+Evidence SHA-256: `369d2cae94daa63ec0358e37edb941e47fee583251193d22e045254f742e357e`
+
+Recovery: finish candidate custody/preflight for the bounded sequence 692–693 shard, then publish through the standard hosted PR workflow. Preserve the frozen v1 anchor and all preceding v2 shards.
+
+---
+
 # Recovery state - sequence 691
 
 PR #2780 integrated sequence 689 at verified main `5bb87a776aec431f140d8d311458a62ca81cf5e2` / `2cdb7b74be24f98eb75e5d936bb777cee935e976` with all exact-head and post-merge checks green; sequence 690 records that integration. Sequence 691 makes the pytest bootstrap verifier reject JSON booleans for integer test metrics. Its tested code-only tree is `aa9d223d55a754e4cabd171384c36a4fb497ca42`; focused tests passed 7/7 and targeted mypy is clean.
