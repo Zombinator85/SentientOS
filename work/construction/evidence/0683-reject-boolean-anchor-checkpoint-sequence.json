@@ -1,0 +1,42 @@
+{
+  "change": {
+    "paths": [
+      "scripts/verify_construction_continuation_custody.py",
+      "tests/test_construction_continuation_custody.py"
+    ],
+    "rule": "History-anchor active checkpoint latest_segment_sequence must be an exact JSON integer matching the frozen v1 anchor segment count; booleans are rejected."
+  },
+  "construction_custody_before_sequence_683": {
+    "segments_verified": 682,
+    "status": "construction_continuation_custody_ready"
+  },
+  "gap": {
+    "impact": "JSON true compares equal to integer 1 in Python and could satisfy the frozen v1 history-anchor checkpoint count binding.",
+    "reproduction": {
+      "active_checkpoint_binding_latest_segment_sequence": true,
+      "anchor_segment_count": 1,
+      "prior_verifier_status": "construction_continuation_custody_ready"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject boolean active checkpoint sequence in the frozen v1 history anchor used by the v2 continuation verifier",
+  "sequence": 683,
+  "source": {
+    "tested_code_only_tree": "275ef3ea3b3fdcd72b1ade88d64cc99120c6ca15",
+    "verified_main_commit": "fef16ad78303c7acacecc5ed52cadc7cbf30a623",
+    "verified_main_tree": "13152da5c2dd37f38cc7874863ddcb62781aa2b1"
+  },
+  "validation": {
+    "anchor_boolean_checkpoint_regression": "passed",
+    "continuation_custody_before_append": "construction_continuation_custody_ready through sequence 682",
+    "documentation_build": "not_required_unchanged_documentation_surface",
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 44
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "mypy_baseline_new_errors": 0,
+    "mypy_baseline_status": "mypy_baseline_improved"
+  }
+}

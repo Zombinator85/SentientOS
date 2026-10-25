@@ -456,6 +456,34 @@ def test_checkpoint_segment_reference_must_exist_in_the_index(
     ) in result["failures"]
 
 
+def test_sharded_history_anchor_rejects_boolean_checkpoint_sequence(
+    tmp_path: Path,
+) -> None:
+    index_path, _, _, _ = _write_fixture(tmp_path)
+    original_anchor_bytes = index_path.read_bytes()
+    sharded_bytes, _ = build_sharded_index(
+        original_anchor_bytes, original_anchor_bytes
+    )
+    anchor = json.loads(original_anchor_bytes)
+    anchor["active_checkpoint_binding"]["latest_segment_sequence"] = True
+    mutated_anchor_bytes = (json.dumps(anchor, indent=2) + "\n").encode()
+    index_path.write_bytes(mutated_anchor_bytes)
+
+    sharded_index = json.loads(sharded_bytes)
+    sharded_index["history_anchor"].update(
+        source_index_sha256=hashlib.sha256(mutated_anchor_bytes).hexdigest(),
+        source_index_git_blob_sha=_blob_sha(mutated_anchor_bytes),
+    )
+    (tmp_path / "work/construction/index-v2.json").write_text(
+        json.dumps(sharded_index), encoding="utf-8"
+    )
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert "history_anchor_checkpoint_sequence_mismatch" in result["failures"]
+
+
 @pytest.mark.parametrize(
     ("target", "mutation", "expected_failure"),
     [

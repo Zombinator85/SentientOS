@@ -338,7 +338,8 @@ def verify_continuation_reader(
                 anchor_checkpoint = read(anchor_checkpoint_path, MAX_CHECKPOINT_BYTES)
                 if hashlib.sha256(anchor_checkpoint).hexdigest() != anchor_binding.get("checkpoint_sha256"):
                     failures.append("history_anchor_checkpoint_sha256_mismatch")
-                if anchor_binding.get("latest_segment_sequence") != len(anchor_segments):
+                if (type(anchor_binding.get("latest_segment_sequence")) is not int
+                        or anchor_binding.get("latest_segment_sequence") != len(anchor_segments)):
                     failures.append("history_anchor_checkpoint_sequence_mismatch")
                 if anchor_segments and anchor_binding.get("latest_segment_sha256") != anchor_segments[-1].get("sha256"):
                     failures.append("history_anchor_checkpoint_segment_mismatch")
