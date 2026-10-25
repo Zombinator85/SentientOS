@@ -307,7 +307,8 @@ def verify_continuation_reader(
         legacy_bytes = read(str(legacy["path"]), MAX_LEGACY_BYTES)
         actual_sha256 = hashlib.sha256(legacy_bytes).hexdigest()
         actual_blob = _git_blob_sha(legacy_bytes)
-        if len(legacy_bytes) != legacy.get("bytes"):
+        if (type(legacy.get("bytes")) is not int
+                or len(legacy_bytes) != legacy.get("bytes")):
             failures.append("legacy_journal_byte_count_mismatch")
         if actual_sha256 != legacy.get("sha256"):
             failures.append("legacy_journal_sha256_mismatch")
@@ -371,7 +372,8 @@ def verify_continuation_reader(
         try:
             content = read(path, MAX_SEGMENT_BYTES)
             digest = hashlib.sha256(content).hexdigest()
-            if len(content) != entry.get("bytes"):
+            if (type(entry.get("bytes")) is not int
+                    or len(content) != entry.get("bytes")):
                 failures.append(f"segment_{expected_sequence}_byte_count_mismatch")
             if digest != entry.get("sha256"):
                 failures.append(f"segment_{expected_sequence}_sha256_mismatch")

@@ -79,6 +79,44 @@ def test_frozen_journal_and_compact_segment_chain_verify(tmp_path: Path) -> None
     assert result["segments_verified"] == 1
 
 
+@pytest.mark.parametrize("target", ["legacy", "segment"])
+def test_custody_rejects_boolean_byte_counts(tmp_path: Path, target: str) -> None:
+    index_path, legacy, segment, checkpoint = _write_fixture(tmp_path)
+    index = json.loads(index_path.read_bytes())
+    if target == "legacy":
+        content = b"x"
+        legacy.write_bytes(content)
+        blob = _blob_sha(content)
+        index["legacy_journal"].update(
+            bytes=True,
+            sha256=hashlib.sha256(content).hexdigest(),
+            git_blob_sha=blob,
+        )
+        index["segments"][0]["predecessor"] = "legacy-blob:" + blob
+        expected_failure = "legacy_journal_byte_count_mismatch"
+    else:
+        content = b"x"
+        segment.write_bytes(content)
+        digest = hashlib.sha256(content).hexdigest()
+        index["segments"][0].update(bytes=True, sha256=digest)
+        checkpoint.write_text(
+            f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+            f"Latest segment: {segment.relative_to(tmp_path).as_posix()} {digest}\n",
+            encoding="utf-8",
+        )
+        index["active_checkpoint_binding"].update(
+            latest_segment_sha256=digest,
+            checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+        )
+        expected_failure = "segment_1_byte_count_mismatch"
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert expected_failure in result["failures"]
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected_error"),
     [

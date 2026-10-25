@@ -58,6 +58,62 @@ def test_candidate_guard_rejects_source_or_transport_corruption(tmp_path: Path, 
     assert verify_candidate_publication(tmp_path, manifest, observed_blobs=uploaded)['status'] == 'invalid'
 
 
+@pytest.mark.parametrize(
+    ("target", "expected_failure"),
+    [
+        ("legacy", "custody:legacy_journal_byte_count_mismatch"),
+        ("segment", "custody:segment_1_byte_count_mismatch"),
+    ],
+)
+def test_candidate_guard_rejects_boolean_custody_byte_counts(
+    tmp_path: Path, target: str, expected_failure: str
+) -> None:
+    _write_fixture(tmp_path)
+    index_path = tmp_path / "work/construction/index.json"
+    index = json.loads(index_path.read_bytes())
+    legacy = tmp_path / index["legacy_journal"]["path"]
+    segment = tmp_path / index["segments"][0]["path"]
+    checkpoint = tmp_path / "work/construction/active_checkpoint.md"
+    if target == "legacy":
+        content = b"x"
+        legacy.write_bytes(content)
+        blob = hashlib.sha1(b"blob 1\0x").hexdigest()
+        index["legacy_journal"].update(
+            bytes=True,
+            sha256=hashlib.sha256(content).hexdigest(),
+            git_blob_sha=blob,
+        )
+        index["segments"][0]["predecessor"] = "legacy-blob:" + blob
+    else:
+        content = b"x"
+        segment.write_bytes(content)
+        digest = hashlib.sha256(content).hexdigest()
+        index["segments"][0].update(bytes=True, sha256=digest)
+        checkpoint.write_text(
+            f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+            f"Latest segment: {segment.relative_to(tmp_path).as_posix()} {digest}\n",
+            encoding="utf-8",
+        )
+        index["active_checkpoint_binding"].update(
+            latest_segment_sha256=digest,
+            checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+        )
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+        "commit", "-qm", "invalid byte-count baseline")
+    parent = git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "source.py").write_bytes(b"value = 1\n")
+    git(tmp_path, "add", "source.py")
+    manifest = candidate_manifest(tmp_path, git(tmp_path, "write-tree"), parent)
+
+    result = verify_candidate_publication(tmp_path, manifest)
+
+    assert result["status"] == "invalid"
+    assert expected_failure in result["failures"]
+
+
 def test_candidate_guard_checks_frozen_tree_even_with_clean_worktree_bytes(tmp_path: Path) -> None:
     _manifest, parent = candidate(tmp_path)
     journal = tmp_path / 'work/sentientos_night_watch_continuation.md'
