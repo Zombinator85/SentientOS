@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "085f330befbea058ea4bada7567d6370e7987293f3a5cddf342b4470d6407fbf",
-    "latest_segment_sequence": 661,
-    "latest_segment_sha256": "1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017",
-    "source_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
-    "source_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
+    "checkpoint_sha256": "989e46fc2480c5fa5577d79cc37e87043b023603840d31a3a8d62cdb2a473dd8",
+    "latest_segment_sequence": 663,
+    "latest_segment_sha256": "c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59",
+    "source_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "source_tree": "3654448252c61cad2e92dd6be35f95388318b912"
   },
-  "checkpoint_sha256": "085f330befbea058ea4bada7567d6370e7987293f3a5cddf342b4470d6407fbf",
+  "checkpoint_sha256": "989e46fc2480c5fa5577d79cc37e87043b023603840d31a3a8d62cdb2a473dd8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 661,
+  "latest_sequence": 663,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7757,6 +7757,30 @@
       "sha256": "1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017",
       "source_commit": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
       "source_tree": "8860d5b6016a50b51a6c7cc3248bb476074c4fdd"
+    },
+    {
+      "bytes": 1564,
+      "evidence_bytes": 4387,
+      "evidence_path": "work/construction/evidence/0662-integrate-pr-2764-main-verification.json",
+      "evidence_sha256": "ddfe9a94e30cc798b822f523e79ac3d71c4494a846e868589c13ebe6d7b0a594",
+      "path": "work/construction/segments/0662-integrate-pr-2764-main-verification.md",
+      "predecessor": "segment-sha256:1847b6ae5542a6dfa96de87091f617ad68395466a59078003b358856508b6017",
+      "sequence": 662,
+      "sha256": "45260392ae809ba6447f1f2d3505e97bbcab4a342a446025e80e04639f39618f",
+      "source_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+      "source_tree": "3654448252c61cad2e92dd6be35f95388318b912"
+    },
+    {
+      "bytes": 1233,
+      "evidence_bytes": 2165,
+      "evidence_path": "work/construction/evidence/0663-document-readiness-output-root-ancestry.json",
+      "evidence_sha256": "ad6cf6e65e1ed187c9fd40c7f0552fa89e450631f9c62894d198078643342c8d",
+      "path": "work/construction/segments/0663-document-readiness-output-root-ancestry.md",
+      "predecessor": "segment-sha256:45260392ae809ba6447f1f2d3505e97bbcab4a342a446025e80e04639f39618f",
+      "sequence": 663,
+      "sha256": "c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59",
+      "source_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+      "source_tree": "3654448252c61cad2e92dd6be35f95388318b912"
     }
   ],
   "source_acquisition": {

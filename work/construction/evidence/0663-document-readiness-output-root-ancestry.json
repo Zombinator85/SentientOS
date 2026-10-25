@@ -1,0 +1,47 @@
+{
+  "authority_boundary": "This documentation update clarifies existing path behavior and review-only metadata posture; it changes no runtime behavior or authority.",
+  "bootstrap": {
+    "blocker_codes": [],
+    "status": "ready",
+    "subsystem_kind": "documentation",
+    "task_slug": "document_readiness_output_root_ancestry"
+  },
+  "change": {
+    "path": "docs/architecture/host_fulfillment_executor_contract_readiness_runtime.md",
+    "summary": "Document component-aware resolved path ancestry for readiness output roots, including denial of repository-root descendants and acceptance of external sibling-prefix roots."
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "validated documentation candidate: specify readiness output-root ancestry and preserve metadata-only posture",
+  "sequence": 663,
+  "source": {
+    "base_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "base_tree": "3654448252c61cad2e92dd6be35f95388318b912",
+    "candidate_commit": null,
+    "publication_status": "not_published"
+  },
+  "validation": {
+    "canonical_regression_on_exact_source_candidate": {
+      "provenance_sha256": "3ef05a5e67ffb4016b096e65929fad25a47cae0729f99f0bd3ef2ce6fb54ecaf",
+      "run_id": "71c5902d86314d9f9164e5ff8ad38e39",
+      "source_candidate_tree": "3654448252c61cad2e92dd6be35f95388318b912",
+      "tests_failed": 0,
+      "tests_passed": 168,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_663": {
+      "segments_verified": 662,
+      "status": "construction_continuation_custody_ready"
+    },
+    "diff_check": "passed",
+    "docs_build_pages": 616,
+    "docs_dependencies": "passed",
+    "post_documentation_change_regression_recheck": {
+      "elapsed_seconds_330": true,
+      "note": "The canonical runner printed partial progress but produced no completion summary or finalized provenance. It is not counted as a pass; implementation source is unchanged from the exact tree whose regression passed.",
+      "pytest_exit_code": 130,
+      "status": "interrupted_without_result",
+      "tests_counted": null
+    },
+    "task_acceptance": "not_required_documentation_only"
+  }
+}

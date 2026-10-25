@@ -63,7 +63,7 @@ persisted result. These checks grant no executor or backend authority.
 
 ## Persistence and projection
 
-Bundles are written atomically under an explicit external runtime-state root. Repository-local roots and symlink escapes are rejected. Persisted files include the request, source manifest, metadata admission reference, runtime plan, prerequisites, contract records, validation findings, summary, deterministic Markdown, and a compact latest pointer.
+Bundles are written atomically under an explicit external runtime-state root. Repository-local roots and symlink escapes are rejected. The readiness output-root check compares resolved path components, rejecting the repository root and its descendants while allowing external sibling paths whose names share the repository-root text prefix. This path rule does not change the review-only, metadata-only authority boundary. Persisted files include the request, source manifest, metadata admission reference, runtime plan, prerequisites, contract records, validation findings, summary, deterministic Markdown, and a compact latest pointer.
 
 World-State projection uses proposal/review/admission-candidate lifecycle stages only. The authenticated dashboard endpoint `/api/world-state/host-fulfillment-executor-readiness` reads only terminal World-State facts and never invokes the runtime, builders, admission, backends, dry-runs, fulfillment, effects, or host mutation.
 
