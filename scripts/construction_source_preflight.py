@@ -252,7 +252,8 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
             "remote_ref_updated": False}
     try:
         tree, parent = manifest["candidate_tree"], manifest["expected_head"]
-        if (manifest.get("schema_version") != 1 or not isinstance(tree, str)
+        if (type(manifest.get("schema_version")) is not int
+                or manifest.get("schema_version") != 1 or not isinstance(tree, str)
                 or not _SHA_RE.fullmatch(tree) or not isinstance(parent, str)
                 or not _SHA_RE.fullmatch(parent)):
             raise PreflightError("candidate_manifest_identity_invalid")

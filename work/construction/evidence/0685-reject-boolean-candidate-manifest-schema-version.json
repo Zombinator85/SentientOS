@@ -1,0 +1,22 @@
+{
+  "change_paths": [
+    "scripts/construction_source_preflight.py",
+    "tests/test_construction_candidate_publication.py"
+  ],
+  "focused_tests": {
+    "failed": 0,
+    "passed": 45
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "mypy_new_errors": 0,
+  "mypy_retired_errors": 42,
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "A malformed candidate manifest with JSON schema_version true was accepted because Python treats True == 1. Candidate preflight now requires exact integer type, and a regression test verifies rejection. Code-only tree f243fc45197e34723ab49e9f84a7b9f19169ebfc was based on verified main 9a21c7b95da0b3f63967c401ff493f17fe239df0 / 15af5562b7548f010df06d1c00ce6d5dafe8bbb7. Focused publication and custody tests passed 45/45, custody was ready through 683, and mypy baseline added zero errors with 42 retired. Only scripts/construction_source_preflight.py and tests/test_construction_candidate_publication.py changed; docs and v1/v2 schema behavior are otherwise unchanged.",
+  "sequence": 685,
+  "source": {
+    "verified_main_commit": "9a21c7b95da0b3f63967c401ff493f17fe239df0",
+    "verified_main_tree": "15af5562b7548f010df06d1c00ce6d5dafe8bbb7"
+  },
+  "tested_code_only_tree": "f243fc45197e34723ab49e9f84a7b9f19169ebfc"
+}

@@ -1,3 +1,18 @@
+# Recovery state - sequence 685
+
+Sequence 683 merged in PR #2777 at verified main `9a21c7b95da0b3f63967c401ff493f17fe239df0` / `15af5562b7548f010df06d1c00ce6d5dafe8bbb7`. Main CI, docs/linkcheck, custody, and hosted Quality Gate passed. Sequence 684 records integration. Sequence 685 adds exact integer typing for candidate manifest schema versions; its code-only tree `f243fc45197e34723ab49e9f84a7b9f19169ebfc` passed 45 focused tests and mypy added zero errors.
+
+Latest verified main: `9a21c7b95da0b3f63967c401ff493f17fe239df0`, tree `15af5562b7548f010df06d1c00ce6d5dafe8bbb7`
+Latest construction segment: `work/construction/segments/0685-reject-boolean-candidate-manifest-schema-version.md`
+Latest segment SHA-256: `23f4b1c166483422cc137edd3df2abd5979a669dd2bf8e0042bdb976e3df981d`
+Sequence: 685
+Evidence: `work/construction/evidence/0685-reject-boolean-candidate-manifest-schema-version.json`
+Evidence SHA-256: `c14f108c3f7d1b1e54f4f3403fad01b7f9e44b4a4c45a5809caea0c94cd1c6e0`
+
+Recovery: publish this limited candidate using normal preflight and PR hosted validation. Preserve the frozen v1 anchor and earlier v2 shards; after merge, verify main and continue the next bounded custody probe.
+
+---
+
 ## Current recovery state - sequence 683
 
 The v2 custody verifier now rejects a boolean checkpoint sequence in the frozen history anchor. The focused custody and publication suite passed 44/44; continuation custody verified 682 predecessor records; and mypy baseline added zero new errors with overall improvement. The code-only candidate tree is `275ef3ea3b3fdcd72b1ade88d64cc99120c6ca15`, based on verified main `fef16ad78303c7acacecc5ed52cadc7cbf30a623` / `13152da5c2dd37f38cc7874863ddcb62781aa2b1`. The frozen v1 index/checkpoint and all existing v2 shards remain unchanged.

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 13,
+  "first_sequence": 684,
+  "last_sequence": 685,
+  "predecessor": "shard-sha256:a74e528664be34011409d60c7a165849125181456f5c388906a23f656dfdb02a",
+  "segments": [
+    {
+      "sequence": 684,
+      "path": "work/construction/segments/0684-integrate-pr-2777-history-anchor-checkpoint-sequence.md",
+      "predecessor": "segment-sha256:86fa14ac6321c1e5588f350e3b951e888b89159caaa542fa49debae6ab5bedea",
+      "bytes": 979,
+      "sha256": "7f5bb68bcb03c7031b36faed03fe1e9ecb39af3998f7971a3c34bc8a5ceff552",
+      "evidence_path": "work/construction/evidence/0684-integrate-pr-2777-history-anchor-checkpoint-sequence.json",
+      "evidence_bytes": 1816,
+      "evidence_sha256": "fbf82c9a274c7634f62ac33c4d9824bf3c80173662deb23f983a2ec831141f0a",
+      "source_commit": "9a21c7b95da0b3f63967c401ff493f17fe239df0",
+      "source_tree": "15af5562b7548f010df06d1c00ce6d5dafe8bbb7"
+    },
+    {
+      "sequence": 685,
+      "path": "work/construction/segments/0685-reject-boolean-candidate-manifest-schema-version.md",
+      "predecessor": "segment-sha256:7f5bb68bcb03c7031b36faed03fe1e9ecb39af3998f7971a3c34bc8a5ceff552",
+      "bytes": 736,
+      "sha256": "23f4b1c166483422cc137edd3df2abd5979a669dd2bf8e0042bdb976e3df981d",
+      "evidence_path": "work/construction/evidence/0685-reject-boolean-candidate-manifest-schema-version.json",
+      "evidence_bytes": 1398,
+      "evidence_sha256": "c14f108c3f7d1b1e54f4f3403fad01b7f9e44b4a4c45a5809caea0c94cd1c6e0",
+      "source_commit": "9a21c7b95da0b3f63967c401ff493f17fe239df0",
+      "source_tree": "15af5562b7548f010df06d1c00ce6d5dafe8bbb7"
+    }
+  ]
+}
