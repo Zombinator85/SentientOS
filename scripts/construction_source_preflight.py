@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from scripts.verify_construction_continuation_custody import (
     materialize_index_segments,
@@ -309,14 +309,18 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
         new_index = json.loads(read(new_index_path, MAX_CANDIDATE_FILE_BYTES))
         if old_index.get("legacy_journal") != new_index.get("legacy_journal"):
             failures.append("frozen_journal_definition_changed")
-        parent_read = lambda path, limit: _tree_blob(root, parent, path, limit)[1]
+        parent_read: Callable[[str, int], bytes] = (
+            lambda path, limit: _tree_blob(root, parent, path, limit)[1]
+        )
         old_segments = materialize_index_segments(old_index, parent_read)
         new_segments = materialize_index_segments(new_index, read)
         if new_segments[:len(old_segments)] != old_segments:
             failures.append("historical_segment_entries_changed_or_removed")
         old_schema = old_index.get("schema_version")
         new_schema = new_index.get("schema_version")
-        if old_schema == 1 and new_schema == 2:
+        old_schema_is_int = type(old_schema) is int
+        new_schema_is_int = type(new_schema) is int
+        if old_schema_is_int and old_schema == 1 and new_schema_is_int and new_schema == 2:
             anchor = new_index.get("history_anchor")
             expected_anchor = {
                 "source_index_schema_version": 1,
@@ -333,7 +337,7 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
                 failures.append("shard_history_anchor_does_not_match_parent_index")
             if new_index_path != V2_INDEX_PATH or new_index_path == old_index_path:
                 failures.append("sharded_root_must_use_new_versioned_path")
-        elif old_schema == 2 and new_schema == 2:
+        elif old_schema_is_int and old_schema == 2 and new_schema_is_int and new_schema == 2:
             if old_index.get("history_anchor") != new_index.get("history_anchor"):
                 failures.append("shard_history_anchor_changed")
             old_shards = old_index.get("shards")
@@ -344,7 +348,13 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
                 or new_shards[:len(old_shards)] != old_shards
             ):
                 failures.append("historical_shard_descriptors_changed_or_removed")
-        elif old_schema == 2 or new_schema not in {1, 2}:
+        elif (
+            not old_schema_is_int
+            or old_schema not in {1, 2}
+            or (old_schema == 2 and new_schema_is_int and new_schema == 1)
+            or not new_schema_is_int
+            or new_schema not in {1, 2}
+        ):
             failures.append("construction_index_schema_transition_invalid")
 
         immutable_paths = {

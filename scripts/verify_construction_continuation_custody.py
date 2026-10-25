@@ -65,23 +65,24 @@ def _load_index_segments(
 ) -> list[dict[str, Any]]:
     """Load v1 inline entries or bounded v2 shards and verify shard custody."""
     schema_version = index.get("schema_version")
-    if schema_version == 1:
+    if type(schema_version) is int and schema_version == 1:
         inline_segments = index.get("segments")
         if (
             not isinstance(inline_segments, list)
             or len(inline_segments) > MAX_SEGMENTS
+            or type(index.get("latest_sequence")) is not int
             or index.get("latest_sequence") != len(inline_segments)
         ):
             failures.append("segments_invalid_or_unbounded")
             return []
         return [entry for entry in inline_segments if isinstance(entry, dict)]
 
-    if schema_version != 2:
+    if type(schema_version) is not int or schema_version != 2:
         failures.append("index_schema_invalid")
         return []
     if "segments" in index:
         failures.append("sharded_index_inline_segments_forbidden")
-    if index.get("shard_schema_version") != 1:
+    if type(index.get("shard_schema_version")) is not int or index.get("shard_schema_version") != 1:
         failures.append("shard_schema_version_unsupported")
     anchor = index.get("history_anchor")
     if not isinstance(anchor, dict):
@@ -100,7 +101,9 @@ def _load_index_segments(
     if type(anchor_count) is not int:
         anchor_count = -1
     if (
-        anchor.get("schema_version") != 1
+        type(anchor.get("schema_version")) is not int
+        or anchor.get("schema_version") != 1
+        or type(anchor.get("source_index_schema_version")) is not int
         or anchor.get("source_index_schema_version") != 1
         or anchor_path != "work/construction/index.json"
         or not isinstance(anchor_sha, str)
@@ -109,6 +112,7 @@ def _load_index_segments(
         or _HEX40_RE.fullmatch(anchor_blob) is None
         or type(anchor_count) is not int
         or not 0 <= anchor_count <= MAX_SEGMENTS
+        or type(anchor_latest) is not int
         or anchor_latest != anchor_count
         or (anchor_count == 0 and anchor_latest_sha is not None)
         or (anchor_count > 0 and (
@@ -126,14 +130,19 @@ def _load_index_segments(
             if _git_blob_sha(anchor_bytes) != anchor_blob:
                 failures.append("history_anchor_index_git_blob_mismatch")
             frozen_index = json.loads(anchor_bytes)
-            if not isinstance(frozen_index, dict) or frozen_index.get("schema_version") != 1:
+            if (
+                not isinstance(frozen_index, dict)
+                or type(frozen_index.get("schema_version")) is not int
+                or frozen_index.get("schema_version") != 1
+            ):
                 failures.append("history_anchor_index_schema_mismatch")
             else:
                 frozen_segments = frozen_index.get("segments")
                 if isinstance(frozen_segments, list):
                     anchor_segments = [e for e in frozen_segments if isinstance(e, dict)]
                 if (
-                    frozen_index.get("latest_sequence") != anchor_count
+                    type(frozen_index.get("latest_sequence")) is not int
+                    or frozen_index.get("latest_sequence") != anchor_count
                     or len(anchor_segments) != anchor_count
                     or frozen_index.get("legacy_journal") != index.get("legacy_journal")
                     or (anchor_count < latest_sequence
@@ -172,7 +181,8 @@ def _load_index_segments(
         digest = descriptor.get("sha256")
         blob_sha = descriptor.get("git_blob_sha")
         if (
-            descriptor.get("shard_sequence") != expected_shard_sequence
+            type(descriptor.get("shard_sequence")) is not int
+            or descriptor.get("shard_sequence") != expected_shard_sequence
             or not isinstance(path, str)
             or path in seen_paths
             or type(first_sequence) is not int
@@ -219,9 +229,13 @@ def _load_index_segments(
             shard_segments = shard.get("segments") if isinstance(shard, dict) else None
             if (
                 not isinstance(shard, dict)
+                or type(shard.get("schema_version")) is not int
                 or shard.get("schema_version") != 1
+                or type(shard.get("shard_sequence")) is not int
                 or shard.get("shard_sequence") != expected_shard_sequence
+                or type(shard.get("first_sequence")) is not int
                 or shard.get("first_sequence") != first_sequence
+                or type(shard.get("last_sequence")) is not int
                 or shard.get("last_sequence") != last_sequence
                 or shard.get("predecessor") != previous_shard
                 or not isinstance(shard_segments, list)
@@ -278,7 +292,11 @@ def verify_continuation_reader(
         index = json.loads(index_bytes)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return {"status": "invalid", "failures": [f"index_unreadable:{type(exc).__name__}:{exc}"]}
-    if not isinstance(index, dict) or index.get("schema_version") not in {1, 2}:
+    if (
+        not isinstance(index, dict)
+        or type(index.get("schema_version")) is not int
+        or index.get("schema_version") not in {1, 2}
+    ):
         return {"status": "invalid", "failures": ["index_schema_invalid"]}
 
     legacy = index.get("legacy_journal")
@@ -304,7 +322,11 @@ def verify_continuation_reader(
             if not isinstance(anchor, dict):
                 raise ValueError("history_anchor_missing")
             anchor_index = json.loads(read(str(anchor.get("path")), MAX_INDEX_BYTES))
-            if not isinstance(anchor_index, dict) or anchor_index.get("schema_version") != 1:
+            if (
+                not isinstance(anchor_index, dict)
+                or type(anchor_index.get("schema_version")) is not int
+                or anchor_index.get("schema_version") != 1
+            ):
                 raise ValueError("history_anchor_index_invalid")
             anchor_segments = _load_index_segments(anchor_index, read, failures)
             anchor_checkpoint_path = anchor_index.get("active_checkpoint")
@@ -337,7 +359,7 @@ def verify_continuation_reader(
             failures.append(f"segment_{expected_sequence}_path_missing_or_duplicate")
             continue
         seen_paths.add(path)
-        if entry.get("sequence") != expected_sequence:
+        if type(entry.get("sequence")) is not int or entry.get("sequence") != expected_sequence:
             failures.append(f"segment_{expected_sequence}_sequence_mismatch")
         expected_predecessor = (
             f"legacy-blob:{previous_sha}"
@@ -371,7 +393,10 @@ def verify_continuation_reader(
             checkpoint_digest = hashlib.sha256(checkpoint).hexdigest()
             if binding.get("checkpoint_sha256") != checkpoint_digest:
                 failures.append("active_checkpoint_sha256_mismatch")
-            if binding.get("latest_segment_sequence") != len(segments):
+            if (
+                type(binding.get("latest_segment_sequence")) is not int
+                or binding.get("latest_segment_sequence") != len(segments)
+            ):
                 failures.append("active_checkpoint_segment_sequence_mismatch")
             if segments and binding.get("latest_segment_sha256") != segments[-1].get("sha256"):
                 failures.append("active_checkpoint_segment_digest_mismatch")
