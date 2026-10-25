@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.analyze_test_provenance import Thresholds, _discover_inputs, analyze
+import pytest
+
+from scripts.analyze_test_provenance import Thresholds, _discover_inputs, _safe_number, analyze
 from scripts.export_test_provenance_bundle import main as export_main
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
@@ -63,6 +65,41 @@ def test_analyze_no_alert_on_stable_runs() -> None:
 
     assert report["avoidance_alert"] is False
     assert report["avoidance_reasons"] == []
+
+
+@pytest.mark.no_legacy_skip
+def test_analyze_rejects_boolean_test_counts_and_nonfinite_metrics() -> None:
+    malformed = {
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "run_intent": "default",
+        "tests_executed": True,
+        "tests_passed": True,
+        "skip_rate": float("nan"),
+        "xfail_rate": float("inf"),
+    }
+
+    report = analyze(
+        [malformed],
+        Thresholds(
+            window_size=1,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+    )
+
+    assert report["runs_analyzed"] == 0
+    assert report["runs_discovered"] == 1
+    assert report["metrics"]["tests_executed_mean"] == 0.0
+    assert report["metrics"]["tests_passed_mean"] == 0.0
+    assert report["metrics"]["skip_rate_mean"] == 0.0
+    assert report["metrics"]["xfail_rate_mean"] == 0.0
+    assert _safe_number({"value": True}, "value") == 0.0
+    assert _safe_number({"value": float("nan")}, "value") == 0.0
+    assert _safe_number({"value": float("inf")}, "value") == 0.0
+    assert _safe_number({"value": 10**1000}, "value") == 0.0
 
 
 def test_analyze_alert_on_spikes_and_override() -> None:

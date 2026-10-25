@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from collections import Counter
 from dataclasses import dataclass
@@ -166,8 +167,13 @@ def _verify_contiguous_history(runs: list[dict[str, Any]]) -> tuple[bool, list[d
 
 def _safe_number(payload: dict[str, Any], key: str) -> float:
     raw = payload.get(key, 0)
-    if isinstance(raw, (int, float)):
-        return float(raw)
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        try:
+            number = float(raw)
+        except OverflowError:
+            return 0.0
+        if math.isfinite(number):
+            return number
     return 0.0
 
 
