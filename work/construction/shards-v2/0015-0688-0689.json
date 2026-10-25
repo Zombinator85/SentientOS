@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 15,
+  "first_sequence": 688,
+  "last_sequence": 689,
+  "predecessor": "shard-sha256:b7430678efeb16026ec86cf9bcefaafc9d954a08a5281c86df23d9b7bb67f755",
+  "segments": [
+    {
+      "sequence": 688,
+      "path": "work/construction/segments/0688-integrate-pr-2779-provenance-bundle-integer-types.md",
+      "predecessor": "segment-sha256:107634e390e1b09c7b41ceeedc779e03fa3b5e55134c7d11696a20aa094a3d98",
+      "bytes": 1355,
+      "sha256": "384f144818a1b2e16ade086b51c6e3d95e962fc1c8da7fdc07d3405c3fd4464d",
+      "evidence_path": "work/construction/evidence/0688-integrate-pr-2779-provenance-bundle-integer-types.json",
+      "evidence_bytes": 1875,
+      "evidence_sha256": "5dafe08e3f8de15d98f2051701b6acc4cd66b6b2f8bf3247134ad95c21f19a59",
+      "source_commit": "c7b84aef160c03166f70d2576c00035cc0d1079d",
+      "source_tree": "824a6af14f897f700c37899f16f0384891ac9b0a"
+    },
+    {
+      "sequence": 689,
+      "path": "work/construction/segments/0689-reject-boolean-validation-completion-metrics.md",
+      "predecessor": "segment-sha256:384f144818a1b2e16ade086b51c6e3d95e962fc1c8da7fdc07d3405c3fd4464d",
+      "bytes": 956,
+      "sha256": "0602144674ef67adff0bde109bc451277d046e9b434fae97e0443f0912ccbb78",
+      "evidence_path": "work/construction/evidence/0689-reject-boolean-validation-completion-metrics.json",
+      "evidence_bytes": 1355,
+      "evidence_sha256": "cdd86aac10b08ae5f28ad7ff60d4490e51201a1bf587c5efc5696015b5991104",
+      "source_commit": "c7b84aef160c03166f70d2576c00035cc0d1079d",
+      "source_tree": "824a6af14f897f700c37899f16f0384891ac9b0a"
+    }
+  ]
+}
