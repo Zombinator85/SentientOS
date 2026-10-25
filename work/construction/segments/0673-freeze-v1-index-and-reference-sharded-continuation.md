@@ -1,0 +1,9 @@
+# Sequence 673: Freeze the published v1 index and anchor v2 continuation
+
+The verified v1 construction index on main `704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84` remains byte-for-byte at `work/construction/index.json`, with Git blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0` and SHA-256 `e8749dc2fcab24ef4fca68d82b51c5d91b280811ab9d4751929f9dbb527b6451`. Schema v2 now uses a separate `work/construction/index-v2.json` root that binds this exact v1 identity and appends only the two local records for sequences 671–672 in `work/construction/shards-v2/0001-0671-0672.json`. The v1 index and its original checkpoint remain unchanged; the v2 checkpoint carries the active sequence 672 binding.
+
+The custody verifier and candidate preflight now verify the v1 Git blob anchor, the original v1 checkpoint, the complete combined 1–672 segment/evidence chain, v2 shard byte and digest bounds, predecessor bindings, and immutable history. Future continuation updates append bounded new shard files and update only the small v2 root and active v2 checkpoint.
+
+The focused custody/publication regressions pass 26 tests. The documentation build generated 616 pages, Python compilation passed, and custody verifies through sequence 672. Candidate source preflight passed against the verified main base before this sequence record was appended; final tree preflight is rerun independently and retained in the local recovery manifest.
+
+The earlier full-index GitHub blob upload was rejected by platform review even after exact user approval. This migration does not rewrite or upload the published v1 index. No alternate publication route was attempted; any later publication must use the platform's supported exact-action approval path and the ordinary PR, hosted validation, CI, merge, and post-merge evidence process.

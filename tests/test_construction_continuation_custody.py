@@ -8,7 +8,13 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 
+import scripts.construction_index_sharding as sharding
 from scripts.verify_construction_continuation_custody import verify_construction_continuation
+from scripts.construction_index_sharding import (
+    append_segments_to_sharded_index,
+    build_sharded_index,
+    migrate_repository,
+)
 
 
 def _blob_sha(data: bytes) -> str:
@@ -34,6 +40,7 @@ def _write_fixture(root: Path) -> tuple[Path, Path, Path, Path]:
     checkpoint.write_bytes(checkpoint_bytes)
     index = {
         "schema_version": 1,
+        "latest_sequence": 1,
         "active_checkpoint": checkpoint.relative_to(root).as_posix(),
         "legacy_journal": {
             "path": legacy.relative_to(root).as_posix(),
@@ -70,6 +77,215 @@ def test_frozen_journal_and_compact_segment_chain_verify(tmp_path: Path) -> None
     assert result["status"] == "construction_continuation_custody_ready"
     assert result["failures"] == []
     assert result["segments_verified"] == 1
+
+
+def _write_sharded_fixture(root: Path) -> tuple[Path, Path]:
+    index_path, _, _, _ = _write_fixture(root)
+    anchor = index_path.read_bytes()
+    current = json.loads(anchor)
+    first_sha = current["segments"][-1]["sha256"]
+    segment_path = "work/construction/segments/0002-next.md"
+    segment_bytes = b"second retained note\n"
+    segment_sha = hashlib.sha256(segment_bytes).hexdigest()
+    (root / segment_path).write_bytes(segment_bytes)
+    entry = {
+        "sequence": 2,
+        "path": segment_path,
+        "predecessor": "segment-sha256:" + first_sha,
+        "bytes": len(segment_bytes),
+        "sha256": segment_sha,
+        "source_commit": "d" * 40,
+    }
+    current["segments"].append(entry)
+    current["latest_sequence"] = 2
+    checkpoint = (
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        f"Latest segment: {segment_path} {segment_sha}\n"
+    ).encode()
+    current["checkpoint_sha256"] = hashlib.sha256(checkpoint).hexdigest()
+    current["active_checkpoint_binding"].update({
+        "latest_segment_sequence": 2,
+        "latest_segment_sha256": segment_sha,
+        "checkpoint_sha256": hashlib.sha256(checkpoint).hexdigest(),
+    })
+    current_bytes = json.dumps(current).encode()
+    sharded_bytes, shards = build_sharded_index(current_bytes, anchor)
+    index_path_v2 = root / "work/construction/index-v2.json"
+    index_path_v2.write_bytes(sharded_bytes)
+    (root / "work/construction/active_checkpoint_v2.md").write_bytes(checkpoint)
+    for relative, content in shards.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    return index_path_v2, root / next(iter(shards))
+
+
+def test_versioned_shards_verify_the_original_segment_and_checkpoint_chain(
+    tmp_path: Path,
+) -> None:
+    index_path, _ = _write_sharded_fixture(tmp_path)
+
+    index = json.loads(index_path.read_bytes())
+    result = verify_construction_continuation(tmp_path)
+
+    assert index["schema_version"] == 2
+    assert "segments" not in index
+    assert index["history_anchor"]["segment_count"] == 1
+    assert index["shards"][0]["first_sequence"] == 2
+    assert result["status"] == "construction_continuation_custody_ready"
+    assert result["segments_verified"] == 2
+
+
+def test_sharded_append_creates_a_new_shard_and_preserves_prior_bytes(
+    tmp_path: Path,
+) -> None:
+    index_path, first_shard_path = _write_sharded_fixture(tmp_path)
+    original_index_bytes = index_path.read_bytes()
+    original_index = json.loads(original_index_bytes)
+    existing_shards = {
+        item["path"]: (tmp_path / item["path"]).read_bytes()
+        for item in original_index["shards"]
+    }
+    existing_shards["work/construction/index.json"] = (
+        tmp_path / "work/construction/index.json"
+    ).read_bytes()
+    first_shard_bytes = existing_shards[first_shard_path.relative_to(tmp_path).as_posix()]
+
+    segment_path = "work/construction/segments/0003-next.md"
+    segment_bytes = b"third retained note\n"
+    segment_sha = hashlib.sha256(segment_bytes).hexdigest()
+    previous_sha = original_index["shards"][0]["sha256"]
+    old_segments = json.loads(first_shard_bytes)["segments"]
+    entry = {
+        "sequence": 3,
+        "path": segment_path,
+        "predecessor": "segment-sha256:" + old_segments[-1]["sha256"],
+        "bytes": len(segment_bytes),
+        "sha256": segment_sha,
+        "source_commit": "d" * 40,
+    }
+    checkpoint_bytes = (
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        f"Latest segment: {segment_path} {segment_sha}\n"
+    ).encode()
+
+    updated_index, new_shards = append_segments_to_sharded_index(
+        original_index_bytes, existing_shards, [entry], checkpoint_bytes
+    )
+    updated = json.loads(updated_index)
+    assert len(new_shards) == 1
+    assert updated["shards"][:-1] == original_index["shards"]
+    assert updated["shards"][-1]["predecessor"] == f"shard-sha256:{previous_sha}"
+    assert existing_shards[first_shard_path.relative_to(tmp_path).as_posix()] == first_shard_bytes
+
+    (tmp_path / segment_path).write_bytes(segment_bytes)
+    (tmp_path / "work/construction/active_checkpoint_v2.md").write_bytes(checkpoint_bytes)
+    for relative, payload in new_shards.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    index_path.write_bytes(updated_index)
+
+    result = verify_construction_continuation(tmp_path)
+    assert result["status"] == "construction_continuation_custody_ready"
+    assert result["segments_verified"] == 3
+
+
+def test_repository_migration_freezes_v1_and_shards_only_the_continuation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    index_path, _, first_segment, checkpoint_path = _write_fixture(tmp_path)
+    anchor_index = index_path.read_bytes()
+    anchor_checkpoint = checkpoint_path.read_bytes()
+    anchor_index_path = tmp_path / "anchor-v1.json"
+    anchor_checkpoint_path = tmp_path / "anchor-v1-checkpoint.md"
+    anchor_index_path.write_bytes(anchor_index)
+    anchor_checkpoint_path.write_bytes(anchor_checkpoint)
+
+    current = json.loads(anchor_index)
+    second_path = "work/construction/segments/0002-next.md"
+    second_bytes = b"continuation after the frozen v1 anchor\n"
+    second_sha = hashlib.sha256(second_bytes).hexdigest()
+    (tmp_path / second_path).write_bytes(second_bytes)
+    current["segments"].append({
+        "sequence": 2,
+        "path": second_path,
+        "predecessor": "segment-sha256:" + current["segments"][-1]["sha256"],
+        "bytes": len(second_bytes),
+        "sha256": second_sha,
+        "source_commit": "d" * 40,
+    })
+    current["latest_sequence"] = 2
+    checkpoint = (
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        f"Latest segment: {second_path} {second_sha}\n"
+    ).encode()
+    checkpoint_path.write_bytes(checkpoint)
+    digest = hashlib.sha256(checkpoint).hexdigest()
+    current["checkpoint_sha256"] = digest
+    current["active_checkpoint_binding"].update({
+        "latest_segment_sequence": 2,
+        "latest_segment_sha256": second_sha,
+        "checkpoint_sha256": digest,
+    })
+    index_path.write_text(json.dumps(current), encoding="utf-8")
+
+    real_replace = sharding.os.replace
+
+    def interrupt_before_anchor_index_replace(source: str, destination: str) -> None:
+        if Path(destination) == index_path:
+            raise OSError("simulated interruption before frozen v1 index replacement")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(sharding.os, "replace", interrupt_before_anchor_index_replace)
+    with pytest.raises(OSError, match="simulated interruption"):
+        migrate_repository(tmp_path, anchor_index_path, anchor_checkpoint_path)
+    monkeypatch.setattr(sharding.os, "replace", real_replace)
+    assert (tmp_path / "work/construction/index-v2.json").is_file()
+    assert index_path.read_bytes() != anchor_index
+
+    result = migrate_repository(tmp_path, anchor_index_path, anchor_checkpoint_path)
+
+    assert result["status"] == "construction_index_sharded_v2_ready"
+    assert index_path.read_bytes() == anchor_index
+    assert checkpoint_path.read_bytes() == anchor_checkpoint
+    root = json.loads((tmp_path / "work/construction/index-v2.json").read_bytes())
+    assert root["history_anchor"]["source_index_git_blob_sha"] == _blob_sha(anchor_index)
+    assert root["history_anchor"]["segment_count"] == 1
+    assert len(root["shards"]) == 1
+    assert root["shards"][0]["first_sequence"] == 2
+    assert root["shards"][0]["last_sequence"] == 2
+    assert verify_construction_continuation(tmp_path)["segments_verified"] == 2
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_failure"),
+    [
+        ("bytes", "shard_1_sha256_mismatch"),
+        ("predecessor", "shard_1_predecessor_mismatch"),
+        ("range", "shard_1_range_invalid"),
+        ("path", "shard_1_path_invalid"),
+    ],
+)
+def test_versioned_shards_reject_tampering_and_rebinding(
+    tmp_path: Path, mutation: str, expected_failure: str
+) -> None:
+    index_path, shard_path = _write_sharded_fixture(tmp_path)
+    index = json.loads(index_path.read_bytes())
+    if mutation == "bytes":
+        shard_path.write_bytes(shard_path.read_bytes() + b"tampered")
+    elif mutation == "predecessor":
+        index["shards"][0]["predecessor"] = "index-sha256:" + "f" * 64
+    elif mutation == "range":
+        index["shards"][0]["last_sequence"] = 3
+    else:
+        index["shards"][0]["path"] = "work/construction/active_checkpoint_v2.md"
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert expected_failure in result["failures"]
 
 
 def test_checkpoint_segment_reference_must_match_the_indexed_path_digest(
@@ -131,7 +347,7 @@ def test_checkpoint_segment_reference_must_exist_in_the_index(
         ("index", "predecessor", "segment_1_predecessor_mismatch"),
         ("checkpoint", "tamper", "active_checkpoint_sha256_mismatch"),
         ("index", "checkpoint", "active_checkpoint_segment_sequence_mismatch"),
-        ("index", "duplicate", "segment_2_path_missing_or_duplicate"),
+        ("index", "duplicate", "segments_invalid_or_unbounded"),
     ],
 )
 def test_custody_verifier_rejects_tampered_or_incomplete_records(

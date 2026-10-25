@@ -1,0 +1,101 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 671,
+  "authority_boundary": "Records verified PR and post-merge evidence plus an execution-layer approval review investigation; does not change repository policy or approval controls.",
+  "merge": {
+    "pull_request": 2768,
+    "candidate_commit": "1b4ed3c8fcc45e0ae58ab9ff2295aeb7092be524",
+    "candidate_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "merge_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "merge_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "parents": [
+      "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+      "1b4ed3c8fcc45e0ae58ab9ff2295aeb7092be524"
+    ],
+    "remote_main_verified": true
+  },
+  "exact_head_workflows": {
+    "required_quality_gate": {
+      "run_id": 40206761878,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 40206616169,
+      "conclusion": "success"
+    },
+    "release": {
+      "run_id": 40206616157,
+      "conclusion": "success"
+    },
+    "gradient_null_regression": {
+      "run_id": 40206616219,
+      "conclusion": "success"
+    },
+    "invariant_tests": {
+      "run_id": 40206616174,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 40206616222,
+      "conclusion": "success"
+    },
+    "docker_image": {
+      "run_id": 40206616246,
+      "conclusion": "success"
+    },
+    "lint_benchmark": {
+      "run_id": 40206616180,
+      "conclusion": "success"
+    }
+  },
+  "post_merge_workflows": {
+    "required_quality_gate": {
+      "run_id": 40207015493,
+      "conclusion": "success"
+    },
+    "ci": {
+      "run_id": 40207015502,
+      "conclusion": "success"
+    },
+    "docs_deploy": {
+      "run_id": 40207015481,
+      "conclusion": "success"
+    },
+    "invariant_tests": {
+      "run_id": 40207015490,
+      "conclusion": "success"
+    },
+    "codex_ci": {
+      "run_id": 40207015528,
+      "conclusion": "success"
+    },
+    "docker_image": {
+      "run_id": 40207015547,
+      "conclusion": "success"
+    },
+    "forge_smoke": {
+      "run_id": 40207015514,
+      "conclusion": "skipped_by_workflow_conditions"
+    }
+  },
+  "approval_review_investigation": {
+    "trigger": "full append-only construction index blob upload to GitHub",
+    "stated_reason": "Extensive project history and metadata; destination was an unverified GitHub repository.",
+    "exact_sequence_670_upload_explicitly_approved": true,
+    "remote_blobs_byte_verified": 7,
+    "candidate_tree_verified": true,
+    "alternate_transport_used": false,
+    "standing_trust_or_allowlist_control_exposed": false,
+    "finding": "No supported persistent approval configuration is available in the connected execution/GitHub tools. Bundling increments reduces upload frequency but does not bypass the review; a persistent exception requires platform support."
+  },
+  "pr_metadata_recovery": {
+    "initial_mismatch": "PR title remained bound to the preceding commit subject",
+    "resolution": "Updated title to exact published commit subject; hosted reconstruction, finalizer, and metadata guard then passed.",
+    "candidate_content_changed": false
+  },
+  "source": {
+    "verified_main": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "verified_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "publication_status": "merged_and_post_merge_checks_verified"
+  }
+}

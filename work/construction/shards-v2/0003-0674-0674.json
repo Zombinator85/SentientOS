@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 3,
+  "first_sequence": 674,
+  "last_sequence": 674,
+  "predecessor": "shard-sha256:721e51ee04d312709f558edb2ce7b7648952f2daf14107f55ba16ca984cd0cd3",
+  "segments": [
+    {
+      "sequence": 674,
+      "path": "work/construction/segments/0674-recover-interrupted-v1-to-v2-migration.md",
+      "predecessor": "segment-sha256:b62f166fef167ebb936f4a7839d0834c3b03f70a16d05206699e2743ac02f874",
+      "bytes": 1337,
+      "sha256": "e01e68a955ec9f6e2a6a301146707d952a83ae5204b69b0350aae2e187e7112c",
+      "evidence_path": "work/construction/evidence/0674-recover-interrupted-v1-to-v2-migration.json",
+      "evidence_bytes": 1910,
+      "evidence_sha256": "5f726fdfb40944d6a8555caa34bd1c32125c597190a9d07bc90055cbaf7de69d",
+      "source_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+      "source_tree": "39d6402845f926c579f32ef73546d530d3f00d58"
+    }
+  ]
+}

@@ -270,17 +270,47 @@ untested and must preserve all authorization, custody, and effect-enforcement
 boundaries. Construction status is not a production-readiness claim; the full
 validation and landing contract applies before production acceptance.
 
-Construction continuation uses the frozen legacy journal and the indexed compact
-segments in `work/construction/index.json`. Add a new segment; never append to
-the frozen journal or modify an earlier segment. Run
-`python -m scripts.verify_construction_continuation_custody --summary` after
-updating navigation metadata.
+Construction continuation preserves the frozen legacy journal and every
+sequence's segment/evidence bytes. The published schema v1 ledger at
+`work/construction/index.json` is a permanent immutable anchor. Schema v2 uses a
+separate bounded root at `work/construction/index-v2.json` and continuation shards
+under `work/construction/shards-v2/`; it references the v1 anchor's exact Git blob
+SHA, SHA-256, sequence count, and latest segment digest. Its first shard begins
+after that anchor and binds the anchor index digest; later shards bind their
+predecessor shard digest. Each shard carries at most 64 entries and 128 KiB; the
+root, shard count, and total sequence count have explicit verifier limits. The
+segment predecessor chain still begins at the frozen legacy journal blob and
+continues without a gap across the v1/v2 boundary.
+
+The v1-to-v2 migration must leave the published v1 index, its original active
+checkpoint, and every existing segment/evidence byte unchanged. It shards only
+continuation records added after the verified v1 blob, so the one-time migration
+does not resend the historical entries. Candidate source preflight binds the v2
+root to the exact v1 parent blob, compares the complete old ordered entry list to
+the combined v1 plus v2 history, and checks the anchor and checkpoint files remain
+byte-identical. The migration activates v2 before replacing the local v1 files;
+an interruption therefore fails closed on anchor mismatch. Re-running migration
+completes only when the prepared v2 root and shard bytes exactly match deterministic
+reconstruction from the surviving v1 data. Conflicting or tampered recovery bytes
+stop for investigation. For later v2 updates, retain the v1 history anchor and every prior
+shard descriptor and byte identity; append a new uniquely named shard rather than
+reopening an earlier shard. Update the v2 root's sequence/checkpoint binding only
+after the new immutable shard bytes are ready. Routine publication then uploads
+the small v2 root, the updated active v2 checkpoint, new shard(s), and current
+evidence instead of retransmitting the historical v1 ledger.
+
+Run `python -m scripts.verify_construction_continuation_custody --summary` after
+updating navigation metadata. The verifier reads v1 when no v2 root exists; when
+v2 is present it verifies the referenced v1 Git blob identity and checkpoint,
+then validates combined custody, shard limits, digests, ordering, predecessor
+links, legacy journal identity, and active checkpoint invariants.
 
 Before construction publication, bind the tested files to the staged Git tree
 with `scripts.construction_source_preflight.candidate_manifest`. Its manifest
 contains exact byte counts, SHA-256 and Git blob identities for every changed
 path. The candidate-tree guard verifies continuation custody, UTF-8/Python syntax,
-tree membership and the original frozen-journal definition. After uploading,
+tree membership, immutable v1 anchor history or v2 shard-prefix custody, and the
+original frozen-journal definition. After uploading,
 supply independently read remote blob identities using `--observed-blobs` to
 `python -m scripts.construction_source_preflight REPOSITORY --candidate-manifest
 MANIFEST --observed-blobs OBSERVATIONS`. Require

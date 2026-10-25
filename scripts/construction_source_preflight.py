@@ -17,7 +17,10 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
-from scripts.verify_construction_continuation_custody import verify_continuation_reader
+from scripts.verify_construction_continuation_custody import (
+    materialize_index_segments,
+    verify_continuation_reader,
+)
 
 DEFAULT_REMOTE = "https://github.com/Zombinator85/SentientOS.git"
 DEFAULT_BRANCH = "codex/construct-sentientos"
@@ -25,10 +28,15 @@ _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 MAX_CANDIDATE_FILES = 128
 MAX_CANDIDATE_FILE_BYTES = 2 * 1024 * 1024
 MAX_CANDIDATE_TOTAL_BYTES = 16 * 1024 * 1024
+V2_INDEX_PATH = "work/construction/index-v2.json"
 
 
 class PreflightError(ValueError):
     pass
+
+
+def _git_blob_sha(data: bytes) -> str:
+    return hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
 
 
 def _git(root: Path, *args: str, timeout: float = 8.0) -> subprocess.CompletedProcess[str]:
@@ -203,6 +211,13 @@ def _tree_blob(root: Path, tree: str, path: str, limit: int) -> tuple[str, bytes
     return blob, result.stdout
 
 
+def _tree_has_path(root: Path, tree: str, path: str) -> bool:
+    result = _git(root, "ls-tree", tree, "--", path)
+    if result.returncode:
+        raise PreflightError("git_identity_unavailable")
+    return bool(result.stdout.strip())
+
+
 def candidate_manifest(root: Path, tree: str, expected_head: str) -> dict[str, Any]:
     """Bind tested working bytes to every changed candidate-tree member."""
     if not _SHA_RE.fullmatch(tree) or not _SHA_RE.fullmatch(expected_head):
@@ -276,18 +291,94 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
             failures.append("candidate_total_bytes_unbounded")
         def read(path: str, limit: int) -> bytes:
             return _tree_blob(root, tree, path, limit)[1]
-        custody = verify_continuation_reader(read)
+        old_index_path = (
+            V2_INDEX_PATH if _tree_has_path(root, parent, V2_INDEX_PATH)
+            else "work/construction/index.json"
+        )
+        new_index_path = (
+            V2_INDEX_PATH if _tree_has_path(root, tree, V2_INDEX_PATH)
+            else "work/construction/index.json"
+        )
+        custody = verify_continuation_reader(
+            read, new_index_path
+        )
         failures.extend("custody:" + error for error in custody["failures"])
-        old_index = json.loads(_tree_blob(root, parent,
-            "work/construction/index.json", MAX_CANDIDATE_FILE_BYTES)[1])
-        new_index = json.loads(read("work/construction/index.json", MAX_CANDIDATE_FILE_BYTES))
+        old_index_bytes = _tree_blob(root, parent,
+            old_index_path, MAX_CANDIDATE_FILE_BYTES)[1]
+        old_index = json.loads(old_index_bytes)
+        new_index = json.loads(read(new_index_path, MAX_CANDIDATE_FILE_BYTES))
         if old_index.get("legacy_journal") != new_index.get("legacy_journal"):
             failures.append("frozen_journal_definition_changed")
-        for path in {item["path"] for item in old_index.get("segments", [])
-                if isinstance(item, dict) and isinstance(item.get("path"), str)}:
+        parent_read = lambda path, limit: _tree_blob(root, parent, path, limit)[1]
+        old_segments = materialize_index_segments(old_index, parent_read)
+        new_segments = materialize_index_segments(new_index, read)
+        if new_segments[:len(old_segments)] != old_segments:
+            failures.append("historical_segment_entries_changed_or_removed")
+        old_schema = old_index.get("schema_version")
+        new_schema = new_index.get("schema_version")
+        if old_schema == 1 and new_schema == 2:
+            anchor = new_index.get("history_anchor")
+            expected_anchor = {
+                "source_index_schema_version": 1,
+                "path": "work/construction/index.json",
+                "source_index_sha256": hashlib.sha256(old_index_bytes).hexdigest(),
+                "source_index_git_blob_sha": _git_blob_sha(old_index_bytes),
+                "segment_count": len(old_segments),
+                "latest_sequence": len(old_segments),
+                "latest_segment_sha256": old_segments[-1]["sha256"] if old_segments else None,
+            }
+            if not isinstance(anchor, dict) or any(
+                anchor.get(key) != value for key, value in expected_anchor.items()
+            ):
+                failures.append("shard_history_anchor_does_not_match_parent_index")
+            if new_index_path != V2_INDEX_PATH or new_index_path == old_index_path:
+                failures.append("sharded_root_must_use_new_versioned_path")
+        elif old_schema == 2 and new_schema == 2:
+            if old_index.get("history_anchor") != new_index.get("history_anchor"):
+                failures.append("shard_history_anchor_changed")
+            old_shards = old_index.get("shards")
+            new_shards = new_index.get("shards")
+            if (
+                not isinstance(old_shards, list)
+                or not isinstance(new_shards, list)
+                or new_shards[:len(old_shards)] != old_shards
+            ):
+                failures.append("historical_shard_descriptors_changed_or_removed")
+        elif old_schema == 2 or new_schema not in {1, 2}:
+            failures.append("construction_index_schema_transition_invalid")
+
+        immutable_paths = {
+            item[key]
+            for item in old_segments
+            if isinstance(item, dict)
+            for key in ("path", "evidence_path")
+            if isinstance(item.get(key), str)
+        }
+        if old_schema == 1 and new_schema == 2:
+            immutable_paths.update({
+                "work/construction/index.json",
+                str(old_index.get("active_checkpoint")),
+            })
+        if old_schema == 2:
+            immutable_paths.add("work/construction/index.json")
+            anchor = old_index.get("history_anchor")
+            if isinstance(anchor, dict) and isinstance(anchor.get("path"), str):
+                immutable_paths.add(anchor["path"])
+                try:
+                    frozen_anchor = json.loads(parent_read(anchor["path"], MAX_CANDIDATE_FILE_BYTES))
+                    if isinstance(frozen_anchor, dict) and isinstance(frozen_anchor.get("active_checkpoint"), str):
+                        immutable_paths.add(frozen_anchor["active_checkpoint"])
+                except (OSError, ValueError, json.JSONDecodeError):
+                    failures.append("historical_v1_checkpoint_unreadable")
+            immutable_paths.update(
+                item["path"]
+                for item in old_index.get("shards", [])
+                if isinstance(item, dict) and isinstance(item.get("path"), str)
+            )
+        for path in immutable_paths:
             old_blob, _ = _tree_blob(root, parent, path, MAX_CANDIDATE_FILE_BYTES)
             if _tree_blob(root, tree, path, MAX_CANDIDATE_FILE_BYTES)[0] != old_blob:
-                failures.append("historical_segment_changed:" + path)
+                failures.append("historical_custody_file_changed:" + path)
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
         failures.append("candidate_unreadable:" + str(exc))
     return {"schema_version": 1, "candidate_tree": manifest.get("candidate_tree"),

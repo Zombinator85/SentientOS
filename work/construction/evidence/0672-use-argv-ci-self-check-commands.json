@@ -1,0 +1,40 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 672,
+  "authority_boundary": "Mechanical developer workflow hardening; fixed local CI self-check commands use argv and shell=False. No production runtime or authority behavior changed.",
+  "gap": "scripts/ci_self_check.py accepted command text and ran it with shell=True; tests/test_ci_self_check.py was legacy-skipped by default.",
+  "change": {
+    "source": "scripts/ci_self_check.py",
+    "test": "tests/test_ci_self_check.py",
+    "argv_count": 5,
+    "shell": false,
+    "rejects_string_command_input": true,
+    "tests_marked_no_legacy_skip": true
+  },
+  "validation": {
+    "first_wrapper_attempt": "blocked: minimal editable install could not write to read-only /home/agent/.local; default network sandbox also could not reach proxy",
+    "documented_install": {
+      "venv": "/tmp/sentientos-seq671-venv",
+      "project": "pip install --no-deps -e .",
+      "requirements": "requirements-codex.txt",
+      "result": "success"
+    },
+    "initial_focused_run": "rejected with tests_selected=2, tests_executed=0 because both nodes were legacy-skipped",
+    "focused_command": "python -m scripts.run_tests -q tests/test_ci_self_check.py",
+    "tests_executed": 2,
+    "tests_passed": 2,
+    "tests_failed": 0,
+    "py_compile": "passed",
+    "task_scoped_mypy": "passed with --strict --follow-imports=skip",
+    "ordinary_strict_mypy": "reported two unrelated unused-ignore diagnostics in admin_utils.py and sentientos/admin_utils.py",
+    "documentation_build": "passed; 616 pages",
+    "construction_custody": "construction_continuation_custody_ready through sequence 672"
+  },
+  "source": {
+    "verified_main": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "verified_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "branch": "codex/construct-sentientos-s671-discovery",
+    "worktree": "/workspace/SentientOS-seq671",
+    "publication_status": "local_candidate_validated_pending_remote_blob_readback_and_hosted_validation"
+  }
+}

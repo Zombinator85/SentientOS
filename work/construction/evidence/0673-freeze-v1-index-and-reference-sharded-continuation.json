@@ -1,0 +1,46 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 673,
+  "authority_boundary": "Local architectural migration preparation only; no external publication, ref update, hosted validation, or merge is claimed.",
+  "migration": {
+    "frozen_v1_path": "work/construction/index.json",
+    "frozen_v1_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "frozen_v1_sha256": "e8749dc2fcab24ef4fca68d82b51c5d91b280811ab9d4751929f9dbb527b6451",
+    "frozen_v1_latest_sequence": 670,
+    "v2_root": "work/construction/index-v2.json",
+    "v2_first_shard": "work/construction/shards-v2/0001-0671-0672.json",
+    "v2_first_shard_sequence_range": [
+      671,
+      672
+    ],
+    "v1_index_and_original_checkpoint_preserved": true,
+    "historical_entries_reuploaded": false
+  },
+  "validation": {
+    "focused_custody_and_publication_tests": {
+      "executed": 26,
+      "passed": 26,
+      "failed": 0
+    },
+    "documentation_build": "passed; 616 pages",
+    "custody_before_this_record": "construction_continuation_custody_ready through sequence 672",
+    "candidate_preflight_before_this_record": {
+      "status": "candidate_integrity_ready_for_blob_upload",
+      "candidate_tree": "abd26f9ec52057a4f7f592bbfb851b61a82a15b5",
+      "expected_head": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84"
+    },
+    "python_compilation": "passed",
+    "diff_check": "passed"
+  },
+  "publication": {
+    "status": "local_only_platform_approval_boundary_unresolved",
+    "exact_action_approval_available_in_this_api_session": false,
+    "alternate_publication_route_used": false,
+    "required_next_action": "Use the supported exact-action platform approval for the specific denied payload, then continue ordinary PR and hosted validation; if the platform picker is unavailable or rejects again, request platform remediation."
+  },
+  "source": {
+    "verified_main": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "verified_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "candidate_tree": null
+  }
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -7,6 +8,10 @@ from pathlib import Path
 import pytest
 
 from scripts.construction_source_preflight import candidate_manifest, verify_candidate_publication
+from scripts.construction_index_sharding import (
+    append_segments_to_sharded_index,
+    build_sharded_index,
+)
 from tests.test_construction_continuation_custody import _write_fixture
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -75,3 +80,101 @@ def test_candidate_guard_rejects_redefinition_of_frozen_custody(tmp_path: Path) 
     git(tmp_path, 'add', '.')
     manifest = candidate_manifest(tmp_path, git(tmp_path, 'write-tree'), parent)
     assert 'frozen_journal_definition_changed' in verify_candidate_publication(tmp_path, manifest)['failures']
+
+
+def test_candidate_guard_accepts_exact_v1_to_v2_shard_migration(tmp_path: Path) -> None:
+    _manifest, parent = candidate(tmp_path)
+    index_path = tmp_path / 'work/construction/index.json'
+    anchor_bytes = git(tmp_path, 'show', f'{parent}:work/construction/index.json').encode()
+    sharded_index, shards = build_sharded_index(index_path.read_bytes(), anchor_bytes)
+    v2_path = tmp_path / 'work/construction/index-v2.json'
+    v2_path.write_bytes(sharded_index)
+    for relative, content in shards.items():
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    git(tmp_path, 'add', '.')
+    manifest = candidate_manifest(tmp_path, git(tmp_path, 'write-tree'), parent)
+
+    result = verify_candidate_publication(tmp_path, manifest)
+
+    assert result['status'] == 'candidate_integrity_ready_for_blob_upload'
+    assert result['failures'] == []
+
+
+def test_candidate_guard_rejects_rebinding_the_v1_history_anchor(tmp_path: Path) -> None:
+    _manifest, parent = candidate(tmp_path)
+    index_path = tmp_path / 'work/construction/index.json'
+    original = index_path.read_bytes()
+    sharded_index, shards = build_sharded_index(original, original)
+    index = json.loads(sharded_index)
+    index['history_anchor']['latest_segment_sha256'] = 'f' * 64
+    (tmp_path / 'work/construction/index-v2.json').write_text(
+        json.dumps(index, ensure_ascii=False, indent=2) + '\n'
+    )
+    git(tmp_path, 'add', '.')
+    manifest = candidate_manifest(tmp_path, git(tmp_path, 'write-tree'), parent)
+
+    result = verify_candidate_publication(tmp_path, manifest)
+
+    assert result['status'] == 'invalid'
+    assert 'custody:history_anchor_latest_segment_mismatch' in result['failures']
+
+
+def test_candidate_guard_accepts_v2_append_with_immutable_shard_prefix(tmp_path: Path) -> None:
+    _write_fixture(tmp_path)
+    git(tmp_path, 'init', '-q')
+    git(tmp_path, 'add', '.')
+    git(tmp_path, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '-qm', 'v1 baseline')
+    index_path = tmp_path / 'work/construction/index.json'
+    v2_path = tmp_path / 'work/construction/index-v2.json'
+    original = index_path.read_bytes()
+    sharded_index, shard_files = build_sharded_index(original, original)
+    v2_path.write_bytes(sharded_index)
+    for relative, payload in shard_files.items():
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(payload)
+    git(tmp_path, 'add', '.')
+    git(tmp_path, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '-qm', 'v2 migration')
+    parent = git(tmp_path, 'rev-parse', 'HEAD')
+
+    root_index = json.loads(v2_path.read_bytes())
+    prior_shards = dict(shard_files)
+    prior_shards['work/construction/index.json'] = original
+    segment_path = 'work/construction/segments/0002-next.md'
+    segment_bytes = b'second retained note\n'
+    segment_sha = hashlib.sha256(segment_bytes).hexdigest()
+    entry = {
+        'sequence': 2,
+        'path': segment_path,
+        'predecessor': 'segment-sha256:' + json.loads(original)['segments'][-1]['sha256'],
+        'bytes': len(segment_bytes),
+        'sha256': segment_sha,
+        'source_commit': 'd' * 40,
+    }
+    checkpoint = (
+        f"Source `{ 'a' * 40 }`, tree `{ 'b' * 40 }`.\n"
+        f"Latest segment: {segment_path} {segment_sha}\n"
+    ).encode()
+    updated_index, new_shards = append_segments_to_sharded_index(
+        v2_path.read_bytes(), prior_shards, [entry], checkpoint
+    )
+    v2_path.write_bytes(updated_index)
+    (tmp_path / segment_path).write_bytes(segment_bytes)
+    (tmp_path / 'work/construction/active_checkpoint_v2.md').write_bytes(checkpoint)
+    for relative, payload in new_shards.items():
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(payload)
+    git(tmp_path, 'add', '.')
+    manifest = candidate_manifest(tmp_path, git(tmp_path, 'write-tree'), parent)
+
+    result = verify_candidate_publication(tmp_path, manifest)
+
+    updated_root = json.loads(updated_index)
+    assert updated_root['shards'][:-1] == root_index['shards']
+    assert result['status'] == 'candidate_integrity_ready_for_blob_upload'
+    assert result['failures'] == []
