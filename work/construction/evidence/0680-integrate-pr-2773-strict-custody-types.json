@@ -1,0 +1,134 @@
+{
+  "construction_custody_before_sequence_680": {
+    "segments_verified": 679,
+    "status": "construction_continuation_custody_ready"
+  },
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40237231789
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40237231785
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40237231784
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40237231781
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40237231796
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40237231792
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40237231814
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40237231844
+      }
+    },
+    "commit": "9ae2495567931cab068d9f4f20c248bdd86c4c89",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12615870953,
+      "name": "required-quality-gate-evidence",
+      "sha256": "ea68e7341ec115a52dc90430ee7eb1c2822011fc18958598c448d66cfd903614",
+      "size_bytes": 12579
+    },
+    "source_validation_artifact_advertised_by_github": {
+      "id": 12614993419,
+      "name": "source-validation-9ae2495567931cab068d9f4f20c248bdd86c4c89",
+      "sha256": "f89fbbbd071fd67a09a6d123578f5c30d70935392e3452279c769bd22d450cca",
+      "size_bytes": 542076
+    },
+    "tree": "2968aedcffca098b832875327a86facdbe529ad0"
+  },
+  "publication": {
+    "branch": "codex/construct-sentientos-s679-strict-custody-types",
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40236696225
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40236696549
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40236696235
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40236696228
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40236696229
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40236696219
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40236696271
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40236696247
+      }
+    },
+    "pr_state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2773 strict construction custody integer typing",
+  "sequence": 680,
+  "source": {
+    "base_commit": "b525b13937e290e578ed2160157f5dcb687c7ae3",
+    "base_tree": "70238aad60af7709bc31490f8f6b0758291930ae",
+    "candidate_commit": "b5ec40e85b8df9c4c59a067fc15bdd49b3932a99",
+    "candidate_tree": "2968aedcffca098b832875327a86facdbe529ad0",
+    "initial_code_only_candidate_commit": "68bcf21ff5191fa0494abc380af41e1995293a42",
+    "merge_commit": "9ae2495567931cab068d9f4f20c248bdd86c4c89",
+    "merge_parents": [
+      "b525b13937e290e578ed2160157f5dcb687c7ae3",
+      "b5ec40e85b8df9c4c59a067fc15bdd49b3932a99"
+    ],
+    "merge_tree": "2968aedcffca098b832875327a86facdbe529ad0",
+    "pull_request": 2773,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2773",
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "documentation_build_pages": 616,
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 39
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "mypy_baseline_new_errors": 0,
+    "mypy_baseline_status": "mypy_baseline_improved",
+    "post_merge_custody_segments_verified": 679,
+    "remote_candidate_blob_readback": {
+      "matched_files": 9,
+      "mismatches": 0
+    },
+    "source_preflight": {
+      "failures": [],
+      "status": "candidate_integrity_ready_for_ref_update"
+    }
+  }
+}

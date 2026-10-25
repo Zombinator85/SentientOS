@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 9,
+  "first_sequence": 680,
+  "last_sequence": 680,
+  "predecessor": "shard-sha256:7b6f36d1dbbb7124b97cac5207e8051c11e0c5cc0db0b0a81c2690635636e71e",
+  "segments": [
+    {
+      "sequence": 680,
+      "path": "work/construction/segments/0680-integrate-pr-2773-strict-custody-types.md",
+      "predecessor": "segment-sha256:211876aa11090708f6c7ae0ae815e0c6f1e7376815215dca3cc1e7040ea80b00",
+      "bytes": 1415,
+      "sha256": "4d5292c35d544503466acb45766535e1edd388e2cbc91f475587608dfce00550",
+      "evidence_path": "work/construction/evidence/0680-integrate-pr-2773-strict-custody-types.json",
+      "evidence_bytes": 4120,
+      "evidence_sha256": "3da79cbb3fa21a39614bcaf4e0a8810ea5dd59cd94677fea6d89e9c96a966bee",
+      "source_commit": "9ae2495567931cab068d9f4f20c248bdd86c4c89",
+      "source_tree": "2968aedcffca098b832875327a86facdbe529ad0"
+    }
+  ]
+}
