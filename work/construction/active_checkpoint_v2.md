@@ -1,3 +1,18 @@
+# Recovery state - sequence 691
+
+PR #2780 integrated sequence 689 at verified main `5bb87a776aec431f140d8d311458a62ca81cf5e2` / `2cdb7b74be24f98eb75e5d936bb777cee935e976` with all exact-head and post-merge checks green; sequence 690 records that integration. Sequence 691 makes the pytest bootstrap verifier reject JSON booleans for integer test metrics. Its tested code-only tree is `aa9d223d55a754e4cabd171384c36a4fb497ca42`; focused tests passed 7/7 and targeted mypy is clean.
+
+Latest verified main: `5bb87a776aec431f140d8d311458a62ca81cf5e2`, tree `2cdb7b74be24f98eb75e5d936bb777cee935e976`
+Latest construction segment: `work/construction/segments/0691-reject-boolean-pytest-bootstrap-integer-metrics.md`
+Latest segment SHA-256: `8ed93ed87c122f1f3859f33a113348ae73b7b71ee184c9ed42110c5e5008693c`
+Sequence: 691
+Evidence: `work/construction/evidence/0691-reject-boolean-pytest-bootstrap-integer-metrics.json`
+Evidence SHA-256: `1e5cb024dde06993713c3c5ca1d5eb0176b7fc8b6d3e98d86324a2296962e03d`
+
+Recovery: publish sequence 691 through normal source preflight and hosted PR validation. Preserve the v1 anchor and all previous v2 shards, then continue the next bounded construction issue.
+
+---
+
 # Recovery state - sequence 689
 
 PR #2779 integrated sequence 687 at verified main `c7b84aef160c03166f70d2576c00035cc0d1079d` / `824a6af14f897f700c37899f16f0384891ac9b0a` with all exact-head hosted checks and applicable post-merge workflows green; sequence 688 records integration. Sequence 689 makes validation-completion classification reject JSON booleans for integer metrics. Its tested code-only tree is `58edf45e6f0953f31fd470ae408ab8ee0b231c67`; focused tests passed 14/14 and targeted mypy is clean.

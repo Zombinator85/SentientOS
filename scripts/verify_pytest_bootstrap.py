@@ -44,8 +44,8 @@ def verify(*, output: Path, node: str = DEFAULT_NODE, collect_only: bool = False
     collection = bool(metrics.get("collection_completed"))
     collected_raw = metrics.get("tests_collected", 0)
     calls_raw = metrics.get("call_phase_outcome_count", 0)
-    collected = collected_raw if isinstance(collected_raw, int) else 0
-    calls = calls_raw if isinstance(calls_raw, int) else 0
+    collected = collected_raw if type(collected_raw) is int else 0
+    calls = calls_raw if type(calls_raw) is int else 0
     invoked = marker.exists()
     if invoked: status = "privilege_invoked"
     elif completed.returncode != 0 and not (collect_only and collection and collected > 0): status = "bootstrap_failed"

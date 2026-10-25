@@ -38,3 +38,28 @@ def test_pytest_bootstrap_verifier_rejects_missing_metrics(tmp_path: Path) -> No
     payload = verify(output=tmp_path / "proof.json", metrics_path=tmp_path / "missing.json", sentinel_mode="invoke")
     # Invocation has precedence; a plain child without reporter evidence is never ready.
     assert payload["status"] != "pytest_bootstrap_ready"
+
+
+def test_pytest_bootstrap_rejects_boolean_integer_metrics(monkeypatch, tmp_path: Path) -> None:
+    metrics_path = tmp_path / "metrics.json"
+    original_run = subprocess.run
+
+    def fake_run(command, **kwargs):
+        if command[0] == "git":
+            return original_run(command, **kwargs)
+        metrics_path.write_text(json.dumps({
+            "collection_completed": True,
+            "tests_collected": True,
+            "call_phase_outcome_count": True,
+        }), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("scripts.verify_pytest_bootstrap.subprocess.run", fake_run)
+    payload = verify(
+        output=tmp_path / "report.json",
+        root=Path(__file__).resolve().parents[1],
+        metrics_path=metrics_path,
+    )
+    assert payload["status"] == "zero_tests_collected"
+    assert payload["collected_count"] == 0
+    assert payload["call_phase_outcome_count"] == 0
