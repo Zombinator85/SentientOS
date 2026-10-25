@@ -1,0 +1,52 @@
+{
+  "change": {
+    "paths": [
+      "scripts/verify_construction_continuation_custody.py",
+      "scripts/construction_index_sharding.py",
+      "scripts/construction_source_preflight.py",
+      "tests/test_construction_continuation_custody.py"
+    ],
+    "rule": "Require exact JSON integer types for index and shard schema versions, segment/shard sequence and range counters, and checkpoint sequence bindings; bool values are invalid."
+  },
+  "construction_custody_before_sequence_679": {
+    "segments_verified": 678,
+    "status": "construction_continuation_custody_ready"
+  },
+  "gap": {
+    "impact": "Malformed version and sequence fields could be accepted as integer 1 instead of failing closed.",
+    "reproduction": "A v1 index with schema_version=true passed custody because bool is an int subclass and true == 1 in Python."
+  },
+  "publication": {
+    "initial_head": "68bcf21ff5191fa0494abc380af41e1995293a42",
+    "pull_request": 2773,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/2773",
+    "status": "open; sequence evidence appended to the same bounded candidate before final hosted validation"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "strict JSON integer typing for construction index schemas and sequence custody",
+  "sequence": 679,
+  "validation": {
+    "boolean_type_regressions": 12,
+    "custody_before_record": "construction_continuation_custody_ready through sequence 678",
+    "documentation_build_pages": 616,
+    "focused_custody_publication_tests": {
+      "failed": 0,
+      "passed": 39
+    },
+    "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+    "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+    "mypy_baseline_new_errors": 0,
+    "mypy_baseline_status": "mypy_baseline_improved",
+    "pre_evidence_candidate": {
+      "base_commit": "b525b13937e290e578ed2160157f5dcb687c7ae3",
+      "base_tree": "70238aad60af7709bc31490f8f6b0758291930ae",
+      "commit": "68bcf21ff5191fa0494abc380af41e1995293a42",
+      "remote_blob_readback": {
+        "matched_files": 4,
+        "mismatches": 0
+      },
+      "source_preflight": "candidate_integrity_ready_for_blob_upload",
+      "tree": "2a480801f24ba19a574c0227f7eb69187e034c66"
+    }
+  }
+}

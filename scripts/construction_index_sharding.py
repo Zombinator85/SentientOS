@@ -86,9 +86,13 @@ def build_sharded_index(
     """
     current = json.loads(current_index_bytes)
     anchor = json.loads(anchor_index_bytes)
-    if not isinstance(current, dict) or current.get("schema_version") != 1:
+    if (not isinstance(current, dict)
+            or type(current.get("schema_version")) is not int
+            or current.get("schema_version") != 1):
         raise ValueError("current_index_must_be_schema_v1")
-    if not isinstance(anchor, dict) or anchor.get("schema_version") != 1:
+    if (not isinstance(anchor, dict)
+            or type(anchor.get("schema_version")) is not int
+            or anchor.get("schema_version") != 1):
         raise ValueError("anchor_index_must_be_schema_v1")
     current_segments = current.get("segments")
     anchor_segments = anchor.get("segments")
@@ -100,9 +104,11 @@ def build_sharded_index(
         raise ValueError("frozen_journal_definition_changed")
     if current_segments[: len(anchor_segments)] != anchor_segments:
         raise ValueError("immutable_anchor_segment_prefix_changed")
-    if current.get("latest_sequence") != len(current_segments):
+    if (type(current.get("latest_sequence")) is not int
+            or current.get("latest_sequence") != len(current_segments)):
         raise ValueError("current_index_latest_sequence_mismatch")
-    if anchor.get("latest_sequence") != len(anchor_segments):
+    if (type(anchor.get("latest_sequence")) is not int
+            or anchor.get("latest_sequence") != len(anchor_segments)):
         raise ValueError("anchor_index_latest_sequence_mismatch")
 
     anchor_latest_sha = (
@@ -187,7 +193,9 @@ def append_segments_to_sharded_index(
     are read-only inputs and are never returned for rewriting.
     """
     index = json.loads(index_bytes)
-    if not isinstance(index, dict) or index.get("schema_version") != 2:
+    if (not isinstance(index, dict)
+            or type(index.get("schema_version")) is not int
+            or index.get("schema_version") != 2):
         raise ValueError("current_index_must_be_schema_v2")
     if not isinstance(new_segments, list) or not new_segments:
         raise ValueError("new_segments_required")
@@ -203,7 +211,8 @@ def append_segments_to_sharded_index(
         return payload
 
     prior = materialize_index_segments(index, read)
-    if index.get("latest_sequence") != len(prior):
+    if (type(index.get("latest_sequence")) is not int
+            or index.get("latest_sequence") != len(prior)):
         raise ValueError("current_index_latest_sequence_mismatch")
     legacy = index.get("legacy_journal")
     if not isinstance(legacy, dict) or not isinstance(legacy.get("git_blob_sha"), str):
@@ -211,7 +220,7 @@ def append_segments_to_sharded_index(
     previous_segment = str(legacy["git_blob_sha"])
     seen_paths: set[str] = set()
     for expected_sequence, entry in enumerate(prior, start=1):
-        if entry.get("sequence") != expected_sequence:
+        if type(entry.get("sequence")) is not int or entry.get("sequence") != expected_sequence:
             raise ValueError(f"existing_segment_sequence_mismatch:{expected_sequence}")
         expected_predecessor = (
             f"legacy-blob:{previous_segment}"
@@ -232,7 +241,9 @@ def append_segments_to_sharded_index(
     next_sequence = len(prior) + 1
     for offset, entry in enumerate(new_segments):
         expected_sequence = next_sequence + offset
-        if not isinstance(entry, dict) or entry.get("sequence") != expected_sequence:
+        if (not isinstance(entry, dict)
+                or type(entry.get("sequence")) is not int
+                or entry.get("sequence") != expected_sequence):
             raise ValueError(f"new_segment_sequence_mismatch:{expected_sequence}")
         expected_predecessor = (
             f"legacy-blob:{previous_segment}"
@@ -373,7 +384,9 @@ def migrate_repository(
                 "shard_bytes_total": 0, "latest_sequence": final.get("segments_verified")}
 
     current_index = json.loads(current_bytes)
-    if not isinstance(current_index, dict) or current_index.get("schema_version") != 1:
+    if (not isinstance(current_index, dict)
+            or type(current_index.get("schema_version")) is not int
+            or current_index.get("schema_version") != 1):
         raise ValueError("current_index_must_be_schema_v1")
     current_checkpoint_path = current_index.get("active_checkpoint")
     if not isinstance(current_checkpoint_path, str):

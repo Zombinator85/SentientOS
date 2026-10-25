@@ -79,6 +79,86 @@ def test_frozen_journal_and_compact_segment_chain_verify(tmp_path: Path) -> None
     assert result["segments_verified"] == 1
 
 
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("current_schema_version", "current_index_must_be_schema_v1"),
+        ("anchor_schema_version", "anchor_index_must_be_schema_v1"),
+        ("current_latest_sequence", "current_index_latest_sequence_mismatch"),
+        ("anchor_latest_sequence", "anchor_index_latest_sequence_mismatch"),
+    ],
+)
+def test_sharded_index_builder_rejects_boolean_version_and_sequence_fields(
+    tmp_path: Path, mutation: str, expected_error: str
+) -> None:
+    index_path, _, _, _ = _write_fixture(tmp_path)
+    current = json.loads(index_path.read_bytes())
+    anchor = json.loads(index_path.read_bytes())
+    target = anchor if mutation.startswith("anchor_") else current
+    key = "schema_version" if mutation.endswith("schema_version") else "latest_sequence"
+    target[key] = True
+
+    with pytest.raises(ValueError, match=expected_error):
+        build_sharded_index(
+            json.dumps(current).encode(), json.dumps(anchor).encode()
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_failure"),
+    [
+        ("v1_schema_version", "index_schema_invalid"),
+        ("v1_latest_sequence", "segments_invalid_or_unbounded"),
+        ("v1_segment_sequence", "segment_1_sequence_mismatch"),
+        ("v1_checkpoint_sequence", "active_checkpoint_segment_sequence_mismatch"),
+        ("v2_schema_version", "index_schema_invalid"),
+        ("v2_shard_schema_version", "shard_schema_version_unsupported"),
+        ("v2_shard_sequence", "shard_1_descriptor_invalid"),
+        ("v2_payload_schema_version", "shard_1_content_invalid"),
+    ],
+)
+def test_custody_rejects_boolean_values_for_integer_versions_and_sequences(
+    tmp_path: Path, mutation: str, expected_failure: str
+) -> None:
+    if mutation.startswith("v1_"):
+        index_path, _, _, _ = _write_fixture(tmp_path)
+        index = json.loads(index_path.read_bytes())
+        if mutation == "v1_schema_version":
+            index["schema_version"] = True
+        elif mutation == "v1_latest_sequence":
+            index["latest_sequence"] = True
+        elif mutation == "v1_segment_sequence":
+            index["segments"][0]["sequence"] = True
+        else:
+            index["active_checkpoint_binding"]["latest_segment_sequence"] = True
+    else:
+        index_path, shard_path = _write_sharded_fixture(tmp_path)
+        index = json.loads(index_path.read_bytes())
+        if mutation == "v2_schema_version":
+            index["schema_version"] = True
+        elif mutation == "v2_shard_schema_version":
+            index["shard_schema_version"] = True
+        elif mutation == "v2_shard_sequence":
+            index["shards"][0]["shard_sequence"] = True
+        else:
+            shard = json.loads(shard_path.read_bytes())
+            shard["schema_version"] = True
+            shard_bytes = (json.dumps(shard, indent=2) + "\n").encode()
+            shard_path.write_bytes(shard_bytes)
+            descriptor = index["shards"][0]
+            descriptor.update({
+                "bytes": len(shard_bytes),
+                "sha256": hashlib.sha256(shard_bytes).hexdigest(),
+                "git_blob_sha": _blob_sha(shard_bytes),
+            })
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    result = verify_construction_continuation(tmp_path)
+
+    assert result["status"] == "invalid"
+    assert expected_failure in result["failures"]
+
+
 def _write_sharded_fixture(root: Path) -> tuple[Path, Path]:
     index_path, _, _, _ = _write_fixture(root)
     anchor = index_path.read_bytes()
