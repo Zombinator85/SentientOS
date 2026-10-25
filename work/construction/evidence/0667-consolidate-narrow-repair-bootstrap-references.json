@@ -1,0 +1,79 @@
+{
+  "authority_boundary": "Documentation-only task; no runtime, authority, commit, or publication effect is claimed.",
+  "bootstrap": {
+    "status": "ready",
+    "task_name": "Consolidate narrow repair bootstrap references",
+    "subsystem_kind": "documentation"
+  },
+  "change": {
+    "paths": ["docs/development/codex_narrow_repair_task_template.md"],
+    "summary": "Replace duplicated bootstrap flag and parser-failure instructions with a concise reference to the canonical invocation contract and AGENTS.md construction exception."
+  },
+  "construction_custody_before_sequence_667": {
+    "segments_verified": 666,
+    "status": "construction_continuation_custody_ready"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded documentation consolidation; candidate remains local and uncommitted",
+  "sequence": 667,
+  "source": {
+    "base_commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "base_tree": "c68ad621fa6797f92febfa25b42f597629bf6884",
+    "candidate_commit": null,
+    "candidate_tree": null,
+    "publication_status": "not_published",
+    "worktree": "/workspace/SentientOS-seq667",
+    "branch": "codex/construct-sentientos-s667-roadmap-verifier-review"
+  },
+  "validation": {
+    "canonical_full_regression": "not_run; documentation-only focused regression and hosted CI remain necessary",
+    "docs_build": {"command": "PATH=/tmp/sentientos-verification-venv/bin:$PATH PYTHONPATH=/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages python scripts/build_docs.py", "pages_generated": 616, "status": "passed"},
+    "docs_dependencies": "passed",
+    "focused_regression": {
+      "command": "python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py",
+      "run_id": "f7153cf96b1b48f49da6b3feffa73ecb",
+      "tests_collected": 4,
+      "tests_executed": 4,
+      "tests_failed": 0,
+      "tests_passed": 4,
+      "tests_skipped": 0,
+      "provenance_path": "glow/test_runs/test_run_provenance.json",
+      "provenance_sha256_after_finalizer_run": "5e947df5b1544cc966454b4444b944e8651f247aa99eaf052ec885a4d7cba666"
+    },
+    "prompt_boundary_scan": "boundary_clean; 0 findings",
+    "diff_check": "passed",
+    "precommit_finalizer": {
+      "artifact_path": "work/construction/evidence/0667-precommit-finalizer-result.json",
+      "artifact_sha256": "fc274958de139158eb7aa9a3297289e0720ed6096a30d5de25a82f9eb0ebb5bd",
+      "decision": "repair_required_task_caused",
+      "reasons": ["stage_failed:strict_audits", "stage_failed:audit_immutability", "source_change_not_declared"],
+      "strict_audit_stderr": "Access denied: run as Administrator to reach protected memory and policy state.",
+      "audit_immutability_stderr": "Access denied: run as Administrator to reach protected memory and policy state."
+    },
+    "precommit_finalizer_elevated_retry": {
+      "artifact_path": "work/construction/evidence/0667-precommit-finalizer-elevated-result.json",
+      "artifact_sha256": "e44a11d6059705cba8ff4b2d590f983fb59283df5e5234c560401845713b8a61",
+      "decision": "repair_required_task_caused",
+      "reasons": ["stage_failed:strict_audits", "stage_failed:audit_immutability", "source_change_not_declared"],
+      "strict_audit_stderr": "Access denied: run as Administrator to reach protected memory and policy state.",
+      "audit_immutability_stderr": "Access denied: run as Administrator to reach protected memory and policy state."
+    },
+    "construction_mode": {
+      "basis": "AGENTS.md explicitly permits bounded construction increments under the [untested] handoff exception.",
+      "candidate_commit_title_requirement": "[codex:documentation] [untested] consolidate narrow repair bootstrap references",
+      "hosted_quality_gate_and_ci_required_before_merge": true,
+      "status": "authorized_if_marked_untested"
+    },
+    "append_only_test_provenance_preserved": [
+      {"path": "glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json", "sha256": "847aa6fbda1b098675a9a3386e83630f27148d94e6f33d864b893df6976bcaec"},
+      {"path": "glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json", "sha256": "bb9fc21e6b3c89f908c5a281cadc4d0bf9302f55bbd75edb43f5dd8ff5f01dfe"},
+      {"path": "glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json", "sha256": "c23a85ab1cdcd59f7af2d53a915279fd9001b15653d95939069f22dbf280362f"},
+      {"path": "glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json", "sha256": "5e947df5b1544cc966454b4444b944e8651f247aa99eaf052ec885a4d7cba666"}
+    ],
+    "abandoned_mypy_baseline_refresh_bootstrap": {
+      "status": "blocked",
+      "blocker_codes": ["existing_maintenance_target_scope_required", "existing_maintenance_target_scope_violation"],
+      "implementation_started": false
+    }
+  }
+}

@@ -1,3 +1,37 @@
+## Current construction state - sequence 667
+
+Sequence 667 consolidates duplicated bootstrap invocation instructions in the narrow repair template and preserves links to canonical policy. Docs dependencies, the 616-page build, focused developer-doctrine tests (4/4), prompt-boundary scan, and diff check passed. The normal pre-commit finalizer is blocked: strict audit and audit immutability both require Administrator access to protected memory and policy state. Its complete result is preserved. The candidate is uncommitted and unpublished; do not bypass the finalizer. Append-only test provenance remains preserved in the worktree.
+
+Verified base main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md`
+Latest segment SHA-256: 3708dfb7ed1f03bd4183e15fe3c7a1f4fc1c63814c7dc08dd030089e393005ee
+Sequence: 667 (narrow repair template bootstrap-reference consolidation)
+
+Evidence record: `work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json`
+Finalizer result: `work/construction/evidence/0667-precommit-finalizer-result.json`
+
+Recovery: preserve all `glow/test_runs/provenance/` snapshots. If the protected local audit remains unavailable, use only the explicit `AGENTS.md` bounded-construction exception: retain `[untested]` in the commit and PR handoff, report both blocked finalizer stages, and require exact hosted Quality Gate/CI plus post-merge evidence before merging. Otherwise complete the ordinary two-phase finalizer and metadata guard. The separate mypy-baseline refresh remains blocked by bootstrap target-scope policy and was not implemented.
+
+
+## Previous checkpoint snapshot - sequence 666
+
+## Current verified state - sequence 666
+
+Sequence 666 integrates PR #2766 and its verified main merge. The exact candidate tree is retained on main. Exact-head hosted Quality Gate and applicable PR checks passed; main Required Quality Gate, CI, Invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition. Sequence 665's focused tests, task acceptance, targeted mypy, documentation dependency check, and docs build passed. Its canonical full local regression attempt was interrupted without a completion result and is not reported as passing.
+
+Latest verified main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0666-integrate-pr-2766-main-verification.md`
+Latest segment SHA-256: 701427a03d1e9e19157bb5083a57f44a79509944b13860a460854d7052faa2fc
+Sequence: 666 (PR #2766 post-merge integration)
+
+PR #2766 candidate `45e3ff87a10bac7b80c34a2863ca2eaa7ddb3184` merged normally as `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, preserving the candidate tree. The main Required Quality Gate artifact SHA-256 advertised by GitHub is `f6da891d3ca3c8817278901f11d281e9779af80a13f563a1b04579d530d21819`.
+
+Evidence record: `work/construction/evidence/0666-integrate-pr-2766-main-verification.json`
+Evidence SHA-256: 425735e13177cae03ef1ade877cd268d75133ef4e58431ea90c62d178558f6e2
+
+Next: confirm fresh verified main and bootstrap readiness, then select the next bounded implementation gap from current source evidence. Preserve all earlier checkpoint snapshots and authority boundaries.
+
+
 ## Current construction state - sequence 665
 
 Sequence 665 is a bounded roadmap freshness verifier repair on verified main. The active index points to an archive for consumed history; file verification now checks the archive for historical controls, the active index for available work, and binds both exact inputs. Focused regression (29/29), exact task acceptance, targeted mypy, docs dependency check and 616-page build, freshness verification, and diff check passed. The canonical full local suite was interrupted after a prolonged stall at approximately 39%, without a completion result; it is not reported as passing. The candidate is not yet published.

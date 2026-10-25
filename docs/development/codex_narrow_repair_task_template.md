@@ -16,9 +16,7 @@ List only files touched by the repair.
 
 
 ## Bootstrap invocation contract
-When this task requires the scaffold or normal landing process, run bootstrap with only the supported flags documented in [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md), including `--subsystem-kind`. Unsupported flags are command invocation errors, not bootstrap `ready` or `blocked` decisions; if bootstrap exits nonzero because of unsupported arguments, stop, fix the invocation, and rerun bootstrap before implementation. An explicitly authorized bounded construction task may use the `AGENTS.md` construction exception without imposing the scaffold as an extra gate; mark that work `[untested]`. If bootstrap is required and returns `blocked`, do not use its diagnostic artifact as the implementation contract.
-
-For repair prompts, do not use unsupported `--existing-module` or `--existing-cli` flags. Use `--new-module` / `--new-cli` only when intentionally naming the module or CLI path that scaffold metadata should reason about, even when the path already exists, or omit those flags and provide explicit delta-specific files elsewhere in the prompt.
+When bootstrap is required, follow the supported invocation and stop-on-blocked rules in the canonical [`bootstrap invocation contract`](codex_bootstrap_invocation_contract.md). An explicitly authorized bounded construction task may use the [`AGENTS.md` construction exception](../../AGENTS.md); mark that work `[untested]`.
 
 ## Focused tests
 Run targeted tests that prove the localized fix.
