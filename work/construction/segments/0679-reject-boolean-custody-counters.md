@@ -1,0 +1,5 @@
+# Sequence 679: reject boolean construction custody counters
+
+A focused probe showed the v1 custody verifier accepted JSON `true` as `schema_version: 1` because Python considers `True == 1`. Related version and sequence comparisons in v2 shard descriptors and checkpoint bindings had the same type ambiguity. The verifier, sharded-index builder, and candidate publication contract now require exact integer values for these fields; booleans fail closed. Historical digests, predecessor bindings, shard bytes, and custody records remain unchanged.
+
+The focused custody/publication suite passed 39/39, including eight malformed v1/v2 boolean-value regressions and four builder type regressions. The docs build generated 616 pages. Mypy baseline reported zero new errors (and an overall baseline improvement). Custody remains ready through sequence 678 before this record. The tested implementation candidate is commit `68bcf21ff5191fa0494abc380af41e1995293a42` with tree `2a480801f24ba19a574c0227f7eb69187e034c66`, based on verified main `b525b13937e290e578ed2160157f5dcb687c7ae3` / `70238aad60af7709bc31490f8f6b0758291930ae`.

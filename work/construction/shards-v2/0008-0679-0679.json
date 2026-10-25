@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 8,
+  "first_sequence": 679,
+  "last_sequence": 679,
+  "predecessor": "shard-sha256:eae628014e68e9a74b308ba11615e74d264a07001a75e0c28ef0bc3947f3f786",
+  "segments": [
+    {
+      "sequence": 679,
+      "path": "work/construction/segments/0679-reject-boolean-custody-counters.md",
+      "predecessor": "segment-sha256:d6582b21828e17b8f88833e3bff5122b5c2ca8a103c0af29300775dae9062169",
+      "bytes": 1125,
+      "sha256": "211876aa11090708f6c7ae0ae815e0c6f1e7376815215dca3cc1e7040ea80b00",
+      "evidence_path": "work/construction/evidence/0679-reject-boolean-custody-counters.json",
+      "evidence_bytes": 2297,
+      "evidence_sha256": "f1ab821af3a044c9151b94349c2c317df54f8594476d9d4441b4342bac119848",
+      "source_commit": "68bcf21ff5191fa0494abc380af41e1995293a42",
+      "source_tree": "2a480801f24ba19a574c0227f7eb69187e034c66"
+    }
+  ]
+}

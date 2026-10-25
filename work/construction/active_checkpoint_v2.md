@@ -1,3 +1,17 @@
+## Current recovery state - sequence 679
+
+Strict construction custody typing now rejects booleans where exact integers are required for schema versions, sequence counters, shard ranges, and checkpoint bindings. The observed v1 `schema_version: true` acceptance is covered by regression tests. Focused custody/publication tests passed 39/39, the docs build generated 616 pages, and mypy baseline reported zero new errors with overall baseline improvement. Custody verified through sequence 678 before this record; the frozen v1 index/checkpoint and all prior shards remain unchanged.
+
+Latest verified main: `b525b13937e290e578ed2160157f5dcb687c7ae3`, tree `70238aad60af7709bc31490f8f6b0758291930ae`
+Implementation candidate: `68bcf21ff5191fa0494abc380af41e1995293a42`, tree `2a480801f24ba19a574c0227f7eb69187e034c66`
+Latest construction segment: `work/construction/segments/0679-reject-boolean-custody-counters.md`
+Latest segment SHA-256: `211876aa11090708f6c7ae0ae815e0c6f1e7376815215dca3cc1e7040ea80b00`
+Sequence: 679 (strict integer typing for construction custody)
+Evidence: `work/construction/evidence/0679-reject-boolean-custody-counters.json`
+Evidence SHA-256: `f1ab821af3a044c9151b94349c2c317df54f8594476d9d4441b4342bac119848`
+
+Recovery: complete normal hosted validation of PR #2773 on its final evidence-bearing head; merge only after all applicable checks pass, then record post-merge verification. Preserve the exact reviewed candidate tree and all v2 custody history.
+
 ## Current recovery state - sequence 678
 
 PR #2771 merged as `835e47f5e030f39c9844356c3146f4ebd0c41248` with the tested candidate tree retained. All eight exact-head PR workflows passed; post-merge Required Quality Gate, CI, Docs Deploy, Invariant Tests, Codex CI, and Docker Image passed. Forge Smoke was skipped by workflow condition. The post-merge source-validation and self-check jobs completed successfully, as did Helm/Kubernetes tests, docs and linkcheck, and Docker tests/image build.
