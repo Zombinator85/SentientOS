@@ -66,15 +66,15 @@ def _load_index_segments(
     """Load v1 inline entries or bounded v2 shards and verify shard custody."""
     schema_version = index.get("schema_version")
     if schema_version == 1:
-        segments = index.get("segments")
+        inline_segments = index.get("segments")
         if (
-            not isinstance(segments, list)
-            or len(segments) > MAX_SEGMENTS
-            or index.get("latest_sequence") != len(segments)
+            not isinstance(inline_segments, list)
+            or len(inline_segments) > MAX_SEGMENTS
+            or index.get("latest_sequence") != len(inline_segments)
         ):
             failures.append("segments_invalid_or_unbounded")
             return []
-        return [entry for entry in segments if isinstance(entry, dict)]
+        return [entry for entry in inline_segments if isinstance(entry, dict)]
 
     if schema_version != 2:
         failures.append("index_schema_invalid")
@@ -90,7 +90,10 @@ def _load_index_segments(
     anchor_sha = anchor.get("source_index_sha256")
     anchor_blob = anchor.get("source_index_git_blob_sha")
     anchor_count = anchor.get("segment_count")
-    latest_sequence = index.get("latest_sequence")
+    latest_sequence_value = index.get("latest_sequence")
+    latest_sequence = (
+        latest_sequence_value if type(latest_sequence_value) is int else -1
+    )
     anchor_latest = anchor.get("latest_sequence")
     anchor_latest_sha = anchor.get("latest_segment_sha256")
     anchor_path = anchor.get("path")
@@ -146,7 +149,6 @@ def _load_index_segments(
     if (
         not isinstance(descriptors, list)
         or len(descriptors) > MAX_SHARDS
-        or type(latest_sequence) is not int
         or not 0 <= latest_sequence <= MAX_SEGMENTS
     ):
         failures.append("shard_descriptors_invalid_or_unbounded")
