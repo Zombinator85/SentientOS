@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "45a10a067c8a2c9e5f0d80dc4a41c0c45d62c62911aac5ae6f4bc26eec651326",
-    "latest_segment_sequence": 657,
-    "latest_segment_sha256": "5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
-    "source_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
-    "source_tree": "88601a321e70018e1464977635e056e5f86264e9"
+    "checkpoint_sha256": "2594d3d7b25e412cb8e77c0085a244b55deb6751cf2310a52136fa3ac38b9dc3",
+    "latest_segment_sequence": 659,
+    "latest_segment_sha256": "11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
+    "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e"
   },
-  "checkpoint_sha256": "45a10a067c8a2c9e5f0d80dc4a41c0c45d62c62911aac5ae6f4bc26eec651326",
+  "checkpoint_sha256": "2594d3d7b25e412cb8e77c0085a244b55deb6751cf2310a52136fa3ac38b9dc3",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 657,
+  "latest_sequence": 659,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7709,6 +7709,30 @@
       "evidence_path": "work/construction/evidence/0657-component-aware-cathedral-path-safety.json",
       "evidence_bytes": 3948,
       "evidence_sha256": "10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e"
+    },
+    {
+      "sequence": 658,
+      "path": "work/construction/segments/0658-integrate-pr-2762-main-verification.md",
+      "bytes": 1644,
+      "sha256": "96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
+      "predecessor": "segment-sha256:5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941",
+      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
+      "evidence_path": "work/construction/evidence/0658-integrate-pr-2762-main-verification.json",
+      "evidence_bytes": 4768,
+      "evidence_sha256": "cb0c0b70e8201a622362af093636f6a479bc345798585229be56a5ceeda845c7"
+    },
+    {
+      "sequence": 659,
+      "path": "work/construction/segments/0659-validate-cathedral-storage-path-ancestry.md",
+      "bytes": 1495,
+      "sha256": "11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b",
+      "predecessor": "segment-sha256:96e6ac63d747bb23c640687ef690d34f88b1b54aecff0ceaf7b78d0fa4c26b26",
+      "source_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "source_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
+      "evidence_path": "work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json",
+      "evidence_bytes": 4072,
+      "evidence_sha256": "6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318"
     }
   ],
   "source_acquisition": {
