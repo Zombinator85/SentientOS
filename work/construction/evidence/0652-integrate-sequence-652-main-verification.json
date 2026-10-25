@@ -1,0 +1,130 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40130920259
+      },
+      "docker": {
+        "conclusion": "success",
+        "jobs": [
+          "build",
+          "build-and-smoke-test-cpu"
+        ],
+        "run_ids": [
+          40130920197,
+          40130920218,
+          40130920339
+        ]
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40130920197
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition"
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40130920265
+      },
+      "required_quality_gate": {
+        "administrator_strict_audit": "success",
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "run_id": 40130920283
+      }
+    },
+    "commit": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "github_quality_gate_artifact": {
+      "id": 12575430048,
+      "name": "required-quality-gate-evidence",
+      "sha256_advertised_by_github": "1750bf1834e5374f888fd529f7007ec8109e1d93a9d8c3fa98086960c3a3431d"
+    },
+    "tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "remote_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056",
+    "status": "correct_remote_and_local_base"
+  },
+  "pull_request": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40130541015
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40130540872
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40130540926
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40130540830
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40130540950
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40130540967
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40130540997
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40130540936
+      }
+    },
+    "github_artifacts": [
+      {
+        "id": 12574854183,
+        "name": "required-quality-gate-evidence",
+        "sha256_advertised_by_github": "5e7386ba82c779173edc56ca7ee489a13e537305370d05bad8d7c578f5376cf3"
+      },
+      {
+        "id": 12575027901,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256_advertised_by_github": "e2f2fa38a5d64d1a0df3ff38cac8f14c0227b09f0cc0fd3618d24adc2a668955"
+      },
+      {
+        "id": 12574044773,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256_advertised_by_github": "d8736d02ec8884695131e72cddb87e96b2391aec8e7bd6e61621c720e7fcc845"
+      }
+    ],
+    "state": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "evidence-only integration of sequence 651 verified main; no production source or runtime authority changes",
+  "sequence": 652,
+  "source": {
+    "candidate_commit": "7676dca574bb2e181f95cb31366084bf71cf2bbd",
+    "candidate_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056",
+    "merge_commit": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "merge_parents": [
+      "761308d48b098832cbac559882ebdf0d4179c5d5",
+      "7676dca574bb2e181f95cb31366084bf71cf2bbd"
+    ],
+    "parent_main": "761308d48b098832cbac559882ebdf0d4179c5d5",
+    "pull_request": 2759,
+    "source_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056",
+    "tree_matches_candidate": true
+  }
+}

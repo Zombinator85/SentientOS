@@ -1,0 +1,24 @@
+{
+  "base": {
+    "preflight_status": "correct_remote_and_local_base",
+    "verified_main_commit": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "verified_main_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056"
+  },
+  "change": {
+    "bytes": 31551,
+    "finding": "The full landing-sequence paragraph was identical in the recovery rail and canonical validation contract.",
+    "path": "docs/development/codex_landing_evidence_recovery_rail.md",
+    "production_source_changed": false,
+    "resolution": "Recovery rail links to the canonical validation contract and states its recovery-only scope.",
+    "runtime_authority_changed": false,
+    "sha256": "6779abd82ee314d2b301a2f1f2d25f7425f3f60d855baa6c26f4028292c0a6ee"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "documentation readability consolidation only; local uncommitted construction, no commit or publication",
+  "sequence": 653,
+  "validation": {
+    "docs_build": "blocked before build: missing mkdocs and watchdog.observers; no dependency installation attempted",
+    "git_diff_check": "passed",
+    "status": "untested"
+  }
+}
