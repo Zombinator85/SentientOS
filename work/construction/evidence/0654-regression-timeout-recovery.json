@@ -1,0 +1,80 @@
+{
+  "candidate": {
+    "branch": "codex/construct-sentientos-s655-consolidate-landing-recovery",
+    "commit": "c58d9d2bb9790a7ec1aa5bf0770174b22389f52d",
+    "published": false,
+    "tree": "02e08b8355e2b1b2ff1a7d25ad2bb5bc125b77f4",
+    "worktree_clean": true
+  },
+  "recovery": {
+    "dependency_environment_may_need_recreation": true,
+    "next_action": "diagnose the isolated dashboard drift API test hang, rerun canonical regressions to a complete reporter result, then resume normal hosted publication only after all required gates pass"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "recovery checkpoint for the preserved untested local candidate; no PR, merge, or external publication",
+  "sequence": 654,
+  "source_preflight": {
+    "branch": "main",
+    "dirty": false,
+    "findings": [
+      "local_commit_not_yet_published"
+    ],
+    "local_head": "c58d9d2bb9790a7ec1aa5bf0770174b22389f52d",
+    "local_tree": "02e08b8355e2b1b2ff1a7d25ad2bb5bc125b77f4",
+    "remote_head": "22de4777961f5301a8d9a62d432c4ce561a79939",
+    "remote_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056",
+    "status": "unpublished_candidate_requires_reconciliation"
+  },
+  "validation": {
+    "construction_custody_before_recovery_record": {
+      "segments_verified": 653,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build": {
+      "generated_pages": 616,
+      "status": "passed"
+    },
+    "docs_dependencies": {
+      "command": "python -m pip install --only-binary=:all: -e '.[docs]' -r requirements-codex.txt",
+      "path": "/tmp/sentientos-verification-venv",
+      "status": "installed_in_isolated_virtual_environment"
+    },
+    "docs_dependency_check": "passed",
+    "git_diff_check": "passed_after_test_residue_cleanup",
+    "overall": "not_validated",
+    "regression_runs": [
+      {
+        "command": "python -m scripts.run_tests -q",
+        "outcome": "not_started",
+        "python": "system interpreter",
+        "reason": "import airlock failed because jinja2 was missing"
+      },
+      {
+        "command": "/tmp/sentientos-verification-venv/bin/python -m scripts.run_tests -q",
+        "metrics_status": "unavailable",
+        "outcome": "interrupted_after_no_progress",
+        "pytest_exit_code": -15,
+        "reporter_error": "pytest metrics report file was not created",
+        "run_id": "2a7973bdfb1e4ef7b6485b3fce866bb3",
+        "tests_executed_reported": 0,
+        "tool_exit_code": 130
+      },
+      {
+        "command": "/usr/bin/timeout --signal=INT --kill-after=10s 300s /tmp/sentientos-verification-venv/bin/python -m scripts.run_tests -vv",
+        "final_provenance": "not produced",
+        "last_observed_node": "tests/test_dashboard_drift_api.py::test_drift_recent_rejects_invalid_n",
+        "last_observed_progress_percent": 79,
+        "outcome": "external_timeout",
+        "pytest_collected": 156,
+        "tool_exit_code": 124
+      },
+      {
+        "command": "/usr/bin/timeout --signal=INT --kill-after=5s 90s /tmp/sentientos-verification-venv/bin/python -m scripts.run_tests -vv tests/test_dashboard_drift_api.py::test_drift_recent_rejects_invalid_n",
+        "final_provenance": "not produced",
+        "node_result": "no completion recorded",
+        "outcome": "external_timeout",
+        "tool_exit_code": 124
+      }
+    ]
+  }
+}

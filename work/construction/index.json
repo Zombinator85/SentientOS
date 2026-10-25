@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "fe602fefea39eeb4ed39f5892b3bc50315e65371bfae485d30f2fd54cafa2980",
-    "latest_segment_sequence": 653,
-    "latest_segment_sha256": "adf222bf607be7f957ee736f3468a40b885e57b5a32e22365c65f52e4378fc07",
-    "source_commit": "22de4777961f5301a8d9a62d432c4ce561a79939",
-    "source_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056"
+    "checkpoint_sha256": "c9e3f33ef6002411508020982d7f59d5638eba914ca466ff370bdb87892f0237",
+    "latest_segment_sequence": 654,
+    "latest_segment_sha256": "39442201be99be18488b89cf7295dad4926df004bb23cee71abee64099a06b60",
+    "source_commit": "c58d9d2bb9790a7ec1aa5bf0770174b22389f52d",
+    "source_tree": "02e08b8355e2b1b2ff1a7d25ad2bb5bc125b77f4"
   },
-  "checkpoint_sha256": "fe602fefea39eeb4ed39f5892b3bc50315e65371bfae485d30f2fd54cafa2980",
+  "checkpoint_sha256": "c9e3f33ef6002411508020982d7f59d5638eba914ca466ff370bdb87892f0237",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 653,
+  "latest_sequence": 654,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -7659,6 +7659,19 @@
       "sha256": "adf222bf607be7f957ee736f3468a40b885e57b5a32e22365c65f52e4378fc07",
       "source_commit": "22de4777961f5301a8d9a62d432c4ce561a79939",
       "source_tree": "3312b3007d4133ec4f6ffc59de3445c58e68d056"
+    },
+    {
+      "bytes": 1922,
+      "evidence_bytes": 3343,
+      "evidence_path": "work/construction/evidence/0654-regression-timeout-recovery.json",
+      "evidence_sha256": "b208bee972b1a595e3cc8854952b23874b3bf5e8f3b94869697dd17ce37af7f1",
+      "path": "work/construction/segments/0654-regression-timeout-recovery.md",
+      "predecessor": "segment-sha256:adf222bf607be7f957ee736f3468a40b885e57b5a32e22365c65f52e4378fc07",
+      "sequence": 654,
+      "sha256": "39442201be99be18488b89cf7295dad4926df004bb23cee71abee64099a06b60",
+      "source_candidate_commit": "c58d9d2bb9790a7ec1aa5bf0770174b22389f52d",
+      "source_commit": "c58d9d2bb9790a7ec1aa5bf0770174b22389f52d",
+      "source_tree": "02e08b8355e2b1b2ff1a7d25ad2bb5bc125b77f4"
     }
   ],
   "source_acquisition": {
