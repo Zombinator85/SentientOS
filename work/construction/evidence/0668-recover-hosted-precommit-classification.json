@@ -1,0 +1,40 @@
+{
+  "authority_boundary": "Records failed hosted validation and a path-classification recovery; no governance bypass, runtime authority, or merge is claimed.",
+  "failed_candidate": {
+    "base_commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "commit": "b29bf8f062876d16cf601a1f9b6f0c5877c8152f",
+    "pull_request": 2767,
+    "pull_request_state": "closed",
+    "required_quality_gate_run": 40171182811,
+    "tree": "d338e5322621eef55cc4667801dfc052cc87b895"
+  },
+  "finding": {
+    "stage": "Reconstruct and verify exact hosted pre-commit state",
+    "reason": "unknown_dirty_paths under glow/test_runs provenance snapshots and latest pointer",
+    "governance_bypassed": false,
+    "merge_occurred": false
+  },
+  "recovery": {
+    "preserved_original_branch_and_worktree": true,
+    "provenance_bytes_copied_to_indexed_construction_evidence": true,
+    "protected_glow_test_runs_paths_in_successor_candidate": "must match verified main",
+    "successor_candidate_commit": null,
+    "successor_candidate_status": "in_progress_from_verified_main"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 668,
+  "source": {
+    "base_commit": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "base_tree": "c68ad621fa6797f92febfa25b42f597629bf6884",
+    "publication_status": "prior_candidate_closed_after_required_gate_failure",
+    "worktree": "/workspace/SentientOS-seq668",
+    "branch": "codex/construct-sentientos-s668-retry-docs-from-main"
+  },
+  "validation": {
+    "fresh_main_preflight": "passed; exact remote and local main 00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "prior_documentation_build": "passed; 616 pages",
+    "prior_focused_regression": "passed; 4/4 tests; run f7153cf96b1b48f49da6b3feffa73ecb",
+    "local_finalizer": "blocked; strict audit and audit immutability require Administrator access to protected memory and policy state",
+    "successor_exact_hosted_gate": "required_before_merge"
+  }
+}

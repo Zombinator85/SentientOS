@@ -1,3 +1,53 @@
+## Current construction state - sequence 668
+
+Sequence 668 records recovery from PR #2767's exact-head hosted Required Quality Gate failure. The hosted gate rejected local provenance changes under `glow/test_runs/` as unknown dirty paths during exact pre-commit reconstruction; PR #2767 was closed without merge. The original branch and worktree remain preserved. A successor is being rebuilt from the verified main commit with the same provenance bytes held only in indexed construction evidence, leaving protected glow paths equal to main.
+
+The underlying sequence 667 documentation edit remains unchanged. Its 616-page docs build and focused regression passed 4/4 on the verified base. The local finalizer remains blocked because strict audit and audit immutability require Administrator access to protected memory and policy state. This candidate must remain marked `[untested]`; exact hosted Quality Gate and CI are required before merge.
+
+Latest verified main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0668-recover-hosted-precommit-classification.md`
+Latest segment SHA-256: `670d03500ff79545cd85bbb73f4a86b8d754d60f3850e7f695a490ddae64030e`
+Sequence: 668 (recover hosted pre-commit provenance classification)
+
+Evidence record: `work/construction/evidence/0668-recover-hosted-precommit-classification.json`
+Evidence SHA-256: `c3baf9cbd5365c371a49a9f363e7d5b628ecf6d1bed04d4d62da1c0651ef4b09`
+
+Recovery: continue the clean successor through preflight, construction custody verification, candidate integrity checks, normal PR publication, exact-head hosted gates, merge only after green, and post-merge evidence. If the classifier rejects another path, preserve the exact result and fix the declared scope without bypassing it.
+
+## Previous checkpoint snapshot - sequence 667
+
+Sequence 667 consolidates duplicated bootstrap invocation instructions in the narrow repair template and preserves links to canonical policy. Docs dependencies, the 616-page build, focused developer-doctrine tests (4/4), prompt-boundary scan, and diff check passed. The normal pre-commit finalizer is blocked: strict audit and audit immutability both require Administrator access to protected memory and policy state. Its complete result is preserved. The candidate is uncommitted and unpublished. Exact local test-run provenance bytes are preserved under construction evidence; the protected `glow/test_runs/` namespace matches main in the candidate tip.
+
+Verified base main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md`
+Latest segment SHA-256: 3708dfb7ed1f03bd4183e15fe3c7a1f4fc1c63814c7dc08dd030089e393005ee
+Sequence: 667 (narrow repair template bootstrap-reference consolidation)
+
+Evidence record: `work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json`
+Finalizer result: `work/construction/evidence/0667-precommit-finalizer-result.json`
+
+Recovery: preserve the copied validation provenance under `work/construction/evidence/`. The first hosted Quality Gate found that raw `glow/test_runs/` changes are special-cased as undeclared by the finalizer; the follow-up candidate relocates the same bytes into indexed evidence and restores that namespace to main. Keep `[untested]` in the commit and PR handoff, report the local audit-stage block, and require exact hosted Quality Gate/CI plus post-merge evidence before merging. The separate mypy-baseline refresh remains blocked by bootstrap target-scope policy and was not implemented.
+
+
+## Previous checkpoint snapshot - sequence 666
+
+## Current verified state - sequence 666
+
+Sequence 666 integrates PR #2766 and its verified main merge. The exact candidate tree is retained on main. Exact-head hosted Quality Gate and applicable PR checks passed; main Required Quality Gate, CI, Invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed. Forge Smoke was skipped by workflow condition. Sequence 665's focused tests, task acceptance, targeted mypy, documentation dependency check, and docs build passed. Its canonical full local regression attempt was interrupted without a completion result and is not reported as passing.
+
+Latest verified main: `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, tree `c68ad621fa6797f92febfa25b42f597629bf6884`
+Latest construction segment: `work/construction/segments/0666-integrate-pr-2766-main-verification.md`
+Latest segment SHA-256: 701427a03d1e9e19157bb5083a57f44a79509944b13860a460854d7052faa2fc
+Sequence: 666 (PR #2766 post-merge integration)
+
+PR #2766 candidate `45e3ff87a10bac7b80c34a2863ca2eaa7ddb3184` merged normally as `00b8cc00e5d1b30e892fe380ec95bb6978f17712`, preserving the candidate tree. The main Required Quality Gate artifact SHA-256 advertised by GitHub is `f6da891d3ca3c8817278901f11d281e9779af80a13f563a1b04579d530d21819`.
+
+Evidence record: `work/construction/evidence/0666-integrate-pr-2766-main-verification.json`
+Evidence SHA-256: 425735e13177cae03ef1ade877cd268d75133ef4e58431ea90c62d178558f6e2
+
+Next: confirm fresh verified main and bootstrap readiness, then select the next bounded implementation gap from current source evidence. Preserve all earlier checkpoint snapshots and authority boundaries.
+
+
 ## Current construction state - sequence 665
 
 Sequence 665 is a bounded roadmap freshness verifier repair on verified main. The active index points to an archive for consumed history; file verification now checks the archive for historical controls, the active index for available work, and binds both exact inputs. Focused regression (29/29), exact task acceptance, targeted mypy, docs dependency check and 616-page build, freshness verification, and diff check passed. The canonical full local suite was interrupted after a prolonged stall at approximately 39%, without a completion result; it is not reported as passing. The candidate is not yet published.

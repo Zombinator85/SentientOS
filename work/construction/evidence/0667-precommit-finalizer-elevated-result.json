@@ -1,0 +1,990 @@
+{
+  "policy": {
+    "require_focused_tests": true,
+    "require_targeted_mypy": true,
+    "require_mypy_baseline": true,
+    "require_matrix_summary": false,
+    "require_matrix_output": false,
+    "require_pr_landing_gate": true,
+    "require_landing_supervisor": true,
+    "require_docs_build": true,
+    "require_prompt_boundary": true,
+    "require_strict_audits": true,
+    "require_audit_immutability": true,
+    "require_clean_working_tree": true,
+    "allow_docs_bootstrap": false,
+    "allow_strict_audit_repair": false,
+    "allow_generated_artifact_cleanup": true,
+    "allow_stale_evidence_refresh": false,
+    "require_operator_supplied_task_commands": true
+  },
+  "decision": {
+    "status": "repair_required_task_caused",
+    "reasons": [
+      "stage_failed:strict_audits",
+      "stage_failed:audit_immutability",
+      "source_change_not_declared"
+    ]
+  },
+  "report": {
+    "commands": [
+      {
+        "stage": "preflight_hygiene",
+        "command": "git status --short",
+        "exit_code": 0,
+        "output_tail": " M docs/development/codex_narrow_repair_task_template.md\n M glow/test_runs/test_run_provenance.json\n M work/construction/active_checkpoint.md\n M work/construction/index.json\n?? glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json\n?? glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json\n?? glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json\n?? glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json\n?? work/construction/evidence/0666-integrate-pr-2766-main-verification.json\n?? work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json\n?? work/construction/evidence/0667-precommit-finalizer-result.json\n?? work/construction/segments/0666-integrate-pr-2766-main-verification.md\n?? work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md",
+        "required": true
+      },
+      {
+        "stage": "focused_tests",
+        "command": "SENTIENTOS_TEST_RUN_DIR=/tmp/seq667-finalizer-test-runs python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py",
+        "exit_code": 0,
+        "output_tail": "....                                                                     [100%]\n- generated xml file: /tmp/seq667-finalizer-test-runs/pytest_junitxml_497738d8006e464c8e942737b2c6f73e.xml -\nrun_tests: python=/tmp/sentientos-verification-venv/bin/python install_performed=False editable_ok=true install_mode=none canonical_requirements_path=requirements-codex.txt full_capability_dependencies_requested=false repo_root=/workspace/SentientOS-seq667 pytest_args=tests/test_codex_operating_doctrine_docs.py -q",
+        "required": true
+      },
+      {
+        "stage": "mypy_baseline",
+        "command": "python scripts/check_mypy_baseline.py",
+        "exit_code": 0,
+        "output_tail": "    },\n    {\n      \"code\": \"index\",\n      \"column\": 35,\n      \"line\": 640,\n      \"message\": \"Value of type \\\"object\\\" is not indexable\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"call-overload\",\n      \"column\": 34,\n      \"line\": 645,\n      \"message\": \"No overload variant of \\\"int\\\" matches argument type \\\"object\\\"\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"call-overload\",\n      \"column\": 24,\n      \"line\": 829,\n      \"message\": \"No overload variant of \\\"int\\\" matches argument type \\\"object\\\"\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"attr-defined\",\n      \"column\": 55,\n      \"line\": 849,\n      \"message\": \"\\\"object\\\" has no attribute \\\"__iter__\\\"; maybe \\\"__dir__\\\" or \\\"__str__\\\"? (not iterable)\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"union-attr\",\n      \"column\": 54,\n      \"line\": 156,\n      \"message\": \"Item \\\"None\\\" of \\\"Any | dict[Any, Any] | None\\\" has no attribute \\\"items\\\"\",\n      \"path\": \"sentientos/work_plan.py\"\n    }\n  ],\n  \"retired_errors\": 42,\n  \"status\": \"mypy_baseline_improved\"\n}",
+        "required": true
+      },
+      {
+        "stage": "docs_bootstrap",
+        "command": "python scripts/build_docs.py --bootstrap-docs",
+        "exit_code": 0,
+        "output_tail": "Docs build dependencies bootstrapped and available.",
+        "required": true
+      },
+      {
+        "stage": "docs_check_deps",
+        "command": "python scripts/build_docs.py --check-deps",
+        "exit_code": 0,
+        "output_tail": "Docs build dependencies available.",
+        "required": true
+      },
+      {
+        "stage": "docs_build",
+        "command": "python scripts/build_docs.py",
+        "exit_code": 0,
+        "output_tail": "- federation_health_publication/index.html\n- federation_peer_health_recovery/index.html\n- global_validation_note/index.html\n- governance_claims_checklist/index.html\n- governance_tools/index.html\n- healing_guide/index.html\n- index.html\n- lived_liturgy/index.html\n- living_ledger/index.html\n- local_model_artifact_acquisition/index.html\n- local_model_commissioning/index.html\n- local_model_selection/index.html\n- local_runtime_acquisition/index.html\n- local_runtime_backend_verification/index.html\n- local_runtime_dependencies/index.html\n- local_runtime_dependency_acquisition/index.html\n- local_runtime_import_verification/index.html\n- local_runtime_installation/index.html\n- local_runtime_provisioning/index.html\n- master_file_doctrine/index.html\n- model_mirror_publication/index.html\n- music_rituals/index.html\n- orchestration_next_move_proposal_note/index.html\n- proof_validity/index.html\n- protected_corridor/index.html\n- protected_mutation_proof/index.html\n- pulse_trust_epoch_model/index.html\n- release_notes/index.html\n- release_notes_v1.0.0/index.html\n- runtime_admission/index.html\n- runtime_grant_policy/index.html\n- runtime_posture_model/index.html\n- sanctuary_invocation/index.html\n- scoped_canonical_trace_coherence/index.html\n- search.html\n- treasury_federation/index.html\n- treasury_of_love/index.html\n- verifier_consensus/index.html\n- video_ritual_guide/index.html\n- vow_consensus_primitives/index.html",
+        "required": true
+      },
+      {
+        "stage": "prompt_boundary",
+        "command": "python scripts/verify_context_hygiene_prompt_boundaries.py",
+        "exit_code": 0,
+        "output_tail": "Context hygiene prompt boundary scan: boundary_clean\nScanned files: 39\nFindings: 0\nNo prompt materialization, forbidden runtime import/call, or context-hygiene bypass findings detected.",
+        "required": true
+      },
+      {
+        "stage": "strict_audits",
+        "command": "python verify_audits.py --strict",
+        "exit_code": 1,
+        "output_tail": "Access denied: run as Administrator to reach protected memory and policy state.",
+        "required": true
+      },
+      {
+        "stage": "audit_immutability",
+        "command": "python scripts/audit_immutability_verifier.py",
+        "exit_code": 1,
+        "output_tail": "Access denied: run as Administrator to reach protected memory and policy state.",
+        "required": true
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "docs/development/codex_narrow_repair_task_template.md",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "glow/test_runs/test_run_provenance.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "work/construction/active_checkpoint.md",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "work/construction/index.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json",
+        "classification": "intended_task_change",
+        "action": "allow_pre_commit"
+      },
+      {
+        "path": "work/construction/evidence/0666-integrate-pr-2766-main-verification.json",
+        "classification": "source_change_not_declared",
+        "action": "block"
+      },
+      {
+        "path": "work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json",
+        "classification": "source_change_not_declared",
+        "action": "block"
+      },
+      {
+        "path": "work/construction/evidence/0667-precommit-finalizer-result.json",
+        "classification": "source_change_not_declared",
+        "action": "block"
+      },
+      {
+        "path": "work/construction/segments/0666-integrate-pr-2766-main-verification.md",
+        "classification": "source_change_not_declared",
+        "action": "block"
+      },
+      {
+        "path": "work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md",
+        "classification": "source_change_not_declared",
+        "action": "block"
+      }
+    ]
+  },
+  "request": {
+    "title": "[codex:documentation] consolidate narrow repair bootstrap references",
+    "intended_commit_title": "[codex:documentation] consolidate narrow repair bootstrap references",
+    "phase": "pre-commit",
+    "matrix_json_path": "/tmp/work_item_review_packet_matrix.json",
+    "task_acceptance_manifest": null,
+    "focused_test_commands": [
+      "SENTIENTOS_TEST_RUN_DIR=/tmp/seq667-finalizer-test-runs python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py"
+    ],
+    "targeted_mypy_commands": [],
+    "validation_profile": "solo"
+  },
+  "dirty_paths": [
+    {
+      "path": "docs/development/codex_narrow_repair_task_template.md",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/test_run_provenance.json",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/active_checkpoint.md",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/index.json",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/evidence/0666-integrate-pr-2766-main-verification.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/evidence/0667-precommit-finalizer-result.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/segments/0666-integrate-pr-2766-main-verification.md",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    }
+  ],
+  "dirty_paths_after_cleanup": [
+    {
+      "path": "docs/development/codex_narrow_repair_task_template.md",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/test_run_provenance.json",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/active_checkpoint.md",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/index.json",
+      "git_status": " M",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": true,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json",
+      "git_status": "??",
+      "classification": "intended_task_change",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "manual_review_required"
+    },
+    {
+      "path": "work/construction/evidence/0666-integrate-pr-2766-main-verification.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/evidence/0667-precommit-finalizer-result.json",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/segments/0666-integrate-pr-2766-main-verification.md",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    },
+    {
+      "path": "work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md",
+      "git_status": "??",
+      "classification": "source_change_not_declared",
+      "classification_source": "tracked+untracked_inferred",
+      "tracked": false,
+      "cleanup_attempted": false,
+      "cleanup_result": "not_attempted",
+      "cleanup_reason": "not_generated",
+      "recommended_action": "explicitly_pass_changed_file"
+    }
+  ],
+  "cleanup_actions": {
+    "pulse/audit/privileged_audit.runtime.jsonl": {
+      "attempted": true,
+      "result": "restored",
+      "reason": "runtime_audit_restore"
+    }
+  },
+  "runtime": {
+    "stage_timeout_seconds": 1800,
+    "matrix_timeout_seconds": 2400,
+    "overall_timeout_seconds": 5400,
+    "terminal_reserve_seconds": 60,
+    "heartbeat_seconds": 30.0,
+    "maximum_retained_output_tail_lines": 40,
+    "stages": [
+      {
+        "stage_id": "preflight_hygiene",
+        "command": "git status --short",
+        "started_at": 14354.480170856,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 0.014924858998710988,
+        "stdout_tail": " M docs/development/codex_narrow_repair_task_template.md\n M glow/test_runs/test_run_provenance.json\n M work/construction/active_checkpoint.md\n M work/construction/index.json\n?? glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json\n?? glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json\n?? glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json\n?? glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json\n?? work/construction/evidence/0666-integrate-pr-2766-main-verification.json\n?? work/construction/evidence/0667-consolidate-narrow-repair-bootstrap-references.json\n?? work/construction/evidence/0667-precommit-finalizer-result.json\n?? work/construction/segments/0666-integrate-pr-2766-main-verification.md\n?? work/construction/segments/0667-consolidate-narrow-repair-bootstrap-references.md",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "focused_tests",
+        "command": "SENTIENTOS_TEST_RUN_DIR=/tmp/seq667-finalizer-test-runs python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py",
+        "started_at": 14354.495149096,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 1.4821831040007964,
+        "stdout_tail": "....                                                                     [100%]\n- generated xml file: /tmp/seq667-finalizer-test-runs/pytest_junitxml_497738d8006e464c8e942737b2c6f73e.xml -\nrun_tests: python=/tmp/sentientos-verification-venv/bin/python install_performed=False editable_ok=true install_mode=none canonical_requirements_path=requirements-codex.txt full_capability_dependencies_requested=false repo_root=/workspace/SentientOS-seq667 pytest_args=tests/test_codex_operating_doctrine_docs.py -q",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "mypy_baseline",
+        "command": "python scripts/check_mypy_baseline.py",
+        "started_at": 14355.977372871,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 28.059643804999723,
+        "stdout_tail": "    },\n    {\n      \"code\": \"index\",\n      \"column\": 35,\n      \"line\": 640,\n      \"message\": \"Value of type \\\"object\\\" is not indexable\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"call-overload\",\n      \"column\": 34,\n      \"line\": 645,\n      \"message\": \"No overload variant of \\\"int\\\" matches argument type \\\"object\\\"\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"call-overload\",\n      \"column\": 24,\n      \"line\": 829,\n      \"message\": \"No overload variant of \\\"int\\\" matches argument type \\\"object\\\"\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"attr-defined\",\n      \"column\": 55,\n      \"line\": 849,\n      \"message\": \"\\\"object\\\" has no attribute \\\"__iter__\\\"; maybe \\\"__dir__\\\" or \\\"__str__\\\"? (not iterable)\",\n      \"path\": \"sentientos/strategic_adaptation.py\"\n    },\n    {\n      \"code\": \"union-attr\",\n      \"column\": 54,\n      \"line\": 156,\n      \"message\": \"Item \\\"None\\\" of \\\"Any | dict[Any, Any] | None\\\" has no attribute \\\"items\\\"\",\n      \"path\": \"sentientos/work_plan.py\"\n    }\n  ],\n  \"retired_errors\": 42,\n  \"status\": \"mypy_baseline_improved\"\n}",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "docs_bootstrap",
+        "command": "python scripts/build_docs.py --bootstrap-docs",
+        "started_at": 14384.037053251,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 0.0419682149986329,
+        "stdout_tail": "Docs build dependencies bootstrapped and available.",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "docs_check_deps",
+        "command": "python scripts/build_docs.py --check-deps",
+        "started_at": 14384.079053393,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 0.04128605400001106,
+        "stdout_tail": "Docs build dependencies available.",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "docs_build",
+        "command": "python scripts/build_docs.py",
+        "started_at": 14384.120369893,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 3.0718293159989116,
+        "stdout_tail": "- federation_health_publication/index.html\n- federation_peer_health_recovery/index.html\n- global_validation_note/index.html\n- governance_claims_checklist/index.html\n- governance_tools/index.html\n- healing_guide/index.html\n- index.html\n- lived_liturgy/index.html\n- living_ledger/index.html\n- local_model_artifact_acquisition/index.html\n- local_model_commissioning/index.html\n- local_model_selection/index.html\n- local_runtime_acquisition/index.html\n- local_runtime_backend_verification/index.html\n- local_runtime_dependencies/index.html\n- local_runtime_dependency_acquisition/index.html\n- local_runtime_import_verification/index.html\n- local_runtime_installation/index.html\n- local_runtime_provisioning/index.html\n- master_file_doctrine/index.html\n- model_mirror_publication/index.html\n- music_rituals/index.html\n- orchestration_next_move_proposal_note/index.html\n- proof_validity/index.html\n- protected_corridor/index.html\n- protected_mutation_proof/index.html\n- pulse_trust_epoch_model/index.html\n- release_notes/index.html\n- release_notes_v1.0.0/index.html\n- runtime_admission/index.html\n- runtime_grant_policy/index.html\n- runtime_posture_model/index.html\n- sanctuary_invocation/index.html\n- scoped_canonical_trace_coherence/index.html\n- search.html\n- treasury_federation/index.html\n- treasury_of_love/index.html\n- verifier_consensus/index.html\n- video_ritual_guide/index.html\n- vow_consensus_primitives/index.html",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "prompt_boundary",
+        "command": "python scripts/verify_context_hygiene_prompt_boundaries.py",
+        "started_at": 14387.192309465,
+        "completed": true,
+        "exit_code": 0,
+        "duration_seconds": 1.2372226030001912,
+        "stdout_tail": "Context hygiene prompt boundary scan: boundary_clean\nScanned files: 39\nFindings: 0\nNo prompt materialization, forbidden runtime import/call, or context-hygiene bypass findings detected.",
+        "stderr_tail": "",
+        "decision_impact": "required",
+        "status": "passed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "strict_audits",
+        "command": "python verify_audits.py --strict",
+        "started_at": 14388.429565318,
+        "completed": true,
+        "exit_code": 1,
+        "duration_seconds": 0.12755493199983903,
+        "stdout_tail": "",
+        "stderr_tail": "Access denied: run as Administrator to reach protected memory and policy state.",
+        "decision_impact": "required",
+        "status": "failed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      },
+      {
+        "stage_id": "audit_immutability",
+        "command": "python scripts/audit_immutability_verifier.py",
+        "started_at": 14388.557155643,
+        "completed": true,
+        "exit_code": 1,
+        "duration_seconds": 0.1301666439994733,
+        "stdout_tail": "",
+        "stderr_tail": "Access denied: run as Administrator to reach protected memory and policy state.",
+        "decision_impact": "required",
+        "status": "failed",
+        "timed_out": false,
+        "configured_timeout_class": "generic",
+        "configured_timeout_seconds": 1800,
+        "effective_timeout_seconds": 1800,
+        "overall_deadline_reduced_timeout": false
+      }
+    ],
+    "final_decision": {
+      "status": "repair_required_task_caused",
+      "reasons": [
+        "stage_failed:strict_audits",
+        "stage_failed:audit_immutability",
+        "source_change_not_declared"
+      ]
+    }
+  },
+  "landing_validation_plan": {
+    "requested_profile": "solo",
+    "effective_profile": "solo",
+    "repository_sha": "00b8cc00e5d1b30e892fe380ec95bb6978f17712",
+    "phase": "pre-commit",
+    "title": "[codex:documentation] consolidate narrow repair bootstrap references",
+    "intended_commit_title": "[codex:documentation] consolidate narrow repair bootstrap references",
+    "changed_file_identity": [
+      "docs/development/codex_narrow_repair_task_template.md",
+      "glow/test_runs/provenance/20261025T065206Z_00b8cc00e5d1_ef57e307fc0f4bec9417a21467b59017.json",
+      "glow/test_runs/provenance/20261025T065219Z_00b8cc00e5d1_3e88f74b8f95421cb0b940513164a203.json",
+      "glow/test_runs/provenance/20261025T065226Z_00b8cc00e5d1_ec45d70d9cd845c5bda8025d05a12a92.json",
+      "glow/test_runs/provenance/20261025T065302Z_00b8cc00e5d1_1683b15e8f204e11aa481205164840f8.json",
+      "glow/test_runs/test_run_provenance.json",
+      "work/construction/active_checkpoint.md",
+      "work/construction/index.json"
+    ],
+    "task_acceptance_manifest_digest": null,
+    "task_acceptance_provenance_digest": null,
+    "focused_test_command_contract": [
+      "SENTIENTOS_TEST_RUN_DIR=/tmp/seq667-finalizer-test-runs python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py"
+    ],
+    "targeted_mypy_command_contract": [],
+    "required_stage_ids": [
+      "preflight_hygiene",
+      "focused_tests",
+      "mypy_baseline",
+      "docs_bootstrap",
+      "docs_check_deps",
+      "docs_build",
+      "prompt_boundary",
+      "strict_audits",
+      "audit_immutability"
+    ],
+    "conditionally_required_stage_ids": [
+      "docs_check_deps",
+      "docs_build"
+    ],
+    "skipped_or_deferred_stage_ids": [
+      "matrix_summary"
+    ],
+    "stage_results": {
+      "preflight_hygiene": {
+        "status": "passed",
+        "duration_seconds": 0.014924858998710988
+      },
+      "focused_tests": {
+        "status": "passed",
+        "duration_seconds": 1.4821831040007964
+      },
+      "mypy_baseline": {
+        "status": "passed",
+        "duration_seconds": 28.059643804999723
+      },
+      "docs_bootstrap": {
+        "status": "passed",
+        "duration_seconds": 0.0419682149986329
+      },
+      "docs_check_deps": {
+        "status": "passed",
+        "duration_seconds": 0.04128605400001106
+      },
+      "docs_build": {
+        "status": "passed",
+        "duration_seconds": 3.0718293159989116
+      },
+      "prompt_boundary": {
+        "status": "passed",
+        "duration_seconds": 1.2372226030001912
+      },
+      "strict_audits": {
+        "status": "failed",
+        "duration_seconds": 0.12755493199983903
+      },
+      "audit_immutability": {
+        "status": "failed",
+        "duration_seconds": 0.1301666439994733
+      }
+    },
+    "total_validation_duration_seconds": 34.26997104399925,
+    "configured_total_budget_seconds": 5400,
+    "remaining_budget_seconds": 5365.7300279440005,
+    "exhaustive_matrix_status": "not_requested_for_solo_profile",
+    "exhaustive_matrix_digest": null,
+    "overall_status": "repair_required_task_caused",
+    "schema_version": "sentientos.landing_validation_plan:v1",
+    "artifact_digest": "sha256:fc952491fe0d3f350dbd7ead1cb8af014fd5cac8907ba546776273fad1ebcd6e"
+  },
+  "landing_validation_plan_reuse": {
+    "status": "not_applicable",
+    "artifact_digest": null
+  },
+  "prevalidated_matrix_reuse": {
+    "reuse_requested": false,
+    "reuse_accepted": false,
+    "reuse_artifact_path": null
+  },
+  "runtime_custody": {
+    "invocation_context": {
+      "schema_version": "sentientos.finalizer_invocation_context:v1",
+      "invocation_id": "918647159d854eb38dd376f3b2cd4e16",
+      "requested_sandbox_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references",
+      "resolved_invocation_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16",
+      "child_data_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+      "child_state_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+      "child_log_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+      "child_trust_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs/trust",
+      "acceptance_custody_root": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/task_acceptance",
+      "child_environment": {
+        "SENTIENTOS_DATA_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+        "SENTIENTOS_RUNTIME_STATE_ROOT": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+        "SENTIENTOS_LOG_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+        "TRUST_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs/trust"
+      },
+      "collision_attempt_count": 0,
+      "exclusive_reservation_status": "exclusive_directory_reserved",
+      "symlink_check_status": "all_existing_components_not_symlinks",
+      "requested_root_custody": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references",
+        "device": 33,
+        "inode": 72507,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "ownership": "caller_owned_requested_root"
+      },
+      "directory_custody_initial": {
+        "invocations_parent": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations",
+          "device": 33,
+          "inode": 72508,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        },
+        "invocation_root": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16",
+          "device": 33,
+          "inode": 72728,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        },
+        "data": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+          "device": 33,
+          "inode": 72729,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        },
+        "state": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+          "device": 33,
+          "inode": 72730,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        },
+        "logs": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+          "device": 33,
+          "inode": 72731,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        },
+        "task_acceptance": {
+          "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/task_acceptance",
+          "device": 33,
+          "inode": 72732,
+          "type": "directory",
+          "mode": "0700",
+          "mode_enforcement": "applicable",
+          "mode_status": "private"
+        }
+      }
+    },
+    "child_environment": {
+      "SENTIENTOS_DATA_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+      "SENTIENTOS_RUNTIME_STATE_ROOT": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+      "SENTIENTOS_LOG_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+      "TRUST_DIR": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs/trust"
+    },
+    "child_environment_digest": "sha256:9011c76ccfaebd9fe0619edb7cff968a0d992a9ebc40d42f02feded4db296334",
+    "process_environment_mutated": false,
+    "runtime_error": "",
+    "requested_root": {
+      "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references",
+      "device": 33,
+      "inode": 72507,
+      "type": "directory",
+      "mode": "0700",
+      "mode_enforcement": "applicable",
+      "mode_status": "private",
+      "ownership": "caller_owned_requested_root"
+    },
+    "invocations_parent_path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations",
+    "directory_custody_initial": {
+      "invocations_parent": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations",
+        "device": 33,
+        "inode": 72508,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      },
+      "invocation_root": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16",
+        "device": 33,
+        "inode": 72728,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      },
+      "data": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+        "device": 33,
+        "inode": 72729,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      },
+      "state": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+        "device": 33,
+        "inode": 72730,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      },
+      "logs": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+        "device": 33,
+        "inode": 72731,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      },
+      "task_acceptance": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/task_acceptance",
+        "device": 33,
+        "inode": 72732,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private"
+      }
+    },
+    "directory_custody_terminal": {
+      "invocations_parent": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations",
+        "device": 33,
+        "inode": 72508,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      },
+      "invocation_root": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16",
+        "device": 33,
+        "inode": 72728,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      },
+      "data": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/data",
+        "device": 33,
+        "inode": 72729,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      },
+      "state": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/state",
+        "device": 33,
+        "inode": 72730,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      },
+      "logs": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/logs",
+        "device": 33,
+        "inode": 72731,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      },
+      "task_acceptance": {
+        "path": "/tmp/sentientos-codex-finalizer/[codex:documentation]_consolidate_narrow_repair_bootstrap_references/invocations/918647159d854eb38dd376f3b2cd4e16/task_acceptance",
+        "device": 33,
+        "inode": 72732,
+        "type": "directory",
+        "mode": "0700",
+        "mode_enforcement": "applicable",
+        "mode_status": "private",
+        "identity_status": "unchanged"
+      }
+    },
+    "mode_enforcement_applicability": "applicable",
+    "terminal_directory_identity_status": "unchanged"
+  },
+  "evidence_freshness": {
+    "stale_evidence_reasons": [],
+    "matrix_execution_mode": "executed",
+    "matrix_reuse_status": "not_reused",
+    "matrix_reuse_reasons": [],
+    "reused_matrix_digest": null,
+    "reuse_justification": "matrix executed",
+    "stale_evidence_refresh_attempted": false,
+    "stale_evidence_refresh_result": "not_required",
+    "refresh_failure_reason": null,
+    "refreshed_matrix_json_path": null,
+    "max_stale_evidence_refreshes": 1,
+    "refresh_stage_runs": 0,
+    "refresh_stages_ran": [],
+    "cleanup_occurred": true,
+    "cleaned_paths": [
+      "pulse/audit/privileged_audit.runtime.jsonl"
+    ],
+    "terminal_cleanup_occurred": false,
+    "terminal_cleaned_paths": [],
+    "rerun_required": false
+  }
+}
