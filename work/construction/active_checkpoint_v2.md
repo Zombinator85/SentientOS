@@ -1,3 +1,18 @@
+## Current recovery state - sequence 681
+
+The bounded v2 custody verifier now rejects boolean legacy-journal and segment byte counts. A one-byte payload with `bytes: true` passed before the fix; the verifier and candidate publication tests now reject both malformed fields. Focused custody/publication tests passed 43/43, custody verified through sequence 680, and mypy baseline added zero errors with an overall improvement. The code-only tested tree is `986a689646c3cd5217abfef3a014db96a3064ed5`, based on verified main `6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9` / `431dd718bb8398f3deac7259879760fe337146b5`.
+
+PR #2774 integrated sequence 680 as `6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9` with tree `431dd718bb8398f3deac7259879760fe337146b5`. All eight applicable PR workflows and all applicable post-merge workflows passed, including CI, source validation, self-check, docs/linkcheck, Helm/Kubernetes, Quality Gate, Invariants, Docker, and Docs Deploy. Forge Smoke was skipped by workflow condition. The frozen v1 index remains blob `b7570cfb95603b9d8879be080cf4c25d3ee463c0`; the original checkpoint remains blob `1ca5b6e5c9df6a022027f6496ad962b173279cd2`.
+
+Latest verified main: `6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9`, tree `431dd718bb8398f3deac7259879760fe337146b5`
+Latest construction segment: `work/construction/segments/0681-reject-boolean-custody-byte-counts.md`
+Latest segment SHA-256: `347ee25bfdaf20c712f7e7e91ea05d9977da6e1101614b8bb592a9d888330bd8`
+Sequence: 681 (strict byte-count custody typing)
+Evidence: `work/construction/evidence/0681-reject-boolean-custody-byte-counts.json`
+Evidence SHA-256: `3698da30f35e9f6631e570fa3459cbb03cd7ae9ee89be80d2b64624b19f63ac7`
+
+Recovery: publish and validate this sequence 681 candidate through the normal PR workflow. After merge, verify hosted push checks and append a separate integration record.
+
 ## Current recovery state - sequence 680
 
 PR #2773 integrated strict integer typing for construction schema and sequence custody. It merged as `9ae2495567931cab068d9f4f20c248bdd86c4c89` with the exact candidate tree retained. All eight applicable exact-head PR workflows and all applicable main checks passed; Forge Smoke was skipped by condition. The post-merge source-validation, self-check, docs/linkcheck, Helm, and Docker jobs completed successfully. Local focused tests passed 39/39; docs generated 616 pages; mypy baseline added zero errors and improved overall.

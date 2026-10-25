@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 10,
+  "first_sequence": 681,
+  "last_sequence": 681,
+  "predecessor": "shard-sha256:e20230a822fd872bd72a7169f4910fbafe662c2c434162588a747188de333b3c",
+  "segments": [
+    {
+      "sequence": 681,
+      "path": "work/construction/segments/0681-reject-boolean-custody-byte-counts.md",
+      "predecessor": "segment-sha256:4d5292c35d544503466acb45766535e1edd388e2cbc91f475587608dfce00550",
+      "bytes": 1252,
+      "sha256": "347ee25bfdaf20c712f7e7e91ea05d9977da6e1101614b8bb592a9d888330bd8",
+      "evidence_path": "work/construction/evidence/0681-reject-boolean-custody-byte-counts.json",
+      "evidence_bytes": 1958,
+      "evidence_sha256": "3698da30f35e9f6631e570fa3459cbb03cd7ae9ee89be80d2b64624b19f63ac7",
+      "source_commit": "6e7d7e3c375cccbd90ea2ca08f27cf8bba5970d9",
+      "source_tree": "431dd718bb8398f3deac7259879760fe337146b5"
+    }
+  ]
+}
