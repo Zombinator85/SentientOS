@@ -89,14 +89,15 @@ class AmendmentApplicator:
             )
             if any(pattern in lowered for pattern in dangerous_patterns):
                 return False
-            if ("/" in value or "\\" in value) and not value.startswith(str(self._base_dir)):
-                # Treat slash-containing strings as potential paths.
-                candidate = Path(value)
+            if "/" in value or "\\" in value:
+                # Treat slash-containing strings as potential paths. A lexical
+                # prefix can conceal siblings or traversal, so require resolved
+                # path-component ancestry unconditionally.
                 try:
-                    candidate = candidate.resolve()
-                except OSError:
-                    candidate = candidate
-                if candidate.is_absolute() and not str(candidate).startswith(str(self._base_dir)):
+                    Path(value).resolve(strict=False).relative_to(
+                        self._base_dir.resolve(strict=False)
+                    )
+                except (OSError, RuntimeError, ValueError):
                     return False
         return True
 
@@ -189,7 +190,7 @@ class AmendmentApplicator:
         cursor = self._last_original.setdefault(domain, {})
         *parents, leaf = list(path)
         for segment in parents:
-            cursor = cursor.setdefault(segment, {})  # type: ignore[assignment]
+            cursor = cursor.setdefault(segment, {})
         if leaf is not None:
             cursor[leaf] = copy.deepcopy(value)
 
@@ -214,28 +215,30 @@ class AmendmentApplicator:
             if not isinstance(current_section, Mapping):
                 skipped[section_path] = "Unknown configuration section"
                 continue
+            mutable_section = dict(current_section)
+            proposed[section] = mutable_section
             applied_section = applied.setdefault("config", {}).setdefault(section, {})
             for key, value in updates.items():
                 target_path = f"{section_path}.{key}"
                 if not self._is_safe_value(value):
                     errors[target_path] = "Unsafe value rejected"
                     continue
-                if key not in current_section:
+                if key not in mutable_section:
                     skipped[target_path] = "Key not present in configuration"
                     continue
-                previous = copy.deepcopy(current_section[key])
-                if isinstance(value, Mapping) and isinstance(current_section[key], Mapping):
+                previous = copy.deepcopy(mutable_section[key])
+                if isinstance(value, Mapping) and isinstance(mutable_section[key], Mapping):
                     self._record_original("config", (section, key), previous)
-                    merged, record = self._deep_merge_mapping(current_section[key], value, (section, key))
-                    current_section[key] = merged
+                    merged, record = self._deep_merge_mapping(mutable_section[key], value, (section, key))
+                    mutable_section[key] = merged
                     if record:
                         applied_section[key] = record
                 else:
-                    if current_section[key] == value:
+                    if mutable_section[key] == value:
                         skipped[target_path] = "Value unchanged"
                         continue
                     self._record_original("config", (section, key), previous)
-                    current_section[key] = value
+                    mutable_section[key] = value
                     applied_section[key] = {"previous": previous, "value": value}
             if not applied_section:
                 empty_sections.append(section)

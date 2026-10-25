@@ -1,0 +1,96 @@
+{
+  "bootstrap": {
+    "artifact": "/tmp/sentientos-seq657-bootstrap.json",
+    "status": "ready",
+    "subsystem_kind": "runtime_safety"
+  },
+  "implementation": {
+    "canonical_selection": "tests/test_cathedral_apply.py added to explicit pytest.ini testpaths",
+    "component_aware_containment": "resolved candidate and configured root; Path.relative_to enforces component ancestry",
+    "mypy_cleanup": "removed stale ignore and used mutable config section copy",
+    "regressions": [
+      "sibling-prefix rejection",
+      "root-prefixed traversal rejection",
+      "accepted in-root descendant",
+      "rejected amendments persist neither config nor ledger"
+    ]
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded Cathedral amendment path ancestry hardening and canonical test selection; preserves amendment domains and existing effect boundaries",
+  "selection": {
+    "candidate": "path ancestry",
+    "observed_gap": "sentientos/cathedral/apply.py used lexical string-prefix containment, which accepts sibling-prefix paths and root-prefixed traversal",
+    "roadmap": "docs/development/codex_open_work_roadmap_index.md"
+  },
+  "sequence": 657,
+  "source": {
+    "base_commit": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+    "base_tree": "88601a321e70018e1464977635e056e5f86264e9",
+    "candidate_commit": "not_created",
+    "candidate_source_file_sha256": {
+      "docs/development/cathedral_path_ancestry_task_acceptance.json": "567c35d9375526717d2ae628f9b87f03659ebf7132a1037a7b477de0a9d44c79",
+      "pytest.ini": "a908431633742f9a79ef1db2c8a60eea87f9c4e380f74ef9ff61be2ace0ab6fd",
+      "sentientos/cathedral/apply.py": "8c62d243ac3455edf44abe48b96a5e624eba62fc5fcc38c78f60cf9674e77fd8",
+      "tests/test_cathedral_apply.py": "fcebad663756244e2fe13c432f1425c80861f260b94308845d230e807af2d9a8"
+    },
+    "changed_source_paths": [
+      "pytest.ini",
+      "sentientos/cathedral/apply.py",
+      "tests/test_cathedral_apply.py",
+      "docs/development/cathedral_path_ancestry_task_acceptance.json"
+    ]
+  },
+  "validation": {
+    "canonical_regression": {
+      "command": "python -m scripts.run_tests -q",
+      "execution_tool_network_permission": "enabled; proxy settings unchanged",
+      "git_sha": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+      "metrics_status": "ok",
+      "provenance_sha256": "e539a4568d208f60d09d954981cdc1af12f1c91545e31521d1892392b1ce15af",
+      "pytest_exit_code": 0,
+      "run_id": "c520a88294d6492ab8d018edf3cf1e6c",
+      "tests_executed": 150,
+      "tests_failed": 0,
+      "tests_passed": 150,
+      "tests_selected": 166,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_657": {
+      "segments_verified": 656,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build": {
+      "dependency_check": "passed",
+      "generated_pages": 616,
+      "status": "passed"
+    },
+    "source_diff_check": "passed",
+    "targeted_acceptance": {
+      "manifest_digest": "sha256:567c35d9375526717d2ae628f9b87f03659ebf7132a1037a7b477de0a9d44c79",
+      "provenance_sha256": "98485daf7cc89e9ab14b20f2ff0ce2eac91d40c0a006842c8bd75d039ee9753e",
+      "required_nodes": [
+        {
+          "exists": true,
+          "node_id": "tests/test_cathedral_apply.py::test_path_values_require_component_aware_base_ancestry",
+          "outcome": "passed",
+          "passed": true,
+          "phase": "call",
+          "selected": true
+        },
+        {
+          "exists": true,
+          "node_id": "tests/test_cathedral_apply.py::test_sibling_prefix_path_amendment_is_rejected_without_persistence",
+          "outcome": "passed",
+          "passed": true,
+          "phase": "call",
+          "selected": true
+        }
+      ],
+      "status": "task_acceptance_ready"
+    },
+    "targeted_mypy": {
+      "command": "python -m mypy --follow-imports=skip sentientos/cathedral/apply.py",
+      "status": "passed"
+    }
+  }
+}
