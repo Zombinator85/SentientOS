@@ -1,0 +1,38 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 674,
+  "authority_boundary": "Local migration recovery hardening only; no external publication, branch update, hosted validation, or merge is claimed.",
+  "gap": "An interruption after activation of index-v2.json but before restoring the v1 anchor files left the migration fail-closed but not resumable.",
+  "recovery": "A retry now accepts only the exact deterministic v2 root, shard, and checkpoint bytes prepared from the surviving v1 continuation. It restores the frozen v1 checkpoint and index atomically; conflicting prepared bytes fail closed.",
+  "validation": {
+    "interruption_injection": "simulated OSError immediately before v1 index replacement",
+    "identical_retry": "passed; migration completed and verified custody",
+    "v1_index_and_checkpoint_preserved": true,
+    "focused_custody_and_publication_tests": {
+      "executed": 27,
+      "passed": 27,
+      "failed": 0
+    },
+    "documentation_build": "passed; 616 pages",
+    "custody_before_this_record": "construction_continuation_custody_ready through sequence 673",
+    "pre_append_candidate_preflight": {
+      "status": "candidate_integrity_ready_for_blob_upload",
+      "candidate_tree": "aaa81073134604003681a06eda00d57a2682eac7",
+      "expected_head": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84"
+    },
+    "python_compilation": "passed",
+    "diff_check": "passed"
+  },
+  "publication": {
+    "status": "local_only",
+    "attempted": false,
+    "historical_v1_index_changed": false,
+    "alternate_route_used": false,
+    "requirement": "Use platform exact-action approval for any reviewed new migration payload and the ordinary PR/hosted validation/CI/merge process."
+  },
+  "source": {
+    "verified_main": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+    "verified_tree": "39d6402845f926c579f32ef73546d530d3f00d58",
+    "candidate_tree": null
+  }
+}

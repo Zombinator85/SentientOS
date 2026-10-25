@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 2,
+  "first_sequence": 673,
+  "last_sequence": 673,
+  "predecessor": "shard-sha256:722a1ad5f12a9608efc91f01fbe6548611aa3e5b63775e7ace01ded0858b0ebc",
+  "segments": [
+    {
+      "sequence": 673,
+      "path": "work/construction/segments/0673-freeze-v1-index-and-reference-sharded-continuation.md",
+      "predecessor": "segment-sha256:4f2d9a1cb40f56d15ab23911bf817ea64c0fb05ace7ce0fab728abb855406000",
+      "bytes": 1809,
+      "sha256": "b62f166fef167ebb936f4a7839d0834c3b03f70a16d05206699e2743ac02f874",
+      "evidence_path": "work/construction/evidence/0673-freeze-v1-index-and-reference-sharded-continuation.json",
+      "evidence_bytes": 2024,
+      "evidence_sha256": "357d56b2067175e0c5b90f50c20411aa85f46cf3774ae863511e18eb2df3a75f",
+      "source_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+      "source_tree": "39d6402845f926c579f32ef73546d530d3f00d58"
+    }
+  ]
+}

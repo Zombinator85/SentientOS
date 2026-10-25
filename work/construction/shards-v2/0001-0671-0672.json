@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 1,
+  "first_sequence": 671,
+  "last_sequence": 672,
+  "predecessor": "index-sha256:e8749dc2fcab24ef4fca68d82b51c5d91b280811ab9d4751929f9dbb527b6451",
+  "segments": [
+    {
+      "bytes": 2494,
+      "evidence_bytes": 3345,
+      "evidence_path": "work/construction/evidence/0671-integrate-pr-2768-main-verification.json",
+      "evidence_sha256": "2f2dd83cce79e566d8a1160676eb4b1c8a138370dc51f327dd35f39e0c218034",
+      "path": "work/construction/segments/0671-integrate-pr-2768-main-verification.md",
+      "predecessor": "segment-sha256:b1e606f034bc776318c88e9d6581c1ea8cc45222cfb494de34d93fcf6c8a6f43",
+      "sequence": 671,
+      "sha256": "fe5ad50c4567991e9206d9cdbb95e48497cc6a4ddae1dbb1c8c4f9db80167354",
+      "source_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+      "source_tree": "39d6402845f926c579f32ef73546d530d3f00d58"
+    },
+    {
+      "bytes": 1724,
+      "evidence_bytes": 2026,
+      "evidence_path": "work/construction/evidence/0672-use-argv-ci-self-check-commands.json",
+      "evidence_sha256": "7fe1791912c52a9282e76595e0bf4e2b94975d6b2065c78d940d1a4cb303b204",
+      "path": "work/construction/segments/0672-use-argv-ci-self-check-commands.md",
+      "predecessor": "segment-sha256:fe5ad50c4567991e9206d9cdbb95e48497cc6a4ddae1dbb1c8c4f9db80167354",
+      "sequence": 672,
+      "sha256": "4f2d9a1cb40f56d15ab23911bf817ea64c0fb05ace7ce0fab728abb855406000",
+      "source_commit": "704ae9dbfa1cb58054cbf5bc9ca43e3a3ca9ad84",
+      "source_tree": "39d6402845f926c579f32ef73546d530d3f00d58"
+    }
+  ]
+}
