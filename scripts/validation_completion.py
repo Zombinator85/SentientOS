@@ -16,19 +16,22 @@ def classify_validation(payload: Mapping[str, Any]) -> str:
     exit_code = payload.get("pytest_exit_code")
     if exit_code is None:
         return "bootstrap_failed"
+    if type(exit_code) is not int:
+        return "validation_failed"
     if payload.get("metrics_status") != "ok" or not payload.get("reporter_ok"):
         return "metrics_missing"
     if not payload.get("collection_completed"):
         return "collection_failed"
     collected = payload.get("tests_collected")
     selected = payload.get("tests_selected")
-    if exit_code == 5 or not isinstance(collected, int) or collected <= 0 or not isinstance(selected, int) or selected <= 0:
+    if exit_code == 5 or type(collected) is not int or collected <= 0 or type(selected) is not int or selected <= 0:
         return "zero_tests_collected"
     call_count = payload.get("call_phase_outcome_count")
     executed = payload.get("tests_executed")
-    if not isinstance(call_count, int) or call_count <= 0 or not isinstance(executed, int) or executed <= 0:
+    if type(call_count) is not int or call_count <= 0 or type(executed) is not int or executed <= 0:
         return "zero_call_phase_outcomes"
-    if exit_code != 0 or payload.get("tests_failed") != 0 or payload.get("reporter_status") != "complete":
+    if (exit_code != 0 or type(payload.get("tests_failed")) is not int
+            or payload.get("tests_failed") != 0 or payload.get("reporter_status") != "complete"):
         return "validation_failed"
     return "validation_complete"
 

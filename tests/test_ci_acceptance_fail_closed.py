@@ -28,3 +28,15 @@ def test_trend_analysis_rejects_zero_run_window():
 def test_integrity_ok_does_not_override_insufficient_validation():
     report = analyze([{"timestamp":"2026-01-01", "run_intent":"default", "validation_status":"bootstrap_failed"}], _thresholds())
     assert report["integrity_ok"] and report["overall_status"] == "INSUFFICIENT_EVIDENCE"
+
+
+@pytest.mark.parametrize("updates, expected", [
+    ({"pytest_exit_code": False}, "validation_failed"),
+    ({"tests_collected": True}, "zero_tests_collected"),
+    ({"tests_selected": True}, "zero_tests_collected"),
+    ({"call_phase_outcome_count": True}, "zero_call_phase_outcomes"),
+    ({"tests_executed": True}, "zero_call_phase_outcomes"),
+    ({"tests_failed": False}, "validation_failed"),
+])
+def test_boolean_metrics_are_not_validation_evidence(updates, expected):
+    assert classify_validation(_payload(**updates)) == expected

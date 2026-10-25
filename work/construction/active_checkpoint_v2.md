@@ -1,3 +1,18 @@
+# Recovery state - sequence 689
+
+PR #2779 integrated sequence 687 at verified main `c7b84aef160c03166f70d2576c00035cc0d1079d` / `824a6af14f897f700c37899f16f0384891ac9b0a` with all exact-head hosted checks and applicable post-merge workflows green; sequence 688 records integration. Sequence 689 makes validation-completion classification reject JSON booleans for integer metrics. Its tested code-only tree is `58edf45e6f0953f31fd470ae408ab8ee0b231c67`; focused tests passed 14/14 and targeted mypy is clean.
+
+Latest verified main: `c7b84aef160c03166f70d2576c00035cc0d1079d`, tree `824a6af14f897f700c37899f16f0384891ac9b0a`
+Latest construction segment: `work/construction/segments/0689-reject-boolean-validation-completion-metrics.md`
+Latest segment SHA-256: `0602144674ef67adff0bde109bc451277d046e9b434fae97e0443f0912ccbb78`
+Sequence: 689
+Evidence: `work/construction/evidence/0689-reject-boolean-validation-completion-metrics.json`
+Evidence SHA-256: `cdd86aac10b08ae5f28ad7ff60d4490e51201a1bf587c5efc5696015b5991104`
+
+Recovery: publish sequence 689 through normal source preflight and hosted PR validation. Preserve the v1 anchor and all earlier v2 shards, then continue the next bounded construction issue.
+
+---
+
 # Recovery state - sequence 687
 
 PR #2778 integrated sequence 685 at verified main `427a6f7339e8a2d1e2a887e72182050e006370f8` / `aef5943ebd550def1043556caf73dc5e64336991` with hosted and post-merge checks green; sequence 686 records that integration. Sequence 687 rejects booleans in integer-typed provenance bundle manifest fields. Its tested code-only tree is `ed4dd8618ad2e6889c27b19183d9ec58bf57bea9`, the focused regression passed, and targeted mypy is clean.
