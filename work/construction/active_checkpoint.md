@@ -1,3 +1,37 @@
+## Current construction state - sequence 663
+
+Sequence 663 is a locally validated documentation candidate on verified main. The host fulfillment executor readiness architecture guide now records the component-aware resolved path ancestry enforced by sequence 661 and retains the metadata-only authority boundary. The docs dependency check and 616-page build passed. A repeat canonical regression after the documentation edit stalled and was stopped without a result; the unchanged implementation source has a verified 168-pass, 16-skip, zero-failure regression run on the exact candidate tree.
+
+Verified base main: `0dcdd523144e6182fef1e80dc66cbd03055b2e41`, tree `3654448252c61cad2e92dd6be35f95388318b912`
+Latest construction segment: `work/construction/segments/0663-document-readiness-output-root-ancestry.md`
+Latest segment SHA-256: c0a1173aa84fde5d0f0f16df957617e91e829bf83ed3cbd1492b7fb96d105e59
+Sequence: 663 (readiness output-root architecture documentation)
+
+Evidence record: `work/construction/evidence/0663-document-readiness-output-root-ancestry.json`
+Evidence SHA-256: ad6cf6e65e1ed187c9fd40c7f0552fa89e450631f9c62894d198078643342c8d
+
+Next: validate the staged candidate, publish through the normal PR, hosted Quality Gate and CI, merge only after exact-head checks are green, then integrate verified main and continue.
+
+## Previous checkpoint snapshot - sequence 662
+
+## Current verified state - sequence 662
+
+Sequence 662 integrates PR #2764 and its verified main merge. The exact PR candidate passed local validation, hosted acceptance, the privileged landing finalizer, PR metadata guard, all applicable PR workflows, and all applicable post-merge checks.
+
+Latest verified main: `0dcdd523144e6182fef1e80dc66cbd03055b2e41`, tree `3654448252c61cad2e92dd6be35f95388318b912`
+Latest construction segment: `work/construction/segments/0662-integrate-pr-2764-main-verification.md`
+Latest segment SHA-256: 45260392ae809ba6447f1f2d3505e97bbcab4a342a446025e80e04639f39618f
+Sequence: 662 (PR #2764 post-merge integration)
+
+PR #2764 candidate `f7c49cc67bc882c7c3500971806efa2cd881e736` merged normally as `0dcdd523144e6182fef1e80dc66cbd03055b2e41`, preserving the exact candidate tree. Required Quality Gate exact acceptance, hosted privileged finalizer, PR metadata guard, CI, Invariants, Docker, Codex CI, Lint Benchmark, Release, and Gradient regression passed on the PR head. On main, Required Quality Gate, CI, Invariants, Docker, Codex CI, Docs Deploy, and Nightly Self Check passed. Forge Smoke was skipped by condition.
+
+Evidence record: `work/construction/evidence/0662-integrate-pr-2764-main-verification.json`
+Evidence SHA-256: ddfe9a94e30cc798b822f523e79ac3d71c4494a846e868589c13ebe6d7b0a594
+
+Next: select a bounded task from the current roadmap or a newly demonstrated test/documentation consistency gap; require fresh-current and ready bootstrap before implementation.
+
+## Previous checkpoint snapshot - sequence 661
+
 ## Current construction state - sequence 661
 
 Sequence 661 is a locally validated construction candidate on verified main. Component-aware path ancestry now rejects roots inside the repository while accepting sibling-prefix external output roots. Exact task acceptance, canonical regression, targeted mypy, documentation build, diff check, and construction custody passed. The change remains metadata-only and adds no host execution authority. PR #2764 is published; hosted checks are pending.
@@ -14,7 +48,7 @@ Evidence SHA-256: 3c885ae72cbf51a1f45c6960f02049f9b6775141ccee8e51076916e781bad7
 
 Next: run construction preflight and candidate integrity verification, publish through normal PR, hosted Quality Gate and CI, merge only after green checks, then record post-merge evidence and continue with the next bounded dependency.
 
-## Previous checkpoint snapshot - sequence 660
+
 
 ## Current verified state - sequence 660
 

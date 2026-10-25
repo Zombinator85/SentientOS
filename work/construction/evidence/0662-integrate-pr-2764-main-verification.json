@@ -1,0 +1,136 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40167491200
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40167491216
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40167491199
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40167491207
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40167491229
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40167491265
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40167491214
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40167491203
+      }
+    },
+    "commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12588778994,
+      "name": "required-quality-gate-evidence",
+      "sha256": "9c86fafa982969896eb16ebc4ef23f331e04c01e4201f0abc54942094ebd51df"
+    },
+    "tree": "3654448252c61cad2e92dd6be35f95388318b912"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "remote_tree": "3654448252c61cad2e92dd6be35f95388318b912",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "artifacts_advertised_by_github": [
+      {
+        "id": 12588713648,
+        "name": "required-quality-gate-evidence",
+        "sha256": "9b159a3e3b8a05157030b25486059596052621cf5d863c7f848c150d8ccb7b29"
+      },
+      {
+        "id": 12588149094,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "e01e83e532fe292886304a38c232f37eb6d2b84365756ea2fd2e0eda4c757b44"
+      },
+      {
+        "id": 12587824665,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "c48d50c92e3bb7cb94ff7d9c72d58e5353fd81209aabedd9950f02ae7f296125"
+      }
+    ],
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "run_id": 40167165601
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40167165575
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40167165556
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40167165609
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40167165786
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40167165749
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40167165728
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_finalizer": "success",
+        "pr_metadata_guard": "success",
+        "run_id": 40167172424
+      }
+    },
+    "exact_head_sha": "f7c49cc67bc882c7c3500971806efa2cd881e736",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2764"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2764 and verified main; evidence-only checkpoint",
+  "scope_note": "Sequence 661 repaired the readiness output ancestry prefix check. Local canonical regression passed 168 tests with 16 skips and zero failures; targeted mypy, task acceptance, and the 616-page docs build passed. No host execution authority was added.",
+  "sequence": 662,
+  "source": {
+    "candidate_commit": "f7c49cc67bc882c7c3500971806efa2cd881e736",
+    "candidate_tree": "3654448252c61cad2e92dd6be35f95388318b912",
+    "merge_commit": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "merge_parents": [
+      "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+      "f7c49cc67bc882c7c3500971806efa2cd881e736"
+    ],
+    "parent_main": "e3e2c12919b36248c6a018fcf193c35658a5b9e0",
+    "pull_request": 2764,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "candidate_evidence": "work/construction/evidence/0661-validate-readiness-output-root-ancestry.json",
+    "candidate_evidence_sha256": "3c885ae72cbf51a1f45c6960f02049f9b6775141ccee8e51076916e781bad796",
+    "construction_custody_before_sequence_662": {
+      "segments_verified": 661,
+      "status": "construction_continuation_custody_ready"
+    }
+  }
+}
