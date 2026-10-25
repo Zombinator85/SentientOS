@@ -1,0 +1,157 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40165575720
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40165575777
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40165575705
+      },
+      "docs_deploy": {
+        "conclusion": "success",
+        "run_id": 40165575738
+      },
+      "forge_smoke": {
+        "conclusion": "skipped",
+        "reason": "workflow condition",
+        "run_id": 40165575776
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40165575831
+      },
+      "nightly_self_check": {
+        "conclusion": "success",
+        "run_id": 40165575734
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "run_id": 40165575671
+      }
+    },
+    "commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12588615909,
+      "name": "required-quality-gate-evidence",
+      "sha256": "1d8aa25b7a61f15116845043c3d669a2cde49cc61ab1f9c2bbfb5d5a894507ea"
+    },
+    "tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "remote_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "artifacts_advertised_by_github": [
+      {
+        "id": 12588640636,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "095cfee9f97ab137a752185823f31039cfa4b379a2d1e537da1ceaaf6205fc92"
+      },
+      {
+        "id": 12588435913,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "7ab8d3cb2ab368751be1828c2fdfe26dc7e49b9ed4f152be8b650c86cb86227a"
+      },
+      {
+        "id": 12587614949,
+        "name": "required-quality-gate-evidence",
+        "sha256": "5bfeb7980e8d498a123a12bdd3eab22b658045c743433ef0ff2c071d8b50aad2"
+      }
+    ],
+    "checks": {
+      "ci": {
+        "conclusion": "success",
+        "jobs": [
+          "docs",
+          "self-check",
+          "source-validation-unprivileged",
+          "helm-k8s-test"
+        ],
+        "run_id": 40165333989
+      },
+      "codex_ci": {
+        "conclusion": "success",
+        "run_id": 40165334095
+      },
+      "docker": {
+        "conclusion": "success",
+        "run_id": 40165334130
+      },
+      "gradient_null_regression": {
+        "conclusion": "success",
+        "run_id": 40165333931
+      },
+      "invariants": {
+        "conclusion": "success",
+        "run_id": 40165334108
+      },
+      "lint_benchmark": {
+        "conclusion": "success",
+        "run_id": 40165333956
+      },
+      "release": {
+        "conclusion": "success",
+        "run_id": 40165333937
+      },
+      "required_quality_gate": {
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_finalizer": "success",
+        "pr_metadata_guard": "success",
+        "run_id": 40165334031
+      }
+    },
+    "exact_head_sha": "316687f8029998a22b8c8a32226e47e8f530a74b",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2762"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2762 and verified main; evidence-only checkpoint",
+  "sequence": 658,
+  "source": {
+    "candidate_commit": "316687f8029998a22b8c8a32226e47e8f530a74b",
+    "candidate_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
+    "merge_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "merge_parents": [
+      "93706511d5e0389f4a4820c771e84b5b3a47587f",
+      "316687f8029998a22b8c8a32226e47e8f530a74b"
+    ],
+    "parent_main": "93706511d5e0389f4a4820c771e84b5b3a47587f",
+    "pull_request": 2762,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "candidate_evidence": "work/construction/evidence/0657-component-aware-cathedral-path-safety.json",
+    "candidate_evidence_sha256": "10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e",
+    "canonical_regression": {
+      "provenance_sha256": "e539a4568d208f60d09d954981cdc1af12f1c91545e31521d1892392b1ce15af",
+      "run_id": "c520a88294d6492ab8d018edf3cf1e6c",
+      "tests_failed": 0,
+      "tests_passed": 150,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_658": {
+      "segments_verified": 657,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build_pages": 616,
+    "targeted_mypy": "passed",
+    "task_acceptance": "task_acceptance_ready"
+  }
+}

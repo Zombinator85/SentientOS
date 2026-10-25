@@ -1,0 +1,101 @@
+{
+  "bootstrap": {
+    "artifact": "/tmp/sentientos-seq659-bootstrap.json",
+    "status": "ready",
+    "subsystem_kind": "runtime_safety"
+  },
+  "implementation": {
+    "accepted_behavior": "in-root relative and absolute overrides retain persistence behavior",
+    "containment": "resolved paths must be descendants of resolved runtime root using Path.relative_to",
+    "failure": "ValueError(cathedral_storage_path_outside_base) before any constructor directory creation",
+    "validated_before_creation": [
+      "runtime.config_dir",
+      "cathedral.ledger_path",
+      "cathedral.rollback_dir"
+    ]
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded validation of Cathedral config, ledger, and rollback storage paths before filesystem effects; preserves in-root configuration semantics",
+  "selection": {
+    "candidate": "Cathedral configured storage paths",
+    "observed_gap": "AmendmentApplicator created configured config, ledger, and rollback paths without proving resolved containment beneath runtime root",
+    "roadmap": "docs/development/codex_open_work_roadmap_index.md"
+  },
+  "sequence": 659,
+  "source": {
+    "base_commit": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+    "base_tree": "d80d9295ec621e2633c1bfbf9dd987a0f674664e",
+    "candidate_commit": "not_created",
+    "candidate_source_file_sha256": {
+      "docs/development/cathedral_storage_paths_task_acceptance.json": "ece8235c0b80f24171220c86882fb2b933f53d546b2cf4a305db376fe7889dfb",
+      "sentientos/cathedral/apply.py": "6947c4fc9f2f1057eb8e1c846512dbfb3cb8269700f7a65ec968cf8b680b3264",
+      "tests/test_cathedral_apply.py": "d94e1938b698ce25b85d9a0b951ebfd21171d17543c0d7f27b1df26ad4dad7f9"
+    },
+    "changed_source_paths": [
+      "sentientos/cathedral/apply.py",
+      "tests/test_cathedral_apply.py",
+      "docs/development/cathedral_storage_paths_task_acceptance.json"
+    ]
+  },
+  "validation": {
+    "canonical_regression": {
+      "command": "python -m scripts.run_tests -q",
+      "execution_tool_network_permission": "enabled; proxy settings unchanged",
+      "git_sha": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+      "metrics_status": "ok",
+      "provenance_sha256": "c8646b9acb9ce69cfb974a2d743c0d8195e4207332f3a8ab1be2f28a5fc30ad7",
+      "pytest_exit_code": 0,
+      "run_id": "afd175ad615e40309341d9c8c9677815",
+      "tests_executed": 153,
+      "tests_failed": 0,
+      "tests_passed": 153,
+      "tests_selected": 169,
+      "tests_skipped": 16
+    },
+    "construction_custody_before_sequence_659": {
+      "segments_verified": 658,
+      "status": "construction_continuation_custody_ready"
+    },
+    "docs_build": {
+      "dependency_check": "passed",
+      "generated_pages": 616,
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "targeted_acceptance": {
+      "manifest_digest": "sha256:ece8235c0b80f24171220c86882fb2b933f53d546b2cf4a305db376fe7889dfb",
+      "node_outcomes": [
+        {
+          "exists": true,
+          "node_id": "tests/test_cathedral_apply.py::test_external_storage_overrides_fail_before_directory_creation",
+          "outcome": "passed",
+          "passed": true,
+          "phase": "call",
+          "selected": true
+        },
+        {
+          "exists": true,
+          "node_id": "tests/test_cathedral_apply.py::test_symlinked_storage_override_outside_root_fails_before_directory_creation",
+          "outcome": "passed",
+          "passed": true,
+          "phase": "call",
+          "selected": true
+        },
+        {
+          "exists": true,
+          "node_id": "tests/test_cathedral_apply.py::test_in_root_storage_overrides_remain_supported",
+          "outcome": "passed",
+          "passed": true,
+          "phase": "call",
+          "selected": true
+        }
+      ],
+      "provenance_sha256": "c8646b9acb9ce69cfb974a2d743c0d8195e4207332f3a8ab1be2f28a5fc30ad7",
+      "status": "task_acceptance_ready"
+    },
+    "targeted_mypy": {
+      "command": "python -m mypy --follow-imports=skip sentientos/cathedral/apply.py",
+      "status": "passed"
+    }
+  }
+}

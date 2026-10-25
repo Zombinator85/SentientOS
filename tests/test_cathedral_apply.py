@@ -115,3 +115,72 @@ def test_sibling_prefix_path_amendment_is_rejected_without_persistence(
     assert result.errors["config.runtime.watchdog_interval"] == "Unsafe value rejected"
     assert not Path(sibling_path).exists()
     assert not Path(runtime_config["cathedral"]["ledger_path"]).exists()  # type: ignore[index]
+
+
+@pytest.mark.no_legacy_skip
+def test_external_storage_overrides_fail_before_directory_creation(tmp_path: Path) -> None:
+    for field in ("config_dir", "ledger_path", "rollback_dir"):
+        base_dir = tmp_path / f"SentientOS-{field}"
+        external_dir = tmp_path / f"external-{field}"
+        config = bootstrap.build_default_config(base_dir)
+        runtime = config["runtime"]  # type: ignore[index]
+        runtime["root"] = str(base_dir)
+        cathedral = config.setdefault("cathedral", {})  # type: ignore[assignment]
+        if field == "config_dir":
+            runtime[field] = str(external_dir)
+        else:
+            cathedral[field] = str(external_dir / ("ledger.jsonl" if field == "ledger_path" else "rollback"))
+
+        with pytest.raises(ValueError, match="cathedral_storage_path_outside_base"):
+            AmendmentApplicator(config)
+
+        assert not base_dir.exists()
+        assert not external_dir.exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_symlinked_storage_override_outside_root_fails_before_directory_creation(
+    tmp_path: Path,
+) -> None:
+    base_dir = tmp_path / "SentientOS"
+    external_dir = tmp_path / "external"
+    base_dir.mkdir()
+    external_dir.mkdir()
+    redirect = base_dir / "redirect"
+    try:
+        redirect.symlink_to(external_dir, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"directory symlinks are unavailable: {exc}")
+    config = bootstrap.build_default_config(base_dir)
+    config["runtime"]["root"] = str(base_dir)  # type: ignore[index]
+    config.setdefault("cathedral", {})["ledger_path"] = str(redirect / "ledger.jsonl")  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="cathedral_storage_path_outside_base"):
+        AmendmentApplicator(config)
+
+    assert not (base_dir / "sentientos_data").exists()
+    assert not (base_dir / "cathedral").exists()
+    assert not (external_dir / "ledger.jsonl").exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_in_root_storage_overrides_remain_supported(tmp_path: Path) -> None:
+    base_dir = tmp_path / "SentientOS"
+    config = bootstrap.build_default_config(base_dir)
+    config["runtime"]["root"] = str(base_dir)  # type: ignore[index]
+    config["runtime"]["config_dir"] = "sentientos_data/custom-config"  # type: ignore[index]
+    config.setdefault("cathedral", {})["ledger_path"] = "cathedral/custom-ledger.jsonl"  # type: ignore[index]
+    config["cathedral"]["rollback_dir"] = "cathedral/custom-rollback"  # type: ignore[index]
+
+    applicator = AmendmentApplicator(config)
+    result = applicator.apply(
+        _make_amendment("cfg-in-root-storage", {"persona": {"tick_interval_seconds": 42}})
+    )
+
+    assert result.status == "applied"
+    assert applicator._config_path == base_dir / "sentientos_data" / "custom-config" / "runtime.json"
+    assert applicator.ledger_path == base_dir / "cathedral" / "custom-ledger.jsonl"
+    assert applicator.rollback_dir == base_dir / "cathedral" / "custom-rollback"
+    assert applicator._config_path.is_file()
+    assert applicator.ledger_path.is_file()
+    assert (applicator.rollback_dir / "cfg-in-root-storage.json").is_file()

@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "70500dec36dbe1b8c853cb34aa52be7643d38943",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_cathedral_apply.py::test_external_storage_overrides_fail_before_directory_creation",
+      "rationale": "External config, ledger, and rollback paths are rejected before any path creation."
+    },
+    {
+      "node_id": "tests/test_cathedral_apply.py::test_symlinked_storage_override_outside_root_fails_before_directory_creation",
+      "rationale": "A configured path that resolves through a symlink outside the runtime root is rejected without effects."
+    },
+    {
+      "node_id": "tests/test_cathedral_apply.py::test_in_root_storage_overrides_remain_supported",
+      "rationale": "Valid relative storage overrides under the runtime root remain operational."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_cathedral_apply.py::test_in_root_storage_overrides_remain_supported"
+  ]
+}

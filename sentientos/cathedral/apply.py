@@ -41,22 +41,36 @@ class AmendmentApplicator:
         base_dir = runtime_section.get("root") or os.getenv("SENTIENTOS_BASE_DIR")
         if not isinstance(base_dir, str) or not base_dir:
             base_dir = "C:/SentientOS"
-        self._base_dir = Path(base_dir)
+        self._base_dir = Path(base_dir).resolve(strict=False)
         config_dir = runtime_section.get("config_dir")
         if not isinstance(config_dir, str) or not config_dir:
-            config_dir = str(self._base_dir / "sentientos_data" / "config")
-        self._config_dir = Path(config_dir)
+            config_dir = self._base_dir / "sentientos_data" / "config"
+        self._config_dir = self._resolve_storage_path(config_dir)
         self._config_path = self._config_dir / self._CONFIG_FILENAME
         cathedral_cfg = self._coerce_mapping(self.runtime_config.get("cathedral"))
         ledger_override = cathedral_cfg.get("ledger_path")
         rollback_override = cathedral_cfg.get("rollback_dir")
         cathedral_root = self._base_dir / "cathedral"
-        self._ledger_path = Path(ledger_override) if isinstance(ledger_override, str) else cathedral_root / "ledger.jsonl"
-        self._rollback_dir = Path(rollback_override) if isinstance(rollback_override, str) else cathedral_root / "rollback"
+        ledger_path = ledger_override if isinstance(ledger_override, str) and ledger_override else cathedral_root / "ledger.jsonl"
+        rollback_dir = rollback_override if isinstance(rollback_override, str) and rollback_override else cathedral_root / "rollback"
+        self._ledger_path = self._resolve_storage_path(ledger_path)
+        self._rollback_dir = self._resolve_storage_path(rollback_dir)
         self._config_dir.mkdir(parents=True, exist_ok=True)
         cathedral_root.mkdir(parents=True, exist_ok=True)
         self._rollback_dir.mkdir(parents=True, exist_ok=True)
         self._last_original: Dict[str, Any] = {}
+
+    def _resolve_storage_path(self, path: str | Path) -> Path:
+        """Resolve a storage target and require it to remain under the runtime root."""
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            candidate = self._base_dir / candidate
+        try:
+            resolved = candidate.resolve(strict=False)
+            resolved.relative_to(self._base_dir)
+        except (OSError, RuntimeError, ValueError):
+            raise ValueError("cathedral_storage_path_outside_base") from None
+        return resolved
 
     @staticmethod
     def _coerce_mapping(value: Any) -> MutableMapping[str, Any]:

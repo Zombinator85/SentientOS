@@ -1,18 +1,18 @@
-## Current construction state - sequence 657
+## Current construction state - sequence 659
 
-Sequence 657 is a locally validated, uncommitted security candidate on verified main. Cathedral path-like amendment values now require resolved component ancestry; exact regression nodes are included in canonical test selection. No PR or merge has been attempted for this candidate.
+Sequence 659 is a locally validated, uncommitted security candidate on verified main. Cathedral config, ledger, and rollback storage targets are resolved and constrained beneath the runtime root before directory creation. External and symlink escape configurations fail without effects; in-root overrides remain operational. No PR or merge has been attempted for this candidate.
 
-Verified base main: `93706511d5e0389f4a4820c771e84b5b3a47587f`, tree `88601a321e70018e1464977635e056e5f86264e9`
-Latest construction segment: `work/construction/segments/0657-component-aware-cathedral-path-safety.md`
-Latest segment SHA-256: 5df054e1e5dba0580dc155104ce160bc720842e030e62317392ebd5a84500941
-Sequence: 657 (component-aware Cathedral path safety)
+Verified base main: `70500dec36dbe1b8c853cb34aa52be7643d38943`, tree `d80d9295ec621e2633c1bfbf9dd987a0f674664e`
+Latest construction segment: `work/construction/segments/0659-validate-cathedral-storage-path-ancestry.md`
+Latest segment SHA-256: 11eac78171544969a00beb56ef9cefb9f7fd06f5af86d43a0c558b8626d8768b
+Sequence: 659 (Cathedral storage path ancestry)
 
-Canonical regression: run `c520a88294d6492ab8d018edf3cf1e6c`, 150 passed, 16 skipped, zero failed. Exact-node acceptance is ready. Targeted mypy and diff check passed. Docs dependency check and 616-page build passed. Construction custody verified 656 preceding segments. The task's source file identities and provenance hashes are in the evidence record. Bootstrap status: ready.
+Canonical regression: run `afd175ad615e40309341d9c8c9677815`, 153 passed, 16 skipped, zero failed. Exact task acceptance is ready. Targeted mypy, docs dependency check and 616-page build, and diff check passed. Custody verified 658 preceding segments. Bootstrap status: ready.
 
-Evidence record: `work/construction/evidence/0657-component-aware-cathedral-path-safety.json`
-Evidence SHA-256: 10a2728a2a89b153a711872239ec64a04ae6605a2aade6ead9dcc879fb48071e
+Evidence record: `work/construction/evidence/0659-validate-cathedral-storage-path-ancestry.json`
+Evidence SHA-256: 6902cfece468c7f82b0b1e2c98c032019141b096fa349f2010e275ae7748d318
 
-Next: complete candidate-tree preflight, publish an `[untested]` construction PR, wait for hosted Quality Gate and CI, merge only on green, verify post-merge main evidence, then select the next bounded roadmap dependency.
+Next: validate candidate tree, publish an `[untested]` construction PR, require hosted Quality Gate and CI, merge only after green checks, record post-merge evidence, then continue with the next bounded dependency.
 
 ## Previous checkpoint snapshot - sequence 654
 
