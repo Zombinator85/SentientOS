@@ -1,0 +1,77 @@
+{
+  "post_merge": {
+    "checks": {
+      "ci": {"conclusion": "success", "run_id": 40168651920},
+      "codex_ci": {"conclusion": "success", "run_id": 40168651937},
+      "docker": {"conclusion": "success", "run_id": 40168651929},
+      "docs_deploy": {"conclusion": "success", "run_id": 40168651962},
+      "forge_smoke": {"conclusion": "skipped", "reason": "workflow condition", "run_id": 40168651923},
+      "invariants": {"conclusion": "success", "run_id": 40168652095},
+      "required_quality_gate": {"conclusion": "success", "run_id": 40168651926}
+    },
+    "commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "quality_gate_artifact_advertised_by_github": {
+      "id": 12589756384,
+      "name": "required-quality-gate-evidence",
+      "sha256": "8a671fde2be04a8667ef493c033ba6a33efe7b78ea97ac58ba4eee9ad7904bdb"
+    },
+    "tree": "239b673d680b720ae549d7f8b2f854316ce474a"
+  },
+  "preflight": {
+    "branch": "main",
+    "dirty": false,
+    "remote_head": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "remote_tree": "239b673d680b720ae549d7f8b2f854316ce474a",
+    "status": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "artifacts_advertised_by_github": [
+      {"id": 12589811096, "name": "exact-pr-candidate-acceptance", "sha256": "6ca6721380ecf5886f488184c31dc5aa0f34942f37ae5142d1053141c59b8914"},
+      {"id": 12589311659, "name": "hosted-privileged-pr-landing-finalizer", "sha256": "2bfecccfa9590832088ebf72613a475f43a2fc3dcc401d1acc2cbc2a32a9c011"},
+      {"id": 12589531249, "name": "required-quality-gate-evidence", "sha256": "26e84da37477e9c0062215c3c847473aa98e361caa1db5327f6e417b6b4a42d7"}
+    ],
+    "checks": {
+      "ci": {"conclusion": "success", "run_id": 40168389289},
+      "codex_ci": {"conclusion": "success", "run_id": 40168389327},
+      "docker": {"conclusion": "success", "run_id": 40168389339},
+      "gradient_null_regression": {"conclusion": "success", "run_id": 40168389285},
+      "invariants": {"conclusion": "success", "run_id": 40168389360},
+      "lint_benchmark": {"conclusion": "success", "run_id": 40168389350},
+      "release": {"conclusion": "success", "run_id": 40168389313},
+      "required_quality_gate": {
+        "conclusion": "success",
+        "exact_acceptance": "success",
+        "hosted_privileged_finalizer": "success",
+        "pr_metadata_guard": "success",
+        "run_id": 40168389286
+      }
+    },
+    "exact_head_sha": "1033f8850a0033c6a6338306b320541698ffafc8",
+    "pr_state": "merged",
+    "pr_url": "https://github.com/Zombinator85/SentientOS/pull/2765"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration for PR 2765 and verified main; evidence-only checkpoint",
+  "scope_note": "Sequence 663 documented the readiness output-root ancestry rule. Its local repeat full regression was interrupted without a result; exact-head hosted CI source validation, docs linkcheck, and required hosted quality gates succeeded. No authority boundary changed.",
+  "sequence": 664,
+  "source": {
+    "candidate_commit": "1033f8850a0033c6a6338306b320541698ffafc8",
+    "candidate_tree": "239b673d680b720ae549d7f8b2f854316ce474a",
+    "merge_commit": "46cabb0dbb4a5230c29477702c319e49b2985353",
+    "merge_parents": [
+      "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+      "1033f8850a0033c6a6338306b320541698ffafc8"
+    ],
+    "parent_main": "0dcdd523144e6182fef1e80dc66cbd03055b2e41",
+    "pull_request": 2765,
+    "tree_matches_candidate": true
+  },
+  "validation": {
+    "candidate_evidence": "work/construction/evidence/0663-document-readiness-output-root-ancestry.json",
+    "candidate_evidence_sha256": "ad6cf6e65e1ed187c9fd40c7f0552fa89e450631f9c62894d198078643342c8d",
+    "construction_custody_before_sequence_664": {
+      "segments_verified": 663,
+      "status": "construction_continuation_custody_ready"
+    }
+  }
+}

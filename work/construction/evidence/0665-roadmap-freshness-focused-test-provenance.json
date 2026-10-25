@@ -1,0 +1,278 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_bootstrap_invocation_contract_language_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidate_tracks_are_exactly_two_remaining_candidates": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_be_non_authority": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_require_separate_operator_selection": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_consumed_pr_markers_are_checked": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_denial_forbidden_wording_does_not_falsely_fail": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_fails_when_archived_consumed_history_drifts": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_uses_declared_archive_and_active_candidates": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_forbidden_authority_positive_wording_fails": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_freshness_verifier_consumed_wording_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_markdown_output_is_deterministic_and_escapes_pipes_newlines": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_no_replacement_candidate_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_output_json_is_deterministic": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_positive_autonomous_git_authority_wording_fails": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_pr_1918_through_1922_are_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_reintroducing_freshness_verifier_candidate_fails": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_repository_mutation_custody_non_authority_wording_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_sandboxed_adapter_stop_language_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_source_digest_and_byte_size_are_deterministic": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_standalone_roadmap_file_without_archive_keeps_text_verification": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_unsupported_existing_module_and_cli_wording_is_required": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_valid_current_roadmap_verifies": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_implementation_selection": 0,
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_runtime_readiness_pr_commit_authority": 0,
+    "tests/test_codex_open_work_roadmap_index.py::test_active_options_and_archived_candidates_preserve_selection_boundaries": 0,
+    "tests/test_codex_open_work_roadmap_index.py::test_bootstrap_invocation_contract_note_is_preserved": 0,
+    "tests/test_codex_open_work_roadmap_index.py::test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexed": 0,
+    "tests/test_codex_open_work_roadmap_index.py::test_roadmap_contains_no_forbidden_authority_grants": 0,
+    "tests/test_codex_open_work_roadmap_index.py::test_sandboxed_adapter_stop_rule_is_preserved": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 29,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "46cabb0dbb4a5230c29477702c319e49b2985353",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-seq665-final-runs-2/pytest_junitxml_18f30b590816414988dc0c97e66c5667.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_valid_current_roadmap_verifies",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_source_digest_and_byte_size_are_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_uses_declared_archive_and_active_candidates",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_standalone_roadmap_file_without_archive_keeps_text_verification",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_fails_when_archived_consumed_history_drifts",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_output_json_is_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_markdown_output_is_deterministic_and_escapes_pipes_newlines",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_consumed_pr_markers_are_checked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_pr_1918_through_1922_are_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_sandboxed_adapter_stop_language_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_bootstrap_invocation_contract_language_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_unsupported_existing_module_and_cli_wording_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidate_tracks_are_exactly_two_remaining_candidates",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_reintroducing_freshness_verifier_candidate_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_no_replacement_candidate_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_require_separate_operator_selection",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_be_non_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_forbidden_authority_positive_wording_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_positive_autonomous_git_authority_wording_fails",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_repository_mutation_custody_non_authority_wording_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_freshness_verifier_consumed_wording_is_required",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_denial_forbidden_wording_does_not_falsely_fail",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_implementation_selection",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_runtime_readiness_pr_commit_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_index.py::test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_index.py::test_bootstrap_invocation_contract_note_is_preserved",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_index.py::test_sandboxed_adapter_stop_rule_is_preserved",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_index.py::test_active_options_and_archived_candidates_preserve_selection_boundaries",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_index.py::test_roadmap_contains_no_forbidden_authority_grants",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "4e73252a403e76c3103adbba49c73b98dfd59bdfd7ae239bfc7ebeab2eb2d424",
+  "pytest_args": [
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py",
+    "tests/test_codex_open_work_roadmap_index.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-verification-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-seq664",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "1127f0ad65614fa8ad6b31c61b686975",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_valid_current_roadmap_verifies",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_source_digest_and_byte_size_are_deterministic",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_uses_declared_archive_and_active_candidates",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_standalone_roadmap_file_without_archive_keeps_text_verification",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_fails_when_archived_consumed_history_drifts",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_output_json_is_deterministic",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_markdown_output_is_deterministic_and_escapes_pipes_newlines",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_consumed_pr_markers_are_checked",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_pr_1918_through_1922_are_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_sandboxed_adapter_stop_language_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_bootstrap_invocation_contract_language_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_unsupported_existing_module_and_cli_wording_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidate_tracks_are_exactly_two_remaining_candidates",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_reintroducing_freshness_verifier_candidate_fails",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_no_replacement_candidate_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_require_separate_operator_selection",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_candidates_must_be_non_authority",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_forbidden_authority_positive_wording_fails",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_positive_autonomous_git_authority_wording_fails",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_repository_mutation_custody_non_authority_wording_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_freshness_verifier_consumed_wording_is_required",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_denial_forbidden_wording_does_not_falsely_fail",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_implementation_selection",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_verifier_success_does_not_imply_runtime_readiness_pr_commit_authority",
+    "tests/test_codex_open_work_roadmap_index.py::test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexed",
+    "tests/test_codex_open_work_roadmap_index.py::test_bootstrap_invocation_contract_note_is_preserved",
+    "tests/test_codex_open_work_roadmap_index.py::test_sandboxed_adapter_stop_rule_is_preserved",
+    "tests/test_codex_open_work_roadmap_index.py::test_active_options_and_archived_candidates_preserve_selection_boundaries",
+    "tests/test_codex_open_work_roadmap_index.py::test_roadmap_contains_no_forbidden_authority_grants"
+  ],
+  "selection_flags": [
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py",
+    "tests/test_codex_open_work_roadmap_index.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 29,
+  "tests_executed": 29,
+  "tests_failed": 0,
+  "tests_passed": 29,
+  "tests_selected": 29,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-25T06:35:46.341747+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

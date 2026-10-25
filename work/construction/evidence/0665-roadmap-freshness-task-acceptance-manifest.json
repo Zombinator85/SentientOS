@@ -1,0 +1,25 @@
+{
+  "repository_sha": "46cabb0dbb4a5230c29477702c319e49b2985353",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_uses_declared_archive_and_active_candidates",
+      "rationale": "Proves file verification reads archived history, active candidates, and both bound input digests."
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_fails_when_archived_consumed_history_drifts",
+      "rationale": "Proves archived history drift fails verification and changes the bound source digest."
+    },
+    {
+      "node_id": "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_standalone_roadmap_file_without_archive_keeps_text_verification",
+      "rationale": "Preserves standalone --roadmap-path verification when no archive is declared."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_uses_declared_archive_and_active_candidates",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_file_verification_fails_when_archived_consumed_history_drifts",
+    "tests/test_codex_open_work_roadmap_freshness_verifier.py::test_standalone_roadmap_file_without_archive_keeps_text_verification"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "work/construction/evidence/0665-roadmap-freshness-focused-test-provenance.json"
+}

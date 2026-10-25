@@ -13,8 +13,13 @@ def _roadmap_text() -> str:
     return ROADMAP.read_text(encoding="utf-8")
 
 
+def _roadmap_history_text() -> str:
+    archive = ROADMAP.parent / "codex_open_work_roadmap_archive_2026-07.md"
+    return archive.read_text(encoding="utf-8")
+
+
 def test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexed() -> None:
-    text = _roadmap_text()
+    text = _roadmap_history_text()
 
     required_markers = [
         "PR #1914",
@@ -37,7 +42,7 @@ def test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexe
 
 
 def test_bootstrap_invocation_contract_note_is_preserved() -> None:
-    text = _roadmap_text()
+    text = _roadmap_history_text()
 
     assert "codex_bootstrap_invocation_contract.md" in text
     assert "supported bootstrap flags" in text
@@ -47,7 +52,7 @@ def test_bootstrap_invocation_contract_note_is_preserved() -> None:
 
 
 def test_sandboxed_adapter_stop_rule_is_preserved() -> None:
-    text = _roadmap_text()
+    text = _roadmap_history_text()
 
     blocked_phrases = [
         "sandboxed_live_memory_commit_adapter_envelope` is terminal",
@@ -61,22 +66,24 @@ def test_sandboxed_adapter_stop_rule_is_preserved() -> None:
         assert phrase in text
 
 
-def test_candidate_tracks_require_separate_selection_and_are_non_authority() -> None:
-    text = _roadmap_text()
+def test_active_options_and_archived_candidates_preserve_selection_boundaries() -> None:
+    active = _roadmap_text()
+    history = _roadmap_history_text()
 
-    assert "Current-roadmap freshness verifier" in text
-    assert "Consent-ladder index/readability consolidation" in text
-    assert "Next-selection packet template" in text
-    assert "does not select or implement any candidate" in text
-    assert "does not authorize implementation" in text
-    assert "Each candidate requires separate operator selection" in text
-    assert text.count("| Current-roadmap freshness verifier |") == 0
-    assert text.count("| Consent-ladder index/readability consolidation |") == 1
-    assert text.count("| Next-selection packet template |") == 1
+    assert "Developer-workflow proof hardening grounded in an observed mechanical gap." in active
+    assert "must pass clean fresh-current and bootstrap gates" in active
+    assert "Current-roadmap freshness verifier" in history
+    assert "Consent-ladder index/readability consolidation" in history
+    assert "Next-selection packet template" in history
+    assert "does not select or implement any candidate" in history
+    assert "does not authorize implementation" in history
+    assert "Each candidate requires separate operator selection" in history
+    assert active.count("| Consent-ladder index/readability consolidation |") == 0
+    assert active.count("| Next-selection packet template |") == 0
 
 
 def test_roadmap_contains_no_forbidden_authority_grants() -> None:
-    text = _roadmap_text().lower()
+    text = f"{_roadmap_text()}\n{_roadmap_history_text()}".lower()
 
     forbidden_grants = [
         "this roadmap authorizes runtime",
