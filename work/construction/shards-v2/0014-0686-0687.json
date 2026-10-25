@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 14,
+  "first_sequence": 686,
+  "last_sequence": 687,
+  "predecessor": "shard-sha256:868e85648bf0f49f1521d7425ef25872b2aa1ad6f51d560af6240e4fc1b63e8d",
+  "segments": [
+    {
+      "sequence": 686,
+      "path": "work/construction/segments/0686-integrate-pr-2778-candidate-manifest-schema-typing.md",
+      "predecessor": "segment-sha256:23f4b1c166483422cc137edd3df2abd5979a669dd2bf8e0042bdb976e3df981d",
+      "bytes": 1322,
+      "sha256": "d941b78086ebe819b19c5c1c9f3ec3e73afd6cb5bf64df57ffd7958d1bacb7a2",
+      "evidence_path": "work/construction/evidence/0686-integrate-pr-2778-candidate-manifest-schema-typing.json",
+      "evidence_bytes": 1826,
+      "evidence_sha256": "95077cb967cd9b6de83f1899a9b7beb91372680948ef0f9569344b41473d0da0",
+      "source_commit": "427a6f7339e8a2d1e2a887e72182050e006370f8",
+      "source_tree": "aef5943ebd550def1043556caf73dc5e64336991"
+    },
+    {
+      "sequence": 687,
+      "path": "work/construction/segments/0687-reject-boolean-provenance-bundle-integer-fields.md",
+      "predecessor": "segment-sha256:d941b78086ebe819b19c5c1c9f3ec3e73afd6cb5bf64df57ffd7958d1bacb7a2",
+      "bytes": 879,
+      "sha256": "107634e390e1b09c7b41ceeedc779e03fa3b5e55134c7d11696a20aa094a3d98",
+      "evidence_path": "work/construction/evidence/0687-reject-boolean-provenance-bundle-integer-fields.json",
+      "evidence_bytes": 1271,
+      "evidence_sha256": "290b6ef59d863c58cd8c73a038b59419acf8980aef9cacd3347822c6e14a834f",
+      "source_commit": "427a6f7339e8a2d1e2a887e72182050e006370f8",
+      "source_tree": "aef5943ebd550def1043556caf73dc5e64336991"
+    }
+  ]
+}

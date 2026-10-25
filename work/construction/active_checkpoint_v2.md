@@ -1,3 +1,18 @@
+# Recovery state - sequence 687
+
+PR #2778 integrated sequence 685 at verified main `427a6f7339e8a2d1e2a887e72182050e006370f8` / `aef5943ebd550def1043556caf73dc5e64336991` with hosted and post-merge checks green; sequence 686 records that integration. Sequence 687 rejects booleans in integer-typed provenance bundle manifest fields. Its tested code-only tree is `ed4dd8618ad2e6889c27b19183d9ec58bf57bea9`, the focused regression passed, and targeted mypy is clean.
+
+Latest verified main: `427a6f7339e8a2d1e2a887e72182050e006370f8`, tree `aef5943ebd550def1043556caf73dc5e64336991`
+Latest construction segment: `work/construction/segments/0687-reject-boolean-provenance-bundle-integer-fields.md`
+Latest segment SHA-256: `107634e390e1b09c7b41ceeedc779e03fa3b5e55134c7d11696a20aa094a3d98`
+Sequence: 687
+Evidence: `work/construction/evidence/0687-reject-boolean-provenance-bundle-integer-fields.json`
+Evidence SHA-256: `290b6ef59d863c58cd8c73a038b59419acf8980aef9cacd3347822c6e14a834f`
+
+Recovery: publish sequence 687 as a bounded PR using fresh source preflight and hosted Quality Gate/CI. Preserve previous v2 shards and the frozen v1 anchor, then continue the next independent bounded construction task.
+
+---
+
 # Recovery state - sequence 685
 
 Sequence 683 merged in PR #2777 at verified main `9a21c7b95da0b3f63967c401ff493f17fe239df0` / `15af5562b7548f010df06d1c00ce6d5dafe8bbb7`. Main CI, docs/linkcheck, custody, and hosted Quality Gate passed. Sequence 684 records integration. Sequence 685 adds exact integer typing for candidate manifest schema versions; its code-only tree `f243fc45197e34723ab49e9f84a7b9f19169ebfc` passed 45 focused tests and mypy added zero errors.
