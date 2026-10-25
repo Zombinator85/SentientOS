@@ -1,3 +1,34 @@
+## Current construction state - sequence 653
+
+Sequence 653 is an untested, uncommitted documentation consolidation on verified main. The canonical validation contract retains the full landing lifecycle; the recovery rail now links to it rather than duplicating the same paragraph.
+
+Latest verified main: `22de4777961f5301a8d9a62d432c4ce561a79939`, tree `3312b3007d4133ec4f6ffc59de3445c58e68d056`
+Latest construction segment: `work/construction/segments/0653-consolidate-landing-lifecycle-reference.md`
+Latest segment SHA-256: adf222bf607be7f957ee736f3468a40b885e57b5a32e22365c65f52e4378fc07
+Sequence: 653 (local unverified documentation increment)
+
+Docs build was blocked before execution because required packages are absent. No dependency installation, commit, or publication was attempted. Evidence record: `work/construction/evidence/0653-consolidate-landing-lifecycle-reference.json`, SHA-256 185248ff51ba5d6b6308974b0b53bb1ce024d4ea514c039d948a686e50693b05.
+
+## Previous checkpoint snapshot - sequence 652
+
+## Current verified state - sequence 652
+
+Sequence 652 integrates the verified sequence 651 checkpoint record and refreshes the active checkpoint to the exact main merge of PR #2759. PR and post-merge checks passed.
+
+Latest verified main: `22de4777961f5301a8d9a62d432c4ce561a79939`, tree `3312b3007d4133ec4f6ffc59de3445c58e68d056`
+Latest construction segment: `work/construction/segments/0652-integrate-sequence-652-main-verification.md`
+Latest segment SHA-256: cd87fde41da8a274a50163b8eab31a6d08c787de103ae97400b9771a8375b043
+Sequence: 652 (sequence 651 verified-main integration)
+
+PR #2759 candidate `7676dca574bb2e181f95cb31366084bf71cf2bbd` merged normally as `22de4777961f5301a8d9a62d432c4ce561a79939`, retaining the exact candidate tree. Required Quality Gate, CI, Invariants, Docker, Codex CI, Lint Benchmark, Release, and Gradient null regression passed on the PR head. On main, Required Quality Gate, all four CI jobs, Invariants, Docker build and CPU smoke test, and Docs Deploy passed. The hosted Quality Gate Administrator strict audit and exact acceptance passed. Forge Smoke was skipped by condition. Main Quality Gate artifact SHA-256 advertised by GitHub: `1750bf1834e5374f888fd529f7007ec8109e1d93a9d8c3fa98086960c3a3431d`.
+
+Evidence record: `work/construction/evidence/0652-integrate-sequence-652-main-verification.json`
+Evidence SHA-256: e14fefb35989422405fa65100b115ffe20634496a72bf306004de28847b79a19
+
+Next: select a bounded, safe construction increment grounded in a concrete roadmap gap. Preserve operator authority, explicit custody, and fail-closed behavior.
+
+## Previous checkpoint snapshot - sequence 651
+
 ## Current verified state - sequence 651
 
 Sequence 651 integrates the verified-main result for sequence 650 and refreshes the checkpoint to the exact main merge of PR #2758. All applicable PR and post-merge checks passed.
@@ -67,5 +98,9 @@ Evidence record: `work/construction/evidence/0648-integrate-sequence-648-main-ve
 Evidence SHA-256: 2211a24656ef8997dff9bde6f576962a497f9ebc42378b352a525d1398c819c7
 
 Next: review the current open-work roadmap and select a separately bounded, safe construction increment. Preserve operator authority, explicit custody, and fail-closed behavior; do not infer transport, live telemetry, Health publication, admission, planning, execution, or decision authority.
+
+Earlier checkpoint snapshots remain represented by the append-only construction segments and index.
+
+Earlier checkpoint snapshots remain represented by the append-only construction segments and index.
 
 Earlier checkpoint snapshots remain represented by the append-only construction segments and index.
