@@ -117,6 +117,14 @@ def test_first_boot_fields_are_not_adoption_or_cadence_authority(tmp_path):
             validate_adoption({**value, field: item})
 
 
+@pytest.mark.parametrize("field", ["shutdown_timeout_seconds", "reentry_delay_seconds"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), -(10**400)])
+def test_adoption_rejects_nonfinite_or_unrepresentable_bounds(tmp_path, field, invalid):
+    value, _, _, _ = adoption(tmp_path)
+    with pytest.raises(ValueError, match="invalid_scheduler_daemon_bound"):
+        validate_adoption({**value, field: invalid})
+
+
 def test_activation_separately_renders_exact_daemon_adoption(tmp_path):
     value, cfg, profile, _ = adoption(tmp_path)
     output = tmp_path / "daemon-adoption.json"

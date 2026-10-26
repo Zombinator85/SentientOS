@@ -1,3 +1,18 @@
+# Recovery state - sequence 704
+
+PR #2787 main integration is recorded in sequence 703 at verified main `a64e4b32d8e36a66847b8e9b744f4652b9cb923c` / `6dbd470d86e17c1bded61b970b73abcf82ee9244`. Sequence 704 rejects non-finite and unrepresentable timeout/reentry bounds in maintenance scheduler and wake-daemon adoption. Twelve focused regressions pass. Three existing wake-daemon tests fail identically on this verified base and are recorded for follow-up.
+
+Latest verified main: `a64e4b32d8e36a66847b8e9b744f4652b9cb923c`, tree `6dbd470d86e17c1bded61b970b73abcf82ee9244`
+Latest construction segment: `work/construction/segments/0704-reject-nonfinite-maintenance-daemon-bounds.md`
+Latest segment SHA-256: `5fad88542542eb24be73b71ff9077972dd32b4678728165e7b7936f917a275af`
+Sequence: 704
+Evidence: `work/construction/evidence/0704-reject-nonfinite-maintenance-daemon-bounds.json`
+Evidence SHA-256: `08a6c9dffd9615b8fac23b2d0e0453799380d52ffbefcfe6059fe3f870562bbd`
+
+Recovery: publish the bounded sequence 703-704 shard through normal source preflight and hosted validation; review the baseline failures explicitly. Preserve the frozen v1 index, its original checkpoint, and all prior v2 shards.
+
+--- Previous checkpoint snapshot (sequence 702) ---
+
 # Recovery state - sequence 702
 
 PR #2786 main integration is recorded in sequence 701 at verified main `7cf60733700eefd56dbcdb8328a920bb5ee4f4b9` / `8744d52d29a7ecb0ecf0ce3f89dbb1dc54dbd302`. Sequence 702 validates finite quota alert threshold parsing against that main.

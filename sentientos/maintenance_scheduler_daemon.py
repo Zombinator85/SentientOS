@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import threading
 import time
@@ -45,7 +46,14 @@ def validate_adoption(value: Mapping[str, Any]) -> dict[str, Any]:
     if value.get("expected_scheduler_schema") != scheduler.CONFIG_SCHEMA:
         raise ValueError("scheduler_daemon_schema_mismatch")
     for key in ("shutdown_timeout_seconds", "reentry_delay_seconds"):
-        if type(value.get(key)) not in (int, float) or float(value[key]) <= 0:
+        number = value[key]
+        if type(number) not in (int, float):
+            raise ValueError("invalid_scheduler_daemon_bound")
+        try:
+            valid = math.isfinite(number) and float(number) > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid:
             raise ValueError("invalid_scheduler_daemon_bound")
     result = dict(value)
     if not result["enabled"]:
