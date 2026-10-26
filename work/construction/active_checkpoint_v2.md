@@ -1,17 +1,17 @@
-# Recovery state - sequence 806
+# Recovery state - sequence 807
 
-PR #2885 merged as `35aab8880bece5e25575e3ab315cd90c141a36b8` with verified tree `4e6e9963e770d942fc13bc1457ad4461a9b6b6a8`. All eight hosted workflows passed. GitHub readback verified sequence 805 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 805 prior sequences. Local source inspection could not load the verified remote main commit into this historical checkout; remote identity and tree were verified through the GitHub integration.
+PR #2886 merged as `f8e581ecc99035ed526ecf0b35da8c75f358db1` with verified tree `ad41dc114d68a7dffb1ab9c6ef5c6fa8aa58df81`. All eight hosted workflows passed. GitHub readback verified sequence 806 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 806 prior sequences. Local source inspection could not load the verified remote main commit into this historical checkout; remote identity and tree were verified through the GitHub integration.
 
-Latest verified main: `35aab8880bece5e25575e3ab315cd90c141a36b8`, tree `4e6e9963e770d942fc13bc1457ad4461a9b6b6a8`
+Latest verified main: `f8e581ecc99035ed526ecf0b35da8c75f358db1`, tree `ad41dc114d68a7dffb1ab9c6ef5c6fa8aa58df81`
 Checkpoint binding origin: `1eff1c957da566652011112f6118bd1dc135f01e`, tree `3295e0565ea0a8a33902640e77fc719552b21197`
-Latest construction segment: `work/construction/segments/0806-integrate-pr-2885-main-verification.md`
-Latest segment SHA-256: `db636afde53b9ed299925686dc04c39c2316689da47e677a51c3c362a9c83f40`
-Sequence: 806
-Evidence: `work/construction/evidence/0806-integrate-pr-2885-main-verification.json`
-Evidence SHA-256: `3e80f5cb1f4d267e3a559d1d79402af26d3408d2748a0fbfea9f9f128e40d296`
+Latest construction segment: `work/construction/segments/0807-integrate-pr-2886-main-verification.md`
+Latest segment SHA-256: `bd7e5ad607d544e23539346eee4310dfb2bd271189e53d9c063cd31429295879`
+Sequence: 807
+Evidence: `work/construction/evidence/0807-integrate-pr-2886-main-verification.json`
+Evidence SHA-256: `50ab3626da13cf1f849e77d29fa263cbfe34142b2ed91655a05fb6a0122999b9`
 
 Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
 
---- Previous checkpoint snapshot (sequence 805) ---
+--- Previous checkpoint snapshot (sequence 806) ---
 
-PR #2884 post-merge verification is recorded in segment `work/construction/segments/0805-integrate-pr-2884-main-verification.md` and evidence `work/construction/evidence/0805-integrate-pr-2884-main-verification.json`.
+PR #2885 post-merge verification is recorded in segment `work/construction/segments/0806-integrate-pr-2885-main-verification.md` and evidence `work/construction/evidence/0806-integrate-pr-2885-main-verification.json`.
