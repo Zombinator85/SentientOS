@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint_v2.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "7e3d856df6570aefaae01e974cf242fb30c1c704b5b6b9113270ab857fc42912",
-    "latest_segment_sequence": 736,
-    "latest_segment_sha256": "f6ce47101f6b6eec9bcf5099c0403ce84754bd1f7e6a5a2a6e853491cb2970c1",
-    "source_commit": "339d7995677c66043ac50e2a5f20d67a3d878c2a",
-    "source_tree": "b5a441128f4b0d2d73165e67f7c9ac6546d4f8d2"
+    "checkpoint_sha256": "a7899016babe68da362467f6a96a05b393d840e82c4b301e8a9d0b2d552028b8",
+    "latest_segment_sequence": 737,
+    "latest_segment_sha256": "debf602fb4762934d7b007e1c7a6fdd79d90c8c89be95017df387177cc4f3ff0",
+    "source_commit": "16cf9356ba071d3f102821755fdadf6014461d5d",
+    "source_tree": "719b70f56f4088f85a954f3932cc92f45f463034"
   },
-  "checkpoint_sha256": "7e3d856df6570aefaae01e974cf242fb30c1c704b5b6b9113270ab857fc42912",
+  "checkpoint_sha256": "a7899016babe68da362467f6a96a05b393d840e82c4b301e8a9d0b2d552028b8",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 736,
+  "latest_sequence": 737,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -614,6 +614,17 @@
       "sha256": "11fba99f2b4815c7d95f595e9a643b13d6e1e502b135b2da8f1466ea463da8db",
       "git_blob_sha": "723da193521c99c0c3ad32574f582819ca2be91d",
       "predecessor": "shard-sha256:8992dbf29b738874191fdba23ca5e886ffd2a80976ff9dce60a0f174039eb4ba"
+    },
+    {
+      "shard_sequence": 51,
+      "first_sequence": 737,
+      "last_sequence": 737,
+      "segment_count": 1,
+      "path": "work/construction/shards-v2/0051-0737-0737.json",
+      "bytes": 902,
+      "sha256": "e99035e51759f25743446031cd3a02e5d78861c726604c060e309a4602de5b95",
+      "git_blob_sha": "1882836627dace9c141fde8d17fe012f32ac6ed4",
+      "predecessor": "shard-sha256:11fba99f2b4815c7d95f595e9a643b13d6e1e502b135b2da8f1466ea463da8db"
     }
   ]
 }
