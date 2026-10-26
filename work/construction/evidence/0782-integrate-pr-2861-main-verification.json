@@ -1,0 +1,83 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 781
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "commit": "74566b68b366d0d7ebd25d7d784ae15535f6e797",
+      "status": "no_runs_returned_by_connected_workflow_lookup"
+    },
+    "pr_workflows": {
+      "ci": [
+        40350059492,
+        "success"
+      ],
+      "codex_ci": [
+        40350059529,
+        "success"
+      ],
+      "docker": [
+        40350059406,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40350059554,
+        "success"
+      ],
+      "invariants": [
+        40350059373,
+        "success"
+      ],
+      "lint_benchmark": [
+        40350059594,
+        "success"
+      ],
+      "quality_gate": [
+        40350059443,
+        "success"
+      ],
+      "release": [
+        40350059438,
+        "success"
+      ]
+    },
+    "pull_request": 2861,
+    "status": "merged",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v2": "eff473aa2fb0650b07dda7fd5769b16ce5077de7",
+      "evidence_0781": "241cc8ac764cdb89792a78b57c79a64dca4b632d",
+      "index_v2": "ad0b61d4b06b6d5fdc3c72eca56e1c2e28c4b38a",
+      "segment_0781": "5225e45b989e1474bf31d8fe694803d16ce7ea3b",
+      "shard_0095": "408257d178bbf34f2d2687dd80be507b3071147d"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2861",
+  "segment": {
+    "bytes": 775,
+    "path": "work/construction/segments/0782-integrate-pr-2861-main-verification.md",
+    "sha256": "9db4f34373d1f949ef73f86e72b44c1c49397d0bd795a646f0756cf12ddddf7c"
+  },
+  "sequence": 782,
+  "source": {
+    "candidate_commit": "df1c736ba52d007629e5efe1c5040e523b953a88",
+    "candidate_tree": "a6a0f9964fbc8577867fb6428d2a4a687bf12f05",
+    "local_git_source_preflight": {
+      "detail": "could not read Username for https://github.com: No such device or address",
+      "local_tree_matches_verified_remote_main": true,
+      "reason": "git_credential_unavailable",
+      "remote_identity_verified_through": "authenticated GitHub integration",
+      "status": "remote_read_failed"
+    },
+    "merge_commit": "74566b68b366d0d7ebd25d7d784ae15535f6e797",
+    "merge_tree": "a6a0f9964fbc8577867fb6428d2a4a687bf12f05",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "74566b68b366d0d7ebd25d7d784ae15535f6e797",
+    "verified_remote_main_tree": "a6a0f9964fbc8577867fb6428d2a4a687bf12f05"
+  }
+}
