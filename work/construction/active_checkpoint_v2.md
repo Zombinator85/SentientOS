@@ -1,15 +1,20 @@
-# Recovery state - sequence 732
+# Recovery state - sequence 733
 
-PR #2810 merged at verified main `094acb113dfca988700d26c4e2c4592732ec9711` / `3c89a16844b6f646f631f0e34f4ca38c53cae706` with the exact candidate tree preserved. All eight exact-head hosted workflows passed, including Required Quality Gate and CI. No post-merge workflow runs were returned for the squash commit.
+Sequence 733 hardens the privileged CI self-check by using validated argument arrays and `shell=False`; focused tests pass 2/2. The standard local mypy invocation reported two unrelated unused-ignore diagnostics in `sentientos/admin_utils.py`; the changed script passes with imported modules suppressed.
 
-Latest verified main: `094acb113dfca988700d26c4e2c4592732ec9711`, tree `3c89a16844b6f646f631f0e34f4ca38c53cae706`
-Latest construction segment: `work/construction/segments/0732-integrate-pr-2810-main-verification.md`
-Latest segment SHA-256: `3117bd411864036aa8e84168c4589f434b1058c14392f0e9b2206d7448799d84`
-Sequence: 732
-Evidence: `work/construction/evidence/0732-integrate-pr-2810-main-verification.json`
-Evidence SHA-256: `3ae5f66eab2f2fdc08e90b9506370e8298fa14d3d3ad93f7f67ec47cee68d911`
+Latest verified main: `adfcad083829f0c960f3244379ccef8d701ff7db`, tree `cd9240aa8bd6184d00c84f34ddc5fdc9af561f17`
+Tested code-only tree: `a2045c483adba37107ecfcb1be734ba5433a4070`
+Latest construction segment: `work/construction/segments/0733-use-argv-ci-self-check-commands.md`
+Latest segment SHA-256: `4f673375e9d3bb3e2308256ab046788c9dcd1e9f9041e3ffe9d9d2ec1131118c`
+Sequence: 733
+Evidence: `work/construction/evidence/0733-use-argv-ci-self-check-commands.json`
+Evidence SHA-256: `e04bb605681ee6e188aee596b38621433634954d0c90c09916e7b07f5dbc1396`
 
-Recovery: continue bounded v2 construction from freshly verified main. Preserve the frozen v1 anchor and every existing shard.
+Recovery: validate and publish this bounded argv-only change through normal hosted checks, then record post-merge evidence. Preserve the frozen v1 anchor and all v2 shards.
+
+--- Previous checkpoint snapshot (sequence 732) ---
+
+PR #2810 integration remains recorded in sequence 732 segment and evidence.
 
 --- Previous checkpoint snapshot (sequence 731) ---
 
