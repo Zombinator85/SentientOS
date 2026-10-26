@@ -1,3 +1,18 @@
+# Recovery state - sequence 697
+
+PR #2783 integration was recorded in sequence 696 at verified main `92dcdbbfe3e74071c85a790be2c410b3de00d300` / `345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb`. All applicable PR and post-merge checks passed; Forge Smoke was skipped by condition. Sequence 697 rejects non-finite provenance thresholds, including invalid environment defaults. The tested code-only tree is `c78f7ec5e1928e2cc563436292a2dd748c45f550`; six focused analyzer tests passed, eleven legacy-quarantined tests were skipped, and targeted mypy and privilege lint are clean.
+
+Latest verified main: `92dcdbbfe3e74071c85a790be2c410b3de00d300`, tree `345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb`
+Latest construction segment: `work/construction/segments/0697-reject-nonfinite-provenance-thresholds.md`
+Latest segment SHA-256: `12ba16c93606d55b7af48673af7f0a3c522e8abd92999d167bffc0b0b909bdd7`
+Sequence: 697
+Evidence: `work/construction/evidence/0697-reject-nonfinite-provenance-thresholds.json`
+Evidence SHA-256: `c69d18444e3eed87c90ffb7b0f014cfa4d7d0ec0e0b0875f600046db1afeb887`
+
+Recovery: continue the validated candidate through normal hosted PR acceptance and CI, then verify post-merge main before starting the next bounded construction increment. Preserve the frozen v1 anchor and every prior v2 shard.
+
+--- Previous checkpoint snapshot (sequence 695) ---
+
 # Recovery state - sequence 695
 
 PR #2782 integrated sequence 693 at verified main `e7d479a5a7c02957127aba05d2d9f6560a10053f` / `4d1e3874114800829b0ae786d9fc0c61583351cd`. All eight applicable exact-head workflows and all seven applicable post-merge workflows passed; Forge Smoke was skipped by workflow condition. Sequence 694 records that integration. Sequence 695 makes router telemetry use the safe numeric validator, rejecting booleans, non-finite numbers, and overflowing values. Its tested code-only tree is `e7c80b1315f56ef5183d3c98bd76733c1126be7d`; two focused always-run regressions passed and targeted source mypy is clean.

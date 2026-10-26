@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 19,
+  "first_sequence": 696,
+  "last_sequence": 697,
+  "predecessor": "shard-sha256:726602ea7e5d994e99e1b285c8a33b52a22c02916105a556444ae3b56303d0cd",
+  "segments": [
+    {
+      "sequence": 696,
+      "path": "work/construction/segments/0696-integrate-pr-2783-main-verification.md",
+      "predecessor": "segment-sha256:4a5a75fd87ae76a50e6f130989f43bd61e9468e3bcf7709e00f73f43296f7cb7",
+      "bytes": 872,
+      "sha256": "78694a91a1ad826f4fce6bbab7802cb4a893afd937a48ab8e02444bf9d21ac66",
+      "evidence_path": "work/construction/evidence/0696-integrate-pr-2783-main-verification.json",
+      "evidence_bytes": 1960,
+      "evidence_sha256": "4efc26e0c3fd2906df79408d702fb9c4059b6b31d00d8d52e8e4f8db69055ea5",
+      "source_commit": "92dcdbbfe3e74071c85a790be2c410b3de00d300",
+      "source_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb"
+    },
+    {
+      "sequence": 697,
+      "path": "work/construction/segments/0697-reject-nonfinite-provenance-thresholds.md",
+      "predecessor": "segment-sha256:78694a91a1ad826f4fce6bbab7802cb4a893afd937a48ab8e02444bf9d21ac66",
+      "bytes": 1187,
+      "sha256": "12ba16c93606d55b7af48673af7f0a3c522e8abd92999d167bffc0b0b909bdd7",
+      "evidence_path": "work/construction/evidence/0697-reject-nonfinite-provenance-thresholds.json",
+      "evidence_bytes": 1460,
+      "evidence_sha256": "c69d18444e3eed87c90ffb7b0f014cfa4d7d0ec0e0b0875f600046db1afeb887",
+      "source_commit": "92dcdbbfe3e74071c85a790be2c410b3de00d300",
+      "source_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb"
+    }
+  ]
+}

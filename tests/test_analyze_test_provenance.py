@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.analyze_test_provenance import Thresholds, _discover_inputs, _safe_number, analyze
+from scripts.analyze_test_provenance import Thresholds, _discover_inputs, _float_arg, _safe_number, analyze
 from scripts.export_test_provenance_bundle import main as export_main
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
@@ -65,6 +65,24 @@ def test_analyze_no_alert_on_stable_runs() -> None:
 
     assert report["avoidance_alert"] is False
     assert report["avoidance_reasons"] == []
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_float_arg_rejects_nonfinite_thresholds(value: str) -> None:
+    with pytest.raises(Exception, match="finite") as exc_info:
+        _float_arg(value)
+    assert exc_info.type.__name__ == "ArgumentTypeError"
+
+
+@pytest.mark.no_legacy_skip
+def test_analyzer_rejects_nonfinite_environment_threshold(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_PROVENANCE_SKIP_DELTA", "nan")
+
+    from scripts.analyze_test_provenance import main
+
+    with pytest.raises(SystemExit):
+        main(["--dir", str(tmp_path), "--output", str(tmp_path / "report.json")])
 
 
 @pytest.mark.no_legacy_skip

@@ -1,0 +1,38 @@
+{
+  "baseline_reproduction": {
+    "environment": "SENTIENTOS_PROVENANCE_SKIP_DELTA=nan",
+    "result": "accepted threshold and returned exit 0 on a complete run"
+  },
+  "change_paths": [
+    "scripts/analyze_test_provenance.py",
+    "tests/test_analyze_test_provenance.py"
+  ],
+  "construction_custody_before_batch_append": {
+    "segments_verified": 695,
+    "status": "construction_continuation_custody_ready"
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite provenance analyzer thresholds, including environment defaults",
+  "sequence": 697,
+  "source": {
+    "tested_code_only_tree": "c78f7ec5e1928e2cc563436292a2dd748c45f550",
+    "verified_main_commit": "92dcdbbfe3e74071c85a790be2c410b3de00d300",
+    "verified_main_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb"
+  },
+  "validation": {
+    "diff_check": "passed",
+    "documentation": "not_required_unchanged",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 6,
+      "selected": 17,
+      "skipped": 11
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_analyze_test_provenance.py",
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 1 source file",
+    "targeted_privilege_lint": "passed: no issues in changed CLI/test scopes"
+  }
+}
