@@ -1,15 +1,19 @@
-# Recovery state - sequence 734
+# Recovery state - sequence 735
 
-PR #2812 merged at verified main `04aff6c6c9aa89dbc94333b4e223f4eb1598b226` / `6bc42039803fdb3320a05e7f6ccfb2b7d7b45ed5` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge workflow runs were returned.
+PR #2813 merged at verified main `e4bdbcc39e59237c954916b3e4ea6095a1d3f340` / `0f4894fe639ad0846696763709d0ba8e69fd4495` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge workflow runs were returned.
 
-Latest verified main: `04aff6c6c9aa89dbc94333b4e223f4eb1598b226`, tree `6bc42039803fdb3320a05e7f6ccfb2b7d7b45ed5`
-Latest construction segment: `work/construction/segments/0734-integrate-pr-2812-main-verification.md`
-Latest segment SHA-256: `53595c208107469470b5c472f52dc0dc24d144081e0702442cf2016fab7e1d10`
-Sequence: 734
-Evidence: `work/construction/evidence/0734-integrate-pr-2812-main-verification.json`
-Evidence SHA-256: `dd133297a14f8dc73b08860dd574f02ed88d1069cc7453bd687168ec04afbcb4`
+Latest verified main: `e4bdbcc39e59237c954916b3e4ea6095a1d3f340`, tree `0f4894fe639ad0846696763709d0ba8e69fd4495`
+Latest construction segment: `work/construction/segments/0735-integrate-pr-2813-main-verification.md`
+Latest segment SHA-256: `8e5278d2cf279dfb4573c7924082ea948e30fdace1b060066b45b3d118a3cf51`
+Sequence: 735
+Evidence: `work/construction/evidence/0735-integrate-pr-2813-main-verification.json`
+Evidence SHA-256: `5e89d495122b2902fa94c42bc6d75c8c9f9c82401304f0b57b95f6490cc0b2e6`
 
 Recovery: continue bounded v2 construction from freshly verified main. Preserve the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 734) ---
+
+PR #2812 integration is fully recorded in sequence 734 segment and evidence.
 
 --- Previous checkpoint snapshot (sequence 733) ---
 
