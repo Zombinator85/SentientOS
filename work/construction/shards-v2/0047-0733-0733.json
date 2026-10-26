@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 47,
+  "first_sequence": 733,
+  "last_sequence": 733,
+  "predecessor": "shard-sha256:ea1797fcc3fff86b007a36569443797aaa8ee91931d2c86b625c18ab4f8d63c9",
+  "segments": [
+    {
+      "sequence": 733,
+      "path": "work/construction/segments/0733-use-argv-ci-self-check-commands.md",
+      "predecessor": "segment-sha256:3117bd411864036aa8e84168c4589f434b1058c14392f0e9b2206d7448799d84",
+      "bytes": 876,
+      "sha256": "4f673375e9d3bb3e2308256ab046788c9dcd1e9f9041e3ffe9d9d2ec1131118c",
+      "evidence_path": "work/construction/evidence/0733-use-argv-ci-self-check-commands.json",
+      "evidence_bytes": 1396,
+      "evidence_sha256": "e04bb605681ee6e188aee596b38621433634954d0c90c09916e7b07f5dbc1396",
+      "source_commit": "adfcad083829f0c960f3244379ccef8d701ff7db",
+      "source_tree": "cd9240aa8bd6184d00c84f34ddc5fdc9af561f17"
+    }
+  ]
+}

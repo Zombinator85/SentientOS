@@ -1,0 +1,30 @@
+{
+  "baseline": "The privileged CI self-check assembled fixed command strings and delegated parsing to subprocess.run(shell=True).",
+  "change_paths": [
+    "scripts/ci_self_check.py",
+    "tests/test_ci_self_check.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "Run fixed CI self-check commands as validated argv arrays without shell interpretation.",
+  "sequence": 733,
+  "source": {
+    "tested_code_only_tree": "a2045c483adba37107ecfcb1be734ba5433a4070",
+    "verified_main_commit": "adfcad083829f0c960f3244379ccef8d701ff7db",
+    "verified_main_tree": "cd9240aa8bd6184d00c84f34ddc5fdc9af561f17"
+  },
+  "validation": {
+    "compile": "passed",
+    "continuation_custody": "construction_continuation_custody_ready through sequence 732",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 2,
+      "runner": "python -m scripts.run_tests -q tests/test_ci_self_check.py",
+      "selected": 2
+    },
+    "mypy_follow_imports_silent": "passed for scripts/ci_self_check.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "standard_targeted_mypy": "reported two pre-existing unused-ignore diagnostics in sentientos/admin_utils.py; no diagnostics in the changed file"
+  }
+}
