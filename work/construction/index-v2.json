@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint_v2.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "319c12feb2b20b8cb38cc9620eb1838807e043695645a3beac956a540fb2506a",
-    "latest_segment_sequence": 755,
-    "latest_segment_sha256": "01a8c983c9080a182b7c32aaf50273addadc7bf6215f7618c2f35a2011e4a76d",
+    "checkpoint_sha256": "d9e64616771b30b72db10e4a7cddd0bff8bc1149d6da168eaad941111afabbc6",
+    "latest_segment_sequence": 756,
+    "latest_segment_sha256": "ccdafaaf4745c2dcf85e030616f23c9e404c96f263fe98f5a199bf8de095bb6f",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
   },
-  "checkpoint_sha256": "319c12feb2b20b8cb38cc9620eb1838807e043695645a3beac956a540fb2506a",
+  "checkpoint_sha256": "d9e64616771b30b72db10e4a7cddd0bff8bc1149d6da168eaad941111afabbc6",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 755,
+  "latest_sequence": 756,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -823,6 +823,17 @@
       "sha256": "ba89b9051631c284960b246c027ce59507802f0cfc5a828a284d5a358f8a06cf",
       "git_blob_sha": "58778aec4a20c856d2a8553ccd1ce1f3adcd5f36",
       "predecessor": "shard-sha256:7ccd55fa9473c84552f1c7ecab6a82c310c4744b35fb55cabc43ae93b6bc69ff"
+    },
+    {
+      "shard_sequence": 70,
+      "first_sequence": 756,
+      "last_sequence": 756,
+      "segment_count": 1,
+      "path": "work/construction/shards-v2/0070-0756-0756.json",
+      "bytes": 902,
+      "sha256": "677d0986b4de6b1a24b8457578db5ab3af3831ff472e549e027784b736b6268e",
+      "git_blob_sha": "0f58263cb873742c1b2e387fb252235b2eb3a415",
+      "predecessor": "shard-sha256:ba89b9051631c284960b246c027ce59507802f0cfc5a828a284d5a358f8a06cf"
     }
   ]
 }
