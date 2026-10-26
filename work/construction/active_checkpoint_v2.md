@@ -1,16 +1,16 @@
-# Recovery state - sequence 743
+# Recovery state - sequence 744
 
-PR #2821 merged at verified main `df461ff4b723fe314cb4698f50bb55769526cb06` / `f31886ec3ec7b6979293d58990ba3429f7ff069a` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge workflow runs were returned.
+PR #2822 merged at verified main `da23a1aff2aeac46bf9b8180d8da8790a1907dbe` / `431a62a8693e8c7847cde9d1849adabe6fbbb00c` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge workflow runs were returned.
 
-Latest verified main: `df461ff4b723fe314cb4698f50bb55769526cb06`, tree `f31886ec3ec7b6979293d58990ba3429f7ff069a`
-Latest construction segment: `work/construction/segments/0743-integrate-pr-2821-main-verification.md`
-Latest segment SHA-256: `3058a8e119411e9c6042577afa4d2c422df254c7099df2db7fca9b9e7d13dec5`
-Sequence: 743
-Evidence: `work/construction/evidence/0743-integrate-pr-2821-main-verification.json`
-Evidence SHA-256: `610cbb9ea8090c6baa870a66028a3fc9a2b780cba74ed2db346b12507d24487a`
+Latest verified main: `da23a1aff2aeac46bf9b8180d8da8790a1907dbe`, tree `431a62a8693e8c7847cde9d1849adabe6fbbb00c`
+Latest construction segment: `work/construction/segments/0744-integrate-pr-2822-main-verification.md`
+Latest segment SHA-256: `27186dda9fc58e3bc6198fb7e6b2ce43cd6e073c9f23ee2c6d6565034ee4ef2c`
+Sequence: 744
+Evidence: `work/construction/evidence/0744-integrate-pr-2822-main-verification.json`
+Evidence SHA-256: `35a38f77c0b42994a4ad4d649445cba46fae74333434bee4654c66dd8caa9803`
 
 Recovery: continue bounded v2 construction from freshly verified main. Preserve the frozen v1 anchor and all prior shards.
 
---- Previous checkpoint snapshot (sequence 742) ---
+--- Previous checkpoint snapshot (sequence 743) ---
 
-PR #2820 post-merge verification is recorded in segment `work/construction/segments/0742-integrate-pr-2820-main-verification.md` and evidence `work/construction/evidence/0742-integrate-pr-2820-main-verification.json`.
+PR #2821 post-merge verification is recorded in segment `work/construction/segments/0743-integrate-pr-2821-main-verification.md` and evidence `work/construction/evidence/0743-integrate-pr-2821-main-verification.json`.
