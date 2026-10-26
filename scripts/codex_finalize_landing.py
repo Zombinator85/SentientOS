@@ -12,7 +12,7 @@ import stat
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence, TypeAlias
 
 from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
@@ -246,9 +246,12 @@ def _progress(enabled: bool, line: str) -> None:
         print(line, flush=True)
 
 
+StageCommand: TypeAlias = str | Sequence[str]
+
+
 def _run_stage(
     stage_id: str,
-    cmd: str,
+    cmd: StageCommand,
     required: bool,
     progress: bool,
     stage_timeout_seconds: int,
@@ -265,8 +268,9 @@ def _run_stage(
     deadline_reduced = timeout_seconds < stage_timeout_seconds
     env = os.environ.copy()
     env.update(child_environment)
+    command_text = cmd if isinstance(cmd, str) else shlex.join(cmd)
     supervised = run_supervised(
-        cmd, stage_id=stage_id, shell=True, timeout_seconds=timeout_seconds, env=env,
+        cmd, stage_id=stage_id, shell=isinstance(cmd, str), timeout_seconds=timeout_seconds, env=env,
         heartbeat_seconds=DEFAULT_HEARTBEAT_SECONDS, tail_lines=DEFAULT_TAIL_LINES,
         emit=(lambda line: _progress(progress, line)),
     )
@@ -277,14 +281,14 @@ def _run_stage(
     duration = time.monotonic() - started
     result = CodexFinalizeLandingCommandResult(
         stage=stage_id,
-        command=cmd,
+        command=command_text,
         exit_code=supervised.return_code,
         output_tail=_tail(supervised.stdout_tail + "\n" + supervised.stderr_tail),
         required=required,
     )
     runtime = StageRuntime(
         stage_id=stage_id,
-        command=cmd,
+        command=command_text,
         started_at=started,
         completed=True,
         exit_code=supervised.return_code,
@@ -416,55 +420,38 @@ def _capture_task_acceptance(manifest_arg: str, workspace_root: str, context: In
         return custody
 
 
-def _landing_matrix_command(matrix_json_path: str, *, resume: bool = False, command_timeout_seconds: int = 900) -> str:
-    return " ".join(
-        [
-            "python",
-            "scripts/run_work_item_review_packet_matrix.py",
-            "--summary",
-            "--output",
-            shlex.quote(matrix_json_path),
-            "--checkpoint", shlex.quote(matrix_json_path),
-            "--command-timeout-seconds", str(command_timeout_seconds),
-            *(["--resume-from", shlex.quote(matrix_json_path)] if resume and Path(matrix_json_path).is_file() else []),
-            "--progress",
-        ]
-    )
+def _landing_matrix_command(
+    matrix_json_path: str, *, resume: bool = False, command_timeout_seconds: int = 900
+) -> list[str]:
+    command = [
+        "python", "scripts/run_work_item_review_packet_matrix.py", "--summary",
+        "--output", matrix_json_path, "--checkpoint", matrix_json_path,
+        "--command-timeout-seconds", str(command_timeout_seconds),
+    ]
+    if resume and Path(matrix_json_path).is_file():
+        command.extend(("--resume-from", matrix_json_path))
+    command.append("--progress")
+    return command
 
 
-def _landing_gate_command(title: str | None, intended_commit_title: str | None, matrix_json_path: str) -> str:
-    return " ".join(
-        [
-            "python",
-            "scripts/codex_pr_landing_gate.py",
-            "gate",
-            "--title",
-            shlex.quote(title or ""),
-            "--intended-commit-title",
-            shlex.quote(intended_commit_title or ""),
-            "--matrix-json-path",
-            shlex.quote(matrix_json_path),
-        ]
-    )
+def _landing_gate_command(
+    title: str | None, intended_commit_title: str | None, matrix_json_path: str
+) -> list[str]:
+    return [
+        "python", "scripts/codex_pr_landing_gate.py", "gate",
+        "--title", title or "", "--intended-commit-title", intended_commit_title or "",
+        "--matrix-json-path", matrix_json_path,
+    ]
 
 
-def _landing_supervisor_command(title: str | None, intended_commit_title: str | None, matrix_json_path: str) -> str:
-    return " ".join(
-        [
-            "python",
-            "scripts/codex_landing_supervisor.py",
-            "evaluate",
-            "--title",
-            shlex.quote(title or ""),
-            "--intended-commit-title",
-            shlex.quote(intended_commit_title or ""),
-            "--matrix-json-path",
-            shlex.quote(matrix_json_path),
-            "--landing-gate-status",
-            "passed",
-            "--summary",
-        ]
-    )
+def _landing_supervisor_command(
+    title: str | None, intended_commit_title: str | None, matrix_json_path: str
+) -> list[str]:
+    return [
+        "python", "scripts/codex_landing_supervisor.py", "evaluate",
+        "--title", title or "", "--intended-commit-title", intended_commit_title or "",
+        "--matrix-json-path", matrix_json_path, "--landing-gate-status", "passed", "--summary",
+    ]
 
 
 def _git_status() -> list[str]:
@@ -812,7 +799,7 @@ def main(argv: list[str] | None = None) -> int:
         summary=a.summary,
     )
 
-    stage_specs: list[tuple[str, str, bool]] = [("preflight_hygiene", "git status --short", True)]
+    stage_specs: list[tuple[str, StageCommand, bool]] = [("preflight_hygiene", ["git", "status", "--short"], True)]
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
     exact_matrix_reuse = a.validation_profile == "exhaustive" and a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
@@ -900,7 +887,7 @@ def main(argv: list[str] | None = None) -> int:
             precommit_retry_reuse = not precommit_retry_reasons
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             precommit_retry_reasons.append(f"invalid_precommit_retry_artifact:{type(exc).__name__}")
-    matrix_stages: list[tuple[str, str, bool]] = []
+    matrix_stages: list[tuple[str, StageCommand, bool]] = []
     if a.validation_profile == "exhaustive" and not (exact_matrix_reuse or precommit_retry_reuse or prevalidated_matrix_reuse):
         matrix_stages = [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
     changed_surface = set(a.changed_file) | set(inferred_changed_files) | set(inferred_untracked_task_files)
@@ -991,7 +978,7 @@ def main(argv: list[str] | None = None) -> int:
         if a.allow_stale_evidence_refresh and a.max_stale_evidence_refreshes > 0:
             refresh_attempted = True
             refresh_status = "attempted"
-            refresh_plan = [
+            refresh_plan: list[tuple[str, StageCommand, bool]] = [
                 ("stale_evidence_matrix_summary", _landing_matrix_command(a.matrix_json_path), True),
                 ("stale_evidence_pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
                 ("stale_evidence_landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
