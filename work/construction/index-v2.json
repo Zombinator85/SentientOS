@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint_v2.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "292e7c202e7fb0a336aaca91471fa6387dea58a7b913dda1c89f1e196902e1b4",
-    "latest_segment_sequence": 797,
-    "latest_segment_sha256": "ec900211c87012948907a9375838ca4e8882730aa3d0110730c04ca5c2372b40",
+    "checkpoint_sha256": "1c1cd79e921c9141c421cb892d83166f003e7bc632b8feeb4f76f482e15cb93e",
+    "latest_segment_sequence": 798,
+    "latest_segment_sha256": "7b8ac02c637e6cdadcd4d29d38430f356972171b473da7c8f402c6a14a1d58b1",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
   },
-  "checkpoint_sha256": "292e7c202e7fb0a336aaca91471fa6387dea58a7b913dda1c89f1e196902e1b4",
+  "checkpoint_sha256": "1c1cd79e921c9141c421cb892d83166f003e7bc632b8feeb4f76f482e15cb93e",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 797,
+  "latest_sequence": 798,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -1285,6 +1285,17 @@
       "sha256": "9243e3a0ae41511bebb6e6a7f2f77b8f2b6386b78b6245c68b81dd6530638845",
       "git_blob_sha": "57e9e74a5cd8710cf6526510fd437104f8ddef37",
       "predecessor": "shard-sha256:9c46915db12b55fde78dcaaff39878854244f07d25481d3d95f18e5410945c3b"
+    },
+    {
+      "shard_sequence": 112,
+      "first_sequence": 798,
+      "last_sequence": 798,
+      "segment_count": 1,
+      "path": "work/construction/shards-v2/0112-0798-0798.json",
+      "bytes": 903,
+      "sha256": "daaeb5912a662d9924daf7fd46d910e74b08c754a72e5903459ea317b5cb4be3",
+      "git_blob_sha": "db7fe9a867f1bbb274fa9147dfc8681f6512638d",
+      "predecessor": "shard-sha256:9243e3a0ae41511bebb6e6a7f2f77b8f2b6386b78b6245c68b81dd6530638845"
     }
   ]
 }
