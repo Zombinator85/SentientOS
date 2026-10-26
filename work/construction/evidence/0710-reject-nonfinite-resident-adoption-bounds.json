@@ -1,0 +1,48 @@
+{
+  "baseline": "Resident runtime adoption accepted NaN/infinite bounds through a positive comparison and could defer conversion overflow for very large positive integers.",
+  "change_paths": [
+    "sentientos/maintenance_resident_runtime_adoption.py",
+    "tests/test_maintenance_resident_runtime_adoption.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite resident runtime adoption bounds",
+  "sequence": 710,
+  "source": {
+    "tested_code_only_tree": "12d2b0f0288211a88f0acac4cdb7dc42e376f394",
+    "verified_main_commit": "974e7c67db914a80ebe01f8cb5598699f3a6b7e0",
+    "verified_main_tree": "088b42babe3c409d99b0ace8f78f977ae6ebf11d"
+  },
+  "validation": {
+    "affected_module_excluding_reproduced_baseline_failure": {
+      "excluded_node": "tests/test_maintenance_resident_runtime_adoption.py::test_current_execution_provenance_limits_identity_scope_to_process_and_source",
+      "failed": 0,
+      "passed": 46,
+      "selected": 46,
+      "skipped": 0
+    },
+    "continuation_custody_before_append": "construction_continuation_custody_ready through sequence 708",
+    "diff_check": "passed",
+    "documentation": "not_required_no_documentation_changes",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 15,
+      "selected": 15,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_maintenance_resident_runtime_adoption.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "syntax_compilation": "passed",
+    "targeted_mypy": {
+      "baseline": "same two findings reproduced on verified main 974e7c67db914a80ebe01f8cb5598699f3a6b7e0",
+      "candidate": "two existing no-any-return findings in unchanged helper return paths"
+    },
+    "targeted_privilege_lint": "passed read-only for repository",
+    "unfiltered_module_baseline_failure": {
+      "candidate_failure": "resident_process_environment_changed",
+      "node": "tests/test_maintenance_resident_runtime_adoption.py::test_current_execution_provenance_limits_identity_scope_to_process_and_source",
+      "reproduced_on_verified_main": "974e7c67db914a80ebe01f8cb5598699f3a6b7e0"
+    }
+  }
+}

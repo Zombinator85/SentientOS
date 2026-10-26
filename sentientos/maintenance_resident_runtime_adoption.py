@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from sentientos.platform_fcntl import fcntl, require_flock
 import json
+import math
 import os
 import stat
 import sys
@@ -147,7 +148,13 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
                 for k, v in cfg["required_environment"].items())):
         raise ValueError("invalid_required_environment")
     for key in ("quiescence_timeout_seconds", "readiness_timeout_seconds", "maximum_wall_clock_seconds"):
-        if type(cfg[key]) not in (int, float) or cfg[key] <= 0: raise ValueError("invalid_resident_bound")
+        number = cfg[key]
+        if type(number) not in (int, float): raise ValueError("invalid_resident_bound")
+        try:
+            valid = math.isfinite(number) and float(number) > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid: raise ValueError("invalid_resident_bound")
     if type(cfg["maximum_successful_transitions"]) is not int or cfg["maximum_successful_transitions"] < 1:
         raise ValueError("invalid_resident_bound")
     # Disabled posture still names the custody that must be inspected before
