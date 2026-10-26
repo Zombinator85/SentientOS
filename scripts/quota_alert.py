@@ -6,16 +6,27 @@ require_lumos_approval()
 
 import argparse
 import json
+import math
 import os
 import urllib.request
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Sequence
 
 from sentientos.optional_deps import optional_import
 
 # Send Slack alerts when model quotas run low.
 
 USAGE_FILE = Path("usage_monitor.jsonl")
+
+
+def _threshold_arg(value: str) -> float:
+    try:
+        threshold = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("threshold must be finite and between 0 and 1") from exc
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise argparse.ArgumentTypeError("threshold must be finite and between 0 and 1")
+    return threshold
 
 
 def load_latest_usage(path: Path) -> Dict[str, Dict[str, Any]]:
@@ -48,12 +59,16 @@ def send_slack(webhook: str, message: str) -> None:
         print(f"Failed to notify Slack: {exc}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Alert when quota is low")
-    parser.add_argument("--threshold", type=float, default=0.1, help="Alert threshold as fraction")
+    parser.add_argument("--threshold", type=_threshold_arg, default=0.1, help="Alert threshold as fraction")
     parser.add_argument("--slack-webhook", required=True, help="Slack webhook URL")
     parser.add_argument("--usage-json", type=Path, default=USAGE_FILE, help="Usage monitor file")
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
 
     usage = load_latest_usage(args.usage_json)
     for model, info in usage.items():

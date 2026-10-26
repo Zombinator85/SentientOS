@@ -1,3 +1,18 @@
+# Recovery state - sequence 702
+
+PR #2786 main integration is recorded in sequence 701 at verified main `7cf60733700eefd56dbcdb8328a920bb5ee4f4b9` / `8744d52d29a7ecb0ecf0ce3f89dbb1dc54dbd302`. Sequence 702 validates finite quota alert threshold parsing against that main.
+
+Latest verified main: `7cf60733700eefd56dbcdb8328a920bb5ee4f4b9`, tree `8744d52d29a7ecb0ecf0ce3f89dbb1dc54dbd302`
+Latest construction segment: `work/construction/segments/0702-reject-nonfinite-quota-alert-thresholds.md`
+Latest segment SHA-256: `b7096763b2e4b924ced13a931190b659baa72244d975621d4808e4e0ee7840a1`
+Sequence: 702
+Evidence: `work/construction/evidence/0702-reject-nonfinite-quota-alert-thresholds.json`
+Evidence SHA-256: `aa4d540914534544a5e55f5e63e334cfae5a647aef576f87b99e8c6b21ae3467`
+
+Recovery: publish the bounded sequence 701-702 shard through ordinary preflight and hosted PR validation. Preserve all frozen v1 history and previous v2 shards.
+
+--- Previous checkpoint snapshot (sequence 700) ---
+
 # Recovery state - sequence 700
 
 PR #2785 integration was recorded at verified main `0ca9c2c506b39d193439cb2a78c5784ab473c2f2` / `d7496f559c939258bf9d05d1509321591256d8e1`. Its exact-head Quality Gate, CI, Codex CI, Docker, Invariants, Lint Benchmark, Gradient, and Release validation passed. Post-merge Quality Gate, all four CI jobs, Nightly Self Check, Codex CI, Docker, Docs Deploy, and Invariants passed; Forge Smoke was skipped by condition.

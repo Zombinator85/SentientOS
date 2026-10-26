@@ -1,0 +1,35 @@
+{
+  "baseline_reproduction": {
+    "input": "--threshold nan",
+    "observed_behavior": "NaN compares false against every remaining-usage fraction, silently suppressing all quota alerts",
+    "slack_contacted": false
+  },
+  "change_paths": [
+    "scripts/quota_alert.py",
+    "tests/test_quota_alert.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite and out-of-range quota alert thresholds",
+  "sequence": 702,
+  "source": {
+    "tested_code_only_tree": "6256bc666c38d69f483536849d5c23b03038810a",
+    "verified_main_commit": "7cf60733700eefd56dbcdb8328a920bb5ee4f4b9",
+    "verified_main_tree": "8744d52d29a7ecb0ecf0ce3f89dbb1dc54dbd302"
+  },
+  "validation": {
+    "diff_check": "passed",
+    "documentation": "not_required_unchanged",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 13,
+      "selected": 13,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_quota_alert.py",
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 1 source file",
+    "targeted_privilege_lint": "passed for tests/test_quota_alert.py"
+  }
+}

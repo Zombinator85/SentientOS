@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 22,
+  "first_sequence": 701,
+  "last_sequence": 702,
+  "predecessor": "shard-sha256:43294453dcf35a6d1b2535072a7f96b7f98b4b493c915c0e0a3f63c9b14bca9e",
+  "segments": [
+    {
+      "sequence": 701,
+      "path": "work/construction/segments/0701-integrate-pr-2786-main-verification.md",
+      "predecessor": "segment-sha256:01be371ac94fbf20d27b9ecc44037afc219752981530d9208fcf3ef6385226a9",
+      "bytes": 683,
+      "sha256": "fcb3df11eda440fa0a502eb35c422fcfd15e6fd3665f0256bfeac01410161f63",
+      "evidence_path": "work/construction/evidence/0701-integrate-pr-2786-main-verification.json",
+      "evidence_bytes": 2331,
+      "evidence_sha256": "fc868b1d6b2f590172fc5d5a7c4242c878b5fe30e1ca1875f00b03033183e42b",
+      "source_commit": "7cf60733700eefd56dbcdb8328a920bb5ee4f4b9",
+      "source_tree": "8744d52d29a7ecb0ecf0ce3f89dbb1dc54dbd302"
+    },
+    {
+      "sequence": 702,
+      "path": "work/construction/segments/0702-reject-nonfinite-quota-alert-thresholds.md",
+      "predecessor": "segment-sha256:fcb3df11eda440fa0a502eb35c422fcfd15e6fd3665f0256bfeac01410161f63",
+      "bytes": 725,
+      "sha256": "b7096763b2e4b924ced13a931190b659baa72244d975621d4808e4e0ee7840a1",
+      "evidence_path": "work/construction/evidence/0702-reject-nonfinite-quota-alert-thresholds.json",
+      "evidence_bytes": 1308,
+      "evidence_sha256": "aa4d540914534544a5e55f5e63e334cfae5a647aef576f87b99e8c6b21ae3467",
+      "source_commit": "7cf60733700eefd56dbcdb8328a920bb5ee4f4b9",
+      "source_tree": "6256bc666c38d69f483536849d5c23b03038810a"
+    }
+  ]
+}
