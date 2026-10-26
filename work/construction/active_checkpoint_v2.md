@@ -1,3 +1,18 @@
+# Recovery state - sequence 764
+
+PR #2843 merged as `3bf2f706c91f1447b441aab0bc3753c71b6db9dc` with candidate tree `ab2998bed7b70c7ab3fc2c7be5acb48cf8475237`. All eight PR workflows passed, including the full hosted validation set. GitHub readback confirmed the exact sequence 763 construction blobs on main. The workflow lookup returned no post-merge runs for the merge commit; none are claimed. Custody verified 763 predecessor records without failures. Local Git preflight remains unavailable due credential failure.
+
+Latest verified main: `3bf2f706c91f1447b441aab0bc3753c71b6db9dc`, tree `ab2998bed7b70c7ab3fc2c7be5acb48cf8475237`
+Latest construction segment: `work/construction/segments/0764-integrate-pr-2843-main-verification.md`
+Latest segment SHA-256: `8cece66cf45b464047a76986c18349de47425b0da361bdd6beee5071ff7efffc`
+Sequence: 764
+Evidence: `work/construction/evidence/0764-integrate-pr-2843-main-verification.json`
+Evidence SHA-256: `df027118017a4b7849ccd234fd25ebdd849f8055720e7450ad68bfda0076e3e0`
+
+Recovery: continue from verified main, append bounded v2 shards, and preserve the frozen v1 anchor and prior shards.
+
+--- Previous checkpoint snapshot (sequence 763) ---
+
 # Recovery state - sequence 763
 
 PR #2842 merged as `29f16e5ec1ef0e3fc3bdd1a026cf6535afbfa161` with candidate tree `f1af5776adc5c8a0864ad3ca0fc054002e904bb7`. All eight PR workflows passed, including full CI and hosted Quality Gate. GitHub readback confirmed all sequence 762 construction blobs on main. The workflow lookup returned no post-merge runs for this commit; none are claimed. Custody verified 762 predecessors with no failures. Local Git source preflight remains blocked by unavailable credentials.
