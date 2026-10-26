@@ -178,7 +178,13 @@ def _component(value:Any)->str:
     return value
 
 def _number(value:Any)->float:
-    if type(value) not in (int,float) or not math.isfinite(value) or value<0:
+    if type(value) not in (int,float):
+        raise ValueError('invalid_budget_or_duration')
+    try:
+        valid = math.isfinite(value) and value >= 0
+    except (OverflowError, ValueError):
+        valid = False
+    if not valid:
         raise ValueError('invalid_budget_or_duration')
     return float(value)
 
