@@ -1,23 +1,23 @@
-# Recovery state - sequence 724
+# Recovery state - sequence 725
 
-PR #2802 merged at verified main `ba7ae56cdc306cbbd9bb81c09100ee316e4c7137` / `86df7648cef18dc3f1fb5fdf31666d34990ece7f` with exact candidate tree preserved. All eight hosted workflows passed; no separate post-merge workflow runs were returned.
+PR #2803 merged at verified main `2cd969b850b34032eb0ea4cd203bfaa3bac91745` / `883ec443281865ff2918c35b6b5f4f8a99d30598` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge run returned.
 
-Latest verified main: `ba7ae56cdc306cbbd9bb81c09100ee316e4c7137`, tree `86df7648cef18dc3f1fb5fdf31666d34990ece7f`
-Latest construction segment: `work/construction/segments/0724-integrate-pr-2802-main-verification.md`
-Latest segment SHA-256: `63cf851459b923a4e70d80e7116e60e629796c3c80cc66e8e40db15dfbffd47d`
-Sequence: 724
-Evidence: `work/construction/evidence/0724-integrate-pr-2802-main-verification.json`
-Evidence SHA-256: `13b7c386aa165556b7fc917952ed38f9481ca9cd14b8c733bcda37fafebacdb7`
+Latest verified main: `2cd969b850b34032eb0ea4cd203bfaa3bac91745`, tree `883ec443281865ff2918c35b6b5f4f8a99d30598`
+Latest construction segment: `work/construction/segments/0725-integrate-pr-2803-main-verification.md`
+Latest segment SHA-256: `251b140abdd2fc300fa9caaedcc11a6ef9b6febcb37512c17d9153b3098cf8e6`
+Sequence: 725
+Evidence: `work/construction/evidence/0725-integrate-pr-2803-main-verification.json`
+Evidence SHA-256: `8cc75dc35e697bd82c0fafc5a418e67bd4486ad9c0ee9120264835c27d0a81df`
 
-Recovery: continue bounded v2 construction from fresh verified main. Preserve frozen v1 and all previous v2 shard bytes.
+Recovery: continue bounded v2 construction from freshly verified main. Preserve frozen v1 and all existing shard bytes.
 
 Existing checkpoint binding source: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`.
 
+--- Previous checkpoint snapshot (sequence 724) ---
+PR #2802 post-merge verification integrated through PR #2803.
+
 --- Previous checkpoint snapshot (sequence 723) ---
 PR #2801 post-merge verification integrated through PR #2802.
-
---- Previous checkpoint snapshot (sequence 722) ---
-PR #2800 post-merge verification integrated through PR #2801.
 
 --- Previous checkpoint snapshot (sequence 712) ---
 
