@@ -5,6 +5,7 @@ require_admin_banner()
 require_lumos_approval()
 
 import argparse
+import math
 import os
 import sys
 import time
@@ -15,8 +16,22 @@ import urllib.request
 from sentientos.optional_deps import optional_import
 
 
+def _timeout_arg(value: str) -> float:
+    try:
+        timeout = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("timeout must be finite and >= 0") from exc
+    if not math.isfinite(timeout) or timeout < 0:
+        raise argparse.ArgumentTypeError("timeout must be finite and >= 0")
+    return timeout
+
+
 def wait_for(url: str, timeout: float = 60.0, interval: float = 2.0) -> None:
     """Poll ``url`` until an HTTP 200 is received or ``timeout`` seconds pass."""
+    if not math.isfinite(timeout) or timeout < 0:
+        raise ValueError("timeout must be finite and >= 0")
+    if not math.isfinite(interval) or interval <= 0:
+        raise ValueError("interval must be finite and > 0")
     end = time.time() + timeout
     while time.time() < end:
         try:
@@ -40,8 +55,8 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--url", required=True, help="URL of the status endpoint")
     parser.add_argument(
         "--max-wait",
-        type=float,
-        default=float(os.getenv("WAIT_TIMEOUT", "60")),
+        type=_timeout_arg,
+        default=os.getenv("WAIT_TIMEOUT", "60"),
         help="Maximum time in seconds to wait for service health",
     )
     return parser.parse_args(argv)
