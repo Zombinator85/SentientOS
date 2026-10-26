@@ -1,0 +1,45 @@
+{
+  "construction_custody_before_batch_append": {
+    "segments_verified": 693,
+    "status": "construction_continuation_custody_ready"
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "post_merge": {
+      "ci": [40247086977, "success"],
+      "codex_ci": [40247087012, "success"],
+      "docker": [40247087015, "success"],
+      "docs_deploy": [40247086998, "success"],
+      "forge_smoke": [40247086979, "skipped"],
+      "invariants": [40247087014, "success"],
+      "nightly_self_check": [40247087111, "success"],
+      "quality_gate": [
+        40247087011,
+        "success",
+        12619320649,
+        12583,
+        "4bff7bc3cc25d613b888291c04a708187d8adbd89e990b6c488303b3c5a9dc21"
+      ]
+    },
+    "pr_workflows": "all eight applicable passed",
+    "source_validation_artifact": [
+      12618694837,
+      541979,
+      "c9ad694a125731f8908ab9dd54b12855c304a9fb7c302e60dea4cb51860bb1b4"
+    ],
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2782",
+  "sequence": 694,
+  "source": {
+    "candidate_commit": "f63c7992f8fa4fb55ff7e81a1baee9abee51b08f",
+    "candidate_tree": "4d1e3874114800829b0ae786d9fc0c61583351cd",
+    "merge_commit": "e7d479a5a7c02957127aba05d2d9f6560a10053f",
+    "merge_tree": "4d1e3874114800829b0ae786d9fc0c61583351cd",
+    "pull_request": 2782,
+    "tree_matches_candidate": true,
+    "verified_remote_main": "e7d479a5a7c02957127aba05d2d9f6560a10053f"
+  }
+}

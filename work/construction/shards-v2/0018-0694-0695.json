@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 18,
+  "first_sequence": 694,
+  "last_sequence": 695,
+  "predecessor": "shard-sha256:036d426ab99f3e666622bd7d767a8324a81cb83cd1b66aeb8ea0e64db922d223",
+  "segments": [
+    {
+      "sequence": 694,
+      "path": "work/construction/segments/0694-integrate-pr-2782-main-verification.md",
+      "predecessor": "segment-sha256:ff7f91072dbbc5a7471b38613262fcc6d6708645463bf9fc8faf9a7a76ddf276",
+      "bytes": 1398,
+      "sha256": "fd5b0c69ea6bc04377e857f4606fbed4e4b38de0da9ae24111dade0f41af4cc9",
+      "evidence_path": "work/construction/evidence/0694-integrate-pr-2782-main-verification.json",
+      "evidence_bytes": 1626,
+      "evidence_sha256": "feca496676355e01d23ca48b2b75cd3a046e2d46e653e0bc4cce37e3ad42cff0",
+      "source_commit": "e7d479a5a7c02957127aba05d2d9f6560a10053f",
+      "source_tree": "4d1e3874114800829b0ae786d9fc0c61583351cd"
+    },
+    {
+      "sequence": 695,
+      "path": "work/construction/segments/0695-reject-invalid-router-telemetry-numbers.md",
+      "predecessor": "segment-sha256:fd5b0c69ea6bc04377e857f4606fbed4e4b38de0da9ae24111dade0f41af4cc9",
+      "bytes": 1128,
+      "sha256": "4a5a75fd87ae76a50e6f130989f43bd61e9468e3bcf7709e00f73f43296f7cb7",
+      "evidence_path": "work/construction/evidence/0695-reject-invalid-router-telemetry-numbers.json",
+      "evidence_bytes": 1303,
+      "evidence_sha256": "644186f21cd08477a5daf460b6c7a4fef5f25475bf547a8530ad0d435fe16b15",
+      "source_commit": "e7d479a5a7c02957127aba05d2d9f6560a10053f",
+      "source_tree": "4d1e3874114800829b0ae786d9fc0c61583351cd"
+    }
+  ]
+}
