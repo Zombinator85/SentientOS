@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
 
@@ -71,8 +70,9 @@ def test_analyze_no_alert_on_stable_runs() -> None:
 @pytest.mark.no_legacy_skip
 @pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
 def test_float_arg_rejects_nonfinite_thresholds(value: str) -> None:
-    with pytest.raises(argparse.ArgumentTypeError, match="finite"):
+    with pytest.raises(Exception, match="finite") as exc_info:
         _float_arg(value)
+    assert exc_info.type.__name__ == "ArgumentTypeError"
 
 
 @pytest.mark.no_legacy_skip

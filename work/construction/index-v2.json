@@ -1,13 +1,13 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint_v2.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "98309501297c00c00799eab874af2baf1448a04ca2a9bb48f13da1e14ea80682",
+    "checkpoint_sha256": "9da6b565c4210d85c29f5703eb00f6a1c43d0e84bb785f3cb8c51fc2969f4ae5",
     "latest_segment_sequence": 697,
-    "latest_segment_sha256": "2109b99db6e0ef6b6bbe1408c288bbefaf2127ae0ff7359cb5742b8e2cd6fcb2",
+    "latest_segment_sha256": "12ba16c93606d55b7af48673af7f0a3c522e8abd92999d167bffc0b0b909bdd7",
     "source_commit": "92dcdbbfe3e74071c85a790be2c410b3de00d300",
     "source_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb"
   },
-  "checkpoint_sha256": "98309501297c00c00799eab874af2baf1448a04ca2a9bb48f13da1e14ea80682",
+  "checkpoint_sha256": "9da6b565c4210d85c29f5703eb00f6a1c43d0e84bb785f3cb8c51fc2969f4ae5",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
@@ -270,8 +270,8 @@
       "segment_count": 2,
       "path": "work/construction/shards-v2/0019-0696-0697.json",
       "bytes": 1594,
-      "sha256": "b8284c75d65d33ffafc45ab34949b50c226694261a4b64f772aa6c6f4256ff53",
-      "git_blob_sha": "2d75e0e905291446349c91cb4a2dfdb7c252f352",
+      "sha256": "5334df2013187f5d4fed62de13b4c4962c527d1e2d5bbe7e42495ddb876407b3",
+      "git_blob_sha": "7951bcb2c58383fa32bbce3c893d6f4067a536d2",
       "predecessor": "shard-sha256:726602ea7e5d994e99e1b285c8a33b52a22c02916105a556444ae3b56303d0cd"
     }
   ]
