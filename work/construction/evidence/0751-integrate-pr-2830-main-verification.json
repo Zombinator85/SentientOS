@@ -1,0 +1,158 @@
+{
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "artifacts": {
+      "post_merge_main": {
+        "ci": {
+          "helm_test_provenance": [
+            12637311657,
+            399159,
+            "eac7421a0d8be1fdd22feee5057f95c74f637b7ec8da1fbdce8ee9b8320dcffe"
+          ],
+          "self_check_test_provenance": [
+            12636743190,
+            410656,
+            "a36c4eea352015581677fa3d0d5de10695d0d3e84ead1cbdcae4c00833f05b7a"
+          ],
+          "source_validation": [
+            12637621534,
+            541914,
+            "4967702540757e4ee40b9dd1f593b9930a671e1350e64da33b77a8279614a5e3"
+          ]
+        },
+        "quality_gate": {
+          "quality_gate_evidence": [
+            12637396224,
+            12578,
+            "dc470084d95625a78231061c71dd71cd001887582b8d19371eba89633d90cbf4"
+          ]
+        }
+      },
+      "pr": {
+        "ci": {
+          "helm_test_provenance": [
+            12636584856,
+            399173,
+            "3e1460bdfee922cb990302bc889d519655f2cc83a8577ddf6e520599d69380cf"
+          ],
+          "self_check_test_provenance": [
+            12637590306,
+            410667,
+            "fef88bfc8524d3189c35a7357f7f124799b89f1fb949b49b3f4f7cb758d9888f"
+          ],
+          "source_validation": [
+            12636289738,
+            542004,
+            "0b467985cd6b952a802d722823e88a86e77cbaa3c83e37b32e3ff3b4af42e89f"
+          ]
+        },
+        "quality_gate": {
+          "exact_candidate_acceptance": [
+            12637530332,
+            7151,
+            "ecf67f9514254a8f70170c48ad34a3422e8b9add5831b9a62698d0e3be1b9642"
+          ],
+          "hosted_pr_landing_finalizer": [
+            12636339452,
+            37373,
+            "7ddae5f80c95644b56905314bc72ab851943f66e045c77df8e452346aa43fd50"
+          ],
+          "quality_gate_evidence": [
+            12637405108,
+            12583,
+            "fc2db01b656e74e600e5b89e62f9e2fe8b2e71ab9ef6c6c058461a4c9e1b07e2"
+          ]
+        }
+      }
+    },
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [
+        {
+          "conclusion": "success",
+          "run_id": 40293373357,
+          "workflow": "CI"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40293373593,
+          "workflow": "Required Quality Gate"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40293373392,
+          "workflow": "Codex CI"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40293373456,
+          "workflow": "Docker Image"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40293373396,
+          "workflow": "Invariant Tests"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40293373595,
+          "workflow": "Docs Deploy"
+        },
+        {
+          "conclusion": "skipped",
+          "run_id": 40293373425,
+          "workflow": "Forge Smoke"
+        }
+      ],
+      "status": "all_applicable_post_merge_runs_terminal"
+    },
+    "pr_workflows": {
+      "ci": [
+        40292804489,
+        "success"
+      ],
+      "codex_ci": [
+        40292804508,
+        "success"
+      ],
+      "docker": [
+        40292804529,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40292804499,
+        "success"
+      ],
+      "invariants": [
+        40292804530,
+        "success"
+      ],
+      "lint_benchmark": [
+        40292804486,
+        "success"
+      ],
+      "quality_gate": [
+        40292804373,
+        "success"
+      ],
+      "release": [
+        40292804515,
+        "success"
+      ]
+    },
+    "pull_request": 2830,
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2830",
+  "sequence": 751,
+  "source": {
+    "candidate_commit": "8d93bda11048d562a05690a6b6006357effb0cdf",
+    "candidate_tree": "415491964b6866cd1e33a4ac5a46c339d6052e9a",
+    "merge_commit": "e12646eea1d3c09fec4bf587227b4a12aecd0d00",
+    "merge_tree": "415491964b6866cd1e33a4ac5a46c339d6052e9a",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "e12646eea1d3c09fec4bf587227b4a12aecd0d00",
+    "verified_remote_main_tree": "415491964b6866cd1e33a4ac5a46c339d6052e9a"
+  }
+}
