@@ -1,0 +1,85 @@
+{
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "artifacts": {
+      "ci_test_run_provenance": [
+        12624592247,
+        410700,
+        "5ccf2b9770b8268bfb634b1b238627da716bce0917b02419b08bdf3b59f6c031"
+      ],
+      "exact_candidate_acceptance": [
+        12623822701,
+        7155,
+        "90962d61dcae760ab38ff8e38e0c75478d45684d827edafe3f21d31913c187af"
+      ],
+      "hosted_pr_landing_finalizer": [
+        12623588168,
+        37270,
+        "97285069997cd488779cff9df88cbeb7b7549d13857510ce44d0999758aac8db"
+      ],
+      "quality_gate_evidence": [
+        12623767677,
+        12582,
+        "3a15554a31fbef4b23c30a8b78e8cc77e59fe21b7f8c9572afd430fe40016811"
+      ],
+      "source_validation": [
+        12624472770,
+        542038,
+        "d569d0f271e89ffdf3a6d61e78bb95757ecf5a08bd8ceca16bb9e90cd3dcbeb4"
+      ]
+    },
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "status": "no_workflow_runs_returned_for_merge_commit"
+    },
+    "pr_workflows": {
+      "ci": [
+        40260427253,
+        "success"
+      ],
+      "codex_ci": [
+        40260427223,
+        "success"
+      ],
+      "docker": [
+        40260427232,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40260427270,
+        "success"
+      ],
+      "invariants": [
+        40260427289,
+        "success"
+      ],
+      "lint_benchmark": [
+        40260427336,
+        "success"
+      ],
+      "quality_gate": [
+        40260427279,
+        "success"
+      ],
+      "release": [
+        40260427230,
+        "success"
+      ]
+    },
+    "pull_request": 2794,
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2794",
+  "sequence": 716,
+  "source": {
+    "candidate_commit": "88a192a7d27ef702760903e7258e86ef15262f41",
+    "candidate_tree": "a507d979801df9c3e035811557fcb9c0694d3a28",
+    "merge_commit": "baf576b057dbf35d0ab28c4fcbb5e8c49a92fba5",
+    "merge_tree": "a507d979801df9c3e035811557fcb9c0694d3a28",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "baf576b057dbf35d0ab28c4fcbb5e8c49a92fba5",
+    "verified_remote_main_tree": "a507d979801df9c3e035811557fcb9c0694d3a28"
+  }
+}
