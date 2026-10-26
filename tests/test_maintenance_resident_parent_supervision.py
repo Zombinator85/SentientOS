@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from sentientos import maintenance_resident_parent_supervision as parent_module
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos.maintenance_resident_parent_supervision import (
     MaintenanceResidentParentSupervisor, ResidentParentLifecycleEvidenceReader,
@@ -82,6 +83,48 @@ def _simulate_parent_process_exit(controller: MaintenanceResidentParentSuperviso
     if root_fd is not None:
         os.close(root_fd)
         controller._owner_root_fd = None
+
+
+def _minimal_parent_state(*, spec: str, restart_history: list[Any],
+                          launch: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "schema_version": parent_module.STATE_SCHEMA,
+        "child_spec_digest": spec,
+        "sequence": 0,
+        "restart_history": restart_history,
+        "panic_latched": False,
+        "shutdown_latched": False,
+        "restart_budget_exhausted": False,
+        "status": "configured",
+        "generation_digest": launch["generation_digest"] if launch else None,
+        "launch": launch,
+    }
+
+
+@pytest.mark.parametrize("invalid", [10**400, -(10**400)])
+def test_parent_state_rejects_unrepresentable_restart_history(invalid: int) -> None:
+    state = _minimal_parent_state(spec="spec", restart_history=[invalid])
+    with pytest.raises(ValueError, match="parent_state_shape_invalid"):
+        parent_module._validate_parent_state_snapshot(
+            parent_module._canonical(state) + b"\n",
+            expected_spec_digest="spec", expected_config_digest="config", rows=[])
+
+
+def test_parent_state_rejects_unrepresentable_launch_timestamp() -> None:
+    launch = {
+        "child_spec_digest": "spec",
+        "config_digest": "config",
+        "lineage_id": "lineage",
+        "generation_digest": "generation",
+        "pid": 7,
+        "launched_at": 10**400,
+    }
+    launch["launch_provenance_digest"] = parent_module._digest(launch)
+    state = _minimal_parent_state(spec="spec", restart_history=[], launch=launch)
+    with pytest.raises(ValueError, match="parent_launch_provenance_invalid"):
+        parent_module._validate_parent_state_snapshot(
+            parent_module._canonical(state) + b"\n",
+            expected_spec_digest="spec", expected_config_digest="config", rows=[])
 
 
 def test_commissioned_parent_config_is_explicitly_handed_to_child(tmp_path: Path) -> None:
