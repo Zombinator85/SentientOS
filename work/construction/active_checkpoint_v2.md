@@ -1,23 +1,23 @@
-# Recovery state - sequence 723
+# Recovery state - sequence 724
 
-PR #2801 merged at verified main `1b52e84777fc33c33ae305c3586214df7059e65a` / `4be5764ae7b94b61cf199a146011d6ca40f6d398` with the exact candidate tree preserved. All eight hosted workflows passed; no separate post-merge workflow runs were returned.
+PR #2802 merged at verified main `ba7ae56cdc306cbbd9bb81c09100ee316e4c7137` / `86df7648cef18dc3f1fb5fdf31666d34990ece7f` with exact candidate tree preserved. All eight hosted workflows passed; no separate post-merge workflow runs were returned.
 
-Latest verified main: `1b52e84777fc33c33ae305c3586214df7059e65a`, tree `4be5764ae7b94b61cf199a146011d6ca40f6d398`
-Latest construction segment: `work/construction/segments/0723-integrate-pr-2801-main-verification.md`
-Latest segment SHA-256: `7981388618183039ecf83a2f4e37992a875ae1610a0818d81f3526cb97acc5e4`
-Sequence: 723
-Evidence: `work/construction/evidence/0723-integrate-pr-2801-main-verification.json`
-Evidence SHA-256: `00e40e1fb38401f825a71cb56a36e11e1a1c1cbf1a95ec683b29586f0079793e`
+Latest verified main: `ba7ae56cdc306cbbd9bb81c09100ee316e4c7137`, tree `86df7648cef18dc3f1fb5fdf31666d34990ece7f`
+Latest construction segment: `work/construction/segments/0724-integrate-pr-2802-main-verification.md`
+Latest segment SHA-256: `63cf851459b923a4e70d80e7116e60e629796c3c80cc66e8e40db15dfbffd47d`
+Sequence: 724
+Evidence: `work/construction/evidence/0724-integrate-pr-2802-main-verification.json`
+Evidence SHA-256: `13b7c386aa165556b7fc917952ed38f9481ca9cd14b8c733bcda37fafebacdb7`
 
-Recovery: continue bounded v2 construction from fresh verified main. Preserve frozen v1 and all existing shard bytes.
+Recovery: continue bounded v2 construction from fresh verified main. Preserve frozen v1 and all previous v2 shard bytes.
 
 Existing checkpoint binding source: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`.
 
+--- Previous checkpoint snapshot (sequence 723) ---
+PR #2801 post-merge verification integrated through PR #2802.
+
 --- Previous checkpoint snapshot (sequence 722) ---
 PR #2800 post-merge verification integrated through PR #2801.
-
---- Previous checkpoint snapshot (sequence 721) ---
-The oversized parent-supervision integer fix was integrated; focused tests passed, with eight baseline module failures recorded.
 
 --- Previous checkpoint snapshot (sequence 712) ---
 
