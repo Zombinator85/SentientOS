@@ -1,20 +1,20 @@
-# Recovery state - sequence 717
+# Recovery state - sequence 718
 
-PR #2795 merged at verified main `bf4bc06a6a46afea417688b82ed13334395578dd` / `9902b3475d3e3c117684551a1dd5fffe7cb5854e` with the exact candidate tree preserved. All eight hosted PR workflows passed; no separate post-merge workflow runs were returned for the squash commit.
+PR #2796 merged at verified main `36044b495d411fdd11fb9b1341db554522419c22` / `e91c1419c5535f5d402fd88083a864d6550a0b2e` with the exact candidate tree preserved. All eight hosted PR workflows passed; no separate post-merge workflow runs were returned for the squash commit.
 
-Latest verified main: `bf4bc06a6a46afea417688b82ed13334395578dd`, tree `9902b3475d3e3c117684551a1dd5fffe7cb5854e`
-Latest construction segment: `work/construction/segments/0717-integrate-pr-2795-main-verification.md`
-Latest segment SHA-256: `cb6741b703a69ca9935d1702a88da482c4e2484d1a7ec2a1fa6f830b9517f8af`
-Sequence: 717
-Evidence: `work/construction/evidence/0717-integrate-pr-2795-main-verification.json`
-Evidence SHA-256: `87aaeda14bc7ad64119169da809e94ed9307782683631ff7319ee0156a4aa203`
+Latest verified main: `36044b495d411fdd11fb9b1341db554522419c22`, tree `e91c1419c5535f5d402fd88083a864d6550a0b2e`
+Latest construction segment: `work/construction/segments/0718-integrate-pr-2796-main-verification.md`
+Latest segment SHA-256: `1e4a9f8253821645f30ef9144114559890d5abf48400218494e23fdba1942d92`
+Sequence: 718
+Evidence: `work/construction/evidence/0718-integrate-pr-2796-main-verification.json`
+Evidence SHA-256: `683c674c26ff37772791d4904e54f1f1325f04f833fca71c00792b3513469e22`
 
 Recovery: continue from fresh verified main and append bounded v2 shards through the standard preflight and PR process. Preserve the frozen v1 index, checkpoint, and all existing shard bytes.
 
---- Previous checkpoint snapshot (sequence 716) ---
+--- Previous checkpoint snapshot (sequence 717) ---
 
-# Recovery state - sequence 716
-PR #2794 integrated with exact tree and eight green workflows; no separate post-merge run. See sequence 716 evidence `054fefcf994c3fc8f36bd1dc258e5f28632aae29b4a6666027dc8960b41f2dad`.
+# Recovery state - sequence 717
+PR #2795 integrated with exact tree and eight green workflows; no separate post-merge run. Segment SHA-256 `cb6741b703a69ca9935d1702a88da482c4e2484d1a7ec2a1fa6f830b9517f8af`; evidence SHA-256 `87aaeda14bc7ad64119169da809e94ed9307782683631ff7319ee0156a4aa203`.
 
 --- Previous checkpoint snapshot (sequence 714) ---
 PR #2792 merge main: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`. Sequence 714 validation budget fix; segment SHA-256 `39f33d9054054ab695dde462fa2cbe9a06de58ceecfecf1a456b0a9bdc0a5cc2`; evidence SHA-256 `55317b096fd822b0d8a1c4364f895098f6ca4deefd66642d8d5d0bbec8752561`; focused/module tests 5/10 passed.
