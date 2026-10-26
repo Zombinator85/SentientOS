@@ -17,9 +17,68 @@ from scripts.codex_finalize_landing import (
     _is_safe_untracked_task_file,
     _git_status,
     _git_tracked_changes,
+    _landing_gate_command,
+    _landing_matrix_command,
+    _landing_supervisor_command,
+    _run_stage,
     build_parser,
     main,
 )
+
+
+@pytest.mark.no_legacy_skip
+def test_internal_landing_commands_are_argv_and_preserve_opaque_values(tmp_path: Path) -> None:
+    matrix = str(tmp_path / "matrix with spaces;literal.json")
+    title = "release $(touch sentinel)"
+    intended = "commit title with spaces"
+    assert _landing_matrix_command(matrix, command_timeout_seconds=17) == [
+        "python", "scripts/run_work_item_review_packet_matrix.py", "--summary",
+        "--output", matrix, "--checkpoint", matrix,
+        "--command-timeout-seconds", "17", "--progress",
+    ]
+    matrix_path = Path(matrix)
+    matrix_path.write_text("checkpoint", encoding="utf-8")
+    assert _landing_matrix_command(matrix, resume=True)[-3:] == [
+        "--resume-from", matrix, "--progress",
+    ]
+    assert _landing_gate_command(title, intended, matrix) == [
+        "python", "scripts/codex_pr_landing_gate.py", "gate", "--title", title,
+        "--intended-commit-title", intended, "--matrix-json-path", matrix,
+    ]
+    assert _landing_supervisor_command(title, intended, matrix) == [
+        "python", "scripts/codex_landing_supervisor.py", "evaluate", "--title", title,
+        "--intended-commit-title", intended, "--matrix-json-path", matrix,
+        "--landing-gate-status", "passed", "--summary",
+    ]
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    ("command", "expected_shell"),
+    [(["python", "script.py", "title with spaces"], False), ("python -c 'pass'", True)],
+)
+def test_run_stage_uses_argv_without_shell_for_internal_commands(
+    monkeypatch: pytest.MonkeyPatch,
+    command: str | list[str],
+    expected_shell: bool,
+) -> None:
+    calls: list[tuple[object, dict[str, object]]] = []
+
+    def fake_supervised(actual: object, **kwargs: object) -> object:
+        calls.append((actual, kwargs))
+        return type("Supervised", (), {
+            "status": "passed", "return_code": 0, "stdout_tail": "ok", "stderr_tail": "",
+            "child_pid": 123, "process_group_id": 123, "supervision_status": "completed",
+        })()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.run_supervised", fake_supervised)
+    result, runtime = _run_stage(
+        "matrix_summary", command, True, False, 10, __import__("time").monotonic() + 20, {}
+    )
+    assert calls[0][0] == command
+    assert calls[0][1]["shell"] is expected_shell
+    assert result.command == runtime.command
+    assert isinstance(result.command, str)
 
 
 def test_git_status_uses_argv_without_shell(monkeypatch: pytest.MonkeyPatch) -> None:
