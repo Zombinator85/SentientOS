@@ -1,3 +1,18 @@
+# Recovery state - sequence 747
+
+PR #2826 merged at verified main `2aa0137e0f5b7a9e3af25954d59f70985af0dfb6` / `cf17d51b126b3202c5ba860dd99326867124b299` with exact candidate tree preserved. All eight PR workflows passed. On main, CI, Required Quality Gate, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was skipped by its condition. Construction custody verified 746 prior sequences with no failures.
+
+Latest verified main: `2aa0137e0f5b7a9e3af25954d59f70985af0dfb6`, tree `cf17d51b126b3202c5ba860dd99326867124b299`
+Latest construction segment: `work/construction/segments/0747-integrate-pr-2826-main-verification.md`
+Latest segment SHA-256: `8de528f4cbe0935c8b9b71ff7751fa85c89fde03dbb4aa9fca11a3da704603f8`
+Sequence: 747
+Evidence: `work/construction/evidence/0747-integrate-pr-2826-main-verification.json`
+Evidence SHA-256: `7060d2b7ccc157b3e55eef022045d0b3d4ba521cee9bc8aa1c856ecf14e36d95`
+
+Recovery: continue from freshly verified main and append only bounded v2 shards. Preserve the v1 anchor and every prior shard.
+
+---
+
 # Recovery state - sequence 746
 
 PR #2825 merged at verified main `56f1534ad7d061145477057523c17201ed91e74c` / `c0d21f9566e9efa2439479b66fa90383d82fe700` with exact candidate tree preserved. All eight PR workflows passed. On main, CI, Required Quality Gate, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was skipped by its condition. Construction custody verified 745 prior sequences with no failures.
