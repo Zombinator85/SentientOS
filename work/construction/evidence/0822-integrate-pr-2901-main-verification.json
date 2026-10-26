@@ -1,0 +1,118 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 821
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "prior_record_corrections": [
+    {
+      "field": "source.candidate_commit",
+      "previous_claim": "70bb776a406dfbf0faf14f9b1efcdc9422d19f71",
+      "sequence": 820,
+      "verification": "GitHub PR 2899 head and successful hosted runs",
+      "verified_value": "3060f6bf47a376ca2666ca2d2738cbd558f4aa98",
+      "workflow_run_ids": [
+        40404979135,
+        40404978761,
+        40404978688,
+        40404978522,
+        40404978701,
+        40404978493,
+        40404978739,
+        40404978666
+      ]
+    },
+    {
+      "field": "source.candidate_commit",
+      "previous_claim": "70bb776a406dfbf0faf14f9b1efcdc9422d19f71",
+      "sequence": 821,
+      "verification": "GitHub PR 2900 head and successful hosted runs",
+      "verified_value": "e98ba0664ea5479ac2a60bc118a7c2817b4ccaed",
+      "workflow_run_ids": [
+        40406047327,
+        40406047396,
+        40406047354,
+        40406047456,
+        40406047246,
+        40406047411,
+        40406047296,
+        40406047346
+      ]
+    }
+  ],
+  "publication": {
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "commit": "a5956c3cf1a9b10942bc70008c9a47792f1dc613",
+      "status": "no_runs_returned_by_connected_workflow_lookup"
+    },
+    "pr_workflows": {
+      "ci": [
+        40407154346,
+        "success"
+      ],
+      "codex_ci": [
+        40407154386,
+        "success"
+      ],
+      "docker": [
+        40407154360,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40407154322,
+        "success"
+      ],
+      "invariants": [
+        40407154384,
+        "success"
+      ],
+      "lint_benchmark": [
+        40407154454,
+        "success"
+      ],
+      "quality_gate": [
+        40407154326,
+        "success"
+      ],
+      "release": [
+        40407154330,
+        "success"
+      ]
+    },
+    "pull_request": 2901,
+    "status": "merged",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v2": "99e324812ae40ef579a2a5d6fec2b309eae2d991",
+      "evidence_0821": "0535ba48b7fc5fb5faf0b12fff717311728b418e",
+      "index_v2": "648449aec14e159443e7d16e0b23c60c632a5d83",
+      "segment_0821": "76dd7d8bed7b46e9798e0aa3bd8316aac877bd61",
+      "shard_0135": "3ba4ecc482df426407017886566f55a6ea87d694"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2901 and append-only correction of candidate commit claims in sequences 820\u2013821",
+  "segment": {
+    "bytes": 1352,
+    "path": "work/construction/segments/0822-integrate-pr-2901-main-verification.md",
+    "sha256": "53cd9c921f2cb20932ef883d472b99025e317ac3a399176e3fb2f9e92f2d516d"
+  },
+  "sequence": 822,
+  "source": {
+    "candidate_commit": "6bc95995e228bcd3ffbeee5d80c2b0855a6e0e23",
+    "candidate_tree": "c132de9de964bc9ed4fb3299e7bad805e9d3f16d",
+    "local_git_source_preflight": {
+      "local_tree_matches_verified_remote_main": true,
+      "remote_head": "a5956c3cf1a9b10942bc70008c9a47792f1dc613",
+      "remote_tree": "c132de9de964bc9ed4fb3299e7bad805e9d3f16d",
+      "status": "correct_remote_and_local_base"
+    },
+    "merge_commit": "a5956c3cf1a9b10942bc70008c9a47792f1dc613",
+    "merge_tree": "c132de9de964bc9ed4fb3299e7bad805e9d3f16d",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "a5956c3cf1a9b10942bc70008c9a47792f1dc613",
+    "verified_remote_main_tree": "c132de9de964bc9ed4fb3299e7bad805e9d3f16d"
+  }
+}
