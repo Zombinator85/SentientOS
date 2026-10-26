@@ -1,3 +1,18 @@
+# Recovery state - sequence 700
+
+PR #2785 integration was recorded at verified main `0ca9c2c506b39d193439cb2a78c5784ab473c2f2` / `d7496f559c939258bf9d05d1509321591256d8e1`. Its exact-head Quality Gate, CI, Codex CI, Docker, Invariants, Lint Benchmark, Gradient, and Release validation passed. Post-merge Quality Gate, all four CI jobs, Nightly Self Check, Codex CI, Docker, Docs Deploy, and Invariants passed; Forge Smoke was skipped by condition.
+
+Latest verified main: `0ca9c2c506b39d193439cb2a78c5784ab473c2f2`, tree `d7496f559c939258bf9d05d1509321591256d8e1`
+Latest construction segment: `work/construction/segments/0700-integrate-pr-2785-main-verification.md`
+Latest segment SHA-256: `01be371ac94fbf20d27b9ecc44037afc219752981530d9208fcf3ef6385226a9`
+Sequence: 700
+Evidence: `work/construction/evidence/0700-integrate-pr-2785-main-verification.json`
+Evidence SHA-256: `5c51b9c9ae926b60db6986a8154410b09e36b4978a29a1b75649854329ef0e4f`
+
+Recovery: continue bounded construction from this verified main. Preserve the frozen v1 anchor, every existing v2 shard, and the checkpoint snapshot below.
+
+--- Previous checkpoint snapshot (sequence 699) ---
+
 # Recovery state - sequence 699
 
 PR #2784 integration was recorded in sequence 698 at verified main `6c2ea68ffb470ad9add2b0a882fc25a7a65e8dd3` / `382b5c72302ca068432750692fdf969f6195775c`. All applicable PR and post-merge workflows passed; Forge Smoke was skipped by condition. Sequence 699 rejects non-finite health wait limits in CLI arguments, environment defaults, and direct function inputs. Its tested code-only tree is `674c04a6c691885344b530cf904cb010edfffdd7`; all thirteen focused tests passed, and targeted mypy and privilege lint are clean.
