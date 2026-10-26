@@ -57,6 +57,15 @@ def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def _finite_number(value: object) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, ValueError):
+        return False
+
+
 def _valid_aware_timestamp(value: object) -> bool:
     if not isinstance(value, str) or not value or len(value) > 128:
         return False
@@ -257,8 +266,7 @@ def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
     if (type(value["sequence"]) is not int or value["sequence"] != len(rows)
             or not isinstance(value["restart_history"], list)
             or len(value["restart_history"]) > MAX_PARENT_RESTART_HISTORY
-            or any(type(item) not in (int, float) or not math.isfinite(item)
-                   for item in value["restart_history"])
+            or any(not _finite_number(item) for item in value["restart_history"])
             or any(type(value[key]) is not bool for key in
                 ("panic_latched", "shutdown_latched", "restart_budget_exhausted"))
             or not isinstance(value["status"], str) or not value["status"]
@@ -277,8 +285,7 @@ def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
                 or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
                 or not isinstance(launch["generation_digest"], str) or not launch["generation_digest"]
                 or type(launch["pid"]) is not int or launch["pid"] < 1
-                or type(launch["launched_at"]) not in (int, float)
-                or not math.isfinite(launch["launched_at"])
+                or not _finite_number(launch["launched_at"])
                 or launch["launch_provenance_digest"] != _digest(body)
                 or launch["generation_digest"] != generation_digest):
             raise ValueError("parent_launch_provenance_invalid")
@@ -705,7 +712,7 @@ class MaintenanceResidentParentSupervisor:
                     or sequence > MAX_PARENT_SEQUENCE
                     or not isinstance(history, list)
                     or len(history) > MAX_PARENT_RESTART_HISTORY
-                    or any(type(item) not in (int, float) or not math.isfinite(item) for item in history)
+                    or any(not _finite_number(item) for item in history)
                     or any(type(value[key]) is not bool for key in
                         ("panic_latched", "shutdown_latched", "restart_budget_exhausted"))
                     or not isinstance(value["status"], str) or not value["status"]
@@ -721,8 +728,7 @@ class MaintenanceResidentParentSupervisor:
                         or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
                         or not isinstance(launch["generation_digest"], str) or not launch["generation_digest"]
                         or type(launch["pid"]) is not int or launch["pid"] < 1
-                        or type(launch["launched_at"]) not in (int, float)
-                        or not math.isfinite(launch["launched_at"])
+                        or not _finite_number(launch["launched_at"])
                         or launch["launch_provenance_digest"] != _digest(body)):
                     raise ValueError("parent_launch_provenance_invalid")
             generation_digest = value["generation_digest"]
@@ -913,8 +919,7 @@ class MaintenanceResidentParentSupervisor:
                     or launch.get("config_digest") != self.config["config_digest"]
                     or launch.get("launch_provenance_digest") != _digest(launch_body)
                     or type(launch.get("pid")) is not int or launch["pid"] < 1
-                    or type(launch.get("launched_at")) not in (int, float)
-                    or not math.isfinite(launch["launched_at"])):
+                    or not _finite_number(launch.get("launched_at"))):
                 return False
             custody = resident.inspect_transition_custody(self.config)
             if custody.get("status") not in {

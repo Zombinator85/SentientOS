@@ -1,0 +1,47 @@
+{
+  "baseline": "math.isfinite raises OverflowError for arbitrary-size integers, allowing direct parent-state validation to escape its stable fail-closed ValueError contract.",
+  "change_paths": [
+    "sentientos/maintenance_resident_parent_supervision.py",
+    "tests/test_maintenance_resident_parent_supervision.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject unrepresentable integer values in maintenance parent supervision state",
+  "sequence": 721,
+  "source": {
+    "tested_code_only_tree": "8bd8eb2fbcabd9115d3dedc260a5f43f67402195",
+    "verified_main_commit": "55b1e6c08962eefdcb9a01332958186d18a6f530",
+    "verified_main_tree": "aaddd01324dd2ca036d8c2a9a93382de9c709a5f"
+  },
+  "validation": {
+    "compileall": "passed",
+    "continuation_custody": "construction_continuation_custody_ready through sequence 720",
+    "diff_check": "passed",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 3,
+      "runner": "python -m scripts.run_tests -q tests/test_maintenance_resident_parent_supervision.py -k unrepresentable",
+      "selected": 3
+    },
+    "full_module_tests": {
+      "baseline_reproduced_on_verified_commit": "efab72d7d062d320e6982e9b3b6b3891d3d7db53",
+      "failed": 8,
+      "known_baseline_failures": [
+        "test_commissioned_parent_config_is_explicitly_handed_to_child",
+        "test_invalid_state_recovery_does_not_append_duplicate_parent_receipt",
+        "test_parent_state_symlink_is_untrusted_and_not_republished",
+        "test_receipt_ahead_of_snapshot_is_rejected_without_sequence_reuse",
+        "test_corrupt_receipt_chain_fails_closed_without_republication",
+        "test_parent_receipt_recovery_rejects_malformed_timestamp_without_republication",
+        "test_parent_lifecycle_observation_binds_actual_parent_and_child_pid_receipts",
+        "test_parent_lifecycle_observation_rejects_unmatched_process_relationship"
+      ],
+      "passed": 27,
+      "runner": "python -m scripts.run_tests -q tests/test_maintenance_resident_parent_supervision.py",
+      "selected": 35
+    },
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "targeted_mypy": "passed"
+  }
+}

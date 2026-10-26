@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 35,
+  "first_sequence": 721,
+  "last_sequence": 721,
+  "predecessor": "shard-sha256:04dbaab660a716b3d535028248bdb9a12041a997d552e32bfa3d02eeab812b1f",
+  "segments": [
+    {
+      "sequence": 721,
+      "path": "work/construction/segments/0721-reject-unrepresentable-parent-numbers.md",
+      "predecessor": "segment-sha256:698672b5b29521d6045bd54955cd80c154b6d5d58390999468e55168aa22ce26",
+      "bytes": 632,
+      "sha256": "9bb9d3a7c57ea7b3c6455bbef560436a7c1412983ab44f3fca8ef4438a2bb71d",
+      "evidence_path": "work/construction/evidence/0721-reject-unrepresentable-parent-numbers.json",
+      "evidence_bytes": 2337,
+      "evidence_sha256": "6092bbc48c44ba92f03ee4ad30877d8dfe14ce15bc949c5bf5cee0c7e25012f4",
+      "source_commit": "55b1e6c08962eefdcb9a01332958186d18a6f530",
+      "source_tree": "aaddd01324dd2ca036d8c2a9a93382de9c709a5f"
+    }
+  ]
+}

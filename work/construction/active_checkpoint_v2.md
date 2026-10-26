@@ -1,26 +1,23 @@
-# Recovery state - sequence 720
+# Recovery state - sequence 721
 
-PR #2798 merged at verified main `90634418e7f5f6383604c7350c0859ecbfa4dbee` / `bfcb82f3e3567d680e261414df8fbc8200c941fa` with exact candidate tree preserved. All eight hosted workflows passed; no separate post-merge workflow runs were returned.
+Sequence 721 prepares a bounded maintenance resident parent-supervision fix. Candidate validation rejects arbitrary-size integers in restart history and launch timestamps before they can raise `OverflowError`. Focused regressions passed 3/3; full module run passed 27/35 with eight baseline failures reproduced on `efab72d7d062d320e6982e9b3b6b3891d3d7db53`.
 
-Latest verified main: `90634418e7f5f6383604c7350c0859ecbfa4dbee`, tree `bfcb82f3e3567d680e261414df8fbc8200c941fa`
-Latest construction segment: `work/construction/segments/0720-integrate-pr-2798-main-verification.md`
-Latest segment SHA-256: `698672b5b29521d6045bd54955cd80c154b6d5d58390999468e55168aa22ce26`
-Sequence: 720
-Evidence: `work/construction/evidence/0720-integrate-pr-2798-main-verification.json`
-Evidence SHA-256: `6417599195413ffee11ec24ff143d4294779ef64290ce4003cd653eff51f1375`
+Latest verified main: `55b1e6c08962eefdcb9a01332958186d18a6f530`, tree `aaddd01324dd2ca036d8c2a9a93382de9c709a5f`
+Latest construction segment: `work/construction/segments/0721-reject-unrepresentable-parent-numbers.md`
+Latest segment SHA-256: `9bb9d3a7c57ea7b3c6455bbef560436a7c1412983ab44f3fca8ef4438a2bb71d`
+Sequence: 721
+Evidence: `work/construction/evidence/0721-reject-unrepresentable-parent-numbers.json`
+Evidence SHA-256: `6092bbc48c44ba92f03ee4ad30877d8dfe14ce15bc949c5bf5cee0c7e25012f4`
 
-Recovery: continue bounded v2 shard construction from fresh verified main. Preserve frozen v1 and all prior shards.
+Recovery: publish this bounded candidate through standard preflight and PR checks. Preserve frozen v1 and all existing v2 shards.
 
-Prior checkpoint binding source: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`.
+Existing checkpoint binding source: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`.
+
+--- Previous checkpoint snapshot (sequence 720) ---
+PR #2798 post-merge verification integrated in PR #2799 at `55b1e6c08962eefdcb9a01332958186d18a6f530`.
 
 --- Previous checkpoint snapshot (sequence 719) ---
-PR #2797 post-merge evidence integrated through PR #2798; see sequence 719 and 720 records.
-
---- Previous checkpoint snapshot (sequence 718) ---
-PR #2796 integrated with exact tree and eight green workflows; no separate post-merge run.
-
---- Previous checkpoint snapshot (sequence 714) ---
-PR #2792 validation-budget fix; focused/module tests 5/10 passed.
+PR #2797 post-merge verification integrated in PR #2798; see sequence 719.
 
 --- Previous checkpoint snapshot (sequence 712) ---
 
