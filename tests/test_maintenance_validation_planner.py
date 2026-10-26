@@ -3,6 +3,7 @@ pytestmark = pytest.mark.no_legacy_skip
 import sys
 from pathlib import Path
 import pytest
+from sentientos import maintenance_validation_controller as validation
 from sentientos.maintenance_validation_controller import ValidationPolicy, build_validation_plan, validate_expectation
 
 def _lease(expect=()):
@@ -21,6 +22,12 @@ def test_unknown_or_unsafe_expectation_is_rejected():
     with pytest.raises(ValueError): validate_expectation('pytest_node:',[],[])
     with pytest.raises(ValueError): validate_expectation('mypy_path:../x.py',['x.py'],['x.py'])
     with pytest.raises(ValueError): validate_expectation('pytest_node:tests/x.py::test_y|cat',[],[])
+
+
+@pytest.mark.parametrize('invalid', [float('nan'), float('inf'), float('-inf'), 10**400, -(10**400)])
+def test_numeric_budget_helper_rejects_nonfinite_or_unrepresentable_values(invalid):
+    with pytest.raises(ValueError, match='invalid_budget_or_duration'):
+        validation._number(invalid)
 
 def test_python_docs_and_governance_paths_trigger_proportionate_stages():
     plan=build_validation_plan(policy=_pol(),lease=_lease(['pytest_node:tests/test_x.py::test_y']),implementation_result=_impl(),worktree=_wt(),change_manifest=_cm(['sentientos/maintenance_validation_controller.py','docs/development/maintenance_validation_controller.md']))

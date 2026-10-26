@@ -1,3 +1,18 @@
+# Recovery state - sequence 714
+
+PR #2792 post-merge verification is recorded in sequence 713 at verified main `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`; the merge tree matches the exact candidate tree. Sequence 714 makes the shared validation budget normalizer reject values outside its finite representable numeric range using the documented validation error. All five focused regressions and all ten planner tests passed.
+
+Latest verified main: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715`, tree `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`
+Latest construction segment: `work/construction/segments/0714-reject-nonfinite-validation-budgets.md`
+Latest segment SHA-256: `39f33d9054054ab695dde462fa2cbe9a06de58ceecfecf1a456b0a9bdc0a5cc2`
+Sequence: 714
+Evidence: `work/construction/evidence/0714-reject-nonfinite-validation-budgets.json`
+Evidence SHA-256: `55317b096fd822b0d8a1c4364f895098f6ca4deefd66642d8d5d0bbec8752561`
+
+Recovery: publish bounded shard 0028 through normal preflight and PR checks. Preserve frozen v1 and all earlier v2 shard bytes.
+
+--- Previous checkpoint snapshot (sequence 712) ---
+
 # Recovery state - sequence 712
 
 PR #2791 post-merge verification is recorded in sequence 711 at verified main `44668bd35693c776c467e862c6c3d799df682b5c` / `00b1f381bd4735e5ddf2ab42c2b2f1968bfd4fbc`; the merge tree matches the exact candidate tree. Sequence 712 rejects non-finite initial POSIX commissioning count and time bounds; all 30 focused regressions and all 50 affected module tests passed.

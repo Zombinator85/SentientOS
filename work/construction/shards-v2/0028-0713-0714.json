@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 28,
+  "first_sequence": 713,
+  "last_sequence": 714,
+  "predecessor": "shard-sha256:9d073978b25f9053fbbb5a0e4df5101205b77395f1b217967edbb2a02e2c04a1",
+  "segments": [
+    {
+      "sequence": 713,
+      "path": "work/construction/segments/0713-integrate-pr-2792-main-verification.md",
+      "predecessor": "segment-sha256:53b0cc50668ac1f7eba695b7549966d736d2d247286c9c6971c0212d2fd7a7c0",
+      "bytes": 529,
+      "sha256": "3e63a731c152dc7f130a89063f72a0421c66e630b5e9fa78769d8c6520474936",
+      "evidence_path": "work/construction/evidence/0713-integrate-pr-2792-main-verification.json",
+      "evidence_bytes": 2155,
+      "evidence_sha256": "123b244f26d3169731ed08e4a3f87d8f9b40226b5b74f3eea9249fde79b6e8d3",
+      "source_commit": "81dbdf4dbd85011a9fb42729ea6db7f8bc88f715",
+      "source_tree": "fa1cd6ff980143840792a0b7a50d17a8c797ddaf"
+    },
+    {
+      "sequence": 714,
+      "path": "work/construction/segments/0714-reject-nonfinite-validation-budgets.md",
+      "predecessor": "segment-sha256:3e63a731c152dc7f130a89063f72a0421c66e630b5e9fa78769d8c6520474936",
+      "bytes": 829,
+      "sha256": "39f33d9054054ab695dde462fa2cbe9a06de58ceecfecf1a456b0a9bdc0a5cc2",
+      "evidence_path": "work/construction/evidence/0714-reject-nonfinite-validation-budgets.json",
+      "evidence_bytes": 1819,
+      "evidence_sha256": "55317b096fd822b0d8a1c4364f895098f6ca4deefd66642d8d5d0bbec8752561",
+      "source_commit": "81dbdf4dbd85011a9fb42729ea6db7f8bc88f715",
+      "source_tree": "01e9200db8f3c3302b5b564a9d1d92bcfe50bf5c"
+    }
+  ]
+}

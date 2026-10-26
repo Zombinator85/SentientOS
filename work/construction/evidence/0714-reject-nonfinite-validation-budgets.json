@@ -1,0 +1,42 @@
+{
+  "baseline": "The shared validation budget normalizer called math.isfinite on arbitrary-size integers; Python can raise OverflowError for values beyond finite float range instead of the documented ValueError.",
+  "change_paths": [
+    "sentientos/maintenance_validation_controller.py",
+    "tests/test_maintenance_validation_planner.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite or unrepresentable validation budgets",
+  "sequence": 714,
+  "source": {
+    "tested_code_only_tree": "01e9200db8f3c3302b5b564a9d1d92bcfe50bf5c",
+    "verified_main_commit": "81dbdf4dbd85011a9fb42729ea6db7f8bc88f715",
+    "verified_main_tree": "fa1cd6ff980143840792a0b7a50d17a8c797ddaf"
+  },
+  "validation": {
+    "continuation_custody_before_append": "construction_continuation_custody_ready through sequence 712",
+    "diff_check": "passed",
+    "documentation": "not_required_no_documentation_changes",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 5,
+      "selected": 5,
+      "skipped": 0
+    },
+    "full_module_tests": {
+      "failed": 0,
+      "passed": 10,
+      "selected": 10,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_maintenance_validation_planner.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "syntax_compilation": "passed",
+    "targeted_mypy": {
+      "baseline": "the same six findings were reproduced on verified main 81dbdf4dbd85011a9fb42729ea6db7f8bc88f715",
+      "candidate": "six existing no-any-return findings in unchanged functions"
+    },
+    "targeted_privilege_lint": "passed read-only for repository"
+  }
+}
