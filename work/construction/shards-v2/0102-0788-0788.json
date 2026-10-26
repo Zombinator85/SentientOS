@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 102,
+  "first_sequence": 788,
+  "last_sequence": 788,
+  "predecessor": "shard-sha256:b0fdb9ab9d3ef0bae10a610f6f7d24b6f86affb6e177f600a60b143ed2442948",
+  "segments": [
+    {
+      "sequence": 788,
+      "path": "work/construction/segments/0788-integrate-pr-2867-main-verification.md",
+      "predecessor": "segment-sha256:a02efd6146d7399255fe5c0f9788e8a6808889989ec90b6fc9b8b1bc95a58681",
+      "sha256": "6b691a20ce5a9f5b2494a5fdaf793ec54b92654c0421377f8a13144023d2e0cc",
+      "bytes": 769,
+      "evidence_path": "work/construction/evidence/0788-integrate-pr-2867-main-verification.json",
+      "evidence_sha256": "d18af5ebe9d8f5af39796717055a558053b7dce68d5faf64aa2aa63fe058f8c8",
+      "evidence_bytes": 2698,
+      "source_commit": "b6d9eb743d506c77789e96e061ab962e462eae50",
+      "source_tree": "7636df50f417bc34e4be22eb3d1f6f5b03f4e86e"
+    }
+  ]
+}
