@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 52,
+  "first_sequence": 738,
+  "last_sequence": 738,
+  "predecessor": "shard-sha256:e99035e51759f25743446031cd3a02e5d78861c726604c060e309a4602de5b95",
+  "segments": [
+    {
+      "sequence": 738,
+      "path": "work/construction/segments/0738-use-argv-finalizer-repo-state.md",
+      "predecessor": "segment-sha256:debf602fb4762934d7b007e1c7a6fdd79d90c8c89be95017df387177cc4f3ff0",
+      "bytes": 734,
+      "sha256": "9b2f6cb586ee6f358d30971fa82cd7f2787f87dccb6e168b836bccd60b321fac",
+      "evidence_path": "work/construction/evidence/0738-use-argv-finalizer-repo-state.json",
+      "evidence_bytes": 1478,
+      "evidence_sha256": "48ffdd891dc37cbc2e218b629629da245a524aa98c97be3248a97d8874943dac",
+      "source_commit": "f6ce2d8ab3d2d603f616dce5b847bd6470e313c9",
+      "source_tree": "5ab5b98b58f6c483801a6d5722bdb9641775d649"
+    }
+  ]
+}
