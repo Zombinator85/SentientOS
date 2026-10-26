@@ -1,0 +1,34 @@
+{
+  "change_paths": [
+    "scripts/codex_finalize_landing.py",
+    "tests/test_codex_finalize_landing_script.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "Run fixed finalizer git status and diff commands with argv and shell disabled.",
+  "sequence": 738,
+  "source": {
+    "tested_code_tree": "d8087dcb58babcc3e516299cc4a7434027378880",
+    "verified_main_commit": "f6ce2d8ab3d2d603f616dce5b847bd6470e313c9",
+    "verified_main_tree": "5ab5b98b58f6c483801a6d5722bdb9641775d649"
+  },
+  "validation": {
+    "compile": "passed for scripts/codex_finalize_landing.py and tests/test_codex_finalize_landing_script.py",
+    "continuation_custody": "construction_continuation_custody_ready through sequence 737",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 3,
+      "runner": "python -m scripts.run_tests -q -- -m legacy tests/test_codex_finalize_landing_script.py -k targeted argv cases",
+      "selected": 3
+    },
+    "full_legacy_test_file": {
+      "failed": 0,
+      "passed": 21,
+      "runner": "python -m scripts.run_tests -q -- -m legacy tests/test_codex_finalize_landing_script.py",
+      "selected": 21
+    },
+    "mypy_follow_imports_silent": "passed for scripts/codex_finalize_landing.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base"
+  }
+}

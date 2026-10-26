@@ -468,13 +468,29 @@ def _landing_supervisor_command(title: str | None, intended_commit_title: str | 
 
 
 def _git_status() -> list[str]:
-    p = subprocess.run("git status --short", shell=True, text=True, capture_output=True)
+    p = subprocess.run(
+        ["git", "status", "--short"], shell=False, text=True, capture_output=True
+    )
     return [l.rstrip() for l in p.stdout.splitlines() if l.strip()]
 
 
 def _git_tracked_changes() -> tuple[str, ...]:
-    p = subprocess.run("git diff --name-only --cached && git diff --name-only", shell=True, text=True, capture_output=True)
-    names = [line.strip() for line in p.stdout.splitlines() if line.strip()]
+    staged = subprocess.run(
+        ["git", "diff", "--name-only", "--cached"],
+        shell=False,
+        text=True,
+        capture_output=True,
+    )
+    output = staged.stdout
+    if staged.returncode == 0:
+        unstaged = subprocess.run(
+            ["git", "diff", "--name-only"],
+            shell=False,
+            text=True,
+            capture_output=True,
+        )
+        output += unstaged.stdout
+    names = [line.strip() for line in output.splitlines() if line.strip()]
     return tuple(sorted(set(names)))
 
 

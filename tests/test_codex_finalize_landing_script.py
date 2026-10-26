@@ -15,9 +15,60 @@ from scripts.codex_finalize_landing import (
     _collect_dirty_diagnostics,
     _infer_task_slugs,
     _is_safe_untracked_task_file,
+    _git_status,
+    _git_tracked_changes,
     build_parser,
     main,
 )
+
+
+def test_git_status_uses_argv_without_shell(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        calls.append((command, kwargs))
+        return type("Result", (), {"stdout": " M tracked.py\n?? new.py\n"})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    assert _git_status() == [" M tracked.py", "?? new.py"]
+    assert calls == [(
+        ["git", "status", "--short"],
+        {"shell": False, "text": True, "capture_output": True},
+    )]
+
+
+def test_git_tracked_changes_uses_separate_argv_calls_without_shell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+    outputs = ["staged.py\nshared.py\n", "unstaged.py\nshared.py\n"]
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        calls.append((command, kwargs))
+        return type("Result", (), {"stdout": outputs.pop(0), "returncode": 0})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    assert _git_tracked_changes() == ("shared.py", "staged.py", "unstaged.py")
+    assert calls == [
+        (["git", "diff", "--name-only", "--cached"],
+            {"shell": False, "text": True, "capture_output": True}),
+        (["git", "diff", "--name-only"],
+            {"shell": False, "text": True, "capture_output": True}),
+    ]
+
+
+def test_git_tracked_changes_stops_after_staged_diff_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        calls.append(command)
+        return type("Result", (), {"stdout": "partial.py\n", "returncode": 128})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    assert _git_tracked_changes() == ("partial.py",)
+    assert calls == [["git", "diff", "--name-only", "--cached"]]
 
 
 def test_parser_has_phase_and_changed_file() -> None:
