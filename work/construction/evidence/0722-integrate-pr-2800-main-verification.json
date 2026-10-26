@@ -1,0 +1,90 @@
+{
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "artifacts": {
+      "ci_test_run_provenance": [
+        12625154426,
+        410687,
+        "2f204f01db2c0d42972384c362cd9cc7ba3676e86cae43307a09e646eb6865f1"
+      ],
+      "exact_candidate_acceptance": [
+        12625729195,
+        7152,
+        "4b69f563317fc6a79bf2e10b37fea703cac58a6a6df9392148fc9247d4952475"
+      ],
+      "hosted_pr_landing_finalizer": [
+        12625818737,
+        37598,
+        "d320c6577ddddbb9900942f7de51f20e1ad2b3a8bd139948695aebd7510e1e73"
+      ],
+      "quality_gate_evidence": [
+        12625744027,
+        12577,
+        "c2501628d58b07334a2555204618a2cc2b4367330a8f0fce4eaec92d1b8c9a25"
+      ],
+      "source_validation": [
+        12626481213,
+        542037,
+        "f3639cfe73e5d78366df9679dfa2a3a6882c085dab5fb4bb8d1ed4b57cc48bb9"
+      ]
+    },
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "status": "no_workflow_runs_returned_for_merge_commit"
+    },
+    "pr_workflows": {
+      "ci": [
+        40265070993,
+        "success"
+      ],
+      "codex_ci": [
+        40265070885,
+        "success"
+      ],
+      "docker": [
+        40265070845,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40265070904,
+        "success"
+      ],
+      "invariants": [
+        40265070900,
+        "success"
+      ],
+      "lint_benchmark": [
+        40265070998,
+        "success"
+      ],
+      "quality_gate": [
+        40265489328,
+        "success"
+      ],
+      "release": [
+        40265070962,
+        "success"
+      ]
+    },
+    "pull_request": 2800,
+    "status": "merged",
+    "superseded_quality_gate_attempt": {
+      "conclusion": "failure",
+      "reason": "PR title did not match candidate commit subject; metadata preflight blocked before workspace reconstruction. PR title was corrected to the exact commit subject and the required Quality Gate reran successfully.",
+      "run_id": 40265070984
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2800",
+  "sequence": 722,
+  "source": {
+    "candidate_commit": "0c705212c89d761c78b0ad1d6fa0742c3f012d98",
+    "candidate_tree": "c73b87a7000661ff1f942bba84a42712cc6a4a49",
+    "merge_commit": "b5830dee3917a7b319d15b80d7e69da4361a61b1",
+    "merge_tree": "c73b87a7000661ff1f942bba84a42712cc6a4a49",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "b5830dee3917a7b319d15b80d7e69da4361a61b1",
+    "verified_remote_main_tree": "c73b87a7000661ff1f942bba84a42712cc6a4a49"
+  }
+}
