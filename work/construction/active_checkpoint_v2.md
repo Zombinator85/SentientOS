@@ -1,3 +1,18 @@
+# Recovery state - sequence 767
+
+PR #2846 merged as `cf4f4033aaccb2be9df5a0fb13e0dc4af1bc626c` with candidate tree `2027ea8f3a71df9887952c47c92be8e66acee7f1`. All eight PR workflows passed, including CI, docs/link check, source validation, and Quality Gate. GitHub readback verified all sequence 766 blobs on main. The connected workflow lookup returned no post-merge runs for the merge commit; none are claimed. Custody verified 766 predecessor sequences without failure. Local Git preflight remains unavailable due credential failure.
+
+Latest verified main: `cf4f4033aaccb2be9df5a0fb13e0dc4af1bc626c`, tree `2027ea8f3a71df9887952c47c92be8e66acee7f1`
+Latest construction segment: `work/construction/segments/0767-integrate-pr-2846-main-verification.md`
+Latest segment SHA-256: `7057c55704763483c721c8a5b09cdaa72ace6eb684a278373bd22b931846b4da`
+Sequence: 767
+Evidence: `work/construction/evidence/0767-integrate-pr-2846-main-verification.json`
+Evidence SHA-256: `9c689979cd72c768e5860b0e433a7682f76b58a7d1d3e9591b0cb37102f63d99`
+
+Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 766) ---
+
 # Recovery state - sequence 766
 
 PR #2845 merged as `0685b4bf4bb61ae1aaa5046791b42068a1adff3e` with candidate tree `aee223205984a9af046c35afb63ae2b67a181bd5`. All eight PR workflows passed. GitHub readback confirms the sequence 765 construction blobs on main; the connected workflow lookup returned no post-merge runs, so none are claimed. Construction custody verifies 765 predecessors without failure. Local Git preflight remains unavailable because credentials could not read the remote.
