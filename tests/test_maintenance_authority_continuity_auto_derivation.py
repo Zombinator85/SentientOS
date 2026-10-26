@@ -189,6 +189,18 @@ def test_configuration_is_closed_and_digest_bound(tmp_path: Path) -> None:
     value=disabled_config(tmp_path); value["repository_identity"]="changed"
     with pytest.raises(ValueError,match="digest"): auto.validate_config(value)
 
+
+@pytest.mark.parametrize("field", ["observation_interval_seconds", "shutdown_timeout_seconds"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), 10**400, -(10**400)])
+def test_configuration_rejects_nonfinite_or_unrepresentable_bounds(
+    tmp_path: Path, field: str, invalid: object
+) -> None:
+    value = disabled_config(tmp_path)
+    value[field] = invalid
+    value["config_digest"] = ""
+    with pytest.raises(ValueError, match="invalid_auto_derivation_bound"):
+        auto.validate_config(value)
+
 def test_controller_has_no_handoff_or_resident_code_surface() -> None:
     source=Path(auto.__file__).read_text(encoding="utf-8")
     for forbidden in ("import subprocess", "import requests", "os.exec", "os.system", ".handoff_once(", "wake_owner_factory"):

@@ -1,3 +1,18 @@
+# Recovery state - sequence 708
+
+PR #2789 post-merge verification is recorded in sequence 707 at verified main `1c9384f37e29bba8a481955c74c68c8760955c6d` / `9b94babbc3e9e4656d6d043e69b9025083e6f2e6`; the merge tree matches the candidate tree. Sequence 708 rejects non-finite and unrepresentable bounds in continuity auto-derivation; all ten focused regressions and all 21 tests in the affected module passed.
+
+Latest verified main: `1c9384f37e29bba8a481955c74c68c8760955c6d`, tree `9b94babbc3e9e4656d6d043e69b9025083e6f2e6`
+Latest construction segment: `work/construction/segments/0708-reject-nonfinite-auto-derivation-bounds.md`
+Latest segment SHA-256: `ded7d8aae11905fc6d58402c45b2e73213cb571a00a23bf0a491bba8d62ae2e6`
+Sequence: 708
+Evidence: `work/construction/evidence/0708-reject-nonfinite-auto-derivation-bounds.json`
+Evidence SHA-256: `9a183f026bcf35aa02f9fe6cd30548b962eae44d226a7e39a85b572900839aee`
+
+Recovery: run construction source preflight against freshly verified main, verify custody through 708, publish bounded shard 0025 through a normal PR, and preserve frozen v1 plus all prior v2 shard bytes.
+
+--- Previous checkpoint snapshot (sequence 706) ---
+
 # Recovery state - sequence 706
 
 PR #2788 main integration is recorded in sequence 705 at verified main `dea80feb2c6ec548eb39518d5190002f9a23edc8` / `c5aa9f3ce166f4b7d55608ae00f8c869f68e990b`. Sequence 706 rejects non-finite successor-generation adoption bounds; all eight focused tests and targeted static checks passed.
