@@ -1,3 +1,18 @@
+# Recovery state - sequence 761
+
+PR #2840 merged as `badf39380cb7b98ec8ec4872022ac56575ebd8ae` with candidate tree `f7fdb1937223882cbafcb1cc53879c9c61b32416`. The eight PR workflows passed. GitHub readback confirmed the exact v2 root, sequence 760 shard, evidence, segment, and checkpoint blob identities on main. The workflow lookup returned no post-merge runs for the merge commit; no post-merge checks are claimed. Construction custody verified 760 predecessor sequences with no failures. Local Git preflight remains blocked by unavailable credentials.
+
+Latest verified main: `badf39380cb7b98ec8ec4872022ac56575ebd8ae`, tree `f7fdb1937223882cbafcb1cc53879c9c61b32416`
+Latest construction segment: `work/construction/segments/0761-integrate-pr-2840-main-verification.md`
+Latest segment SHA-256: `eaf1c6b88bbd928a05a9ec0186c6224cbba43d5a37af52aa982c0f73e5a0e679`
+Sequence: 761
+Evidence: `work/construction/evidence/0761-integrate-pr-2840-main-verification.json`
+Evidence SHA-256: `20c918cc9ead4d792f892df1c8b048e14e1baa1c16fb00651878539e252dea3c`
+
+Recovery: continue from this verified main state and append bounded v2 shards. Preserve the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 760) ---
+
 # Recovery state - sequence 760
 
 PR #2839 merged at verified main `a8a7c68d831648d108c91daab50fb64cb95f3a49` / `eb00a81846e6ae329bcd2501045ed09d06625740` with exact candidate tree preserved. All eight PR workflows passed. On main, CI, Required Quality Gate, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was skipped by its condition. Construction custody verified all 759 predecessor sequences with no failures. GitHub API readback verified the exact remote main commit and tree; local Git source preflight could not read the remote because Git credentials were unavailable.
