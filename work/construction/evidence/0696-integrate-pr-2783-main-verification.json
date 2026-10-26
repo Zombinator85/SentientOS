@@ -1,0 +1,72 @@
+{
+  "construction_custody_before_batch_append": {
+    "segments_verified": 695,
+    "status": "construction_continuation_custody_ready"
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "ci_jobs": {
+      "Source validation (unprivileged)": "success",
+      "docs": "success",
+      "helm-k8s-test": "success",
+      "self-check": "success"
+    },
+    "post_merge": {
+      "ci": [
+        40248170599,
+        "success"
+      ],
+      "codex_ci": [
+        40248170627,
+        "success"
+      ],
+      "docker": [
+        40248170551,
+        "success"
+      ],
+      "docs_deploy": [
+        40248170721,
+        "success"
+      ],
+      "forge_smoke": [
+        40248170622,
+        "skipped"
+      ],
+      "invariants": [
+        40248170690,
+        "success"
+      ],
+      "nightly_self_check": [
+        40248170552,
+        "success"
+      ],
+      "quality_gate": [
+        40248170597,
+        "success",
+        12619786526,
+        12572,
+        "8eb577fdac186c989a95e6ac631e53d98b086b3f18735cddc3a8bdaa1dbc2669"
+      ]
+    },
+    "pr_workflows": "all eight applicable passed",
+    "pull_request": 2783,
+    "source_validation_artifact": [
+      12620016494,
+      541968,
+      "2c5afb91159e91b85f56bd89fbc0d29ea8b81d0e3a8524b6367d90bcdf51e6c1"
+    ],
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2783",
+  "sequence": 696,
+  "source": {
+    "candidate_commit": "1c2aa97690ad53417358fdcef98c9c73bd9af2fd",
+    "candidate_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb",
+    "merge_commit": "92dcdbbfe3e74071c85a790be2c410b3de00d300",
+    "merge_tree": "345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "92dcdbbfe3e74071c85a790be2c410b3de00d300"
+  }
+}

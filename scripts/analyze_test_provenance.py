@@ -42,8 +42,8 @@ class Thresholds:
 
 def _float_arg(value: str) -> float:
     parsed = float(value)
-    if parsed < 0:
-        raise argparse.ArgumentTypeError("value must be >= 0")
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("value must be finite and >= 0")
     return parsed
 
 
@@ -496,18 +496,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_FILE, help="Path to write trend report JSON.")
     parser.add_argument("--window-size", type=_int_arg, default=int(os.getenv("SENTIENTOS_PROVENANCE_WINDOW_SIZE", "20")))
-    parser.add_argument("--skip-delta", type=_float_arg, default=float(os.getenv("SENTIENTOS_PROVENANCE_SKIP_DELTA", "0.15")))
-    parser.add_argument("--xfail-delta", type=_float_arg, default=float(os.getenv("SENTIENTOS_PROVENANCE_XFAIL_DELTA", "0.10")))
+    parser.add_argument("--skip-delta", type=_float_arg, default=os.getenv("SENTIENTOS_PROVENANCE_SKIP_DELTA", "0.15"))
+    parser.add_argument("--xfail-delta", type=_float_arg, default=os.getenv("SENTIENTOS_PROVENANCE_XFAIL_DELTA", "0.10"))
     parser.add_argument(
         "--executed-drop",
         type=_float_arg,
-        default=float(os.getenv("SENTIENTOS_PROVENANCE_EXECUTED_DROP", "0.50")),
+        default=os.getenv("SENTIENTOS_PROVENANCE_EXECUTED_DROP", "0.50"),
         help="Relative drop threshold for executed tests (0.50 means 50%% drop).",
     )
     parser.add_argument(
         "--passed-drop",
         type=_float_arg,
-        default=float(os.getenv("SENTIENTOS_PROVENANCE_PASSED_DROP", "0.50")),
+        default=os.getenv("SENTIENTOS_PROVENANCE_PASSED_DROP", "0.50"),
         help="Relative drop threshold for passed tests (0.50 means 50%% drop).",
     )
     parser.add_argument(
@@ -518,19 +518,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--proof-p95-jump",
         type=_float_arg,
-        default=float(os.getenv("SENTIENTOS_PROVENANCE_PROOF_P95_JUMP", "1.5")),
+        default=os.getenv("SENTIENTOS_PROVENANCE_PROOF_P95_JUMP", "1.5"),
         help="Multiplier threshold for stage_b_evaluations p95 spike detection.",
     )
     parser.add_argument(
         "--escalation-cluster-rate",
         type=_float_arg,
-        default=float(os.getenv("SENTIENTOS_PROVENANCE_ESCALATION_CLUSTER_RATE", "0.5")),
+        default=os.getenv("SENTIENTOS_PROVENANCE_ESCALATION_CLUSTER_RATE", "0.5"),
         help="Minimum escalated fraction in the current window to emit escalation_cluster.",
     )
     parser.add_argument(
         "--admissible-collapse-delta",
         type=_float_arg,
-        default=float(os.getenv("SENTIENTOS_PROVENANCE_ADMISSIBLE_COLLAPSE_DELTA", "0.3")),
+        default=os.getenv("SENTIENTOS_PROVENANCE_ADMISSIBLE_COLLAPSE_DELTA", "0.3"),
         help="Minimum admissible-rate drop between prior/current windows to emit admissible_collapse.",
     )
     parser.add_argument(
