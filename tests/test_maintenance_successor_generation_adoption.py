@@ -144,6 +144,16 @@ def test_configuration_is_closed_and_digest_bound(tmp_path: Path) -> None:
         adoption.validate_config(value)
 
 
+@pytest.mark.parametrize("field", ["observation_delay_seconds", "shutdown_timeout_seconds"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), -(10**400)])
+def test_configuration_rejects_nonfinite_or_unrepresentable_bounds(tmp_path: Path, field: str, invalid: object) -> None:
+    value = disabled_config(tmp_path)
+    value[field] = invalid
+    value.pop("config_digest")
+    with pytest.raises(ValueError, match="invalid_successor_adoption_bound"):
+        adoption.validate_config(value)
+
+
 def test_controller_has_no_continuity_derivation_or_runtime_code_adoption() -> None:
     source = Path(adoption.__file__).read_text(encoding="utf-8")
     forbidden = ("derive_next(", "os.exec", "subprocess", "importlib", "git ", "requests")

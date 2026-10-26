@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import threading
 import time
@@ -91,7 +92,13 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("maximum_handoffs", "maximum_wall_clock_seconds"):
         if type(value[key]) is not int or value[key] < 1: raise ValueError("invalid_successor_adoption_bound")
     for key in ("observation_delay_seconds", "shutdown_timeout_seconds"):
-        if type(value[key]) not in (int, float) or value[key] <= 0: raise ValueError("invalid_successor_adoption_bound")
+        number = value[key]
+        if type(number) not in (int, float): raise ValueError("invalid_successor_adoption_bound")
+        try:
+            valid = math.isfinite(number) and float(number) > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid: raise ValueError("invalid_successor_adoption_bound")
     result = dict(value)
     expected = digest(result, "config_digest")
     if result.get("config_digest") not in (None, "", expected): raise ValueError("successor_adoption_config_digest_mismatch")

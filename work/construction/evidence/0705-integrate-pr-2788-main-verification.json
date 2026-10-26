@@ -1,0 +1,102 @@
+{
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "post_merge": {
+      "ci": [
+        40254787079,
+        "success"
+      ],
+      "ci_jobs": {
+        "Source validation (unprivileged)": "success",
+        "docs": "success",
+        "helm-k8s-test": "success",
+        "self-check": "success"
+      },
+      "codex_ci": [
+        40254787194,
+        "success"
+      ],
+      "docker": [
+        40254787166,
+        "success"
+      ],
+      "docs_deploy": [
+        40254787134,
+        "success"
+      ],
+      "forge_smoke": [
+        40254787169,
+        "skipped"
+      ],
+      "invariants": [
+        40254787128,
+        "success"
+      ],
+      "nightly_self_check": [
+        40254787109,
+        "success"
+      ],
+      "quality_gate": [
+        40254787097,
+        "success",
+        12622310812,
+        12572,
+        "247c5c1b89d841ba7371a9d41a33b8f75b249e0299ee48351d50c00707a3d46b"
+      ],
+      "source_validation_artifact": [
+        12622520840,
+        541972,
+        "123afdb38dc54f8ce10c8534c4216cfae5e133162269c4ce24e382688a1a112d"
+      ]
+    },
+    "pr_workflows": {
+      "ci": [
+        40254271028,
+        "success"
+      ],
+      "codex_ci": [
+        40254271769,
+        "success"
+      ],
+      "docker": [
+        40254271027,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40254271045,
+        "success"
+      ],
+      "invariants": [
+        40254271039,
+        "success"
+      ],
+      "lint_benchmark": [
+        40254271144,
+        "success"
+      ],
+      "quality_gate": [
+        40254271072,
+        "success"
+      ],
+      "release": [
+        40254271095,
+        "success",
+        "publish_skipped"
+      ]
+    },
+    "pull_request": 2788,
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge integration evidence for PR 2788",
+  "sequence": 705,
+  "source": {
+    "candidate_commit": "d843f92d3ee4e0e060d0dc8dbe87d81546527dbc",
+    "candidate_tree": "c5aa9f3ce166f4b7d55608ae00f8c869f68e990b",
+    "merge_commit": "dea80feb2c6ec548eb39518d5190002f9a23edc8",
+    "merge_tree": "c5aa9f3ce166f4b7d55608ae00f8c869f68e990b",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "dea80feb2c6ec548eb39518d5190002f9a23edc8"
+  }
+}
