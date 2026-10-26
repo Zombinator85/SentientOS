@@ -1,3 +1,18 @@
+# Recovery state - sequence 712
+
+PR #2791 post-merge verification is recorded in sequence 711 at verified main `44668bd35693c776c467e862c6c3d799df682b5c` / `00b1f381bd4735e5ddf2ab42c2b2f1968bfd4fbc`; the merge tree matches the exact candidate tree. Sequence 712 rejects non-finite initial POSIX commissioning count and time bounds; all 30 focused regressions and all 50 affected module tests passed.
+
+Latest verified main: `44668bd35693c776c467e862c6c3d799df682b5c`, tree `00b1f381bd4735e5ddf2ab42c2b2f1968bfd4fbc`
+Latest construction segment: `work/construction/segments/0712-reject-nonfinite-commissioning-bounds.md`
+Latest segment SHA-256: `53b0cc50668ac1f7eba695b7549966d736d2d247286c9c6971c0212d2fd7a7c0`
+Sequence: 712
+Evidence: `work/construction/evidence/0712-reject-nonfinite-commissioning-bounds.json`
+Evidence SHA-256: `5634b2a7032c6a2cfb254d7264502db4f1b42f5f1331536b528a76f8fb8f1959`
+
+Recovery: publish bounded shard 0027 through normal preflight and PR checks. Preserve frozen v1 and all earlier v2 shard bytes.
+
+--- Previous checkpoint snapshot (sequence 710) ---
+
 # Recovery state - sequence 710
 
 PR #2790 post-merge verification is recorded in sequence 709 at verified main `974e7c67db914a80ebe01f8cb5598699f3a6b7e0` / `088b42babe3c409d99b0ace8f78f977ae6ebf11d`; the merge tree matches the exact candidate tree. Sequence 710 rejects non-finite and unrepresentable resident-runtime adoption bounds. All 15 focused regressions and 46 unaffected module cases passed; one unrelated provenance test failure was reproduced on the verified base.

@@ -1,0 +1,39 @@
+{
+  "baseline": "The initial POSIX commissioning manifest accepted NaN/infinity and positive integers too large to convert to finite floats through simple positive comparisons.",
+  "change_paths": [
+    "sentientos/maintenance_initial_posix_resident_commissioning.py",
+    "tests/test_maintenance_initial_posix_resident_commissioning.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite initial POSIX resident commissioning bounds",
+  "sequence": 712,
+  "source": {
+    "tested_code_only_tree": "b2de30f0ad79f960888408dc4283ccbd0c4be3e5",
+    "verified_main_commit": "44668bd35693c776c467e862c6c3d799df682b5c",
+    "verified_main_tree": "00b1f381bd4735e5ddf2ab42c2b2f1968bfd4fbc"
+  },
+  "validation": {
+    "continuation_custody_before_append": "construction_continuation_custody_ready through sequence 710",
+    "diff_check": "passed",
+    "documentation": "not_required_no_documentation_changes",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 30,
+      "selected": 30,
+      "skipped": 0
+    },
+    "full_module_tests": {
+      "failed": 0,
+      "passed": 50,
+      "selected": 50,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_maintenance_initial_posix_resident_commissioning.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 1 source file",
+    "targeted_privilege_lint": "passed read-only for repository"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 27,
+  "first_sequence": 711,
+  "last_sequence": 712,
+  "predecessor": "shard-sha256:d12a48912811c5a32a09138a9e34c531d7c8e4bfdbb710581331039fbd65ac49",
+  "segments": [
+    {
+      "sequence": 711,
+      "path": "work/construction/segments/0711-integrate-pr-2791-main-verification.md",
+      "predecessor": "segment-sha256:624f064110bd30d7aaecdee8b375fe6c3e79df468a32f6e4485b428fea14bc62",
+      "bytes": 535,
+      "sha256": "1ad0e8f7b7bcdc079e32f03a59804b51c712bc2501c2efa6afdf098608e8782f",
+      "evidence_path": "work/construction/evidence/0711-integrate-pr-2791-main-verification.json",
+      "evidence_bytes": 2155,
+      "evidence_sha256": "14ad1d6035d470bd967018c300eeb7595b19ba8c7f3d803fac57ccc995938f8f",
+      "source_commit": "44668bd35693c776c467e862c6c3d799df682b5c",
+      "source_tree": "00b1f381bd4735e5ddf2ab42c2b2f1968bfd4fbc"
+    },
+    {
+      "sequence": 712,
+      "path": "work/construction/segments/0712-reject-nonfinite-commissioning-bounds.md",
+      "predecessor": "segment-sha256:1ad0e8f7b7bcdc079e32f03a59804b51c712bc2501c2efa6afdf098608e8782f",
+      "bytes": 746,
+      "sha256": "53b0cc50668ac1f7eba695b7549966d736d2d247286c9c6971c0212d2fd7a7c0",
+      "evidence_path": "work/construction/evidence/0712-reject-nonfinite-commissioning-bounds.json",
+      "evidence_bytes": 1682,
+      "evidence_sha256": "5634b2a7032c6a2cfb254d7264502db4f1b42f5f1331536b528a76f8fb8f1959",
+      "source_commit": "44668bd35693c776c467e862c6c3d799df682b5c",
+      "source_tree": "b2de30f0ad79f960888408dc4283ccbd0c4be3e5"
+    }
+  ]
+}
