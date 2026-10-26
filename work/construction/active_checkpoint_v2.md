@@ -1,3 +1,18 @@
+# Recovery state - sequence 760
+
+PR #2839 merged at verified main `a8a7c68d831648d108c91daab50fb64cb95f3a49` / `eb00a81846e6ae329bcd2501045ed09d06625740` with exact candidate tree preserved. All eight PR workflows passed. On main, CI, Required Quality Gate, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was skipped by its condition. Construction custody verified all 759 predecessor sequences with no failures. GitHub API readback verified the exact remote main commit and tree; local Git source preflight could not read the remote because Git credentials were unavailable.
+
+Latest verified main: `a8a7c68d831648d108c91daab50fb64cb95f3a49`, tree `eb00a81846e6ae329bcd2501045ed09d06625740`
+Latest construction segment: `work/construction/segments/0760-integrate-pr-2839-main-verification.md`
+Latest segment SHA-256: `143cd924ae338852ae297b09608f4981aa0311b4517ca3a9eed12e080edb053a`
+Sequence: 760
+Evidence: `work/construction/evidence/0760-integrate-pr-2839-main-verification.json`
+Evidence SHA-256: `8a73f8cb042d04fc031ec320c21493a5f2f91e5cdba2b038e9f0e9165514219e`
+
+Recovery: continue from freshly verified main and append only bounded v2 shards. Preserve the v1 anchor and every prior shard.
+
+--- Previous checkpoint snapshot (sequence 759) ---
+
 # Recovery state - sequence 759
 
 PR #2838 merged at verified main `94ee4036ad801935dd1c1c2ace111a052612b419` / `e1f04ac24a26dc717be0995d42a34dec5ae2fc46` with exact candidate tree preserved. All eight PR workflows passed. On main, CI, Required Quality Gate, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was skipped by its condition. Construction custody verified all 758 predecessor sequences with no failures.

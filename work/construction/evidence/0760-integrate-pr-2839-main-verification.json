@@ -1,0 +1,166 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 759
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "post_merge_status": "success_except_conditionally_skipped_forge_smoke",
+  "publication": {
+    "artifacts": {
+      "post_merge_main": {
+        "ci": {
+          "helm_test_provenance": [
+            12648723762,
+            399163,
+            "1148a67e0adbb1fd3e11b454ec6d71ed4a204dde2519dd7ae9aba3d13087a9db"
+          ],
+          "self_check_test_provenance": [
+            12648338515,
+            410673,
+            "347d706f456bf604760ab0649490a1e2f766d5a4489c92e0063a15be8c992c42"
+          ],
+          "source_validation": [
+            12648093824,
+            542025,
+            "67cee9c5436e29419c75705b93b826bdd1d7a30ae0b0906707bb93065fd2ed29"
+          ]
+        },
+        "quality_gate": {
+          "quality_gate_evidence": [
+            12648018691,
+            12578,
+            "ff212e8616e0d87973ab0b4fcbab21936ee08a7144be7b26ceaa8ee8eba52a00"
+          ]
+        }
+      },
+      "pr": {
+        "ci": {
+          "self_check_test_provenance": [
+            12649270173,
+            410666,
+            "3a5ee47756d02bbdaacd725f8fdc351eed28cf7aa67a7bbc0a8b4c1957333be6"
+          ],
+          "source_validation": [
+            12648547404,
+            542099,
+            "9d94d0a52800f1e29b7c5767f84de75b56d64404e575a41a3d6bfefd997c656e"
+          ]
+        },
+        "quality_gate": {
+          "exact_candidate_acceptance": [
+            12649265138,
+            7143,
+            "599182566c1e5a0642e1c4947a4dff5f466fe689b39120d6abb949b231a51322"
+          ],
+          "hosted_pr_landing_finalizer": [
+            12648847701,
+            37412,
+            "784e4e1322bbe68bffeadf2d32da064bea7c6f96681cceb9b0cfec74a314a48d"
+          ],
+          "quality_gate_evidence": [
+            12648772367,
+            12576,
+            "4bf2f843f29a86c7f4926c6a29aa55c17de01123d85910703645464509320076"
+          ]
+        }
+      }
+    },
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [
+        {
+          "conclusion": "success",
+          "run_id": 40320547793,
+          "workflow": "CI"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40320547624,
+          "workflow": "Required Quality Gate"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40320547695,
+          "workflow": "Codex CI"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40320547622,
+          "workflow": "Docker Image"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40320547642,
+          "workflow": "Invariant Tests"
+        },
+        {
+          "conclusion": "success",
+          "run_id": 40320547709,
+          "workflow": "Docs Deploy"
+        },
+        {
+          "conclusion": "skipped",
+          "run_id": 40320547696,
+          "workflow": "Forge Smoke"
+        }
+      ],
+      "status": "all_applicable_post_merge_runs_terminal"
+    },
+    "pr_workflows": {
+      "ci": [
+        40319937000,
+        "success"
+      ],
+      "codex_ci": [
+        40319936995,
+        "success"
+      ],
+      "docker": [
+        40319937002,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40319936944,
+        "success"
+      ],
+      "invariants": [
+        40319936989,
+        "success"
+      ],
+      "lint_benchmark": [
+        40319937046,
+        "success"
+      ],
+      "quality_gate": [
+        40319936983,
+        "success"
+      ],
+      "release": [
+        40319937130,
+        "success"
+      ]
+    },
+    "pull_request": 2839,
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2839",
+  "sequence": 760,
+  "source": {
+    "candidate_commit": "04c5a7ab2f47b557de0e24c77f5c94ae0648d8bf",
+    "candidate_tree": "eb00a81846e6ae329bcd2501045ed09d06625740",
+    "local_git_source_preflight": {
+      "detail": "could not read Username for https://github.com: No such device or address",
+      "local_tree_matches_verified_remote_main": true,
+      "reason": "git_credential_unavailable",
+      "remote_identity_verified_through": "authenticated GitHub integration",
+      "status": "remote_read_failed"
+    },
+    "merge_commit": "a8a7c68d831648d108c91daab50fb64cb95f3a49",
+    "merge_tree": "eb00a81846e6ae329bcd2501045ed09d06625740",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "a8a7c68d831648d108c91daab50fb64cb95f3a49",
+    "verified_remote_main_tree": "eb00a81846e6ae329bcd2501045ed09d06625740"
+  }
+}
