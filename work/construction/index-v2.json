@@ -1,20 +1,20 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint_v2.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b2190d03b664f14389c2762a88be9bebc0a77d62f500b135f7a4eb1ea4c1b22a",
-    "latest_segment_sequence": 803,
-    "latest_segment_sha256": "e6815e04daa992b4c55d0aae2568ea6966f90aaf1e7314e79f0221bc1244cecf",
+    "checkpoint_sha256": "c08d3ddc8c1f0696d48a963cb8afa52ea9b94dedeb670fc82165a5e74055fc3c",
+    "latest_segment_sequence": 804,
+    "latest_segment_sha256": "8458cd44dc693f0d0c8de66c0109b3c5ec3a6230cdee8e4816735aac11c0e31f",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
   },
-  "checkpoint_sha256": "b2190d03b664f14389c2762a88be9bebc0a77d62f500b135f7a4eb1ea4c1b22a",
+  "checkpoint_sha256": "c08d3ddc8c1f0696d48a963cb8afa52ea9b94dedeb670fc82165a5e74055fc3c",
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
     "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
     "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
     "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
-  "latest_sequence": 803,
+  "latest_sequence": 804,
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -1351,6 +1351,17 @@
       "sha256": "00819eb0e097f316a610cdaf51966e13eea1f420cc1585a9e3f531c2d77b9452",
       "git_blob_sha": "2014af8fe349a1d2842ab6e8a2a05d4ab1fa8ad4",
       "predecessor": "shard-sha256:33b990e0ac7561ad5c541fd95de801f72ed0fb00c8307a91a6de6c4bd977d20f"
+    },
+    {
+      "shard_sequence": 118,
+      "first_sequence": 804,
+      "last_sequence": 804,
+      "segment_count": 1,
+      "path": "work/construction/shards-v2/0118-0804-0804.json",
+      "bytes": 903,
+      "sha256": "06d8ffe11976c1f3041a4fc961c4af6576edaad4b68d2ef746fd25473e98018b",
+      "git_blob_sha": "dbb5077d0b3585ea566798c27c7baafd1d0d972b",
+      "predecessor": "shard-sha256:00819eb0e097f316a610cdaf51966e13eea1f420cc1585a9e3f531c2d77b9452"
     }
   ]
 }
