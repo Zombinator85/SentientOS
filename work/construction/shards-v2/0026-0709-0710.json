@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 26,
+  "first_sequence": 709,
+  "last_sequence": 710,
+  "predecessor": "shard-sha256:e0a6091a30bc654ae74e2881907091262233082219d79a424a6e66cbd8fbb216",
+  "segments": [
+    {
+      "sequence": 709,
+      "path": "work/construction/segments/0709-integrate-pr-2790-main-verification.md",
+      "predecessor": "segment-sha256:ded7d8aae11905fc6d58402c45b2e73213cb571a00a23bf0a491bba8d62ae2e6",
+      "bytes": 530,
+      "sha256": "15095aed8f34e99336b43debc3d2344907b2cc0a871704cb3b879e23d82e505e",
+      "evidence_path": "work/construction/evidence/0709-integrate-pr-2790-main-verification.json",
+      "evidence_bytes": 2155,
+      "evidence_sha256": "0d1fcba0a3bf55292a89347b99f04ad3bef72c1d89e7a0f4a53b9d751aaabbf9",
+      "source_commit": "974e7c67db914a80ebe01f8cb5598699f3a6b7e0",
+      "source_tree": "088b42babe3c409d99b0ace8f78f977ae6ebf11d"
+    },
+    {
+      "sequence": 710,
+      "path": "work/construction/segments/0710-reject-nonfinite-resident-adoption-bounds.md",
+      "predecessor": "segment-sha256:15095aed8f34e99336b43debc3d2344907b2cc0a871704cb3b879e23d82e505e",
+      "bytes": 905,
+      "sha256": "624f064110bd30d7aaecdee8b375fe6c3e79df468a32f6e4485b428fea14bc62",
+      "evidence_path": "work/construction/evidence/0710-reject-nonfinite-resident-adoption-bounds.json",
+      "evidence_bytes": 2334,
+      "evidence_sha256": "73d72ba3636a0331cf0e9badd1b447002e3fb97f2f88c7db1ce1a8a8ba398882",
+      "source_commit": "974e7c67db914a80ebe01f8cb5598699f3a6b7e0",
+      "source_tree": "12d2b0f0288211a88f0acac4cdb7dc42e376f394"
+    }
+  ]
+}

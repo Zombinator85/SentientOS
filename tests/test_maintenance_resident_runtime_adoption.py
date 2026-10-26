@@ -106,6 +106,19 @@ def test_config_consumes_canonical_digest_bindings(tmp_path: Path) -> None:
     with pytest.raises((ValueError, FileNotFoundError)): resident.validate_config(bad)
 
 
+@pytest.mark.parametrize("field", ["quiescence_timeout_seconds", "readiness_timeout_seconds", "maximum_wall_clock_seconds"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), 10**400, -(10**400)])
+def test_config_rejects_nonfinite_or_unrepresentable_bounds(
+    tmp_path: Path, field: str, invalid: object
+) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    candidate = dict(cfg)
+    candidate[field] = invalid
+    candidate["config_digest"] = resident.digest(candidate, "config_digest")
+    with pytest.raises(ValueError, match="invalid_resident_bound"):
+        resident.validate_config(candidate)
+
+
 def _disabled(cfg: dict[str, object]) -> dict[str, object]:
     value = dict(cfg)
     value["enabled"] = False
