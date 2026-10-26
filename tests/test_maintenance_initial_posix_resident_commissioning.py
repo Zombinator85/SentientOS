@@ -98,6 +98,19 @@ def test_repository_identity_mismatch_blocks(tmp_path: Path, field: str, value: 
     assert reason in commissioning.doctor(manifest)["reason_codes"]
 
 
+@pytest.mark.parametrize("field", ["maximum_handoffs", "maximum_successful_transitions", "maximum_wall_clock_seconds",
+                                    "quiescence_timeout_seconds", "readiness_timeout_seconds", "launch_timeout_seconds"])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), 10**400, -(10**400)])
+def test_manifest_rejects_nonfinite_or_unrepresentable_bounds(
+    tmp_path: Path, field: str, invalid: object
+) -> None:
+    manifest = fixture(tmp_path)
+    manifest[field] = invalid
+    manifest["manifest_digest"] = commissioning.digest(manifest, "manifest_digest")
+    with pytest.raises(commissioning.CommissioningError, match="invalid_commissioning_bound"):
+        commissioning.validate_manifest(manifest)
+
+
 def test_dirty_ambiguous_and_unsafe_custody_block(tmp_path: Path) -> None:
     manifest = fixture(tmp_path); repo = Path(str(manifest["repository_root"])); (repo / "dirty").write_text("x")
     assert "repository_dirty" in commissioning.doctor(manifest)["reason_codes"]; (repo / "dirty").unlink()

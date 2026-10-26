@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import stat
 import subprocess
@@ -111,7 +112,13 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
         raise CommissioningError("unbounded_initial_environment")
     for key in ("maximum_handoffs", "maximum_successful_transitions", "maximum_wall_clock_seconds",
                 "quiescence_timeout_seconds", "readiness_timeout_seconds", "launch_timeout_seconds"):
-        if type(m[key]) not in (int, float) or m[key] <= 0: raise CommissioningError("invalid_commissioning_bound")
+        number = m[key]
+        if type(number) not in (int, float): raise CommissioningError("invalid_commissioning_bound")
+        try:
+            valid = math.isfinite(number) and float(number) > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid: raise CommissioningError("invalid_commissioning_bound")
     return m
 
 
