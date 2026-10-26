@@ -1,3 +1,18 @@
+# Recovery state - sequence 706
+
+PR #2788 main integration is recorded in sequence 705 at verified main `dea80feb2c6ec548eb39518d5190002f9a23edc8` / `c5aa9f3ce166f4b7d55608ae00f8c869f68e990b`. Sequence 706 rejects non-finite successor-generation adoption bounds; all eight focused tests and targeted static checks passed.
+
+Latest verified main: `dea80feb2c6ec548eb39518d5190002f9a23edc8`, tree `c5aa9f3ce166f4b7d55608ae00f8c869f68e990b`
+Latest construction segment: `work/construction/segments/0706-reject-nonfinite-successor-adoption-bounds.md`
+Latest segment SHA-256: `55f5a7715bc8832dbe97166f05e877327e28317241b50f1765389bf8136d776a`
+Sequence: 706
+Evidence: `work/construction/evidence/0706-reject-nonfinite-successor-adoption-bounds.json`
+Evidence SHA-256: `9b0c2447cdfd737325f9727e6ab4bbb285614af94875c4afbc6099e9f122c06f`
+
+Recovery: publish the bounded 705-706 shard through normal source preflight and hosted PR validation. Preserve the frozen v1 anchor, original checkpoint snapshot, and all previous v2 shards.
+
+--- Previous checkpoint snapshot (sequence 704) ---
+
 # Recovery state - sequence 704
 
 PR #2787 main integration is recorded in sequence 703 at verified main `a64e4b32d8e36a66847b8e9b744f4652b9cb923c` / `6dbd470d86e17c1bded61b970b73abcf82ee9244`. Sequence 704 rejects non-finite and unrepresentable timeout/reentry bounds in maintenance scheduler and wake-daemon adoption. Twelve focused regressions pass. Three existing wake-daemon tests fail identically on this verified base and are recorded for follow-up.

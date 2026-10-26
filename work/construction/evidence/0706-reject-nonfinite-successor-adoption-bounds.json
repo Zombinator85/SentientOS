@@ -1,0 +1,31 @@
+{
+  "baseline": "positive numeric bounds were previously accepted without checking finiteness; extreme integers could fail during conversion rather than returning the documented bound error.",
+  "change_paths": [
+    "sentientos/maintenance_successor_generation_adoption.py",
+    "tests/test_maintenance_successor_generation_adoption.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite successor generation adoption bounds",
+  "sequence": 706,
+  "source": {
+    "tested_code_only_tree": "2e1a3be22c43cf81f2ba14ca61c3087632261163",
+    "verified_main_commit": "dea80feb2c6ec548eb39518d5190002f9a23edc8",
+    "verified_main_tree": "c5aa9f3ce166f4b7d55608ae00f8c869f68e990b"
+  },
+  "validation": {
+    "diff_check": "passed",
+    "documentation": "not_required_unchanged",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 8,
+      "selected": 8,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_maintenance_successor_generation_adoption.py -k nonfinite_or_unrepresentable",
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 1 source file",
+    "targeted_privilege_lint": "passed read-only for test_maintenance_successor_generation_adoption.py"
+  }
+}

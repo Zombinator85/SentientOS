@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 24,
+  "first_sequence": 705,
+  "last_sequence": 706,
+  "predecessor": "shard-sha256:9e35b085416d6f8b602ffa116e8718e2731fbbd8b9a454a37125a99e118baf0c",
+  "segments": [
+    {
+      "sequence": 705,
+      "path": "work/construction/segments/0705-integrate-pr-2788-main-verification.md",
+      "predecessor": "segment-sha256:5fad88542542eb24be73b71ff9077972dd32b4678728165e7b7936f917a275af",
+      "bytes": 724,
+      "sha256": "4313a0bcb1c602290c7b90728c6094fd0f1e8e658f5f2929caad6e23cce3555c",
+      "evidence_path": "work/construction/evidence/0705-integrate-pr-2788-main-verification.json",
+      "evidence_bytes": 2410,
+      "evidence_sha256": "184671745d5611ba4ac21306dd5ef2ca2adf3ba651c08da688032edd82307f96",
+      "source_commit": "dea80feb2c6ec548eb39518d5190002f9a23edc8",
+      "source_tree": "c5aa9f3ce166f4b7d55608ae00f8c869f68e990b"
+    },
+    {
+      "sequence": 706,
+      "path": "work/construction/segments/0706-reject-nonfinite-successor-adoption-bounds.md",
+      "predecessor": "segment-sha256:4313a0bcb1c602290c7b90728c6094fd0f1e8e658f5f2929caad6e23cce3555c",
+      "bytes": 704,
+      "sha256": "55f5a7715bc8832dbe97166f05e877327e28317241b50f1765389bf8136d776a",
+      "evidence_path": "work/construction/evidence/0706-reject-nonfinite-successor-adoption-bounds.json",
+      "evidence_bytes": 1433,
+      "evidence_sha256": "9b0c2447cdfd737325f9727e6ab4bbb285614af94875c4afbc6099e9f122c06f",
+      "source_commit": "dea80feb2c6ec548eb39518d5190002f9a23edc8",
+      "source_tree": "2e1a3be22c43cf81f2ba14ca61c3087632261163"
+    }
+  ]
+}
