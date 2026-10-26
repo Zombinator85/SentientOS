@@ -1,0 +1,89 @@
+{
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "artifacts": {
+      "ci": {
+        "source_validation": [
+          12627854602,
+          542026,
+          "65e5a9a6beff22333f91e3175cf68619ed7b2782102285d69623151b11413436"
+        ],
+        "test_run_provenance": [
+          12628164522,
+          410681,
+          "d3e35b3d1aaf9de3804e2a7e10ffade300c80b861e4927012e52e15e94796671"
+        ]
+      },
+      "quality_gate": {
+        "exact_candidate_acceptance": [
+          12628997783,
+          7156,
+          "a47f24ac5861f3df58d1d48b0c4b1021910e25db92fe1a81b9ccfa1811a03a04"
+        ],
+        "hosted_pr_landing_finalizer": [
+          12628773347,
+          37292,
+          "37cb7fe101cde1a7d5522c1168917ef6690e27e4955d323c7e6fd5a607db81b9"
+        ],
+        "quality_gate_evidence": [
+          12628957743,
+          12585,
+          "eeb2f161755c8f69aba802eb5ba8a80b5c68106de597e3b1fc277b08040c030b"
+        ]
+      }
+    },
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "status": "no_workflow_runs_returned_for_merge_commit"
+    },
+    "pr_workflows": {
+      "ci": [
+        40272000742,
+        "success"
+      ],
+      "codex_ci": [
+        40272000811,
+        "success"
+      ],
+      "docker": [
+        40272000750,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40272000816,
+        "success"
+      ],
+      "invariants": [
+        40272000746,
+        "success"
+      ],
+      "lint_benchmark": [
+        40272000764,
+        "success"
+      ],
+      "quality_gate": [
+        40272000983,
+        "success"
+      ],
+      "release": [
+        40272000642,
+        "success"
+      ]
+    },
+    "pull_request": 2810,
+    "status": "merged"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2810",
+  "sequence": 732,
+  "source": {
+    "candidate_commit": "c33257f282260c53235f468861787919917cb2a4",
+    "candidate_tree": "3c89a16844b6f646f631f0e34f4ca38c53cae706",
+    "merge_commit": "094acb113dfca988700d26c4e2c4592732ec9711",
+    "merge_tree": "3c89a16844b6f646f631f0e34f4ca38c53cae706",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "094acb113dfca988700d26c4e2c4592732ec9711",
+    "verified_remote_main_tree": "3c89a16844b6f646f631f0e34f4ca38c53cae706"
+  }
+}
