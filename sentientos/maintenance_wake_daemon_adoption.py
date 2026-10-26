@@ -12,6 +12,7 @@ from __future__ import annotations
 from sentientos.platform_fcntl import FLOCK_SUPPORTED, fcntl, require_flock
 import hashlib
 import json
+import math
 import os
 import stat
 import threading
@@ -90,7 +91,14 @@ def validate_adoption(value: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("cadence_interval_seconds", "maximum_cycles", "maximum_daemon_wall_clock_seconds"):
         if type(value.get(key)) is not int or int(value[key]) < 1:
             raise ValueError("invalid_wake_daemon_bound")
-    if type(value.get("shutdown_timeout_seconds")) not in (int, float) or float(value["shutdown_timeout_seconds"]) <= 0:
+    shutdown_timeout = value["shutdown_timeout_seconds"]
+    if type(shutdown_timeout) not in (int, float):
+        raise ValueError("invalid_wake_daemon_bound")
+    try:
+        valid_shutdown_timeout = math.isfinite(shutdown_timeout) and float(shutdown_timeout) > 0
+    except (OverflowError, ValueError):
+        valid_shutdown_timeout = False
+    if not valid_shutdown_timeout:
         raise ValueError("invalid_wake_daemon_bound")
     if value.get("initial_run_posture") not in {"immediate", "after_interval"}:
         raise ValueError("invalid_wake_daemon_adoption")

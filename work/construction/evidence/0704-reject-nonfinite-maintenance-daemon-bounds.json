@@ -1,0 +1,43 @@
+{
+  "baseline_test_comparison": {
+    "base_commit": "a64e4b32d8e36a66847b8e9b744f4652b9cb923c",
+    "command": "python -m scripts.run_tests -q tests/test_maintenance_scheduler_daemon.py tests/test_maintenance_wake_daemon_adoption.py",
+    "note": "These three existing failures reproduced unchanged on a clean worktree at verified base; the 12 new finite-bound regressions pass.",
+    "preexisting_failures": [
+      "tests/test_maintenance_wake_daemon_adoption.py::test_nested_component_drift_and_unmatched_or_corrupt_evidence_block",
+      "tests/test_maintenance_wake_daemon_adoption.py::test_owner_cooperative_shutdown_and_bounded_timeout",
+      "tests/test_maintenance_wake_daemon_adoption.py::test_platform_truth_is_posix_fcntl"
+    ],
+    "same_failures_on_unmodified_base": true
+  },
+  "change_paths": [
+    "sentientos/maintenance_scheduler_daemon.py",
+    "sentientos/maintenance_wake_daemon_adoption.py",
+    "tests/test_maintenance_scheduler_daemon.py",
+    "tests/test_maintenance_wake_daemon_adoption.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite maintenance daemon adoption bounds",
+  "sequence": 704,
+  "source": {
+    "tested_code_only_tree": "d37bd189a9f73b015f949fb75bed6c221dff8697",
+    "verified_main_commit": "a64e4b32d8e36a66847b8e9b744f4652b9cb923c",
+    "verified_main_tree": "6dbd470d86e17c1bded61b970b73abcf82ee9244"
+  },
+  "validation": {
+    "diff_check": "passed",
+    "documentation": "not_required_unchanged",
+    "focused_regressions": {
+      "failed": 0,
+      "passed": 12,
+      "runner": "python -m scripts.run_tests -q tests/test_maintenance_scheduler_daemon.py tests/test_maintenance_wake_daemon_adoption.py -k nonfinite_or_unrepresentable",
+      "selected": 12,
+      "skipped": 0
+    },
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 2 source files",
+    "targeted_privilege_lint": "passed read-only for both test files"
+  }
+}

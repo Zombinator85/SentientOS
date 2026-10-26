@@ -99,5 +99,12 @@ def test_first_boot_and_downstream_authority_fields_are_closed(tmp_path, monkeyp
         assert forbidden not in source
 
 
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf"), -(10**400)])
+def test_adoption_rejects_nonfinite_or_unrepresentable_shutdown_timeout(tmp_path, monkeypatch, invalid):
+    cfg, _, _ = configured(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="invalid_wake_daemon_bound"):
+        daemon.validate_adoption({**cfg, "shutdown_timeout_seconds": invalid})
+
+
 def test_platform_truth_is_posix_fcntl():
     assert os.name == "posix" and "import fcntl" in Path("sentientos/maintenance_wake_daemon_adoption.py").read_text()
