@@ -1,3 +1,18 @@
+# Recovery state - sequence 777
+
+PR #2856 merged as `e46d0ec8bc0211989e4248ec04d532aef88de7b6` with verified tree `47f3fbb60d5d0bfc022a8aaf23e572b33c3c2bd2`. All eight PR workflows passed. GitHub readback verified sequence 776 construction files on main. No post-merge workflow runs were returned; none are claimed. Custody verified 776 prior sequences. Local Git source preflight remains unavailable due credential failure.
+
+Latest verified main: `e46d0ec8bc0211989e4248ec04d532aef88de7b6`, tree `47f3fbb60d5d0bfc022a8aaf23e572b33c3c2bd2`
+Latest construction segment: `work/construction/segments/0777-integrate-pr-2856-main-verification.md`
+Latest segment SHA-256: `f735fe89c92faa35e0d02d91e7e1c222bbf7826dcdf225a9fab207268bc8be9a`
+Sequence: 777
+Evidence: `work/construction/evidence/0777-integrate-pr-2856-main-verification.json`
+Evidence SHA-256: `36f08c5d7d0eab7879297ed71e225dfd5941cb056a18f7348af73785551bf00e`
+
+Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 776) ---
+
 # Recovery state - sequence 776
 
 PR #2855 merged as `b91537b7dd4d31d8736248d6e815f8b08669ca27` with verified tree `37b750f455d3fa7e9476f3635aa925960a5e768f`. All eight PR workflows passed. GitHub readback verified sequence 775 construction files on main. No post-merge workflow runs were returned; none are claimed. Custody verified 775 prior sequences. Local Git source preflight remains unavailable due credential failure.
