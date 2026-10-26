@@ -1,3 +1,18 @@
+# Recovery state - sequence 695
+
+PR #2782 integrated sequence 693 at verified main `e7d479a5a7c02957127aba05d2d9f6560a10053f` / `4d1e3874114800829b0ae786d9fc0c61583351cd`. All eight applicable exact-head workflows and all seven applicable post-merge workflows passed; Forge Smoke was skipped by workflow condition. Sequence 694 records that integration. Sequence 695 makes router telemetry use the safe numeric validator, rejecting booleans, non-finite numbers, and overflowing values. Its tested code-only tree is `e7c80b1315f56ef5183d3c98bd76733c1126be7d`; two focused always-run regressions passed and targeted source mypy is clean.
+
+Latest verified main: `e7d479a5a7c02957127aba05d2d9f6560a10053f`, tree `4d1e3874114800829b0ae786d9fc0c61583351cd`
+Latest construction segment: `work/construction/segments/0695-reject-invalid-router-telemetry-numbers.md`
+Latest segment SHA-256: `4a5a75fd87ae76a50e6f130989f43bd61e9468e3bcf7709e00f73f43296f7cb7`
+Sequence: 695
+Evidence: `work/construction/evidence/0695-reject-invalid-router-telemetry-numbers.json`
+Evidence SHA-256: `644186f21cd08477a5daf460b6c7a4fef5f25475bf547a8530ad0d435fe16b15`
+
+Recovery: finish candidate custody/preflight for the bounded sequence 694–695 shard, then publish through standard hosted PR validation. Preserve the frozen v1 anchor and all preceding v2 shards.
+
+---
+
 # Recovery state - sequence 693
 
 PR #2781 integrated sequence 691 at verified main `4cb5b1bdd7c10b16da16ed969fe796a9c4219f53` / `742d0e0b30c1efb08b7994ab0be360a2992722ed`, with all eight applicable exact-head checks and all seven applicable post-merge workflows green; Forge Smoke was skipped by condition. Sequence 692 records that integration. Sequence 693 makes provenance trend metrics reject booleans, non-finite numbers, and overflowing integers. Its tested code-only tree is `a80f079479fa19609642af1e5f12f87aaccf6ea7`; the focused regression passed and targeted source mypy is clean.

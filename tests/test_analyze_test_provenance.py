@@ -182,6 +182,43 @@ def test_analyze_router_telemetry_flags_proof_burn_spike() -> None:
     assert report["metrics"]["stage_a_all_fail_rate"] == 1.0
 
 
+@pytest.mark.no_legacy_skip
+def test_analyze_router_telemetry_rejects_boolean_and_nonfinite_metrics() -> None:
+    runs = [
+        {
+            "timestamp": f"2026-01-01T00:00:0{idx}+00:00",
+            "run_intent": "default",
+            "validation_status": "validation_complete",
+            "validation_complete": True,
+            "tests_executed": 10,
+            "tests_passed": 10,
+            "router_telemetry": {
+                "stage_b_evaluations": True if idx == 0 else float("nan"),
+                "stage_a_valid_count": True if idx == 0 else float("inf"),
+                "escalated": False,
+                "router_status": "selected",
+            },
+        }
+        for idx in range(2)
+    ]
+
+    report = analyze(
+        runs,
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+    )
+
+    assert report["metrics"]["proof_spend_mean"] == 0.0
+    assert report["metrics"]["proof_spend_p95"] == 0.0
+    assert report["metrics"]["stage_a_all_fail_rate"] == 1.0
+
+
 def test_discover_inputs_ignores_latest_pointers(tmp_path: Path) -> None:
     snapshot_a = tmp_path / "20260101T000000Z_sha_deadbeef.json"
     snapshot_b = tmp_path / "20260101T010000Z_sha_beadfeed.json"

@@ -339,12 +339,12 @@ def analyze(
     latest_router = [item for item in (_extract_router_telemetry(run) for run in latest_runs) if item]
     prior_router = [item for item in (_extract_router_telemetry(run) for run in prior_runs) if item]
 
-    latest_proof_spend = [float(item.get("stage_b_evaluations", 0.0)) for item in latest_router]
-    prior_proof_spend = [float(item.get("stage_b_evaluations", 0.0)) for item in prior_router]
+    latest_proof_spend = [_safe_number(item, "stage_b_evaluations") for item in latest_router]
+    prior_proof_spend = [_safe_number(item, "stage_b_evaluations") for item in prior_router]
 
     latest_escalation_rate = _mean([1.0 if bool(item.get("escalated")) else 0.0 for item in latest_router])
     latest_stage_a_all_fail_rate = _mean(
-        [1.0 if float(item.get("stage_a_valid_count", 0.0)) <= 0.0 else 0.0 for item in latest_router]
+        [1.0 if _safe_number(item, "stage_a_valid_count") <= 0.0 else 0.0 for item in latest_router]
     )
     latest_admissible_rate = _mean(
         [1.0 if str(item.get("router_status", "")) == "selected" else 0.0 for item in latest_router]
