@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import stat
 import threading
@@ -77,7 +78,13 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("maximum_successful_derivations", "maximum_wall_clock_seconds"):
         if type(result[key]) is not int or result[key] < 1: raise ValueError("invalid_auto_derivation_bound")
     for key in ("observation_interval_seconds", "shutdown_timeout_seconds"):
-        if type(result[key]) not in (int, float) or result[key] <= 0: raise ValueError("invalid_auto_derivation_bound")
+        number = result[key]
+        if type(number) not in (int, float): raise ValueError("invalid_auto_derivation_bound")
+        try:
+            valid = math.isfinite(number) and float(number) > 0
+        except (OverflowError, ValueError):
+            valid = False
+        if not valid: raise ValueError("invalid_auto_derivation_bound")
     if not result["enabled"]: return result
     repo = Path(result["repository_root"]).resolve(strict=True)
     for key in ("state_root", "evidence_root"):

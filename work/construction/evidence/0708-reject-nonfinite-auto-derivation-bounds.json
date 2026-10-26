@@ -1,0 +1,43 @@
+{
+  "baseline": "The auto-derivation controller accepted NaN and infinities because a positive comparison does not reject NaN or positive infinity; very large positive integers could fail later when converted to float.",
+  "change_paths": [
+    "sentientos/maintenance_authority_continuity_auto_derivation.py",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py"
+  ],
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "reject non-finite continuity auto-derivation bounds",
+  "sequence": 708,
+  "source": {
+    "tested_code_only_tree": "8456dfd682bae883b41a3674a736e5fb062c53f7",
+    "verified_main_commit": "1c9384f37e29bba8a481955c74c68c8760955c6d",
+    "verified_main_tree": "9b94babbc3e9e4656d6d043e69b9025083e6f2e6"
+  },
+  "validation": {
+    "continuation_custody_before_append": "construction_continuation_custody_ready through sequence 706",
+    "diff_check": "passed",
+    "documentation": "not_required_no_documentation_changes",
+    "documentation_build": {
+      "generated_pages": 616,
+      "status": "passed"
+    },
+    "focused_tests": {
+      "failed": 0,
+      "passed": 10,
+      "selected": 10,
+      "skipped": 0
+    },
+    "full_module_tests": {
+      "failed": 0,
+      "passed": 21,
+      "selected": 21,
+      "skipped": 0
+    },
+    "runner": "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_auto_derivation.py",
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "syntax_compilation": "passed",
+    "targeted_mypy": "success: no issues found in 1 source file",
+    "targeted_privilege_lint": "passed read-only for repository"
+  }
+}

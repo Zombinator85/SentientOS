@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 25,
+  "first_sequence": 707,
+  "last_sequence": 708,
+  "predecessor": "shard-sha256:774d2d5a0c7d562ba6a8076f0fd6acf37dc1254c68afccbaa858e6362daa28d7",
+  "segments": [
+    {
+      "sequence": 707,
+      "path": "work/construction/segments/0707-integrate-pr-2789-main-verification.md",
+      "predecessor": "segment-sha256:55f5a7715bc8832dbe97166f05e877327e28317241b50f1765389bf8136d776a",
+      "bytes": 534,
+      "sha256": "75c8c1a988f470021b08da034a2877443e718b99686278c3937277f3b9b3051c",
+      "evidence_path": "work/construction/evidence/0707-integrate-pr-2789-main-verification.json",
+      "evidence_bytes": 1511,
+      "evidence_sha256": "3631f12c70fa893e0fd79e84344dd14ea97553a3f090bd69d0db5c3b48387e50",
+      "source_commit": "1c9384f37e29bba8a481955c74c68c8760955c6d",
+      "source_tree": "9b94babbc3e9e4656d6d043e69b9025083e6f2e6"
+    },
+    {
+      "sequence": 708,
+      "path": "work/construction/segments/0708-reject-nonfinite-auto-derivation-bounds.md",
+      "predecessor": "segment-sha256:75c8c1a988f470021b08da034a2877443e718b99686278c3937277f3b9b3051c",
+      "bytes": 807,
+      "sha256": "ded7d8aae11905fc6d58402c45b2e73213cb571a00a23bf0a491bba8d62ae2e6",
+      "evidence_path": "work/construction/evidence/0708-reject-nonfinite-auto-derivation-bounds.json",
+      "evidence_bytes": 1805,
+      "evidence_sha256": "9a183f026bcf35aa02f9fe6cd30548b962eae44d226a7e39a85b572900839aee",
+      "source_commit": "1c9384f37e29bba8a481955c74c68c8760955c6d",
+      "source_tree": "8456dfd682bae883b41a3674a736e5fb062c53f7"
+    }
+  ]
+}
