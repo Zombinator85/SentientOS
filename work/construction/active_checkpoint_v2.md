@@ -1,15 +1,23 @@
+# Recovery state - sequence 715
+
+PR #2793 merged at verified main `efab72d7d062d320e6982e9b3b6b3891d3d7db53` / `387a1645afe2b84023e6895dba272d56dee31c20`; the squash merge tree exactly matches candidate tree `387a1645afe2b84023e6895dba272d56dee31c20`. The bounded v2 custody chain retains the frozen v1 anchor and all earlier shard identities. All eight hosted PR workflows passed; no separate post-merge workflow runs were returned for the merge commit.
+
+Latest verified main: `efab72d7d062d320e6982e9b3b6b3891d3d7db53`, tree `387a1645afe2b84023e6895dba272d56dee31c20`
+Latest construction segment: `work/construction/segments/0715-integrate-pr-2793-main-verification.md`
+Latest segment SHA-256: `fdb4668568abc402013df78fe396eac6dcf6c77391e1b587b485353cc43b8023`
+Sequence: 715
+Evidence: `work/construction/evidence/0715-integrate-pr-2793-main-verification.json`
+Evidence SHA-256: `9b083f896a145629fdbb6f906f05377c58cb53216404761d975a3db214b8072d`
+
+Recovery: continue from fresh verified main and append new bounded v2 shards through the standard preflight and PR process. Preserve the frozen v1 index, checkpoint, and all existing shard bytes.
+
+--- Previous checkpoint snapshot (sequence 714) ---
+
 # Recovery state - sequence 714
 
-PR #2792 post-merge verification is recorded in sequence 713 at verified main `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715` / `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`; the merge tree matches the exact candidate tree. Sequence 714 makes the shared validation budget normalizer reject values outside its finite representable numeric range using the documented validation error. All five focused regressions and all ten planner tests passed.
-
-Latest verified main: `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715`, tree `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`
-Latest construction segment: `work/construction/segments/0714-reject-nonfinite-validation-budgets.md`
-Latest segment SHA-256: `39f33d9054054ab695dde462fa2cbe9a06de58ceecfecf1a456b0a9bdc0a5cc2`
-Sequence: 714
-Evidence: `work/construction/evidence/0714-reject-nonfinite-validation-budgets.json`
-Evidence SHA-256: `55317b096fd822b0d8a1c4364f895098f6ca4deefd66642d8d5d0bbec8752561`
-
-Recovery: publish bounded shard 0028 through normal preflight and PR checks. Preserve frozen v1 and all earlier v2 shard bytes.
+PR #2792 post-merge verification: main `81dbdf4dbd85011a9fb42729ea6db7f8bc88f715`, tree `fa1cd6ff980143840792a0b7a50d17a8c797ddaf`. Sequence 714 fixed overflow handling in the shared validation budget normalizer.
+Segment SHA-256: `39f33d9054054ab695dde462fa2cbe9a06de58ceecfecf1a456b0a9bdc0a5cc2`; evidence SHA-256: `55317b096fd822b0d8a1c4364f895098f6ca4deefd66642d8d5d0bbec8752561`.
+Code-only candidate tree: `01e9200db8f3c3302b5b564a9d1d92bcfe50bf5c`; focused tests 5 passed, planner module 10 passed.
 
 --- Previous checkpoint snapshot (sequence 712) ---
 
