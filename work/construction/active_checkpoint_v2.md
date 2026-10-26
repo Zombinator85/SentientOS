@@ -1,3 +1,18 @@
+# Recovery state - sequence 801
+
+PR #2880 merged as `97aa129fb9595df5c9ca90f9c84519f8c166c8ad` with verified tree `fa91ec405eba46dc276e564e63f18669c2f1f812`. All eight hosted workflows passed. GitHub readback verified sequence 800 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 800 prior sequences. Local source inspection could not load the verified remote main commit into this historical checkout; remote identity and tree were verified through the GitHub integration.
+
+Latest verified main: `97aa129fb9595df5c9ca90f9c84519f8c166c8ad`, tree `fa91ec405eba46dc276e564e63f18669c2f1f812`
+Latest construction segment: `work/construction/segments/0801-integrate-pr-2880-main-verification.md`
+Latest segment SHA-256: `abd397819c63c67f0f3120e6402f5eec090f08c1c3ff8f34a8eebd8c5bd770bc`
+Sequence: 801
+Evidence: `work/construction/evidence/0801-integrate-pr-2880-main-verification.json`
+Evidence SHA-256: `e24f78ae09f6e2c31756d69eecef4c8d292fdeddc615a2427a2a65ba5ffa0b0d`
+
+Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 794) ---
+
 # Recovery state - sequence 800
 
 PR #2879 merged as `b163f3dbf3794f668429db2055a6062bd6bcbdf3` with verified tree `2109af0c99bd12e4ac07a59fd0e6104ae33291df`. All eight hosted workflows passed. GitHub readback verified sequence 799 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 799 prior sequences. Local source inspection could not load the verified remote main commit into this historical checkout; remote identity and tree were verified through the GitHub integration.
