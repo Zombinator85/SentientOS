@@ -1,16 +1,19 @@
-# Recovery state - sequence 733
+# Recovery state - sequence 734
 
-Sequence 733 hardens the privileged CI self-check by using validated argument arrays and `shell=False`; focused tests pass 2/2. The standard local mypy invocation reported two unrelated unused-ignore diagnostics in `sentientos/admin_utils.py`; the changed script passes with imported modules suppressed.
+PR #2812 merged at verified main `04aff6c6c9aa89dbc94333b4e223f4eb1598b226` / `6bc42039803fdb3320a05e7f6ccfb2b7d7b45ed5` with exact candidate tree preserved. All eight hosted workflows passed; no post-merge workflow runs were returned.
 
-Latest verified main: `adfcad083829f0c960f3244379ccef8d701ff7db`, tree `cd9240aa8bd6184d00c84f34ddc5fdc9af561f17`
-Tested code-only tree: `a2045c483adba37107ecfcb1be734ba5433a4070`
-Latest construction segment: `work/construction/segments/0733-use-argv-ci-self-check-commands.md`
-Latest segment SHA-256: `4f673375e9d3bb3e2308256ab046788c9dcd1e9f9041e3ffe9d9d2ec1131118c`
-Sequence: 733
-Evidence: `work/construction/evidence/0733-use-argv-ci-self-check-commands.json`
-Evidence SHA-256: `e04bb605681ee6e188aee596b38621433634954d0c90c09916e7b07f5dbc1396`
+Latest verified main: `04aff6c6c9aa89dbc94333b4e223f4eb1598b226`, tree `6bc42039803fdb3320a05e7f6ccfb2b7d7b45ed5`
+Latest construction segment: `work/construction/segments/0734-integrate-pr-2812-main-verification.md`
+Latest segment SHA-256: `53595c208107469470b5c472f52dc0dc24d144081e0702442cf2016fab7e1d10`
+Sequence: 734
+Evidence: `work/construction/evidence/0734-integrate-pr-2812-main-verification.json`
+Evidence SHA-256: `dd133297a14f8dc73b08860dd574f02ed88d1069cc7453bd687168ec04afbcb4`
 
-Recovery: validate and publish this bounded argv-only change through normal hosted checks, then record post-merge evidence. Preserve the frozen v1 anchor and all v2 shards.
+Recovery: continue bounded v2 construction from freshly verified main. Preserve the frozen v1 anchor and all prior shards.
+
+--- Previous checkpoint snapshot (sequence 733) ---
+
+The argv-only CI self-check change is fully recorded in sequence 733 segment and evidence.
 
 --- Previous checkpoint snapshot (sequence 732) ---
 
