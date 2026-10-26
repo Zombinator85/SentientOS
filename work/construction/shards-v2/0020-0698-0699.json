@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 20,
+  "first_sequence": 698,
+  "last_sequence": 699,
+  "predecessor": "shard-sha256:5334df2013187f5d4fed62de13b4c4962c527d1e2d5bbe7e42495ddb876407b3",
+  "segments": [
+    {
+      "sequence": 698,
+      "path": "work/construction/segments/0698-integrate-pr-2784-main-verification.md",
+      "predecessor": "segment-sha256:12ba16c93606d55b7af48673af7f0a3c522e8abd92999d167bffc0b0b909bdd7",
+      "bytes": 778,
+      "sha256": "cf02105f07f873ee460622189e00cb41314ff6f7defe84481735bf3de353adf7",
+      "evidence_path": "work/construction/evidence/0698-integrate-pr-2784-main-verification.json",
+      "evidence_bytes": 2539,
+      "evidence_sha256": "dca0cab4aea734fd4b340ede8ccedc0bac8f10923f3b3dab2724794fe2369ee7",
+      "source_commit": "6c2ea68ffb470ad9add2b0a882fc25a7a65e8dd3",
+      "source_tree": "382b5c72302ca068432750692fdf969f6195775c"
+    },
+    {
+      "sequence": 699,
+      "path": "work/construction/segments/0699-reject-nonfinite-health-wait-limits.md",
+      "predecessor": "segment-sha256:cf02105f07f873ee460622189e00cb41314ff6f7defe84481735bf3de353adf7",
+      "bytes": 1067,
+      "sha256": "40d7e0bb545cdb7623ede456d1a01680e67a1bd32762f080f7b5933d4e8bb151",
+      "evidence_path": "work/construction/evidence/0699-reject-nonfinite-health-wait-limits.json",
+      "evidence_bytes": 1455,
+      "evidence_sha256": "6f93356d6331e9a1786ca3a84071389db58a6c04aa522f2397e6a74ce495f3d7",
+      "source_commit": "6c2ea68ffb470ad9add2b0a882fc25a7a65e8dd3",
+      "source_tree": "382b5c72302ca068432750692fdf969f6195775c"
+    }
+  ]
+}

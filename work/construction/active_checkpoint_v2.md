@@ -1,3 +1,18 @@
+# Recovery state - sequence 699
+
+PR #2784 integration was recorded in sequence 698 at verified main `6c2ea68ffb470ad9add2b0a882fc25a7a65e8dd3` / `382b5c72302ca068432750692fdf969f6195775c`. All applicable PR and post-merge workflows passed; Forge Smoke was skipped by condition. Sequence 699 rejects non-finite health wait limits in CLI arguments, environment defaults, and direct function inputs. Its tested code-only tree is `674c04a6c691885344b530cf904cb010edfffdd7`; all thirteen focused tests passed, and targeted mypy and privilege lint are clean.
+
+Latest verified main: `6c2ea68ffb470ad9add2b0a882fc25a7a65e8dd3`, tree `382b5c72302ca068432750692fdf969f6195775c`
+Latest construction segment: `work/construction/segments/0699-reject-nonfinite-health-wait-limits.md`
+Latest segment SHA-256: `40d7e0bb545cdb7623ede456d1a01680e67a1bd32762f080f7b5933d4e8bb151`
+Sequence: 699
+Evidence: `work/construction/evidence/0699-reject-nonfinite-health-wait-limits.json`
+Evidence SHA-256: `6f93356d6331e9a1786ca3a84071389db58a6c04aa522f2397e6a74ce495f3d7`
+
+Recovery: run source preflight for the staged sequence 698–699 candidate and publish through the standard hosted PR workflow. Preserve the frozen v1 anchor and all prior v2 shards.
+
+--- Previous checkpoint snapshot (sequence 697) ---
+
 # Recovery state - sequence 697
 
 PR #2783 integration was recorded in sequence 696 at verified main `92dcdbbfe3e74071c85a790be2c410b3de00d300` / `345a413f1bf2f6f8ddcc7b7b9647c358bf6649eb`. All applicable PR and post-merge checks passed; Forge Smoke was skipped by condition. Sequence 697 rejects non-finite provenance thresholds, including invalid environment defaults. The tested code-only tree is `c78f7ec5e1928e2cc563436292a2dd748c45f550`; six focused analyzer tests passed, eleven legacy-quarantined tests were skipped, and targeted mypy and privilege lint are clean.
