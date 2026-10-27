@@ -1,0 +1,84 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 879
+  },
+  "publication": {
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "commit": "d6159fa51febf04db9cb8edea512a5be86483123",
+      "status": "no_runs_returned_by_connected_workflow_lookup"
+    },
+    "pr_workflows": {
+      "ci": [
+        40529442583,
+        "success"
+      ],
+      "codex_ci": [
+        40529442637,
+        "success"
+      ],
+      "docker": [
+        40529442473,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40529442552,
+        "success"
+      ],
+      "invariants": [
+        40529442644,
+        "success"
+      ],
+      "lint_benchmark": [
+        40529442599,
+        "success"
+      ],
+      "quality_gate": [
+        40529442422,
+        "success"
+      ],
+      "release": [
+        40529442611,
+        "success"
+      ]
+    },
+    "pull_request": 2959,
+    "status": "merged",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "95e6295bc0212ce726a66f3cac8f73d4a69d26d5",
+      "evidence_0879": "3e980a1c22ac699a2424af4d28501f7cbafb2fb9",
+      "index_v3": "8ff66e7d3a72baabab59723df5b75ae3866d0674",
+      "shard_v3_0012": "38bc137a53d8e8eca70bd475f98c955691e2dbcc"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2959",
+  "segment": {
+    "bytes": 1142,
+    "path": "work/construction/segments/0880-integrate-pr-2959-main-verification.md",
+    "sha256": "180342a22283c9a6f0c24c91e4435be5ab9664eb09c0498be82eba70279b3936"
+  },
+  "sequence": 880,
+  "source": {
+    "candidate_commit": "6fdaadfceb8213459962eb333dea656cf4140db7",
+    "candidate_tree": "a18d4ba30c249667722206209a372b52c28c6737",
+    "merge_commit": "d6159fa51febf04db9cb8edea512a5be86483123",
+    "merge_tree": "a18d4ba30c249667722206209a372b52c28c6737",
+    "remote_ref_readback": {
+      "commit": "d6159fa51febf04db9cb8edea512a5be86483123",
+      "ref": "refs/heads/main"
+    },
+    "tree_matches_candidate": true,
+    "verified_remote_main": "d6159fa51febf04db9cb8edea512a5be86483123",
+    "verified_remote_main_tree": "a18d4ba30c249667722206209a372b52c28c6737"
+  },
+  "v3_head": {
+    "bytes": 1373,
+    "git_blob_sha": "8ff66e7d3a72baabab59723df5b75ae3866d0674",
+    "latest_sequence": 879,
+    "path": "work/construction/index-v3.json",
+    "shard_count": 12
+  }
+}
