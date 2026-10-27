@@ -2,7 +2,7 @@
   "custody": {
     "failures": [],
     "status": "construction_continuation_custody_ready",
-    "verified_segments_before_append": 863
+    "verified_segments_before_append": 865
   },
   "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
   "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",

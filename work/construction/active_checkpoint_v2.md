@@ -8,7 +8,7 @@ Latest construction segment: `work/construction/segments/0866-integrate-pr-2945-
 Latest segment SHA-256: `fa1ce616fde7996696a0eea2172cf6711b6c753f818007e0cb2c31918da15a6d`
 Sequence: 866
 Evidence: `work/construction/evidence/0866-integrate-pr-2945-main-verification.json`
-Evidence SHA-256: `879a9629d844fee9403baf3800af184801bb70cbd0164daf870e074acd99024c`
+Evidence SHA-256: `e81d60fe24a2b6e986e276d7bd38f608084e46c94477f6733123c8c1840833ec`
 
 Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
 
