@@ -46,11 +46,9 @@ predecessor.
 
 ## Publication boundary
 
-V3 is prepared locally against the last verified v2 main root. The locally
-verified sequence 868 candidate remains separate and unchanged. The previous
-platform denial applies to uploading the full `index-v2.json` blob for sequence
-868; it must not be bypassed. A v3 migration can be integrated only through the
-normal review process after the platform permits the exact new candidate,
-including its bounded `index-v3.json` head, predecessor shard, verifier, tests,
-and source-preflight changes. The exact index-v2 denial does not authorize a
-different v3 payload or destination action.
+The v3 migration and sequence 868 were integrated through PR #2948 after the
+platform evaluated that distinct candidate. The earlier rejection applied to
+the full `index-v2.json` upload; that payload was not retried. V3 now anchors to
+the immutable v2 root and appends bounded, predecessor-linked shards through
+the standard governed PR workflow. Future updates must preserve the exact v1
+and v2 history anchors, all prior v3 shards, and every custody predicate.
