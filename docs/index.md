@@ -11,6 +11,7 @@
 - [Roadmap and Research Trajectory](architecture/sentientos_trajectory_and_missing_organs.md) — deferred organs and research horizons.
 - [Reviewer Release Readiness](architecture/reviewer_release_readiness_index.md) — subsystem proof and historical landing evidence.
 - [Federation Health publication](federation_health_publication.md) — optional repository-scoped App configuration for unattended report PR checks.
+- [Construction continuation index v3](development/construction_continuation_v3.md) — constant-size head, immutable predecessor-linked shards, and migration/recovery rules.
 
 SentientOS aims to become a continuing, world-coupled developmental operating
 environment in which experience can affect later cognition, strategy, procedure,

@@ -5,8 +5,12 @@ import hashlib
 import json
 import re
 import stat
+import sys
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 MAX_INDEX_BYTES = 2 * 1024 * 1024
 MAX_CHECKPOINT_BYTES = 64 * 1024
@@ -17,6 +21,7 @@ MAX_SHARDS = 4096
 MAX_SHARD_BYTES = 128 * 1024
 MAX_SHARD_SEGMENTS = 64
 V2_SHARD_DIRECTORY = "work/construction/shards-v2"
+V3_INDEX_PATH = "work/construction/index-v3.json"
 _HEX40_RE = re.compile(r"^[0-9a-f]{40}$")
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -47,9 +52,11 @@ def _read_regular(root: Path, relative: str, *, limit: int) -> bytes:
 
 def verify_construction_continuation(root: Path) -> dict[str, Any]:
     root = root.resolve(strict=True)
+    v3_index = root / V3_INDEX_PATH
     v2_index = root / "work/construction/index-v2.json"
     index_path = (
-        "work/construction/index-v2.json"
+        V3_INDEX_PATH if v3_index.exists() or v3_index.is_symlink()
+        else "work/construction/index-v2.json"
         if v2_index.exists() or v2_index.is_symlink()
         else "work/construction/index.json"
     )
@@ -263,6 +270,9 @@ def materialize_index_segments(
 ) -> list[dict[str, Any]]:
     """Return ordered records only when the selected index schema verifies."""
     failures: list[str] = []
+    if index.get("schema_version") == 3:
+        from scripts.construction_index_v3 import materialize_v3_segments
+        return materialize_v3_segments(index, read)
     segments = _load_index_segments(index, read, failures)
     if index.get("schema_version") == 2:
         anchor = index.get("history_anchor")
@@ -295,9 +305,12 @@ def verify_continuation_reader(
     if (
         not isinstance(index, dict)
         or type(index.get("schema_version")) is not int
-        or index.get("schema_version") not in {1, 2}
+        or index.get("schema_version") not in {1, 2, 3}
     ):
         return {"status": "invalid", "failures": ["index_schema_invalid"]}
+    if index.get("schema_version") == 3:
+        from scripts.construction_index_v3 import verify_v3_reader
+        return verify_v3_reader(read, index_path, index_bytes, index)
 
     legacy = index.get("legacy_journal")
     if not isinstance(legacy, dict) or legacy.get("frozen") is not True:
