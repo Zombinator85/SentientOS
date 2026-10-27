@@ -1,0 +1,140 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2969 and hosted Quality Gate diagnostic repair",
+  "sequence": 890,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 889
+  },
+  "source": {
+    "candidate_commit": "38b0be679010635c9d205e7405d8ba0e5cb5ef21",
+    "candidate_tree": "b1531b044e8f8c8fb21e6eb073369f5712870737",
+    "merge_commit": "a381b65d275d458b871930f0c76091e2b633c7a2",
+    "merge_tree": "b1531b044e8f8c8fb21e6eb073369f5712870737",
+    "tree_matches_candidate": true,
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "a381b65d275d458b871930f0c76091e2b633c7a2"
+    },
+    "verified_remote_main": "a381b65d275d458b871930f0c76091e2b633c7a2",
+    "verified_remote_main_tree": "b1531b044e8f8c8fb21e6eb073369f5712870737"
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2969,
+      "state": "merged",
+      "merged_at": "2026-10-27T19:25:59Z",
+      "head_commit": "38b0be679010635c9d205e7405d8ba0e5cb5ef21",
+      "merge_commit": "a381b65d275d458b871930f0c76091e2b633c7a2"
+    },
+    "pr_workflows": {
+      "ci": [
+        40567696301,
+        "success"
+      ],
+      "codex_ci": [
+        40567696418,
+        "success"
+      ],
+      "docker": [
+        40567696407,
+        "success"
+      ],
+      "lint_benchmark": [
+        40567696281,
+        "success"
+      ],
+      "invariants": [
+        40567696288,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40567696346,
+        "success"
+      ],
+      "release": [
+        40567696594,
+        "success"
+      ],
+      "quality_gate": [
+        40567696336,
+        "success"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40569054029,
+        "success"
+      ],
+      "codex_ci": [
+        40569054122,
+        "success"
+      ],
+      "docker": [
+        40569054067,
+        "success"
+      ],
+      "quality_gate": [
+        40569054146,
+        "success"
+      ],
+      "docs_deploy": [
+        40569054510,
+        "success"
+      ],
+      "invariants": [
+        40569054375,
+        "success"
+      ],
+      "nightly_self_check": [
+        40569054105,
+        "success"
+      ],
+      "forge_smoke": [
+        40569054499,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "six_required_push_workflows_success; nightly_self_check_success; conditional_forge_smoke_skipped",
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "a381b65d275d458b871930f0c76091e2b633c7a2",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "b1531b044e8f8c8fb21e6eb073369f5712870737"
+    },
+    "verified_main_file_readbacks": {
+      "required_quality_gate_workflow": "360460e70c2e0c02a6e0a4c276e1e3d623a5a4b2",
+      "hosted_acceptance_workflow_tests": "73e50036ac7909761e6753ceff52901f9b811088",
+      "active_checkpoint_v3": "626e3e836709ca7880c9342da54150b12fd771e9",
+      "evidence_0889": "25517a51a0e1d506ad206ad6f968a9d5de6d7822",
+      "index_v3": "1efe4ef924f23a4d17ef739f2ae5378256b825e1",
+      "segment_0889": "2d8219d0b46b663fc557bce8d3eba59f8be9ac5b",
+      "shard_v3_0022": "ef55f1b7cb7e803a418c38dddff8f617626c1b6d"
+    }
+  },
+  "diagnostic_repair": {
+    "summary": "ERR trap now reports the caller failure line using BASH_LINENO[0] with LINENO fallback",
+    "administrator_authority_changed": false,
+    "root_assertion": "test \"$(sudo -n id -u)\" = \"0\"",
+    "local_regression_tests": {
+      "file": "tests/test_github_hosted_acceptance_workflows.py",
+      "passed": 58,
+      "failed": 0
+    },
+    "bash_reproduction": "reported=11 handler=5",
+    "hosted_required_quality_gate": "success"
+  },
+  "v3_head_before_append": {
+    "path": "work/construction/index-v3.json",
+    "bytes": 1373,
+    "git_blob_sha": "1efe4ef924f23a4d17ef739f2ae5378256b825e1",
+    "latest_sequence": 889,
+    "shard_count": 22
+  },
+  "segment": {
+    "path": "work/construction/segments/0890-integrate-pr-2969-main-verification.md",
+    "bytes": 1580,
+    "sha256": "f46048a8166b5577c322590fa0d0bb2c5a6fcb8944418125d6bf29f4e6deaa76"
+  }
+}
