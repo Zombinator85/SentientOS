@@ -1,17 +1,17 @@
-# Recovery state - sequence 853
+# Recovery state - sequence 854
 
-PR #2932 merged as `51c5cc2247a46395b58433ed8caf03e8d67e7501` with verified tree `9d8cbdae4dd72704ac84abe3c9f6dd4f893d15de`. All eight hosted workflows passed. GitHub readback verified sequence 852 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 852 prior sequences.
+PR #2933 merged as `5a089d1102b53ca33f651814f29eb38885f22b4e` with verified tree `8268cd7332dae28465b0c5fcb734c3f3375c8cd1`. All eight hosted workflows passed. GitHub readback verified sequence 853 construction files on main. The connected post-merge workflow lookup returned no runs; none are claimed. Custody verified 853 prior sequences.
 
-Latest verified main: `51c5cc2247a46395b58433ed8caf03e8d67e7501`, tree `9d8cbdae4dd72704ac84abe3c9f6dd4f893d15de`
+Latest verified main: `5a089d1102b53ca33f651814f29eb38885f22b4e`, tree `8268cd7332dae28465b0c5fcb734c3f3375c8cd1`
 Checkpoint binding origin: `1eff1c957da566652011112f6118bd1dc135f01e`, tree `3295e0565ea0a8a33902640e77fc719552b21197`
-Latest construction segment: `work/construction/segments/0853-integrate-pr-2932-main-verification.md`
-Latest segment SHA-256: `a3d2315168740b9091d8d706d8f34de424feb55681090ece24bf72c991a91404`
-Sequence: 853
-Evidence: `work/construction/evidence/0853-integrate-pr-2932-main-verification.json`
-Evidence SHA-256: `4c3b6319199b43aa5523f9485693743e11657fa7327162e71200b8edac56ca01`
+Latest construction segment: `work/construction/segments/0854-integrate-pr-2933-main-verification.md`
+Latest segment SHA-256: `d6bd0b2a45e17b0402742126568ec24a434097e7490bd2018d1b4b61a4688196`
+Sequence: 854
+Evidence: `work/construction/evidence/0854-integrate-pr-2933-main-verification.json`
+Evidence SHA-256: `0974ca2a84685b3d331b39f37db712f0f24d6cf6e31e0832630505fd9013cdb2`
 
 Recovery: continue from verified main and append bounded v2 shards while preserving the frozen v1 anchor and all prior shards.
 
---- Previous checkpoint snapshot (sequence 852) ---
+--- Previous checkpoint snapshot (sequence 853) ---
 
-PR #2931 post-merge verification is recorded in segment `work/construction/segments/0852-integrate-pr-2931-main-verification.md` and evidence `work/construction/evidence/0852-integrate-pr-2931-main-verification.json`.
+PR #2932 post-merge verification is recorded in segment `work/construction/segments/0853-integrate-pr-2932-main-verification.md` and evidence `work/construction/evidence/0853-integrate-pr-2932-main-verification.json`.
