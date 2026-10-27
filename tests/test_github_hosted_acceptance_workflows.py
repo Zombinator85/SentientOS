@@ -898,7 +898,10 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
         "- name: Reconstruct and verify exact hosted pre-commit state", 1
     )[1].split("- name: Complete hosted privileged PR landing finalization", 1)[0]
     assert "trap precommit_failure ERR" in precommit
+    assert 'local failure_line="${BASH_LINENO[0]:-$LINENO}"' in precommit
     assert "phase=%s line=%s exit=%s" in precommit
+    assert '"$PRECOMMIT_PHASE" "$failure_line" "$status"' in precommit
+    assert 'test "$(sudo -n id -u)" = "0"' in precommit
     for phase in (
         "workspace_reconstruction",
         "package_install",

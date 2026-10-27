@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 22,
+  "first_sequence": 889,
+  "last_sequence": 889,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000021-000000888-000000888.json",
+    "bytes": 1174,
+    "sha256": "d8d1f2ab3407de66b6e29859171eea64656249ecd774ebab29d5df6ede36f000",
+    "git_blob_sha": "945203c78600db73e137fc16b8dcf1fddeb8a2c7",
+    "shard_sequence": 21,
+    "first_sequence": 888,
+    "last_sequence": 888
+  },
+  "segments": [
+    {
+      "sequence": 889,
+      "path": "work/construction/segments/0889-fix-hosted-quality-gate-failure-line-reporting.md",
+      "predecessor": "segment-sha256:606d3a53f5f194db80d0cff4e84048f3b2fac479677e532cac913668238c139e",
+      "sha256": "82a6bc0b63151dc1b10e66f6894054518abfbd52e8cf10aae510b87de8f44845",
+      "bytes": 1165,
+      "evidence_path": "work/construction/evidence/0889-fix-hosted-quality-gate-failure-line-reporting.json",
+      "evidence_sha256": "2243f890d28f001ff42fe63cc8fa5de7d3d4f412010e9b90582b81b6899a05cd",
+      "evidence_bytes": 4499,
+      "source_commit": "402a2ae423d67113e70c64e841cf12f27d77d1d3",
+      "source_tree": "bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a"
+    }
+  ]
+}
