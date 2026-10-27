@@ -1,0 +1,132 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2964",
+  "sequence": 885,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 884
+  },
+  "source": {
+    "candidate_commit": "2037d1829e7828cbcd315834cc34d18c8a2ba882",
+    "candidate_tree": "319a105b01b00be9eb462cd833a2ad080bd31df1",
+    "merge_commit": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc",
+    "merge_tree": "319a105b01b00be9eb462cd833a2ad080bd31df1",
+    "tree_matches_candidate": true,
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc"
+    },
+    "verified_remote_main": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc",
+    "verified_remote_main_tree": "319a105b01b00be9eb462cd833a2ad080bd31df1"
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2964,
+      "state": "merged",
+      "merged_at": "2026-10-27T17:15:42Z",
+      "head_commit": "2037d1829e7828cbcd315834cc34d18c8a2ba882",
+      "merge_commit": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc"
+    },
+    "pr_workflows": {
+      "ci": [
+        40547707663,
+        "success"
+      ],
+      "codex_ci": [
+        40547707921,
+        "success"
+      ],
+      "docker": [
+        40547707869,
+        "success"
+      ],
+      "lint_benchmark": [
+        40547707859,
+        "success"
+      ],
+      "invariants": [
+        40547707956,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40547707606,
+        "success"
+      ],
+      "release": [
+        40547707709,
+        "success"
+      ],
+      "quality_gate": [
+        40548247012,
+        "success"
+      ],
+      "superseded_quality_gate": [
+        40547707781,
+        "failure"
+      ]
+    },
+    "post_merge_commit_workflow_lookup": {
+      "commit": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc",
+      "combined_statuses": [],
+      "status": "six_required_push_workflows_success; conditional_forge_smoke_skipped",
+      "workflows": {
+        "ci": [
+          40548893573,
+          "success"
+        ],
+        "codex_ci": [
+          40548893490,
+          "success"
+        ],
+        "docker": [
+          40548893403,
+          "success"
+        ],
+        "quality_gate": [
+          40548893555,
+          "success"
+        ],
+        "docs_deploy": [
+          40548893473,
+          "success"
+        ],
+        "invariants": [
+          40548893494,
+          "success"
+        ],
+        "forge_smoke": [
+          40548893352,
+          "skipped"
+        ]
+      },
+      "ci_documentation_build": "success",
+      "ci_documentation_linkcheck": "success"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "3ac460e9ca2e2602b4b76c7c9e0a77323ad980fc",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "319a105b01b00be9eb462cd833a2ad080bd31df1"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "7cad6fe11eb68704842018715732cf34306ab470",
+      "evidence_0884": "6a11b0153be751ab4d316fc0980cfe97e185011e",
+      "index_v3": "6de1fe370ef88b09fd609d868491b5a4adaf1e55",
+      "segment_0884": "795ab8e34e4592b4410b3e0665334479ead7149a",
+      "shard_v3_0017": "8f41dc9f76e20f9b328b8b740ba731f7f5166afd"
+    }
+  },
+  "v3_head_before_append": {
+    "path": "work/construction/index-v3.json",
+    "bytes": 1373,
+    "git_blob_sha": "6de1fe370ef88b09fd609d868491b5a4adaf1e55",
+    "latest_sequence": 884,
+    "shard_count": 17
+  },
+  "segment": {
+    "path": "work/construction/segments/0885-integrate-pr-2964-main-verification.md",
+    "bytes": 1737,
+    "sha256": "d97bb92ba276d5ea4ddccac711189c5e9b14506b458efe0801d3e1ad49a61f07"
+  }
+}
