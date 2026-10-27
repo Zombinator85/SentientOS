@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 6,
+  "first_sequence": 873,
+  "last_sequence": 873,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000005-000000872-000000872.json",
+    "bytes": 1172,
+    "sha256": "6cee8195f855ee7b77f44077b729386a2df968765532cf7052d17294b79ee66b",
+    "git_blob_sha": "ad0c30de3ea59004d681d255d5de0ee65d6da8f8",
+    "shard_sequence": 5,
+    "first_sequence": 872,
+    "last_sequence": 872
+  },
+  "segments": [
+    {
+      "sequence": 873,
+      "path": "work/construction/segments/0873-integrate-pr-2952-main-verification.md",
+      "predecessor": "segment-sha256:24b1bd957b4db3cd113518ede6262bc12ec6547c3e3d9d0596c6eea1c715f985",
+      "sha256": "76ba8fad6df7fb1225724291da03acb13dca5fd9591a640d72f79ebbae58a8e5",
+      "bytes": 1140,
+      "evidence_path": "work/construction/evidence/0873-integrate-pr-2952-main-verification.json",
+      "evidence_sha256": "bfcdba5f56765af40cf1f8277531d26ea451968f1051ee237cca396c8bbebabc",
+      "evidence_bytes": 2449,
+      "source_commit": "fd4282607432a9d5e625840491a94ea28a9fcb69",
+      "source_tree": "dacae62cb2ed99c50bbfc43ea88c65df4e7412dc"
+    }
+  ]
+}
