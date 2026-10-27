@@ -1,16 +1,16 @@
-# Recovery state - sequence 886
+# Recovery state - sequence 887
 
-PR #2965 merged as `b9bc7a68fd68d9d9ebce10efa719db793ce548b3` with verified tree `89b7697440702a1be4d2c3f6223458dc9d309d8c`. All eight exact-candidate PR workflows and all six required post-merge push workflows passed. CI documentation build and warnings-as-errors linkcheck passed; Forge Smoke was skipped by condition. Remote main and source preflight confirm this merge. Custody verified all 885 predecessor sequences before this append and verifies 886 after it.
+PR #2966 merged as `0ca25be2c8f48996f26deb771b508b229ec12a96` with verified tree `28605b92bc75d1fd6fef0ef049591020c5ed6f6b`. All eight exact-candidate PR workflows and all six required post-merge push workflows passed. Forge Smoke was skipped by condition. Remote main, blob readbacks, and source preflight confirm this merge. Custody verified all 886 predecessor sequences before this append and verifies 887 after it.
 
-Latest verified main: `b9bc7a68fd68d9d9ebce10efa719db793ce548b3`, tree `89b7697440702a1be4d2c3f6223458dc9d309d8c`
+Latest verified main: `0ca25be2c8f48996f26deb771b508b229ec12a96`, tree `28605b92bc75d1fd6fef0ef049591020c5ed6f6b`
 Checkpoint binding origin: `1eff1c957da566652011112f6118bd1dc135f01e`, tree `3295e0565ea0a8a33902640e77fc719552b21197`
-Latest construction segment: `work/construction/segments/0886-integrate-pr-2965-main-verification.md`
-Latest segment SHA-256: `db266f7b901dfc37853e500cc31a6850049253de18b577d48a139e07f9da64c2`
-Sequence: 886
-Evidence: `work/construction/evidence/0886-integrate-pr-2965-main-verification.json`
+Latest construction segment: `work/construction/segments/0887-integrate-pr-2966-main-verification.md`
+Latest segment SHA-256: `c52e338a1ac3f5946b1a8a570917f76f694c4e2ef30b8a2e25bcbe5ce0c1a1c7`
+Sequence: 887
+Evidence: `work/construction/evidence/0887-integrate-pr-2966-main-verification.json`
 
 Recovery: continue from verified main using `work/construction/index-v3.json`. Preserve the immutable v2 anchor, every predecessor-linked v3 shard, and prior segment, evidence, checkpoint, and provenance bindings. Append bounded shards and update only the constant-size head and active checkpoint.
 
---- Previous checkpoint snapshot (sequence 885) ---
+--- Previous checkpoint snapshot (sequence 886) ---
 
-PR #2964 post-merge verification is recorded in `work/construction/segments/0885-integrate-pr-2964-main-verification.md`.
+PR #2965 post-merge verification is recorded in `work/construction/segments/0886-integrate-pr-2965-main-verification.md`.
