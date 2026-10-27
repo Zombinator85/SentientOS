@@ -1,0 +1,144 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "correct hosted Quality Gate ERR trap source-line diagnostics without changing Administrator authority requirements",
+  "sequence": 889,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 888
+  },
+  "source": {
+    "candidate_commit": "ff948d14c140de708658f52a2c013acff5e85e2f",
+    "candidate_tree": "bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a",
+    "merge_commit": "402a2ae423d67113e70c64e841cf12f27d77d1d3",
+    "merge_tree": "bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a",
+    "tree_matches_candidate": true,
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "402a2ae423d67113e70c64e841cf12f27d77d1d3"
+    },
+    "verified_remote_main": "402a2ae423d67113e70c64e841cf12f27d77d1d3",
+    "verified_remote_main_tree": "bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a"
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2968,
+      "state": "merged",
+      "merged_at": "2026-10-27T19:09:16Z",
+      "head_commit": "ff948d14c140de708658f52a2c013acff5e85e2f",
+      "merge_commit": "402a2ae423d67113e70c64e841cf12f27d77d1d3"
+    },
+    "pr_workflows": {
+      "ci": [
+        40565756981,
+        "success"
+      ],
+      "codex_ci": [
+        40565756967,
+        "success"
+      ],
+      "docker": [
+        40565757095,
+        "success"
+      ],
+      "lint_benchmark": [
+        40565756936,
+        "success"
+      ],
+      "invariants": [
+        40565756916,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40565756689,
+        "success"
+      ],
+      "release": [
+        40565757235,
+        "success"
+      ],
+      "quality_gate": [
+        40565757082,
+        "success"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40566514454,
+        "success"
+      ],
+      "codex_ci": [
+        40566514537,
+        "success"
+      ],
+      "docker": [
+        40566514457,
+        "success"
+      ],
+      "quality_gate": [
+        40566514439,
+        "success"
+      ],
+      "docs_deploy": [
+        40566514540,
+        "success"
+      ],
+      "invariants": [
+        40566514545,
+        "success"
+      ],
+      "forge_smoke": [
+        40566514424,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "six_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "402a2ae423d67113e70c64e841cf12f27d77d1d3",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "320a5e4ccce81dbb77bd359d6e95ee9c4768572e",
+      "evidence_0888": "e5fd6f20b62537e4b6c4bd83acc82ff57899b8cb",
+      "index_v3": "72a828cb567a6fa1db095d92e12f8c4b9e196572",
+      "segment_0888": "429e037b716f13f8ab991eaaaad80387ac6b34e6",
+      "shard_v3_0021": "945203c78600db73e137fc16b8dcf1fddeb8a2c7"
+    }
+  },
+  "diagnostic_correction": {
+    "files": {
+      ".github/workflows/required-quality-gate.yml": {
+        "sha256": "1420d850021aa2958e6f731264d3a4866dd868a722f37ad1ff71f97338dbedd9",
+        "git_blob_sha": "360460e70c2e0c02a6e0a4c276e1e3d623a5a4b2"
+      },
+      "tests/test_github_hosted_acceptance_workflows.py": {
+        "sha256": "eb2a691c5c1045c804d893023e025d1667d8796a91c1798472c666c15cde820d",
+        "git_blob_sha": "73e50036ac7909761e6753ceff52901f9b811088"
+      }
+    },
+    "tested_patch_tree": "5d5f8c0306af4beabd1860941b8484a51876b288",
+    "behavior": "ERR handler reports BASH_LINENO[0] call-site line with LINENO fallback, rather than the handler-local line",
+    "bash_reproduction": "reported=11 handler=5",
+    "regression_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_github_hosted_acceptance_workflows.py",
+      "passed": 58,
+      "failed": 0
+    },
+    "administrator_authority_preserved": true,
+    "sudo_root_assertion": "test \"$(sudo -n id -u)\" = \"0\""
+  },
+  "v3_head_before_append": {
+    "path": "work/construction/index-v3.json",
+    "bytes": 1373,
+    "git_blob_sha": "72a828cb567a6fa1db095d92e12f8c4b9e196572",
+    "latest_sequence": 888,
+    "shard_count": 21
+  },
+  "segment": {
+    "path": "work/construction/segments/0889-fix-hosted-quality-gate-failure-line-reporting.md",
+    "bytes": 1165,
+    "sha256": "82a6bc0b63151dc1b10e66f6894054518abfbd52e8cf10aae510b87de8f44845"
+  }
+}

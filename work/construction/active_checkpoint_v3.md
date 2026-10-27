@@ -1,3 +1,18 @@
+# Recovery state - sequence 889
+
+PR #2968 merged as `402a2ae423d67113e70c64e841cf12f27d77d1d3` with verified tree `bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a`. All eight exact-candidate PR workflows and all six required post-merge push workflows passed; Forge Smoke was skipped by condition. Remote main and source preflight confirm this merge. Custody verified all 888 predecessor sequences before this append and verifies 889 after it. The next bounded engineering increment corrects hosted Quality Gate failure-line diagnostics while retaining the exact Administrator root assertion.
+
+Latest verified main: `402a2ae423d67113e70c64e841cf12f27d77d1d3`, tree `bad7e4e3d05a19731fd96155cd9f1c0759ec2b7a`
+Checkpoint binding origin: `1eff1c957da566652011112f6118bd1dc135f01e`, tree `3295e0565ea0a8a33902640e77fc719552b21197`
+Latest construction segment: `work/construction/segments/0889-fix-hosted-quality-gate-failure-line-reporting.md`
+Latest segment SHA-256: `82a6bc0b63151dc1b10e66f6894054518abfbd52e8cf10aae510b87de8f44845`
+Sequence: 889
+Evidence: `work/construction/evidence/0889-fix-hosted-quality-gate-failure-line-reporting.json`
+
+Recovery: continue from verified main using `work/construction/index-v3.json`. Preserve the immutable v2 anchor, every predecessor-linked v3 shard, and prior segment, evidence, checkpoint, and provenance bindings. Append bounded shards and update only the constant-size head and active checkpoint.
+
+--- Previous checkpoint snapshot (sequence 888) ---
+
 # Recovery state - sequence 888
 
 PR #2967 merged as `ea322c01227180f0f22ed93b00298f74a365eba2` with verified tree `3cc74f13d620587550dbd898fafd085742b17ec5`. All eight exact-candidate PR workflows and all six required post-merge push workflows passed; Forge Smoke was skipped by condition. Remote main and source preflight confirm this merge. Custody verified all 887 predecessor sequences before this append and verifies 888 after it.

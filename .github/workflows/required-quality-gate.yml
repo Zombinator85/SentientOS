@@ -190,8 +190,9 @@ jobs:
           PRECOMMIT_PHASE=preflight
           precommit_failure() {
             local status=$?
+            local failure_line="${BASH_LINENO[0]:-$LINENO}"
             printf '::error title=Pre-commit reconstruction failed::phase=%s line=%s exit=%s\n' \
-              "$PRECOMMIT_PHASE" "$LINENO" "$status"
+              "$PRECOMMIT_PHASE" "$failure_line" "$status"
             exit "$status"
           }
           trap precommit_failure ERR
