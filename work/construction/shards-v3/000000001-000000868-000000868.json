@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 1,
+  "first_sequence": 868,
+  "last_sequence": 868,
+  "predecessor": {
+    "kind": "v2-root",
+    "path": "work/construction/index-v2.json",
+    "sha256": "ce38d9b33abfe800253ad9a13165696c8e5a51ab2fac1cca7655cb49f8f2edcd",
+    "git_blob_sha": "e2f82d5971a25878818b88b2ae51d6e4e20d6fca",
+    "latest_sequence": 867,
+    "latest_segment_sha256": "d89bceebb6176ca2c6622ace37acbc22c86dd8e02204ee34d09a6b5a512eb850"
+  },
+  "segments": [
+    {
+      "sequence": 868,
+      "path": "work/construction/segments/0868-integrate-pr-2947-main-verification.md",
+      "predecessor": "segment-sha256:d89bceebb6176ca2c6622ace37acbc22c86dd8e02204ee34d09a6b5a512eb850",
+      "sha256": "1f257d4d8ce8e32a4a754b7fca6486ca62d719a1b3711ba9a76722b3293d06a3",
+      "bytes": 896,
+      "evidence_path": "work/construction/evidence/0868-integrate-pr-2947-main-verification.json",
+      "evidence_sha256": "ea4609f448c77ed747f294c6e72bff882682208679bc0a3d3741ce54d25ff56c",
+      "evidence_bytes": 2622,
+      "source_commit": "f6c923bbc354e4f1f6eebd50f2860b7f818dd28f",
+      "source_tree": "7148bcb1a1c08e7e2a6bc34d2e9b0e74186c7a3e"
+    }
+  ]
+}

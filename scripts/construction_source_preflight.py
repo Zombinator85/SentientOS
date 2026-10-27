@@ -29,6 +29,7 @@ MAX_CANDIDATE_FILES = 128
 MAX_CANDIDATE_FILE_BYTES = 2 * 1024 * 1024
 MAX_CANDIDATE_TOTAL_BYTES = 16 * 1024 * 1024
 V2_INDEX_PATH = "work/construction/index-v2.json"
+V3_INDEX_PATH = "work/construction/index-v3.json"
 
 
 class PreflightError(ValueError):
@@ -293,11 +294,13 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
         def read(path: str, limit: int) -> bytes:
             return _tree_blob(root, tree, path, limit)[1]
         old_index_path = (
-            V2_INDEX_PATH if _tree_has_path(root, parent, V2_INDEX_PATH)
+            V3_INDEX_PATH if _tree_has_path(root, parent, V3_INDEX_PATH)
+            else V2_INDEX_PATH if _tree_has_path(root, parent, V2_INDEX_PATH)
             else "work/construction/index.json"
         )
         new_index_path = (
-            V2_INDEX_PATH if _tree_has_path(root, tree, V2_INDEX_PATH)
+            V3_INDEX_PATH if _tree_has_path(root, tree, V3_INDEX_PATH)
+            else V2_INDEX_PATH if _tree_has_path(root, tree, V2_INDEX_PATH)
             else "work/construction/index.json"
         )
         custody = verify_continuation_reader(
@@ -308,7 +311,18 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
             old_index_path, MAX_CANDIDATE_FILE_BYTES)[1]
         old_index = json.loads(old_index_bytes)
         new_index = json.loads(read(new_index_path, MAX_CANDIDATE_FILE_BYTES))
-        if old_index.get("legacy_journal") != new_index.get("legacy_journal"):
+        def legacy_definition(index_doc: Mapping[str, Any], tree_ref: str) -> Any:
+            direct = index_doc.get("legacy_journal")
+            if index_doc.get("schema_version") == 3:
+                anchor_doc = index_doc.get("history_anchor")
+                if isinstance(anchor_doc, dict) and anchor_doc.get("path") == V2_INDEX_PATH:
+                    anchor_bytes = _tree_blob(root, tree_ref, V2_INDEX_PATH,
+                        MAX_CANDIDATE_FILE_BYTES)[1]
+                    return json.loads(anchor_bytes).get("legacy_journal")
+            return direct
+        old_legacy = legacy_definition(old_index, parent)
+        new_legacy = legacy_definition(new_index, tree)
+        if old_legacy != new_legacy:
             failures.append("frozen_journal_definition_changed")
         parent_read: Callable[[str, int], bytes] = (
             lambda path, limit: _tree_blob(root, parent, path, limit)[1]
@@ -349,12 +363,34 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
                 or new_shards[:len(old_shards)] != old_shards
             ):
                 failures.append("historical_shard_descriptors_changed_or_removed")
+        elif old_schema_is_int and old_schema == 2 and new_schema_is_int and new_schema == 3:
+            anchor = new_index.get("history_anchor")
+            expected_anchor = {
+                "path": V2_INDEX_PATH,
+                "bytes": len(old_index_bytes),
+                "sha256": hashlib.sha256(old_index_bytes).hexdigest(),
+                "git_blob_sha": _git_blob_sha(old_index_bytes),
+                "latest_sequence": len(old_segments),
+                "latest_segment_sha256": old_segments[-1]["sha256"] if old_segments else None,
+            }
+            if not isinstance(anchor, dict) or any(
+                anchor.get(key) != value for key, value in expected_anchor.items()
+            ):
+                failures.append("v3_history_anchor_does_not_match_parent_v2_root")
+            if new_index_path != V3_INDEX_PATH:
+                failures.append("v3_root_must_use_new_versioned_path")
+        elif old_schema_is_int and old_schema == 3 and new_schema_is_int and new_schema == 3:
+            if old_index.get("history_anchor") != new_index.get("history_anchor"):
+                failures.append("v3_history_anchor_changed")
+            if new_index_path != V3_INDEX_PATH:
+                failures.append("v3_root_path_changed")
         elif (
             not old_schema_is_int
-            or old_schema not in {1, 2}
+            or old_schema not in {1, 2, 3}
             or (old_schema == 2 and new_schema_is_int and new_schema == 1)
+            or (old_schema == 3 and new_schema_is_int and new_schema != 3)
             or not new_schema_is_int
-            or new_schema not in {1, 2}
+            or new_schema not in {1, 2, 3}
         ):
             failures.append("construction_index_schema_transition_invalid")
 
@@ -386,6 +422,14 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
                 for item in old_index.get("shards", [])
                 if isinstance(item, dict) and isinstance(item.get("path"), str)
             )
+        if old_schema == 2 and new_schema == 3:
+            immutable_paths.add(V2_INDEX_PATH)
+            if isinstance(old_index.get("active_checkpoint"), str):
+                immutable_paths.add(old_index["active_checkpoint"])
+        if old_schema == 3:
+            from scripts.construction_index_v3 import v3_shard_paths
+            immutable_paths.add(V2_INDEX_PATH)
+            immutable_paths.update(v3_shard_paths(old_index, parent_read))
         for path in immutable_paths:
             old_blob, _ = _tree_blob(root, parent, path, MAX_CANDIDATE_FILE_BYTES)
             if _tree_blob(root, tree, path, MAX_CANDIDATE_FILE_BYTES)[0] != old_blob:

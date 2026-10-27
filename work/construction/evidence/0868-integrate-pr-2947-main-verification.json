@@ -1,0 +1,82 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 867
+  },
+  "frozen_v1_checkpoint_git_blob_sha": "1ca5b6e5c9df6a022027f6496ad962b173279cd2",
+  "frozen_v1_index_git_blob_sha": "b7570cfb95603b9d8879be080cf4c25d3ee463c0",
+  "publication": {
+    "post_merge_commit_workflow_lookup": {
+      "combined_statuses": [],
+      "commit": "f6c923bbc354e4f1f6eebd50f2860b7f818dd28f",
+      "status": "no_runs_returned_by_connected_workflow_lookup"
+    },
+    "pr_workflows": {
+      "ci": [
+        40497500283,
+        "success"
+      ],
+      "codex_ci": [
+        40497500349,
+        "success"
+      ],
+      "docker": [
+        40497500229,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40497500326,
+        "success"
+      ],
+      "invariants": [
+        40497500191,
+        "success"
+      ],
+      "lint_benchmark": [
+        40497500243,
+        "success"
+      ],
+      "quality_gate": [
+        40497500165,
+        "success"
+      ],
+      "release": [
+        40497500226,
+        "success"
+      ]
+    },
+    "pull_request": 2947,
+    "status": "merged",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v2": "9810726d100116a110c7e6ce9be1d7a8aea8e86e",
+      "evidence_0867": "fc91063a8e96a48775d9ad8a4c1883ed2c991204",
+      "index_v2": "e2f82d5971a25878818b88b2ae51d6e4e20d6fca",
+      "segment_0867": "fac11d44cf47ff3129ebf8a0bc2551ec433f3d8f",
+      "shard_0181": "e5dd774f5c00f8106adfa84a47e5f5cc9a0ca9b0"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2947",
+  "segment": {
+    "bytes": 896,
+    "path": "work/construction/segments/0868-integrate-pr-2947-main-verification.md",
+    "sha256": "1f257d4d8ce8e32a4a754b7fca6486ca62d719a1b3711ba9a76722b3293d06a3"
+  },
+  "sequence": 868,
+  "source": {
+    "candidate_commit": "b85eba148f777399dfc1460c9362bb6b1f28a325",
+    "candidate_tree": "7148bcb1a1c08e7e2a6bc34d2e9b0e74186c7a3e",
+    "local_git_source_preflight": {
+      "local_tree_matches_verified_remote_main": true,
+      "remote_head": "f6c923bbc354e4f1f6eebd50f2860b7f818dd28f",
+      "remote_tree": "7148bcb1a1c08e7e2a6bc34d2e9b0e74186c7a3e",
+      "status": "correct_remote_and_local_base"
+    },
+    "merge_commit": "f6c923bbc354e4f1f6eebd50f2860b7f818dd28f",
+    "merge_tree": "7148bcb1a1c08e7e2a6bc34d2e9b0e74186c7a3e",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "f6c923bbc354e4f1f6eebd50f2860b7f818dd28f",
+    "verified_remote_main_tree": "7148bcb1a1c08e7e2a6bc34d2e9b0e74186c7a3e"
+  }
+}
