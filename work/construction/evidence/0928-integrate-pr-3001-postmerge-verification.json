@@ -1,0 +1,58 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 927
+  },
+  "publication": {
+    "docker_image_retry": {
+      "initial_failure": "GHCR returned HTTP 500 during image push",
+      "job_id": 123025008582,
+      "retry_status": "success",
+      "run_id": 40746885826
+    },
+    "exact_candidate_checks": {
+      "CI": 40744909877,
+      "Codex CI": 40744909427,
+      "Docker Image": 40744909348,
+      "Gradient null regression": 40744909354,
+      "Invariant Tests": 40744909580,
+      "Lint Benchmark": 40744909457,
+      "Release": 40744909731,
+      "Required Quality Gate": 40744909471
+    },
+    "merge_commit": "02424b569a27fb38d21725429a7c81babd86683c",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": 40746885964,
+      "Codex CI": 40746885830,
+      "Docker Image": 40746885826,
+      "Docs Deploy": 40746886035,
+      "Forge Smoke": {
+        "run_id": 40746886108,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": 40746885877,
+      "Required Quality Gate": 40746885876
+    },
+    "pull_request": 3001,
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "a4fa69a95849f5aebd422cef2725aef1e2d706e3",
+      "index_v3": "1a05a62bcb567c8bd9b83a7604b2aea622cd0898"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3001 merge and post-merge verification",
+  "sequence": 928,
+  "source": {
+    "candidate_commit": "43f809cf6e58bcec503d9d46ee69d087fadbadb1",
+    "candidate_tree": "136b056d7bf3f8c3918943087c9cba75e4509b85",
+    "remote_ref_readback": {
+      "commit": "02424b569a27fb38d21725429a7c81babd86683c",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "02424b569a27fb38d21725429a7c81babd86683c",
+    "verified_remote_main_tree": "136b056d7bf3f8c3918943087c9cba75e4509b85"
+  }
+}
