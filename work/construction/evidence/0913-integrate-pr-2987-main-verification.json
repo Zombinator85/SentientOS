@@ -1,0 +1,28 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 912
+  },
+  "publication": {
+    "exact_candidate_checks": "all required checks passed",
+    "merge_commit": "a4908951510ba4b8758a439e248f1026270324d1",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": "all applicable checks passed; Forge Smoke skipped by condition",
+    "pull_request": 2987,
+    "status": "merged_and_post_merge_verified"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 2987 merge and post-merge verification",
+  "sequence": 913,
+  "source": {
+    "candidate_commit": "a860851729094cb65662004026189739aac38bf2",
+    "candidate_tree": "0c61e962bdb7482b6976669fb29c5951a97da0d2",
+    "remote_ref_readback": {
+      "commit": "a4908951510ba4b8758a439e248f1026270324d1",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "a4908951510ba4b8758a439e248f1026270324d1",
+    "verified_remote_main_tree": "0c61e962bdb7482b6976669fb29c5951a97da0d2"
+  }
+}
