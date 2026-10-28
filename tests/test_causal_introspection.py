@@ -16,6 +16,7 @@ from sentientos.causal_introspection import (
     IntrospectionError,
     MappingMetadataProvider,
     OwnerObservation,
+    ProjectionConflict,
     ProviderRegistration,
     SemanticTraceDimension,
     build_projection,
@@ -24,6 +25,9 @@ from sentientos.causal_introspection import (
     MAX_SNAPSHOT_GENERATIONS,
     MAX_SNAPSHOT_CUSTODY_BYTES,
     _snapshot_capacity_error,
+    _digest,
+    _snapshot_payload,
+    validate_snapshot,
 )
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -145,6 +149,58 @@ def test_conflict_is_preserved_without_winner(tmp_path):
     assert diagnostic["payload"]["conflict_posture"] == "unresolved_no_winner_selected"
     assert diagnostic["payload"]["authority"] is False
     assert diagnostic["effect_claimed"] is False and diagnostic["effect_proven"] is False
+
+
+def test_snapshot_validation_recomputes_completion_and_conflict_claims(tmp_path):
+    class Broken:
+        provider_id = "broken"
+        def project(self, context):
+            raise RuntimeError("discarded")
+
+    partial_runtime = _runtime(tmp_path / "partial", (
+        ProviderRegistration("good", "model_serving", _provider("good", "model_serving")),
+        ProviderRegistration("bad", "runtime_supervision", Broken()),
+    ))
+    partial = partial_runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
+    forged_complete = replace(partial, completion_posture="complete", snapshot_id="", snapshot_digest="")
+    digest = _digest(_snapshot_payload(forged_complete))
+    forged_complete = replace(forged_complete,
+        snapshot_id=f"causal-introspection-{digest[:20]}", snapshot_digest=digest)
+    with pytest.raises(IntrospectionError, match="completion_posture"):
+        validate_snapshot(forged_complete)
+
+    complete_runtime = _runtime(tmp_path / "complete", (
+        ProviderRegistration("owner", "model_serving", _provider("owner", "model_serving")),
+    ))
+    complete = complete_runtime.capture(CaptureContext("other-tick", capture_posture="synthetic_test"))
+    forged_conflict = replace(complete,
+        conflicts=(ProjectionConflict("invented.conflict", ("unregistered-projection",)),),
+        snapshot_id="", snapshot_digest="")
+    digest = _digest(_snapshot_payload(forged_conflict))
+    forged_conflict = replace(forged_conflict,
+        snapshot_id=f"causal-introspection-{digest[:20]}", snapshot_digest=digest)
+    with pytest.raises(IntrospectionError, match="conflict_inventory"):
+        validate_snapshot(forged_conflict)
+
+
+def test_stale_provider_projection_is_retained_as_capture_failure(tmp_path):
+    class Stale:
+        provider_id = "stale"
+        def project(self, context):
+            stale_context = CaptureContext("older-tick", capture_posture=context.capture_posture)
+            return _provider("stale", "model_serving").project(stale_context)
+
+    runtime = _runtime(tmp_path, (
+        ProviderRegistration("stale", "model_serving", Stale()),
+    ))
+    snapshot = runtime.capture(CaptureContext("current-tick", capture_posture="synthetic_test"))
+    assert snapshot.capture_tick == "current-tick"
+    assert snapshot.projections == ()
+    assert snapshot.completion_posture == "partial"
+    assert len(snapshot.capture_findings) == 1
+    assert snapshot.capture_findings[0].error_code == "provider_projection_failed"
+    assert snapshot.capture_findings[0].error_class == "IntrospectionError"
+    assert runtime.world_state_records(before_generation=2)[0]["subject_kind"] == "snapshot_diagnostics"
 
 
 def test_partial_capture_preserves_successful_projection(tmp_path):

@@ -471,15 +471,43 @@ def _decode_snapshot(payload: Mapping[str, Any]) -> CausalIntrospectionSnapshot:
         current_truth=payload["current_truth"], schema_version=payload["schema_version"])
 
 
+def _projection_conflicts(
+        projections: Sequence[OwnerIntrospectionProjection]) -> tuple[ProjectionConflict, ...]:
+    """Derive conflicts from owner reports without selecting a winner."""
+    groups: dict[str, dict[str, list[str]]] = {}
+    for projection in projections:
+        for observation in projection.observations:
+            encoded = _canonical(observation.bounded_value).decode("ascii")
+            groups.setdefault(observation.observation_key, {}).setdefault(encoded, []).append(
+                projection.projection_id)
+    return tuple(ProjectionConflict(key, tuple(sorted(
+        projection_id for ids in values.values() for projection_id in ids)))
+        for key, values in sorted(groups.items()) if len(values) > 1)
+
+
 def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: CausalIntrospectionSnapshot | None = None) -> None:
-    if snapshot.authority or snapshot.current_truth or snapshot.generation < 1:
+    if (snapshot.schema_version != SCHEMA_VERSION or snapshot.authority is not False
+            or snapshot.current_truth is not False or type(snapshot.generation) is not int
+            or snapshot.generation < 1):
         raise IntrospectionError("invalid_snapshot_posture")
+    if (not isinstance(snapshot.capture_findings, tuple)
+            or any(not isinstance(item, CaptureFinding) for item in snapshot.capture_findings)
+            or len(snapshot.capture_findings) > MAX_PROJECTIONS + len(DOMAINS)):
+        raise IntrospectionError("snapshot_findings_invalid")
+    expected_completion = "partial" if snapshot.capture_findings else "complete"
+    if snapshot.completion_posture != expected_completion:
+        raise IntrospectionError("snapshot_completion_posture_mismatch")
     if tuple(item.projection_id for item in snapshot.projections) != snapshot.projection_ids:
         raise IntrospectionError("projection_inventory_mismatch")
     if tuple(item.projection_digest for item in snapshot.projections) != snapshot.projection_digests:
         raise IntrospectionError("projection_digest_inventory_mismatch")
     for projection in snapshot.projections:
         validate_projection(projection)
+        if projection.capture_tick != snapshot.capture_tick:
+            raise IntrospectionError("projection_capture_tick_mismatch")
+    if (not isinstance(snapshot.conflicts, tuple)
+            or snapshot.conflicts != _projection_conflicts(snapshot.projections)):
+        raise IntrospectionError("snapshot_conflict_inventory_mismatch")
     if predecessor is None:
         if snapshot.generation != 1 or snapshot.predecessor_snapshot_digest is not None:
             raise IntrospectionError("invalid_genesis_snapshot")
@@ -656,6 +684,8 @@ class CausalIntrospectionRuntime:
                 projection = registration.provider.project(context)
                 if projection.owner_id != registration.owner_id or projection.domain != registration.domain:
                     raise IntrospectionError("provider_registration_mismatch")
+                if projection.capture_tick != context.tick_id:
+                    raise IntrospectionError("provider_projection_tick_mismatch")
                 validate_projection(projection, capture_posture=context.capture_posture)
                 projections.append(projection)
             except Exception as exc:
@@ -704,13 +734,7 @@ class CausalIntrospectionRuntime:
 
     @staticmethod
     def _conflicts(projections: Sequence[OwnerIntrospectionProjection]) -> tuple[ProjectionConflict, ...]:
-        groups: dict[str, dict[str, list[str]]] = {}
-        for projection in projections:
-            for observation in projection.observations:
-                encoded = _canonical(observation.bounded_value).decode("ascii")
-                groups.setdefault(observation.observation_key, {}).setdefault(encoded, []).append(projection.projection_id)
-        return tuple(ProjectionConflict(key, tuple(sorted(pid for ids in values.values() for pid in ids)))
-            for key, values in sorted(groups.items()) if len(values) > 1)
+        return _projection_conflicts(projections)
 
     def prior_snapshot(self, *, before_generation: int) -> CausalIntrospectionSnapshot | None:
         eligible = [item for item in self.reconstruct() if item.generation < before_generation]
