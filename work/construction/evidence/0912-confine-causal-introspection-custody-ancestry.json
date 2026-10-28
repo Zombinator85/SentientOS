@@ -1,0 +1,51 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 910
+  },
+  "publication": {
+    "no_alternate_publication_route": true,
+    "normal_pr_workflow_required": true,
+    "status": "candidate_not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "a9b5864744e5cd1f8ce0b270629459ed170faa31"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded [untested] causal-introspection custody ancestry hardening",
+  "sequence": 912,
+  "source": {
+    "candidate_commit": "26d286a8b9e602b23fc3f98ff5ee242bb2e730c2",
+    "candidate_tree": "2a11ea79ae72042e8f05bc9e191c9f73a4239313",
+    "remote_ref_readback": {
+      "commit": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+    "verified_remote_main_tree": "ee0f2f5b3768011fbdc6129bd908a7d3fb679cf5"
+  },
+  "validation": {
+    "classification": "untested_construction_increment",
+    "diff_check": "passed",
+    "documentation_build": {
+      "command": "make docs",
+      "pages": 617,
+      "status": "passed"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_causal_introspection.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py",
+      "failed": 0,
+      "passed": 82,
+      "skipped": 0
+    },
+    "hosted_acceptance": "pending_exact_candidate_required_quality_gate_and_ci",
+    "local_administrator_audits": "not_run_under_documented_untested_construction_mode",
+    "targeted_mypy": "passed",
+    "task_acceptance": {
+      "manifest": "docs/development/causal_introspection_path_ancestry_task_acceptance.json",
+      "manifest_digest": "sha256:87742ad89eb731ad14f5018a7999d6e1c8f68e26517a1207dbeab093b9205309",
+      "status": "task_acceptance_ready"
+    }
+  }
+}
