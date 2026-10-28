@@ -901,7 +901,9 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'local failure_line="${BASH_LINENO[0]:-$LINENO}"' in precommit
     assert "phase=%s line=%s exit=%s" in precommit
     assert '"$PRECOMMIT_PHASE" "$failure_line" "$status"' in precommit
-    assert 'test "$(sudo -n id -u)" = "0"' in precommit
+    assert 'SUDO_PREFLIGHT_UID="$(/usr/bin/sudo -n /usr/bin/id -u)"' in precommit
+    assert 'test "$SUDO_PREFLIGHT_UID" = "0"' in precommit
+    assert 'Administrator preflight failed: sudo_path=/usr/bin/sudo runner_uid=%s\\n' in precommit
     for phase in (
         "workspace_reconstruction",
         "package_install",

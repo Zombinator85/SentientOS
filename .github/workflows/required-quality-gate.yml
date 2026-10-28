@@ -196,7 +196,13 @@ jobs:
             exit "$status"
           }
           trap precommit_failure ERR
-          test "$(sudo -n id -u)" = "0"
+          if ! SUDO_PREFLIGHT_UID="$(/usr/bin/sudo -n /usr/bin/id -u)"; then
+            printf 'Administrator preflight failed: sudo_path=/usr/bin/sudo runner_uid=%s\n' \
+              "$(/usr/bin/id -u)" >&2
+            exit 1
+          fi
+          printf 'Administrator preflight effective UID: %s\n' "$SUDO_PREFLIGHT_UID"
+          test "$SUDO_PREFLIGHT_UID" = "0"
           COMMIT_REF="${PR_HEAD_SHA:-$GITHUB_SHA}"
           COMMIT_TITLE="$(git log -1 --format=%s "$COMMIT_REF")"
           PR_TITLE="${PR_TITLE:-$COMMIT_TITLE}"
