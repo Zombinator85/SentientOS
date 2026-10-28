@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 
 import pytest
@@ -28,6 +29,7 @@ from sentientos.causal_introspection import (
     _digest,
     _snapshot_payload,
     validate_snapshot,
+    load_config,
 )
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -452,6 +454,41 @@ def test_group_or_world_writable_custody_root_is_rejected_on_posix(tmp_path):
     runtime.config.custody_root.chmod(0o770)
     with pytest.raises(IntrospectionError, match="custody_root_writable_by_other_users"):
         runtime.reconstruct()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative custody is POSIX-only")
+def test_custody_root_rejects_symlinked_ancestor(tmp_path):
+    target = tmp_path / "real"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    runtime = _runtime(tmp_path, ())
+    runtime.config = replace(runtime.config, custody_root=alias / "custody")
+
+    with pytest.raises(IntrospectionError, match="custody_root_invalid"):
+        runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
+
+    assert not (target / "custody").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-relative config reads are POSIX-only")
+def test_config_rejects_symlinked_parent_directory(tmp_path):
+    from sentientos.causal_introspection import SCHEMA_VERSION
+
+    real = tmp_path / "real"
+    real.mkdir()
+    config = real / "config.json"
+    config.write_text(json.dumps({
+        "schema": SCHEMA_VERSION, "enabled": True,
+        "custody_root": str(real / "custody"),
+        "world_state_consumption_enabled": False,
+        "enabled_domains": [], "required_domains": [],
+    }))
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    with pytest.raises(IntrospectionError, match="configuration_unavailable_or_invalid"):
+        load_config(alias / config.name)
 
 
 def test_reconstruction_rejects_canonical_unknown_snapshot_fields(tmp_path):

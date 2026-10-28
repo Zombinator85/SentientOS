@@ -96,6 +96,13 @@ owner evidence or an inconsistent summary valid. A partial provider failure
 retains successful projections but records only a bounded error class/code—never
 a traceback.
 
+On POSIX hosts with descriptor-relative filesystem APIs, config reads and
+snapshot custody walk absolute path components with `O_NOFOLLOW` and retain an
+open custody-directory descriptor for listing, reading, and immutable
+publication. This prevents a symlinked parent from redirecting custody between
+validation and use. Hosts without those APIs retain component checks and the
+existing file-level protections.
+
 During maintenance tick N, World-State is built first, then cognition,
 transition handling, epistemic development, longitudinal reconciliation, and
 other closures run. Introspection capture is the final closure. World-State

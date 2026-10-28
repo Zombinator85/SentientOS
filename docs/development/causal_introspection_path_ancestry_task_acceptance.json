@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_causal_introspection.py::test_custody_root_rejects_symlinked_ancestor",
+      "rationale": "Snapshot capture must fail closed if an ancestor of its custody root is a symlink."
+    },
+    {
+      "node_id": "tests/test_causal_introspection.py::test_config_rejects_symlinked_parent_directory",
+      "rationale": "Config loading must not traverse a symlinked parent directory."
+    },
+    {
+      "node_id": "tests/test_causal_introspection.py::test_common_projection_identity_and_reconstruction",
+      "rationale": "Descriptor-relative changes preserve successful immutable capture, reconstruction, and predecessor binding."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_introspection.py::test_common_projection_identity_and_reconstruction"
+  ]
+}
