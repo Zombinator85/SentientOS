@@ -1,0 +1,52 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 928
+  },
+  "publication": {
+    "exact_candidate_checks": {
+      "CI": 40748474476,
+      "Codex CI": 40748474708,
+      "Docker Image": 40748476150,
+      "Gradient null regression": 40748475091,
+      "Invariant Tests": 40748474385,
+      "Lint Benchmark": 40748474756,
+      "Release": 40748474398,
+      "Required Quality Gate": 40748474430
+    },
+    "merge_commit": "f4f98ad8a0bd5da635d6d7774dd2ef4574b5f27d",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": 40749218643,
+      "Codex CI": 40749218672,
+      "Docker Image": 40749218678,
+      "Docs Deploy": 40749218699,
+      "Forge Smoke": {
+        "run_id": 40749218681,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": 40749218714,
+      "Required Quality Gate": 40749218702
+    },
+    "pull_request": 3002,
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "a647da693a64f143c8f3ab75fa9e8d7fb8ed3064",
+      "index_v3": "8e64b5c77fc6e2ab1a073ef23e087bf336f2ca69"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3002 merge and post-merge verification",
+  "sequence": 929,
+  "source": {
+    "candidate_commit": "f640f19a38378f6a7f10dc523d4ccf3dcbede90e",
+    "candidate_tree": "6accbf79ce4508c7756905827f9abd15b702f5b7",
+    "remote_ref_readback": {
+      "commit": "f4f98ad8a0bd5da635d6d7774dd2ef4574b5f27d",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "f4f98ad8a0bd5da635d6d7774dd2ef4574b5f27d",
+    "verified_remote_main_tree": "6accbf79ce4508c7756905827f9abd15b702f5b7"
+  }
+}
