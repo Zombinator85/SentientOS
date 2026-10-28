@@ -1,0 +1,75 @@
+{
+  "behavior": {
+    "governance": "Administrator and privilege checks unchanged; minimal bootstrap never falls back to full capabilities",
+    "missing_harness_import": "an editable install no longer suppresses the canonical minimal bootstrap when a required harness import is missing",
+    "temporary_storage": "below 512 MiB system temp headroom selects ignored repository-local .codex-tmp; low headroom at both locations fails before pip"
+  },
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 916
+  },
+  "environment": {
+    "dependencies": "workspace-scoped venv installed through documented bootstrap procedures",
+    "existing_worktrees_preserved": true,
+    "managed_environment": "running_connected_policy_enforced",
+    "system_temp_observation": "100_percent_used_22_MiB_free",
+    "workspace_filesystem_observation": "51_percent_used_15_GiB_free"
+  },
+  "publication": {
+    "status": "local_candidate_unpublished",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "97cd5e9d56aa65a4461cea09c9a08cb769e3612d"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "prevent test bootstrap stalls from missing imports and exhausted system temporary storage",
+  "sequence": 917,
+  "source": {
+    "candidate_changes": [
+      ".gitignore",
+      "scripts/run_tests.py",
+      "tests/test_run_tests_bootstrap_airlock.py",
+      "tests/test_canonical_test_airlock_dependencies.py",
+      "docs/development/dependency_bootstrap_contract.md",
+      "docs/development/run_tests_missing_import_bootstrap_task_acceptance.json"
+    ],
+    "remote_ref_readback": {
+      "commit": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+      "ref": "refs/heads/main"
+    },
+    "source_preflight": "valid_unpublished_changes_on_correct_base",
+    "verified_remote_main": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+    "verified_remote_main_tree": "41047eea22b7422b47bdfb16bfa8aae51475be99"
+  },
+  "validation": {
+    "custody_verification": "construction_continuation_custody_ready_through_916",
+    "diff_check": "passed",
+    "documentation_build": {
+      "command": "make docs",
+      "pages": 617,
+      "status": "success"
+    },
+    "focused_command": "python -m scripts.run_tests -q tests/test_run_tests_bootstrap_airlock.py tests/test_canonical_test_airlock_dependencies.py tests/test_run_tests_behavioral_witnesses.py tests/test_run_tests_reporter_resilience.py tests/test_run_tests_failure_digest.py tests/test_run_tests_harness_normalization.py",
+    "ruff": "not installed in the workspace test/docs dependency set; hosted lint gate required",
+    "targeted_mypy": "one pre-existing Path | None unlink error remains; no other errors reported",
+    "task_acceptance": {
+      "artifact_path": "work/construction/evidence/0917-task-acceptance-result.json",
+      "artifact_sha256": "d2ea54dc84cf7308a93dfdde6aeb7dd1a5fda90f99ad4e34520f14f809c159e7",
+      "manifest_path": "docs/development/run_tests_missing_import_bootstrap_task_acceptance.json",
+      "manifest_sha256": "364d6dfaaa77968956230402f02a57e68a3355480a22585c9d053bc99aaed065",
+      "repository_sha": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+      "status": "task_acceptance_ready"
+    },
+    "tests": {
+      "collected": 23,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 20,
+      "provenance_artifact_path": "work/construction/evidence/0917-test-run-provenance.json",
+      "provenance_run_id": "92d3ad30255f4a29b1ec2e272518d0bf",
+      "provenance_sha256": "5de059ff59a389336d7fc1190207d6d638226ea31553fd0afd4e6ba094cb2d5a",
+      "skipped": 3
+    }
+  }
+}

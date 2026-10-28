@@ -50,7 +50,7 @@ def test_runner_probes_jinja2_and_keeps_full_explicit(monkeypatch: pytest.Monkey
     assert run_tests.CANONICAL_REQUIREMENTS_PATH == "requirements-codex.txt"
     calls: list[list[str]] = []
     monkeypatch.delenv(run_tests.FULL_INSTALL_ENV, raising=False)
-    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args: calls.append(args) or True)
+    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args, **_: calls.append(args) or True)
     result = run_tests._bootstrap_missing_editable("default")
     assert result.install_mode == run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL
     assert calls == [["--no-deps", "-e", "."], ["--only-binary=:all:", "-r", "requirements-codex.txt"]]
@@ -64,7 +64,7 @@ def test_runner_probes_jinja2_and_keeps_full_explicit(monkeypatch: pytest.Monkey
 def test_minimal_install_failure_never_falls_back_to_full(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.delenv(run_tests.FULL_INSTALL_ENV, raising=False)
-    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args: calls.append(args) or False)
+    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args, **_: calls.append(args) or False)
     result = run_tests._bootstrap_missing_editable("default")
     assert not result.ok
     assert result.attempted_modes == (run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL,)

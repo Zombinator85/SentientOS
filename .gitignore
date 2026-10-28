@@ -38,6 +38,7 @@ logs/*.jsonl
 !logs/federation_stream.jsonl
 site/
 .codex_sandbox/
+.codex-tmp/
 sandbox_hard_mode_run.json
 sandbox_adversarial_report.py
 logs/sandbox*.json

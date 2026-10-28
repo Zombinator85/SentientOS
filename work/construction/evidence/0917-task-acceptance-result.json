@@ -1,0 +1,60 @@
+{
+  "behavioral_witness_provenance_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "manifest_digest": "sha256:364d6dfaaa77968956230402f02a57e68a3355480a22585c9d053bc99aaed065",
+  "manifest_path": "docs/development/run_tests_missing_import_bootstrap_task_acceptance.json",
+  "node_outcomes": [
+    {
+      "exists": true,
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    },
+    {
+      "exists": true,
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low",
+      "outcome": "passed",
+      "passed": true,
+      "phase": "call",
+      "selected": true
+    }
+  ],
+  "passed_witness_contract_count": 0,
+  "provenance_digest": "sha256:5de059ff59a389336d7fc1190207d6d638226ea31553fd0afd4e6ba094cb2d5a",
+  "provenance_path": "glow/test_runs/test_run_provenance.json",
+  "reasons": [],
+  "repository_sha": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+  "required_node_ids": [
+    "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+    "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low"
+  ],
+  "required_witness_contract_count": 0,
+  "schema_version": "sentientos.task_acceptance_result:v1",
+  "status": "task_acceptance_ready",
+  "successful_path_node_ids": [
+    "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low"
+  ],
+  "task_classification": "behavior_adding",
+  "witness_contract_results": [],
+  "witness_status": "ready"
+}

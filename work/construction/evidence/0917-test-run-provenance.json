@@ -1,0 +1,244 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_canonical_test_airlock_dependencies.py::test_jinja2_is_bound_to_the_canonical_minimal_airlock_and_lock": 0,
+    "tests/test_canonical_test_airlock_dependencies.py::test_minimal_airlock_excludes_full_capability_dependencies": 0,
+    "tests/test_canonical_test_airlock_dependencies.py::test_minimal_install_failure_never_falls_back_to_full": 0,
+    "tests/test_canonical_test_airlock_dependencies.py::test_missing_jinja2_is_reported_as_incomplete_infrastructure": 0,
+    "tests/test_canonical_test_airlock_dependencies.py::test_runner_probes_jinja2_and_keeps_full_explicit": 0,
+    "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_binds_witness_to_node_run_sha_and_provenance_hash": 0,
+    "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_legacy_provenance_without_witnesses_remains_valid": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_actual_pytest_failures_still_fail_as_pytest_failures": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_airlock_imports_are_checked_after_minimal_bootstrap": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_bootstrap_failure_is_distinct_from_test_failure": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_collection_failure_is_distinct_from_test_failure": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_default_bootstrap_does_not_fallback_to_full_capabilities": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_naked_pytest_bypass_still_marks_run_exceptional": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low": 0,
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low": 0,
+    "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest": 0,
+    "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_classifies_unavailable_metrics": 0,
+    "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_omits_successful_runs": 0,
+    "tests/test_run_tests_harness_normalization.py::test_run_tests_marks_bootstrap_metrics_failure": 0,
+    "tests/test_run_tests_reporter_resilience.py::test_proof_mode_fails_cleanly_when_reporter_payload_missing": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 20,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-test-harness-import-bootstrap/glow/test_runs/pytest_junitxml_48b189759b5e487886500abcba018ad4.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_default_bootstrap_does_not_fallback_to_full_capabilities",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_airlock_imports_are_checked_after_minimal_bootstrap",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_actual_pytest_failures_still_fail_as_pytest_failures",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_bootstrap_failure_is_distinct_from_test_failure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_naked_pytest_bypass_still_marks_run_exceptional",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_collection_failure_is_distinct_from_test_failure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_canonical_test_airlock_dependencies.py::test_jinja2_is_bound_to_the_canonical_minimal_airlock_and_lock",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_canonical_test_airlock_dependencies.py::test_minimal_airlock_excludes_full_capability_dependencies",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_canonical_test_airlock_dependencies.py::test_runner_probes_jinja2_and_keeps_full_explicit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_canonical_test_airlock_dependencies.py::test_minimal_install_failure_never_falls_back_to_full",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_canonical_test_airlock_dependencies.py::test_missing_jinja2_is_reported_as_incomplete_infrastructure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_binds_witness_to_node_run_sha_and_provenance_hash",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_legacy_provenance_without_witnesses_remains_valid",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_reporter_resilience.py::test_proof_mode_fails_cleanly_when_reporter_payload_missing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_classifies_unavailable_metrics",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_omits_successful_runs",
+      "outcome": "skipped",
+      "phase": "setup"
+    },
+    {
+      "node_id": "tests/test_run_tests_harness_normalization.py::test_run_tests_marks_bootstrap_metrics_failure",
+      "outcome": "skipped",
+      "phase": "setup"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "84c0f6f4a4f6aee5f27798c2c0fc54be912029878cd9f55da3eb4e477ef9ee55",
+  "provenance_hash": "15d8ce0d19d06ede4f718901a30cf942cb2d70dc2b7077b0540317b518f6db68",
+  "pytest_args": [
+    "tests/test_run_tests_bootstrap_airlock.py",
+    "tests/test_canonical_test_airlock_dependencies.py",
+    "tests/test_run_tests_behavioral_witnesses.py",
+    "tests/test_run_tests_reporter_resilience.py",
+    "tests/test_run_tests_failure_digest.py",
+    "tests/test_run_tests_harness_normalization.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/workspace/.venvs/scheduler-path-custody/bin/python",
+  "repo_root": "/workspace/SentientOS-test-harness-import-bootstrap",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "92d3ad30255f4a29b1ec2e272518d0bf",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+    "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low",
+    "tests/test_run_tests_bootstrap_airlock.py::test_default_bootstrap_does_not_fallback_to_full_capabilities",
+    "tests/test_run_tests_bootstrap_airlock.py::test_airlock_imports_are_checked_after_minimal_bootstrap",
+    "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+    "tests/test_run_tests_bootstrap_airlock.py::test_actual_pytest_failures_still_fail_as_pytest_failures",
+    "tests/test_run_tests_bootstrap_airlock.py::test_bootstrap_failure_is_distinct_from_test_failure",
+    "tests/test_run_tests_bootstrap_airlock.py::test_naked_pytest_bypass_still_marks_run_exceptional",
+    "tests/test_run_tests_bootstrap_airlock.py::test_collection_failure_is_distinct_from_test_failure",
+    "tests/test_canonical_test_airlock_dependencies.py::test_jinja2_is_bound_to_the_canonical_minimal_airlock_and_lock",
+    "tests/test_canonical_test_airlock_dependencies.py::test_minimal_airlock_excludes_full_capability_dependencies",
+    "tests/test_canonical_test_airlock_dependencies.py::test_runner_probes_jinja2_and_keeps_full_explicit",
+    "tests/test_canonical_test_airlock_dependencies.py::test_minimal_install_failure_never_falls_back_to_full",
+    "tests/test_canonical_test_airlock_dependencies.py::test_missing_jinja2_is_reported_as_incomplete_infrastructure",
+    "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_binds_witness_to_node_run_sha_and_provenance_hash",
+    "tests/test_run_tests_behavioral_witnesses.py::test_run_tests_legacy_provenance_without_witnesses_remains_valid",
+    "tests/test_run_tests_reporter_resilience.py::test_proof_mode_fails_cleanly_when_reporter_payload_missing",
+    "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+    "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_classifies_unavailable_metrics",
+    "tests/test_run_tests_harness_normalization.py::test_bootstrap_failure_message_omits_successful_runs",
+    "tests/test_run_tests_harness_normalization.py::test_run_tests_marks_bootstrap_metrics_failure"
+  ],
+  "selection_flags": [
+    "tests/test_run_tests_bootstrap_airlock.py",
+    "tests/test_canonical_test_airlock_dependencies.py",
+    "tests/test_run_tests_behavioral_witnesses.py",
+    "tests/test_run_tests_reporter_resilience.py",
+    "tests/test_run_tests_failure_digest.py",
+    "tests/test_run_tests_harness_normalization.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.13043478260869565,
+  "tests_collected": 23,
+  "tests_executed": 20,
+  "tests_failed": 0,
+  "tests_passed": 20,
+  "tests_selected": 23,
+  "tests_skipped": 3,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-28T14:57:42.709228+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
