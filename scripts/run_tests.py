@@ -4,10 +4,12 @@ import argparse
 from dataclasses import dataclass
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import tempfile
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
@@ -43,6 +45,8 @@ TEST_INFRA_IMPORTS = (
     ("sentientos", None),
 )
 CANONICAL_REQUIREMENTS_PATH = "requirements-codex.txt"
+MIN_BOOTSTRAP_TEMP_FREE_BYTES = 512 * 1024 * 1024
+WORKSPACE_TEMP_DIR = ".codex-tmp"
 FULL_INSTALL_ENV = "SENTIENTOS_TEST_DEPENDENCY_MODE"
 INSTALL_MODE_FULL = "full"
 INSTALL_MODE_TEST_AIRLOCK_MINIMAL = "test_airlock_minimal"
@@ -159,10 +163,11 @@ class BootstrapResult:
     failure_reason: str | None = None
 
 
-def _run_pip_install(args: list[str]) -> bool:
+def _run_pip_install(args: list[str], *, env: dict[str, str] | None = None) -> bool:
     proc = subprocess.run(
         [sys.executable, "-m", "pip", "install", *args],
         cwd=REPO_ROOT,
+        env=env,
         check=False,
     )
     if proc.returncode != 0:
@@ -170,19 +175,47 @@ def _run_pip_install(args: list[str]) -> bool:
     return proc.returncode == 0
 
 
-def _install_full_deps() -> bool:
-    return _run_pip_install(["-e", ".[full]"])
+def _install_full_deps(*, env: dict[str, str] | None = None) -> bool:
+    return _run_pip_install(["-e", ".[full]"], env=env)
 
 
-def _install_minimal_test_airlock_deps() -> bool:
-    if not _run_pip_install(["--no-deps", "-e", "."]):
+def _install_minimal_test_airlock_deps(*, env: dict[str, str] | None = None) -> bool:
+    if not _run_pip_install(["--no-deps", "-e", "."], env=env):
         return False
-    return _run_pip_install(["--only-binary=:all:", "-r", CANONICAL_REQUIREMENTS_PATH])
+    return _run_pip_install(
+        ["--only-binary=:all:", "-r", CANONICAL_REQUIREMENTS_PATH], env=env
+    )
 
 
-def _bootstrap_missing_editable(run_intent: str) -> BootstrapResult:
+def _prepare_bootstrap_temp_dir(repo_root: Path, env: dict[str, str]) -> str | None:
+    """Use repository storage when the system temp filesystem is nearly full."""
+    configured = env.get("TMPDIR") or env.get("TEMP") or env.get("TMP")
+    system_temp = Path(configured) if configured else Path(tempfile.gettempdir())
+    try:
+        if shutil.disk_usage(system_temp).free >= MIN_BOOTSTRAP_TEMP_FREE_BYTES:
+            return None
+    except OSError:
+        pass
+
+    workspace_temp = repo_root / WORKSPACE_TEMP_DIR
+    try:
+        workspace_temp.mkdir(parents=True, exist_ok=True)
+        if shutil.disk_usage(workspace_temp).free < MIN_BOOTSTRAP_TEMP_FREE_BYTES:
+            return "temporary-storage-unavailable: system and workspace temp space are below 512 MiB"
+    except OSError as exc:
+        return f"temporary-storage-unavailable: cannot prepare workspace temp directory ({exc})"
+
+    for name in ("TMPDIR", "TEMP", "TMP"):
+        env[name] = str(workspace_temp)
+    return None
+
+
+def _bootstrap_missing_editable(
+    run_intent: str, *, env: dict[str, str] | None = None
+) -> BootstrapResult:
+    pip_env = env if env is not None else os.environ.copy()
     if os.environ.get(FULL_INSTALL_ENV) != "full":
-        ok = _install_minimal_test_airlock_deps()
+        ok = _install_minimal_test_airlock_deps(env=pip_env)
         return BootstrapResult(
             ok=ok,
             install_performed=True,
@@ -191,7 +224,7 @@ def _bootstrap_missing_editable(run_intent: str) -> BootstrapResult:
             failure_reason=None if ok else "minimal-test-airlock-install-failed",
         )
 
-    if _install_full_deps():
+    if _install_full_deps(env=pip_env):
         return BootstrapResult(
             ok=True,
             install_performed=True,
@@ -667,8 +700,20 @@ def main(argv: list[str] | None = None) -> int:
     install_fallback_reason: str | None = None
     install_attempted_modes: tuple[str, ...] = ()
     editable_status = get_editable_install_status(REPO_ROOT)
-    if not editable_status.ok:
-        bootstrap_result = _bootstrap_missing_editable(run_intent)
+    imports_before_install_ok, _ = _imports_ok()
+    if not editable_status.ok or not imports_before_install_ok:
+        temp_error = _prepare_bootstrap_temp_dir(REPO_ROOT, env)
+        bootstrap_result = (
+            BootstrapResult(
+                ok=False,
+                install_performed=False,
+                install_mode=None,
+                attempted_modes=(),
+                failure_reason=temp_error,
+            )
+            if temp_error
+            else _bootstrap_missing_editable(run_intent, env=env)
+        )
         install_performed = bootstrap_result.install_performed
         install_mode = bootstrap_result.install_mode
         install_fallback_reason = bootstrap_result.fallback_reason
@@ -720,6 +765,8 @@ def main(argv: list[str] | None = None) -> int:
                 install_mode=install_mode,
                 install_fallback_reason=bootstrap_result.failure_reason or install_fallback_reason,
             )
+            if temp_error:
+                print(f"run_tests dependency bootstrap stopped: {temp_error}.")
             print(PRECHECK_MESSAGE)
             return 1
 

@@ -16,6 +16,17 @@ Ordinary tests install the project editable with `--no-deps`, then install
 runs; `SENTIENTOS_TEST_DEPENDENCY_MODE=full` explicitly requests full mode. Minimal
 failure never falls back to full capabilities.
 
+The test runner checks both the editable project installation and the minimal
+harness imports before starting pytest. If the project is editable but a harness
+dependency is missing, it runs the same minimal bootstrap and verifies imports
+again before test collection. This prevents a stale editable-install marker from
+masking an incomplete Python test environment.
+
+Before installing, the runner checks temporary-storage headroom. If the system
+temporary filesystem has less than 512 MiB free, pip uses the ignored
+repository-local `.codex-tmp` directory instead. If neither location has that
+headroom, bootstrap fails with a temporary-storage error before invoking pip.
+
 `requirements-lock.txt` is the default wheel-resolution lock.
 `requirements-src-lock.txt` is a source-resolution audit artifact, not a second
 default install. `scripts.lock install` installs one lock and the project with

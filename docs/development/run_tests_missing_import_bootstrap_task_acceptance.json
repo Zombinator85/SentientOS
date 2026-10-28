@@ -1,0 +1,28 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "7846e3006a8d3045239129a3ea6a7f923e4ce645",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+      "rationale": "A valid editable install with a missing canonical harness import triggers the minimal bootstrap and reaches passing pytest execution."
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+      "rationale": "The normal missing-editable path continues to use only the canonical minimal test requirements."
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low",
+      "rationale": "When the system temp filesystem is nearly full, pip bootstrap receives the ignored repository-local temp directory."
+    },
+    {
+      "node_id": "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_fails_closed_when_both_filesystems_are_low",
+      "rationale": "Bootstrap stops with an explicit temporary-storage error when both locations lack the required headroom."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_run_tests_bootstrap_airlock.py::test_installed_editable_with_missing_harness_import_bootstraps",
+    "tests/test_run_tests_bootstrap_airlock.py::test_workspace_temp_is_selected_when_system_temp_is_low"
+  ]
+}

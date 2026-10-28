@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -56,6 +57,7 @@ def test_minimal_airlock_pytest_constraint_matches_project_declaration() -> None
 
 def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp_path):
     pip_commands: list[list[str]] = []
+    pip_environments: list[dict[str, str] | None] = []
     editable_statuses = iter(
         [
             EditableInstallStatus(False, "distribution-not-found"),
@@ -66,6 +68,7 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
     def fake_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
         if cmd[:3] == [run_tests.sys.executable, "-m", "pip"]:
             pip_commands.append(cmd)
+            pip_environments.append(env)
             return _Completed(0)
         if cmd[:3] == [run_tests.sys.executable, "-m", "pytest"]:
             _write_report(env)
@@ -75,6 +78,15 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
         raise AssertionError(f"unexpected command: {cmd}")
 
     monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        run_tests.shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(
+            free=(run_tests.MIN_BOOTSTRAP_TEMP_FREE_BYTES - 1)
+            if Path(path) == Path(run_tests.tempfile.gettempdir())
+            else run_tests.MIN_BOOTSTRAP_TEMP_FREE_BYTES + 1
+        ),
+    )
     monkeypatch.setattr(
         run_tests, "get_editable_install_status", lambda _root: next(editable_statuses)
     )
@@ -91,6 +103,11 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
     assert pip_commands[0][-3:] == ["--no-deps", "-e", "."]
     assert pip_commands[1][-2:] == ["-r", run_tests.CANONICAL_REQUIREMENTS_PATH]
     assert all(".[full]" not in part for command in pip_commands for part in command)
+    assert all(
+        environment is not None
+        and environment["TMPDIR"] == str(tmp_path / run_tests.WORKSPACE_TEMP_DIR)
+        for environment in pip_environments
+    )
     payload = json.loads(
         (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
     )
@@ -100,10 +117,46 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
     assert payload["run_intent"] == "targeted"
 
 
+def test_workspace_temp_is_selected_when_system_temp_is_low(monkeypatch, tmp_path):
+    monkeypatch.setattr(run_tests.tempfile, "gettempdir", lambda: "/system-temp")
+    monkeypatch.setattr(
+        run_tests.shutil,
+        "disk_usage",
+        lambda path: SimpleNamespace(
+            free=(run_tests.MIN_BOOTSTRAP_TEMP_FREE_BYTES - 1)
+            if Path(path) == Path("/system-temp")
+            else run_tests.MIN_BOOTSTRAP_TEMP_FREE_BYTES + 1
+        ),
+    )
+    env: dict[str, str] = {}
+
+    assert run_tests._prepare_bootstrap_temp_dir(tmp_path, env) is None
+    assert all(
+        env[name] == str(tmp_path / run_tests.WORKSPACE_TEMP_DIR)
+        for name in ("TMPDIR", "TEMP", "TMP")
+    )
+    assert (tmp_path / run_tests.WORKSPACE_TEMP_DIR).is_dir()
+
+
+def test_workspace_temp_fails_closed_when_both_filesystems_are_low(monkeypatch, tmp_path):
+    monkeypatch.setattr(run_tests.tempfile, "gettempdir", lambda: "/system-temp")
+    monkeypatch.setattr(
+        run_tests.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(free=run_tests.MIN_BOOTSTRAP_TEMP_FREE_BYTES - 1),
+    )
+    env: dict[str, str] = {}
+
+    assert run_tests._prepare_bootstrap_temp_dir(tmp_path, env) == (
+        "temporary-storage-unavailable: system and workspace temp space are below 512 MiB"
+    )
+    assert env == {}
+
+
 def test_default_bootstrap_does_not_fallback_to_full_capabilities(monkeypatch) -> None:
     commands: list[list[str]] = []
     monkeypatch.delenv(run_tests.FULL_INSTALL_ENV, raising=False)
-    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args: commands.append(args) or False)
+    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args, **_: commands.append(args) or False)
     result = run_tests._bootstrap_missing_editable("default")
     assert not result.ok
     assert result.attempted_modes == (run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL,)
@@ -141,12 +194,55 @@ def test_airlock_imports_are_checked_after_minimal_bootstrap(monkeypatch, tmp_pa
     code = run_tests.main(["-q", "tests/test_focused.py"])
 
     assert code == 1
-    assert import_checks == 1
+    assert import_checks == 2
     payload = json.loads(
         (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
     )
     assert payload["exit_reason"] == "airlock-failed"
     assert payload["install_mode"] == run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL
+
+
+def test_installed_editable_with_missing_harness_import_bootstraps(monkeypatch, tmp_path):
+    pip_commands: list[list[str]] = []
+    import_checks = iter(
+        [
+            (False, "jinja2 import failed: missing"),
+            (True, None),
+        ]
+    )
+
+    def fake_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
+        if cmd[:3] == [run_tests.sys.executable, "-m", "pip"]:
+            pip_commands.append(cmd)
+            return _Completed(0)
+        if cmd[:3] == [run_tests.sys.executable, "-m", "pytest"]:
+            _write_report(env)
+            return _Completed(0)
+        if cmd[:3] == ["git", "rev-parse", "HEAD"]:
+            return _Completed(0, "face01\n")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        run_tests,
+        "get_editable_install_status",
+        lambda _root: EditableInstallStatus(True, "direct-url"),
+    )
+    monkeypatch.setattr(run_tests, "_imports_ok", lambda: next(import_checks))
+    monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
+
+    assert run_tests.main(["-q", "tests/test_focused.py"]) == 0
+    assert pip_commands == [
+        [run_tests.sys.executable, "-m", "pip", "install", "--no-deps", "-e", "."],
+        [run_tests.sys.executable, "-m", "pip", "install", "--only-binary=:all:", "-r", run_tests.CANONICAL_REQUIREMENTS_PATH],
+    ]
+    payload = json.loads(
+        (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
+    )
+    assert payload["install_performed"] is True
+    assert payload["install_mode"] == run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL
+    assert payload["pytest_exit_code"] == 0
+    assert payload["tests_passed"] == 1
 
 
 def test_actual_pytest_failures_still_fail_as_pytest_failures(monkeypatch, tmp_path):
@@ -194,6 +290,7 @@ def test_bootstrap_failure_is_distinct_from_test_failure(monkeypatch, tmp_path):
         "get_editable_install_status",
         lambda _root: EditableInstallStatus(False, "distribution-not-found"),
     )
+    monkeypatch.setattr(run_tests, "_imports_ok", lambda: (True, None))
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
     code = run_tests.main(["-q", "tests/test_focused.py"])
