@@ -1,0 +1,137 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2975 and sequence 895 main verification",
+  "sequence": 896,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 895
+  },
+  "source": {
+    "candidate_commit": "f539a679b6f6f581db3f2f96fe2ec3d932f665e2",
+    "candidate_tree": "723b4c5468dfa7b522939ce6ff0f6dd0c9b2d239",
+    "merge_commit": "b22c1569d0803d7ec222e4df9185114b47a8669f",
+    "merge_tree": "723b4c5468dfa7b522939ce6ff0f6dd0c9b2d239",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "b22c1569d0803d7ec222e4df9185114b47a8669f",
+    "verified_remote_main_tree": "723b4c5468dfa7b522939ce6ff0f6dd0c9b2d239",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "b22c1569d0803d7ec222e4df9185114b47a8669f"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "723b4c5468dfa7b522939ce6ff0f6dd0c9b2d239"
+    }
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2975,
+      "state": "merged",
+      "merged_at": "2026-10-28T01:33:15Z",
+      "head_commit": "f539a679b6f6f581db3f2f96fe2ec3d932f665e2",
+      "merge_commit": "b22c1569d0803d7ec222e4df9185114b47a8669f"
+    },
+    "pr_workflows": {
+      "required_quality_gate_pull_request": [
+        40615104732,
+        "success"
+      ],
+      "ci_pull_request": [
+        40615104735,
+        "success"
+      ],
+      "codex_ci_pull_request": [
+        40615104866,
+        "success"
+      ],
+      "docker_image_pull_request": [
+        40615104711,
+        "success"
+      ],
+      "lint_benchmark_pull_request": [
+        40615104708,
+        "success"
+      ],
+      "invariant_tests_pull_request": [
+        40615104682,
+        "success"
+      ],
+      "gradient_null_regression_pull_request": [
+        40615104767,
+        "success"
+      ],
+      "release_pull_request": [
+        40615104753,
+        "success"
+      ],
+      "invariant_tests_branch_push": [
+        40615018056,
+        "success"
+      ],
+      "ci_branch_push": [
+        40615018136,
+        "success"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40615737184,
+        "success"
+      ],
+      "codex_ci": [
+        40615737175,
+        "success"
+      ],
+      "docker": [
+        40615737251,
+        "success"
+      ],
+      "quality_gate": [
+        40615737224,
+        "success"
+      ],
+      "docs_deploy": [
+        40615737174,
+        "success"
+      ],
+      "invariants": [
+        40615737182,
+        "success"
+      ],
+      "forge_smoke": [
+        40615737166,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "hosted_documentation_verification": {
+      "administrator_bootstrap": "success",
+      "required_quality_gate_exact_candidate": "success",
+      "docs_deploy_dependency_check": "success",
+      "docs_deploy_mkdocs_build": "success",
+      "docs_deploy": "success"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "659b82eab00c7456416882b2674dc153d6e5bdac",
+      "index_v3": "36a4648e3ca88cee45777d984c09ca71db97c48e",
+      "evidence_0895": "0160eaf10e5eded90ea5861e6b2bd159b6db1829",
+      "segment_0895": "0d2837968165cc1f3ce4e5ef6a27c87088ac712c",
+      "shard_v3_0028": "52f14d55c8181a73ba406510e36ea832757da097"
+    }
+  },
+  "checkpoint_chain": {
+    "format": "sentientos.construction_checkpoint:v2",
+    "sequence_895_checkpoint_bytes": 1117,
+    "sequence_895_checkpoint_git_blob_sha": "659b82eab00c7456416882b2674dc153d6e5bdac",
+    "next_transition_source_commit": "b22c1569d0803d7ec222e4df9185114b47a8669f",
+    "next_transition_source_tree": "723b4c5468dfa7b522939ce6ff0f6dd0c9b2d239",
+    "history_rewritten": false
+  },
+  "segment": {
+    "path": "work/construction/segments/0896-integrate-pr-2975-main-verification.md",
+    "bytes": 1203,
+    "sha256": "57c6779d7d9da88bf08f5b80bce53e8f115a88514a0944a9f377a3d75cfecf55"
+  }
+}
