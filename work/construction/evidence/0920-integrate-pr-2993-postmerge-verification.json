@@ -1,0 +1,51 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 919
+  },
+  "publication": {
+    "exact_candidate_checks": {
+      "CI": 40718412579,
+      "Codex CI": 40718412057,
+      "Docker Image": 40718412336,
+      "Gradient null regression": 40718411893,
+      "Invariant Tests": 40718411822,
+      "Lint Benchmark": 40718412485,
+      "Release": 40718412017,
+      "Required Quality Gate": 40718411847
+    },
+    "merge_commit": "04db4f75b140923fc760ee2d027ae76b42845ee0",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": 40719266719,
+      "Codex CI": 40719266690,
+      "Docker Image": 40719266693,
+      "Docs Deploy": 40719266571,
+      "Forge Smoke": {
+        "run_id": 40719266589,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": 40719266668,
+      "Required Quality Gate": 40719266709
+    },
+    "pull_request": 2993,
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "019336c6debd33bc847bebe5f933470428c0215b"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 2993 merge and post-merge verification",
+  "sequence": 920,
+  "source": {
+    "candidate_commit": "ec1e0a06bd807fcae5787bc01d2ca0415f85b742",
+    "candidate_tree": "2dc8c70948f0e361b7092f2dcdc14bae28cdb9e5",
+    "remote_ref_readback": {
+      "commit": "04db4f75b140923fc760ee2d027ae76b42845ee0",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "04db4f75b140923fc760ee2d027ae76b42845ee0",
+    "verified_remote_main_tree": "2dc8c70948f0e361b7092f2dcdc14bae28cdb9e5"
+  }
+}
