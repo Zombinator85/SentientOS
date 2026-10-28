@@ -1,0 +1,51 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 912
+  },
+  "publication": {
+    "no_alternate_publication_route": true,
+    "normal_pr_workflow_required": true,
+    "status": "candidate_not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "274de4339e1d197efceb0bec2838ddf70510527e"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded [untested] maintenance scheduler state-path custody hardening",
+  "sequence": 914,
+  "source": {
+    "candidate_commit": "b85c39bb8a20e1b579175ad664b637b95ba8b837",
+    "candidate_tree": "29dac813d4d734cd8fdfcc6e54a2061c2723eb83",
+    "remote_ref_readback": {
+      "commit": "a4908951510ba4b8758a439e248f1026270324d1",
+      "ref": "refs/heads/main"
+    },
+    "source_candidate_commit": "b85c39bb8a20e1b579175ad664b637b95ba8b837",
+    "source_candidate_tree": "29dac813d4d734cd8fdfcc6e54a2061c2723eb83",
+    "verified_remote_main": "a4908951510ba4b8758a439e248f1026270324d1",
+    "verified_remote_main_tree": "0c61e962bdb7482b6976669fb29c5951a97da0d2"
+  },
+  "validation": {
+    "classification": "untested_construction_increment",
+    "diff_check": "passed",
+    "documentation_build": {
+      "command": "make docs",
+      "pages": 617,
+      "status": "passed"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_maintenance_loop_scheduler.py tests/test_maintenance_scheduler_daemon.py tests/test_maintenance_health_probe.py",
+      "failed": 0,
+      "passed": 52,
+      "skipped": 0
+    },
+    "hosted_acceptance": "pending_exact_candidate_required_quality_gate_and_ci",
+    "targeted_mypy": "passed",
+    "task_acceptance": {
+      "manifest": "docs/development/maintenance_scheduler_path_custody_task_acceptance.json",
+      "status": "task_acceptance_ready_on_verified_base"
+    }
+  }
+}

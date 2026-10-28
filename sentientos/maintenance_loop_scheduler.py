@@ -56,6 +56,82 @@ def _external(path: str | Path, repo: Path, *, must_exist: bool = True) -> Path:
     return resolved
 
 
+def _open_state_root(cfg: Mapping[str, Any]) -> int | None:
+    """Bind scheduler state operations to a symlink-free directory ancestry."""
+    root = Path(str(cfg["scheduler_state_root"]))
+    if not root.is_absolute() or ".." in root.parts:
+        raise ValueError("scheduler_custody_root_invalid")
+    relative = bool(
+        os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY") and os.open in os.supports_dir_fd
+    )
+    if relative:
+        descriptor: int | None = None
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        try:
+            descriptor = os.open(os.sep, flags)
+            for component in root.parts[1:]:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                    os.close(next_descriptor)
+                    raise ValueError("scheduler_custody_root_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            result, descriptor = descriptor, None
+            return result
+        except ValueError:
+            raise
+        except OSError as exc:
+            raise ValueError("scheduler_custody_root_invalid") from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
+    current = Path(root.anchor)
+    for component in root.parts[1:]:
+        current = current / component
+        try:
+            metadata = current.lstat()
+        except OSError as exc:
+            raise ValueError("scheduler_custody_root_invalid") from exc
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise ValueError("scheduler_custody_root_invalid")
+    return None
+
+
+def _open_state_file(
+    name: str, flags: int, mode: int, directory_fd: int | None, root: Path,
+) -> int:
+    safe_flags = flags | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        if directory_fd is not None:
+            return os.open(name, safe_flags, mode, dir_fd=directory_fd)
+        return os.open(root / name, safe_flags, mode)
+    except OSError as exc:
+        raise ValueError("scheduler_state_file_unavailable_or_unsafe") from exc
+
+
+def _state_file_metadata(
+    name: str, directory_fd: int | None, root: Path,
+) -> os.stat_result | None:
+    try:
+        metadata = (os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if directory_fd is not None else (root / name).lstat())
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("scheduler_state_file_unavailable_or_unsafe") from exc
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("scheduler_state_file_unavailable_or_unsafe")
+    return metadata
+
+
+def _stop_requested(cfg: Mapping[str, Any], directory_fd: int | None) -> bool:
+    root = Path(str(cfg["scheduler_state_root"]))
+    name = Path(str(cfg["stop_marker"])).name
+    return _state_file_metadata(name, directory_fd, root) is not None
+
+
 def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     required = {"schema_version", "watchdog_config_path", "watchdog_config_digest",
                 "scheduler_state_root", "cadence_interval_seconds", "initial_run_posture",
@@ -105,14 +181,27 @@ def load_config(path: str | Path) -> dict[str, Any]:
     return validate_config(json.loads(p.read_text(encoding="utf-8")))
 
 
-def _events(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
-    path = Path(str(cfg["journal_path"]))
-    if not path.exists():
+def _events(cfg: Mapping[str, Any], directory_fd: int | None) -> list[dict[str, Any]]:
+    root = Path(str(cfg["scheduler_state_root"]))
+    name = Path(str(cfg["journal_path"])).name
+    metadata = _state_file_metadata(name, directory_fd, root)
+    if metadata is None:
         return []
     prior = ZERO_DIGEST
     records: list[dict[str, Any]] = []
+    descriptor = _open_state_file(name, os.O_RDONLY, 0, directory_fd, root)
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
+                or opened.st_ino != metadata.st_ino):
+            raise ValueError("scheduler_journal_changed_during_open")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 65_536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        lines = b"".join(chunks).decode("utf-8").splitlines()
         for line in lines:
             item = json.loads(line)
             claimed = item.pop("event_digest")
@@ -123,19 +212,43 @@ def _events(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
             prior = claimed; records.append(item)
     except (KeyError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ValueError("scheduler_journal_malformed") from exc
+    finally:
+        os.close(descriptor)
     if records and records[-1]["event_type"] == "invocation_started":
         raise ValueError("maintenance_scheduler_recovery_ambiguous")
     return records
 
 
-def _append(cfg: Mapping[str, Any], event: dict[str, Any], prior: str) -> dict[str, Any]:
+def _append(
+    cfg: Mapping[str, Any], event: dict[str, Any], prior: str,
+    directory_fd: int | None,
+) -> dict[str, Any]:
     complete = {"schema_version": EVENT_SCHEMA, "scheduler_config_digest": cfg["config_digest"],
                 "watchdog_config_digest": cfg["watchdog_config_digest"], "prior_event_digest": prior, **event}
     complete["event_digest"] = digest(complete)
-    path = Path(str(cfg["journal_path"]))
-    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    with os.fdopen(fd, "ab") as handle:
-        handle.write(canonical_bytes(complete) + b"\n"); handle.flush(); os.fsync(handle.fileno())
+    root = Path(str(cfg["scheduler_state_root"]))
+    name = Path(str(cfg["journal_path"])).name
+    metadata = _state_file_metadata(name, directory_fd, root)
+    flags = os.O_WRONLY | os.O_APPEND
+    flags |= os.O_CREAT | os.O_EXCL if metadata is None else 0
+    fd = _open_state_file(name, flags, 0o600, directory_fd, root)
+    try:
+        opened = os.fstat(fd)
+        if (not stat.S_ISREG(opened.st_mode)
+                or (metadata is not None and (opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino))):
+            raise ValueError("scheduler_journal_changed_during_open")
+        with os.fdopen(fd, "ab") as handle:
+            handle.write(canonical_bytes(complete) + b"\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        if metadata is None and directory_fd is not None:
+            os.fsync(directory_fd)
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
     return complete
 
 
@@ -157,7 +270,14 @@ def _verified_watchdog(cfg: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
-    cfg = validate_config(config); events = _events(cfg); ordinal, due, failures = _next_due(cfg, events)
+    cfg = validate_config(config)
+    directory_fd = _open_state_root(cfg)
+    try:
+        events = _events(cfg, directory_fd)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+    ordinal, due, failures = _next_due(cfg, events)
     return {"schema_version": "sentientos.maintenance_scheduler_inspection:v1", "status": "maintenance_scheduler_state_ready",
             "scheduler_config_digest": cfg["config_digest"], "event_count": len(events), "next_cycle_ordinal": ordinal,
             "next_due_utc": _utc_text(due), "consecutive_failures": failures,
@@ -170,20 +290,23 @@ def doctor(config: Mapping[str, Any]) -> dict[str, Any]:
             "scheduler_config_digest": cfg["config_digest"], "watchdog_config_digest": cfg["watchdog_config_digest"], "state": state}
 
 
-def _locked_run_once(cfg: Mapping[str, Any], now: datetime, monotonic: Callable[[], float], runner: Callable[..., dict[str, Any]]) -> dict[str, Any]:
-    events = _events(cfg); ordinal, due, failures = _next_due(cfg, events); prior = events[-1]["event_digest"] if events else ZERO_DIGEST
+def _locked_run_once(
+    cfg: Mapping[str, Any], now: datetime, monotonic: Callable[[], float],
+    runner: Callable[..., dict[str, Any]], directory_fd: int | None,
+) -> dict[str, Any]:
+    events = _events(cfg, directory_fd); ordinal, due, failures = _next_due(cfg, events); prior = events[-1]["event_digest"] if events else ZERO_DIGEST
     common = {"cycle_ordinal": ordinal, "scheduled_due_utc": _utc_text(due), "recorded_at_utc": _utc_text(now)}
-    if Path(str(cfg["stop_marker"])).exists():
+    if _stop_requested(cfg, directory_fd):
         event = _append(cfg, {**common, "event_type": "scheduler_stopped", "due": now >= due, "watchdog_invoked": False,
             "watchdog_status": None, "watchdog_result_digest": None, "duration_seconds": 0.0, "disposition": "stopped",
-            "next_due_utc": _utc_text(due), "consecutive_failures": failures, "reason": "scheduler_stop_marker"}, prior)
+            "next_due_utc": _utc_text(due), "consecutive_failures": failures, "reason": "scheduler_stop_marker"}, prior, directory_fd)
         return {"status": "maintenance_scheduler_stopped", "event": event}
     if now < due:
         return {"status": "maintenance_scheduler_not_due", "cycle_ordinal": ordinal, "next_due_utc": _utc_text(due)}
     bound = _verified_watchdog(cfg)
     started = _append(cfg, {**common, "event_type": "invocation_started", "due": True, "watchdog_invoked": False,
         "watchdog_status": None, "watchdog_result_digest": None, "duration_seconds": 0.0, "disposition": "invocation_pending",
-        "next_due_utc": _utc_text(due), "consecutive_failures": failures, "reason": None}, prior)
+        "next_due_utc": _utc_text(due), "consecutive_failures": failures, "reason": None}, prior, directory_fd)
     began = monotonic(); result = runner(bound, evaluation_time=_utc_text(now)); duration = max(0.0, monotonic() - began)
     status = str(result.get("status", "blocked")); result_digest = watchdog.digest(result)
     failures = failures + 1 if status in FAILURE_WATCHDOG else 0
@@ -195,18 +318,35 @@ def _locked_run_once(cfg: Mapping[str, Any], now: datetime, monotonic: Callable[
     complete = _append(cfg, {**common, "event_type": "cycle_completed", "recorded_at_utc": _utc_text(now), "due": True,
         "watchdog_invoked": True, "watchdog_status": status, "watchdog_result_digest": result_digest,
         "duration_seconds": duration, "disposition": disposition, "next_due_utc": _utc_text(next_due),
-        "consecutive_failures": failures, "reason": result.get("reason")}, started["event_digest"])
+        "consecutive_failures": failures, "reason": result.get("reason")}, started["event_digest"], directory_fd)
     return {"status": "maintenance_scheduler_" + disposition, "watchdog_result": result, "event": complete}
 
 
 def run_once(config: Mapping[str, Any], *, evaluation_time: str, monotonic: Callable[[], float] = time.monotonic,
              watchdog_runner: Callable[..., dict[str, Any]] = watchdog.run_bounded) -> dict[str, Any]:
-    cfg = validate_config(config); now = _utc(evaluation_time); lock_path = Path(cfg["scheduler_state_root"]) / "scheduler.lock"
-    lock_path.touch(exist_ok=True)
-    with lock_path.open("r+") as lock:
-        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError: return {"status": "maintenance_scheduler_lock_busy"}
-        return _locked_run_once(cfg, now, monotonic, watchdog_runner)
+    cfg = validate_config(config); now = _utc(evaluation_time)
+    directory_fd = _open_state_root(cfg)
+    root = Path(str(cfg["scheduler_state_root"]))
+    lock_metadata = _state_file_metadata("scheduler.lock", directory_fd, root)
+    lock_flags = os.O_RDWR | (os.O_CREAT | os.O_EXCL if lock_metadata is None else 0)
+    lock_fd = _open_state_file("scheduler.lock", lock_flags, 0o600, directory_fd, root)
+    try:
+        opened = os.fstat(lock_fd)
+        if (not stat.S_ISREG(opened.st_mode)
+                or (lock_metadata is not None and (opened.st_dev != lock_metadata.st_dev or opened.st_ino != lock_metadata.st_ino))):
+            raise ValueError("scheduler_lock_changed_during_open")
+        if lock_metadata is None and directory_fd is not None:
+            os.fsync(directory_fd)
+        with os.fdopen(lock_fd, "r+") as lock:
+            lock_fd = -1
+            try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError: return {"status": "maintenance_scheduler_lock_busy"}
+            return _locked_run_once(cfg, now, monotonic, watchdog_runner, directory_fd)
+    finally:
+        if lock_fd >= 0:
+            os.close(lock_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 def run_bounded(config: Mapping[str, Any], *, wall_clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -220,7 +360,13 @@ def run_bounded(config: Mapping[str, Any], *, wall_clock: Callable[[], datetime]
         elapsed = monotonic() - start
         if elapsed >= int(cfg["maximum_scheduler_wall_clock_seconds"]): break
         state = inspect(cfg); now = _utc(_utc_text(wall_clock())); due = _utc(state["next_due_utc"])
-        if Path(cfg["stop_marker"]).exists():
+        state_fd = _open_state_root(cfg)
+        try:
+            stopped = _stop_requested(cfg, state_fd)
+        finally:
+            if state_fd is not None:
+                os.close(state_fd)
+        if stopped:
             result = run_once(cfg, evaluation_time=_utc_text(now), monotonic=monotonic, watchdog_runner=watchdog_runner); results.append(result); break
         wait = max(0.0, (due - now).total_seconds())
         remaining = int(cfg["maximum_scheduler_wall_clock_seconds"]) - elapsed

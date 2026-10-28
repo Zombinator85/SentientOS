@@ -59,6 +59,92 @@ def test_scheduler_lock_contention_does_not_advance(tmp_path):
     assert scheduler.inspect(cfg)["event_count"] == 0
 
 
+def _isolated_state_root(tmp_path: Path):
+    cfg, _ = configured(tmp_path)
+    holder = tmp_path / "state-holder"
+    holder.mkdir()
+    state = holder / "scheduler"
+    state.mkdir()
+    raw = dict(cfg)
+    raw.update({
+        "scheduler_state_root": str(state),
+        "journal_path": str(state / "scheduler_events.jsonl"),
+        "stop_marker": str(state / "SCHEDULER_STOP"),
+    })
+    raw.pop("config_digest", None)
+    return scheduler.validate_config(raw), holder
+
+
+def test_state_ancestor_replacement_before_open_fails_closed(tmp_path, monkeypatch):
+    cfg, holder = _isolated_state_root(tmp_path)
+    preserved = tmp_path / "state-holder-preserved"
+    outside = tmp_path / "outside"
+    (outside / "scheduler").mkdir(parents=True)
+    original_open = scheduler._open_state_root
+
+    def replace_then_open(bound):
+        holder.rename(preserved)
+        holder.symlink_to(outside, target_is_directory=True)
+        return original_open(bound)
+
+    monkeypatch.setattr(scheduler, "_open_state_root", replace_then_open)
+    calls = []
+    with pytest.raises(ValueError, match="scheduler_custody_root_invalid"):
+        scheduler.run_once(cfg, evaluation_time="2026-01-01T00:00:00Z",
+            watchdog_runner=lambda *a, **k: calls.append(1) or result())
+
+    assert calls == []
+    assert list((outside / "scheduler").iterdir()) == []
+    assert list((preserved / "scheduler").iterdir()) == []
+
+
+def test_state_directory_descriptor_prevents_parent_swap_redirect(tmp_path, monkeypatch):
+    cfg, holder = _isolated_state_root(tmp_path)
+    preserved = tmp_path / "state-holder-preserved"
+    outside = tmp_path / "outside"
+    (outside / "scheduler").mkdir(parents=True)
+    original_run = scheduler._locked_run_once
+
+    def replace_then_run(bound, now, monotonic, runner, directory_fd):
+        holder.rename(preserved)
+        holder.symlink_to(outside, target_is_directory=True)
+        return original_run(bound, now, monotonic, runner, directory_fd)
+
+    monkeypatch.setattr(scheduler, "_locked_run_once", replace_then_run)
+    out = scheduler.run_once(cfg, evaluation_time="2026-01-01T00:00:00Z",
+        watchdog_runner=lambda *a, **k: result())
+
+    assert out["status"] == "maintenance_scheduler_continue"
+    assert len(list((preserved / "scheduler").iterdir())) == 2
+    assert list((outside / "scheduler").iterdir()) == []
+
+
+@pytest.mark.parametrize("leaf", ("scheduler.lock", "scheduler_events.jsonl", "SCHEDULER_STOP"))
+def test_state_leaf_symlinks_rejected(tmp_path, monkeypatch, leaf):
+    cfg, _ = _isolated_state_root(tmp_path)
+    state = Path(cfg["scheduler_state_root"])
+    outside = tmp_path / "outside.txt"
+    outside.write_text("unchanged")
+    if leaf == "scheduler.lock":
+        (state / leaf).symlink_to(outside)
+    else:
+        original_run = scheduler._locked_run_once
+
+        def insert_link_then_run(bound, now, monotonic, runner, directory_fd):
+            (state / leaf).symlink_to(outside)
+            return original_run(bound, now, monotonic, runner, directory_fd)
+
+        monkeypatch.setattr(scheduler, "_locked_run_once", insert_link_then_run)
+
+    calls = []
+    with pytest.raises(ValueError, match="scheduler_(state_file|journal)_.*unsafe|scheduler_state_file_unavailable_or_unsafe"):
+        scheduler.run_once(cfg, evaluation_time="2026-01-01T00:00:00Z",
+            watchdog_runner=lambda *a, **k: calls.append(1) or result())
+
+    assert calls == []
+    assert outside.read_text() == "unchanged"
+
+
 @pytest.mark.parametrize("status,expected", [("waiting", "maintenance_scheduler_continue"), ("paused", "maintenance_scheduler_stop")])
 def test_waiting_advances_once_and_pause_stops(tmp_path, status, expected):
     cfg, _ = configured(tmp_path)

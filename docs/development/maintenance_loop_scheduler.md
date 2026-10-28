@@ -20,6 +20,14 @@ invocation intent precedes the watchdog call; an unmatched intent after a crash
 blocks rather than risking duplication. Before that intent a restart may retry, and
 a completed receipt reconstructs the next cycle.
 
+On POSIX systems with descriptor-relative filesystem support, scheduler state
+operations open the absolute state-root ancestry with `O_NOFOLLOW` and retain the
+directory descriptor while opening the lock, reading or appending the journal,
+and checking the stop marker. Leaf objects must be regular files and are opened
+without following links. A parent replacement therefore cannot redirect an
+already-bound invocation's custody. Other platforms retain component checks and
+leaf protections around path-based operations.
+
 Every invocation reloads and validates the exact watchdog config. Drift blocks.
 Scheduler STOP prevents new calls but never kills a running watchdog. Watchdog
 `paused` stops scheduling. `idle`, `waiting`, `completed`, and `time_limit` advance
