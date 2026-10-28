@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ab3eb1e1d18c7a941515c679b083c572412a814d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+      "rationale": "A real source and run digest from the developmental-history owner crosses the daemon snapshot and epistemic mutation path, survives owner reconstruction, and changes canonical goal planning to review required without execution."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer"
+  ]
+}

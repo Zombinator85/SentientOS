@@ -327,6 +327,10 @@ class QuiescedDevelopmentalCognitionOwner:
     def __init__(self, owner: Any, gate: ResidentCognitionQuiescenceGate):
         self._owner, self.gate = owner, gate
 
+    @property
+    def experiments(self) -> "QuiescedDevelopmentalCognitionExperiments":
+        return QuiescedDevelopmentalCognitionExperiments(self)
+
     def run_tick(self, **kwargs: Any) -> Any:
         with self.gate.cycle():
             return self._owner.run_tick(**kwargs)
@@ -338,6 +342,22 @@ class QuiescedDevelopmentalCognitionOwner:
 
     def objective_request_disposition(self, **kwargs: Any) -> str:
         return cast(str, self._owner.objective_request_disposition(**kwargs))
+
+
+class QuiescedDevelopmentalCognitionExperiments:
+    """Expose immutable run reads while honoring the resident quiescence gate."""
+
+    def __init__(self, owner: QuiescedDevelopmentalCognitionOwner):
+        self._owner = owner
+
+    def load_run(self, run_id: str) -> Mapping[str, Any]:
+        with self._owner.gate.cycle():
+            return self._owner._owner.experiments.load_run(run_id)
+
+    def objective_task_family_evidence_binding(self, **kwargs: Any) -> Any:
+        with self._owner.gate.cycle():
+            return self._owner._owner.experiments.objective_task_family_evidence_binding(
+                **kwargs)
 
 
 class TransitionJournal:

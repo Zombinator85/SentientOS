@@ -1519,10 +1519,36 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
             proposition_id=proposition.proposition_id)
         event_time = max(datetime.fromisoformat(item["observed_at"].replace("Z", "+00:00"))
             for item in run["conditions"])
-        feedback = epistemic_runtime.process_verified_task_family_run(
-            experiment_store=cognition.experiments, run_id=str(run["run_id"]),
-            expected_run_digest=str(run["run_digest"]), rule_id=rule.rule_id,
-            tick=tick, recorded_at=(event_time + timedelta(seconds=1)).isoformat())
+        from types import SimpleNamespace
+        tick_time = event_time + timedelta(seconds=tick)
+        surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, runtime_state_root=tmp_path / "runtime-epistemic-outcomes",
+            resident_developmental_owner=cognition,
+            developmental_history_intervention_run_refs=((
+                str(run["run_id"]), str(run["run_digest"])),),
+            epistemic_state_owner=epistemic_owner,
+            epistemic_state_config={"status": "configured",
+                "cognitive_consumption_enabled": True,
+                "max_cognitive_projection_count": 4},
+            epistemic_development_runtime=epistemic_runtime)
+        if tick == 1:
+            early_time = event_time - timedelta(seconds=1)
+            surfaces.build_world_state_board(tick_id=early_time.isoformat())
+            early_feedback = surfaces.run_epistemic_development(
+                tick_id=early_time.isoformat())
+            assert early_feedback["verified_task_family_outcome_count"] == 0
+            assert early_feedback["verified_task_family_outcomes_status"] == "unresolved"
+            assert early_feedback["verified_task_family_outcomes"][0]["reason"] == (
+                "selected_run_event_time_is_future")
+            assert epistemic_owner.current_state(proposition.proposition_id) is None
+            assert epistemic_owner.bindings(proposition.proposition_id) == ()
+        surfaces.build_world_state_board(tick_id=tick_time.isoformat())
+        daemon_feedback = surfaces.run_epistemic_development(
+            tick_id=tick_time.isoformat())
+        assert daemon_feedback["verified_task_family_outcomes_status"] == "verified"
+        assert daemon_feedback["verified_task_family_outcome_count"] == 1
+        feedback = SimpleNamespace(**daemon_feedback[
+            "verified_task_family_outcomes"][0])
         assert binding in epistemic_owner.bindings(proposition.proposition_id)
         return binding, feedback
 
@@ -1546,7 +1572,9 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert adverse_admission.status == "state_advanced"
     assert epistemic_owner.current_state(proposition.proposition_id).stance == \
         "provisionally_contradicted"
-    adverse_projection = epistemic_owner.cognitive_projection(max_states=1, current_tick=2)
+    adverse_projection = epistemic_owner.cognitive_projection(max_states=1,
+        current_tick=max(item.tick for item in epistemic_owner.update_events(
+            proposition.proposition_id)) + 1)
     source_records = cognition.experiments.world_state_records(run_refs=((
         run["run_id"], run["run_digest"]),))
     assert len(source_records) == 1
@@ -1754,11 +1782,14 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         final_run["run_digest"]}
     assert {item.evidence_relation for item in recovered_bindings} == {
         "contradicts", "contextualizes", "supports"}
-    assert len(recovered_epistemics.update_events(proposition.proposition_id)) == 3
+    recovered_events = recovered_epistemics.update_events(proposition.proposition_id)
+    assert len(recovered_events) == 3
+    trace_time = max(datetime.fromisoformat(item.observation_time)
+        for item in recovered_bindings) + timedelta(seconds=1)
     trace = recovered_runtime.trace_proposition(
         proposition_id=proposition.proposition_id,
-        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=3,
-        cognitive_tick=5)
+        reconstructed_at=trace_time.isoformat(), max_events=3,
+        cognitive_tick=max(item.tick for item in recovered_events) + 1)
     assert len(trace["mutation_receipts"]) == 7
     assert trace["resulting_prior_projection"]["state_digests"] == [
         recovered_state.state_digest]
@@ -1769,6 +1800,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     # Reconstruct the proposition owner, mutation controller, admission
     # ledger, and trace in a distinct interpreter process.
     child_trace_script = r'''import json, sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from sentientos.codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION,
@@ -1815,8 +1847,13 @@ runtime = ResidentEpistemicDevelopmentRuntime(
     admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
     admission_ledger=ledger)
 state = owner.current_state(proposition.proposition_id)
+bindings = owner.bindings(proposition.proposition_id)
+events = owner.update_events(proposition.proposition_id)
+trace_time = max(datetime.fromisoformat(item.observation_time)
+    for item in bindings) + timedelta(seconds=1)
 trace = runtime.trace_proposition(proposition_id=proposition.proposition_id,
-    reconstructed_at="2026-10-15T00:00:01+00:00", max_events=3, cognitive_tick=5)
+    reconstructed_at=trace_time.isoformat(), max_events=3,
+    cognitive_tick=max(item.tick for item in events) + 1)
 print(json.dumps({"stance": state.stance if state else None,
     "state_digest": state.state_digest if state else None,
     "source_digests": sorted(row["source_digest"] for row in trace["evidence"]),
@@ -1871,7 +1908,7 @@ print(json.dumps({"stance": state.stance if state else None,
             return receipt
 
     updated_projection = recovered_epistemics.cognitive_projection(
-        max_states=1, current_tick=5)
+        max_states=1, current_tick=max(item.tick for item in recovered_events) + 1)
     assert updated_projection is not None
     later_outputs = []
     for label, projection in (("adverse-only", adverse_projection),

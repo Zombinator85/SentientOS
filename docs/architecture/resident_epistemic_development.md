@@ -23,6 +23,17 @@ rule maps support-only and contradiction-only evidence to provisional stances,
 mixed evidence to contested, and wholly stale evidence to suspended. Position is
 not truth, candidate is not authority, and mutation is not permission.
 
+For explicitly selected developmental-history runs, the daemon routes the exact
+run ID and digest represented in its validated same-tick World-State snapshot
+through `process_verified_task_family_run`. The run owner rechecks the complete
+scored protocol and derives the relation from its frozen comparison; generic
+World-State adaptation does not duplicate that evidence. Run events later than
+the daemon tick are ineligible. The resulting owner state remains next-tick-only
+and is available to canonical plan-only allocation after reconstruction. Missing
+or mismatched selected run evidence, including evidence whose event time is later
+than the daemon tick, remains explicitly unresolved and does not create an
+epistemic position.
+
 The runtime has no model invoker, proposition registration, calibration mutation,
 background thread, or cadence. Immutable custody and admission ledgers provide
 restart truth: exact existing bindings are not re-appended and an incomplete state

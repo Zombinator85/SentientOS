@@ -1109,13 +1109,18 @@ class ResidentEpistemicDevelopmentRuntime:
             (state_receipt.successor_state_id,), (state_receipt.generation,))
 
     def process_snapshot(self, snapshot: WorldStateSnapshot, *, tick: int,
-                         recorded_at: str) -> EpistemicDevelopmentFeedback:
+                         recorded_at: str,
+                         excluded_fact_ids: frozenset[str] = frozenset()) -> EpistemicDevelopmentFeedback:
         if not self.config.enabled:
             return EpistemicDevelopmentFeedback("disabled", snapshot.snapshot_id, len(self.config.rules), 0, 0, 0, (), (), (), ())
         validation = validate_snapshot(snapshot)
         if not validation.valid:
             raise EpistemicDevelopmentError("world_state_snapshot_invalid")
-        matches = [(rule, fact) for rule in self.config.rules for fact in snapshot.facts if self._matches(rule, fact)]
+        if (not isinstance(excluded_fact_ids, frozenset)
+                or any(not isinstance(item, str) or not item for item in excluded_fact_ids)):
+            raise EpistemicDevelopmentError("excluded_world_state_fact_selection_invalid")
+        matches = [(rule, fact) for rule in self.config.rules for fact in snapshot.facts
+            if fact.fact_id not in excluded_fact_ids and self._matches(rule, fact)]
         matches.sort(key=lambda pair: (pair[0].rule_id, pair[1].fact_id))
         recovery = self.controller.verify_receipts()
         if recovery.get("status") == "incomplete":
