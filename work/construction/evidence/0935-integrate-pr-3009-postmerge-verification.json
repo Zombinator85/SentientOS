@@ -1,0 +1,95 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 934
+  },
+  "publication": {
+    "exact_candidate_checks": {
+      "CI": {
+        "run_id": 40762515528,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40762515372,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40762515317,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40762515475,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40762515484,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40762515358,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40762515473,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40762515415,
+        "status": "success"
+      }
+    },
+    "merge_commit": "c966a09e28d7d29ad031c230ac597dc0c1f4c7fc",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": {
+        "run_id": 40763285531,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40763285540,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40763285538,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40763285541,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40763285530,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40763285545,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40763285633,
+        "status": "success"
+      }
+    },
+    "pull_request": 3009,
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "99fd404fd6b1ea894f888e70fd00f9ea0b18b1a0",
+      "index_v3": "6d9a72fe6351a4a5ccc8bee3064e4e8131173eb7"
+    },
+    "verified_main_tree": "5e057ea1f25751b91a28f25299fe1d2cfa02b89d"
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3009 merge and post-merge verification",
+  "sequence": 935,
+  "source": {
+    "candidate_commit": "ba449a007110d971ed71d5ac3d84bfbd5faa63e8",
+    "candidate_tree": "5e057ea1f25751b91a28f25299fe1d2cfa02b89d",
+    "remote_ref_readback": {
+      "commit": "c966a09e28d7d29ad031c230ac597dc0c1f4c7fc",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "c966a09e28d7d29ad031c230ac597dc0c1f4c7fc",
+    "verified_remote_main_tree": "5e057ea1f25751b91a28f25299fe1d2cfa02b89d"
+  }
+}
