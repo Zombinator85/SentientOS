@@ -1,0 +1,68 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2982 and sequence 902 causal-introspection owner uniqueness",
+  "sequence": 903,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 902
+  },
+  "source": {
+    "candidate_commit": "12f46dde00da854967758e97c7936e5997c58f6e",
+    "candidate_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+    "merge_commit": "ed13a22862595dc8c9a725f6c1f055aadb82eaab",
+    "merge_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "ed13a22862595dc8c9a725f6c1f055aadb82eaab",
+    "verified_remote_main_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "ed13a22862595dc8c9a725f6c1f055aadb82eaab"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+      "findings": []
+    }
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2982,
+      "state": "merged",
+      "merged_at": "2026-10-28T03:26:46Z",
+      "head_commit": "12f46dde00da854967758e97c7936e5997c58f6e",
+      "merge_commit": "ed13a22862595dc8c9a725f6c1f055aadb82eaab",
+      "title": "[codex:causal-introspection] [untested] reject duplicate owner projections"
+    },
+    "pr_check_status": "all_required_checks_success; greet_and_publish_skipped",
+    "hosted_checks": {
+      "quality_gate": [40626236777, "success"],
+      "ci": [40626236732, "success"],
+      "codex_ci": [40626236628, "success"],
+      "invariants": [40626236726, "success"],
+      "docker": [40626236698, "success"],
+      "lint_benchmark": [40626236600, "success"],
+      "gradient_null_regression": [40626236702, "success"],
+      "release": [40626236694, "success"]
+    },
+    "post_merge_workflows": {
+      "ci": [40626723611, "success"],
+      "codex_ci": [40626723636, "success"],
+      "docker": [40626723638, "success"],
+      "quality_gate": [40626723601, "success"],
+      "docs_deploy": [40626723608, "success"],
+      "invariants": [40626723624, "success"],
+      "nightly_self_check": [40626723610, "success"],
+      "forge_smoke": [40626723632, "skipped"]
+    },
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "60f6ced3e9267b3041bc7cfcc6a9b2c047a21bb4",
+      "index_v3": "4e828ae395df17e34cad7cb6ef7bd864994b0cf4",
+      "evidence_0902": "8c1787e5031ebe9e243a4f1cee85b9fe386c6a85",
+      "segment_0902": "43703d2c3e4e5baa7df602d75ac35f92d7ba95b6",
+      "shard_v3_0034": "e3b3ef6e532495afab6f206936c069222cb9bbbd"
+    }
+  }
+}

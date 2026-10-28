@@ -200,6 +200,18 @@ def test_snapshot_validation_rejects_duplicate_owner_projection_after_redigest(t
         validate_snapshot(forged)
 
 
+def test_projection_and_registration_require_attributable_owner_identity(tmp_path):
+    with pytest.raises(IntrospectionError, match="owner_identity_required"):
+        build_projection(owner_id="", owner_kind="model_serving_owner", domain="model_serving",
+            context=CaptureContext("tick"), source_references=(), causal_references=(),
+            observations=())
+
+    provider = MappingMetadataProvider(provider_id="provider", owner_id="",
+        owner_kind="model_serving_owner", domain="model_serving", observations=())
+    with pytest.raises(IntrospectionError, match="provider_registration_identity_required"):
+        _runtime(tmp_path, (ProviderRegistration("", "model_serving", provider),))
+
+
 def test_stale_provider_projection_is_retained_as_capture_failure(tmp_path):
     class Stale:
         provider_id = "stale"
