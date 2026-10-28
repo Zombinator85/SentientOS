@@ -1,0 +1,177 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2978 and sequence 897 main verification, including hosted documentation dependency resolution",
+  "sequence": 898,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 897
+  },
+  "source": {
+    "candidate_commit": "08807620e85adde6c7f2d7b20860747a4282b659",
+    "candidate_tree": "b880e59324bba79ba1e09c48ab5f06a68c7d77ca",
+    "merge_commit": "e4d7cb719020d773f6d02c9b2e18bb42d8bb1252",
+    "merge_tree": "b880e59324bba79ba1e09c48ab5f06a68c7d77ca",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "e4d7cb719020d773f6d02c9b2e18bb42d8bb1252",
+    "verified_remote_main_tree": "b880e59324bba79ba1e09c48ab5f06a68c7d77ca",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "e4d7cb719020d773f6d02c9b2e18bb42d8bb1252"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "b880e59324bba79ba1e09c48ab5f06a68c7d77ca"
+    }
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2978,
+      "state": "merged",
+      "merged_at": "2026-10-28T02:07:08Z",
+      "head_commit": "08807620e85adde6c7f2d7b20860747a4282b659",
+      "merge_commit": "e4d7cb719020d773f6d02c9b2e18bb42d8bb1252",
+      "title": "[codex:construction] [untested] integrate PR 2976 main verification"
+    },
+    "pr_workflows": {
+      "build_smoke_cpu": [
+        40618555750,
+        "success"
+      ],
+      "required_quality_gate": [
+        40618555779,
+        "success"
+      ],
+      "source_validation_branch_push": [
+        40618467976,
+        "success"
+      ],
+      "source_validation_pull_request": [
+        40618555852,
+        "success"
+      ],
+      "build": [
+        40618555774,
+        "success"
+      ],
+      "docs_branch_push": [
+        40618467976,
+        "success"
+      ],
+      "docs_pull_request": [
+        40618555852,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40618555732,
+        "success"
+      ],
+      "helm_branch_push": [
+        40618467976,
+        "success"
+      ],
+      "helm_pull_request": [
+        40618555852,
+        "success"
+      ],
+      "invariants_branch_push": [
+        40618467990,
+        "success"
+      ],
+      "invariants_pull_request": [
+        40618555786,
+        "success"
+      ],
+      "lint": [
+        40618555715,
+        "success"
+      ],
+      "self_check_branch_push": [
+        40618467976,
+        "success"
+      ],
+      "self_check_pull_request": [
+        40618555852,
+        "success"
+      ],
+      "validate": [
+        40618555725,
+        "success"
+      ],
+      "conditional_greet": [
+        40618555825,
+        "skipped"
+      ],
+      "conditional_publish": [
+        40618555725,
+        "skipped"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40619043714,
+        "success"
+      ],
+      "codex_ci": [
+        40619043635,
+        "success"
+      ],
+      "docker": [
+        40619043624,
+        "success"
+      ],
+      "quality_gate": [
+        40619043728,
+        "success"
+      ],
+      "docs_deploy": [
+        40619043644,
+        "success"
+      ],
+      "invariants": [
+        40619043651,
+        "success"
+      ],
+      "forge_smoke": [
+        40619043698,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "hosted_documentation_verification": {
+      "docs_extra_install": "success",
+      "mkdocs_watchdog_dependency_check": "success",
+      "documentation_build": "success",
+      "docs_deploy": "success",
+      "required_quality_gate_exact_candidate": "success",
+      "administrator_bootstrap": "success",
+      "precommit_finalizer": "success"
+    },
+    "environment_provisioning": {
+      "codex_cloud_status": "connected",
+      "available_provisioning_capabilities": [],
+      "resolution": "repository-hosted workflows install the documented docs extra and verify MkDocs/Watchdog without changing local privilege boundaries"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "76b9468439aa74027128a3e4787bfed68e36c9f7",
+      "index_v3": "72c37e3674c67615cdb421db4d93992a28889a7c",
+      "evidence_0897": "28372a4a63fc0f86ea84bf28457a80456ee058af",
+      "segment_0897": "c064b510b731d5cf6b9f48ad221dfe30b1cf9823",
+      "shard_v3_0030": "e0d4ec6393cd0efc388d480c4ec77dd67c96af92"
+    }
+  },
+  "checkpoint_chain": {
+    "format": "sentientos.construction_checkpoint:v2",
+    "sequence_897_checkpoint_bytes": 1117,
+    "sequence_897_checkpoint_git_blob_sha": "76b9468439aa74027128a3e4787bfed68e36c9f7",
+    "next_transition_source_commit": "e4d7cb719020d773f6d02c9b2e18bb42d8bb1252",
+    "next_transition_source_tree": "b880e59324bba79ba1e09c48ab5f06a68c7d77ca",
+    "history_rewritten": false
+  },
+  "segment": {
+    "path": "work/construction/segments/0898-integrate-pr-2978-main-verification.md",
+    "bytes": 1496,
+    "sha256": "f14cb8549ffd5ffc51d7844410d53051f7f10d7daf7637f125a4801c05674f94"
+  }
+}
