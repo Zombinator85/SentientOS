@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded v3 compact-checkpoint migration candidate",
+  "sequence": 891,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 890
+  },
+  "source": {
+    "verified_remote_main": "ae254ab1b04c6dc51ad9e1a726c7ce13d4dde570",
+    "verified_remote_main_tree": "f59e273a5fdc12330bb9162fa1e4d6cc132c7b8f",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "ae254ab1b04c6dc51ad9e1a726c7ce13d4dde570"
+    }
+  },
+  "publication": {
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "ed6b634a90f2dbbf03960935e997e7c74302e46f",
+      "index_v3": "b31558cfa2ee1ba9aa8add4277e3c77529bd0f5d",
+      "latest_shard_v3": "e6d4f95f2016e47b1e36be8172725e7ffd7677da"
+    },
+    "candidate_status": "pending_exact_candidate_hosted_verification"
+  },
+  "architecture": {
+    "change": "constant-size v3 checkpoint chain with immutable predecessor-linked transitions",
+    "historical_checkpoint_bytes": "preserved in original verified Git trees",
+    "cumulative_snapshot_copying": false,
+    "governance_boundaries_changed": false
+  },
+  "local_validation": {
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py tests/test_construction_continuation_custody.py",
+      "passed": 53,
+      "failed": 0
+    },
+    "targeted_mypy": {
+      "command": "python -m mypy scripts/construction_index_v3.py scripts/construction_source_preflight.py",
+      "status": "passed"
+    },
+    "diff_check": "passed",
+    "documentation_build": "pending_exact_candidate_hosted_quality_gate"
+  },
+  "segment": {
+    "path": "work/construction/segments/0891-bound-v3-compact-checkpoint-chain.md",
+    "bytes": 952,
+    "sha256": "596da360d0a3f4ed5c23edf51d52023140e017e6ae807145000852b732b58df0"
+  }
+}

@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
 from scripts.verify_construction_continuation_custody import (
+    MAX_SHARD_BYTES,
     materialize_index_segments,
     verify_continuation_reader,
 )
@@ -64,6 +65,115 @@ def _required(root: Path, *args: str) -> str:
 def _names(root: Path, *args: str) -> list[str]:
     value = _required(root, *args)
     return sorted({line for line in value.splitlines() if line})
+
+
+def _verify_checkpoint_source(
+    root: Path, descriptor: Mapping[str, Any], parent: str
+) -> list[str]:
+    failures: list[str] = []
+    commit = descriptor.get("source_commit")
+    source_tree = descriptor.get("source_tree")
+    path = descriptor.get("path")
+    if not isinstance(commit, str) or not _SHA_RE.fullmatch(commit):
+        return ["checkpoint_source_commit_invalid"]
+    if not isinstance(source_tree, str) or not _SHA_RE.fullmatch(source_tree):
+        return ["checkpoint_source_tree_invalid"]
+    if path != "work/construction/active_checkpoint_v3.md":
+        return ["checkpoint_source_path_invalid"]
+    if _is_ancestor(root, commit, parent) is not True:
+        failures.append("checkpoint_source_not_parent_ancestor")
+    try:
+        if _required(root, "rev-parse", f"{commit}^{{tree}}") != source_tree:
+            failures.append("checkpoint_source_tree_mismatch")
+        blob, data = _tree_blob(root, commit, path, MAX_CANDIDATE_FILE_BYTES)
+        if (
+            len(data) != descriptor.get("bytes")
+            or hashlib.sha256(data).hexdigest() != descriptor.get("sha256")
+            or blob != descriptor.get("git_blob_sha")
+        ):
+            failures.append("checkpoint_source_blob_mismatch")
+    except (OSError, PreflightError, subprocess.TimeoutExpired):
+        failures.append("checkpoint_source_unreadable")
+    return failures
+
+
+def _verify_v3_checkpoint_chain(
+    root: Path,
+    parent: str,
+    parent_tree: str,
+    candidate_tree: str,
+    old_index: Mapping[str, Any],
+    new_index: Mapping[str, Any],
+    read_new: Callable[[str, int], bytes],
+) -> list[str]:
+    """Bind compact checkpoint transitions to immutable predecessor Git trees."""
+    failures: list[str] = []
+    old_chain = old_index.get("checkpoint_chain")
+    new_chain = new_index.get("checkpoint_chain")
+    if old_chain is not None and not isinstance(old_chain, dict):
+        return ["old_checkpoint_chain_shape_invalid"]
+    if new_chain is None:
+        if old_chain is not None:
+            failures.append("checkpoint_chain_removed")
+        return failures
+    if not isinstance(new_chain, dict):
+        return ["new_checkpoint_chain_shape_invalid"]
+    anchor = new_chain.get("anchor")
+    latest = new_chain.get("latest")
+    if not isinstance(anchor, dict) or not isinstance(latest, dict):
+        return ["checkpoint_chain_descriptors_missing"]
+    if old_chain is None:
+        try:
+            parent_checkpoint = _tree_blob(
+                root, parent, "work/construction/active_checkpoint_v3.md",
+                MAX_CANDIDATE_FILE_BYTES,
+            )[1]
+            expected_anchor = {
+                "sequence": old_index.get("latest_sequence"),
+                "path": "work/construction/active_checkpoint_v3.md",
+                "bytes": len(parent_checkpoint),
+                "sha256": hashlib.sha256(parent_checkpoint).hexdigest(),
+                "git_blob_sha": _git_blob_sha(parent_checkpoint),
+                "source_commit": parent,
+                "source_tree": parent_tree,
+            }
+            if anchor != expected_anchor:
+                failures.append("checkpoint_chain_anchor_not_bound_to_parent")
+        except (OSError, PreflightError, subprocess.TimeoutExpired):
+            failures.append("checkpoint_chain_parent_anchor_unreadable")
+    elif anchor != old_chain.get("anchor"):
+        failures.append("checkpoint_chain_anchor_changed")
+
+    try:
+        from scripts.construction_index_v3 import v3_shard_paths
+        for shard_path in v3_shard_paths(new_index, read_new):
+            document = json.loads(read_new(shard_path, MAX_SHARD_BYTES))
+            transition = document.get("checkpoint_transition") if isinstance(document, dict) else None
+            if not isinstance(transition, dict):
+                continue
+            predecessor = transition.get("predecessor")
+            if isinstance(predecessor, dict):
+                failures.extend(_verify_checkpoint_source(root, predecessor, parent))
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        failures.append("checkpoint_chain_shards_unreadable")
+
+    try:
+        latest_blob, latest_bytes = _tree_blob(
+            root, candidate_tree,
+            "work/construction/active_checkpoint_v3.md", MAX_CANDIDATE_FILE_BYTES,
+        )
+        if (
+            latest.get("sequence") != new_index.get("latest_sequence")
+            or latest.get("bytes") != len(latest_bytes)
+            or latest.get("sha256") != hashlib.sha256(latest_bytes).hexdigest()
+            or latest.get("git_blob_sha") != latest_blob
+        ):
+            failures.append("checkpoint_chain_latest_not_bound_to_candidate")
+    except (OSError, PreflightError, subprocess.TimeoutExpired):
+        failures.append("checkpoint_chain_candidate_checkpoint_unreadable")
+    if old_chain is not None:
+        failures.extend(_verify_checkpoint_source(root, old_chain.get("anchor", {}), parent))
+    return failures
 
 
 def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool | None:
@@ -327,6 +437,11 @@ def verify_candidate_publication(root: Path, manifest: Mapping[str, Any], *,
         parent_read: Callable[[str, int], bytes] = (
             lambda path, limit: _tree_blob(root, parent, path, limit)[1]
         )
+        if old_index.get("schema_version") == 3 and new_index.get("schema_version") == 3:
+            parent_tree = _required(root, "rev-parse", f"{parent}^{{tree}}")
+            failures.extend(_verify_v3_checkpoint_chain(
+                root, parent, parent_tree, tree, old_index, new_index, read
+            ))
         old_segments = materialize_index_segments(old_index, parent_read)
         new_segments = materialize_index_segments(new_index, read)
         if new_segments[:len(old_segments)] != old_segments:

@@ -26,6 +26,19 @@ bindings, bytes, hashes, evidence identities, provenance, and checkpoint
 consistency. Shard paths have fixed-width sequence fields; the verifier bounds
 numeric fields and head bytes.
 
+The active checkpoint is bounded independently of sequence count. Sequence
+891 introduces a `checkpoint_chain` anchored to the exact existing v3 checkpoint
+and source main commit/tree. New checkpoints use
+`sentientos.construction_checkpoint:v2`, containing the latest source and
+segment plus the prior checkpoint's byte count, SHA-256, and Git blob identity.
+Each immutable shard binds one checkpoint transition to that sequence's
+evidence. The candidate preflight verifies every predecessor against its
+recorded source commit and tree, including ancestry and exact checkpoint blob
+identity; it verifies the current checkpoint in the candidate tree. Earlier
+checkpoint bytes remain in their original Git trees. They are not copied into
+the mutable checkpoint. Missing, reordered, or altered transitions fail
+closed.
+
 Each update creates one immutable shard and replaces the small head and active
 checkpoint. Existing v1 and v2 roots, checkpoints, segments, evidence, and
 shards remain byte-identical. The source preflight requires an initial v2-to-v3

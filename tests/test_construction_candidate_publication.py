@@ -16,7 +16,9 @@ from scripts.construction_index_v3 import (
     V3_CHECKPOINT_PATH,
     V3_INDEX_PATH,
     append_v3_shard,
+    begin_v3_checkpoint_chain,
     migrate_v2_head,
+    render_v3_checkpoint,
 )
 from tests.test_construction_continuation_custody import _write_fixture
 
@@ -359,3 +361,124 @@ def test_candidate_guard_accepts_v3_migration_anchored_to_exact_v2_root(
 
     assert next_result['status'] == 'candidate_integrity_ready_for_blob_upload', next_result
     assert next_result['failures'] == []
+
+    # Establish the previous candidate as immutable main, then verify that a
+    # compact checkpoint transition points back to the exact parent Git blob.
+    git(tmp_path, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '-qm', 'verified v3 checkpoint baseline')
+    checkpoint_parent = git(tmp_path, 'rev-parse', 'HEAD')
+    checkpoint_parent_tree = git(tmp_path, 'rev-parse', 'HEAD^{tree}')
+    checkpoint_head = (tmp_path / V3_INDEX_PATH).read_bytes()
+    checkpoint_head = begin_v3_checkpoint_chain(
+        checkpoint_head,
+        source_commit=checkpoint_parent,
+        source_tree=checkpoint_parent_tree,
+        read=v3_read,
+    )
+    checkpoint_head_doc = json.loads(checkpoint_head)
+    prior_checkpoint = checkpoint_head_doc['checkpoint_chain']['latest']
+    compact_source = checkpoint_parent
+    compact_tree = checkpoint_parent_tree
+    compact_segment = 'work/construction/segments/v3-compact-next.md'
+    compact_evidence = 'work/construction/evidence/v3-compact-next.json'
+    compact_payload = b'compact checkpoint continuation record\n'
+    compact_sha = hashlib.sha256(compact_payload).hexdigest()
+    compact_evidence_doc = {
+        'schema_version': 'sentientos.construction_evidence:v1',
+        'sequence': 4,
+        'source': {
+            'verified_remote_main': compact_source,
+            'verified_remote_main_tree': compact_tree,
+            'remote_ref_readback': {
+                'ref': 'refs/heads/main',
+                'commit': compact_source,
+            },
+        },
+        'publication': {
+            'verified_main_file_readbacks': {
+                'active_checkpoint_v3': prior_checkpoint['git_blob_sha'],
+            },
+        },
+    }
+    compact_evidence_bytes = (json.dumps(compact_evidence_doc, indent=2) + '\n').encode()
+    compact_entry = {
+        'sequence': 4,
+        'path': compact_segment,
+        'predecessor': 'segment-sha256:' + checkpoint_head_doc['latest_segment_sha256'],
+        'bytes': len(compact_payload),
+        'sha256': compact_sha,
+        'evidence_path': compact_evidence,
+        'evidence_sha256': hashlib.sha256(compact_evidence_bytes).hexdigest(),
+        'evidence_bytes': len(compact_evidence_bytes),
+        'source_commit': compact_source,
+        'source_tree': compact_tree,
+    }
+    prior_checkpoint_record = {
+        **prior_checkpoint,
+        'source_commit': compact_source,
+        'source_tree': compact_tree,
+    }
+    compact_binding = checkpoint_head_doc['active_checkpoint_binding']
+    compact_checkpoint = render_v3_checkpoint(
+        sequence=4,
+        latest_main_commit=compact_source,
+        latest_main_tree=compact_tree,
+        binding_origin_commit=compact_binding['source_commit'],
+        binding_origin_tree=compact_binding['source_tree'],
+        segment_path=compact_segment,
+        segment_sha256=compact_sha,
+        predecessor=prior_checkpoint_record,
+    )
+    (tmp_path / compact_segment).write_bytes(compact_payload)
+    (tmp_path / compact_evidence).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / compact_evidence).write_bytes(compact_evidence_bytes)
+    compact_read = lambda path, limit: (tmp_path / path).read_bytes()
+    compact_head, compact_shards = append_v3_shard(
+        checkpoint_head, {}, [compact_entry], compact_checkpoint, read=compact_read
+    )
+    (tmp_path / V3_INDEX_PATH).write_bytes(compact_head)
+    (tmp_path / V3_CHECKPOINT_PATH).write_bytes(compact_checkpoint)
+    for relative, payload in compact_shards.items():
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(payload)
+    git(tmp_path, 'add', '.')
+    compact_manifest = candidate_manifest(tmp_path, git(tmp_path, 'write-tree'), checkpoint_parent)
+
+    compact_result = verify_candidate_publication(tmp_path, compact_manifest)
+
+    assert compact_result['status'] == 'candidate_integrity_ready_for_blob_upload', compact_result
+    assert compact_result['failures'] == []
+
+    # A self-consistent shard rewrite cannot move the predecessor to a commit
+    # that did not contain the bound checkpoint blob.
+    compact_head_doc = json.loads((tmp_path / V3_INDEX_PATH).read_bytes())
+    latest_shard_path = compact_head_doc['latest_shard']['path']
+    latest_shard_file = tmp_path / latest_shard_path
+    latest_shard_doc = json.loads(latest_shard_file.read_bytes())
+    latest_shard_doc['checkpoint_transition']['predecessor']['source_commit'] = '0' * 40
+    rewritten_shard = (json.dumps(latest_shard_doc, indent=2) + '\n').encode()
+    latest_shard_file.write_bytes(rewritten_shard)
+    latest_descriptor = compact_head_doc['latest_shard']
+    latest_descriptor.update(
+        bytes=len(rewritten_shard),
+        sha256=hashlib.sha256(rewritten_shard).hexdigest(),
+        git_blob_sha=hashlib.sha1(
+            b'blob ' + str(len(rewritten_shard)).encode() + b'\0' + rewritten_shard
+        ).hexdigest(),
+    )
+    (tmp_path / V3_INDEX_PATH).write_text(
+        json.dumps(compact_head_doc, indent=2) + '\n', encoding='utf-8'
+    )
+    git(tmp_path, 'add', '.')
+    tampered_manifest = candidate_manifest(
+        tmp_path, git(tmp_path, 'write-tree'), checkpoint_parent
+    )
+
+    tampered_result = verify_candidate_publication(tmp_path, tampered_manifest)
+
+    assert tampered_result['status'] == 'invalid'
+    assert any(
+        failure.startswith(('custody:v3_checkpoint_transition', 'checkpoint_source_'))
+        for failure in tampered_result['failures']
+    )
