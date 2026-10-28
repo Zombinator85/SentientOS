@@ -1,0 +1,82 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 929
+  },
+  "publication": {
+    "exact_candidate_checks": {
+      "CI": 40750511222,
+      "Codex CI": 40750511121,
+      "Docker Image": 40750511124,
+      "Gradient null regression": 40750510973,
+      "Invariant Tests": 40750510932,
+      "Lint Benchmark": 40750510943,
+      "Release": 40750511072,
+      "Required Quality Gate": 40750510984
+    },
+    "merge_commit": "8f03b9ca2322579cf9e4f3f3b999862aeb4f49c7",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": {
+        "attempt": 2,
+        "run_id": 40751376463,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40751376457,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40751376666,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40751376494,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40751376640,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40751376583,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40751376468,
+        "status": "success"
+      }
+    },
+    "post_merge_recovery": {
+      "failed_attempt": 1,
+      "failed_job": "docs",
+      "failed_job_id": 123038659269,
+      "failed_step": "Run sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+      "failure": "Three GitHub-hosted repository links returned HTTP 429 rate limits; documentation build itself passed.",
+      "rerun_attempt": 2,
+      "rerun_job_id": 123042634846,
+      "rerun_status": "success",
+      "workflow_run_id": 40751376463
+    },
+    "pull_request": 3004,
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "4792d82a93509aa5656660d02727f08c26f3a7a8",
+      "index_v3": "341b94ba8bc55fa8323fdb79bafcaf14a8c98e21"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3004 merge and post-merge verification",
+  "sequence": 930,
+  "source": {
+    "candidate_commit": "281f02fb73b251c29b843ce378a4657bb290c5a5",
+    "candidate_tree": "1d548c84ae7ad7459a3450f6c4e927f4527a40b5",
+    "remote_ref_readback": {
+      "commit": "8f03b9ca2322579cf9e4f3f3b999862aeb4f49c7",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "8f03b9ca2322579cf9e4f3f3b999862aeb4f49c7",
+    "verified_remote_main_tree": "1d548c84ae7ad7459a3450f6c4e927f4527a40b5"
+  }
+}
