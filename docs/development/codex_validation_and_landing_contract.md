@@ -299,6 +299,21 @@ after the new immutable shard bytes are ready. Routine publication then uploads
 the small v2 root, the updated active v2 checkpoint, new shard(s), and current
 evidence instead of retransmitting the historical v1 ledger.
 
+Schema v3 uses a constant-size `work/construction/index-v3.json` head and
+immutable predecessor-linked shards; the head never accumulates a descriptor
+list for every shard. Its active recovery checkpoint must remain bounded too.
+After an existing v3 checkpoint is anchored in `checkpoint_chain`, new
+checkpoints use `sentientos.construction_checkpoint:v2` and contain only the
+current source, segment, and exact identity of the preceding checkpoint. Each
+immutable v3 shard records that checkpoint transition and binds it to the
+sequence evidence. Candidate preflight resolves each predecessor checkpoint
+from its recorded source commit and tree, confirms that source is an ancestor
+of the candidate parent, and verifies the path, byte count, SHA-256, and Git
+blob identity. It checks the current checkpoint against the candidate tree.
+Older checkpoint bytes remain in their original Git trees; the mutable file
+does not recursively copy them. Verification rejects missing, reordered, or
+altered transitions while retaining the existing history and recovery checks.
+
 Run `python -m scripts.verify_construction_continuation_custody --summary` after
 updating navigation metadata. The verifier reads v1 when no v2 root exists; when
 v2 is present it verifies the referenced v1 Git blob identity and checkpoint,
@@ -310,7 +325,8 @@ with `scripts.construction_source_preflight.candidate_manifest`. Its manifest
 contains exact byte counts, SHA-256 and Git blob identities for every changed
 path. The candidate-tree guard verifies continuation custody, UTF-8/Python syntax,
 tree membership, immutable v1 anchor history or v2 shard-prefix custody, and the
-original frozen-journal definition. After uploading,
+original frozen-journal definition. For v3 updates it also verifies the entire
+checkpoint transition chain against immutable source Git trees. After uploading,
 supply independently read remote blob identities using `--observed-blobs` to
 `python -m scripts.construction_source_preflight REPOSITORY --candidate-manifest
 MANIFEST --observed-blobs OBSERVATIONS`. Require

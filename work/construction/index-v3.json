@@ -9,24 +9,43 @@
     "latest_sequence": 867,
     "latest_segment_sha256": "d89bceebb6176ca2c6622ace37acbc22c86dd8e02204ee34d09a6b5a512eb850"
   },
-  "latest_sequence": 890,
-  "latest_segment_sha256": "f46048a8166b5577c322590fa0d0bb2c5a6fcb8944418125d6bf29f4e6deaa76",
-  "shard_count": 23,
+  "latest_sequence": 891,
+  "latest_segment_sha256": "596da360d0a3f4ed5c23edf51d52023140e017e6ae807145000852b732b58df0",
+  "shard_count": 24,
   "latest_shard": {
-    "path": "work/construction/shards-v3/000000023-000000890-000000890.json",
-    "bytes": 1174,
-    "sha256": "ef8ab18b14d5516f93d82173aefcd5b06098dc18d281b5aa3f51410fa6ffe922",
-    "git_blob_sha": "e6d4f95f2016e47b1e36be8172725e7ffd7677da",
-    "shard_sequence": 23,
-    "first_sequence": 890,
-    "last_sequence": 890
+    "path": "work/construction/shards-v3/000000024-000000891-000000891.json",
+    "bytes": 1915,
+    "sha256": "166be6c06913e91b374ef32fa7a0373c48d4c40725b5a403cb1b1c118bc06bea",
+    "git_blob_sha": "1a125a694dfd8cecda164dcaf758b418476ba6c2",
+    "shard_sequence": 24,
+    "first_sequence": 891,
+    "last_sequence": 891
   },
   "active_checkpoint": "work/construction/active_checkpoint_v3.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "fc7ab0d116a37ddb0221b770c9821de126ae813fb5a5a43474e68cd9fd34f562",
-    "latest_segment_sequence": 890,
-    "latest_segment_sha256": "f46048a8166b5577c322590fa0d0bb2c5a6fcb8944418125d6bf29f4e6deaa76",
+    "checkpoint_sha256": "65eeee9b5d930cc6c855b810dadeb4635da2bdf39ca244f4dd51295010f74ded",
+    "latest_segment_sequence": 891,
+    "latest_segment_sha256": "596da360d0a3f4ed5c23edf51d52023140e017e6ae807145000852b732b58df0",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
+  },
+  "checkpoint_chain": {
+    "schema_version": 1,
+    "anchor": {
+      "sequence": 890,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 5600,
+      "sha256": "fc7ab0d116a37ddb0221b770c9821de126ae813fb5a5a43474e68cd9fd34f562",
+      "git_blob_sha": "ed6b634a90f2dbbf03960935e997e7c74302e46f",
+      "source_commit": "ae254ab1b04c6dc51ad9e1a726c7ce13d4dde570",
+      "source_tree": "f59e273a5fdc12330bb9162fa1e4d6cc132c7b8f"
+    },
+    "latest": {
+      "sequence": 891,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1115,
+      "sha256": "65eeee9b5d930cc6c855b810dadeb4635da2bdf39ca244f4dd51295010f74ded",
+      "git_blob_sha": "fbbe648a8e9c8992632fba823c57352de3e132f1"
+    }
   }
 }
