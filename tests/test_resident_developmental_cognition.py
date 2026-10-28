@@ -1145,14 +1145,28 @@ print(json.dumps({"context_id": context["context_id"],
                     "max_new_tokens": kwargs["budget"]["max_new_tokens"]}}
 
     scored_a = ScoredReplacementFixture(replacement_identity("scored-family-a"))
-    scored_b = ScoredReplacementFixture(replacement_identity("scored-family-b"),
-        history_effect=False)
+    scored_b = ScoredReplacementFixture(replacement_identity("scored-family-b"))
     scored_experiment = DevelopmentalModelReplacementExperiment(
         context=succession_context, model_a=scored_a, model_b=scored_b,
         artifact_root=tmp_path / "family-model-replacement-scored",
         objective_task=ObjectivePredictionTask(3, 2, 10, (11, 12),
             task_family_id="integer_affine_prediction", requires_task_family_history=True))
     scored_run = scored_experiment.run(trial_id="family-score-contract")
+    # The admitted historical examples improve this held-out task under both
+    # preregistered model identities, and the restored A condition reproduces
+    # its original score. This is controlled fixture evidence about delivered
+    # history and task correctness, not a claim about production model learning.
+    evaluation = scored_run["objective_evaluation"]
+    assert evaluation["model_a_history_correct_probe_delta"] == 3
+    assert evaluation["model_b_history_correct_probe_delta"] == 3
+    assert evaluation["restoration_correct_probe_delta"] == 0
+    assert evaluation["restoration_correctness_stable"] is True
+    assert [row["objective_task_score"]["correct_count"]
+        for row in scored_run["observations"]] == [3, 0, 3, 0, 3]
+    assert [row["history_record_ids"] for row in scored_run["observations"]] == [
+        [later.written_record_id], [], [later.written_record_id], [],
+        [later.written_record_id],
+    ]
     scored_records = scored_experiment.store.world_state_records(
         run_refs=((scored_run["run_id"], scored_run["run_digest"]),))
     score_contract = scored_records[0]["payload"].get("objective_score_contract")
