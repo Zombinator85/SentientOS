@@ -1,0 +1,196 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2976 and sequence 896 main verification, including documentation dependency resolution and Quality Gate title-guard diagnosis",
+  "sequence": 897,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 896
+  },
+  "source": {
+    "candidate_commit": "e9cc4037f0d8abf09f04455d0751024a6dac3fe0",
+    "candidate_tree": "a574379425a915768f5d84c90ca626bc8107186e",
+    "merge_commit": "23ebd2b5313e5fbda773305e06705228c5ab585a",
+    "merge_tree": "a574379425a915768f5d84c90ca626bc8107186e",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "23ebd2b5313e5fbda773305e06705228c5ab585a",
+    "verified_remote_main_tree": "a574379425a915768f5d84c90ca626bc8107186e",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "23ebd2b5313e5fbda773305e06705228c5ab585a"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "a574379425a915768f5d84c90ca626bc8107186e"
+    }
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2976,
+      "state": "merged",
+      "merged_at": "2026-10-28T01:54:11Z",
+      "head_commit": "e9cc4037f0d8abf09f04455d0751024a6dac3fe0",
+      "merge_commit": "23ebd2b5313e5fbda773305e06705228c5ab585a",
+      "title": "[codex:construction] [untested] integrate PR 2975 main verification"
+    },
+    "pr_workflows": {
+      "build_smoke_cpu": [
+        40616550789,
+        "success"
+      ],
+      "required_quality_gate_initial": [
+        40616550969,
+        "failure",
+        "failed only exact PR title/commit subject equality; Administrator preflight was successful"
+      ],
+      "required_quality_gate_final": [
+        40617474550,
+        "success"
+      ],
+      "ci_branch_push_source_validation": [
+        40616447731,
+        "success"
+      ],
+      "ci_pull_request_source_validation": [
+        40616550793,
+        "success"
+      ],
+      "build": [
+        40616550771,
+        "success"
+      ],
+      "docs_branch_push": [
+        40616447731,
+        "success"
+      ],
+      "docs_pull_request": [
+        40616550793,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40616550760,
+        "success"
+      ],
+      "helm_branch_push": [
+        40616447731,
+        "success"
+      ],
+      "helm_pull_request": [
+        40616550793,
+        "success"
+      ],
+      "invariants_branch_push": [
+        40616447607,
+        "success"
+      ],
+      "invariants_pull_request": [
+        40616550824,
+        "success"
+      ],
+      "lint": [
+        40616550744,
+        "success"
+      ],
+      "self_check_branch_push": [
+        40616447731,
+        "success"
+      ],
+      "self_check_pull_request": [
+        40616550793,
+        "success"
+      ],
+      "validate": [
+        40616550785,
+        "success"
+      ],
+      "invite_after_title_update": [
+        40617770774,
+        "success"
+      ],
+      "conditional_greet": [
+        40616550908,
+        "skipped"
+      ],
+      "conditional_publish": [
+        40616550785,
+        "skipped"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40617770137,
+        "success"
+      ],
+      "codex_ci": [
+        40617770039,
+        "success"
+      ],
+      "quality_gate": [
+        40617770045,
+        "success"
+      ],
+      "docs_deploy": [
+        40617770001,
+        "success"
+      ],
+      "docker": [
+        40617770056,
+        "success"
+      ],
+      "invariants": [
+        40617770044,
+        "success"
+      ],
+      "forge_smoke": [
+        40617770076,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "hosted_documentation_verification": {
+      "docs_extra_install": "success",
+      "docs_dependency_check": "success",
+      "mkdocs_build": "success",
+      "docs_deploy": "success",
+      "required_quality_gate_exact_candidate": "success",
+      "administrator_bootstrap": "success"
+    },
+    "hosted_quality_gate_diagnosis": {
+      "administrator_effective_uid": 0,
+      "failure_guard": "PR_TITLE must exactly equal the commit subject",
+      "correction": "updated PR title to the commit subject; no CI or privilege changes",
+      "rerun_status": "success"
+    },
+    "environment_provisioning": {
+      "codex_cloud_status": "connected",
+      "available_provisioning_capabilities": [],
+      "resolution": "repository-hosted Administrator and Docs Deploy workflows install and validate declared documentation dependencies"
+    },
+    "diagnostic_followup_pr": {
+      "number": 2977,
+      "state": "closed_without_merge",
+      "reason": "root identity assertion passed; workflow change unnecessary"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "1f04786c912a4ead9371e8ee2221fe3e8abe8fb0",
+      "index_v3": "4d574c2e360abbd325323fce27ccd4ceed5bfd38",
+      "evidence_0896": "94ff0d94a16d4f78092c7e77a13624d90013c61d",
+      "segment_0896": "aeaae4436fbf5ae62096399536220364d00adbbb",
+      "shard_v3_0029": "db7804f00ffab233e4438d9b24e5b6255db18152"
+    }
+  },
+  "checkpoint_chain": {
+    "format": "sentientos.construction_checkpoint:v2",
+    "sequence_896_checkpoint_bytes": 1117,
+    "sequence_896_checkpoint_git_blob_sha": "1f04786c912a4ead9371e8ee2221fe3e8abe8fb0",
+    "next_transition_source_commit": "23ebd2b5313e5fbda773305e06705228c5ab585a",
+    "next_transition_source_tree": "a574379425a915768f5d84c90ca626bc8107186e",
+    "history_rewritten": false
+  },
+  "segment": {
+    "path": "work/construction/segments/0897-integrate-pr-2976-main-verification.md",
+    "bytes": 1656,
+    "sha256": "c098ee04db12185467e8a69e1b0e80d14505b104e8d264b1924aad62f536ac8d"
+  }
+}
