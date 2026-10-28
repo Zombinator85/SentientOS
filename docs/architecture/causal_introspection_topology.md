@@ -78,8 +78,12 @@ absent when the environment variable is absent and is not default-resident.
 Generations are immutable `generation-N.json` objects. Their digests cover the
 ordered projection inventory, findings, conflicts, predecessor digest, capture
 tick, and optional repository identity. Restart reconstruction verifies every
-projection and predecessor. A partial provider failure retains successful
-projections but records only a bounded error class/code—never a traceback.
+projection and predecessor. Each projection must carry the exact tick supplied
+to its provider. Validation independently derives the conflict inventory from
+the retained owner reports and checks that `complete` or `partial` agrees with
+the capture findings; recomputing a snapshot digest cannot make an inconsistent
+summary valid. A partial provider failure retains successful projections but
+records only a bounded error class/code—never a traceback.
 
 During maintenance tick N, World-State is built first, then cognition,
 transition handling, epistemic development, longitudinal reconciliation, and
