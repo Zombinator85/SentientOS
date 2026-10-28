@@ -1,0 +1,36 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a4908951510ba4b8758a439e248f1026270324d1",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_state_ancestor_replacement_before_open_fails_closed",
+      "rationale": "A state-root parent replaced with a symlink between validation and descriptor acquisition must fail before lock creation or watchdog invocation."
+    },
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_state_directory_descriptor_prevents_parent_swap_redirect",
+      "rationale": "Once the state directory is opened, replacing its path ancestry cannot redirect lock or journal operations to the replacement target."
+    },
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_state_leaf_symlinks_rejected[scheduler.lock]",
+      "rationale": "A lock leaf replaced with a symlink is rejected before any scheduler action."
+    },
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_state_leaf_symlinks_rejected[scheduler_events.jsonl]",
+      "rationale": "A journal leaf replaced with a symlink is rejected before watchdog invocation or external-file mutation."
+    },
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_state_leaf_symlinks_rejected[SCHEDULER_STOP]",
+      "rationale": "A stop-marker leaf replaced with a symlink is rejected rather than read through the link."
+    },
+    {
+      "node_id": "tests/test_maintenance_loop_scheduler.py::test_exact_profile_binding_due_invocation_and_durable_receipt",
+      "rationale": "The existing successful cadence path still records a durable receipt and invokes the watchdog once."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_loop_scheduler.py::test_state_directory_descriptor_prevents_parent_swap_redirect",
+    "tests/test_maintenance_loop_scheduler.py::test_exact_profile_binding_due_invocation_and_durable_receipt"
+  ]
+}
