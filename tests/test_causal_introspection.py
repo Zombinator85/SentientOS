@@ -212,6 +212,18 @@ def test_projection_and_registration_require_attributable_owner_identity(tmp_pat
         _runtime(tmp_path, (ProviderRegistration("", "model_serving", provider),))
 
 
+def test_capture_and_projection_require_nonempty_temporal_identity(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    with pytest.raises(IntrospectionError, match="capture_tick_required"):
+        runtime.capture(CaptureContext("", capture_posture="synthetic_test"))
+
+    with pytest.raises(IntrospectionError, match="capture_tick_required"):
+        build_projection(owner_id="serving", owner_kind="serving_owner", domain="model_serving",
+            context=CaptureContext(""), source_references=(), causal_references=(),
+            observations=())
+
+
 def test_stale_provider_projection_is_retained_as_capture_failure(tmp_path):
     class Stale:
         provider_id = "stale"

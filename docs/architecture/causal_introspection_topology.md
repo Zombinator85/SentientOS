@@ -82,7 +82,8 @@ ordered projection inventory, findings, conflicts, predecessor digest, capture
 tick, and optional repository identity. Restart reconstruction verifies every
 projection and predecessor. Each projection must carry the exact tick supplied
 to its provider, and each owner and projection identity must be unique within
-the snapshot. Validation independently derives the conflict inventory from
+the snapshot; an empty capture tick is rejected because it cannot identify a
+temporal observation boundary. Validation independently derives the conflict inventory from
 the retained owner reports and checks that `complete` or `partial` agrees with
 the capture findings; recomputing a snapshot digest cannot make duplicated
 owner evidence or an inconsistent summary valid. A partial provider failure

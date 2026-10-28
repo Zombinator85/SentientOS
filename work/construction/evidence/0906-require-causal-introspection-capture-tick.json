@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "local candidate verification for nonempty causal-introspection temporal identity",
+  "sequence": 906,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 904
+  },
+  "source": {
+    "candidate_commit": "ea763cd43ed9497e446e32ce70a55fcd94286f6b",
+    "candidate_tree": "63377736977c6f0cc8bb7235b444e12099b28e8e",
+    "verified_remote_main": "969639a421a09a9e2ec0de4becf2a937c9f3f6ef",
+    "verified_remote_main_tree": "3b9a71acf66dd4ffadd5fdc801abf5450e3049cb",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "969639a421a09a9e2ec0de4becf2a937c9f3f6ef"
+    },
+    "source_preflight": {
+      "status": "unpublished_candidate_requires_reconciliation",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "3b9a71acf66dd4ffadd5fdc801abf5450e3049cb",
+      "findings": ["dirty_historical_checkout", "local_commit_not_yet_published"]
+    }
+  },
+  "validation": {
+    "reproduction": "capture accepted an empty tick and emitted observed_at as an empty string; capture, projection, and snapshot validators now reject empty temporal identities",
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_causal_introspection.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py",
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0,
+      "candidate_commit": "ea763cd43ed9497e446e32ce70a55fcd94286f6b"
+    },
+    "mypy": "success: no issues found in 1 source file",
+    "documentation_dependencies": "success",
+    "documentation_build": {
+      "status": "success",
+      "pages": 617,
+      "install_method": "documented pyproject.toml docs extra in writable workspace virtual environment"
+    },
+    "diff_check": "success"
+  },
+  "publication": {
+    "status": "not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "09b959004029d0defaea781438bcd140d529c637"
+    }
+  }
+}
