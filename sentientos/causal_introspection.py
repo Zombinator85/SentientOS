@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 import tempfile
 from dataclasses import asdict, dataclass, field, replace
@@ -331,10 +332,21 @@ def validate_projection(projection: OwnerIntrospectionProjection, *, capture_pos
     references = projection.source_references + projection.causal_references
     if len(references) > MAX_REFERENCES:
         raise IntrospectionError("reference_bounds_exceeded")
-    reference_ids = {reference.reference_id for reference in references}
+    reference_ids: set[str] = set()
     for reference in references:
-        if reference.reference_kind not in REFERENCE_KINDS or not reference.reference_id or not reference.source_owner_id:
+        if (not isinstance(reference.reference_kind, str)
+                or reference.reference_kind not in REFERENCE_KINDS
+                or not isinstance(reference.reference_id, str) or not reference.reference_id
+                or not isinstance(reference.reference_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", reference.reference_digest) is None
+                or not isinstance(reference.relation, str) or not reference.relation
+                or not isinstance(reference.source_owner_id, str) or not reference.source_owner_id):
             raise IntrospectionError("invalid_causal_reference")
+        if reference.schema_version != SCHEMA_VERSION:
+            raise IntrospectionError("invalid_causal_reference")
+        if reference.reference_id in reference_ids:
+            raise IntrospectionError("duplicate_causal_reference_id")
+        reference_ids.add(reference.reference_id)
     for observation in projection.observations:
         key = observation.observation_key.lower()
         if (not key or observation.observation_class not in OBSERVATION_CLASSES

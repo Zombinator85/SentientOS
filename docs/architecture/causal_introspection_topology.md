@@ -44,7 +44,12 @@ schema, and source owner. It is a pointer to evidence—not the referenced grant
 admission, effect, or object. `OwnerObservation` accepts only bounded JSON and
 binds an observation class, exact source references, freshness, evidence
 posture, and one of `production`, `rehearsal`, `synthetic_test`, `historical`,
-or `unknown`. Synthetic capture cannot claim production.
+or `unknown`. Each reference must carry a known kind, nonempty identifier and
+relationship, a SHA-256 hex digest, the current reference schema, and a
+nonempty source owner. Reference identifiers are unique within a projection
+across both reference inventories, so an observation or semantic-trace pointer
+cannot resolve ambiguously to conflicting digests or source owners. Synthetic
+capture cannot claim production.
 
 Every `OwnerIntrospectionProjection` has false truth, policy, goal, permission,
 execution, admission, adoption, and source-mutation authority. Its semantic
