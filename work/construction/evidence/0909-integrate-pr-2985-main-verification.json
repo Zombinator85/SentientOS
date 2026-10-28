@@ -1,0 +1,105 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_after_append": 909,
+    "verified_segments_before_append": 908
+  },
+  "publication": {
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "post_merge_workflows": {
+      "ci": [
+        40694841894,
+        "success"
+      ],
+      "codex_ci": [
+        40694841871,
+        "success"
+      ],
+      "docker": [
+        40694841913,
+        "success"
+      ],
+      "docs_deploy": [
+        40694841947,
+        "success"
+      ],
+      "forge_smoke": [
+        40694841882,
+        "skipped"
+      ],
+      "invariants": [
+        40694842135,
+        "success"
+      ],
+      "nightly_self_check": [
+        40694841912,
+        "success"
+      ],
+      "quality_gate": [
+        40694841939,
+        "success"
+      ]
+    },
+    "pr_required_workflows": {
+      "ci": [
+        40694130407,
+        "success"
+      ],
+      "codex_ci": [
+        40694130312,
+        "success"
+      ],
+      "docker": [
+        40694130393,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40694130307,
+        "success"
+      ],
+      "invariants": [
+        40694130448,
+        "success"
+      ],
+      "lint_benchmark": [
+        40694130476,
+        "success"
+      ],
+      "quality_gate": [
+        40694130377,
+        "success"
+      ],
+      "release": [
+        40694130363,
+        "success"
+      ]
+    },
+    "pull_request": {
+      "head_commit": "ac309425674ab0af0473910b2c440af6a1695069",
+      "merge_commit": "49136b5023765afa3f67b97bd3ae64ac67922b11",
+      "number": 2985,
+      "state": "merged",
+      "title": "[codex:causal-introspection] [untested] record sequences 907-908"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "ee96e219983177b4fe44db16e026bfa0f46591ea"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2985 and sequence 908",
+  "sequence": 909,
+  "source": {
+    "candidate_commit": "ac309425674ab0af0473910b2c440af6a1695069",
+    "candidate_tree": "2eac22863d8a741ba75c71b35ca6d8d080ce9c32",
+    "merge_commit": "49136b5023765afa3f67b97bd3ae64ac67922b11",
+    "merge_tree": "2eac22863d8a741ba75c71b35ca6d8d080ce9c32",
+    "remote_ref_readback": {
+      "commit": "49136b5023765afa3f67b97bd3ae64ac67922b11",
+      "ref": "refs/heads/main"
+    },
+    "tree_matches_candidate": true,
+    "verified_remote_main": "49136b5023765afa3f67b97bd3ae64ac67922b11",
+    "verified_remote_main_tree": "2eac22863d8a741ba75c71b35ca6d8d080ce9c32"
+  }
+}
