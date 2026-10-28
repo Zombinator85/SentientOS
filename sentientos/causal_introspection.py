@@ -218,12 +218,34 @@ def load_config(path: str | Path | None = None) -> IntrospectionConfig | None:
     selected = str(path) if path is not None else os.environ.get(CONFIG_ENV)
     if not selected:
         return None
-    config_path = Path(selected)
+    config_path = Path(os.path.abspath(selected))
+    directory_fd: int | None = None
     try:
-        metadata = config_path.lstat()
+        supports_relative = bool(
+            os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+            and hasattr(os, "O_DIRECTORY") and os.open in os.supports_dir_fd
+            and os.stat in os.supports_dir_fd
+        )
+        if supports_relative:
+            directory_fd = os.open(os.sep, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            for component in config_path.parent.parts[1:]:
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = next_fd
+            metadata = os.stat(config_path.name, dir_fd=directory_fd, follow_symlinks=False)
+        else:
+            current = Path(config_path.anchor)
+            for component in config_path.parent.parts[1:]:
+                current = current / component
+                if not stat.S_ISDIR(current.lstat().st_mode):
+                    raise OSError("configuration parent is not a directory")
+            metadata = config_path.lstat()
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CONFIG_BYTES:
             raise IntrospectionError("configuration_file_unbounded_or_not_regular")
-        descriptor = os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        descriptor = (os.open(config_path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            if directory_fd is not None else
+            os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)))
         try:
             opened = os.fstat(descriptor)
             if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
@@ -247,6 +269,9 @@ def load_config(path: str | Path | None = None) -> IntrospectionConfig | None:
         raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise IntrospectionError("configuration_unavailable_or_invalid") from exc
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
     if not isinstance(payload, dict):
         raise IntrospectionError("configuration_object_required")
     if payload.get("schema") != SCHEMA_VERSION:
@@ -599,33 +624,104 @@ class CausalIntrospectionRuntime:
         if any(item.domain not in config.enabled_domains or item.domain not in DOMAINS for item in self.registrations):
             raise IntrospectionError("provider_domain_not_enabled")
 
-    def _validate_custody_root(self) -> bool:
-        try:
-            root_mode = self.config.custody_root.lstat().st_mode
-        except FileNotFoundError:
-            return False
-        if not stat.S_ISDIR(root_mode):
+    def _open_custody_root(self, *, create: bool) -> int | None:
+        """Open custody ancestry without following links on supported POSIX hosts."""
+        root = self.config.custody_root
+        if ".." in root.parts:
             raise IntrospectionError("custody_root_invalid")
-        if os.name == "posix" and root_mode & (stat.S_IWGRP | stat.S_IWOTH):
-            raise IntrospectionError("custody_root_writable_by_other_users")
-        return True
+        required = (os.open, os.mkdir, os.link, os.unlink)
+        descriptor_relative = bool(
+            os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+            and hasattr(os, "O_DIRECTORY")
+            and all(function in os.supports_dir_fd for function in required)
+            and os.stat in os.supports_dir_fd
+            and os.stat in os.supports_follow_symlinks
+            and os.link in os.supports_follow_symlinks
+        )
+        if descriptor_relative:
+            descriptor: int | None = None
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            try:
+                descriptor = os.open(os.sep, flags)
+                for component in root.parts[1:]:
+                    if create:
+                        try:
+                            os.mkdir(component, 0o700, dir_fd=descriptor)
+                        except FileExistsError:
+                            pass
+                    next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                    metadata = os.fstat(next_descriptor)
+                    if not stat.S_ISDIR(metadata.st_mode):
+                        os.close(next_descriptor)
+                        raise IntrospectionError("custody_root_invalid")
+                    os.close(descriptor)
+                    descriptor = next_descriptor
+                if descriptor is None:
+                    raise IntrospectionError("custody_root_invalid")
+                metadata = os.fstat(descriptor)
+                if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+                    raise IntrospectionError("custody_root_writable_by_other_users")
+                result, descriptor = descriptor, None
+                return result
+            except IntrospectionError:
+                raise
+            except FileNotFoundError:
+                if not create:
+                    return None
+                raise IntrospectionError("custody_root_invalid") from None
+            except OSError as exc:
+                raise IntrospectionError("custody_root_invalid") from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
 
-    def _paths(self) -> list[Path]:
-        if not self._validate_custody_root():
-            return []
-        paths = sorted(self.config.custody_root.glob("generation-*.json"))
+        # Platforms without descriptor-relative APIs retain compatibility but
+        # reject every existing symlink component before path-based access.
+        current = Path(root.anchor)
+        for component in root.parts[1:]:
+            current = current / component
+            try:
+                metadata = current.lstat()
+            except FileNotFoundError:
+                if not create:
+                    return None
+                current.mkdir(mode=0o700)
+                metadata = current.lstat()
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise IntrospectionError("custody_root_invalid")
+        mode = current.lstat().st_mode
+        if os.name == "posix" and mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise IntrospectionError("custody_root_writable_by_other_users")
+        return None
+
+    def _paths(self, directory_fd: int | None) -> list[str]:
+        if directory_fd is None:
+            try:
+                names = os.listdir(self.config.custody_root)
+            except FileNotFoundError:
+                return []
+        else:
+            names = os.listdir(directory_fd)
+        paths = sorted(name for name in names if name.startswith("generation-") and name.endswith(".json"))
         if len(paths) > MAX_SNAPSHOT_GENERATIONS:
             raise IntrospectionError("snapshot_generation_limit_exceeded")
         return paths
 
-    @staticmethod
-    def _read_snapshot(path: Path) -> bytes:
+    def _names(self, directory_fd: int | None) -> list[str]:
         try:
-            metadata = path.lstat()
+            return os.listdir(directory_fd if directory_fd is not None else self.config.custody_root)
+        except FileNotFoundError:
+            return []
+
+    @staticmethod
+    def _read_snapshot(name: str, directory_fd: int | None, root: Path) -> bytes:
+        try:
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False) if directory_fd is not None else (root / name).lstat()
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_SNAPSHOT_BYTES:
                 raise IntrospectionError("snapshot_file_unbounded_or_not_regular")
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-            descriptor = os.open(path, flags)
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+            descriptor = os.open(name if directory_fd is not None else root / name, flags,
+                dir_fd=directory_fd) if directory_fd is not None else os.open(root / name, flags)
             try:
                 opened = os.fstat(descriptor)
                 if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
@@ -651,49 +747,73 @@ class CausalIntrospectionRuntime:
             raise IntrospectionError("snapshot_file_unavailable") from exc
 
     @staticmethod
-    def _publish_snapshot(path: Path, data: bytes) -> None:
-        descriptor, temporary = tempfile.mkstemp(prefix=".causal-introspection-", suffix=".tmp",
-            dir=str(path.parent))
+    def _publish_snapshot(name: str, data: bytes, directory_fd: int | None, root: Path) -> None:
+        if directory_fd is None:
+            descriptor, temporary_path = tempfile.mkstemp(prefix=".causal-introspection-",
+                suffix=".tmp", dir=str(root))
+            target = root / name
+            try:
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(data)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.link(temporary_path, target, follow_symlinks=False)
+                directory = os.open(root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            finally:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
+            return
+        temporary = f".causal-introspection-{os.getpid()}-{os.urandom(8).hex()}.tmp"
         try:
+            descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=directory_fd)
             with os.fdopen(descriptor, "wb") as handle:
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.link(temporary, path, follow_symlinks=False)
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            os.link(temporary, name, src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd, follow_symlinks=False)
+            os.fsync(directory_fd)
         finally:
             try:
-                os.unlink(temporary)
+                os.unlink(temporary, dir_fd=directory_fd)
             except FileNotFoundError:
                 pass
 
     def _reconstruct_with_size(self) -> tuple[tuple[CausalIntrospectionSnapshot, ...], int]:
         snapshots: list[CausalIntrospectionSnapshot] = []
-        paths = self._paths()
-        total_bytes = 0
-        for expected_generation, path in enumerate(paths, 1):
-            if path.name != f"generation-{expected_generation:020d}.json":
-                raise IntrospectionError("missing_or_ambiguous_generation")
-            data = self._read_snapshot(path)
-            total_bytes += len(data)
-            if total_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
-                raise IntrospectionError("snapshot_custody_limit_exceeded")
-            try:
-                snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
-            except IntrospectionError:
-                raise
-            except (UnicodeError, json.JSONDecodeError, KeyError, TypeError,
-                    ValueError, RecursionError) as exc:
-                raise IntrospectionError("snapshot_payload_invalid") from exc
-            if data != _canonical(_plain(snapshot)):
-                raise IntrospectionError("snapshot_noncanonical")
-            validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
-            snapshots.append(snapshot)
-        return tuple(snapshots), total_bytes
+        directory_fd = self._open_custody_root(create=False)
+        try:
+            paths = self._paths(directory_fd)
+            total_bytes = 0
+            for expected_generation, name in enumerate(paths, 1):
+                if name != f"generation-{expected_generation:020d}.json":
+                    raise IntrospectionError("missing_or_ambiguous_generation")
+                data = self._read_snapshot(name, directory_fd, self.config.custody_root)
+                total_bytes += len(data)
+                if total_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
+                    raise IntrospectionError("snapshot_custody_limit_exceeded")
+                try:
+                    snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
+                except IntrospectionError:
+                    raise
+                except (UnicodeError, json.JSONDecodeError, KeyError, TypeError,
+                        ValueError, RecursionError) as exc:
+                    raise IntrospectionError("snapshot_payload_invalid") from exc
+                if data != _canonical(_plain(snapshot)):
+                    raise IntrospectionError("snapshot_noncanonical")
+                validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
+                snapshots.append(snapshot)
+            return tuple(snapshots), total_bytes
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
 
     def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
         snapshots, _total_bytes = self._reconstruct_with_size()
@@ -710,7 +830,13 @@ class CausalIntrospectionRuntime:
         # A crash before the atomic hard-link publication can leave a private
         # staging file. It is not a committed generation and must never be
         # silently carried alongside later captures or treated as evidence.
-        if next(self.config.custody_root.glob(".causal-introspection-*.tmp"), None) is not None:
+        existing_directory_fd = self._open_custody_root(create=False)
+        try:
+            names = self._names(existing_directory_fd) if existing_directory_fd is not None else []
+        finally:
+            if existing_directory_fd is not None:
+                os.close(existing_directory_fd)
+        if any(name.startswith(".causal-introspection-") and name.endswith(".tmp") for name in names):
             raise IntrospectionError("snapshot_staging_recovery_required")
         projections: list[OwnerIntrospectionProjection] = []
         findings: list[CaptureFinding] = []
@@ -751,20 +877,22 @@ class CausalIntrospectionRuntime:
         digest = _digest(_snapshot_payload(provisional))
         snapshot = replace(provisional, snapshot_id=f"causal-introspection-{digest[:20]}", snapshot_digest=digest)
         validate_snapshot(snapshot, prior)
-        self.config.custody_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self._validate_custody_root()
-        target = self.config.custody_root / f"generation-{snapshot.generation:020d}.json"
+        directory_fd = self._open_custody_root(create=True)
+        name = f"generation-{snapshot.generation:020d}.json"
         data = _canonical(_plain(snapshot))
         capacity_error = _snapshot_capacity_error(snapshot.generation - 1, custody_bytes, len(data))
         if capacity_error is not None:
             raise IntrospectionError(capacity_error)
         try:
-            self._publish_snapshot(target, data)
+            self._publish_snapshot(name, data, directory_fd, self.config.custody_root)
         except FileExistsError:
-            existing = self._read_snapshot(target)
+            existing = self._read_snapshot(name, directory_fd, self.config.custody_root)
             if existing != data:
                 raise IntrospectionError("same_generation_content_conflict")
             return _decode_snapshot(json.loads(existing))
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
         return snapshot
 
     @staticmethod

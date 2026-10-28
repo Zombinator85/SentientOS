@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 39,
+  "first_sequence": 911,
+  "last_sequence": 912,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000038-000000909-000000910.json",
+    "bytes": 2900,
+    "sha256": "86985a0cfc08679405fa2cc4fabc8b31f763c29116687b0ff2d5912289496687",
+    "git_blob_sha": "36c897cd437ead8f5b5332ea0a92d30f393e3206",
+    "shard_sequence": 38,
+    "first_sequence": 909,
+    "last_sequence": 910
+  },
+  "segments": [
+    {
+      "sequence": 911,
+      "path": "work/construction/segments/0911-integrate-pr-2986-main-verification.md",
+      "bytes": 587,
+      "sha256": "4ce09f21c3fda6fbc85fc74e6084bafa0fccd3b5f4d8dbb3a97a45199890f562",
+      "evidence_path": "work/construction/evidence/0911-integrate-pr-2986-main-verification.json",
+      "evidence_sha256": "48a495ca1ff208e7697ebbbb342bb2ac84c08bcf8bc8063cbf7ee38b19d8e35b",
+      "evidence_bytes": 1643,
+      "source_commit": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+      "source_tree": "ee0f2f5b3768011fbdc6129bd908a7d3fb679cf5",
+      "predecessor": "segment-sha256:211dbde0493be02b47c05db2e1d2863656bb28cf87a342154965005e591dc961"
+    },
+    {
+      "sequence": 912,
+      "path": "work/construction/segments/0912-confine-causal-introspection-custody-ancestry.md",
+      "bytes": 1571,
+      "sha256": "16cc5c4bfadccc9fb91af06f75f720a77632fe90a8d6733d6c3f5e6ce86bffc2",
+      "evidence_path": "work/construction/evidence/0912-confine-causal-introspection-custody-ancestry.json",
+      "evidence_sha256": "1fab21ea1e9183994498b973eb8f0732cb6292c14c8f7189cb68850e2fc9690e",
+      "evidence_bytes": 1961,
+      "source_commit": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+      "source_tree": "ee0f2f5b3768011fbdc6129bd908a7d3fb679cf5",
+      "source_candidate_commit": "26d286a8b9e602b23fc3f98ff5ee242bb2e730c2",
+      "source_candidate_tree": "2a11ea79ae72042e8f05bc9e191c9f73a4239313",
+      "predecessor": "segment-sha256:4ce09f21c3fda6fbc85fc74e6084bafa0fccd3b5f4d8dbb3a97a45199890f562"
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 910,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1112,
+      "sha256": "53988f3c8d92d9e89578241ed1f54143c7c62a7169d34bb09f7ac01627cafc87",
+      "git_blob_sha": "a9b5864744e5cd1f8ce0b270629459ed170faa31",
+      "source_commit": "31a35d9584f712502b97b59e991ffa49f8d8fbba",
+      "source_tree": "ee0f2f5b3768011fbdc6129bd908a7d3fb679cf5"
+    },
+    "current": {
+      "sequence": 912,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1127,
+      "sha256": "93a1299ea3e8939b88921de04e92b2ffb31fb5579359dc5db5be71235d134565",
+      "git_blob_sha": "274de4339e1d197efceb0bec2838ddf70510527e"
+    }
+  }
+}
