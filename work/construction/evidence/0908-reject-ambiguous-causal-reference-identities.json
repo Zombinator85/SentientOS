@@ -1,0 +1,66 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 907
+  },
+  "publication": {
+    "status": "not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "be330b8e4de3e7a3156e4aede649ef2c8862d6b4"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "bounded [untested] construction candidate for causal-reference identity validation",
+  "sequence": 908,
+  "source": {
+    "candidate_commit": "6771530bc8ba0c407677ff5d11cb9eb9f850df66",
+    "candidate_tree": "95e87d67c7f7e23dbaa0d0679b04f84e795515f8",
+    "remote_ref_readback": {
+      "commit": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+      "ref": "refs/heads/main"
+    },
+    "source_preflight": {
+      "findings": [
+        "dirty_historical_checkout",
+        "local_commit_not_yet_published"
+      ],
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea",
+      "status": "unpublished_candidate_requires_reconciliation"
+    },
+    "verified_remote_main": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+    "verified_remote_main_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea"
+  },
+  "validation": {
+    "classification": "untested_construction_increment",
+    "diff_check": "passed",
+    "documentation_build": {
+      "pages": 617,
+      "status": "passed"
+    },
+    "documentation_dependencies": "passed",
+    "focused_tests": {
+      "candidate_commit": "6771530bc8ba0c407677ff5d11cb9eb9f850df66",
+      "command": "python -m scripts.run_tests -q tests/test_causal_introspection.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py",
+      "failed": 0,
+      "passed": 79,
+      "skipped": 0
+    },
+    "full_regression_suite": {
+      "failures_reported": 0,
+      "passed": false,
+      "progress_at_interruption": "39%",
+      "reason": "dashboard TestClient startup remained stalled; isolated reproduction also stalled",
+      "status": "interrupted_no_result"
+    },
+    "hosted_acceptance": "pending_exact_candidate_required_quality_gate_and_ci",
+    "local_strict_audits": {
+      "requirements_weakened": false,
+      "scripts/audit_immutability_verifier.py": "Access denied: run as Administrator to reach protected memory and policy state.",
+      "verify_audits.py --strict": "Access denied: run as Administrator to reach protected memory and policy state."
+    },
+    "reproduction": "one reference_id could resolve to distinct digests and owners; malformed kind, digest, relation, owner, and schema fields were accepted",
+    "targeted_mypy": "passed"
+  }
+}
