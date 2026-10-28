@@ -378,6 +378,36 @@ def test_observation_source_refs_must_resolve_to_inventory():
                 source_refs=("unlisted-reference",), production_posture="synthetic_test"),))
 
 
+def test_projection_rejects_duplicate_reference_identity():
+    first = CausalReference("artifact", "shared", "a" * 64, "observed_from", "owner-a")
+    second = CausalReference("artifact", "shared", "b" * 64, "derived_from", "owner-b")
+
+    with pytest.raises(IntrospectionError, match="duplicate_causal_reference_id"):
+        build_projection(owner_id="serving", owner_kind="serving_owner", domain="model_serving",
+            context=CaptureContext("tick", capture_posture="synthetic_test"),
+            source_references=(first,), causal_references=(second,),
+            observations=(OwnerObservation("loaded_model_ref", "model-A", "identity",
+                source_refs=("shared",), production_posture="synthetic_test"),))
+
+
+def test_projection_rejects_malformed_causal_reference_identity_fields():
+    valid = _reference("owner")
+    malformed = (
+        replace(valid, reference_kind=[]),
+        replace(valid, reference_id=""),
+        replace(valid, reference_digest="not-a-digest"),
+        replace(valid, relation=""),
+        replace(valid, source_owner_id=""),
+        replace(valid, schema_version="foreign-schema"),
+    )
+
+    for reference in malformed:
+        with pytest.raises(IntrospectionError, match="invalid_causal_reference"):
+            build_projection(owner_id="owner", owner_kind="serving_owner", domain="model_serving",
+                context=CaptureContext("tick", capture_posture="synthetic_test"),
+                source_references=(reference,), causal_references=(), observations=())
+
+
 def test_runtime_constructor_enforces_loaded_configuration_bounds(tmp_path):
     provider = _provider("owner", "model_serving")
     oversized = IntrospectionConfig(True, tmp_path / "custody", True,

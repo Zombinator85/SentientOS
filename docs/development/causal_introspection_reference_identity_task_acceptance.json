@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_causal_introspection.py::test_projection_rejects_duplicate_reference_identity",
+      "rationale": "A re-digested projection cannot bind one reference identifier to multiple source digests and owners."
+    },
+    {
+      "node_id": "tests/test_causal_introspection.py::test_projection_rejects_malformed_causal_reference_identity_fields",
+      "rationale": "Reference inventory entries must have supported kinds, valid SHA-256 identities, relationships, source owners, and schema versions."
+    },
+    {
+      "node_id": "tests/test_causal_introspection.py::test_observation_source_refs_must_resolve_to_inventory",
+      "rationale": "Observation source pointers still must resolve to an inventoried reference."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_introspection.py::test_projection_rejects_duplicate_reference_identity",
+    "tests/test_causal_introspection.py::test_projection_rejects_malformed_causal_reference_identity_fields"
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 906
+  },
+  "publication": {
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "post_merge_workflows": {
+      "ci": [
+        40629301573,
+        "success"
+      ],
+      "codex_ci": [
+        40629301670,
+        "success"
+      ],
+      "docker": [
+        40629301639,
+        "success"
+      ],
+      "docs_deploy": [
+        40629301712,
+        "success"
+      ],
+      "forge_smoke": [
+        40629301638,
+        "skipped"
+      ],
+      "invariants": [
+        40629301574,
+        "success"
+      ],
+      "nightly_self_check": [
+        40629301665,
+        "success"
+      ],
+      "quality_gate": [
+        40629301561,
+        "success"
+      ]
+    },
+    "pr_required_workflows": {
+      "ci": [
+        40628827090,
+        "success"
+      ],
+      "codex_ci": [
+        40628827097,
+        "success"
+      ],
+      "docker": [
+        40628827156,
+        "success"
+      ],
+      "first_pr_welcome": [
+        40628827167,
+        "skipped"
+      ],
+      "gradient_null_regression": [
+        40628827067,
+        "success"
+      ],
+      "invariants": [
+        40628827165,
+        "success"
+      ],
+      "lint_benchmark": [
+        40628827204,
+        "success"
+      ],
+      "post_merge_feedback_invitation": [
+        40629302724,
+        "success"
+      ],
+      "quality_gate": [
+        40628827130,
+        "success"
+      ],
+      "release": [
+        40628827146,
+        "success"
+      ]
+    },
+    "pull_request": {
+      "head_commit": "f861675562e375a113a9392afdc70e9dad00e177",
+      "merge_commit": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+      "number": 2984,
+      "state": "merged",
+      "title": "[codex:causal-introspection] [untested] require capture tick"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "be330b8e4de3e7a3156e4aede649ef2c8862d6b4"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2984 and sequence 906",
+  "sequence": 907,
+  "source": {
+    "candidate_commit": "f861675562e375a113a9392afdc70e9dad00e177",
+    "candidate_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea",
+    "merge_commit": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+    "merge_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea",
+    "remote_ref_readback": {
+      "commit": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+      "ref": "refs/heads/main"
+    },
+    "source_preflight": {
+      "findings": [],
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea",
+      "status": "valid_unpublished_changes_on_correct_base"
+    },
+    "tree_matches_candidate": true,
+    "verified_remote_main": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+    "verified_remote_main_tree": "dce2d015c3855f51b1eca8671a155ae9196a50ea"
+  }
+}
