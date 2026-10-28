@@ -317,6 +317,9 @@ def _walk_keys(value: Any) -> Sequence[str]:
 
 
 def validate_projection(projection: OwnerIntrospectionProjection, *, capture_posture: str = "unknown") -> None:
+    if (not isinstance(projection.owner_id, str) or not projection.owner_id
+            or not isinstance(projection.owner_kind, str) or not projection.owner_kind):
+        raise IntrospectionError("owner_identity_required")
     if projection.domain not in DOMAINS:
         raise IntrospectionError("unregistered_domain")
     if projection.posture != ProjectionPosture():
@@ -566,6 +569,9 @@ class CausalIntrospectionRuntime:
             raise IntrospectionError("recursive_fabric_provider_rejected")
         owners = [item.owner_id for item in self.registrations]
         providers = [item.provider.provider_id for item in self.registrations]
+        if (any(not isinstance(owner, str) or not owner for owner in owners)
+                or any(not isinstance(provider, str) or not provider for provider in providers)):
+            raise IntrospectionError("provider_registration_identity_required")
         if len(set(owners)) != len(owners) or len(set(providers)) != len(providers):
             raise IntrospectionError("duplicate_provider_registration")
         if any(item.domain not in config.enabled_domains or item.domain not in DOMAINS for item in self.registrations):

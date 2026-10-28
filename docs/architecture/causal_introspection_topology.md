@@ -50,7 +50,9 @@ Every `OwnerIntrospectionProjection` has false truth, policy, goal, permission,
 execution, admission, adoption, and source-mutation authority. Its semantic
 trace carries WHO, WHY, MAY, WHAT_EXECUTED, WHAT_IT_COST, and WHAT_HAPPENED.
 Missing dimensions say `not_observed`, `not_composed`, or `unknown`; unknown
-cost is never zero-filled. MAY is an evidence reference only.
+cost is never zero-filled. MAY is an evidence reference only. Owner identity and
+owner kind are required so a projection cannot enter the snapshot as an
+anonymous report.
 
 The validator rejects credential-shaped keys, arbitrary non-JSON values, raw
 memory surfaces, allocation claims, synthetic-to-production upgrades, and an

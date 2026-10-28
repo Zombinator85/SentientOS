@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "local candidate verification for required causal-introspection owner identity",
+  "sequence": 904,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 902
+  },
+  "source": {
+    "candidate_commit": "cabccf8e3ffd2ba7f7757ce496cbdf0d4daced31",
+    "candidate_tree": "9d499eeb14141ac1e5bdec570f125c1d8d75f834",
+    "verified_remote_main": "ed13a22862595dc8c9a725f6c1f055aadb82eaab",
+    "verified_remote_main_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "ed13a22862595dc8c9a725f6c1f055aadb82eaab"
+    },
+    "source_preflight": {
+      "status": "unpublished_candidate_requires_reconciliation",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "cf30bf07ed350ceec6f7e48f627811aaaad1aae3",
+      "findings": ["dirty_historical_checkout", "local_commit_not_yet_published"]
+    }
+  },
+  "validation": {
+    "reproduction": "runtime capture accepted an empty owner ID and emitted it as a World-State subject; projection validation now requires nonempty owner ID and owner kind, and runtime registration requires nonempty owner and provider IDs",
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_causal_introspection.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py",
+      "passed": 76,
+      "failed": 0,
+      "skipped": 0,
+      "candidate_commit": "cabccf8e3ffd2ba7f7757ce496cbdf0d4daced31"
+    },
+    "mypy": "success: no issues found in 1 source file",
+    "documentation_dependencies": "success",
+    "documentation_build": {
+      "status": "success",
+      "pages": 617,
+      "install_method": "documented pyproject.toml docs extra in writable workspace virtual environment"
+    },
+    "diff_check": "success"
+  },
+  "publication": {
+    "status": "not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "60f6ced3e9267b3041bc7cfcc6a9b2c047a21bb4"
+    }
+  }
+}
