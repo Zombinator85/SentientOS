@@ -1,0 +1,101 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 930
+  },
+  "publication": {
+    "exact_candidate_checks": {
+      "CI": {
+        "run_id": 40753494930,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40753494906,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40753495380,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40753494995,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40753494836,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40753496373,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40753496114,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40753936372,
+        "status": "success"
+      }
+    },
+    "merge_commit": "2b45b897d6cfcec890b31234bb3852a9753c40d6",
+    "normal_pr_workflow_required": true,
+    "post_merge_checks": {
+      "CI": {
+        "run_id": 40754392178,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40754392001,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40754392183,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40754391963,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40754392103,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40754391958,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40754392403,
+        "status": "success"
+      }
+    },
+    "pull_request": 3005,
+    "quality_gate_recovery": {
+      "cause": "PR title did not match the exact commit title (post-merge vs postmerge); the PR title was corrected to match the commit title.",
+      "corrected_run_id": 40753936372,
+      "corrected_status": "success",
+      "initial_run_id": 40753495023,
+      "initial_status": "failure"
+    },
+    "status": "merged_and_post_merge_verified",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "893d86fdc55d6c741f1bb8294ac72e362e2165de",
+      "index_v3": "93597d52f6f3a24da2f33515035dfaa0664a9964"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3005 merge and post-merge verification",
+  "sequence": 931,
+  "source": {
+    "candidate_commit": "a46c372721a8ca00986d84935fdcd002adc9172b",
+    "candidate_tree": "796d6b2f2b5813a5a198895c3d750df4627832e4",
+    "remote_ref_readback": {
+      "commit": "2b45b897d6cfcec890b31234bb3852a9753c40d6",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "2b45b897d6cfcec890b31234bb3852a9753c40d6",
+    "verified_remote_main_tree": "796d6b2f2b5813a5a198895c3d750df4627832e4"
+  }
+}
