@@ -183,6 +183,23 @@ def test_snapshot_validation_recomputes_completion_and_conflict_claims(tmp_path)
         validate_snapshot(forged_conflict)
 
 
+def test_snapshot_validation_rejects_duplicate_owner_projection_after_redigest(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    original = _runtime(tmp_path, (registration,)).capture(
+        CaptureContext("tick", capture_posture="synthetic_test"))
+    projection = original.projections[0]
+    forged = replace(original, snapshot_id="", snapshot_digest="",
+        projection_ids=(projection.projection_id, projection.projection_id),
+        projection_digests=(projection.projection_digest, projection.projection_digest),
+        projections=(projection, projection))
+    digest = _digest(_snapshot_payload(forged))
+    forged = replace(forged, snapshot_id=f"causal-introspection-{digest[:20]}",
+        snapshot_digest=digest)
+
+    with pytest.raises(IntrospectionError, match="snapshot_projection_identity_not_unique"):
+        validate_snapshot(forged)
+
+
 def test_stale_provider_projection_is_retained_as_capture_failure(tmp_path):
     class Stale:
         provider_id = "stale"
