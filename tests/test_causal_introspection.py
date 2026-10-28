@@ -408,6 +408,26 @@ def test_projection_rejects_malformed_causal_reference_identity_fields():
                 source_references=(reference,), causal_references=(), observations=())
 
 
+def test_projection_rejects_whitespace_only_causal_identity_fields():
+    valid = _reference("owner")
+    for field in ("reference_id", "relation", "source_owner_id"):
+        reference = replace(valid, **{field: " \t "})
+        with pytest.raises(IntrospectionError, match="invalid_causal_reference"):
+            build_projection(owner_id="owner", owner_kind="serving_owner", domain="model_serving",
+                context=CaptureContext("tick", capture_posture="synthetic_test"),
+                source_references=(reference,), causal_references=(), observations=())
+
+    for owner_id, owner_kind, tick, expected in (
+        (" \t ", "serving_owner", "tick", "owner_identity_required"),
+        ("owner", " \t ", "tick", "owner_identity_required"),
+        ("owner", "serving_owner", " \t ", "capture_tick_required"),
+    ):
+        with pytest.raises(IntrospectionError, match=expected):
+            build_projection(owner_id=owner_id, owner_kind=owner_kind,
+                domain="model_serving", context=CaptureContext(tick, capture_posture="synthetic_test"),
+                source_references=(), causal_references=(), observations=())
+
+
 def test_runtime_constructor_enforces_loaded_configuration_bounds(tmp_path):
     provider = _provider("owner", "model_serving")
     oversized = IntrospectionConfig(True, tmp_path / "custody", True,

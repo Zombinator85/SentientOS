@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "56d5c7882e17f61a609e47a72fef3e821dffc75b",
+  "repository_sha": "49136b5023765afa3f67b97bd3ae64ac67922b11",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {
@@ -15,10 +15,15 @@
     {
       "node_id": "tests/test_causal_introspection.py::test_observation_source_refs_must_resolve_to_inventory",
       "rationale": "Observation source pointers still must resolve to an inventoried reference."
+    },
+    {
+      "node_id": "tests/test_causal_introspection.py::test_projection_rejects_whitespace_only_causal_identity_fields",
+      "rationale": "Whitespace-only owner, tick, reference identifier, relation, and source owner values cannot serve as meaningful identity bindings."
     }
   ],
   "successful_path_nodes": [
     "tests/test_causal_introspection.py::test_projection_rejects_duplicate_reference_identity",
-    "tests/test_causal_introspection.py::test_projection_rejects_malformed_causal_reference_identity_fields"
+    "tests/test_causal_introspection.py::test_projection_rejects_malformed_causal_reference_identity_fields",
+    "tests/test_causal_introspection.py::test_projection_rejects_whitespace_only_causal_identity_fields"
   ]
 }

@@ -319,9 +319,12 @@ def _walk_keys(value: Any) -> Sequence[str]:
 
 def validate_projection(projection: OwnerIntrospectionProjection, *, capture_posture: str = "unknown") -> None:
     if (not isinstance(projection.owner_id, str) or not projection.owner_id
-            or not isinstance(projection.owner_kind, str) or not projection.owner_kind):
+            or not projection.owner_id.strip()
+            or not isinstance(projection.owner_kind, str) or not projection.owner_kind
+            or not projection.owner_kind.strip()):
         raise IntrospectionError("owner_identity_required")
-    if not isinstance(projection.capture_tick, str) or not projection.capture_tick:
+    if (not isinstance(projection.capture_tick, str) or not projection.capture_tick
+            or not projection.capture_tick.strip()):
         raise IntrospectionError("capture_tick_required")
     if projection.domain not in DOMAINS:
         raise IntrospectionError("unregistered_domain")
@@ -337,10 +340,13 @@ def validate_projection(projection: OwnerIntrospectionProjection, *, capture_pos
         if (not isinstance(reference.reference_kind, str)
                 or reference.reference_kind not in REFERENCE_KINDS
                 or not isinstance(reference.reference_id, str) or not reference.reference_id
+                or not reference.reference_id.strip()
                 or not isinstance(reference.reference_digest, str)
                 or re.fullmatch(r"[0-9a-f]{64}", reference.reference_digest) is None
                 or not isinstance(reference.relation, str) or not reference.relation
-                or not isinstance(reference.source_owner_id, str) or not reference.source_owner_id):
+                or not reference.relation.strip()
+                or not isinstance(reference.source_owner_id, str) or not reference.source_owner_id
+                or not reference.source_owner_id.strip()):
             raise IntrospectionError("invalid_causal_reference")
         if reference.schema_version != SCHEMA_VERSION:
             raise IntrospectionError("invalid_causal_reference")
