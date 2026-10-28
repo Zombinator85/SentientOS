@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "local candidate verification for unique owner identity in causal-introspection snapshots",
+  "sequence": 902,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 900
+  },
+  "source": {
+    "candidate_commit": "07699fa4079fe4c9109d12bda52da401550764a9",
+    "candidate_tree": "a9287250b5ef38b9f7a2ca1bf44e222831d9201e",
+    "verified_remote_main": "026e523f4303e1beaf69c771aed680db36b7c7bb",
+    "verified_remote_main_tree": "2231c33651da79db098fc2340ba136d0ac120333",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "026e523f4303e1beaf69c771aed680db36b7c7bb"
+    },
+    "source_preflight": {
+      "status": "unpublished_candidate_requires_reconciliation",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "2231c33651da79db098fc2340ba136d0ac120333",
+      "findings": ["dirty_historical_checkout", "local_commit_not_yet_published"]
+    }
+  },
+  "validation": {
+    "reproduction": "a snapshot containing the same valid owner projection twice passed validation after recomputing projection inventories and snapshot digest; validation now rejects repeated owner and projection identities",
+    "focused_tests": {
+      "command": "python -m scripts.run_tests -q tests/test_causal_introspection.py tests/test_sentientosd_causal_introspection_composition.py tests/test_sentientosd_runtime_closure.py",
+      "passed": 75,
+      "failed": 0,
+      "skipped": 0,
+      "candidate_commit": "07699fa4079fe4c9109d12bda52da401550764a9"
+    },
+    "mypy": "success: no issues found in 1 source file",
+    "documentation_dependencies": "success",
+    "documentation_build": {
+      "status": "success",
+      "pages": 617,
+      "install_method": "documented pyproject.toml docs extra in writable workspace virtual environment"
+    },
+    "diff_check": "success"
+  },
+  "publication": {
+    "status": "not_yet_published",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "8a37f4115a583778e52b3ac8a97cf47410efbd11"
+    }
+  }
+}

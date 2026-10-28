@@ -497,6 +497,10 @@ def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: Causal
     expected_completion = "partial" if snapshot.capture_findings else "complete"
     if snapshot.completion_posture != expected_completion:
         raise IntrospectionError("snapshot_completion_posture_mismatch")
+    owner_ids = tuple(projection.owner_id for projection in snapshot.projections)
+    projection_ids = tuple(projection.projection_id for projection in snapshot.projections)
+    if len(set(owner_ids)) != len(owner_ids) or len(set(projection_ids)) != len(projection_ids):
+        raise IntrospectionError("snapshot_projection_identity_not_unique")
     if tuple(item.projection_id for item in snapshot.projections) != snapshot.projection_ids:
         raise IntrospectionError("projection_inventory_mismatch")
     if tuple(item.projection_digest for item in snapshot.projections) != snapshot.projection_digests:
