@@ -22,6 +22,26 @@ pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 24, 12, tzinfo=timezone.utc)
 
 
+def test_quiesced_developmental_experiment_reads_honor_gate():
+    class Experiments:
+        def load_run(self, run_id):
+            return {"run_id": run_id}
+
+        def objective_task_family_evidence_binding(self, **kwargs):
+            return dict(kwargs)
+
+    gate = ResidentCognitionQuiescenceGate()
+    owner = QuiescedDevelopmentalCognitionOwner(
+        SimpleNamespace(experiments=Experiments()), gate)
+    experiments = owner.experiments
+    assert experiments.load_run("selected-run") == {"run_id": "selected-run"}
+    assert experiments.objective_task_family_evidence_binding(run_id="selected-run") == {
+        "run_id": "selected-run"}
+    gate.quiesce(timeout_seconds=1, observation={})
+    with pytest.raises(TransitionError, match="resident_cognition_quiesced"):
+        experiments.load_run("selected-run")
+
+
 class Session:
     def __init__(self, sid="session-a", identity=None, activation=None, operation="operation-a"):
         identity = identity or {"identity_digest": "a"}

@@ -2776,9 +2776,142 @@ class RuntimeMaintenanceSurfaces:
                 feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
                             "authority": False, "next_tick_only": True}
             else:
-                result = self._epistemic_development_runtime.process_snapshot(
-                    self._world_state_snapshot, tick=tick, recorded_at=instant.isoformat())
+                runtime = self._epistemic_development_runtime
+                snapshot = self._world_state_snapshot
+                task_family_selector = {
+                    "source_kind": "embodiment",
+                    "subject_kind": "developmental_history_intervention_experiment",
+                }
+                rules = tuple(getattr(getattr(runtime, "config", None), "rules", ()))
+                task_family_rules = tuple(rule for rule in rules
+                    if getattr(rule, "selector", None) == task_family_selector)
+                task_family_facts = tuple(fact for fact in snapshot.facts
+                    if fact.source.kind == "embodiment"
+                    and fact.subject.subject_kind
+                        == "developmental_history_intervention_experiment")
+                excluded_fact_ids = (frozenset(fact.fact_id for fact in task_family_facts)
+                    if task_family_rules and self._developmental_history_intervention_run_refs
+                    else frozenset())
+                if excluded_fact_ids:
+                    result = runtime.process_snapshot(snapshot, tick=tick,
+                        recorded_at=instant.isoformat(),
+                        excluded_fact_ids=excluded_fact_ids)
+                else:
+                    result = runtime.process_snapshot(snapshot, tick=tick,
+                        recorded_at=instant.isoformat())
                 feedback = asdict(result)
+                selected = {run_id: run_digest for run_id, run_digest
+                    in self._developmental_history_intervention_run_refs}
+                if task_family_rules and selected:
+                    owner = self._resident_developmental_owner
+                    experiment_store = getattr(owner, "experiments", None)
+                    outcome_rows: list[dict[str, Any]] = []
+                    if experiment_store is None:
+                        feedback["verified_task_family_outcomes_status"] = (
+                            "degraded_owner_unavailable")
+                    else:
+                        by_run = {fact.subject.subject_id: fact
+                            for fact in task_family_facts}
+                        for run_id, run_digest in sorted(selected.items()):
+                            fact = by_run.get(run_id)
+                            payload = fact.payload if fact is not None else {}
+                            unresolved_reason = None
+                            if fact is None:
+                                unresolved_reason = "selected_run_not_in_same_tick_world_state"
+                            elif (fact.source.source_id
+                                    != "developmental-history-run:" + run_id
+                                    or payload.get("run_id") != run_id
+                                    or payload.get("run_digest") != run_digest
+                                    or payload.get("current_truth") is not False
+                                    or payload.get("authority") is not False
+                                    or payload.get("learning_established") is not False):
+                                unresolved_reason = "selected_run_identity_or_posture_mismatch"
+                            if unresolved_reason is not None:
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": unresolved_reason, "authority": False,
+                                    "current_truth": False})
+                                continue
+                            run = experiment_store.load_run(run_id)
+                            conditions = run.get("conditions")
+                            if not isinstance(conditions, list) or not conditions:
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": "selected_run_has_no_complete_event_times",
+                                    "authority": False, "current_truth": False})
+                                continue
+                            try:
+                                event_times = [datetime.fromisoformat(
+                                    item["observed_at"].replace("Z", "+00:00"))
+                                    for item in conditions]
+                                if any(value.tzinfo is None or value.utcoffset() is None
+                                        or item["observed_at"].endswith("-00:00")
+                                        for value, item in zip(event_times, conditions)):
+                                    outcome_rows.append({"run_id": run_id,
+                                        "run_digest": run_digest, "status": "unresolved",
+                                        "reason": "selected_run_event_time_unqualified",
+                                        "authority": False, "current_truth": False})
+                                    continue
+                                if max(event_times) > instant:
+                                    outcome_rows.append({"run_id": run_id,
+                                        "run_digest": run_digest, "status": "unresolved",
+                                        "reason": "selected_run_event_time_is_future",
+                                        "authority": False, "current_truth": False})
+                                    continue
+                            except (AttributeError, KeyError, TypeError, ValueError):
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": "selected_run_event_time_invalid",
+                                    "authority": False, "current_truth": False})
+                                continue
+                            descriptor = run.get("protocol", {}).get(
+                                "objective_task_descriptor")
+                            family = (descriptor.get("task_family_id")
+                                if isinstance(descriptor, Mapping) else None)
+                            matching_rules = tuple(rule for rule in task_family_rules
+                                if (self._epistemic_state_owner is not None
+                                    and self._epistemic_state_owner.proposition(
+                                        rule.proposition_id).context_scope.get(
+                                            "task_family_id") == family))
+                            if len(matching_rules) != 1:
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": "selected_run_family_rule_not_unique",
+                                    "authority": False, "current_truth": False})
+                                continue
+                            outcome = runtime.process_verified_task_family_run(
+                                experiment_store=experiment_store, run_id=run_id,
+                                expected_run_digest=run_digest,
+                                rule_id=matching_rules[0].rule_id, tick=tick,
+                                recorded_at=instant.isoformat())
+                            outcome_rows.append({
+                                "run_id": run_id, "run_digest": run_digest,
+                                **asdict(outcome),
+                            })
+                    feedback["verified_task_family_outcomes"] = outcome_rows
+                    resolved_count = sum(row.get("status") != "unresolved"
+                        for row in outcome_rows)
+                    unresolved_count = len(outcome_rows) - resolved_count
+                    feedback["verified_task_family_outcomes_status"] = (
+                        "partially_resolved" if resolved_count and unresolved_count
+                        else "verified" if resolved_count
+                        else "unresolved" if unresolved_count
+                        else feedback.get("verified_task_family_outcomes_status",
+                            "verified_empty"))
+                    if any(row["status"] == "state_advanced"
+                            for row in outcome_rows):
+                        feedback["status"] = "state_advanced"
+                    feedback["new_binding_count"] = int(
+                        feedback.get("new_binding_count", 0)) + sum(
+                            int(row.get("new_binding_count", 0)) for row in outcome_rows)
+                    feedback["updated_proposition_count"] = int(
+                        feedback.get("updated_proposition_count", 0)) + sum(
+                            int(row.get("updated_proposition_count", 0)) for row in outcome_rows)
+                    for field in ("evidence_receipt_ids", "state_receipt_ids",
+                            "successor_state_ids", "generations"):
+                        feedback[field] = list(feedback.get(field, ())) + [item
+                            for row in outcome_rows for item in row.get(field, ())]
+                    feedback["verified_task_family_outcome_count"] = resolved_count
         self._feedback.setdefault("surfaces", {})["resident_epistemic_development"] = feedback
         self._refresh_feedback()
         return feedback
