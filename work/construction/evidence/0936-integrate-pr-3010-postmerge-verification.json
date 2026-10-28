@@ -1,0 +1,163 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 936,
+  "scope": "integrate PR 3010 merge and post-merge verification",
+  "custody": {
+    "verified_segments_before_append": 935,
+    "status": "construction_continuation_custody_ready",
+    "failures": []
+  },
+  "publication": {
+    "pull_request": 3010,
+    "status": "merged_and_post_merge_verified",
+    "merge_commit": "770f0e4aed39b39401c9c4f52ac61e65eb1f1802",
+    "exact_candidate_checks": {
+      "invite [40765127422]": {
+        "run_id": 40765127422,
+        "status": "success"
+      },
+      "greet [40764469511]": {
+        "run_id": 40764469511,
+        "status": "skipped"
+      },
+      "publish [40764469161]": {
+        "run_id": 40764469161,
+        "status": "skipped"
+      },
+      "Build & smoke test (cpu) [40764469357]": {
+        "run_id": 40764469357,
+        "status": "success"
+      },
+      "invariants [40764469175]": {
+        "run_id": 40764469175,
+        "status": "success"
+      },
+      "Source validation (unprivileged) [40764469258]": {
+        "run_id": 40764469258,
+        "status": "success"
+      },
+      "docs [40764469258]": {
+        "run_id": 40764469258,
+        "status": "success"
+      },
+      "helm-k8s-test [40764469258]": {
+        "run_id": 40764469258,
+        "status": "success"
+      },
+      "lint (core, 3.11) [40764469295]": {
+        "run_id": 40764469295,
+        "status": "success"
+      },
+      "lint (src-lock-full, 3.14) [40764469295]": {
+        "run_id": 40764469295,
+        "status": "success"
+      },
+      "self-check [40764469258]": {
+        "run_id": 40764469258,
+        "status": "success"
+      },
+      "lint (bin-lock, 3.14) [40764469295]": {
+        "run_id": 40764469295,
+        "status": "success"
+      },
+      "Required / Quality Gate [40764469120]": {
+        "run_id": 40764469120,
+        "status": "success"
+      },
+      "build [40764469174]": {
+        "run_id": 40764469174,
+        "status": "success"
+      },
+      "validate [40764469161]": {
+        "run_id": 40764469161,
+        "status": "success"
+      },
+      "gradient-null-tests [40764469075]": {
+        "run_id": 40764469075,
+        "status": "success"
+      },
+      "docs [40764452497]": {
+        "run_id": 40764452497,
+        "status": "success"
+      },
+      "helm-k8s-test [40764452497]": {
+        "run_id": 40764452497,
+        "status": "success"
+      },
+      "self-check [40764452497]": {
+        "run_id": 40764452497,
+        "status": "success"
+      },
+      "Source validation (unprivileged) [40764452497]": {
+        "run_id": 40764452497,
+        "status": "success"
+      },
+      "invariants [40764452563]": {
+        "run_id": 40764452563,
+        "status": "success"
+      }
+    },
+    "post_merge_checks": {
+      "deploy [40765126166]": {
+        "run_id": 40765126166,
+        "status": "success"
+      },
+      "Forge Smoke [40765126181]": {
+        "run_id": 40765126181,
+        "status": "skipped_by_condition"
+      },
+      "Required Quality Gate [40765126448]": {
+        "run_id": 40765126448,
+        "status": "success"
+      },
+      "self-check [40765126280]": {
+        "run_id": 40765126280,
+        "status": "success"
+      },
+      "helm-k8s-test [40765126280]": {
+        "run_id": 40765126280,
+        "status": "success"
+      },
+      "Invariant Tests [40765126236]": {
+        "run_id": 40765126236,
+        "status": "success"
+      },
+      "Docs [40765126280]": {
+        "run_id": 40765126280,
+        "status": "success"
+      },
+      "build [40765126217]": {
+        "run_id": 40765126217,
+        "status": "success"
+      },
+      "Source validation (unprivileged) [40765126280]": {
+        "run_id": 40765126280,
+        "status": "success"
+      },
+      "build [40765126166]": {
+        "run_id": 40765126166,
+        "status": "success"
+      },
+      "Build & smoke test (cpu) [40765126224]": {
+        "run_id": 40765126224,
+        "status": "success"
+      }
+    },
+    "normal_pr_workflow_required": true,
+    "verified_main_tree": "0f8a0411a415d0c9da47935af8ee122eb17d0f8f",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "c5073533d2ef2bdaf5601625a5b234679a91d7a8",
+      "index_v3": "094c7d5072e33748c549caeb657cc397dcbf0c22"
+    }
+  },
+  "source": {
+    "verified_remote_main": "770f0e4aed39b39401c9c4f52ac61e65eb1f1802",
+    "verified_remote_main_tree": "0f8a0411a415d0c9da47935af8ee122eb17d0f8f",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "770f0e4aed39b39401c9c4f52ac61e65eb1f1802"
+    },
+    "candidate_commit": "35148bbd643016732e782dc937a668943fe4844a",
+    "candidate_tree": "0f8a0411a415d0c9da47935af8ee122eb17d0f8f"
+  }
+}
