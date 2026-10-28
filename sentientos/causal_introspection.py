@@ -320,6 +320,8 @@ def validate_projection(projection: OwnerIntrospectionProjection, *, capture_pos
     if (not isinstance(projection.owner_id, str) or not projection.owner_id
             or not isinstance(projection.owner_kind, str) or not projection.owner_kind):
         raise IntrospectionError("owner_identity_required")
+    if not isinstance(projection.capture_tick, str) or not projection.capture_tick:
+        raise IntrospectionError("capture_tick_required")
     if projection.domain not in DOMAINS:
         raise IntrospectionError("unregistered_domain")
     if projection.posture != ProjectionPosture():
@@ -489,6 +491,8 @@ def _projection_conflicts(
 
 
 def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: CausalIntrospectionSnapshot | None = None) -> None:
+    if not isinstance(snapshot.capture_tick, str) or not snapshot.capture_tick:
+        raise IntrospectionError("capture_tick_required")
     if (snapshot.schema_version != SCHEMA_VERSION or snapshot.authority is not False
             or snapshot.current_truth is not False or type(snapshot.generation) is not int
             or snapshot.generation < 1):
@@ -680,6 +684,9 @@ class CausalIntrospectionRuntime:
     def capture(self, context: CaptureContext) -> CausalIntrospectionSnapshot:
         if not self.config.enabled:
             raise IntrospectionError("introspection_disabled")
+        if (not isinstance(context, CaptureContext)
+                or not isinstance(context.tick_id, str) or not context.tick_id):
+            raise IntrospectionError("capture_tick_required")
         history, custody_bytes = self._reconstruct_with_size()
         prior = history[-1] if history else None
         # A crash before the atomic hard-link publication can leave a private
