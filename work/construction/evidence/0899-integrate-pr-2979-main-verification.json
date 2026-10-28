@@ -1,0 +1,181 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "post-merge verification for PR 2979 and sequence 898 main verification, including hosted documentation dependency resolution",
+  "sequence": 899,
+  "custody": {
+    "status": "construction_continuation_custody_ready",
+    "failures": [],
+    "verified_segments_before_append": 898
+  },
+  "source": {
+    "candidate_commit": "6eaf506d5b65093570a20860b62f5784997446e8",
+    "candidate_tree": "473914a9edb53b35961bfc185ec39863beb94df6",
+    "merge_commit": "36003c81d86fe10ee7aa6c7d9b0d85196a7c7ee4",
+    "merge_tree": "473914a9edb53b35961bfc185ec39863beb94df6",
+    "tree_matches_candidate": true,
+    "verified_remote_main": "36003c81d86fe10ee7aa6c7d9b0d85196a7c7ee4",
+    "verified_remote_main_tree": "473914a9edb53b35961bfc185ec39863beb94df6",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "36003c81d86fe10ee7aa6c7d9b0d85196a7c7ee4"
+    },
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "remote_ref": "refs/heads/main",
+      "remote_tree": "473914a9edb53b35961bfc185ec39863beb94df6"
+    }
+  },
+  "publication": {
+    "pull_request": {
+      "number": 2979,
+      "state": "merged",
+      "merged_at": "2026-10-28T02:23:26Z",
+      "head_commit": "6eaf506d5b65093570a20860b62f5784997446e8",
+      "merge_commit": "36003c81d86fe10ee7aa6c7d9b0d85196a7c7ee4",
+      "title": "[codex:construction] [untested] integrate PR 2978 main verification"
+    },
+    "pr_workflows": {
+      "build_smoke_cpu": [
+        40619744968,
+        "success"
+      ],
+      "required_quality_gate": [
+        40619744901,
+        "success"
+      ],
+      "source_validation_branch_push": [
+        40619649527,
+        "success"
+      ],
+      "source_validation_pull_request": [
+        40619744922,
+        "success"
+      ],
+      "build": [
+        40619744871,
+        "success"
+      ],
+      "docs_branch_push": [
+        40619649527,
+        "success"
+      ],
+      "docs_pull_request": [
+        40619744922,
+        "success"
+      ],
+      "gradient_null_regression": [
+        40619744867,
+        "success"
+      ],
+      "helm_branch_push": [
+        40619649527,
+        "success"
+      ],
+      "helm_pull_request": [
+        40619744922,
+        "success"
+      ],
+      "invariants_branch_push": [
+        40619649510,
+        "success"
+      ],
+      "invariants_pull_request": [
+        40619744863,
+        "success"
+      ],
+      "lint": [
+        40619744851,
+        "success"
+      ],
+      "self_check_branch_push": [
+        40619649527,
+        "success"
+      ],
+      "self_check_pull_request": [
+        40619744922,
+        "success"
+      ],
+      "validate": [
+        40619744878,
+        "success"
+      ],
+      "invite_after_merge": [
+        40620640297,
+        "success"
+      ],
+      "conditional_greet": [
+        40619744900,
+        "skipped"
+      ],
+      "conditional_publish": [
+        40619744878,
+        "skipped"
+      ]
+    },
+    "post_merge_workflows": {
+      "ci": [
+        40620640523,
+        "success"
+      ],
+      "codex_ci": [
+        40620640676,
+        "success"
+      ],
+      "docker": [
+        40620640510,
+        "success"
+      ],
+      "quality_gate": [
+        40620640780,
+        "success"
+      ],
+      "docs_deploy": [
+        40620640539,
+        "success"
+      ],
+      "invariants": [
+        40620640654,
+        "success"
+      ],
+      "forge_smoke": [
+        40620640525,
+        "skipped"
+      ]
+    },
+    "post_merge_status": "all_required_push_workflows_success; conditional_forge_smoke_skipped",
+    "hosted_documentation_verification": {
+      "docs_extra_install": "success",
+      "mkdocs_watchdog_dependency_check": "success",
+      "documentation_build": "success",
+      "docs_deploy": "success",
+      "required_quality_gate_exact_candidate": "success",
+      "administrator_bootstrap": "success",
+      "precommit_finalizer": "success"
+    },
+    "environment_provisioning": {
+      "codex_cloud_status": "connected",
+      "available_provisioning_capabilities": [],
+      "resolution": "repository-hosted Docs Deploy installs the documented docs extra and verifies dependencies and build; no local privilege bypass"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "8f02cc7f83f53ade1984343292447993e135c1d1",
+      "index_v3": "acfd49b3ebe6f2e546a7ea0a24d81bde0a7af5ab",
+      "evidence_0898": "f11d0852a7ae5b6bd8a9b449ae9ac825f4b34065",
+      "segment_0898": "35597825ff49a4054a4626823c644f14e2786ea8",
+      "shard_v3_0031": "69d3c54d48ae9cd4118fecf6d593e37acc87b90c"
+    }
+  },
+  "checkpoint_chain": {
+    "format": "sentientos.construction_checkpoint:v2",
+    "sequence_898_checkpoint_bytes": 1117,
+    "sequence_898_checkpoint_git_blob_sha": "8f02cc7f83f53ade1984343292447993e135c1d1",
+    "next_transition_source_commit": "36003c81d86fe10ee7aa6c7d9b0d85196a7c7ee4",
+    "next_transition_source_tree": "473914a9edb53b35961bfc185ec39863beb94df6",
+    "history_rewritten": false
+  },
+  "segment": {
+    "path": "work/construction/segments/0899-integrate-pr-2979-main-verification.md",
+    "bytes": 1437,
+    "sha256": "bb3094701b240e67f88bc886876417bcfe713b96887d1381b4a26aa311e9d928"
+  }
+}
