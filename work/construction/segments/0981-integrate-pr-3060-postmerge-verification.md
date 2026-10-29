@@ -1,0 +1,9 @@
+# Sequence 981: integrate PR #3060 and verify post-merge main
+
+Sequence 980 was published through PR #3060 as candidate `d3d8e4de98df6c2b5b71965dffc95272124471cd`, tree `e7794bf839b0061461d003cbda38110da1a814fb`. All applicable hosted PR workflows passed, including the Required Quality Gate and CI. PR #3060 merged normally by squash as `0d3aa9761d89b13062299302aa41c56b3fcbf648` with tree `e7794bf839b0061461d003cbda38110da1a814fb`.
+
+All exact-main post-merge workflows passed: CI including source validation, strict documentation linkcheck, self-check and Helm; Required Quality Gate; Codex CI; Docker Image; Docs Deploy; and Invariant Tests. Forge Smoke was skipped by condition. The GitHub ref readback and authenticated `git ls-remote` both resolve `refs/heads/main` to the merge commit above. Local source preflight matched the exact remote main commit and tree. Full continuation custody verified all 980 predecessor sequences before this append.
+
+The strict live Sphinx linkcheck passed on the PR in about 70 seconds with one GitHub rate-limit backoff and on main in about 132 seconds with two. The PR retry was for an existing README GitHub URL; the main run retried that same URL twice. The workflow has one strict linkcheck per CI event, and Docs Deploy is a separate HTML build. Rate-limit waits are variable external behavior; no supported evidence-backed change was identified that reduces them while preserving strict live checking, so the workflow remains unchanged.
+
+The failed initial source-preflight invocation was corrected by using the exact configured origin URL and remote `main` ref; it made no repository changes.

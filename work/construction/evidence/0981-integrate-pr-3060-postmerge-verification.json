@@ -1,0 +1,175 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 981,
+  "scope": "integrate PR #3060 post-merge verification and complete the evidence-backed strict-linkcheck latency investigation",
+  "source": {
+    "verified_remote_main": "0d3aa9761d89b13062299302aa41c56b3fcbf648",
+    "verified_remote_main_tree": "e7794bf839b0061461d003cbda38110da1a814fb",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "0d3aa9761d89b13062299302aa41c56b3fcbf648",
+      "verification": "GitHub commit/ref readback and git ls-remote with explicit execution network permission"
+    },
+    "local_branch": "construction/seq981-pr-3060-postmerge",
+    "local_head": "0d3aa9761d89b13062299302aa41c56b3fcbf648",
+    "local_tree": "e7794bf839b0061461d003cbda38110da1a814fb",
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": [],
+    "source_preflight_invocation_recovery": "An initial read-only preflight used the unnormalized origin URL and an unpushed feature branch as the remote ref; it returned remote_identity_unavailable/origin_url_mismatch. The corrected invocation used the exact configured origin URL and refs/heads/main and returned correct_remote_and_local_base. No files or refs were changed by the failed preflight."
+  },
+  "custody": {
+    "status_before_append": "construction_continuation_custody_ready",
+    "segments_verified_before_append": 980,
+    "failures": [],
+    "predecessor_segment_sha256": "615df44be62e279b95119defe8c231eddea58890b14e87337290e88e55511574",
+    "predecessor_checkpoint": {
+      "sequence": 980,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "76e43e3dc6db55c4973e0cb8af0d36f951a99ac3a625248f1786c06380c5a47a",
+      "git_blob_sha": "a7c2c7345f1241d76279f8be54d00276ec78a53e"
+    },
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "1cf019b938583a5862d4792188c98411528ae46d",
+    "v3_shard_count_before_append": 106
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3060,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3060",
+    "candidate_commit": "d3d8e4de98df6c2b5b71965dffc95272124471cd",
+    "candidate_tree": "e7794bf839b0061461d003cbda38110da1a814fb",
+    "base_commit": "c3ab8c1a1c7f4212832616f8f36789ad30353cda",
+    "base_tree": "9f2b2c796eb6f91c0b4161829e2d2993981b467e",
+    "merge_method": "squash",
+    "merge_commit": "0d3aa9761d89b13062299302aa41c56b3fcbf648",
+    "merge_tree": "e7794bf839b0061461d003cbda38110da1a814fb",
+    "pull_request_workflows": {
+      "CI": {
+        "run_id": 40847288793,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40847288514,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40847288247,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40847288491,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40847288489,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40847288248,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40847288271,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40847288463,
+        "status": "success"
+      }
+    },
+    "pull_request_ci_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123357795523,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123357795671,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123357795392,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123357796814,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40847971325,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40847971308,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40847971344,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40847971327,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40847971404,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40847971489,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40847971534,
+        "status": "skipped_by_condition"
+      }
+    },
+    "post_merge_ci_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123360052456,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123360052697,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123360052673,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123360052851,
+        "status": "success"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "a7c2c7345f1241d76279f8be54d00276ec78a53e"
+    }
+  },
+  "linkcheck_observations": {
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "finding": "The required live strict linkcheck remains enabled and passes. This pair had one existing GitHub URL rate-limited during the PR run and twice during the main run; normal Sphinx retry waits completed and the strict builds succeeded. CI has one full CI workflow per PR event and one per main push; Docs Deploy is a separate HTML deployment, not a duplicate strict linkcheck. No evidence-backed change was identified that preserves strict live validation while reducing these external rate-limit waits.",
+    "candidate_pr_3060": {
+      "run_id": 40847288793,
+      "job_id": 123357795671,
+      "command_started_at": "2026-10-29T09:08:45Z",
+      "linkcheck_build_started_at": "2026-10-29T09:08:46Z",
+      "completed_at": "2026-10-29T09:09:56Z",
+      "duration_seconds_approx": 70,
+      "rate_limit_backoffs": 1,
+      "status": "success"
+    },
+    "main_after_pr_3060": {
+      "run_id": 40847971325,
+      "job_id": 123360052697,
+      "command_started_at": "2026-10-29T09:13:58Z",
+      "linkcheck_build_started_at": "2026-10-29T09:14:00Z",
+      "completed_at": "2026-10-29T09:16:12Z",
+      "duration_seconds_approx": 132,
+      "rate_limit_backoffs": 2,
+      "status": "success"
+    }
+  }
+}
