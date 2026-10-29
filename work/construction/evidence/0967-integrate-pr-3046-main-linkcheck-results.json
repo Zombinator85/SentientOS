@@ -1,0 +1,156 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 966
+  },
+  "linkcheck_investigation": {
+    "cache_review": {
+      "built_in_link_result_cache": "not present in the builder source",
+      "safe_github_actions_cache": "no supported cache hit can reuse link results without custom skip logic; skipping requests would weaken freshness and is not justified",
+      "sphinx_source_ref": "sphinx-doc/sphinx@v8.2.3:sphinx/builders/linkcheck.py"
+    },
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "conclusion": "Sphinx logs explicitly show per-origin 429 backoff events on PR #3046 (two) and main (one); both strict builds passed. Runtime varied widely across runs even at unchanged worker settings. The one-worker run was slower and saw more backoffs. Existing workflow trigger deduplication is already in place, docs deployment is separate, and Sphinx linkcheck has no built-in result cache. No evidence supports a safe configuration or cache change. Keep the strict command, warning-as-error behavior, and verification frequency unchanged.",
+    "configured_workers": "default (5)",
+    "duplicate_invocation_review": "PR #3042 workflow evidence showed one full-CI pull_request run and no feature-branch full-CI push run; main push ran full CI. The separate docs-deploy workflow performs HTML build/deploy and does not rerun linkcheck.",
+    "main_after_pr_3046": {
+      "docs_job_id": 123285737557,
+      "duration_seconds_approx": 69,
+      "run_id": 40824947085,
+      "sphinx_rate_limit_backoff_events": 1,
+      "strict_build": "success"
+    },
+    "one_worker_experiment": {
+      "docs_job_id": 123270116016,
+      "duration_seconds_approx": 435,
+      "pull_request": 3043,
+      "retry_delay_seconds_each": 60,
+      "sphinx_rate_limit_backoff_events": 6,
+      "status": "closed_unmerged"
+    },
+    "pr_3046": {
+      "docs_job_id": 123284093139,
+      "duration_seconds_approx": 131,
+      "run_id": 40824432550,
+      "sphinx_rate_limit_backoff_events": 2,
+      "strict_build": "success"
+    },
+    "prior_default_observations": {
+      "main_pr_3044_backoffs": 0,
+      "main_pr_3044_seconds_approx": 132,
+      "main_pr_3045_backoffs": 0,
+      "main_pr_3045_seconds_approx": 71,
+      "pr_3044_backoffs": 0,
+      "pr_3044_seconds_approx": 133,
+      "pr_3045_backoffs": 0,
+      "pr_3045_seconds_approx": 250
+    },
+    "sphinx_version": "8.2.3"
+  },
+  "local_validation": {
+    "custody_after_append": {
+      "failures": [],
+      "segments_verified": 967,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "dependency_mode": "test_airlock_minimal",
+      "failures": 0,
+      "result": "passed",
+      "tests": 53
+    },
+    "git_diff_check": "passed",
+    "latest_main_preflight": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "candidate_commit": "defc57869e3fc2c8443fe0c954e1678d6f2dab9c",
+    "candidate_tree": "6a7a1c40573a8d35073727692fb3f58e02617df2",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40824432550,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40824432734,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40824432603,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40824432824,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40824432612,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40824421500,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40824432584,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40824432622,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40824432693,
+        "status": "success"
+      }
+    },
+    "merge_commit": "78dbd5d5638198a1b987a1156f375d99efaaf476",
+    "merge_tree": "6a7a1c40573a8d35073727692fb3f58e02617df2",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40824947085,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40824947054,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40824947086,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40824947042,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40824947062,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40824947125,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40824947144,
+        "status": "success"
+      }
+    },
+    "pull_request": 3046,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "1905f4651af29350c031c72d147029e0e6f9e93e"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR #3046 merge and post-merge workflows; finish the strict external-linkcheck latency investigation with PR and main measurements and Sphinx cache capability review",
+  "sequence": 967,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "78dbd5d5638198a1b987a1156f375d99efaaf476",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "78dbd5d5638198a1b987a1156f375d99efaaf476",
+    "verified_remote_main_tree": "6a7a1c40573a8d35073727692fb3f58e02617df2"
+  }
+}
