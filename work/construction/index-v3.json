@@ -9,23 +9,23 @@
     "latest_sequence": 867,
     "latest_segment_sha256": "d89bceebb6176ca2c6622ace37acbc22c86dd8e02204ee34d09a6b5a512eb850"
   },
-  "latest_sequence": 967,
-  "latest_segment_sha256": "6d9d86f0f2acf24b1d771609df6478ec36a3a4b314c6b8c0fe45091404676bbd",
-  "shard_count": 93,
+  "latest_sequence": 968,
+  "latest_segment_sha256": "0762f27133a6bf2e35d848ede9fcc2f53ac74fa765c02ff7f10acca9b822bab2",
+  "shard_count": 94,
   "latest_shard": {
-    "path": "work/construction/shards-v3/000000093-000000967-000000967.json",
-    "bytes": 1930,
-    "sha256": "90365cb83dde2c2e6b24a1ad1f89da72835d018988123595f9aaca1c6985916c",
-    "git_blob_sha": "74a74ae9f1b0757e9d0cfff28f69ba6f47dba4c3",
-    "shard_sequence": 93,
-    "first_sequence": 967,
-    "last_sequence": 967
+    "path": "work/construction/shards-v3/000000094-000000968-000000968.json",
+    "bytes": 1920,
+    "sha256": "be641c4d8e93ee3b8a6b60be519f6fcfd5f0d3168446a3daed547d5bbaacb97d",
+    "git_blob_sha": "2ce1ccfcb5f1a5dbc8e1c7c31b17ea550f9b6d82",
+    "shard_sequence": 94,
+    "first_sequence": 968,
+    "last_sequence": 968
   },
   "active_checkpoint": "work/construction/active_checkpoint_v3.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "1d426ad740fe6652440805e5fff0deb6dff69584eca35cf3a616b496d67157ee",
-    "latest_segment_sequence": 967,
-    "latest_segment_sha256": "6d9d86f0f2acf24b1d771609df6478ec36a3a4b314c6b8c0fe45091404676bbd",
+    "checkpoint_sha256": "dc6f4b2cc9e0bc01b95aacea5e5cba1727ea3fb14565e71591a63712890e2aa7",
+    "latest_segment_sequence": 968,
+    "latest_segment_sha256": "0762f27133a6bf2e35d848ede9fcc2f53ac74fa765c02ff7f10acca9b822bab2",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
   },
@@ -41,11 +41,11 @@
       "source_tree": "f59e273a5fdc12330bb9162fa1e4d6cc132c7b8f"
     },
     "latest": {
-      "sequence": 967,
+      "sequence": 968,
       "path": "work/construction/active_checkpoint_v3.md",
-      "bytes": 1122,
-      "sha256": "1d426ad740fe6652440805e5fff0deb6dff69584eca35cf3a616b496d67157ee",
-      "git_blob_sha": "9b703aff132157fd7ef4fcb67c0624c5b51b12ee"
+      "bytes": 1117,
+      "sha256": "dc6f4b2cc9e0bc01b95aacea5e5cba1727ea3fb14565e71591a63712890e2aa7",
+      "git_blob_sha": "20abc9dd1800fdc28dfff2d6adefbbe63dcad1e7"
     }
   }
 }

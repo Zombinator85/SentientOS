@@ -1,0 +1,140 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 967
+  },
+  "linkcheck_investigation": {
+    "conclusion": "PR and main both passed strict linkcheck. The same default worker configuration ranged from about 69 to 372 seconds in recent runs, with backoffs from one to four; one worker took about 435 seconds with six backoffs. Sphinx 8.2.3 rate-limit messages correspond to HTTP 429 handling in the inspected source. Existing workflow deduplication is already active; docs deploy is a separate HTML build; linkcheck has no built-in result cache. A custom skip cache or ignoring URLs would weaken link freshness, while changing concurrency/retries has no supported performance evidence. Keep the strict command and failure behavior unchanged.",
+    "configured_workers": "default (5)",
+    "main_after_pr_3047": {
+      "docs_job_id": 123290711488,
+      "duration_seconds_approx": 133,
+      "run_id": 40826518635,
+      "sphinx_rate_limit_backoff_events": 2,
+      "strict_build": "success"
+    },
+    "pr_3047": {
+      "docs_job_id": 123288548289,
+      "duration_seconds_approx": 372,
+      "run_id": 40825836075,
+      "sphinx_rate_limit_backoff_events": 4,
+      "strict_build": "success"
+    },
+    "prior_observations": {
+      "main_pr_3046_backoffs": 1,
+      "main_pr_3046_seconds_approx": 69,
+      "one_worker_pr_3043_backoffs": 6,
+      "one_worker_pr_3043_seconds_approx": 435,
+      "pr_3046_backoffs": 2,
+      "pr_3046_seconds_approx": 131
+    },
+    "sphinx_version": "8.2.3",
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "local_validation": {
+    "custody_after_append": {
+      "failures": [],
+      "segments_verified": 968,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "dependency_mode": "test_airlock_minimal",
+      "failures": 0,
+      "result": "passed",
+      "tests": 53
+    },
+    "git_diff_check": "passed",
+    "latest_main_preflight": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "candidate_commit": "0f7351972b69577dba30ffcee778830fc5a97faf",
+    "candidate_tree": "9328199c6194c458f7ff25ae1238ab01b607d146",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40825836075,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40825836063,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40825836193,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40825836053,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40825836064,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40825826521,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40825836189,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40825836131,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40825836177,
+        "status": "success"
+      }
+    },
+    "merge_commit": "7d97121ebe80a7a8302b78beab5a3629e83181d8",
+    "merge_tree": "9328199c6194c458f7ff25ae1238ab01b607d146",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40826518635,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40826518572,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40826518653,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40826518575,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40826518668,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40826518563,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40826518607,
+        "status": "success"
+      }
+    },
+    "pull_request": 3047,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "9b703aff132157fd7ef4fcb67c0624c5b51b12ee"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR #3047 merge and post-merge gates; integrate PR and main strict-linkcheck timing/backoff measurements into the evidence-backed latency conclusion",
+  "sequence": 968,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "7d97121ebe80a7a8302b78beab5a3629e83181d8",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "7d97121ebe80a7a8302b78beab5a3629e83181d8",
+    "verified_remote_main_tree": "9328199c6194c458f7ff25ae1238ab01b607d146"
+  }
+}
