@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 123,
+  "first_sequence": 997,
+  "last_sequence": 997,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000122-000000996-000000996.json",
+    "bytes": 1932,
+    "sha256": "5ea89dcade5ce9763aadd73b1f872b87804fcadd656774ae546d1c9979ab49e7",
+    "git_blob_sha": "eb33c7ece3a1aaea38476701d267e536c2c759b4",
+    "shard_sequence": 122,
+    "first_sequence": 996,
+    "last_sequence": 996
+  },
+  "segments": [
+    {
+      "sequence": 997,
+      "path": "work/construction/segments/0997-integrate-pr-3078-postmerge-linkcheck-investigation.md",
+      "bytes": 1485,
+      "sha256": "07b62f81e27c34d482da8f107ba31020b852d754cab3f131973f5e201ce99da0",
+      "predecessor": "segment-sha256:7821685d37fe05928204b610f18f59664ec99dce3fdee2b6677be52a5a5f2d2b",
+      "evidence_path": "work/construction/evidence/0997-integrate-pr-3078-postmerge-linkcheck-investigation.json",
+      "evidence_sha256": "63b06d79d5ed73c7888c30d459bf0a4a1642375bf1b058bed73238c16710a2dd",
+      "evidence_bytes": 6191,
+      "source_commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "source_tree": "21b98b04705def1c3ef842721a231870a6707c58"
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 996,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "936383c2192ff898b2786b7828e3f448c642992f3e22968437e2f028ef7d7e4d",
+      "git_blob_sha": "933ea09b0d0875c1cf4fa2d57aef346e1d4ad1fe",
+      "source_commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "source_tree": "21b98b04705def1c3ef842721a231870a6707c58"
+    },
+    "current": {
+      "sequence": 997,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1133,
+      "sha256": "b5308b85de5a8d701d4de35aa573327b829613003488c7afff620625b694c28d",
+      "git_blob_sha": "5b2b334e7e3f416623c68969f412c4ed98b80a4c"
+    }
+  }
+}

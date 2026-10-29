@@ -1,0 +1,173 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 996,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_shard_count_before_append": 122,
+    "predecessor_segment_sha256": "7821685d37fe05928204b610f18f59664ec99dce3fdee2b6677be52a5a5f2d2b"
+  },
+  "publication": {
+    "pull_request": 3078,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3078",
+    "candidate_commit": "72c4c0a4df07b4036319e1c8bd45954b77d1f097",
+    "candidate_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+    "base_commit": "491774216f833a0f0065c966098ee42eb52cd8c7",
+    "base_tree": "a2b900c2e0824050a4c34ea666c3390f61389386",
+    "merge_commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+    "merge_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+    "merge_method": "merge",
+    "exact_candidate_workflows": {
+      "Required Quality Gate": {
+        "run_id": 40889018225,
+        "status": "success"
+      },
+      "CI": {
+        "run_id": 40889018259,
+        "docs_job_id": 123500411204,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40889018247,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40889018206,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40889018254,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40889018239,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40889018255,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40889018218,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40890221232,
+        "docs_job_id": 123504673185,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40890221038,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40890221065,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40890220995,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40890221010,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40890220927,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40890221006,
+        "status": "skipped_by_condition"
+      }
+    },
+    "remote_main_readback": {
+      "commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "tree": "21b98b04705def1c3ef842721a231870a6707c58",
+      "authenticated_git_ls_remote": "confirmed",
+      "source_preflight": "correct_remote_and_local_base"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "933ea09b0d0875c1cf4fa2d57aef346e1d4ad1fe"
+    }
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "strict_warnings": true,
+    "candidate_docs_job": {
+      "job_id": 123500411204,
+      "workflow_run_id": 40889018259,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:12:00.2503532Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md"
+        },
+        {
+          "utc": "2026-10-29T14:12:01.6547487Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md"
+        },
+        {
+          "utc": "2026-10-29T14:13:00.5135445Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+        },
+        {
+          "utc": "2026-10-29T14:14:00.6018666Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+        },
+        {
+          "utc": "2026-10-29T14:15:00.6507134Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+        }
+      ]
+    },
+    "post_merge_docs_job": {
+      "job_id": 123504673185,
+      "workflow_run_id": 40890221232,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:19:23.9253373Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md"
+        },
+        {
+          "utc": "2026-10-29T14:19:24.9315688Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md"
+        }
+      ]
+    },
+    "conclusion": "Current runs confirm repeated external GitHub rate-limit sleeps with successful retries. Candidate and post-merge runs validate different source trees. Previous two-worker trial was slower. No compliant improvement preserving fresh complete coverage is evidenced; leave strict verification and cadence unchanged."
+  },
+  "local_verification": {
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "remote_head": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "local_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+      "remote_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+      "findings": []
+    },
+    "custody_verification": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 996,
+      "failures": []
+    }
+  },
+  "follow_up": {
+    "mypy_lock_consistency": "requirements.lock still pins pathspec 0.12.1 and omits librt; defer changes to a separate increment."
+  },
+  "source": {
+    "verified_remote_main": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+    "verified_remote_main_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+    "remote_ref_readback": {
+      "commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+      "tree": "21b98b04705def1c3ef842721a231870a6707c58"
+    }
+  }
+}
