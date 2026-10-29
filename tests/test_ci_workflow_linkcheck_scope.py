@@ -25,6 +25,7 @@ def test_strict_linkcheck_runs_on_pull_requests_and_docs_build_runs_on_push() ->
 
     docs_build = [step for step in steps if step.get("run") == "make docs"]
     assert len(docs_build) == 1
+    assert docs_build[0]["id"] == "docs-build"
     assert "if" not in docs_build[0]
 
     strict_linkchecks = [
@@ -32,11 +33,13 @@ def test_strict_linkcheck_runs_on_pull_requests_and_docs_build_runs_on_push() ->
         if step.get("run") == "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
     ]
     assert len(strict_linkchecks) == 1
+    assert "steps.docs-build.outcome == 'success'" in strict_linkchecks[0]["if"]
     assert "github.event_name == 'pull_request'" in strict_linkchecks[0]["if"]
+    assert "steps.linkcheck-scope.outcome == 'failure'" in strict_linkchecks[0]["if"]
     assert "steps.linkcheck-scope.outputs.required != 'false'" in strict_linkchecks[0]["if"]
     scope_step = next(step for step in steps if step.get("id") == "linkcheck-scope")
     assert scope_step["if"] == "github.event_name == 'push'"
-    assert scope_step["continue-on-error"] == "true"
+    assert "continue-on-error" not in scope_step
     assert "github.event.before" in scope_step["run"]
     assert "github.sha" in scope_step["run"]
 

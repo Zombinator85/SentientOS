@@ -17,14 +17,14 @@
     {
       "sequence": 1012,
       "path": "work/construction/segments/1012-scope-postmerge-linkcheck-to-changed-self-link-targets.md",
-      "bytes": 1000,
-      "sha256": "e95ace5eb2d37774e520abc8f5aa20710e783e1c0bdbe031e4ed5567c36ef356",
+      "bytes": 1248,
+      "sha256": "a1c743794cfc8e25606664a784ec6db335e9506f4d9cd007b89ce2999d982156",
       "predecessor": "segment-sha256:322f379b5a446c9e28b897c1c30644e3f92efd474651348ce51a65807859deca",
       "source_commit": "93b4c14b65f9fc1744d4af8e52b937dfefe26bc6",
       "source_tree": "0ee687ffb566b64edada6c28970378310345b5c1",
       "evidence_path": "work/construction/evidence/1012-scope-postmerge-linkcheck-to-changed-self-link-targets.json",
-      "evidence_sha256": "8ab77af251d9f68f460824ea0e72dc2a15cd5d27ae743b1bc0ae1b8569cf5481",
-      "evidence_bytes": 3689
+      "evidence_sha256": "86891075d2064a424635f28cb745f71a14b0b6fd41a36200d24e2c453ad4ee9a",
+      "evidence_bytes": 4471
     }
   ],
   "checkpoint_transition": {
@@ -42,8 +42,8 @@
       "sequence": 1012,
       "path": "work/construction/active_checkpoint_v3.md",
       "bytes": 1139,
-      "sha256": "14ab339ac1d2dea4071976377d8ba74f8e165c21531fd4b42b2fa21402a630f1",
-      "git_blob_sha": "d1e0459df3f6d908d1454aefc5220a7bf8d1d4f7"
+      "sha256": "50eb203ba398a15276bcc816100360a72cce28866bc82ebf87b6710409b5bff2",
+      "git_blob_sha": "f77a09ad7e6407a11dddc7ad522a0953d4239d0a"
     }
   }
 }

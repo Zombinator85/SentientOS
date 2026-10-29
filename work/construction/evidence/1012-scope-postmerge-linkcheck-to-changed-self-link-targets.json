@@ -88,5 +88,21 @@
     "verified_main_file_readbacks": {
       "active_checkpoint_v3": "73a0d2747d8d4fd0978f71b209b7b23a20705c7b"
     }
+  },
+  "hosted_first_attempt": {
+    "candidate_commit": "b82b7890f5c5fc4573916cfff2d9af6b7cc8c9b0",
+    "required_quality_gate": {
+      "run_id": 40964782893,
+      "status": "success"
+    },
+    "failed_workflow": {
+      "run_id": 40964782727,
+      "job_id": 123766373873,
+      "job": "Source validation (unprivileged)",
+      "step": "Run integrated resource-to-cognition lifecycle",
+      "failed_test": "tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate",
+      "failure": "existing contract rejects continue-on-error anywhere in the CI docs job"
+    },
+    "repair": "removed continue-on-error; strict linkcheck runs on selector failure; it still skips when make docs fails, matching the prior behavior"
   }
 }
