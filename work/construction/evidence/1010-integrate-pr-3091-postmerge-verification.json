@@ -1,0 +1,152 @@
+{
+  "finalizer_environment_classification": {
+    "change": "The Administrator denial environment precondition is scoped to strict_audits; the same output in focused_tests remains task-caused.",
+    "docs_build": "success",
+    "targeted_mypy": "success",
+    "tests_passed": 52
+  },
+  "publication": {
+    "candidate_commit": "f1e916c33ad1ca22e425ef0020258ab5d1b23493",
+    "candidate_tree": "05920d321ead6ab13c917ee80dcf5df7efc0bf80",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40958693783,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40958693827,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40958693610,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40958693629,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40958693779,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40958693678,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40958693838,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40958693778,
+        "status": "success"
+      }
+    },
+    "hosted_quality_gate_evidence": {
+      "artifact_id": 12934054156,
+      "artifact_sha256": "7c917a8c035bfe89f29163a217ae584066c947a4c2edd855ace221b6ef6e3200",
+      "exact_acceptance": "task_acceptance_ready",
+      "finalizer": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "repository_sha": "f1e916c33ad1ca22e425ef0020258ab5d1b23493",
+      "run_id": 40958693778
+    },
+    "merge_commit": "d39e25778702f0bf15bd7d6575f4e82e06c6dd52",
+    "merge_method": "merge",
+    "merge_tree": "05920d321ead6ab13c917ee80dcf5df7efc0bf80",
+    "post_merge_ci_docs_job": {
+      "completed_utc": "2026-10-29T21:41:18Z",
+      "documentation_build": "success",
+      "job_id": 123748324521,
+      "started_utc": "2026-10-29T21:38:45Z",
+      "status": "success",
+      "strict_linkcheck": "success",
+      "strict_linkcheck_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+    },
+    "post_merge_ci_jobs": [
+      {
+        "completed_utc": "2026-10-29T21:41:29Z",
+        "job_id": 123748324673,
+        "name": "Source validation (unprivileged)",
+        "started_utc": "2026-10-29T21:38:45Z",
+        "status": "success"
+      },
+      {
+        "completed_utc": "2026-10-29T21:42:22Z",
+        "job_id": 123748324851,
+        "name": "self-check",
+        "started_utc": "2026-10-29T21:38:45Z",
+        "status": "success"
+      },
+      {
+        "completed_utc": "2026-10-29T21:40:34Z",
+        "job_id": 123748325011,
+        "name": "helm-k8s-test",
+        "started_utc": "2026-10-29T21:38:45Z",
+        "status": "success"
+      }
+    ],
+    "post_merge_quality_gate_artifact": {
+      "artifact_id": 12935640713,
+      "run_id": 40959524601,
+      "sha256": "dbe9f0d95b9453d4fc41bb18928ff0641a07d190375c040c6085471b1684c5e5",
+      "status": "success"
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40959524815,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40959524947,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40959524897,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40959525058,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40959524929,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40959524776,
+        "status": "success"
+      },
+      "Nightly Self Check": {
+        "run_id": 40959525026,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40959524601,
+        "status": "success"
+      }
+    },
+    "pull_request": 3091,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3091",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "029ab7c12ca7162077416a4e53f61545907c83c9"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "record PR #3091 merge and exact-main post-merge workflow evidence",
+  "sequence": 1010,
+  "source": {
+    "predecessor_checkpoint_blob": "029ab7c12ca7162077416a4e53f61545907c83c9",
+    "predecessor_checkpoint_sequence": 1009,
+    "predecessor_segment_sha256": "4a7047a5ae7af69858f057e48e9d728fddf038f7bd48c819a066b09ffe72a337",
+    "remote_ref": "refs/heads/main",
+    "remote_ref_readback": {
+      "commit": "d39e25778702f0bf15bd7d6575f4e82e06c6dd52",
+      "ref": "refs/heads/main",
+      "tree": "05920d321ead6ab13c917ee80dcf5df7efc0bf80"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "verified_remote_main": "d39e25778702f0bf15bd7d6575f4e82e06c6dd52",
+    "verified_remote_main_tree": "05920d321ead6ab13c917ee80dcf5df7efc0bf80"
+  }
+}
