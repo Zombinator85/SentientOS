@@ -1,0 +1,192 @@
+{
+  "custody": {
+    "failures": [],
+    "predecessor_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "e0342cf3b7180ebd083c65edfd19b8b8abeefb48",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 992,
+      "sha256": "5c492de7ba88d6d8f034c96a52dc652d700f4b6213a614af669ccf6559dc0512",
+      "source_commit": "07adb127d367a42842c5c9def802fc80283e37ce",
+      "source_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a"
+    },
+    "predecessor_segment_sha256": "cee8d04f3ee61cb0e3690ea6a4f57f80d6869d6a50dab5ed542974c205f97eab",
+    "segments_verified_before_append": 992,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "525a6ca8ba0b5e25369a465d3888e0aa69cf677f",
+    "v3_shard_count_before_append": 118
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "decision": "no compliant latency change supported; retain fresh strict checking, retries, and complete coverage",
+    "post_merge_docs_job": {
+      "build_succeeded_utc": "2026-10-29T12:35:17Z",
+      "each_retry_succeeded": true,
+      "job_id": 123448465508,
+      "linkcheck_start_utc": "2026-10-29T12:33:03Z",
+      "observed_wait_per_retry_seconds_approx": 60,
+      "rate_limit_notices": 2,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md"
+      ]
+    },
+    "pr_docs_job": {
+      "build_succeeded_utc": "2026-10-29T12:29:15Z",
+      "job_id": 123446549040,
+      "rate_limit_notices": 0,
+      "start_utc": "2026-10-29T12:29:01Z"
+    },
+    "prior_two_worker_trial": {
+      "pull_request": 3070,
+      "result": "slower and missed declared latency target"
+    },
+    "rejected_shortcuts": [
+      "disable_linkcheck",
+      "accept_stale_cache_as_current_success",
+      "exclude_rate_limited_urls",
+      "remove_retry_without_retry_recovery"
+    ],
+    "strict_warnings": true,
+    "workflow_definition": ".github/workflows/ci.yml",
+    "workflow_invocation_assessment": "pull_request and main checks validate distinct refs; no duplicate invocation identified"
+  },
+  "publication": {
+    "base_commit": "67d17281b42c8549a5717a09f1c096f1688b295a",
+    "base_tree": "2068deb95bd0b2c6cd1276930074d613f7318b47",
+    "candidate_commit": "3c069777dd6e96237ae913d79db84ea386674fef",
+    "candidate_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a",
+    "merge_commit": "07adb127d367a42842c5c9def802fc80283e37ce",
+    "merge_method": "merge",
+    "merge_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a",
+    "post_merge_ci_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123448465523,
+        "provenance": "current",
+        "status": "success",
+        "tests_failed": 0,
+        "tests_passed": 4
+      },
+      "docs": {
+        "job_id": 123448465508,
+        "make_docs": "success",
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123448465474,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123448465614,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "docs_job_id": 123448465508,
+        "helm_job_id": 123448465474,
+        "run_id": 40874133370,
+        "self_check_job_id": 123448465614,
+        "source_validation_job_id": 123448465523,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40874133405,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40874133375,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40874133371,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40874133316,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40874133319,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40874133435,
+        "status": "success"
+      }
+    },
+    "pull_request": 3073,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3073",
+    "pull_request_workflows": {
+      "CI": {
+        "docs_job_id": 123446549040,
+        "helm_job_id": 123446549634,
+        "run_id": 40873569279,
+        "self_check_job_id": 123446549335,
+        "source_validation_job_id": 123446549367,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40873569229,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40873569305,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40873569368,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40873569432,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40873569269,
+        "status": "success"
+      },
+      "Release": {
+        "publishing": "skipped_by_condition",
+        "run_id": 40873569431,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123446549016,
+        "run_id": 40873569301,
+        "status": "success"
+      }
+    },
+    "repository": "Zombinator85/SentientOS",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "e0342cf3b7180ebd083c65edfd19b8b8abeefb48",
+      "evidence_0992": "b9b5ff42f2f781c2a8f32ada2a4faa13ed52168b",
+      "index_v3": "525a6ca8ba0b5e25369a465d3888e0aa69cf677f",
+      "segment_0992": "05d5b9a1cf8f682561fcb4e7f6f77ccc8350913a",
+      "shard_v3_0118": "ec620a8790bd077dcba436e3cfd82ca13c6d16ac"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3073 post-merge verification for sequence 992 and record strict linkcheck latency investigation",
+  "sequence": 993,
+  "source": {
+    "local_branch": "construction/seq993-postmerge",
+    "local_head": "07adb127d367a42842c5c9def802fc80283e37ce",
+    "local_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a",
+    "remote_ref_readback": {
+      "commit": "07adb127d367a42842c5c9def802fc80283e37ce",
+      "ref": "refs/heads/main",
+      "verification": "explicit-network git ls-remote and GitHub PR metadata"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": [],
+    "verified_remote_main": "07adb127d367a42842c5c9def802fc80283e37ce",
+    "verified_remote_main_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a"
+  },
+  "verification_scope": {
+    "reason": "custody-only post-merge evidence increment; exact-candidate and post-merge hosted gates passed",
+    "repository_test_suite_rerun": false
+  }
+}
