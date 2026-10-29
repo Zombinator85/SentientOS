@@ -1,0 +1,161 @@
+{
+  "linkcheck_observations": {
+    "main_after_pr_3050": {
+      "duration_seconds_approx": 73,
+      "job_id": 123304213678,
+      "rate_limit_backoff_events": 1,
+      "run_id": 40830766779,
+      "status": "success"
+    },
+    "pr_3050": {
+      "duration_seconds_approx": 133,
+      "job_id": 123302725621,
+      "rate_limit_backoff_events": 2,
+      "run_id": 40830303000,
+      "status": "success"
+    },
+    "result": "External HTTP 429 waits continue to vary between PR and main runs. Strict linkcheck behavior and frequency remain unchanged.",
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "local_validation": {
+    "construction_failures": 0,
+    "construction_focused_tests": 53,
+    "custody_status": "construction_continuation_custody_ready",
+    "failures": 0,
+    "focused_failures": 0,
+    "focused_recovery_tests": 21,
+    "full_source_validation_command": "python -m scripts.run_tests tests/test_world_state_board.py tests/test_world_state_sources.py tests/test_resource_invocation_process_generation_integration.py tests/test_local_model_chat_recovery.py tests/test_local_model_chat_runtime_startup.py tests/test_resident_epistemic_development.py tests/test_persistent_epistemic_state.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_cognition_generation_scope.py tests/test_developmental_history_intervention_experiment.py tests/test_resident_developmental_cognition.py tests/test_developmental_model_replacement_experiment.py tests/test_local_model_production_serving.py tests/test_resident_epistemic_state_mutation.py tests/test_local_model_catalog_deployment_capability_admission.py tests/test_pytest_collection_reporter.py tests/test_run_tests_failure_digest.py tests/test_run_tests_bootstrap_airlock.py tests/test_task_acceptance_verifier.py tests/test_github_hosted_acceptance_workflows.py tests/test_stage_current_test_artifacts.py tests/test_import_inertness_verifier.py tests/integrity/test_import_purity.py -q",
+    "git_diff_check": "passed",
+    "passed": 428,
+    "repeat_failing_case_runs": 5,
+    "repeat_failures": 0,
+    "skipped": 18,
+    "total": 446
+  },
+  "publication": {
+    "base_commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+    "candidate_commit": "8618e678d9d54da5cc0256a954ca2f8e1561fb84",
+    "candidate_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123302725511,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123302725621,
+        "status": "success"
+      }
+    },
+    "candidate_tree": "97052465b90fcfadf6340e6667a8419fd0786d27",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40830303000,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40830302980,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40830302885,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "run_id": 40830303048,
+        "status": "skipped_by_condition"
+      },
+      "Gradient null regression": {
+        "run_id": 40830302923,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40830303003,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40830290577,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40830302968,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40830302913,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40830302917,
+        "status": "success"
+      }
+    },
+    "merge_commit": "ecd4221fe70defcc2abb616ba79ad88b8402fa5b",
+    "merge_tree": "97052465b90fcfadf6340e6667a8419fd0786d27",
+    "post_merge_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123304213726,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123304213678,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123304213431,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123304213857,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40830766779,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40830766718,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40830766800,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40830766823,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40830766887,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40830766805,
+        "status": "success"
+      },
+      "Nightly Self Check": {
+        "run_id": 40830766776,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40830766791,
+        "status": "success"
+      }
+    },
+    "pull_request": 3050,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "dcb37872df17fe264f1f4316927c0984e419895e"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify the sequence 970 recovery-test race repair through PR #3050 candidate gates, merge, and post-merge workflows",
+  "sequence": 971,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "ecd4221fe70defcc2abb616ba79ad88b8402fa5b",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "ecd4221fe70defcc2abb616ba79ad88b8402fa5b",
+    "verified_remote_main_tree": "97052465b90fcfadf6340e6667a8419fd0786d27"
+  }
+}
