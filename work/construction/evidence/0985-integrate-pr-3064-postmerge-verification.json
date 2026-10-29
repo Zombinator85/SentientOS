@@ -1,0 +1,213 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 985,
+  "scope": "integrate PR #3064 post-merge verification and record default-worker strict-linkcheck measurements",
+  "source": {
+    "verified_remote_main": "7e3a52b563ef3f658dcb0dbe704b2e8a3a4758e8",
+    "verified_remote_main_tree": "5771f40dc679fe2e0e35a6acfeca966b0a5fa30a",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "7e3a52b563ef3f658dcb0dbe704b2e8a3a4758e8",
+      "verification": "GitHub commit/ref readback and git ls-remote with explicit execution network permission"
+    },
+    "local_branch": "construction/seq985-pr3064-postmerge",
+    "local_head": "7e3a52b563ef3f658dcb0dbe704b2e8a3a4758e8",
+    "local_tree": "5771f40dc679fe2e0e35a6acfeca966b0a5fa30a",
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": []
+  },
+  "custody": {
+    "status_before_append": "construction_continuation_custody_ready",
+    "segments_verified_before_append": 984,
+    "failures": [],
+    "predecessor_segment_sha256": "a617318aa58f93e0dbf819854058d806653f33ba82b273d8588784dd01a08e22",
+    "predecessor_checkpoint": {
+      "sequence": 984,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "f03f644c0372a6e40d067718227be6ea59a453e44484b59e9b1524fc3f7df9aa",
+      "git_blob_sha": "12f0d0a7dab82ace2f40409022716d13ff6f3ce0"
+    },
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "22c9a148419da7a825a7456dded63a3e6fc88783",
+    "v3_shard_count_before_append": 110
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3064,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3064",
+    "candidate_commit": "2b4f5de993f9cf48210a6f21222915c0d4d1324e",
+    "candidate_tree": "5771f40dc679fe2e0e35a6acfeca966b0a5fa30a",
+    "base_commit": "0bce3a6dccec38e0012b63ef790f9d6067baedc9",
+    "base_tree": "bd1ffe158cfed58a7f61429952a7dd1532f61b77",
+    "merge_method": "squash",
+    "merge_commit": "7e3a52b563ef3f658dcb0dbe704b2e8a3a4758e8",
+    "merge_tree": "5771f40dc679fe2e0e35a6acfeca966b0a5fa30a",
+    "pull_request_workflows": {
+      "CI": {
+        "run_id": 40855913413,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40855913531,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40855913536,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40855913552,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40855913432,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40855913425,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40855913424,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40855913588,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40856878411,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40856878506,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40856878433,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40856878427,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40856878497,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40856878416,
+        "status": "success"
+      },
+      "Nightly Audit Integrity": {
+        "run_id": 40856994078,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40856878549,
+        "status": "skipped_by_condition"
+      }
+    },
+    "post_merge_ci_jobs": {
+      "docs": {
+        "job_id": 123389944884,
+        "status": "success"
+      },
+      "Source validation (unprivileged)": {
+        "job_id": 123389944678,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123389944207,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123389944623,
+        "status": "success"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "12f0d0a7dab82ace2f40409022716d13ff6f3ce0",
+      "index_v3": "22c9a148419da7a825a7456dded63a3e6fc88783"
+    }
+  },
+  "linkcheck_observations": {
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "sphinx_version": "8.2.3",
+    "official_configuration": {
+      "linkcheck_workers_default": 5,
+      "linkcheck_retries_default": 1,
+      "linkcheck_rate_limit_timeout_default_seconds": 300,
+      "rate_limit_behavior": "Sphinx honors Retry-After; absent that header it waits 60 seconds then doubles wait times until success or the configured 300-second maximum.",
+      "reference": "https://github.com/sphinx-doc/sphinx/blob/v8.2.3/doc/usage/configuration.rst",
+      "repository_conf_override": "none"
+    },
+    "candidate_pr_3063": {
+      "run_id": 40853699559,
+      "job_id": 123379236199,
+      "duration_seconds_approx": 314,
+      "rate_limit_backoff_messages": 7,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3063": {
+      "run_id": 40854540680,
+      "job_id": 123382111910,
+      "duration_seconds_approx": 14,
+      "rate_limit_backoff_messages": 0,
+      "rate_limited_urls": [],
+      "status": "success"
+    },
+    "candidate_pr_3064": {
+      "run_id": 40855913413,
+      "job_id": 123386722693,
+      "command_started_at": "2026-10-29T10:14:23Z",
+      "completed_at": "2026-10-29T10:20:38Z",
+      "duration_seconds_approx": 375,
+      "rate_limit_backoff_messages": 9,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/README.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3064": {
+      "run_id": 40856878411,
+      "job_id": 123389944884,
+      "command_started_at": "2026-10-29T10:21:33Z",
+      "completed_at": "2026-10-29T10:25:47Z",
+      "duration_seconds_approx": 254,
+      "rate_limit_backoff_messages": 6,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/README.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md"
+      ],
+      "status": "success"
+    },
+    "finding": "Two recent default-five-worker PR linkchecks took 314 and 375 seconds; main runs took 14 and 254 seconds. Rate-limit waits varied from zero to nine, including repeated waits for existing GitHub URLs. This establishes significant latency and variability but not that worker count is the only cause.",
+    "next_experiment": {
+      "setting": "linkcheck_workers = 2 in docs/conf.py",
+      "measurement": "Run the exact strict PR candidate check and exact-main check; record durations and each rate-limit wait from hosted logs.",
+      "preserve": [
+        "all URLs",
+        "sphinx-build -b linkcheck -W",
+        "default retry count",
+        "Retry-After handling",
+        "strict failure semantics"
+      ],
+      "retention_rule": "Retain only if both PR and main strict checks complete within 120 seconds and have at most one rate-limit wait each, with no change to URL coverage or failure semantics."
+    }
+  }
+}
