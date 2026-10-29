@@ -1,0 +1,186 @@
+{
+  "custody": {
+    "failures": [],
+    "previous_segment_sha256": "3d07ad8b893dbeb5ad6eea50bfc3a404d5f96615d56fff2215503c19b104afd8",
+    "status_before_append": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 1001
+  },
+  "linkcheck_investigation": {
+    "candidate_docs_job": {
+      "completed_utc": "2026-10-29T15:29:39Z",
+      "job_id": 123545982075,
+      "rate_limit_sleeps": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md",
+          "utc": "2026-10-29T15:28:38.0931694Z"
+        }
+      ],
+      "started_utc": "2026-10-29T15:28:27Z",
+      "status": "success",
+      "workflow_run_id": 40901853417
+    },
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "conclusion": "The exact candidate and merged main each ran fresh strict full link coverage and succeeded after Sphinx rate-limit backoffs. This confirms an external GitHub 429 latency source, but all retries recovered. Caching or reducing the source-ref cadence would reduce freshness/coverage, and the earlier lower-worker experiment was slower. No narrowly scoped freshness-preserving improvement is supported by the observed evidence; retain the strict command, warning behavior, and cadence.",
+    "post_merge_docs_job": {
+      "completed_utc": "2026-10-29T15:36:43.4068960Z",
+      "job_id": 123549103468,
+      "rate_limit_sleeps": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/README.md",
+          "utc": "2026-10-29T15:33:41.1066481Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+          "utc": "2026-10-29T15:33:41.6227657Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+          "utc": "2026-10-29T15:34:41.3968978Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md",
+          "utc": "2026-10-29T15:35:41.7151992Z"
+        }
+      ],
+      "started_utc": "2026-10-29T15:33:32.0241252Z",
+      "status": "success",
+      "workflow_run_id": 40902726836
+    },
+    "strict_warnings": true
+  },
+  "local_verification": {
+    "custody_before_append": {
+      "failures": [],
+      "segments_verified": 1001,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_regression_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "failed": 0,
+      "passed": 53,
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "lock_check": {
+      "command": "python -m scripts.lock check",
+      "status": "passed"
+    },
+    "mypy_version": {
+      "command": "python -m mypy --version",
+      "version": "1.20.2"
+    },
+    "source_preflight": {
+      "expected_head": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+      "findings": [],
+      "local_tree": "512051fb2615060e1538fec6773ae105048863ef",
+      "remote_head": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+      "remote_tree": "512051fb2615060e1538fec6773ae105048863ef",
+      "status": "correct_remote_and_local_base"
+    }
+  },
+  "publication": {
+    "base_commit": "adbfd341128f954e1e27ebba7dd67ed50b6e1bc0",
+    "base_tree": "47213785be22c837e64c197299236f24a332b999",
+    "candidate_commit": "6762ceaa602333fb09a9fc5760e4e52a4a401f7d",
+    "candidate_tree": "512051fb2615060e1538fec6773ae105048863ef",
+    "exact_candidate_workflows": {
+      "CI": {
+        "docs_job_id": 123545982075,
+        "run_id": 40901853417,
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "Codex CI": {
+        "run_id": 40901853698,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40901853228,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40901853281,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40901853288,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40901853303,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40901853359,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40901853354,
+        "status": "success"
+      }
+    },
+    "merge_commit": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+    "merge_method": "merge",
+    "merge_tree": "512051fb2615060e1538fec6773ae105048863ef",
+    "post_merge_workflows": {
+      "CI": {
+        "docs_job_id": 123549103468,
+        "run_id": 40902726836,
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "Codex CI": {
+        "run_id": 40902726864,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40902726892,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40902726920,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40902726901,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40902726840,
+        "status": "success"
+      },
+      "Nightly Self Check": {
+        "run_id": 40902726926,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40902726886,
+        "status": "success"
+      }
+    },
+    "pull_request": 3083,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3083",
+    "remote_main_readback": {
+      "authenticated_git_ls_remote": "confirmed",
+      "commit": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+      "source_preflight": "correct_remote_and_local_base",
+      "tree": "512051fb2615060e1538fec6773ae105048863ef"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "4dccdeb7375b0d345655c7b9f564b54a3094f1d0"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3083, verify post-merge main and all workflows, and record the evidence-backed strict-linkcheck latency investigation",
+  "sequence": 1002,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+      "ref": "refs/heads/main",
+      "tree": "512051fb2615060e1538fec6773ae105048863ef"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "verified_remote_main": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+    "verified_remote_main_tree": "512051fb2615060e1538fec6773ae105048863ef"
+  }
+}
