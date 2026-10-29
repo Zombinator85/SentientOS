@@ -1,0 +1,245 @@
+{
+  "linkcheck_investigation": {
+    "candidate_docs_job": {
+      "completed_utc": "2026-10-29T20:22:35.9533848Z",
+      "job_id": 123708080445,
+      "rate_limit_wait_events": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+          "utc": "2026-10-29T20:19:34.7710782Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+          "utc": "2026-10-29T20:19:35.3193639Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+          "utc": "2026-10-29T20:20:35.0189620Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+          "utc": "2026-10-29T20:21:35.3853958Z"
+        }
+      ],
+      "started_utc": "2026-10-29T20:19:22.9495784Z",
+      "status": "success"
+    },
+    "duplicate_trigger_assessment": {
+      "ci_workflow": ".github/workflows/ci.yml triggers on pull_request and push to main; candidate and post-merge linkchecks validate separate source refs.",
+      "conclusion": "No duplicate same-ref workflow invocation was found. Separate PR and post-merge checks are intentional exact-ref validation.",
+      "exact_gate_test": "tests/test_github_hosted_acceptance_workflows.py::test_ci_runs_on_pull_requests_and_main_pushes_without_duplicate_branch_pushes",
+      "other_ci_workflow": ".github/workflows/ci.yaml is Codex CI; it does not invoke the Sphinx linkcheck.",
+      "test_selected_and_passed_on_exact_candidate": true
+    },
+    "post_merge_docs_job": {
+      "completed_utc": "2026-10-29T20:24:47.9591824Z",
+      "job_id": 123710248578,
+      "rate_limit_wait_events": [
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+          "utc": "2026-10-29T20:23:46.9373346Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md",
+          "utc": "2026-10-29T20:23:46.9697608Z"
+        }
+      ],
+      "started_utc": "2026-10-29T20:23:36.2234915Z",
+      "status": "success"
+    },
+    "source_count": 619,
+    "sphinx_cache_assessment": {
+      "conclusion": "No freshness-preserving supported cache, retry, or worker adjustment is evidenced that would reduce these waits without reducing link coverage or strict warning behavior. CI configuration remains unchanged.",
+      "official_source": "https://github.com/sphinx-doc/sphinx/blob/v8.2.3/sphinx/builders/linkcheck.py",
+      "output_json": "report output only; the builder does not consume it as a cache",
+      "prior_one_worker_trial": {
+        "duration_seconds_approx": 435,
+        "rate_limit_wait_events": 6,
+        "status": "success"
+      },
+      "sphinx_version": "8.2.3"
+    },
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "strict_warnings": true
+  },
+  "local_finalizer_classification": {
+    "change": "Required failed stages now distinguish recognized host preconditions from task-caused failures. Environment-only blockers return environment_blocked; stage failures stay failed and no readiness is granted. A co-occurring task failure retains repair_required_task_caused.",
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_codex_finalize_landing.py -q",
+      "failed": 0,
+      "passed": 12
+    },
+    "full_precommit_finalizer": {
+      "readiness_granted": false,
+      "reason_codes": [
+        "stage_failed:docs_check_deps",
+        "environment_precondition_unavailable:docs_check_deps:docs_dependencies_missing",
+        "stage_failed:docs_build",
+        "environment_precondition_unavailable:docs_build:docs_dependencies_missing",
+        "stage_failed:strict_audits",
+        "environment_precondition_unavailable:strict_audits:administrator_required",
+        "stage_failed:audit_immutability",
+        "environment_precondition_unavailable:audit_immutability:pynacl_missing"
+      ],
+      "required_stage_results": [
+        {
+          "exit_code": 0,
+          "stage": "preflight_hygiene"
+        },
+        {
+          "exit_code": 0,
+          "stage": "focused_tests"
+        },
+        {
+          "exit_code": 0,
+          "stage": "targeted_mypy"
+        },
+        {
+          "exit_code": 0,
+          "stage": "mypy_baseline"
+        },
+        {
+          "exit_code": 2,
+          "stage": "docs_check_deps"
+        },
+        {
+          "exit_code": 2,
+          "stage": "docs_build"
+        },
+        {
+          "exit_code": 0,
+          "stage": "prompt_boundary"
+        },
+        {
+          "exit_code": 1,
+          "stage": "strict_audits"
+        },
+        {
+          "exit_code": 1,
+          "stage": "audit_immutability"
+        }
+      ],
+      "status": "environment_blocked"
+    },
+    "git_diff_check": "passed",
+    "hosted_verification": "Required Quality Gate on the immediately preceding sequence 1003 candidate successfully ran actual Administrator audits, documentation bootstrap, hosted finalizer, and metadata guard. The finalizer-classification change itself is pending its own exact-candidate hosted gate.",
+    "lock_check": "passed",
+    "mypy_baseline": {
+      "new_errors": 0,
+      "retired_errors": 42,
+      "status": "mypy_baseline_improved"
+    },
+    "targeted_mypy": "passed",
+    "unavailable_local_preconditions": [
+      "MkDocs and Watchdog docs dependencies",
+      "Administrator identity for strict audits",
+      "PyNaCl for immutability verifier"
+    ]
+  },
+  "publication": {
+    "candidate_commit": "8912b2ebab14e97a63a22bb1cf7758db036f75a4",
+    "candidate_tree": "ab91fe750a257d557306b513c162645722ef2985",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40947925016,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40947924888,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40947924924,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40947924859,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40947924974,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40947924939,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40947924880,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40947924841,
+        "status": "success"
+      }
+    },
+    "hosted_quality_gate_evidence": {
+      "acceptance_artifact_id": 12929638540,
+      "acceptance_artifact_sha256": "ae3055e4d77241495978cda8cea488ccc72153ac0af78abcf395520cb8f28d39",
+      "decision": "ready_for_pr_metadata",
+      "exact_acceptance": "task_acceptance_ready",
+      "finalizer_artifact_id": 12929169186,
+      "finalizer_artifact_sha256": "7b4a10068d35eeb34d5e73f0138ae0b63afef0ce0d3565a7c8e0d37257e6ab3c",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "repository_sha": "8912b2ebab14e97a63a22bb1cf7758db036f75a4",
+      "run_id": 40947924841
+    },
+    "merge_commit": "2a8349180bab16ecd10169d9abd393724b71f558",
+    "merge_method": "merge",
+    "merge_tree": "ab91fe750a257d557306b513c162645722ef2985",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40948556555,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40948556457,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40948556498,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40948556483,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40948556500,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40948556468,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40948556487,
+        "status": "success"
+      }
+    },
+    "pull_request": 3085,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3085",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "baf23a36eb7c03c84c329f0ce1fc8bf92860cbff"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3085 post-merge verification; record an evidence-backed linkcheck trigger investigation; classify unavailable finalizer host preconditions without waiving checks",
+  "sequence": 1004,
+  "source": {
+    "predecessor_checkpoint_blob": "baf23a36eb7c03c84c329f0ce1fc8bf92860cbff",
+    "predecessor_checkpoint_sequence": 1003,
+    "predecessor_segment_sha256": "1f63e19734013e185c8f52d91b98b5d87b91ba601fe7d47ddffc6b80481804e3",
+    "remote_ref": "refs/heads/main",
+    "remote_ref_readback": {
+      "commit": "2a8349180bab16ecd10169d9abd393724b71f558",
+      "ref": "refs/heads/main",
+      "tree": "ab91fe750a257d557306b513c162645722ef2985"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "verified_main_commit": "2a8349180bab16ecd10169d9abd393724b71f558",
+    "verified_main_tree": "ab91fe750a257d557306b513c162645722ef2985",
+    "verified_remote_main": "2a8349180bab16ecd10169d9abd393724b71f558",
+    "verified_remote_main_tree": "ab91fe750a257d557306b513c162645722ef2985"
+  }
+}
