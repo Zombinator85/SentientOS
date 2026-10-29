@@ -319,6 +319,17 @@ def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
     assert '--expected-sha "$QUALITY_GATE_SOURCE_SHA"' in workflow
 
 
+def test_ci_runs_on_pull_requests_and_main_pushes_without_duplicate_branch_pushes() -> None:
+    import yaml
+
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    parsed = yaml.safe_load(workflow)
+    triggers = parsed.get("on", parsed.get(True))
+    assert triggers["push"]["branches"] == ["main"]
+    assert "pull_request" in triggers
+    assert "sphinx-build -b linkcheck -W docs docs/_build/linkcheck" in workflow
+
+
 def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope() -> None:
     workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
     triggers = workflow.split("jobs:", 1)[0]
