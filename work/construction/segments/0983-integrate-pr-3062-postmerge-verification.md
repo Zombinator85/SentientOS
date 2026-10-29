@@ -1,0 +1,9 @@
+# Sequence 983: integrate PR #3062 and verify post-merge main
+
+Sequence 982 was published through PR #3062 as candidate `7b41dc731900b2d849c4a9164b3657d15879767a`, tree `7d7c48536001323eeae222d0d6f18ae5daa92739`. All applicable hosted PR workflows passed, including Required Quality Gate, CI, Docker, Codex CI, Lint, Release validation, Invariant Tests, and Gradient regression. PR #3062 merged normally by squash as `f620c3a8baab42198441fdb38336857b13fbdefa` with the same tree.
+
+All exact-main post-merge workflows passed: CI including source validation, strict documentation linkcheck, self-check and Helm; Required Quality Gate; Codex CI; Docker Image; Docs Deploy; and Invariant Tests. Forge Smoke was skipped by condition. GitHub ref readback and authenticated `git ls-remote` both resolve `refs/heads/main` to the merge commit above. Local source preflight matched the remote main commit and tree. Full continuation custody verified all 982 predecessor sequences before this append.
+
+The strict Sphinx linkcheck passed on the PR in about 69 seconds with one rate-limit wait and on main in about 254 seconds with five. CI runs one strict linkcheck per PR or main event; Docs Deploy is a separate HTML build. Sphinx 8.2.3 defaults to five workers, one retry, and a 300-second rate-limit timeout; it honors Retry-After and otherwise uses increasing waits. One worker was previously slower. A bounded two-worker trial is selected to test whether reduced request concurrency can lower rate-limit waits without changing URL coverage, retries, or strict failure behavior.
+
+No CI workflow, linkcheck configuration, URL coverage, retry policy, or error classification changed in this increment.
