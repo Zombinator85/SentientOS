@@ -1,0 +1,299 @@
+{
+  "ci_trigger_verification": {
+    "candidate_full_ci_invocations": 1,
+    "candidate_trigger": "pull_request",
+    "feature_branch_push_full_ci": "not_triggered",
+    "main_full_ci_invocations": 1,
+    "main_trigger": "push",
+    "note": "The CI workflow has one docs job with one make docs and one strict Sphinx linkcheck. Docs Deploy is a separate HTML deployment."
+  },
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 979,
+    "status": "construction_continuation_custody_ready"
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "bca3b7b32d7f6ab56c4f5ef0f647679f0b338aea",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 979,
+      "sha256": "066ba0b0908ab0319ad53750670e8eddc53037a32cd1950b7dd912c225fd8288"
+    },
+    "latest_segment": {
+      "bytes": 1596,
+      "git_blob_sha": "62d0a73a21a6c08754fdf84769a03affbc82f9ca",
+      "path": "work/construction/segments/0979-integrate-pr-3058-postmerge-verification.md",
+      "sequence": 979,
+      "sha256": "1bacc334a894c26b665ffa8130b837a2e5951054e3cf066573d49aaad7cfb114"
+    },
+    "latest_shard": {
+      "bytes": 1932,
+      "first_sequence": 979,
+      "git_blob_sha": "04fd5577c292d84a4ee93ed8c58145f9df65776a",
+      "last_sequence": 979,
+      "path": "work/construction/shards-v3/000000105-000000979-000000979.json",
+      "sha256": "1467402d635464f3d1306941a98f98f1f9a7232c2dec0244ae5927103d3ff33f",
+      "shard_sequence": 105
+    },
+    "v3_head": {
+      "bytes": 2110,
+      "git_blob_sha": "93ab84f8d8e02ffa5f76ba7b5f22b331849c6a6e",
+      "path": "work/construction/index-v3.json",
+      "sha256": "e486c5a48b8b52afba81ae38979688247ee76369124666d649d5440cd3fde293"
+    }
+  },
+  "linkcheck_observations": {
+    "candidate_pr_3059": {
+      "command_started_at": "2026-10-29T08:49:48Z",
+      "completed_at": "2026-10-29T08:52:01Z",
+      "duration_seconds_approx": 133,
+      "job_id": 123349971852,
+      "rate_limit_backoffs": 2,
+      "run_id": 40844927669,
+      "status": "success"
+    },
+    "finding": "The strict live check passed on both exact candidate and main. Each run had two or three GitHub rate-limit backoffs and took about 133 seconds; earlier paired runs varied from about 90 seconds to over 500 seconds. CI has one strict linkcheck per PR/main event; Docs Deploy is a separate HTML build. One-worker mode was slower and result caching would skip live validation. No supported evidence-backed change currently improves latency while preserving strict live checking.",
+    "main_after_pr_3059": {
+      "command_started_at": "2026-10-29T08:57:44Z",
+      "completed_at": "2026-10-29T08:59:57Z",
+      "duration_seconds_approx": 133,
+      "job_id": 123353160772,
+      "rate_limit_backoffs": 3,
+      "run_id": 40845892709,
+      "status": "success"
+    },
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "publication": {
+    "base_commit": "213e05b80fba441c8f7013460f350b69f916f171",
+    "candidate_commit": "2078dacc72db6c017a8ceab35715e25c27edb01b",
+    "candidate_jobs": {
+      "CI": {
+        "Source validation (unprivileged)": {
+          "job_id": 123349971518,
+          "status": "success"
+        },
+        "docs": {
+          "job_id": 123349971852,
+          "status": "success"
+        },
+        "helm-k8s-test": {
+          "job_id": 123349971966,
+          "status": "success"
+        },
+        "self-check": {
+          "job_id": 123349971820,
+          "status": "success"
+        }
+      },
+      "Codex CI": {
+        "job_id": 123349972543,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123349971814,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "job_id": 123349976813,
+        "status": "skipped"
+      },
+      "Gradient null regression": {
+        "job_id": 123349971765,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "job_id": 123349973457,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "job_id": 123349872309,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "jobs": [
+          {
+            "job_id": 123349973454,
+            "status": "success"
+          },
+          {
+            "job_id": 123349973841,
+            "status": "success"
+          },
+          {
+            "job_id": 123349973902,
+            "status": "success"
+          }
+        ]
+      },
+      "Release": {
+        "publish_job_id": 123349973696,
+        "publish_status": "skipped",
+        "status": "success",
+        "validate_job_id": 123349971753
+      },
+      "Required Quality Gate": {
+        "corrected_job_id": 123351951549,
+        "initial_job_id": 123349972607,
+        "status": "success"
+      }
+    },
+    "candidate_tree": "9f2b2c796eb6f91c0b4161829e2d2993981b467e",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40844927669,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40844927958,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40844927763,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "run_id": 40844927834,
+        "status": "skipped_by_condition"
+      },
+      "Gradient null regression": {
+        "run_id": 40844927713,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40844928216,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40844896859,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40844928222,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40844927619,
+        "status": "success"
+      },
+      "Required Quality Gate corrected metadata event": {
+        "run_id": 40845528053,
+        "status": "success"
+      },
+      "Required Quality Gate initial": {
+        "attempt_1": "failure",
+        "attempt_2": "failure",
+        "run_id": 40844927953
+      }
+    },
+    "commit_title": "[codex:custody] [untested] integrate PR 3058 main verification",
+    "final_pr_title": "[codex:custody] [untested] integrate PR 3058 main verification",
+    "merge_commit": "c3ab8c1a1c7f4212832616f8f36789ad30353cda",
+    "merge_tree": "9f2b2c796eb6f91c0b4161829e2d2993981b467e",
+    "post_merge_jobs": {
+      "CI": {
+        "Source validation (unprivileged)": {
+          "job_id": 123353160682,
+          "status": "success"
+        },
+        "docs": {
+          "job_id": 123353160772,
+          "status": "success"
+        },
+        "helm-k8s-test": {
+          "job_id": 123353160350,
+          "status": "success"
+        },
+        "self-check": {
+          "job_id": 123353160687,
+          "status": "success"
+        }
+      },
+      "Codex CI": {
+        "job_id": 123353158765,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123353158814,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "build_job_id": 123353159161,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "job_id": 123353160607,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "job_id": 123353159365,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123353159918,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40845892709,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40845892384,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40845892365,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40845892455,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40845892416,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40845892415,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40845892574,
+        "status": "success"
+      }
+    },
+    "pull_request": 3059,
+    "quality_gate_recovery": {
+      "cause": "The commit subject included the required [untested] marker, while the original PR title omitted it; the hosted preflight requires exact PR-title/commit-subject equality. The initial root-identity and earlier Administrator audit/documentation steps were not the failure. A rerun retained the original event title and failed again. The PR title was corrected to the exact commit subject; the fresh edited-event Quality Gate passed exact pre-commit reconstruction, privileged finalization, and metadata guard.",
+      "corrected_job_id": 123351951549,
+      "corrected_pr_title": "[codex:custody] [untested] integrate PR 3058 main verification",
+      "failure_phase": "preflight",
+      "head_sha_unchanged": "2078dacc72db6c017a8ceab35715e25c27edb01b",
+      "initial_job_id": 123349972607,
+      "stale_rerun_job_id": 123351744885
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "bca3b7b32d7f6ab56c4f5ef0f647679f0b338aea",
+      "index_v3": "93ab84f8d8e02ffa5f76ba7b5f22b331849c6a6e",
+      "latest_evidence": "3a004cf670ebde55cd328103b1c4ea8351b27f22",
+      "latest_segment": "62d0a73a21a6c08754fdf84769a03affbc82f9ca",
+      "latest_shard": "04fd5577c292d84a4ee93ed8c58145f9df65776a"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3059 post-merge verification and continue evidence-backed strict-linkcheck latency investigation",
+  "sequence": 980,
+  "source": {
+    "local_origin_main": "c3ab8c1a1c7f4212832616f8f36789ad30353cda",
+    "remote_ref_readback": {
+      "commit": "c3ab8c1a1c7f4212832616f8f36789ad30353cda",
+      "ref": "refs/heads/main",
+      "verification": "GitHub ref API and git ls-remote with explicit network permission"
+    },
+    "verified_remote_main": "c3ab8c1a1c7f4212832616f8f36789ad30353cda",
+    "verified_remote_main_tree": "9f2b2c796eb6f91c0b4161829e2d2993981b467e"
+  }
+}
