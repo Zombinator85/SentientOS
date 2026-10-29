@@ -138,7 +138,10 @@ while True:
         if time.monotonic() >= deadline:
             raise
         time.sleep(.01)
-Path(os.environ['TEST_CHILD_RESULT']).write_text(json.dumps(handoff, sort_keys=True))
+result_path = Path(os.environ['TEST_CHILD_RESULT'])
+temporary_result_path = result_path.with_suffix(result_path.suffix + '.tmp')
+temporary_result_path.write_text(json.dumps(handoff, sort_keys=True), encoding='utf-8')
+temporary_result_path.replace(result_path)
 deadline = time.monotonic() + 20
 while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() < deadline:
     time.sleep(.01)

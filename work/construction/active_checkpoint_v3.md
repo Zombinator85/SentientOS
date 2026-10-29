@@ -1,11 +1,11 @@
-# Recovery state - sequence 969
+# Recovery state - sequence 970
 
 Checkpoint format: sentientos.construction_checkpoint:v2
-Latest verified main: `d2c01cc964fd3baf5f33792abfab825f4405d8f4`, tree `ac60efeb1e4c26ac4fed1f42aabf18ecb73160e3`
+Latest verified main: `44c54fd19375a799f4a90742a63c8d81c3f682a7`, tree `e594758952aa62a6d616ca6b18d5e2f781fed114`
 Checkpoint binding origin: `1eff1c957da566652011112f6118bd1dc135f01e`, tree `3295e0565ea0a8a33902640e77fc719552b21197`
-Previous checkpoint identity: {"bytes": 1117, "git_blob_sha": "20abc9dd1800fdc28dfff2d6adefbbe63dcad1e7", "path": "work/construction/active_checkpoint_v3.md", "sequence": 968, "sha256": "dc6f4b2cc9e0bc01b95aacea5e5cba1727ea3fb14565e71591a63712890e2aa7", "source_commit": "d2c01cc964fd3baf5f33792abfab825f4405d8f4", "source_tree": "ac60efeb1e4c26ac4fed1f42aabf18ecb73160e3"}
-Latest construction segment: `work/construction/segments/0969-integrate-pr-3048-main-verification.md`
-Latest segment SHA-256: `a6071d7412fbc6b0b117525b9b7785a5109ea51ff9220dc68d63217f415b54d3`
-Sequence: 969
+Previous checkpoint identity: {"bytes": 1117, "git_blob_sha": "290c12da7c386ca9c38a04f9e98540ebf5c42181", "path": "work/construction/active_checkpoint_v3.md", "sequence": 969, "sha256": "959e961f31912e2f14c934ee8057b43ec95cbf64e0790a7c3095373e4f3b46a5", "source_commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7", "source_tree": "e594758952aa62a6d616ca6b18d5e2f781fed114"}
+Latest construction segment: `work/construction/segments/0970-merge-pr-3049-and-repair-recovery-test-race.md`
+Latest segment SHA-256: `8851a1c59f925d2c0e7ff498e7b2a74078209fdd7a8ebccf18b82c29533553d5`
+Sequence: 970
 
 Recovery: use the v3 immutable predecessor-linked shard chain and the previous checkpoint identity above. Earlier checkpoint bytes remain available in their verified Git parent trees; do not duplicate snapshots.

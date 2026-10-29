@@ -1,0 +1,102 @@
+{
+  "linkcheck_observation": {
+    "build_succeeded": true,
+    "duration_seconds_approx": 134,
+    "job_id": 123297938997,
+    "rate_limit_backoff_events": 3,
+    "run_id": 40828797265,
+    "status": "success",
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "local_validation": {
+    "focused_command": "python -m scripts.run_tests tests/test_local_model_chat_recovery.py -q",
+    "focused_failures": 0,
+    "focused_tests": 21,
+    "git_diff_check": "passed",
+    "repeat_command": "pytest -q tests/test_local_model_chat_recovery.py -k \"full_recovery_controller_transaction_and_denials and allow\"",
+    "repeated_failures": 0,
+    "repeated_runs": 5
+  },
+  "post_merge_verification": {
+    "candidate_commit": "bbc1e784976e978ab95918ff00f31324c7ff2622",
+    "ci_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123299349609,
+        "status": "failure"
+      },
+      "docs": {
+        "job_id": 123299349863,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123299349867,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123299349920,
+        "status": "success"
+      }
+    },
+    "failure": {
+      "cause": "The child wrote JSON directly to the final result path while the parent treated path existence as complete publication; the parent could observe an empty file between create and write.",
+      "exception": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+      "failed": 1,
+      "passed": 427,
+      "test": "tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials[allow]"
+    },
+    "merge_commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+    "merge_tree": "e594758952aa62a6d616ca6b18d5e2f781fed114",
+    "pull_request": 3049,
+    "workflows": {
+      "CI": {
+        "run_id": 40829237741,
+        "status": "failure"
+      },
+      "Codex CI": {
+        "run_id": 40829237713,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40829237764,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40829237704,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40829237785,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40829237733,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40829237729,
+        "status": "success"
+      }
+    }
+  },
+  "publication": {
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "290c12da7c386ca9c38a04f9e98540ebf5c42181"
+    }
+  },
+  "repair": {
+    "change": "Write the child result to a same-directory temporary file, close it, then atomically replace the final result path.",
+    "file": "tests/test_local_model_chat_recovery.py",
+    "runtime_or_privilege_contract_changed": false
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR 3049 merge and post-merge CI; diagnose and repair the empty child-result publication race in the recovery test helper",
+  "sequence": 970,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+    "verified_remote_main_tree": "e594758952aa62a6d616ca6b18d5e2f781fed114"
+  }
+}
