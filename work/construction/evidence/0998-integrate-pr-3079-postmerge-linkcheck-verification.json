@@ -1,0 +1,160 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 997,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_shard_count_before_append": 123,
+    "predecessor_segment_sha256": "07b62f81e27c34d482da8f107ba31020b852d754cab3f131973f5e201ce99da0"
+  },
+  "source": {
+    "verified_remote_main": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+    "verified_remote_main_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+    "remote_ref_readback": {
+      "commit": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+      "tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195"
+    }
+  },
+  "publication": {
+    "pull_request": 3079,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3079",
+    "candidate_commit": "2750736000c4b66ecbc94c65a9ce039408928054",
+    "candidate_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+    "base_commit": "e8e7506329edfa440bdbd96bb968c499ac077bcd",
+    "base_tree": "21b98b04705def1c3ef842721a231870a6707c58",
+    "merge_commit": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+    "merge_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+    "merge_method": "merge",
+    "exact_candidate_workflows": {
+      "Required Quality Gate": {
+        "run_id": 40892567641,
+        "status": "success"
+      },
+      "CI": {
+        "run_id": 40892567365,
+        "docs_job_id": 123512996793,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40892567395,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40892567343,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40892567688,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40892567402,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40892567393,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40892567520,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40893399665,
+        "docs_job_id": 123515906080,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40893399614,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40893399739,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40893399680,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40893399645,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40893399768,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40893400181,
+        "status": "skipped_by_condition"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "5b2b334e7e3f416623c68969f412c4ed98b80a4c"
+    },
+    "remote_main_readback": {
+      "commit": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+      "tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+      "authenticated_git_ls_remote": "confirmed",
+      "source_preflight": "correct_remote_and_local_base"
+    }
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "strict_warnings": true,
+    "candidate_docs_job": {
+      "job_id": 123512996793,
+      "workflow_run_id": 40892567365,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:33:27.5263502Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+        },
+        {
+          "utc": "2026-10-29T14:33:28.0836639Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md"
+        }
+      ],
+      "completed_utc": "2026-10-29T14:34:29.9934648Z"
+    },
+    "post_merge_docs_job": {
+      "job_id": 123515906080,
+      "workflow_run_id": 40893399665,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:38:26.0956798Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md"
+        },
+        {
+          "utc": "2026-10-29T14:38:27.6404178Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+        }
+      ],
+      "completed_utc": "2026-10-29T14:39:29.3193806Z"
+    },
+    "conclusion": "Repeated waits reproduced on both candidate and post-merge refs; all retries and strict checks passed. Source refs are distinct. No evidence-backed speed improvement that preserves fresh full coverage; do not weaken or reschedule the gate."
+  },
+  "local_verification": {
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+      "remote_head": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+      "local_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+      "remote_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+      "findings": []
+    },
+    "custody_verification": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 997,
+      "failures": []
+    }
+  }
+}
