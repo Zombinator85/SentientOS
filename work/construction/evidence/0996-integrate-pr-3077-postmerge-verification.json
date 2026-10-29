@@ -1,0 +1,238 @@
+{
+  "custody": {
+    "failures": [],
+    "predecessor_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "4372dd19fb8544d99d10b754db136171a7bee533",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 995,
+      "sha256": "d310209b8171ef4582882358d9c8e84ba262ad58acfdc2f478eb45e5d1a112b4"
+    },
+    "predecessor_segment_sha256": "4b724d3747775167738894b28e917d6eeeb8586bd582a17182f0cbfdd646bb30",
+    "segments_verified_before_append": 995,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "3cec4d0e89cfd846b8c740d67d2a3220594c6c3b",
+    "v3_shard_count_before_append": 121
+  },
+  "follow_up": {
+    "mypy_lock_consistency": {
+      "canonical_hashed_lock": "requirements-lock.txt",
+      "canonical_hashed_lock_versions": {
+        "librt": "0.15.0",
+        "pathspec": "1.1.1"
+      },
+      "documented_lock": "requirements.lock",
+      "documented_lock_pathspec": "0.12.1",
+      "evidence": "CI Lint Benchmark successfully installed mypy 1.20.2 with pathspec 1.1.1 and librt 0.15.0; docs/architecture/mypy_baseline_ratchet.md directs baseline setup to requirements.lock.",
+      "observed": true,
+      "observed_mypy_wheel_requires": [
+        "pathspec>=1.0.0",
+        "librt>=0.8.0"
+      ],
+      "pinned_mypy_version": "1.20.2",
+      "status": "candidate for a focused follow-up; no lock changes made in this increment"
+    }
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "decision": "Repeated rate-limit waits add measurable latency, including a multi-minute post-merge run. Strict fresh full linkcheck passes after retries. Prior two-worker experiment was slower. No cache, exclusion, reduced retry, or trigger change was evidenced to preserve freshness and full coverage, so CI is unchanged.",
+    "exact_candidate_docs_job": {
+      "all_retries_succeeded": true,
+      "completed_utc": "2026-10-29T13:56:21Z",
+      "job_id": 123490935609,
+      "rate_limit_notices": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+          "utc": "2026-10-29T13:55:18Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md",
+          "utc": "2026-10-29T13:55:20Z"
+        }
+      ],
+      "started_utc": "2026-10-29T13:55:07Z",
+      "status": "success"
+    },
+    "post_merge_docs_job": {
+      "all_retries_succeeded": true,
+      "completed_utc": "2026-10-29T14:05:57Z",
+      "job_id": 123494016217,
+      "rate_limit_notices": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md",
+          "utc": "2026-10-29T14:00:53Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/README.md",
+          "utc": "2026-10-29T14:00:53Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+          "utc": "2026-10-29T14:00:53Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md",
+          "utc": "2026-10-29T14:04:55Z"
+        }
+      ],
+      "started_utc": "2026-10-29T14:00:45Z",
+      "status": "success"
+    },
+    "strict_warnings": true
+  },
+  "publication": {
+    "base_commit": "36d54400aa37f5f3a226bdf1626d959b1958a3b5",
+    "base_tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121",
+    "candidate_commit": "1305d2b418893c622dfc294437a77d84a8d5bc35",
+    "candidate_tree": "a2b900c2e0824050a4c34ea666c3390f61389386",
+    "exact_candidate_workflows": {
+      "CI": {
+        "jobs": {
+          "Source validation (unprivileged)": {
+            "job_id": 123490935855,
+            "status": "success"
+          },
+          "docs": {
+            "job_id": 123490935609,
+            "make_docs": "success",
+            "status": "success",
+            "strict_linkcheck": "success"
+          },
+          "helm-k8s-test": {
+            "job_id": 123490935940,
+            "status": "success"
+          },
+          "self-check": {
+            "job_id": 123490935243,
+            "status": "success"
+          }
+        },
+        "run_id": 40886335648,
+        "status": "success"
+      },
+      "Codex CI": {
+        "job_id": 123490949532,
+        "run_id": 40886335607,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123490934633,
+        "run_id": 40886335526,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "job_id": 123490934409,
+        "run_id": 40886335605,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "job_id": 123490934965,
+        "run_id": 40886335670,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40886335668,
+        "status": "success"
+      },
+      "Release": {
+        "publishing": "skipped_by_condition",
+        "run_id": 40886335581,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123490934710,
+        "run_id": 40886335569,
+        "status": "success"
+      }
+    },
+    "merge_commit": "491774216f833a0f0065c966098ee42eb52cd8c7",
+    "merge_method": "merge",
+    "merge_tree": "a2b900c2e0824050a4c34ea666c3390f61389386",
+    "post_merge_workflows": {
+      "CI": {
+        "jobs": {
+          "Source validation (unprivileged)": {
+            "job_id": 123494017366,
+            "status": "success"
+          },
+          "docs": {
+            "job_id": 123494016217,
+            "make_docs": "success",
+            "status": "success",
+            "strict_linkcheck": "success"
+          },
+          "helm-k8s-test": {
+            "job_id": 123494017159,
+            "status": "success"
+          },
+          "self-check": {
+            "job_id": 123494016831,
+            "status": "success"
+          }
+        },
+        "run_id": 40887202601,
+        "status": "success"
+      },
+      "Codex CI": {
+        "job_id": 123494015313,
+        "run_id": 40887202595,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123494015483,
+        "run_id": 40887202634,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "jobs": {
+          "build": {
+            "job_id": 123494014971,
+            "status": "success"
+          },
+          "deploy": {
+            "job_id": 123494242863,
+            "status": "success"
+          }
+        },
+        "run_id": 40887202606,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40887202628,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "job_id": 123494015732,
+        "run_id": 40887202620,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123494015736,
+        "run_id": 40887202590,
+        "status": "success"
+      }
+    },
+    "pull_request": 3077,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3077",
+    "remote_main_readback": {
+      "commit": "491774216f833a0f0065c966098ee42eb52cd8c7",
+      "ls_remote_confirmed": true,
+      "tree": "a2b900c2e0824050a4c34ea666c3390f61389386"
+    },
+    "repository": "Zombinator85/SentientOS",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "4372dd19fb8544d99d10b754db136171a7bee533"
+    }
+  },
+  "schema_version": 1,
+  "sequence": 996,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "491774216f833a0f0065c966098ee42eb52cd8c7"
+    },
+    "verified_remote_main": "491774216f833a0f0065c966098ee42eb52cd8c7",
+    "verified_remote_main_tree": "a2b900c2e0824050a4c34ea666c3390f61389386"
+  },
+  "task": "Integrate PR #3077 post-merge verification and preserve follow-up observations for linkcheck latency and the documented mypy lock path."
+}
