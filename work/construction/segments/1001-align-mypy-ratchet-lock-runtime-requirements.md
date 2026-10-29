@@ -1,0 +1,5 @@
+# Sequence 1001: align documented mypy lock runtime requirements
+
+`docs/architecture/mypy_baseline_ratchet.md` directs baseline setup through `requirements.lock` and pins `mypy==1.20.2`. The installed 1.20.2 distribution metadata declares `pathspec>=1.0.0` and, on non-PyPy interpreters, `librt>=0.8.0`. The existing documented lock had `pathspec==0.12.1` and no `librt` entry, while the canonical hashed CI lock already pins compatible `pathspec==1.1.1` and `librt==0.15.0`.
+
+The focused correction updates only those two runtime pins in `requirements.lock` and adds a regression test that checks the pinned mypy version and both runtime bounds. Local validation on the exact candidate source passed: `python -m scripts.run_tests tests/test_lock_integrity.py -q` (3 passed), `python -m scripts.lock check`, `python -m mypy --version` (`1.20.2`), and `git diff --check`. The hosted CI and Quality Gate remain the acceptance gates for the candidate. No runtime authority, CI checks, or the separate canonical hashed lock were changed.

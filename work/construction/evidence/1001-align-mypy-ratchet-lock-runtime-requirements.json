@@ -1,0 +1,82 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 1000,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2115,
+    "v3_shard_count_before_append": 126,
+    "predecessor_segment_sha256": "97231a9db53abc75a84a3c5216d8ebdf8cb17d208baae9ce2a8468a7ad0ab01e"
+  },
+  "source": {
+    "verified_remote_main": "adbfd341128f954e1e27ebba7dd67ed50b6e1bc0",
+    "verified_remote_main_tree": "47213785be22c837e64c197299236f24a332b999",
+    "remote_ref_readback": {
+      "commit": "adbfd341128f954e1e27ebba7dd67ed50b6e1bc0",
+      "tree": "47213785be22c837e64c197299236f24a332b999"
+    }
+  },
+  "dependency_contract": {
+    "documented_lock": "requirements.lock",
+    "canonical_hashed_lock": "requirements-lock.txt",
+    "pinned_mypy": "1.20.2",
+    "observed_requires_dist": [
+      "pathspec>=1.0.0",
+      "librt>=0.8.0; platform_python_implementation != \"PyPy\""
+    ],
+    "previous_documented_pins": {
+      "pathspec": "0.12.1",
+      "librt": null
+    },
+    "updated_documented_pins": {
+      "pathspec": "1.1.1",
+      "librt": "0.15.0"
+    },
+    "canonical_lock_pins": {
+      "pathspec": "1.1.1",
+      "librt": "0.15.0"
+    }
+  },
+  "implementation": {
+    "changed_paths": [
+      "requirements.lock",
+      "tests/test_lock_integrity.py"
+    ],
+    "regression": "test_documented_mypy_lock_satisfies_pinned_runtime_requirements",
+    "scope": "update two documented lock pins and enforce mypy 1.20.2 runtime requirement compatibility"
+  },
+  "local_verification": {
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "adbfd341128f954e1e27ebba7dd67ed50b6e1bc0",
+      "remote_head": "adbfd341128f954e1e27ebba7dd67ed50b6e1bc0",
+      "local_tree": "47213785be22c837e64c197299236f24a332b999",
+      "remote_tree": "47213785be22c837e64c197299236f24a332b999",
+      "findings": []
+    },
+    "custody_verification": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 1000,
+      "failures": []
+    },
+    "test_run": {
+      "command": "python -m scripts.run_tests tests/test_lock_integrity.py -q",
+      "status": "passed",
+      "passed": 3,
+      "failed": 0
+    },
+    "lock_check": {
+      "command": "python -m scripts.lock check",
+      "status": "passed"
+    },
+    "mypy_version": {
+      "command": "python -m mypy --version",
+      "version": "1.20.2"
+    },
+    "diff_check": "passed"
+  },
+  "publication": {
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "607f586dd6ef42a595463f28fdcee9542ac4a949"
+    }
+  }
+}

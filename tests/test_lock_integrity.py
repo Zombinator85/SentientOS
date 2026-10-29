@@ -26,3 +26,28 @@ def test_default_lock_install_uses_one_lock_and_no_deps_project_install() -> Non
     assert '"-r", LOCKS[0]' in install_body
     assert '"--no-deps", "."' in install_body
     assert "for lock in LOCKS" not in install_body
+
+
+def test_documented_mypy_lock_satisfies_pinned_runtime_requirements() -> None:
+    from packaging.requirements import Requirement
+    from packaging.specifiers import SpecifierSet
+    from packaging.utils import canonicalize_name
+    from packaging.version import Version
+
+    root = Path(__file__).resolve().parents[1]
+    pins: dict[str, Version] = {}
+    for line in (root / "requirements.lock").read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        requirement = Requirement(stripped)
+        name = canonicalize_name(requirement.name)
+        if name not in {"mypy", "pathspec", "librt"}:
+            continue
+        exact_pins = [item for item in requirement.specifier if item.operator == "=="]
+        assert len(exact_pins) == 1, f"{name} must have one exact lock pin"
+        pins[name] = Version(exact_pins[0].version)
+
+    assert pins["mypy"] == Version("1.20.2")
+    assert pins["pathspec"] in SpecifierSet(">=1.0.0")
+    assert pins["librt"] in SpecifierSet(">=0.8.0")
