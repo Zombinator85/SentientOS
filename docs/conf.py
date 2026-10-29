@@ -6,6 +6,9 @@ sys.path.insert(0, os.path.abspath('..'))
 
 project = 'SentientOS'
 
+# Bound concurrent external requests during strict CI link validation.
+linkcheck_workers = 2
+
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
