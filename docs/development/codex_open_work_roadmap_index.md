@@ -22,6 +22,22 @@ This is the active, compact selection map for the current mainline. Consumed his
 - The lifecycle read-custody implementation remains unchanged while its acceptance proof is now process-real and boundary-specific: distinct reader/builder PIDs prove shared/exclusive lock serialization, exact named custody events prove one coherent latest observation, unsafe pointer names prove zero selected-packet lookup, and unresolved descriptor adapters prove actual use without resolution.
 - One reviewer path now consolidates the sealed diagnostic source, confirmed execution, exact rollback, and lifecycle-closure proof surfaces without reopening their runtime behavior, packet formats, authority, effects, capabilities, or CLI contracts.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
+
+## Current follow-up status
+
+The repeated security follow-up lists in the historical milestone notes below are
+not a current work queue. Several specific actuator items have since been
+addressed: actuator shell commands use argv-only execution and explicit
+command policy (`f9f4b1b5`, `2478699e`), outbound HTTP and SMTP endpoints use exact fail-closed policy
+(`51d2024a`), and external actuator plugin execution/source activation were
+removed (`185a317a`, `9733f370`). Targeted path-ancestry work also landed for
+the actuator and causal-introspection surfaces (`100370e7`, `a8608517`).
+
+The mypy baseline has dedicated reproducibility and ratchet contracts. Check
+`docs/architecture/mypy_baseline_ratchet.md` for the current toolchain contract
+before treating a compatibility concern as an active target. Broad labels such as repository-wide path ancestry or
+plugin isolation need a fresh module-level gap and acceptance proof before they
+are selected. Use the selection rules above for any new increment.
 ## Sealed surfaces
 Do not reopen sandboxed adapter envelope ladders, storage/consent/readiness packet ladders, autonomous Git mutation, provider/prompt-export authority, network egress, direct host actuation, or live-memory mutation without a separate explicit operator authority contract. Existing metadata, receipts, proposals, dossiers, and verifier results remain non-authority.
 ## Selection rules
@@ -38,7 +54,7 @@ The core maintenance-loop implementation sequence is complete. Live unattended
 operation still requires operator-supplied external configuration and standing
 grant, authenticated Codex and publication clients, a candidate inbox, and an
 external scheduler invocation. SentientOS installs none of those prerequisites.
-Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation.
+See Current follow-up status above; these are historical planning notes.
 ### Provenance-bound behavioral witnesses at `398a0f9`
 Developer-workflow proof now supports bounded behavioral witnesses bound to the exact pytest node, run, repository SHA, call phase, contract, kind, and provenance hash chain. Legacy `sentientos.task_acceptance:v1` manifests remain valid; v2 witness contracts add evidence without authority expansion.
 ### Lifecycle closure publication custody at `398a0f9`
@@ -48,28 +64,26 @@ Root automatic setup and ordinary run-tests now use the canonical minimal harnes
 Python 3.14 no longer selects pandas 1.5 or another optional source build. Project
 core is separated from capability extras, default lock installation uses one lock,
 and the required quality gate installs minimal requirements plus a no-dependency
-editable project. Full capabilities remain explicitly installable. Follow-ups remain
-the residual non-root hosted-gate import failure, import-time log-path creation,
-actuator command/path/plugin security hardening, .
+editable project. Full capabilities remain explicitly installable. Follow-up labels
+from that snapshot are historical; see Current follow-up status above.
 ### GitHub-hosted acceptance at `9294784`
 Hosted validation now reaches import-inert lock and actuator modules: privilege checks occur at protected effect boundaries, external actuator plugins require explicit initialization, and imports create neither sandbox/log directories nor plugin effects. Bootstrap, collection, zero-test, zero-call, missing-metrics, and failed-test runs are non-green; provenance integrity is reported independently from validation sufficiency. Ubuntu 24.04 uses `/opt/venv`, disabled accelerator entries perform no setup, and pull-request release validation installs the project without publication authority. The uniquely named `Required / Quality Gate` proves real call-phase execution and exact acceptance. Remote branch protection is an optional future operator choice, not active required work.
 The `api` package initializer no longer authorizes at import, and actuator autonomous-log
 path resolution no longer creates directories. Isolated child interpreters verify
 privilege and filesystem inertness plus external-plugin non-execution. The required
 quality gate now emits deterministic pre-pytest import-smoke evidence, allowing a ready
-smoke to proceed to its unchanged nineteen exact call-phase nodes. Separate follow-ups
-remain for repository-wide mypy baseline/tool-version compatibility, actuator shell
-strings and `shell=True`, filesystem ancestry, URL and SMTP policy, plugin isolation.
+smoke to proceed to its unchanged nineteen exact call-phase nodes. See Current
+follow-up status above; this security list is historical planning context.
 ### Pytest bootstrap and resumable matrix custody at `9294784`
-Pytest initialization is privilege-inert and the required gate can reach all nineteen exact call phases after separate import and pytest-bootstrap proofs. The authoritative matrix uses v2 semantic workspace and command-manifest bindings, atomically checkpoints every lane, reports progress, and preserves completed evidence across bounded timeouts and interruption. Unchanged pre-commit retries reuse a completed exact checkpoint or resume its first incomplete lane; semantic source or command changes reject reuse and require fresh execution. Repository-wide mypy/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, plugin isolation remain separate follow-ups.
+Pytest initialization is privilege-inert and the required gate can reach all nineteen exact call phases after separate import and pytest-bootstrap proofs. The authoritative matrix uses v2 semantic workspace and command-manifest bindings, atomically checkpoints every lane, reports progress, and preserves completed evidence across bounded timeouts and interruption. Unchanged pre-commit retries reuse a completed exact checkpoint or resume its first incomplete lane; semantic source or command changes reject reuse and require fresh execution. See Current follow-up status above for how to assess historical security categories.
 ### Bounded solo landing at `5c601d3`
-Default landing uses bounded solo validation and starts zero matrix processes. The 131-lane exhaustive matrix remains an explicit, resumable maintenance/release profile. Child stdout/stderr and 30-second quiet heartbeats are visible; timeout and cancellation terminate descendant process groups. Local commit and publication never wait for remote checks. Independent follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation.
+Default landing uses bounded solo validation and starts zero matrix processes. The 131-lane exhaustive matrix remains an explicit, resumable maintenance/release profile. Child stdout/stderr and 30-second quiet heartbeats are visible; timeout and cancellation terminate descendant process groups. Local commit and publication never wait for remote checks. See Current follow-up status above; these are historical planning notes.
 ### Canonical maintenance task journal at `5c601d3`
 Canonical maintenance-task identity now exists. Append-only task events are tamper-evident, deterministic replay produces one task snapshot, one active lease and one active attempt are enforced, restart and truncated-tail behavior are explicit, and state remains outside the mutable worktree. No agent, provider, mutation, Git, publication, or candidate-selection authority was added.
 Canonical maintenance candidates now span current proposal sources. Candidate identity is semantic and deterministic; duplicate and contradictory records are handled explicitly; journal state prevents active or resolved work from being selected; eligibility respects caller-supplied scope, authority, and budgets; next selection is deterministic; no viable candidate produces bounded idle state. No task admission, lease, agent, mutation, validation, Git, publication, or runtime authority was added.
 ### Immutable maintenance task authority lease at `77b7d0a`
 `ready_for_scope_admission` can now become one immutable task lease. Task identity binds candidate revision, base SHA, and admitted scope; selector journal discovery now finds actual scope-bound tasks. One operator grant defines the authority ceiling, while lease paths, authority, budgets, attempts, retries, and expiry are immutable. Admission is idempotent and recoverable, revocation is explicit, and zero attempts are started by admission. Repeated operator confirmations are not part of the new maintenance-loop authority model. No agent, implementation, validation, Git, publication, host, or runtime effect authority was exercised.
-The bounded core maintenance loop is complete. Commit `83cca3e` introduced its deterministic watchdog scaffold, `cc7a9da` added canonical scanning and selection/admission/landing dispatch, and `5e16605` added process-real implementation continuation. The current continuation adds exact validation/correction dispatch and the first genuine production-CLI closed-loop proof from candidate through same-thread corrective validation, commit, one-shot fast-forward publication, verified base cursor, closure, and idle. Live unattended deployment still requires external configuration, a standing grant, authenticated tools, a candidate inbox, external state/workspace/scratch custody roots, remote authority, publication credentials, and scheduler invocation. Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation. Remote branch protection is not required work.
+The bounded core maintenance loop is complete. Commit `83cca3e` introduced its deterministic watchdog scaffold, `cc7a9da` added canonical scanning and selection/admission/landing dispatch, and `5e16605` added process-real implementation continuation. The current continuation adds exact validation/correction dispatch and the first genuine production-CLI closed-loop proof from candidate through same-thread corrective validation, commit, one-shot fast-forward publication, verified base cursor, closure, and idle. Live unattended deployment still requires external configuration, a standing grant, authenticated tools, a candidate inbox, external state/workspace/scratch custody roots, remote authority, publication credentials, and scheduler invocation. See Current follow-up status above. Remote branch protection is not required work.
 
 Manual canonical candidate authoring remains available. Canonical governed evidence
 and normalized work items can also reach the candidate inbox through the bounded
@@ -80,6 +94,6 @@ the bounded production coordinator and its top-level CLI proof. SentientOS still
 installs no scheduler; live scheduling remains operator-controlled external work.
 ## a1dee88 maintenance implementation-agent adapter
 One active lease can now start one deterministic implementation attempt, and one attempt binds one implementation-agent session. Session starts are idempotent and recoverable; explicit polling records heartbeats and terminal outcomes. Immutable session and result artifacts are journal-bound. Timeout and cancellation are explicit. Fake-driver completion is synthetic and non-effectful. Concurrent start has one canonical session. No real implementation, remote invocation, repository mutation, validation, Git, publication, host, or runtime effect occurred.
-The maintenance-loop foreman, proportionate validation/correction controller, exact commit and asynchronous publication custody, and recovery watchdog are delivered historical milestones. Independent security follow-ups remain retained.
+The maintenance-loop foreman, proportionate validation/correction controller, exact commit and asynchronous publication custody, and recovery watchdog are delivered historical milestones. See Current follow-up status above; these are historical planning notes.
 ## d1c45cb local-Codex foreman marker
-`local_codex` is now a production driver kind requiring explicit effect authority. It provisions one isolated detached worktree at the exact base SHA, discloses one bounded instruction envelope, durably captures JSONL progress/thread identity, supervises process trees, supports explicit same-thread recovery, independently verifies actual changed paths and budgets, and ends successful implementation at `implementation_ready_for_validation`. Implementation-ready worktrees receive deterministic proportionate validation; ordinary validation starts zero exhaustive matrix processes. Validation events are cycle-bound and historical, source drift fails closed, bounded correction resumes the exact Codex thread, and retry, attempt, lease, wall-clock, and validation budgets are enforced. Exact commit/publication custody and recovery watchdog continuation are now delivered downstream stages rather than future work. Independent security follow-ups remain retained.
+`local_codex` is now a production driver kind requiring explicit effect authority. It provisions one isolated detached worktree at the exact base SHA, discloses one bounded instruction envelope, durably captures JSONL progress/thread identity, supervises process trees, supports explicit same-thread recovery, independently verifies actual changed paths and budgets, and ends successful implementation at `implementation_ready_for_validation`. Implementation-ready worktrees receive deterministic proportionate validation; ordinary validation starts zero exhaustive matrix processes. Validation events are cycle-bound and historical, source drift fails closed, bounded correction resumes the exact Codex thread, and retry, attempt, lease, wall-clock, and validation budgets are enforced. Exact commit/publication custody and recovery watchdog continuation are now delivered downstream stages rather than future work. See Current follow-up status above for historical security categories.
