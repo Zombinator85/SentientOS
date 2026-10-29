@@ -1,0 +1,165 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 972,
+    "status": "construction_continuation_custody_ready"
+  },
+  "linkcheck_observations": {
+    "conclusion": "Strict linkcheck passed in every observed run, but duration and HTTP 429 waits varied sharply between PR and main executions. Continue the evidence-backed investigation; preserve strict command, frequency, and warning behavior.",
+    "main_after_pr_3052": {
+      "duration_seconds_approx": 194,
+      "job_id": 123312127924,
+      "rate_limit_backoff_events": 4,
+      "run_id": 40833279440,
+      "status": "success"
+    },
+    "pr_3052": {
+      "duration_seconds_approx": 13,
+      "job_id": 123310747804,
+      "rate_limit_backoff_events": 0,
+      "run_id": 40832842177,
+      "status": "success"
+    },
+    "recent_comparison": {
+      "main_pr_3051_backoffs": 2,
+      "main_pr_3051_seconds_approx": 128,
+      "pr_3051_backoffs": 3,
+      "pr_3051_seconds_approx": 193
+    },
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "publication": {
+    "base_commit": "27346f5b9701bcfa17ee6ff88e6a75c76e8fee1d",
+    "candidate_commit": "8296c173612781c7c529f5e2992c83685e38de64",
+    "candidate_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123310747719,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123310747804,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123310747817,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123310747518,
+        "status": "success"
+      }
+    },
+    "candidate_tree": "72e8b5d4da453454d0b3f7b5cfd74dea51f222b9",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40832842177,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40832842269,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40832842172,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "run_id": 40832842227,
+        "status": "skipped_by_condition"
+      },
+      "Gradient null regression": {
+        "run_id": 40832842248,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40832842442,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40832829742,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40832842286,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40832842412,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40832842250,
+        "status": "success"
+      }
+    },
+    "merge_commit": "59fe40ab18f7d45bf701df1e760fda05cc632b94",
+    "merge_tree": "72e8b5d4da453454d0b3f7b5cfd74dea51f222b9",
+    "post_merge_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123312127995,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123312127924,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123312127693,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123312127911,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40833279440,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40833279511,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40833279400,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40833279509,
+        "status": "success"
+      },
+      "Federation Health Update": {
+        "run_id": 40833389818,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40833279464,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40833279570,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40833279575,
+        "status": "success"
+      }
+    },
+    "pull_request": 3052,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "174de551fa4e7283a5e306eef1f085d1a02e66bc"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3052 sequence 972 and record additional PR-versus-main strict-linkcheck latency evidence",
+  "sequence": 973,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "59fe40ab18f7d45bf701df1e760fda05cc632b94",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "59fe40ab18f7d45bf701df1e760fda05cc632b94",
+    "verified_remote_main_tree": "72e8b5d4da453454d0b3f7b5cfd74dea51f222b9"
+  }
+}
