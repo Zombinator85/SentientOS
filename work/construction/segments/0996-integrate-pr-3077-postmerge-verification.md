@@ -1,0 +1,7 @@
+# Sequence 996: integrate PR #3077 post-merge verification
+
+PR #3077 published sequence 995 as one immutable v3 shard. Its exact hosted Quality Gate, CI, docs and strict linkcheck, source validation, Helm, self-check, Docker, Codex CI, lint, Gradient, Invariant, and Release validation all passed. The normal merge produced main `491774216f833a0f0065c966098ee42eb52cd8c7` with tree `a2b900c2e0824050a4c34ea666c3390f61389386`; every post-merge workflow passed, with Forge Smoke skipped by condition.
+
+The post-merge docs linkcheck showed four Sphinx rate-limit waits: three SentientOS GitHub URLs at 14:00:53 UTC and one Microsoft Agent Framework URL at 14:04:55 UTC. All retries succeeded, and strict linkcheck completed successfully. The exact candidate docs run also had two waits, both followed by success. The prior two-worker trial was slower. No supported change was evidenced that retains fresh complete coverage while avoiding these waits, so CI remains unchanged.
+
+A separate follow-up surfaced a documented toolchain-lock mismatch: `docs/architecture/mypy_baseline_ratchet.md` directs setup through `requirements.lock`, which pins pathspec 0.12.1 and omits librt, while the pinned mypy 1.20.2 metadata requires pathspec at least 1.0 and librt at least 0.8. The canonical hashed `requirements-lock.txt` used by CI pins pathspec 1.1.1 and librt 0.15.0. This is recorded as the next focused dependency task; no lock was changed here.
