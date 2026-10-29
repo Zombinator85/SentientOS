@@ -1,0 +1,178 @@
+{
+  "ci_trigger_verification": "PR #3041 produced one full-CI pull_request run and no feature-branch full-CI push run. The separate Invariant Tests push workflow passed. Main-push full CI remained enabled and passed strict Sphinx linkcheck.",
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 962
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "c092586e08315749167cbd4615080e4f75beec36",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 962,
+      "sha256": "f52d02561d094ea938575a4aa6182b88c74ba22d92be21b301ca2c353bd4b43a"
+    },
+    "latest_segment": {
+      "bytes": 1322,
+      "git_blob_sha": "81083d68e190b34e445d738b950bfc3f1f80e611",
+      "path": "work/construction/segments/0962-integrate-pr-3040-postmerge-verification.md",
+      "sequence": 962,
+      "sha256": "fc142df265d11353b570567ebab7c947978e38dd3ffb20ae7a2a0f165b0a20c7"
+    },
+    "latest_shard": {
+      "bytes": 1930,
+      "first_sequence": 962,
+      "git_blob_sha": "ed38a19ef6980214f6b545b84a8adccb101a6d1c",
+      "last_sequence": 962,
+      "path": "work/construction/shards-v3/000000088-000000962-000000962.json",
+      "sha256": "4607d1f9615745709b99736bab766f553d2bd060b11e4fa08c9edc9b1287209b",
+      "shard_sequence": 88
+    },
+    "v3_head": {
+      "bytes": 2108,
+      "git_blob_sha": "284e01457a85f73a63c35e347964f5de7d1c9b39",
+      "path": "work/construction/index-v3.json",
+      "sha256": "2e24c9d31e98e866321ed84a3e2a7cd63a9d1412ecd096b5a40e32886f2151e1"
+    }
+  },
+  "linkcheck_latency_observations": {
+    "host": "github.com",
+    "post_merge_docs_job_finished": "2026-10-29T04:29:39Z",
+    "post_merge_docs_job_started": "2026-10-29T04:25:08Z",
+    "post_merge_rate_limit_events": [
+      {
+        "at": "2026-10-29T04:25:36Z",
+        "retry_delay_seconds": 60,
+        "url": "https://github.com/Zombinator85/SentientOS/blob/main/README.md"
+      },
+      {
+        "at": "2026-10-29T04:25:36Z",
+        "retry_delay_seconds": 60,
+        "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+      },
+      {
+        "at": "2026-10-29T04:26:36Z",
+        "retry_delay_seconds": 60,
+        "url": "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md"
+      },
+      {
+        "at": "2026-10-29T04:27:37Z",
+        "retry_delay_seconds": 60,
+        "url": "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md"
+      }
+    ],
+    "strict_check": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "linkcheck_observations": [
+    {
+      "commit": "bd91589da3c842e27848a090a5caa10ba59355fb",
+      "event": "pull_request",
+      "rate_limit_backoffs": 1,
+      "run_id": 40817155496,
+      "status": "success"
+    },
+    {
+      "commit": "f2e3b2fde2a02e14a322eb2628b606b3d8afc729",
+      "event": "push",
+      "rate_limit_backoffs": 4,
+      "run_id": 40817629031,
+      "status": "success"
+    }
+  ],
+  "publication": {
+    "candidate_commit": "bd91589da3c842e27848a090a5caa10ba59355fb",
+    "candidate_tree": "3e42899e8fea6640c411a5bca5c49b408d3604ee",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40817155496,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40817155576,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40817155500,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40817155494,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40817155604,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40817155633,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40817155583,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40817155671,
+        "status": "success"
+      }
+    },
+    "merge_commit": "f2e3b2fde2a02e14a322eb2628b606b3d8afc729",
+    "merge_tree": "3e42899e8fea6640c411a5bca5c49b408d3604ee",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40817629031,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40817629046,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40817629001,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40817629064,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40817629010,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40817629016,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40817629083,
+        "status": "success"
+      }
+    },
+    "pull_request": 3041,
+    "push_invariant_workflow": {
+      "run_id": 40817133900,
+      "status": "success"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "c092586e08315749167cbd4615080e4f75beec36",
+      "index_v3": "284e01457a85f73a63c35e347964f5de7d1c9b39",
+      "latest_segment": "81083d68e190b34e445d738b950bfc3f1f80e611",
+      "latest_shard": "ed38a19ef6980214f6b545b84a8adccb101a6d1c",
+      "roadmap_index": "e41d83105435dac9635edce39f5b55ab45002c16",
+      "storage_consent_evidence_map": "a0210b45ecccf35f360b3c840d6cdabd7be5f0e7",
+      "storage_memory_contract": "130cf493368b726a0c802c40f4afba4562ec6e13"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate sequence 962 custody publication through PR #3041, verify post-merge main, and quantify strict linkcheck rate-limit latency",
+  "sequence": 963,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "f2e3b2fde2a02e14a322eb2628b606b3d8afc729",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "f2e3b2fde2a02e14a322eb2628b606b3d8afc729",
+    "verified_remote_main_tree": "3e42899e8fea6640c411a5bca5c49b408d3604ee"
+  }
+}
