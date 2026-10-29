@@ -319,6 +319,17 @@ def test_required_quality_gate_runs_on_construction_candidate_pushes() -> None:
     assert '--expected-sha "$QUALITY_GATE_SOURCE_SHA"' in workflow
 
 
+def test_ci_runs_on_pull_requests_and_main_pushes_without_duplicate_branch_pushes() -> None:
+    import yaml
+
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    parsed = yaml.safe_load(workflow)
+    triggers = parsed.get("on", parsed.get(True))
+    assert triggers["push"]["branches"] == ["main"]
+    assert "pull_request" in triggers
+    assert "sphinx-build -b linkcheck -W docs docs/_build/linkcheck" in workflow
+
+
 def test_federation_health_update_uses_hosted_administrator_and_narrow_commit_scope() -> None:
     workflow = (ROOT / ".github/workflows/federation-health.yml").read_text()
     triggers = workflow.split("jobs:", 1)[0]
@@ -596,10 +607,10 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 48
+    assert selection.count("tests/") == 49
     node_lines = [line for line in selection.splitlines() if "tests/" in line]
     assert all(line.rstrip().endswith("\\") for line in node_lines[:-1])
-    assert "len(nodes)==48" in workflow
+    assert "len(nodes)==49" in workflow
     assert "tests/test_experiment_chain.py::test_pending_nondeterministic_adapter_waits_for_approval" in selection
     assert "tests/test_experiment_chain.py::test_nondeterministic_adapter_runs_after_consensus_approval" in selection
     assert "tests/test_experiment_chain.py::test_pending_deterministic_adapter_keeps_existing_execution_behavior" in selection
@@ -628,7 +639,7 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
     selection = text.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/test_") == 48
+    assert selection.count("tests/test_") == 49
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
@@ -914,7 +925,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'git diff --binary "$PRECOMMIT_PARENT" "$COMMIT_REF"' in precommit
     assert "selected_node_ids" in precommit
     assert 'env["PYTHONPATH"] = workspace' in precommit
-    assert 'len(nodes) != 48' in precommit
+    assert 'len(nodes) != 49' in precommit
     assert 'provenance.get("git_sha") != expected_head' in precommit
     assert "--phase pre-commit" in precommit
     assert "finalizer_exit_code=$?" in precommit
@@ -934,7 +945,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     finalizer = workflow.split(
         "- name: Complete hosted privileged PR landing finalization", 1
     )[1].split("- name: Verify pre-publication PR metadata guard", 1)[0]
-    assert 'len(nodes) != 48' in finalizer
+    assert 'len(nodes) != 49' in finalizer
     assert "if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/codex/construct-sentientos')" in finalizer
     assert 'test "$(sudo -n id -u)" = "0"' in finalizer
     assert '"HOME=$HOME"' in finalizer
@@ -952,7 +963,7 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     assert 'test "$PR_TITLE" = "$COMMIT_TITLE"' in finalizer
     assert 'GIT_LFS_SKIP_SMUDGE=1 git worktree add --detach "$METADATA_WORKSPACE" "$COMMIT_REF"' in finalizer
     assert 'provenance.get("git_sha") != expected_head' in finalizer
-    assert 'candidate acceptance must contain the exact 48 required nodes' in finalizer
+    assert 'candidate acceptance must contain the exact 49 required nodes' in finalizer
     candidate_verify = finalizer.index(
         'PYTHONPATH="$METADATA_WORKSPACE" python "$METADATA_WORKSPACE/scripts/verify_task_acceptance.py"'
     )
