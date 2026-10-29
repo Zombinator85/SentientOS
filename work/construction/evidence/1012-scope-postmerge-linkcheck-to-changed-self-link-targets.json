@@ -1,0 +1,108 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 1012,
+  "scope": "retain strict PR linkcheck and avoid duplicate post-merge external checks when main-linked targets did not change",
+  "source": {
+    "remote_ref": "refs/heads/main",
+    "verified_remote_main": "93b4c14b65f9fc1744d4af8e52b937dfefe26bc6",
+    "verified_remote_main_tree": "0ee687ffb566b64edada6c28970378310345b5c1",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "93b4c14b65f9fc1744d4af8e52b937dfefe26bc6",
+      "tree": "0ee687ffb566b64edada6c28970378310345b5c1",
+      "verification": "authenticated git ls-remote plus fetched commit/tree readback"
+    },
+    "predecessor_segment_sha256": "322f379b5a446c9e28b897c1c30644e3f92efd474651348ce51a65807859deca",
+    "predecessor_checkpoint_sequence": 1011,
+    "predecessor_checkpoint_blob": "73a0d2747d8d4fd0978f71b209b7b23a20705c7b",
+    "source_preflight": "correct_remote_and_local_base"
+  },
+  "linkcheck_scope_change": {
+    "workflow": ".github/workflows/ci.yml",
+    "strict_pull_request_check": "unchanged and unconditional for pull_request events",
+    "main_push_check": "runs only if a changed path overlaps a docs URL target on the moving GitHub main ref",
+    "docs_build_on_main_push": "unconditional",
+    "all_other_ci_jobs": "unchanged",
+    "comparison_failure": "fail closed to running strict linkcheck",
+    "checkout_depth": 2,
+    "manual_selector_replay": {
+      "input_main_diff": "sequence 1011 evidence-only files",
+      "linked_targets_changed": false,
+      "selector_result": "skip duplicate main-push linkcheck",
+      "simulated_changed_AGENTS_md": "selector_result_run_strict_linkcheck"
+    }
+  },
+  "validation": {
+    "focused_test_command": "python -m scripts.run_tests -q tests/test_ci_workflow_linkcheck_scope.py",
+    "focused_tests_passed": 4,
+    "editable_install": "supported editable install on /tmp/sentientos-seq1012-venv using provisioned system site packages and --no-build-isolation; no project dependencies installed",
+    "temporary_storage": "TMPDIR=/workspace used for runner temp because /tmp had 185 MiB free; /workspace had exhausted inodes, so pytest artifacts were kept under /tmp",
+    "targeted_mypy": "success",
+    "lock_check": "success",
+    "git_diff_check": "success",
+    "full_documentation_build": "pending exact hosted CI",
+    "full_regression": "pending exact hosted CI"
+  },
+  "prior_observation": {
+    "sequence": 1011,
+    "post_merge_commit": "93b4c14b65f9fc1744d4af8e52b937dfefe26bc6",
+    "post_merge_docs_job_id": 123760417459,
+    "post_merge_docs_job_duration_seconds": 216,
+    "strict_linkcheck_sources": 619,
+    "rate_limit_wait_events": 4,
+    "strict_result": "success",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40963030491,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40963030411,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40963030320,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40963030442,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40963030464,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40963030428,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40963030358,
+        "status": "success"
+      }
+    },
+    "strict_linkcheck_started_utc": "2026-10-29T22:05:12Z",
+    "strict_linkcheck_completed_utc": "2026-10-29T22:08:24Z"
+  },
+  "publication": {
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "73a0d2747d8d4fd0978f71b209b7b23a20705c7b"
+    }
+  },
+  "hosted_first_attempt": {
+    "candidate_commit": "b82b7890f5c5fc4573916cfff2d9af6b7cc8c9b0",
+    "required_quality_gate": {
+      "run_id": 40964782893,
+      "status": "success"
+    },
+    "failed_workflow": {
+      "run_id": 40964782727,
+      "job_id": 123766373873,
+      "job": "Source validation (unprivileged)",
+      "step": "Run integrated resource-to-cognition lifecycle",
+      "failed_test": "tests/test_github_hosted_acceptance_workflows.py::test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate",
+      "failure": "existing contract rejects continue-on-error anywhere in the CI docs job"
+    },
+    "repair": "removed continue-on-error; strict linkcheck runs on selector failure; it still skips when make docs fails, matching the prior behavior"
+  }
+}
