@@ -1,0 +1,139 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 963
+  },
+  "linkcheck_experiment": {
+    "candidate_commit": "c12162fb58d13482be17c850e38b8e185f1f4ca5",
+    "candidate_status": "closed_unmerged_after_hosted_measurement",
+    "comparison_default_five_workers": {
+      "PR_3042": {
+        "docs_job_id": 123265827998,
+        "duration_seconds_approx": 134,
+        "rate_limit_backoffs": 2
+      },
+      "main_after_PR_3042": {
+        "docs_job_id": 123267629726,
+        "duration_seconds_approx": 134,
+        "rate_limit_backoffs": 3
+      }
+    },
+    "finding": "One worker increased measured hosted linkcheck latency and retry count; the optimization was rejected. Strict linkcheck remained enabled and unchanged. Local success is not proof of hosted improvement. The observed difference does not establish concurrency as the cause.",
+    "hosted_docs_job_duration_seconds_approx": 435,
+    "hosted_docs_job_id": 123270116016,
+    "pull_request": 3043,
+    "rate_limit_backoffs": 6,
+    "retry_delay_seconds_each": 60,
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "worker_setting": 1
+  },
+  "local_validation": {
+    "custody_after_append": {
+      "failures": [],
+      "segments_verified": 964,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "dependency_mode": "test_airlock_minimal",
+      "failures": 0,
+      "result": "passed",
+      "tests": 53
+    },
+    "git_diff_check": "passed",
+    "latest_main_preflight": "valid_unpublished_changes_on_correct_base"
+  },
+  "publication": {
+    "candidate_commit": "52f309bb9d330fcde38ecfed9cbd57b28407570d",
+    "candidate_tree": "c2386dbeff083cd0d19285ca26f727c7396e590b",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40818708937,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40818708883,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40818708909,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40818708919,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40818709055,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40818708906,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40818708993,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40818708911,
+        "status": "success"
+      }
+    },
+    "merge_commit": "b5e7c5d3fad88f0bd093997bf0c37dd378178c5d",
+    "merge_tree": "c2386dbeff083cd0d19285ca26f727c7396e590b",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40819265105,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40819265116,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40819265099,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40819265101,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40819265084,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40819265078,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40819265048,
+        "status": "success"
+      }
+    },
+    "pull_request": 3042,
+    "push_invariant_workflow": {
+      "run_id": 40818690465,
+      "status": "success"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "6bae825ae56a621909c2a03db6168726653f4d82",
+      "index_v3": "284e01457a85f73a63c35e347964f5de7d1c9b39",
+      "latest_segment": "81083d68e190b34e445d738b950bfc3f1f80e611",
+      "latest_shard": "b264220d6e6908877571aad8399248eb429cafe7"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate sequence 963 custody publication through PR #3042, verify post-merge main, and evaluate the hosted strict-linkcheck worker experiment",
+  "sequence": 964,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "b5e7c5d3fad88f0bd093997bf0c37dd378178c5d",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "b5e7c5d3fad88f0bd093997bf0c37dd378178c5d",
+    "verified_remote_main_tree": "c2386dbeff083cd0d19285ca26f727c7396e590b"
+  }
+}
