@@ -1,0 +1,147 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 971,
+    "status": "construction_continuation_custody_ready"
+  },
+  "linkcheck_observations": {
+    "conclusion": "Both strict builds passed; HTTP 429 backoff count and wall time varied between candidate and main. Keep strict behavior unchanged pending evidence for a reliability change.",
+    "main_after_pr_3051": {
+      "duration_seconds_approx": 128,
+      "job_id": 123308254583,
+      "rate_limit_backoff_events": 2,
+      "run_id": 40832047473,
+      "status": "success"
+    },
+    "pr_3051": {
+      "duration_seconds_approx": 193,
+      "job_id": 123306613556,
+      "rate_limit_backoff_events": 3,
+      "run_id": 40831526109,
+      "status": "success"
+    },
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "publication": {
+    "base_commit": "ecd4221fe70defcc2abb616ba79ad88b8402fa5b",
+    "candidate_commit": "1fd1deee5768c1907240309a4832492d466b8128",
+    "candidate_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123306613587,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123306613556,
+        "status": "success"
+      }
+    },
+    "candidate_tree": "319956fa5b8c45d9e6c5380adb5161536a99a131",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40831526109,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40831526144,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40831526085,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "run_id": 40831526277,
+        "status": "skipped_by_condition"
+      },
+      "Gradient null regression": {
+        "run_id": 40831526170,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40831526111,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40831514671,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40831526131,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40831526158,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40831526115,
+        "status": "success"
+      }
+    },
+    "merge_commit": "27346f5b9701bcfa17ee6ff88e6a75c76e8fee1d",
+    "merge_tree": "319956fa5b8c45d9e6c5380adb5161536a99a131",
+    "post_merge_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123308254682,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123308254583,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123308254363,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123308254810,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40832047473,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40832047474,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40832047310,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40832047444,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40832047442,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40832047338,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40832047326,
+        "status": "success"
+      }
+    },
+    "pull_request": 3051,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "56ea1cb76b2667c812d0638a53a1cef4c83b4f06"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR #3051 sequence 971 integration and all post-merge checks, including strict linkcheck and source validation",
+  "sequence": 972,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "27346f5b9701bcfa17ee6ff88e6a75c76e8fee1d",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "27346f5b9701bcfa17ee6ff88e6a75c76e8fee1d",
+    "verified_remote_main_tree": "319956fa5b8c45d9e6c5380adb5161536a99a131"
+  }
+}
