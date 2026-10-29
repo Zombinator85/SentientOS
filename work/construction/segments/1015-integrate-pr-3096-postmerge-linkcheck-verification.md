@@ -1,0 +1,5 @@
+# Sequence 1015: integrate PR #3096 post-merge linkcheck verification
+
+PR #3096 merged through the normal merge-commit route as `2551e65248abf51e32ec937426820c7684fe71c1`; authenticated remote main readback and fetched tree match `86ca92f7fe57715cd0dcbe685e55d3095eed428e`. Exact-head Source validation, Required Quality Gate, CI, docs, strict linkcheck, Docker, lint, release, regression, and other candidate checks passed. All post-merge workflows passed: CI, Codex CI, Docker Image, Docs Deploy, Invariant Tests, and Required Quality Gate. Forge Smoke was skipped by condition.
+
+The PR docs job passed its required strict Sphinx external linkcheck in 253 seconds and recorded seven GitHub rate-limit waits; the enclosing docs job took 275 seconds. Post-merge `make docs` passed, the fail-closed selector compared `a0a541e4fd010a041bc650cbd126845b4e821300..2551e65248abf51e32ec937426820c7684fe71c1` and returned `required=false`, and external linkcheck was skipped by condition. This repeated hosted result confirms strict PR verification while avoiding duplicate rate-limited requests on the unchanged linked main targets.
