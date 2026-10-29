@@ -1015,6 +1015,35 @@ def test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator() -> 
     )
 
 
+def test_required_quality_gate_fails_fast_on_pr_title_mismatch() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    early_guard = workflow.split(
+        "- name: Verify PR title before hosted Quality Gate work", 1
+    )[1].split("- uses: actions/setup-python@v5", 1)[0]
+
+    assert "if: github.event_name == 'pull_request'" in early_guard
+    assert "PR_TITLE: ${{ github.event.pull_request.title }}" in early_guard
+    assert "PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}" in early_guard
+    assert 'git log -1 --format=%s "$PR_HEAD_SHA"' in early_guard
+    assert 'if [ "$PR_TITLE" != "$COMMIT_TITLE" ]; then' in early_guard
+    assert "exit 1" in early_guard
+    assert "PR title must match the candidate commit subject" in early_guard
+    assert "sudo" not in early_guard
+
+    checkout = workflow.index("- name: Check out exact candidate")
+    guard = workflow.index("- name: Verify PR title before hosted Quality Gate work")
+    python_setup = workflow.index("- uses: actions/setup-python@v5")
+    install = workflow.index("- name: Install SentientOS test harness")
+    audits = workflow.index("- name: Run strict audits with actual Administrator authority")
+    assert checkout < guard < python_setup < install < audits
+
+    # Keep the existing exact pre-commit and finalized metadata guards in place.
+    assert workflow.count('test "$PR_TITLE" = "$COMMIT_TITLE"') >= 2
+    assert "- name: Reconstruct and verify exact hosted pre-commit state" in workflow
+    assert "- name: Verify pre-publication PR metadata guard" in workflow
+    assert "scripts/codex_pr_metadata_guard.py verify" in workflow
+
+
 def test_nightly_workflows_have_path_scoped_main_push_triggers() -> None:
     workflows = {
         ".github/workflows/nightly-self-check.yml",

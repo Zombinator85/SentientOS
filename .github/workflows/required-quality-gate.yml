@@ -22,6 +22,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+      - name: Verify PR title before hosted Quality Gate work
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_HEAD_SHA"
+          test -n "$PR_TITLE"
+          COMMIT_TITLE="$(git log -1 --format=%s "$PR_HEAD_SHA")"
+          if [ "$PR_TITLE" != "$COMMIT_TITLE" ]; then
+            printf 'PR title must match the candidate commit subject before hosted Quality Gate work\n' >&2
+            exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
