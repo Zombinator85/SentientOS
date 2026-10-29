@@ -1,0 +1,237 @@
+{
+  "ci_reliability_finding": "The same feature-branch commit previously ran full CI on both push and pull_request, duplicating strict docs linkcheck requests. PR #3038 keeps pull_request and main push validation while restricting the full CI push trigger to main. Both corrected PR validation and main post-merge validation retained and passed the strict linkcheck.",
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 959
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "5e0895ecf835aa4c22c064ad3640630b9dd1ab6b",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 959,
+      "sha256": "50f447443e26ab050befa6e3e5d252a38fda4928f8b20ffc678a1e524a1eadf8"
+    },
+    "latest_shard": {
+      "bytes": 1929,
+      "first_sequence": 959,
+      "git_blob_sha": "fc8c3e545ba99a61252a40fadb81842f55419341",
+      "last_sequence": 959,
+      "path": "work/construction/shards-v3/000000085-000000959-000000959.json",
+      "sha256": "edc3082d3d33febf8e2117b47cc776156a19053bb87d94b40e0efae930492682",
+      "shard_sequence": 85
+    },
+    "v3_head": {
+      "bytes": 2108,
+      "git_blob_sha": "71038a6dfa22aaa79957042aa472f6d1c5e9fe98",
+      "path": "work/construction/index-v3.json",
+      "sha256": "8fe2ed7e3ece35559354bf9ab8e26fd626e07038627aa96bc8e2aed377443004"
+    }
+  },
+  "linkcheck_observations": [
+    {
+      "commit": "7902b5ae9ce16624854bf03895a241ad875450e1",
+      "event": "push",
+      "rate_limit_backoffs": 3,
+      "run_id": 40810958962,
+      "status": "success"
+    },
+    {
+      "commit": "7902b5ae9ce16624854bf03895a241ad875450e1",
+      "event": "pull_request",
+      "rate_limit_backoffs": 5,
+      "run_id": 40810973806,
+      "status": "success"
+    },
+    {
+      "commit": "1b2be37ddddad14a54af19b8ecae4bdaa654eac0",
+      "event": "pull_request",
+      "rate_limit_backoffs": 1,
+      "run_id": 40812362386,
+      "status": "success"
+    },
+    {
+      "commit": "bbd4651288ab501849c282174e143269cf562277",
+      "event": "push",
+      "rate_limit_backoffs": 6,
+      "run_id": 40812894924,
+      "status": "success"
+    }
+  ],
+  "prior_sequence_publication": {
+    "candidate_commit": "7902b5ae9ce16624854bf03895a241ad875450e1",
+    "candidate_tree": "6e406559f63dbda3770700faa67694f83ca39655",
+    "candidate_workflows": {
+      "CI": {
+        "event": "pull_request",
+        "run_id": 40810973806,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40810973769,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40810973802,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40810973855,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40810973766,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40810973794,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40810973760,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40810973786,
+        "status": "success"
+      }
+    },
+    "merge_commit": "3353d7762166e1c2e6669f0c128f647e7b59a80f",
+    "merge_tree": "6e406559f63dbda3770700faa67694f83ca39655",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40811776067,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40811776220,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40811776028,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40811776203,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40811776188,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40811776163,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40811776211,
+        "status": "success"
+      }
+    },
+    "pull_request": 3037
+  },
+  "publication": {
+    "candidate_commit": "1b2be37ddddad14a54af19b8ecae4bdaa654eac0",
+    "candidate_tree": "c451dc9cb21e84224a795929866c1d4321ec8f19",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40812362386,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40812362400,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40812362376,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40812362382,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40812362488,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40812362453,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40812362391,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40812369487,
+        "status": "success"
+      }
+    },
+    "merge_commit": "bbd4651288ab501849c282174e143269cf562277",
+    "merge_tree": "c451dc9cb21e84224a795929866c1d4321ec8f19",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40812894924,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40812894882,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40812894960,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40812894901,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40812894898,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40812894949,
+        "status": "success"
+      },
+      "Nightly Self Check": {
+        "run_id": 40812895035,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40812895016,
+        "status": "success"
+      }
+    },
+    "pull_request": 3038,
+    "superseded_check_runs": [
+      {
+        "reason": "This run began before PR title metadata was updated to match the new commit subject; exact-call acceptance passed, but the landing finalizer rejected the stale title. Subsequent exact-candidate run 40812369487 passed.",
+        "run_id": 40812362404,
+        "status": "failure",
+        "workflow": "Required Quality Gate"
+      }
+    ],
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "5e0895ecf835aa4c22c064ad3640630b9dd1ab6b",
+      "index_v3": "71038a6dfa22aaa79957042aa472f6d1c5e9fe98",
+      "latest_segment": "8989617df3759de2c01a0789e842a47f3d78daa8",
+      "latest_shard": "fc8c3e545ba99a61252a40fadb81842f55419341",
+      "roadmap_index": "e41d83105435dac9635edce39f5b55ab45002c16",
+      "storage_consent_evidence_map": "a0210b45ecccf35f360b3c840d6cdabd7be5f0e7",
+      "storage_memory_contract": "130cf493368b726a0c802c40f4afba4562ec6e13"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate sequence 959 PR #3037 and CI reliability PR #3038; verify post-merge main and append custody sequence 960",
+  "sequence": 960,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "bbd4651288ab501849c282174e143269cf562277",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "bbd4651288ab501849c282174e143269cf562277",
+    "verified_remote_main_tree": "c451dc9cb21e84224a795929866c1d4321ec8f19"
+  }
+}
