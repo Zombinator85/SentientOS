@@ -35,6 +35,7 @@ jobs:
           if [ "$PR_TITLE" != "$COMMIT_TITLE" ]; then
             printf 'PR title must match the candidate commit subject before hosted Quality Gate work\n' >&2
             exit 1
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'

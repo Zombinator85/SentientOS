@@ -1028,6 +1028,7 @@ def test_required_quality_gate_fails_fast_on_pr_title_mismatch() -> None:
     assert 'if [ "$PR_TITLE" != "$COMMIT_TITLE" ]; then' in early_guard
     assert "exit 1" in early_guard
     assert "PR title must match the candidate commit subject" in early_guard
+    assert early_guard.rstrip().endswith("fi")
     assert "sudo" not in early_guard
 
     checkout = workflow.index("- name: Check out exact candidate")
