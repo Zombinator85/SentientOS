@@ -1,0 +1,265 @@
+{
+  "ci_trigger_verification": {
+    "candidate_full_ci_invocations": 1,
+    "candidate_trigger": "pull_request",
+    "feature_branch_push_full_ci": "not_triggered",
+    "main_full_ci_invocations": 1,
+    "main_trigger": "push",
+    "note": "The CI workflow has one docs job with one make docs and one strict Sphinx linkcheck. The separate Docs Deploy workflow does not run a second linkcheck."
+  },
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 974,
+    "status": "construction_continuation_custody_ready"
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1117,
+      "git_blob_sha": "66c80d44e5acf313ecf736b19823e9bb585acbd2",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 974,
+      "sha256": "45f44cd73445ddc9c982884c84ff4c4d841bf76176d4e460170f02d7a27768fd"
+    },
+    "latest_segment": {
+      "bytes": 1294,
+      "git_blob_sha": "efe5a05362ad961bd092f1160098ce4e1b8b2310",
+      "path": "work/construction/segments/0974-integrate-pr-3053-main-verification.md",
+      "sequence": 974,
+      "sha256": "1f9ad1f96d0ccb52e3aaa349439a72b0e81677fc09f8edb0e2933ff714a24a99"
+    },
+    "latest_shard": {
+      "bytes": 1921,
+      "first_sequence": 974,
+      "git_blob_sha": "0d2f8ef0e7a4f02bf1a300fee5eb3ffdef781bf9",
+      "last_sequence": 974,
+      "path": "work/construction/shards-v3/000000100-000000974-000000974.json",
+      "sha256": "cee21438e5028ce30b6b62845d176e9354296388d3c1298be06784af6794cedd",
+      "shard_sequence": 100
+    },
+    "v3_head": {
+      "bytes": 2110,
+      "git_blob_sha": "29d902fa0525e9a23159d14a05a7796e22e3bd6e",
+      "path": "work/construction/index-v3.json",
+      "sha256": "39309a7d48238972e647910ec9cde0864997e3b378476fa3f8493a4cd1250414"
+    }
+  },
+  "linkcheck_observations": {
+    "candidate_pr_3054": {
+      "duration_seconds_approx": 155,
+      "job_id": 123320054589,
+      "rate_limit_backoffs": [
+        {
+          "at": "2026-10-29T07:30:06Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md"
+        },
+        {
+          "at": "2026-10-29T07:31:07Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+        }
+      ],
+      "run_id": 40835762671,
+      "status": "success"
+    },
+    "finding": "Across two consecutive PR/main pairs, strict checks passed while run duration and backoff count varied. Each full CI run contains one linkcheck; Docs Deploy is a separate HTML deployment. One-worker mode was previously slower and result caching would bypass live verification. No supported evidence-backed change presently reduces latency while preserving strict live checking.",
+    "main_after_pr_3054": {
+      "duration_seconds_approx": 144,
+      "job_id": 123321672059,
+      "rate_limit_backoffs": [
+        {
+          "at": "2026-10-29T07:34:37Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md"
+        },
+        {
+          "at": "2026-10-29T07:34:38Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md"
+        },
+        {
+          "at": "2026-10-29T07:34:38Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+        },
+        {
+          "at": "2026-10-29T07:35:38Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md"
+        },
+        {
+          "at": "2026-10-29T07:35:38Z",
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+        }
+      ],
+      "run_id": 40836272391,
+      "status": "success"
+    },
+    "prior_main_after_pr_3053": {
+      "duration_seconds_approx": 94,
+      "rate_limit_backoffs": 2,
+      "status": "success"
+    },
+    "prior_pr_3053": {
+      "duration_seconds_approx": 215,
+      "rate_limit_backoffs": 4,
+      "status": "success"
+    },
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "publication": {
+    "base_commit": "df06079987d951f80fc3bc4a6632c598e0851b80",
+    "candidate_commit": "b43622ade554286737a8b45b3bcb2393d7a7e968",
+    "candidate_jobs": {
+      "Required / Quality Gate": {
+        "job_id": 123320055037,
+        "status": "success"
+      },
+      "Source validation (unprivileged)": {
+        "job_id": 123320054965,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123320054589,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123320054956,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123320054946,
+        "status": "success"
+      }
+    },
+    "candidate_tree": "3c73182458d0e88a7f41369895e9d4094616eb4c",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40835762671,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40835762832,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40835762677,
+        "status": "success"
+      },
+      "First PR Welcome": {
+        "run_id": 40835762855,
+        "status": "skipped_by_condition"
+      },
+      "Gradient null regression": {
+        "run_id": 40835762761,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40835762641,
+        "status": "success"
+      },
+      "Invariant Tests push": {
+        "run_id": 40835750194,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40835762708,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40835762844,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40835762783,
+        "status": "success"
+      }
+    },
+    "merge_commit": "2fae07cc5d313e847e3b254cb7d2b1b8c34b6481",
+    "merge_tree": "3c73182458d0e88a7f41369895e9d4094616eb4c",
+    "post_merge_jobs": {
+      "CI": {
+        "Source validation (unprivileged)": {
+          "job_id": 123321671971,
+          "status": "success"
+        },
+        "docs": {
+          "job_id": 123321672059,
+          "status": "success"
+        },
+        "helm-k8s-test": {
+          "job_id": 123321671702,
+          "status": "success"
+        },
+        "self-check": {
+          "job_id": 123321672010,
+          "status": "success"
+        }
+      },
+      "Codex CI": {
+        "job_id": 123321671055,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123321671033,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "build_job_id": 123321670976,
+        "deploy_job_id": 123321820239,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "job_id": 123321671360,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123321671202,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40836272391,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40836272228,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40836272205,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40836272249,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40836272307,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40836272348,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40836272232,
+        "status": "success"
+      }
+    },
+    "pull_request": 3054,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "66c80d44e5acf313ecf736b19823e9bb585acbd2",
+      "index_v3": "29d902fa0525e9a23159d14a05a7796e22e3bd6e",
+      "latest_evidence": "e3c925890e41070a6d502f88ded3c6faf5b4ae3c",
+      "latest_segment": "efe5a05362ad961bd092f1160098ce4e1b8b2310",
+      "latest_shard": "0d2f8ef0e7a4f02bf1a300fee5eb3ffdef781bf9"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate sequence 974 through PR #3054, verify post-merge main, and continue evidence-based strict-linkcheck latency investigation",
+  "sequence": 975,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "2fae07cc5d313e847e3b254cb7d2b1b8c34b6481",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "2fae07cc5d313e847e3b254cb7d2b1b8c34b6481",
+    "verified_remote_main_tree": "3c73182458d0e88a7f41369895e9d4094616eb4c"
+  }
+}
