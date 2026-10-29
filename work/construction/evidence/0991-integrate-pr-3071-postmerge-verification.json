@@ -1,0 +1,182 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 991,
+  "scope": "integrate PR #3071 post-merge verification and preserve hosted candidate-gate correction evidence",
+  "source": {
+    "verified_remote_main": "19aee941833afa652e4f89febff5b948b09bae2d",
+    "verified_remote_main_tree": "8785e700982a35b135e210059269d287ba9fcd08",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "19aee941833afa652e4f89febff5b948b09bae2d",
+      "verification": "git ls-remote with explicit execution network permission and GitHub commit workflow readback"
+    },
+    "local_branch": "construction/seq991-postmerge",
+    "local_head": "19aee941833afa652e4f89febff5b948b09bae2d",
+    "local_tree": "8785e700982a35b135e210059269d287ba9fcd08",
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": []
+  },
+  "custody": {
+    "status_before_append": "construction_continuation_custody_ready",
+    "segments_verified_before_append": 990,
+    "failures": [],
+    "predecessor_segment_sha256": "08bc48d1eef1c51ee3326b5413d01ac92abe6e631f34937b56286ced269b1755",
+    "predecessor_checkpoint": {
+      "sequence": 990,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1126,
+      "sha256": "a55d565eb007593d5cf399a554a98d2e33a2eacac07aac086dede2cb5d106255",
+      "git_blob_sha": "5e60b277cf011580f9c2584b55ae95187a6da591"
+    },
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "28f9ee51b69883703b7ac2f7f852b39718402536",
+    "v3_shard_count_before_append": 116
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3071,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3071",
+    "candidate_commit": "add24b2e0d41f96498e280d7a0a76f13edf3e4a4",
+    "candidate_tree": "8785e700982a35b135e210059269d287ba9fcd08",
+    "base_commit": "a1dcf06a0cef17b2115caeeb17389bdf54cee0f6",
+    "base_tree": "326f739deec12291d1f73a74ff9342b1c0699901",
+    "merge_method": "squash",
+    "merge_commit": "19aee941833afa652e4f89febff5b948b09bae2d",
+    "merge_tree": "8785e700982a35b135e210059269d287ba9fcd08",
+    "pull_request_workflows": {
+      "CI": {
+        "run_id": 40869983738,
+        "status": "success",
+        "docs_job_id": 123434258475,
+        "source_validation_job_id": 123434258341,
+        "self_check_job_id": 123434257706,
+        "helm_job_id": 123434258038
+      },
+      "Codex CI": {
+        "run_id": 40869983804,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40869983715,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40869983853,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40869983759,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40869983896,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40869983742,
+        "status": "success",
+        "publish": "skipped"
+      },
+      "Required Quality Gate after metadata correction": {
+        "run_id": 40869983697,
+        "status": "success"
+      },
+      "Required Quality Gate after PR description refresh": {
+        "run_id": 40870099950,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40870693895,
+        "status": "success",
+        "docs_job_id": 123436663774,
+        "source_validation_job_id": 123436663894,
+        "self_check_job_id": 123436664250,
+        "helm_job_id": 123436663573
+      },
+      "Codex CI": {
+        "run_id": 40870693925,
+        "status": "success",
+        "job_id": 123436662649
+      },
+      "Docker Image": {
+        "run_id": 40870693743,
+        "status": "success",
+        "job_id": 123436662101
+      },
+      "Docs Deploy": {
+        "run_id": 40870693870,
+        "status": "success",
+        "build_job_id": 123436662776,
+        "deploy_job_id": 123436873468
+      },
+      "Invariant Tests": {
+        "run_id": 40870693770,
+        "status": "success",
+        "job_id": 123436662261
+      },
+      "Required Quality Gate": {
+        "run_id": 40870693939,
+        "status": "success",
+        "job_id": 123436663183
+      },
+      "Forge Smoke": {
+        "run_id": 40870693920,
+        "status": "skipped_by_condition",
+        "job_id": 123436713167
+      }
+    },
+    "post_merge_ci_jobs": {
+      "docs": {
+        "job_id": 123436663774,
+        "status": "success"
+      },
+      "Source validation (unprivileged)": {
+        "job_id": 123436663894,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123436663573,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123436664250,
+        "status": "success"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "5e60b277cf011580f9c2584b55ae95187a6da591",
+      "index_v3": "28f9ee51b69883703b7ac2f7f852b39718402536",
+      "evidence_0990": "bfaf2d57aa9890a088b54a30604ad048c3b53ab6",
+      "segment_0990": "81aefd25452e2aae45f150f4b22cdcefcdb66be3",
+      "shard_v3_0116": "d1aa2e46f718c253bc7b7210ac5d24c31a30778a"
+    }
+  },
+  "hosted_metadata_correction": {
+    "initial_quality_gate": {
+      "run_id": 40868814488,
+      "candidate_commit": "fe8e64d01361ad9f3c948a678ff17532adc234a5",
+      "status": "failure",
+      "phase": "preflight",
+      "exact_cause": "PR title did not match the exact candidate commit subject; acceptance execution was not reached"
+    },
+    "correction": "Updated PR title to match its intended commit subject and advanced the same PR branch with a follow-up commit; retained both commits in branch history.",
+    "corrected_quality_gate_runs": [
+      40869983697,
+      40870099950
+    ],
+    "corrected_quality_gate_status": "success"
+  },
+  "candidate_integrity": {
+    "candidate_tree": "8785e700982a35b135e210059269d287ba9fcd08",
+    "expected_head": "a1dcf06a0cef17b2115caeeb17389bdf54cee0f6",
+    "source_preflight": "candidate_integrity_ready_for_ref_update",
+    "failures": [],
+    "remote_candidate_blob_readbacks": "all five candidate blobs matched local bytes before tree and branch update"
+  },
+  "verification_scope": {
+    "repository_test_suite_rerun": false,
+    "reason": "custody-only post-merge evidence increment; exact candidate and post-merge hosted gates passed"
+  }
+}
