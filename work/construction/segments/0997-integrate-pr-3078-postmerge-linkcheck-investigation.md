@@ -1,0 +1,7 @@
+# Sequence 997: integrate PR #3078 and complete linkcheck investigation
+
+PR #3078 merged as `e8e7506329edfa440bdbd96bb968c499ac077bcd` with tree `21b98b04705def1c3ef842721a231870a6707c58`. Its exact candidate passed Required Quality Gate, CI, Docker, Codex CI, Lint Benchmark, Gradient null regression, Invariant Tests, and Release. All post-merge workflows passed; Forge Smoke was skipped by condition. Authenticated `git ls-remote`, GitHub ref/commit/tree readback, and the clean-checkout construction source preflight agreed on the same main commit and tree. The repository custody verifier validated all 996 predecessor sequences with no failures.
+
+The strict Sphinx linkcheck investigation now has direct current-run evidence. The PR candidate docs job logged five Sphinx rate-limit sleeps between 14:12 and 14:16 UTC; each request retried and the docs job passed. The post-merge docs job logged two more sleeps at 14:19 UTC and also passed. Earlier candidate and post-merge runs reproduced the same behavior, while the two-worker trial was slower. The workflow runs one check per distinct source tree, so the PR and post-merge runs are not duplicate validation. No evidence-backed change preserves fresh full link coverage while avoiding the waits; the strict command, warning handling, and cadence remain unchanged.
+
+The separate `requirements.lock` versus pinned mypy runtime dependency mismatch remains a bounded follow-up. No dependency or CI files changed in this sequence.
