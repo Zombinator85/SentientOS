@@ -9,23 +9,23 @@
     "latest_sequence": 867,
     "latest_segment_sha256": "d89bceebb6176ca2c6622ace37acbc22c86dd8e02204ee34d09a6b5a512eb850"
   },
-  "latest_sequence": 973,
-  "latest_segment_sha256": "a1520daab128f2a83dd7e78c7ad1204877d64d9d99deea11d8806cee62772b31",
-  "shard_count": 99,
+  "latest_sequence": 974,
+  "latest_segment_sha256": "1f9ad1f96d0ccb52e3aaa349439a72b0e81677fc09f8edb0e2933ff714a24a99",
+  "shard_count": 100,
   "latest_shard": {
-    "path": "work/construction/shards-v3/000000099-000000973-000000973.json",
-    "bytes": 1919,
-    "sha256": "f8534d2020a98e218ee6731101837e28b479007bf255dc02ba52dece947b2775",
-    "git_blob_sha": "4fb1d2a5f9e4b019332d827dd79a4bbf4304a804",
-    "shard_sequence": 99,
-    "first_sequence": 973,
-    "last_sequence": 973
+    "path": "work/construction/shards-v3/000000100-000000974-000000974.json",
+    "bytes": 1921,
+    "sha256": "cee21438e5028ce30b6b62845d176e9354296388d3c1298be06784af6794cedd",
+    "git_blob_sha": "0d2f8ef0e7a4f02bf1a300fee5eb3ffdef781bf9",
+    "shard_sequence": 100,
+    "first_sequence": 974,
+    "last_sequence": 974
   },
   "active_checkpoint": "work/construction/active_checkpoint_v3.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "d1ca0119bce861f955e6eb3fef47a5dcc7174c69f38e62612419cd04400659e2",
-    "latest_segment_sequence": 973,
-    "latest_segment_sha256": "a1520daab128f2a83dd7e78c7ad1204877d64d9d99deea11d8806cee62772b31",
+    "checkpoint_sha256": "45f44cd73445ddc9c982884c84ff4c4d841bf76176d4e460170f02d7a27768fd",
+    "latest_segment_sequence": 974,
+    "latest_segment_sha256": "1f9ad1f96d0ccb52e3aaa349439a72b0e81677fc09f8edb0e2933ff714a24a99",
     "source_commit": "1eff1c957da566652011112f6118bd1dc135f01e",
     "source_tree": "3295e0565ea0a8a33902640e77fc719552b21197"
   },
@@ -41,11 +41,11 @@
       "source_tree": "f59e273a5fdc12330bb9162fa1e4d6cc132c7b8f"
     },
     "latest": {
-      "sequence": 973,
+      "sequence": 974,
       "path": "work/construction/active_checkpoint_v3.md",
       "bytes": 1117,
-      "sha256": "d1ca0119bce861f955e6eb3fef47a5dcc7174c69f38e62612419cd04400659e2",
-      "git_blob_sha": "2bd50f01fedd63421d8a011115a84b8f67e95eba"
+      "sha256": "45f44cd73445ddc9c982884c84ff4c4d841bf76176d4e460170f02d7a27768fd",
+      "git_blob_sha": "66c80d44e5acf313ecf736b19823e9bb585acbd2"
     }
   }
 }
