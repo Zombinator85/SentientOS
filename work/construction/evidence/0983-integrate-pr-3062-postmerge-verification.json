@@ -1,0 +1,185 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 983,
+  "scope": "integrate PR #3062 post-merge verification and establish a measured strict linkcheck worker-concurrency trial",
+  "source": {
+    "verified_remote_main": "f620c3a8baab42198441fdb38336857b13fbdefa",
+    "verified_remote_main_tree": "7d7c48536001323eeae222d0d6f18ae5daa92739",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "f620c3a8baab42198441fdb38336857b13fbdefa",
+      "verification": "GitHub commit/ref readback and git ls-remote with explicit execution network permission"
+    },
+    "local_branch": "construction/seq983-pr-3062-postmerge",
+    "local_head": "f620c3a8baab42198441fdb38336857b13fbdefa",
+    "local_tree": "7d7c48536001323eeae222d0d6f18ae5daa92739",
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": []
+  },
+  "custody": {
+    "status_before_append": "construction_continuation_custody_ready",
+    "segments_verified_before_append": 982,
+    "failures": [],
+    "predecessor_segment_sha256": "2420faa0dc3d310da798a70cd59883962c792cc48792a8d13382553f81e3b46e",
+    "predecessor_checkpoint": {
+      "sequence": 982,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "ca6782fa1ac0082df493951647fedb222d14a0b9cdec3d2cbc0a9efbeedb3261",
+      "git_blob_sha": "05c6161e6490de1d8ceeef994e550360075ee1fd"
+    },
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "54aeaa79b20c2e46ad3e6f0ce9879c64ae36136c",
+    "v3_shard_count_before_append": 108
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3062,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3062",
+    "candidate_commit": "7b41dc731900b2d849c4a9164b3657d15879767a",
+    "candidate_tree": "7d7c48536001323eeae222d0d6f18ae5daa92739",
+    "base_commit": "22ffef76e3075b90f98ba7a3bc65115554f4fc7a",
+    "base_tree": "108b1d05b5b69726b4296c9b1b93becdc2f3e7c6",
+    "merge_method": "squash",
+    "merge_commit": "f620c3a8baab42198441fdb38336857b13fbdefa",
+    "merge_tree": "7d7c48536001323eeae222d0d6f18ae5daa92739",
+    "pull_request_workflows": {
+      "CI": {
+        "run_id": 40851864455,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40851864437,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40851864381,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40851864384,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40851864421,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40851864512,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40851864664,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40851864416,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40852530570,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40852530502,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40852530509,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40852530523,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40852530755,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40852530569,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40852530537,
+        "status": "skipped_by_condition"
+      }
+    },
+    "post_merge_ci_jobs": {
+      "docs": {
+        "job_id": 123375305487,
+        "status": "success"
+      },
+      "Source validation (unprivileged)": {
+        "job_id": 123375305632,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123375305658,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123375305721,
+        "status": "success"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "05c6161e6490de1d8ceeef994e550360075ee1fd"
+    }
+  },
+  "linkcheck_observations": {
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "sphinx_version": "8.2.3",
+    "official_configuration": {
+      "linkcheck_workers_default": 5,
+      "linkcheck_retries_default": 1,
+      "linkcheck_rate_limit_timeout_default_seconds": 300,
+      "rate_limit_behavior": "Sphinx honors Retry-After; absent that header it waits 60 seconds then doubles wait times until success or the configured 300-second maximum.",
+      "reference": "https://github.com/sphinx-doc/sphinx/blob/v8.2.3/doc/usage/configuration.rst",
+      "repository_conf_override": "none"
+    },
+    "candidate_pr_3062": {
+      "run_id": 40851864455,
+      "job_id": 123373064313,
+      "command_started_at": "2026-10-29T09:43:43Z",
+      "linkcheck_build_started_at": "2026-10-29T09:43:43Z",
+      "completed_at": "2026-10-29T09:44:52Z",
+      "duration_seconds_approx": 69,
+      "rate_limit_backoff_messages": 1,
+      "rate_limited_urls": [
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3062": {
+      "run_id": 40852530570,
+      "job_id": 123375305487,
+      "command_started_at": "2026-10-29T09:48:58Z",
+      "linkcheck_build_started_at": "2026-10-29T09:48:59Z",
+      "completed_at": "2026-10-29T09:53:13Z",
+      "duration_seconds_approx": 254,
+      "rate_limit_backoff_messages": 5,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+        "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+      ],
+      "status": "success"
+    },
+    "finding": "The required strict live linkcheck passes on both PR and main. The PR run took about 69 seconds with one rate-limit wait; the main run took about 254 seconds with five, including repeated waits for an existing Microsoft GitHub link. CI performs one strict linkcheck per PR or main event; Docs Deploy is a separate HTML build. Caching, URL exclusions, fewer retries, or relaxed failure handling would weaken current acceptance. One worker was previously slower. The variability and Sphinx default-five-worker configuration justify a controlled two-worker trial while retaining all URLs, default retries/Retry-After, and strict warnings-as-errors.",
+    "next_experiment": {
+      "setting": "linkcheck_workers = 2 in docs/conf.py",
+      "measurement": "Compare strict candidate and main check duration and rate-limit waits against recent default-five-worker runs.",
+      "preserve": [
+        "all URLs",
+        "sphinx-build -b linkcheck -W",
+        "default retry count",
+        "Retry-After handling",
+        "strict failure semantics"
+      ],
+      "retention_rule": "Keep the setting only if exact-candidate hosted acceptance passes and measured latency improves without reduced URL coverage."
+    }
+  }
+}
