@@ -1,0 +1,237 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 988,
+  "scope": "integrate PR #3067 post-merge verification and bind linkcheck experiment evidence",
+  "source": {
+    "verified_remote_main": "611f57b8c0069963e48b821c74b33a5f610b7f82",
+    "verified_remote_main_tree": "217805d6c11cbf6190b89d986d0fdea9f3c6468c",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "611f57b8c0069963e48b821c74b33a5f610b7f82",
+      "verification": "GitHub commit/tree readback and git ls-remote with explicit execution network permission"
+    },
+    "local_branch": "construction/seq988-pr3067-postmerge",
+    "local_head": "611f57b8c0069963e48b821c74b33a5f610b7f82",
+    "local_tree": "217805d6c11cbf6190b89d986d0fdea9f3c6468c",
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": []
+  },
+  "custody": {
+    "status_before_append": "construction_continuation_custody_ready",
+    "segments_verified_before_append": 987,
+    "failures": [],
+    "predecessor_segment_sha256": "99a00a9dd8c9566e6e9cf173daa71fcbfe3dfd2258016f6a69dd05d5e18cecf8",
+    "predecessor_checkpoint": {
+      "sequence": 987,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "ef4a82525c8867e7baba6523432b8b5896653f8c3f116a0d204422e403866d55",
+      "git_blob_sha": "4a118ce832a2d34db3b13f1e4596a4f9f84f644f"
+    },
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "efa5619b8265d6f31439f2a2adcc0ef1bd4e096d",
+    "v3_shard_count_before_append": 113
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3067,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3067",
+    "candidate_commit": "e03fa98cd9e20a5985cba26fd03bce4e9d9424bd",
+    "candidate_tree": "217805d6c11cbf6190b89d986d0fdea9f3c6468c",
+    "base_commit": "d3057c36d62132ef06e3fb00a8c0cf32a195fbbd",
+    "base_tree": "2f0f1e1fe5622478e046e8e773849895150d21a3",
+    "merge_method": "squash",
+    "merge_commit": "611f57b8c0069963e48b821c74b33a5f610b7f82",
+    "merge_tree": "217805d6c11cbf6190b89d986d0fdea9f3c6468c",
+    "pull_request_workflows": {
+      "CI": {
+        "run_id": 40861887271,
+        "status": "success",
+        "docs_job_id": 123406944361
+      },
+      "Codex CI": {
+        "run_id": 40861887190,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40861887316,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40861887215,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40861887255,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40861887205,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40861887264,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40861887184,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40862422291,
+        "status": "success",
+        "docs_job_id": 123408706658
+      },
+      "Codex CI": {
+        "run_id": 40862422227,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40862422312,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40862422429,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40862422294,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40862422268,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40862422201,
+        "status": "skipped_by_condition"
+      }
+    },
+    "post_merge_ci_jobs": {
+      "docs": {
+        "job_id": 123408706658,
+        "status": "success"
+      },
+      "Source validation (unprivileged)": {
+        "job_id": 123408706950,
+        "status": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123408706348,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123408706771,
+        "status": "success"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "4a118ce832a2d34db3b13f1e4596a4f9f84f644f",
+      "index_v3": "efa5619b8265d6f31439f2a2adcc0ef1bd4e096d"
+    }
+  },
+  "linkcheck_observations": {
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "sphinx_version": "8.2.3",
+    "official_configuration": {
+      "linkcheck_workers_default": 5,
+      "linkcheck_retries_default": 1,
+      "linkcheck_rate_limit_timeout_default_seconds": 300,
+      "rate_limit_behavior": "Sphinx honors Retry-After; absent that header it waits 60 seconds then doubles wait times until success or the configured 300-second maximum.",
+      "reference": "https://github.com/sphinx-doc/sphinx/blob/v8.2.3/doc/usage/configuration.rst",
+      "repository_conf_override": "none"
+    },
+    "candidate_pr_3065": {
+      "run_id": 40857975935,
+      "job_id": 123393696571,
+      "command_started_at": "2026-10-29T10:29:53Z",
+      "completed_at": "2026-10-29T10:33:06Z",
+      "duration_seconds_approx": 193,
+      "rate_limit_backoff_messages": 4,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3065": {
+      "run_id": 40858675976,
+      "job_id": 123396032011,
+      "command_started_at": "2026-10-29T10:35:06Z",
+      "completed_at": "2026-10-29T10:38:17Z",
+      "duration_seconds_approx": 191,
+      "rate_limit_backoff_messages": 3,
+      "rate_limited_urls": [
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md"
+      ],
+      "status": "success"
+    },
+    "finding": "The default-five-worker strict checks for PR #3067 and exact main took about 74 and 73 seconds. The PR emitted two rate-limit waits and main emitted one. Both passed with unchanged strict behavior. This pair shows the 120-second latency target can be met without a worker change, while rate-limit wait frequency still varies. The earlier PR #3066/main pair was about 133/254 seconds with four/three waits. This variance is consistent with an external service or concurrency effect but does not isolate worker count.",
+    "next_experiment": {
+      "setting": "linkcheck_workers = 2 in docs/conf.py",
+      "measurement": "Run the unchanged strict PR-candidate and exact-main linkchecks; measure elapsed time and rate-limit waits from hosted logs.",
+      "preserve": [
+        "all URLs",
+        "sphinx-build -b linkcheck -W",
+        "default retry count",
+        "Retry-After handling",
+        "strict failure semantics"
+      ],
+      "retention_rule": "Retain only if both exact-candidate PR and exact-main strict checks complete within 120 seconds and have at most one rate-limit wait each. Do not merge a PR result outside the threshold; if only main misses after merge, revert the setting through a normal PR."
+    },
+    "candidate_pr_3066": {
+      "run_id": 40859727683,
+      "job_id": 123399603367,
+      "command_started_at": "2026-10-29T10:43:15.6424558Z",
+      "completed_at": "2026-10-29T10:45:29.0482670Z",
+      "duration_seconds_approx": 133,
+      "rate_limit_backoff_messages": 4,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3066": {
+      "run_id": 40860421857,
+      "job_id": 123401943021,
+      "command_started_at": "2026-10-29T10:48:33.1725136Z",
+      "completed_at": "2026-10-29T10:52:46.9477092Z",
+      "duration_seconds_approx": 254,
+      "rate_limit_backoff_messages": 3,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+      ],
+      "status": "success"
+    },
+    "candidate_pr_3067": {
+      "run_id": 40861887271,
+      "job_id": 123406944361,
+      "command_started_at": "2026-10-29T11:00:13.3412904Z",
+      "completed_at": "2026-10-29T11:01:27.6045994Z",
+      "duration_seconds_approx": 74,
+      "rate_limit_backoff_messages": 2,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md"
+      ],
+      "status": "success"
+    },
+    "main_after_pr_3067": {
+      "run_id": 40862422291,
+      "job_id": 123408706658,
+      "command_started_at": "2026-10-29T11:04:03.6989878Z",
+      "completed_at": "2026-10-29T11:05:16.1344544Z",
+      "duration_seconds_approx": 73,
+      "rate_limit_backoff_messages": 1,
+      "rate_limited_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md"
+      ],
+      "status": "success"
+    }
+  }
+}
