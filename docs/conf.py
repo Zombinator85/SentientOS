@@ -15,6 +15,9 @@ extensions = [
 
 html_theme = 'sphinxawesome_theme'
 
+# Serialize external checks to avoid concurrent GitHub rate-limit retry waves.
+linkcheck_workers = 1
+
 source_suffix = {
     '.rst': 'restructuredtext',
     '.md': 'markdown',
