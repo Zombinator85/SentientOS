@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 96,
+  "first_sequence": 970,
+  "last_sequence": 970,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000095-000000969-000000969.json",
+    "bytes": 1920,
+    "sha256": "a0c02b4e6d16dae7efbfeb18f9fec6bdb68cf07aadeb1de7e9df8675d6eb6219",
+    "git_blob_sha": "5f297c2248d1bb15877ebb754ac177fbcf313f49",
+    "shard_sequence": 95,
+    "first_sequence": 969,
+    "last_sequence": 969
+  },
+  "segments": [
+    {
+      "sequence": 970,
+      "path": "work/construction/segments/0970-merge-pr-3049-and-repair-recovery-test-race.md",
+      "bytes": 1149,
+      "sha256": "8851a1c59f925d2c0e7ff498e7b2a74078209fdd7a8ebccf18b82c29533553d5",
+      "predecessor": "segment-sha256:a6071d7412fbc6b0b117525b9b7785a5109ea51ff9220dc68d63217f415b54d3",
+      "source_commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+      "source_tree": "e594758952aa62a6d616ca6b18d5e2f781fed114",
+      "evidence_path": "work/construction/evidence/0970-merge-pr-3049-and-repair-recovery-test-race.json",
+      "evidence_sha256": "c988b4d191aeeec55cbb670ebb5a7301a366a203da8c6958bc96d60b1f8fea35",
+      "evidence_bytes": 3431
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 969,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1117,
+      "sha256": "959e961f31912e2f14c934ee8057b43ec95cbf64e0790a7c3095373e4f3b46a5",
+      "git_blob_sha": "290c12da7c386ca9c38a04f9e98540ebf5c42181",
+      "source_commit": "44c54fd19375a799f4a90742a63c8d81c3f682a7",
+      "source_tree": "e594758952aa62a6d616ca6b18d5e2f781fed114"
+    },
+    "current": {
+      "sequence": 970,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1125,
+      "sha256": "c23aad38195650495c10fd2e9f42747a0911317893b55f3a328473dfac7daaad",
+      "git_blob_sha": "dcb37872df17fe264f1f4316927c0984e419895e"
+    }
+  }
+}
