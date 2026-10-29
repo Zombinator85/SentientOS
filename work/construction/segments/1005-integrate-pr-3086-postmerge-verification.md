@@ -1,0 +1,5 @@
+# Sequence 1005: integrate PR #3086 post-merge verification
+
+PR #3086 merged through GitHub's normal merge route as `fcf9842e77b4bf8e9b509843d4fb42a056ffbebc`, retaining candidate tree `25715d31ca272f8186b35271d7f4469795ec54e0`. The remote `refs/heads/main` readback matched that commit and tree. The exact candidate passed all eight PR workflows, including Required Quality Gate, CI, and strict documentation linkcheck. Hosted acceptance reached `task_acceptance_ready`; the real Administrator audit, documentation bootstrap, exact hosted pre-commit finalizer, and metadata guard succeeded.
+
+All eight post-merge workflows completed successfully or were conditionally skipped: Required Quality Gate, CI, Codex CI, Docker Image, Invariant Tests, Docs Deploy, and Nightly Self Check succeeded; Forge Smoke was skipped by condition. Post-merge CI completed its full source validation, self-check, Helm/Kubernetes test, documentation build, and `sphinx-build -b linkcheck -W docs docs/_build/linkcheck`. The sequence 1004 predecessor checkpoint and full v3 construction custody remain preserved. Exact run, job, artifact, and checkpoint identities are in the evidence record.
