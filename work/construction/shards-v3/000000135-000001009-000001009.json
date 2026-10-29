@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 135,
+  "first_sequence": 1009,
+  "last_sequence": 1009,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000134-000001008-000001008.json",
+    "bytes": 1938,
+    "sha256": "4a19d55aec0c12856cc1f454c7a35b6f9ff9541d75d95989416beb45136f3283",
+    "git_blob_sha": "5da2d6914649667a4719dceec98049e39e13a23f",
+    "shard_sequence": 134,
+    "first_sequence": 1008,
+    "last_sequence": 1008
+  },
+  "segments": [
+    {
+      "sequence": 1009,
+      "path": "work/construction/segments/1009-integrate-pr-3090-and-scope-finalizer-environment-classification.md",
+      "bytes": 1090,
+      "sha256": "4a7047a5ae7af69858f057e48e9d728fddf038f7bd48c819a066b09ffe72a337",
+      "predecessor": "segment-sha256:4a0b982714bf3a11be42f4a9f9b2f3951a7088677efc8d42aefe1873167c7ec8",
+      "source_commit": "83cc4e061f87f2ae0636931763dba48e2343e8d6",
+      "source_tree": "f7a671bf5fb0aa8ed3c8298991ddc531a9bd5f61",
+      "evidence_path": "work/construction/evidence/1009-integrate-pr-3090-and-scope-finalizer-environment-classification.json",
+      "evidence_sha256": "8e79339967081f842ab9460598a620512b370bc0074a9b7762946299099ad3ed",
+      "evidence_bytes": 5484
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 1008,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1125,
+      "sha256": "9ef5a6a681244107fdd3bb04552ba016aa3f478b1f4f2cdbb23707a919ab6dd1",
+      "git_blob_sha": "1de2af204c67a2c84e5f7b5b8671bb098f35f790",
+      "source_commit": "83cc4e061f87f2ae0636931763dba48e2343e8d6",
+      "source_tree": "f7a671bf5fb0aa8ed3c8298991ddc531a9bd5f61"
+    },
+    "current": {
+      "sequence": 1009,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1149,
+      "sha256": "70a4391c7577e097951114dcce509276c16aa938875061fc6d4f06636bc92822",
+      "git_blob_sha": "029ab7c12ca7162077416a4e53f61545907c83c9"
+    }
+  }
+}

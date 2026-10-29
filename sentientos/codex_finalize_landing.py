@@ -11,7 +11,7 @@ VALIDATION_PROFILES = {"solo", "exhaustive"}
 def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
     """Name known runtime preconditions without treating their failure as success."""
     output = result.output_tail
-    if "Access denied: run as Administrator" in output:
+    if result.stage == "strict_audits" and "Access denied: run as Administrator" in output:
         return f"environment_precondition_unavailable:{result.stage}:administrator_required"
     if result.stage == "mypy_baseline" and "mypy_baseline_toolchain_mismatch" in output:
         return "environment_precondition_unavailable:mypy_baseline:pinned_toolchain_missing_or_mismatched"

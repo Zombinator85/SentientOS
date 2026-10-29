@@ -61,6 +61,21 @@ def test_administrator_precondition_blocks_as_environment_without_weakening_audi
     assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
 
 
+def test_administrator_message_in_task_stage_remains_task_failure() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    failed_test = CodexFinalizeLandingCommandResult(
+        "focused_tests",
+        "python -m scripts.run_tests",
+        1,
+        "Access denied: run as Administrator to reach protected memory and policy state.",
+    )
+
+    res = evaluate_finalize_landing(req, (failed_test,), ())
+
+    assert res.decision.status == "repair_required_task_caused"
+    assert res.decision.reasons == ("stage_failed:focused_tests",)
+
+
 def test_missing_pinned_mypy_toolchain_is_an_environment_blocker() -> None:
     req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
     mypy = CodexFinalizeLandingCommandResult(
