@@ -13,7 +13,7 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 - `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
 - `stale_evidence_refresh_failed` when an allowed bounded refresh fails or times out.
 - `generated_artifact_cleanup_incomplete` when cleanup was allowed but generated artifacts remain after the cleanup/refresh decision point.
-- `environment_blocked` when required verification failures are explained by known host preconditions, including the Administrator identity for strict audits or dependency bootstrap, the pinned mypy toolchain, required docs or audit dependencies, or adequate temporary storage. The stage remains failed and readiness is denied; this status does not waive or satisfy the check. If a task-caused failure is also present, the finalizer keeps `repair_required_task_caused` so the environment status cannot mask it.
+- `environment_blocked` when required verification failures are explained by known host preconditions, including the Administrator identity for the `strict_audits` stage, the pinned mypy toolchain, required docs or audit dependencies, or adequate temporary storage. Administrator denial output from any other stage remains a task failure. The stage remains failed and readiness is denied; this status does not waive or satisfy the check. If a task-caused failure is also present, the finalizer keeps `repair_required_task_caused` so the environment status cannot mask it.
 
 ## Dirty-tree classes
 - `intended_task_change`

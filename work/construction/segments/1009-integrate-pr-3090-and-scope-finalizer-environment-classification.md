@@ -1,0 +1,5 @@
+# Sequence 1009: integrate PR #3090 and scope finalizer environment classification
+
+PR #3090 merged as `83cc4e061f87f2ae0636931763dba48e2343e8d6`, retaining the exact candidate tree. All eight candidate workflows passed. Post-merge Required Quality Gate, CI, Codex CI, Docker Image, Invariant Tests, and Docs Deploy passed; Forge Smoke was conditionally skipped. CI completed the full test, source-validation, Helm/Kubernetes, documentation-build, and strict Sphinx linkcheck jobs.
+
+A review of the sequence 1004 finalizer change found that Administrator-denial output was recognized as environment-only regardless of which required stage emitted it. The stage inventory shows the Administrator precondition belongs to `strict_audits`; the classifier now requires that exact stage. A regression test proves the same message in `focused_tests` remains a task-caused failure. The 52 finalizer/index/custody tests pass, targeted mypy passes, and the docs build generated five pages. Lock and diff checks pass. Failed-stage reporting remains intact and the classifier does not grant readiness.
