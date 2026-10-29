@@ -169,13 +169,13 @@
       ],
       "status": "success"
     },
-    "finding": "The two-worker candidate preserved the strict linkcheck and succeeded, but took about 254 seconds with five rate-limit waits, missing the predeclared 120-second/one-wait threshold. The candidate Required Quality Gate also failed its exact-node preflight. PR #3070 was closed unmerged; no worker override reached main and no exact-main two-worker check was run. These observations do not demonstrate a reliable improvement; the config patch remains preserved in the local worktree stash and closed PR branch.",
+    "finding": "The two-worker candidate preserved the strict linkcheck and succeeded, but took about 254 seconds with five rate-limit waits, missing the predeclared 120-second/one-wait threshold. The candidate Required Quality Gate stopped at the PR-title/commit-subject metadata preflight; exact-node acceptance was not reached. PR #3070 was closed unmerged; no worker override reached main and no exact-main two-worker check was run. These observations do not demonstrate a reliable improvement; the config patch remains preserved in the local worktree stash and closed PR branch.",
     "next_experiment": {
       "disposition": "Do not retain linkcheck_workers = 2. Keep default strict verification unchanged. No workflow trigger or cache change was justified by current evidence.",
       "reasoning": [
         "PR and main workflow triggers validate distinct candidate and landed source refs; no duplicate invocation was found.",
         "Caching or reducing the frequency of external link checks would risk stale links or delayed failures and is not supported by this evidence.",
-        "The two-worker trial failed its explicit latency and wait-count retention rule and its Quality Gate did not pass."
+        "The two-worker trial failed its explicit latency and wait-count retention rule; its Quality Gate stopped at the metadata preflight because the PR title did not match the commit subject."
       ]
     },
     "candidate_pr_3066": {
@@ -300,7 +300,7 @@
       "failing_step": "Reconstruct and verify exact hosted pre-commit state",
       "phase": "preflight",
       "exit_code": 1,
-      "exact_failure": "hosted candidate acceptance must contain the exact 49 required nodes"
+      "exact_failure": "hosted Required Quality Gate metadata preflight rejected the PR title because it did not exactly match the candidate commit subject; the 49-node acceptance phase was not reached"
     }
   }
 }

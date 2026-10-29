@@ -17,12 +17,12 @@
     {
       "sequence": 990,
       "path": "work/construction/segments/0990-integrate-pr-3069-and-record-linkcheck-trial.md",
-      "bytes": 2042,
-      "sha256": "55284085d96ee4a2f165c225b56a8329f0162a1b31ab339c2fa45ab57c42ed22",
+      "bytes": 2030,
+      "sha256": "08bc48d1eef1c51ee3326b5413d01ac92abe6e631f34937b56286ced269b1755",
       "predecessor": "segment-sha256:d2751b28e0a065c4cf019fe36fd8c88d68d0625c62c73d742ec003460932a708",
       "evidence_path": "work/construction/evidence/0990-integrate-pr-3069-and-record-linkcheck-trial.json",
-      "evidence_sha256": "f5dc8ceb1c2f8e47edabe141b06b095df855e2832e664110a3c53daad451797d",
-      "evidence_bytes": 12952,
+      "evidence_sha256": "2d97b57ce2b01780f6bdd2d8a3efacc3d276c3e8b9e0c356704b1e63612c5835",
+      "evidence_bytes": 13193,
       "source_commit": "a1dcf06a0cef17b2115caeeb17389bdf54cee0f6",
       "source_tree": "326f739deec12291d1f73a74ff9342b1c0699901"
     }
@@ -42,8 +42,8 @@
       "sequence": 990,
       "path": "work/construction/active_checkpoint_v3.md",
       "bytes": 1126,
-      "sha256": "7cc9bced5b7263e1cc861ddfb0d03c4852f36d5e75b637d0e22e84bab13c6576",
-      "git_blob_sha": "411459b8e089d1a8adb59dbb93d5ed52ece654bc"
+      "sha256": "a55d565eb007593d5cf399a554a98d2e33a2eacac07aac086dede2cb5d106255",
+      "git_blob_sha": "5e60b277cf011580f9c2584b55ae95187a6da591"
     }
   }
 }
