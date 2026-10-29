@@ -1,0 +1,128 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 958
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "19350a4c8f11c626c1d3107f182a8066b60ae8d4",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 958,
+      "sha256": "f3b7fdb9335d4d16349ef97f86be6f52c8710eb89f66364a838a3f2248534d0d"
+    },
+    "latest_shard": {
+      "bytes": 1930,
+      "first_sequence": 958,
+      "git_blob_sha": "fccc477ae8babb46d933fc3b9d4b5149ae6627d9",
+      "last_sequence": 958,
+      "path": "work/construction/shards-v3/000000084-000000958-000000958.json",
+      "sha256": "b00a9b4f8e7832a8c390b0dc54d25937365475a579df7cc6f91f873b9bf8b676",
+      "shard_sequence": 84
+    },
+    "v3_head": {
+      "bytes": 2108,
+      "git_blob_sha": "034b063ff87a4e4307b3ebf0c995f5ce53ea15e7",
+      "path": "work/construction/index-v3.json",
+      "sha256": "47f0fae15445d3b202261ce689e5711c78bca1d99310a9963725a5c1975e8574"
+    }
+  },
+  "prior_sequence_publication": {
+    "candidate_commit": "9f6f1cb0c4badd0835f4f363120434213e04d79d",
+    "merge_commit": "28981201a7275591196c1ec97b2543d9798a1d2b",
+    "merge_tree": "6a7965c5f73e76bfe4a38cb339f5f2924670dc9b",
+    "pull_request": 3035
+  },
+  "publication": {
+    "candidate_commit": "c2f6fb624d33db832d3123045fcf1d7de3585f69",
+    "candidate_tree": "55e7ad0956d81f30cbc48a894001866c1ed29ba5",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40809575528,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40809575633,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40809575555,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40809575467,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40809575470,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40809575651,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40809575462,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40809575565,
+        "status": "success"
+      }
+    },
+    "merge_commit": "81ab6c084d279804f9351de9234499bd8feddfd8",
+    "merge_tree": "55e7ad0956d81f30cbc48a894001866c1ed29ba5",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40810127560,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40810127746,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40810128434,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40810127555,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40810127786,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40810127519,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40810128002,
+        "status": "success"
+      }
+    },
+    "pull_request": 3036,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "19350a4c8f11c626c1d3107f182a8066b60ae8d4",
+      "index_v3": "034b063ff87a4e4307b3ebf0c995f5ce53ea15e7",
+      "latest_segment": "82cebf2c472a949d5f9e60ee2ed10c0bff212991",
+      "latest_shard": "fccc477ae8babb46d933fc3b9d4b5149ae6627d9",
+      "roadmap_index": "e41d83105435dac9635edce39f5b55ab45002c16",
+      "storage_consent_evidence_map": "a0210b45ecccf35f360b3c840d6cdabd7be5f0e7",
+      "storage_memory_contract": "130cf493368b726a0c802c40f4afba4562ec6e13"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR 3036 and verify post-merge main after sequence 958 custody publication",
+  "sequence": 959,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "81ab6c084d279804f9351de9234499bd8feddfd8",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "81ab6c084d279804f9351de9234499bd8feddfd8",
+    "verified_remote_main_tree": "55e7ad0956d81f30cbc48a894001866c1ed29ba5"
+  }
+}
