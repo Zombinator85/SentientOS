@@ -1,0 +1,195 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 1011,
+  "scope": "integrate PR #3092 post-merge verification and investigate repeated strict linkcheck on an identical tree",
+  "source": {
+    "remote_ref": "refs/heads/main",
+    "verified_remote_main": "efb54d647c3afe6031bdcc95d18f57bc87aea609",
+    "verified_remote_main_tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+    "remote_ref_readback": {
+      "ref": "refs/heads/main",
+      "commit": "efb54d647c3afe6031bdcc95d18f57bc87aea609",
+      "tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+      "verification": "authenticated git ls-remote plus fetched commit/tree readback"
+    },
+    "predecessor_segment_sha256": "f971773f597e07f38c5906c710787c3dffff848b65178069154122b5d58cd7cd",
+    "predecessor_checkpoint_sequence": 1010,
+    "predecessor_checkpoint_blob": "1c68f83b8ed07a5e8932f22513f10fb109b11aa0",
+    "source_preflight": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "repository": "Zombinator85/SentientOS",
+    "pull_request": 3092,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3092",
+    "candidate_commit": "09c1de69d06236ced1e0448a43056454c28f973e",
+    "candidate_tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40960276759,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40960276848,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40960276867,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40960276688,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40960276784,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40960276813,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40960276711,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40960276811,
+        "status": "success"
+      }
+    },
+    "hosted_quality_gate_artifacts": [
+      {
+        "artifact_id": 12936450011,
+        "name": "required-quality-gate-evidence",
+        "sha256": "3685f693670624d1ac783760b3a68152c6583accd33114c2bf94e3a4b34a8d2a"
+      },
+      {
+        "artifact_id": 12936205852,
+        "name": "hosted-privileged-pr-landing-finalizer",
+        "sha256": "0c87c64077326d475f7e3d19d9f6702d95889cf8368e77a787f8f216a81848b6"
+      },
+      {
+        "artifact_id": 12934998191,
+        "name": "exact-pr-candidate-acceptance",
+        "sha256": "d805b2667229802b7efeb5cc46fd2f4169e2b3bb41d48582e1d1a540fd8a3645"
+      }
+    ],
+    "merge_method": "squash",
+    "merge_commit": "efb54d647c3afe6031bdcc95d18f57bc87aea609",
+    "merge_tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40961051917,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40961051894,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40961051864,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40961052025,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40961051907,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40961052021,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40961051990,
+        "status": "success"
+      }
+    },
+    "post_merge_quality_gate_artifact": {
+      "artifact_id": 12936451060,
+      "name": "required-quality-gate-evidence",
+      "sha256": "e6ee51a0fc14ce6db555441ce9ee0ee6a2e5dda0e4aca034449fdaadcc6ef7fa",
+      "run_id": 40961051990
+    },
+    "post_merge_ci_jobs": [
+      {
+        "job_id": 123753597701,
+        "name": "helm-k8s-test",
+        "status": "success",
+        "started_utc": "2026-10-29T21:50:02Z",
+        "completed_utc": "2026-10-29T21:52:04Z"
+      },
+      {
+        "job_id": 123753598015,
+        "name": "self-check",
+        "status": "success",
+        "started_utc": "2026-10-29T21:50:03Z",
+        "completed_utc": "2026-10-29T21:52:49Z"
+      },
+      {
+        "job_id": 123753598030,
+        "name": "docs",
+        "status": "success",
+        "started_utc": "2026-10-29T21:50:02Z",
+        "completed_utc": "2026-10-29T21:52:38Z"
+      },
+      {
+        "job_id": 123753598157,
+        "name": "Source validation (unprivileged)",
+        "status": "success",
+        "started_utc": "2026-10-29T21:50:03Z",
+        "completed_utc": "2026-10-29T21:54:43Z"
+      }
+    ],
+    "post_merge_ci_docs": {
+      "job_id": 123753598030,
+      "status": "success",
+      "started_utc": "2026-10-29T21:50:02Z",
+      "completed_utc": "2026-10-29T21:52:38Z",
+      "documentation_build": "success",
+      "strict_linkcheck": "success",
+      "linkcheck_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "1c68f83b8ed07a5e8932f22513f10fb109b11aa0"
+    }
+  },
+  "linkcheck_investigation": {
+    "candidate_merge_tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+    "post_merge_tree": "924c4f5bc37ec48f2ae3963a59e607f4a7a53efd",
+    "source_files_checked_each_run": 619,
+    "pull_request_docs_job": {
+      "job_id": 123750931796,
+      "started_utc": "2026-10-29T21:44:19Z",
+      "completed_utc": "2026-10-29T21:48:53Z",
+      "duration_seconds": 274,
+      "linkcheck_started_utc": "2026-10-29T21:44:39Z",
+      "linkcheck_completed_utc": "2026-10-29T21:48:51Z",
+      "rate_limit_wait_events": 5,
+      "strict_result": "success"
+    },
+    "post_merge_docs_job": {
+      "job_id": 123753598030,
+      "started_utc": "2026-10-29T21:50:02Z",
+      "completed_utc": "2026-10-29T21:52:38Z",
+      "duration_seconds": 156,
+      "linkcheck_started_utc": "2026-10-29T21:50:22Z",
+      "linkcheck_completed_utc": "2026-10-29T21:52:34Z",
+      "rate_limit_wait_events": 3,
+      "strict_result": "success"
+    },
+    "observed_rate_limited_urls": [
+      "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+      "https://github.com/Zombinator85/SentientOS/blob/main/README.md",
+      "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md",
+      "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md"
+    ],
+    "conclusion": "Both strict checks passed on the same tree; GitHub rate-limit responses caused repeated Sphinx waits, while the post-merge run repeated the exact PR-tree check.",
+    "next_action": "Evaluate strict PR-only linkcheck with documentation build retained on main pushes; require exact-candidate hosted CI before integration."
+  },
+  "verified_main_file_readbacks": {
+    "active_checkpoint_v3": "1c68f83b8ed07a5e8932f22513f10fb109b11aa0"
+  }
+}
