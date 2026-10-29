@@ -1,0 +1,228 @@
+{
+  "custody": {
+    "failures": [],
+    "previous_segment_sha256": "acf2f59eaf0dccc32b28e4f6861658332cf4601d72bc95995a664048ca4c2036",
+    "status_before_append": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 1002
+  },
+  "linkcheck_investigation": {
+    "candidate_docs_job": {
+      "build_completed_utc": "2026-10-29T15:46:26.2498088Z",
+      "build_started_utc": "2026-10-29T15:45:13.3139568Z",
+      "job_id": 123556063732,
+      "rate_limit_sleeps": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+          "utc": "2026-10-29T15:45:24.1567203Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+          "utc": "2026-10-29T15:45:24.7339783Z"
+        }
+      ],
+      "status": "success",
+      "workflow_run_id": 40904673298
+    },
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "finding": "Both exact-candidate and post-merge jobs completed fresh strict full link checks successfully. The candidate took about 73 seconds with two rate-limit sleeps; post-merge took about 308 seconds with five rate-limit sleep log events, including a repeat for demos/README.md after a four-minute delay. This isolates transient GitHub rate limiting as a source of variable CI latency.",
+    "post_merge_docs_job": {
+      "build_completed_utc": "2026-10-29T15:55:35.6167444Z",
+      "build_started_utc": "2026-10-29T15:50:27.8429078Z",
+      "job_id": 123559198815,
+      "rate_limit_sleeps": [
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md",
+          "utc": "2026-10-29T15:50:34.1642329Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md",
+          "utc": "2026-10-29T15:50:34.1656880Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+          "utc": "2026-10-29T15:50:34.2171669Z"
+        },
+        {
+          "url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md",
+          "utc": "2026-10-29T15:50:34.9880422Z"
+        },
+        {
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+          "utc": "2026-10-29T15:54:35.0573197Z"
+        }
+      ],
+      "status": "success",
+      "workflow_run_id": 40905553092
+    },
+    "sources_checked": 619,
+    "sphinx_cache_assessment": {
+      "checker_behavior": "HyperlinkAvailabilityChecker.check enqueues every non-ignored hyperlink on each invocation; source contains no result-cache read.",
+      "conclusion": "A GitHub Actions cache of output.json cannot reduce HTTP requests because Sphinx 8.2.3 does not consume it as a cache. Lowering workers to one was slower and still incurred rate-limit waits. No supported configuration change is evidenced that reduces latency while preserving fresh full external-link coverage and strict warning behavior. Keep CI unchanged; reconsider only if Sphinx adds a supported result cache or new evidence isolates a safe tuning.",
+      "official_source": "https://github.com/sphinx-doc/sphinx/blob/v8.2.3/sphinx/builders/linkcheck.py",
+      "output_json_behavior": "CheckExternalLinksBuilder opens output.json for writing and emits link status records; it does not read it as a cache.",
+      "prior_worker_experiment": {
+        "duration_seconds_approx": 435,
+        "rate_limit_429_events": 6,
+        "retry_delay_seconds_each": 60,
+        "sphinx_version": "8.2.3",
+        "status": "closed_unmerged",
+        "workers": 1
+      },
+      "repository_configuration": "docs/conf.py does not configure a link-result cache; the CI docs job has no actions/cache step for linkcheck. Existing cache steps target Docker layers and .mypy_cache.",
+      "sphinx_version": "8.2.3"
+    },
+    "strict_warnings": true
+  },
+  "local_verification": {
+    "custody_before_append": {
+      "failures": [],
+      "segments_verified": 1002,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_regression_tests": {
+      "command": "/tmp/seq1003-test-airlock/bin/python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "environment": {
+        "PYTEST_ADDOPTS": "--basetemp=/tmp/pytest-of-agent-seq1003",
+        "TMPDIR": "/workspace",
+        "editable_install": "local temporary virtualenv; editable_ok=true"
+      },
+      "failed": 0,
+      "passed": 53,
+      "status": "passed"
+    },
+    "git_diff_check": "passed",
+    "lock_check": {
+      "command": "python -m scripts.lock check",
+      "status": "passed"
+    },
+    "mypy_version": {
+      "command": "python -m mypy --version",
+      "version": "1.20.2"
+    },
+    "source_preflight": {
+      "expected_head": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+      "findings": [],
+      "local_tree": "7b8b8aefa9342effb53c783eb900b633865e86f5",
+      "remote_head": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+      "remote_tree": "7b8b8aefa9342effb53c783eb900b633865e86f5",
+      "status": "correct_remote_and_local_base"
+    }
+  },
+  "publication": {
+    "base_commit": "3f6d56d3870fdc8a290c6cbd7f665ad515c6eed7",
+    "base_tree": "512051fb2615060e1538fec6773ae105048863ef",
+    "candidate_commit": "f09f030db03f8326a33cb6fc3958511599f36cc0",
+    "candidate_quality_gate_history": {
+      "corrected_run": {
+        "conclusion": "success",
+        "run_id": 40904795315,
+        "title_matches_commit_title": true
+      },
+      "initial_run": {
+        "conclusion": "failure",
+        "reason": "PR title did not match the candidate commit title; a stale retry of that run remained failed after the metadata correction",
+        "run_id": 40904673657
+      }
+    },
+    "candidate_tree": "7b8b8aefa9342effb53c783eb900b633865e86f5",
+    "exact_candidate_workflows": {
+      "CI": {
+        "docs_job_id": 123556063732,
+        "run_id": 40904673298,
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "Codex CI": {
+        "run_id": 40904673453,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40904673462,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40904673554,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40904673360,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40904673551,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40904673322,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40904795315,
+        "status": "success"
+      }
+    },
+    "merge_commit": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+    "merge_method": "merge",
+    "merge_tree": "7b8b8aefa9342effb53c783eb900b633865e86f5",
+    "post_merge_workflows": {
+      "CI": {
+        "docs_job_id": 123559198815,
+        "run_id": 40905553092,
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "Codex CI": {
+        "run_id": 40905553001,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40905552997,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40905553052,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40905553184,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40905553026,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40905553064,
+        "status": "success"
+      }
+    },
+    "pull_request": 3084,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3084",
+    "remote_main_readback": {
+      "authenticated_git_ls_remote": "confirmed",
+      "commit": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+      "source_preflight": "correct_remote_and_local_base",
+      "tree": "7b8b8aefa9342effb53c783eb900b633865e86f5"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "9b69a713f6f89f3e3cccfb13d04f71eb2e246663"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3084, verify post-merge main and all workflows, and record the strict linkcheck latency findings for a separately bounded cache investigation",
+  "sequence": 1003,
+  "source": {
+    "predecessor_checkpoint_source": {
+      "git_blob_sha": "9b69a713f6f89f3e3cccfb13d04f71eb2e246663",
+      "sequence": 1002
+    },
+    "remote_ref_readback": {
+      "commit": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+      "ref": "refs/heads/main",
+      "tree": "7b8b8aefa9342effb53c783eb900b633865e86f5"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "verified_remote_main": "4e2d3ea6e02c68fe78dce4e3bc5dc55ec12aa54d",
+    "verified_remote_main_tree": "7b8b8aefa9342effb53c783eb900b633865e86f5"
+  }
+}
