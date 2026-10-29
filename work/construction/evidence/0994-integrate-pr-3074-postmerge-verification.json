@@ -1,0 +1,186 @@
+{
+  "custody": {
+    "failures": [],
+    "predecessor_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "56654dcb45f0de18b8a5bcd1d8a3d37bf8b60c8d",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 993,
+      "sha256": "0dcf3810de1a692658a8885ca18eab144f9f283a10be4dbde0ca52b4cdb5f349",
+      "source_commit": "8d63ca76165dd3e23acbb5b0cecfd1e9b0533a5a",
+      "source_tree": "95767cd260f89eb53449bdc2b70931c4e81379cc"
+    },
+    "predecessor_segment_sha256": "a486e708a81685f67fd61660e7a53348ef60d3f36e4a502f33b104cfeebac2a2",
+    "segments_verified_before_append": 993,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "be442f3a9c000bd037e09962a0261342083cfbe7",
+    "v3_shard_count_before_append": 119
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "decision": "no evidence-backed latency change preserves freshness and complete strict coverage; unchanged workflow retained",
+    "duplicate_invocation_assessment": "pull_request and main CI each run on a distinct candidate ref; no duplicate invocation identified",
+    "post_merge_docs_job": {
+      "affected_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md"
+      ],
+      "all_retries_succeeded": true,
+      "build_succeeded_utc": "2026-10-29T12:55:05Z",
+      "job_id": 123458439255,
+      "rate_limit_notices": 2,
+      "start_utc": "2026-10-29T12:53:51Z"
+    },
+    "pr_docs_job": {
+      "affected_urls": [
+        "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md",
+        "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md"
+      ],
+      "all_retries_succeeded": true,
+      "build_succeeded_utc": "2026-10-29T12:50:57Z",
+      "job_id": 123456480014,
+      "rate_limit_notices": 2,
+      "start_utc": "2026-10-29T12:49:46Z"
+    },
+    "prior_two_worker_trial": {
+      "pull_request": 3070,
+      "result": "slower and failed declared latency bound"
+    },
+    "strict_warnings": true,
+    "workflow_definition": ".github/workflows/ci.yml"
+  },
+  "publication": {
+    "base_commit": "07adb127d367a42842c5c9def802fc80283e37ce",
+    "base_tree": "09e0f3ec59131401c03e45a57b4f0bc6c156572a",
+    "candidate_commit": "941a32662d1b890da6be18aec532bd2422d011ca",
+    "candidate_tree": "95767cd260f89eb53449bdc2b70931c4e81379cc",
+    "merge_commit": "8d63ca76165dd3e23acbb5b0cecfd1e9b0533a5a",
+    "merge_method": "merge",
+    "merge_tree": "95767cd260f89eb53449bdc2b70931c4e81379cc",
+    "post_merge_ci_jobs": {
+      "Source validation (unprivileged)": {
+        "job_id": 123458439564,
+        "status": "success"
+      },
+      "docs": {
+        "job_id": 123458439255,
+        "make_docs": "success",
+        "status": "success",
+        "strict_linkcheck": "success"
+      },
+      "helm-k8s-test": {
+        "job_id": 123458439728,
+        "status": "success"
+      },
+      "self-check": {
+        "job_id": 123458439722,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "docs_job_id": 123458439255,
+        "helm_job_id": 123458439728,
+        "run_id": 40877051393,
+        "self_check_job_id": 123458439722,
+        "source_validation_job_id": 123458439564,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40877051330,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40877051338,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40877051522,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40877051530,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40877051376,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40877051602,
+        "status": "success"
+      }
+    },
+    "pull_request": 3074,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3074",
+    "pull_request_workflows": {
+      "CI": {
+        "docs_job_id": 123456480014,
+        "helm_job_id": 123456480622,
+        "run_id": 40876477800,
+        "self_check_job_id": 123456480447,
+        "source_validation_job_id": 123456480489,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40876477860,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40876477956,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40876477764,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40876478005,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40876477658,
+        "status": "success"
+      },
+      "Release": {
+        "publishing": "skipped_by_condition",
+        "run_id": 40876477812,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40876477892,
+        "status": "success"
+      }
+    },
+    "repository": "Zombinator85/SentientOS",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "56654dcb45f0de18b8a5bcd1d8a3d37bf8b60c8d",
+      "evidence_0993": "2ece1e4d947f6e4855c3b9422864231b2e4e31bf",
+      "index_v3": "be442f3a9c000bd037e09962a0261342083cfbe7",
+      "segment_0993": "efdc1cb22f163092348d056a99076ed4efa423b8",
+      "shard_v3_0119": "90d228a30b93edc880482c6e41dee48b77930842"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate PR #3074 post-merge verification for sequence 993 and continue measured strict linkcheck latency investigation",
+  "sequence": 994,
+  "source": {
+    "local_branch": "construction/seq994-postmerge",
+    "local_head": "8d63ca76165dd3e23acbb5b0cecfd1e9b0533a5a",
+    "local_tree": "95767cd260f89eb53449bdc2b70931c4e81379cc",
+    "remote_ref_readback": {
+      "commit": "8d63ca76165dd3e23acbb5b0cecfd1e9b0533a5a",
+      "ref": "refs/heads/main",
+      "verification": "explicit-network git ls-remote plus GitHub PR metadata and commit/tree readback"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "source_preflight_findings": [],
+    "verified_remote_main": "8d63ca76165dd3e23acbb5b0cecfd1e9b0533a5a",
+    "verified_remote_main_tree": "95767cd260f89eb53449bdc2b70931c4e81379cc"
+  },
+  "verification_scope": {
+    "reason": "custody-only post-merge evidence increment; exact-candidate and post-merge hosted gates passed",
+    "repository_test_suite_rerun": false
+  }
+}
