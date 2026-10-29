@@ -1,0 +1,143 @@
+{
+  "ci_trigger_verification": "PR #3039 produced one full CI pull_request run and no feature-branch full-CI push run; the separate Invariant Tests push workflow still ran and passed. Main-push full CI ran after merge and retained strict Sphinx linkcheck.",
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 960
+  },
+  "custody_artifacts_before_append": {
+    "active_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "2aa8b2e99c4714278eed4ad72deb1f047c2d382d",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 960,
+      "sha256": "dc95e652678dc349f5a834ca4ea1b4f0043afb2f15f47754da24d9d0beceb162"
+    },
+    "latest_shard": {
+      "bytes": 1930,
+      "first_sequence": 960,
+      "git_blob_sha": "c58e1b13fd0bb1fca4e2b59a38b941ae6306537f",
+      "last_sequence": 960,
+      "path": "work/construction/shards-v3/000000086-000000960-000000960.json",
+      "sha256": "d982b3e6013a40fe9279e4cac2312f932d95781b7bb9a9d378467eddd2485930",
+      "shard_sequence": 86
+    },
+    "v3_head": {
+      "bytes": 2108,
+      "git_blob_sha": "c05b81c22bb03acca137961f015ab4066ef5dd51",
+      "path": "work/construction/index-v3.json",
+      "sha256": "f240e5814fcc7e0968426fb92d94aa1d28fb02060df792d08ef3b4f65e072608"
+    }
+  },
+  "linkcheck_observations": [
+    {
+      "commit": "16072b8d007cd2dafc0e5513bf374ae819516039",
+      "event": "pull_request",
+      "rate_limit_backoffs": 2,
+      "run_id": 40814047522,
+      "status": "success"
+    },
+    {
+      "commit": "05366654bec18f164eba1730a275e9fa3e8cabac",
+      "event": "push",
+      "rate_limit_backoffs": 1,
+      "run_id": 40814528194,
+      "status": "success"
+    }
+  ],
+  "publication": {
+    "candidate_commit": "16072b8d007cd2dafc0e5513bf374ae819516039",
+    "candidate_tree": "e55de275bc91824f68980cafac612d76f1d67473",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40814047522,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40814047483,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40814047525,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40814047517,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40814047514,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40814047447,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40814047516,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40814047536,
+        "status": "success"
+      }
+    },
+    "merge_commit": "05366654bec18f164eba1730a275e9fa3e8cabac",
+    "merge_tree": "e55de275bc91824f68980cafac612d76f1d67473",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40814528194,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40814528199,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40814528211,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40814528279,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40814528255,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40814528346,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40814528242,
+        "status": "success"
+      }
+    },
+    "pull_request": 3039,
+    "push_invariant_workflow": {
+      "run_id": 40813971216,
+      "status": "success"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "2aa8b2e99c4714278eed4ad72deb1f047c2d382d",
+      "index_v3": "c05b81c22bb03acca137961f015ab4066ef5dd51",
+      "latest_segment": "c1bb94e8fe23389a5ec8106deacaea49eba7d024",
+      "latest_shard": "c58e1b13fd0bb1fca4e2b59a38b941ae6306537f",
+      "roadmap_index": "e41d83105435dac9635edce39f5b55ab45002c16",
+      "storage_consent_evidence_map": "a0210b45ecccf35f360b3c840d6cdabd7be5f0e7",
+      "storage_memory_contract": "130cf493368b726a0c802c40f4afba4562ec6e13"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "integrate sequence 960 custody publication through PR #3039 and verify post-merge main",
+  "sequence": 961,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "05366654bec18f164eba1730a275e9fa3e8cabac",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "05366654bec18f164eba1730a275e9fa3e8cabac",
+    "verified_remote_main_tree": "e55de275bc91824f68980cafac612d76f1d67473"
+  }
+}
