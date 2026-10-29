@@ -1,0 +1,251 @@
+{
+  "custody": {
+    "failures": [],
+    "predecessor_checkpoint": {
+      "bytes": 1122,
+      "git_blob_sha": "153d42cb0086d0d799d5302f97bcb5fa2a55912c",
+      "path": "work/construction/active_checkpoint_v3.md",
+      "sequence": 994,
+      "sha256": "1d109259f8f18f4f55490eb582951cf025334e9662aa207be89b08f0d0343223"
+    },
+    "predecessor_segment_sha256": "9b6e533e96b15a259e3c20645ad239a57cff60dab5cb570ddb13d3d1bda46052",
+    "segments_verified_before_append": 994,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_root_git_blob_sha_before_append": "c2c5bc2c586e519a4dd0cf281c91cf63c4692ae0",
+    "v3_shard_count_before_append": 120
+  },
+  "implementation": {
+    "change": "PR-only exact PR-title versus head-commit-subject guard runs immediately after checkout and before hosted Quality Gate setup, dependency installation, privileged audits, documentation bootstrap, or tests.",
+    "correction": {
+      "commit": "5bb9e883f1608f8ec5f27ea6e9e0776fd2d1fc49",
+      "outcome": "added fi and asserted that the early guard ends with fi; focused four-node test set passed.",
+      "tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121"
+    },
+    "initial_candidate": {
+      "commit": "c580c187262f672c3fc75ec86dbe2d1bd3cde301",
+      "exact_failure": "Bash syntax error: unexpected end of file because the new if block lacked fi; the PR title and commit subject were equal.",
+      "job_id": 123481548465,
+      "outcome": "failed",
+      "quality_gate_run_id": 40883667220
+    },
+    "regression_test": "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_fails_fast_on_pr_title_mismatch checks the early guard, its fail-closed shell terminator, ordering, and retention of existing late metadata and hosted Administrator guards."
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "decision": "The two new jobs reproduced roughly one minute of rate-limit sleep each, then passed strict full linkcheck. No caching, exclusion, reduced retry, or scheduling change was evidenced to reduce delay while preserving freshness and complete coverage; leave CI unchanged.",
+    "duplicate_invocation_assessment": "one run per source ref; PR candidate and merged main checks validate distinct trees.",
+    "earlier_evidence": "Sequence 994 recorded successful retries, no duplicate invocation, and a two-worker trial slower than default.",
+    "exact_candidate_docs_job": {
+      "affected_url": "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md",
+      "completed_utc": "2026-10-29T13:41:51Z",
+      "job_id": 123483053594,
+      "rate_limit_notice_utc": "2026-10-29T13:40:50Z",
+      "retried_after_sphinx_rate_limit_sleep": true,
+      "started_utc": "2026-10-29T13:40:42Z",
+      "status": "success"
+    },
+    "post_merge_docs_job": {
+      "affected_url": "https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md",
+      "completed_utc": "2026-10-29T13:45:52Z",
+      "job_id": 123485099224,
+      "rate_limit_notice_utc": "2026-10-29T13:44:50Z",
+      "retried_after_sphinx_rate_limit_sleep": true,
+      "started_utc": "2026-10-29T13:44:39Z",
+      "status": "success"
+    },
+    "strict_warnings": true,
+    "workflow_definition": ".github/workflows/ci.yml"
+  },
+  "local_verification": {
+    "diff_check": "passed",
+    "exact_nodes": [
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_fails_fast_on_pr_title_mismatch",
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_pr_finalizer_with_hosted_administrator",
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_exact_nodes_after_import_smoke",
+      "tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_on_construction_candidate_pushes"
+    ],
+    "focused_run_id": "06a8bc0e1a47418eb5d96199ce222dba",
+    "focused_status": "passed",
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 4,
+    "full_local_finalizer": {
+      "environment_cause": "Sparse checkout omitted tracked repository source required by whole-repository mypy, prompt-boundary, strict-audit, and immutability stages; the full local finalizer therefore was not treated as passed.",
+      "reasons": [
+        "stage_failed:mypy_baseline",
+        "stage_failed:prompt_boundary",
+        "stage_failed:strict_audits",
+        "stage_failed:audit_immutability",
+        "source_change_not_declared",
+        "generated_artifacts_present"
+      ],
+      "status": "repair_required_task_caused"
+    },
+    "initial_custody_check": {
+      "failures": [],
+      "segments_verified": 994,
+      "status": "construction_continuation_custody_ready"
+    },
+    "local_provenance_sha256": "c2d83ae1208990c08825846d238f7325007a95df2a89a9d8b2ee63fef228e7b1",
+    "provenance_repository_sha": "7b69d4f87b6c64771a62a8aedfc075d68249445a"
+  },
+  "publication": {
+    "base_commit": "7b69d4f87b6c64771a62a8aedfc075d68249445a",
+    "base_tree": "f08c117015368229affb110ec1ad7a4bf1b90e4e",
+    "candidate_tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121",
+    "corrected_candidate_commit": "5bb9e883f1608f8ec5f27ea6e9e0776fd2d1fc49",
+    "merge_commit": "36d54400aa37f5f3a226bdf1626d959b1958a3b5",
+    "merge_method": "merge",
+    "merge_tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121",
+    "post_merge_workflows": {
+      "CI": {
+        "jobs": {
+          "Source validation (unprivileged)": {
+            "job_id": 123485100319,
+            "status": "success"
+          },
+          "docs": {
+            "job_id": 123485099224,
+            "make_docs": "success",
+            "status": "success",
+            "strict_linkcheck": "success"
+          },
+          "helm-k8s-test": {
+            "job_id": 123485099669,
+            "status": "success"
+          },
+          "self-check": {
+            "job_id": 123485099814,
+            "status": "success"
+          }
+        },
+        "run_id": 40884678023,
+        "status": "success"
+      },
+      "Codex CI": {
+        "job_id": 123485098945,
+        "run_id": 40884678114,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123485100474,
+        "run_id": 40884678141,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "jobs": {
+          "build": {
+            "job_id": 123485099510,
+            "status": "success"
+          },
+          "deploy": {
+            "job_id": 123485364087,
+            "status": "success"
+          }
+        },
+        "run_id": 40884678116,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40884678079,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "job_id": 123485099816,
+        "run_id": 40884678147,
+        "status": "success"
+      },
+      "Nightly Self Check": {
+        "job_id": 123485100903,
+        "run_id": 40884678134,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123485100089,
+        "run_id": 40884678232,
+        "status": "success"
+      }
+    },
+    "pr_workflows": {
+      "CI": {
+        "jobs": {
+          "Source validation (unprivileged)": {
+            "job_id": 123483053244,
+            "status": "success"
+          },
+          "docs": {
+            "job_id": 123483053594,
+            "make_docs": "success",
+            "status": "success",
+            "strict_linkcheck": "success"
+          },
+          "helm-k8s-test": {
+            "job_id": 123483053559,
+            "status": "success"
+          },
+          "self-check": {
+            "job_id": 123483053601,
+            "status": "success"
+          }
+        },
+        "run_id": 40884096757,
+        "status": "success"
+      },
+      "Codex CI": {
+        "job_id": 123483053498,
+        "run_id": 40884096767,
+        "status": "success"
+      },
+      "Docker Image": {
+        "job_id": 123483053654,
+        "run_id": 40884096792,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "job_id": 123483052947,
+        "run_id": 40884096761,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "job_id": 123483052916,
+        "run_id": 40884096760,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40884096798,
+        "status": "success"
+      },
+      "Release": {
+        "publishing": "skipped_by_condition",
+        "run_id": 40884096848,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "job_id": 123483053064,
+        "run_id": 40884096749,
+        "status": "success"
+      }
+    },
+    "pull_request": 3076,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3076",
+    "remote_main_readback": {
+      "commit": "36d54400aa37f5f3a226bdf1626d959b1958a3b5",
+      "ls_remote_confirmed": true,
+      "tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121"
+    },
+    "repository": "Zombinator85/SentientOS",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "153d42cb0086d0d799d5302f97bcb5fa2a55912c"
+    }
+  },
+  "schema_version": 1,
+  "sequence": 995,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "36d54400aa37f5f3a226bdf1626d959b1958a3b5"
+    },
+    "verified_remote_main": "36d54400aa37f5f3a226bdf1626d959b1958a3b5",
+    "verified_remote_main_tree": "f379a6bf6f48e3003ef243408a6fc0805c30f121"
+  },
+  "task": "Integrate PR #3076 and document the hosted Quality Gate title guard and continued strict-linkcheck latency investigation."
+}
