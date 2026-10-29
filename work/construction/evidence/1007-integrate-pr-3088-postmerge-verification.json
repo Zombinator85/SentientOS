@@ -1,0 +1,142 @@
+{
+  "publication": {
+    "candidate_commit": "5fc5868bae536a59a8898305f2970cf75d8c55af",
+    "candidate_tree": "a0a62cc1c5b846ea0004e6f3cf7deb6082fd7c4a",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40953685867,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40953685973,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40953685592,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40953685495,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40953686069,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40953685616,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40953686188,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40953685530,
+        "status": "success"
+      }
+    },
+    "hosted_quality_gate_evidence": {
+      "artifact_id": 12931233060,
+      "artifact_sha256": "9bb43d3a368338ffbf52e0de2288bc8ef3d6e6bcf6e10df65ca6bb1cccd28711",
+      "exact_acceptance": "task_acceptance_ready",
+      "finalizer": "ready_for_pr_metadata",
+      "metadata_guard": "pr_metadata_guard_ready",
+      "repository_sha": "5fc5868bae536a59a8898305f2970cf75d8c55af",
+      "run_id": 40953685530
+    },
+    "merge_commit": "c1bc180cb2d7dc219a5931c63fdf197a1d1e3fbf",
+    "merge_method": "merge",
+    "merge_tree": "a0a62cc1c5b846ea0004e6f3cf7deb6082fd7c4a",
+    "post_merge_ci_docs_job": {
+      "completed_utc": "2026-10-29T21:04:30Z",
+      "documentation_build": "success",
+      "job_id": 123730471526,
+      "started_utc": "2026-10-29T21:02:54Z",
+      "status": "success",
+      "strict_linkcheck": "success",
+      "strict_linkcheck_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+    },
+    "post_merge_ci_jobs": [
+      {
+        "completed_utc": "2026-10-29T21:04:44Z",
+        "job_id": 123730471210,
+        "name": "helm-k8s-test",
+        "started_utc": "2026-10-29T21:02:55Z",
+        "status": "success"
+      },
+      {
+        "completed_utc": "2026-10-29T21:06:32Z",
+        "job_id": 123730471572,
+        "name": "self-check",
+        "started_utc": "2026-10-29T21:02:54Z",
+        "status": "success"
+      },
+      {
+        "completed_utc": "2026-10-29T21:07:42Z",
+        "job_id": 123730471843,
+        "name": "Source validation (unprivileged)",
+        "started_utc": "2026-10-29T21:02:55Z",
+        "status": "success"
+      }
+    ],
+    "post_merge_quality_gate_artifact": {
+      "artifact_id": 12932193080,
+      "run_id": 40954362535,
+      "sha256": "ce34bf48f9b4e3662cd4df791f3dec77976cb8f4e133a7ee7c85a296f4e9f81e",
+      "status": "success"
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40954362498,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40954362307,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40954362691,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40954362585,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40954362178,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40954362628,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40954362535,
+        "status": "success"
+      }
+    },
+    "pull_request": 3088,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3088",
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "9a7142b125ad57838a4fafd243ae3318d4ce1a2a"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "record PR #3088 merge and exact-main post-merge workflow evidence",
+  "sequence": 1007,
+  "source": {
+    "predecessor_checkpoint_blob": "9a7142b125ad57838a4fafd243ae3318d4ce1a2a",
+    "predecessor_checkpoint_sequence": 1006,
+    "predecessor_segment_sha256": "1ad7a188b16d00f8609c32af69bd45bb82b59d874ddff230d5527f4b66596853",
+    "remote_ref": "refs/heads/main",
+    "remote_ref_readback": {
+      "commit": "c1bc180cb2d7dc219a5931c63fdf197a1d1e3fbf",
+      "ref": "refs/heads/main",
+      "tree": "a0a62cc1c5b846ea0004e6f3cf7deb6082fd7c4a"
+    },
+    "source_preflight": "correct_remote_and_local_base",
+    "verified_remote_main": "c1bc180cb2d7dc219a5931c63fdf197a1d1e3fbf",
+    "verified_remote_main_tree": "a0a62cc1c5b846ea0004e6f3cf7deb6082fd7c4a"
+  }
+}
