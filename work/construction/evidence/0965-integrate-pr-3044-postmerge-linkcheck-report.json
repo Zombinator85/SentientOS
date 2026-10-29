@@ -1,0 +1,153 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 964
+  },
+  "linkcheck_latency_observations": {
+    "conclusion": "The one-worker change regressed observed wall time and 429 count. Two exact default-worker hosted runs completed in about 2m12-2m13 with no 429 events. No further change is justified by available measurements; strict linkcheck and failure behavior remain unchanged. Measurements are observations and do not prove worker count alone caused the difference.",
+    "configured_workers": "default (5)",
+    "main_after_pr_3044": {
+      "docs_job_id": 123276359626,
+      "duration_seconds_approx": 132,
+      "event": "push",
+      "rate_limit_429_events": 0,
+      "run_id": 40821999078,
+      "status": "success"
+    },
+    "one_worker_experiment": {
+      "docs_job_id": 123270116016,
+      "duration_seconds_approx": 435,
+      "pull_request": 3043,
+      "rate_limit_429_events": 6,
+      "retry_delay_seconds_each": 60,
+      "status": "success_unmerged"
+    },
+    "pr_3044": {
+      "docs_job_id": 123274784741,
+      "duration_seconds_approx": 133,
+      "event": "pull_request",
+      "rate_limit_429_events": 0,
+      "run_id": 40821502799,
+      "status": "success"
+    },
+    "sphinx_version": "8.2.3",
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "local_validation": {
+    "custody_after_append": {
+      "failures": [],
+      "segments_verified": 965,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "dependency_mode": "test_airlock_minimal",
+      "failures": 0,
+      "result": "passed",
+      "tests": 53
+    },
+    "git_diff_check": "passed",
+    "latest_main_preflight": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "candidate_commit": "03d0ecec011999c08964194753e8eeccce86997d",
+    "candidate_tree": "60d38c93ed781b50417e6c2f148f5aa9f2b00f9f",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40821502799,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40821502787,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40821502734,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40821502750,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40821502738,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40821502745,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40821502747,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "reason": "PR title updated to match the exact candidate commit subject; hosted landing finalization completed.",
+        "run_id": 40821697066,
+        "status": "success"
+      },
+      "Required Quality Gate first attempt": {
+        "reason": "Hosted pre-commit preflight rejected PR title mismatch with candidate commit subject; no privilege assertion or code validation was weakened.",
+        "run_id": 40821502743,
+        "status": "failure"
+      }
+    },
+    "ci_trigger_verification": "PR #3044 produced one full-CI pull_request run and no feature-branch full-CI push run; main push produced the required full-CI run.",
+    "merge_commit": "b8955222c06e88dcf19a220df033c9eac7aac03d",
+    "merge_tree": "60d38c93ed781b50417e6c2f148f5aa9f2b00f9f",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40821999078,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40821999074,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40821999081,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40821999140,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40821999131,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40821999084,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40821999126,
+        "status": "success"
+      }
+    },
+    "pull_request": 3044,
+    "push_invariant_workflow": {
+      "event": "push",
+      "run_id": 40821488232,
+      "status": "success"
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "883c7dffc3d99eb5e312a414c921e5330d74e17f",
+      "index_v3": "d0d0684581a3a419eff43732a667bd0843bf9170",
+      "latest_segment": "b55191f11d6ac055a79fb736fa043c60aa1d2bfb",
+      "latest_shard": "7ba101a34cacd7f1bdf460569684311d77efd107"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR #3044 sequence 964 merge, integrate post-merge evidence, and close the strict external-linkcheck latency investigation with PR and main observations",
+  "sequence": 965,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "b8955222c06e88dcf19a220df033c9eac7aac03d",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "b8955222c06e88dcf19a220df033c9eac7aac03d",
+    "verified_remote_main_tree": "60d38c93ed781b50417e6c2f148f5aa9f2b00f9f"
+  }
+}
