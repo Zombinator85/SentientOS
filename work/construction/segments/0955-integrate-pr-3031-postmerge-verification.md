@@ -1,0 +1,5 @@
+# Sequence 955: integrate PR #3031 and verify post-merge main
+
+PR #3031 published sequence 954 and merged normally as `391d5e50a6f9b31058c45ac35a146c5db73e037d` with tree `61095f7378a2b87d1245c66ee71044e633e2d2db`. Its exact-candidate CI, Codex CI, Docker, Gradient, Invariant, Lint, Release, and Required Quality Gate checks passed. The hosted Quality Gate passed Administrator audits, documentation bootstrap, exact call phases, pre-commit reconstruction, privileged landing finalization, and metadata guard.
+
+All post-merge CI, Codex CI, Docker Image, Docs Deploy, Invariant Tests, and Required Quality Gate workflows passed. Forge Smoke was skipped by condition. The CI docs build and Sphinx linkcheck, integrated resource-to-cognition validation, Helm tests, and self-check passed. Remote `main` readback and tree matched the merge commit; GitHub tree readbacks matched the active checkpoint, v3 root, latest immutable shard, latest segment, and roadmap index. Continuation custody verified all 954 predecessor sequences before this append.
