@@ -1,0 +1,152 @@
+{
+  "custody": {
+    "failures": [],
+    "segments_verified_before_append": 998,
+    "status_before_append": "construction_continuation_custody_ready",
+    "v3_root_bytes_before_append": 2110,
+    "v3_shard_count_before_append": 124,
+    "predecessor_segment_sha256": "a09b8f23f8adadf4e2f8437625316f428cf4e9bd576f0789a0e6eee719fe7bb6"
+  },
+  "source": {
+    "verified_remote_main": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+    "verified_remote_main_tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+    "remote_ref_readback": {
+      "commit": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+      "tree": "013aec23dbf26b4175becc9fc936ac87420d8484"
+    }
+  },
+  "publication": {
+    "pull_request": 3080,
+    "pull_request_url": "https://github.com/Zombinator85/SentientOS/pull/3080",
+    "candidate_commit": "abdc679fee2af105ca7a8b15a4dde5f9387dfe2f",
+    "candidate_tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+    "base_commit": "04ed7ba3b35dcf9ec39489ae33e3f599ba093e12",
+    "base_tree": "65dfa7dc9c89bdb8dbb57109ed49a9be2147a195",
+    "merge_commit": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+    "merge_tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+    "merge_method": "merge",
+    "exact_candidate_workflows": {
+      "Required Quality Gate": {
+        "run_id": 40894830348,
+        "status": "success"
+      },
+      "CI": {
+        "run_id": 40894830333,
+        "docs_job_id": 123520962382,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40894830358,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40894830317,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40894830329,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40894830341,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40894830340,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40894830336,
+        "status": "success"
+      }
+    },
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40895552704,
+        "docs_job_id": 123523541443,
+        "strict_linkcheck": "success",
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40895552804,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40895552671,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40895552663,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40895552826,
+        "status": "success"
+      },
+      "Invariant Tests": {
+        "run_id": 40895552855,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40895552783,
+        "status": "skipped_by_condition"
+      }
+    },
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "6547d32ba915baa8e0691e8ad7315593eb37d197"
+    },
+    "remote_main_readback": {
+      "commit": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+      "tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+      "authenticated_git_ls_remote": "confirmed",
+      "source_preflight": "correct_remote_and_local_base"
+    }
+  },
+  "linkcheck_investigation": {
+    "command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck",
+    "strict_warnings": true,
+    "candidate_docs_job": {
+      "job_id": 123520962382,
+      "workflow_run_id": 40894830333,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:46:52.2659563Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md"
+        }
+      ],
+      "completed_utc": "2026-10-29T14:47:53.9970289Z"
+    },
+    "post_merge_docs_job": {
+      "job_id": 123523541443,
+      "workflow_run_id": 40895552704,
+      "status": "success",
+      "all_retries_succeeded": true,
+      "rate_limit_sleeps": [
+        {
+          "utc": "2026-10-29T14:51:21.5612280Z",
+          "url": "https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md"
+        }
+      ],
+      "completed_utc": "2026-10-29T14:52:22.3627372Z"
+    },
+    "conclusion": "One successful rate-limit retry occurred on each source ref. Candidate and post-merge trees differ; no duplicate invocation. Keep strict coverage and cadence."
+  },
+  "local_verification": {
+    "source_preflight": {
+      "status": "correct_remote_and_local_base",
+      "expected_head": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+      "remote_head": "35782f33a00a6e3ea86ec20787bcc0fd2cc0ba82",
+      "local_tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+      "remote_tree": "013aec23dbf26b4175becc9fc936ac87420d8484",
+      "findings": []
+    },
+    "custody_verification": {
+      "status": "construction_continuation_custody_ready",
+      "segments_verified": 998,
+      "failures": []
+    }
+  }
+}
