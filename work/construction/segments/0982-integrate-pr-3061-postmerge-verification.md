@@ -1,0 +1,9 @@
+# Sequence 982: integrate PR #3061 and verify post-merge main
+
+Sequence 981 was published through PR #3061 as candidate `c032ef2ef1c05d650c65631a026a1e19c16216da`, tree `108b1d05b5b69726b4296c9b1b93becdc2f3e7c6`. All applicable hosted PR workflows passed, including Required Quality Gate, CI, Docker, Codex CI, Lint, Release validation, Invariant Tests, and Gradient regression. PR #3061 merged normally by squash as `22ffef76e3075b90f98ba7a3bc65115554f4fc7a` with the same tree.
+
+All exact-main post-merge workflows passed: CI including source validation, strict documentation linkcheck, self-check, and Helm; Required Quality Gate; Codex CI; Docker Image; Docs Deploy; and Invariant Tests. Forge Smoke was skipped by condition. GitHub ref readback and authenticated `git ls-remote` both resolve `refs/heads/main` to the merge commit above. Local source preflight matched the remote main commit and tree. Full continuation custody verified all 981 predecessor sequences before this append.
+
+The required strict live Sphinx linkcheck passed on the PR in about 252 seconds with six rate-limit waits, and on main in about 133 seconds with two. The PR retry cluster covered three existing GitHub UI URLs. This is variable server behavior, not a duplicate workflow invocation: CI runs once per PR event and once per main push; Docs Deploy builds HTML separately. Sphinx 8.2.3 defaults to five workers, one retry, and a 300-second rate-limit timeout; it honors Retry-After and otherwise waits 60 seconds, doubling between attempts. One worker was previously slower. A two-worker trial is selected for the next bounded increment; it will retain every URL and the unchanged strict command, retry policy, and failure semantics.
+
+No CI workflow, acceptance contract, URL coverage, retry count, or error classification changed in this increment.
