@@ -157,6 +157,10 @@ The [Codex Workcell Storage Runtime Authority Boundary Contract](codex_workcell_
 
 See [Codex Workcell Storage Runtime Authority Boundary Verifier](codex_workcell_storage_runtime_authority_verifier.md) for the metadata-only structural verifier that checks the future-only runtime authority contract without granting readiness, binding runtime authority, writing `/ledger`, archiving `/glow`, mutating memory, scheduling work, triggering daemon action, or establishing federation consensus.
 
+## Storage consent design evidence map
+
+Use the [Codex Workcell Storage Consent Design Evidence Map](codex_workcell_storage_consent_evidence_map.md) to navigate the existing storage-policy, consent, presentation, response, and dossier contracts and verifiers. The map is documentation-only and grants no authority.
+
 ## Storage operator consent request boundary
 
 See [Codex Workcell Storage Operator Consent Request Contract](codex_workcell_storage_operator_consent_contract.md) for the metadata-only future consent request shape. That contract does not collect consent, imply consent, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger daemons, decide readiness, authorize commits, or authorize PR metadata.
