@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 90,
+  "first_sequence": 964,
+  "last_sequence": 964,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000089-000000963-000000963.json",
+    "bytes": 1930,
+    "sha256": "2f25c611a17b9a1d0bc5e634525314acd607623ffb8adcfac024f8d0cf837a30",
+    "git_blob_sha": "b264220d6e6908877571aad8399248eb429cafe7",
+    "shard_sequence": 89,
+    "first_sequence": 963,
+    "last_sequence": 963
+  },
+  "segments": [
+    {
+      "sequence": 964,
+      "path": "work/construction/segments/0964-integrate-pr-3042-and-linkcheck-investigation.md",
+      "bytes": 1586,
+      "sha256": "889d570420d168509f320559abafba939ae87b96bc52219460d7469c28f756f7",
+      "predecessor": "segment-sha256:cec13475f5be4db46fcef90065ef60ecdfd9731ae2c4e14c0affff0b6a639746",
+      "source_commit": "b5e7c5d3fad88f0bd093997bf0c37dd378178c5d",
+      "source_tree": "c2386dbeff083cd0d19285ca26f727c7396e590b",
+      "evidence_path": "work/construction/evidence/0964-integrate-pr-3042-and-linkcheck-investigation.json",
+      "evidence_sha256": "2b70487efc17095481a86ec54e26afa34c07246b8298f2345b2ad2f15cb35641",
+      "evidence_bytes": 4550
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 963,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1122,
+      "sha256": "bcd7d1bf9238d9203058aadf16bf7e8028c8303ce6e949d26c836c3d0e655df9",
+      "git_blob_sha": "6bae825ae56a621909c2a03db6168726653f4d82",
+      "source_commit": "b5e7c5d3fad88f0bd093997bf0c37dd378178c5d",
+      "source_tree": "c2386dbeff083cd0d19285ca26f727c7396e590b"
+    },
+    "current": {
+      "sequence": 964,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1127,
+      "sha256": "06b1e4c55af860882de5775e5237733c9c1862a47e71db7c799c889cd0b9ce97",
+      "git_blob_sha": "883c7dffc3d99eb5e312a414c921e5330d74e17f"
+    }
+  }
+}
