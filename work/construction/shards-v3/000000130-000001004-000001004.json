@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "shard_sequence": 130,
+  "first_sequence": 1004,
+  "last_sequence": 1004,
+  "predecessor": {
+    "kind": "v3-shard",
+    "path": "work/construction/shards-v3/000000129-000001003-000001003.json",
+    "bytes": 1951,
+    "sha256": "0d8b822f5badc085984214e4563cffc766a4ae70cc73f4ddb9b0cd4b43c47bc7",
+    "git_blob_sha": "202dc0b759c75db48de28ff8934e07fae5604bf4",
+    "shard_sequence": 129,
+    "first_sequence": 1003,
+    "last_sequence": 1003
+  },
+  "segments": [
+    {
+      "sequence": 1004,
+      "path": "work/construction/segments/1004-integrate-pr-3085-and-finalizer-environment-classification.md",
+      "bytes": 1872,
+      "sha256": "0bf7c318e397212089d16c105f1c7f503f4649232b3f8a004928802aff956722",
+      "predecessor": "segment-sha256:1f63e19734013e185c8f52d91b98b5d87b91ba601fe7d47ddffc6b80481804e3",
+      "source_commit": "2a8349180bab16ecd10169d9abd393724b71f558",
+      "source_tree": "ab91fe750a257d557306b513c162645722ef2985",
+      "evidence_path": "work/construction/evidence/1004-integrate-pr-3085-and-finalizer-environment-classification.json",
+      "evidence_sha256": "1c4e4eafa7bcf171a234f08e23a8a54d56cb6ded8b0815d8bf172720637950f9",
+      "evidence_bytes": 9499
+    }
+  ],
+  "checkpoint_transition": {
+    "schema_version": 1,
+    "predecessor": {
+      "sequence": 1003,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1131,
+      "sha256": "0aed63727b99566536dc3e7c43ab09c155f4a919d2855059f52a6f6d14f7d051",
+      "git_blob_sha": "baf23a36eb7c03c84c329f0ce1fc8bf92860cbff",
+      "source_commit": "2a8349180bab16ecd10169d9abd393724b71f558",
+      "source_tree": "ab91fe750a257d557306b513c162645722ef2985"
+    },
+    "current": {
+      "sequence": 1004,
+      "path": "work/construction/active_checkpoint_v3.md",
+      "bytes": 1143,
+      "sha256": "298852a9bf206339501232d394221ff50f5a7a2b6a9eb9ca87cb7c310052482b",
+      "git_blob_sha": "7afa779a60cdabfed08a54f37a1d93bc3e6bb0f9"
+    }
+  }
+}

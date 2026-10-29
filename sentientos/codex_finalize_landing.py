@@ -8,6 +8,22 @@ VALID_PHASES = {"pre-commit", "post-commit", "pr-metadata"}
 VALIDATION_PROFILES = {"solo", "exhaustive"}
 
 
+def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
+    """Name known runtime preconditions without treating their failure as success."""
+    output = result.output_tail
+    if "Access denied: run as Administrator" in output:
+        return f"environment_precondition_unavailable:{result.stage}:administrator_required"
+    if result.stage == "mypy_baseline" and "mypy_baseline_toolchain_mismatch" in output:
+        return "environment_precondition_unavailable:mypy_baseline:pinned_toolchain_missing_or_mismatched"
+    if result.stage == "audit_immutability" and "ModuleNotFoundError: No module named 'nacl'" in output:
+        return "environment_precondition_unavailable:audit_immutability:pynacl_missing"
+    if result.stage in {"docs_check_deps", "docs_build"} and "Docs build dependencies missing." in output:
+        return f"environment_precondition_unavailable:{result.stage}:docs_dependencies_missing"
+    if "temporary-storage-unavailable" in output:
+        return f"environment_precondition_unavailable:{result.stage}:temporary_storage"
+    return None
+
+
 @dataclass(frozen=True)
 class CodexFinalizeLandingPolicy:
     require_focused_tests: bool = True
@@ -121,9 +137,19 @@ def evaluate_finalize_landing(
     if pol.require_focused_tests and not request.focused_test_commands and not request.allow_no_focused_tests:
         reasons.append("focused_tests_missing")
 
+    environment_blocked = False
+    environment_failed_stages: set[str] = set()
+    non_environment_stage_failure = False
     for result in command_results:
         if result.required and result.exit_code != 0:
             reasons.append(f"stage_failed:{result.stage}")
+            environment_reason = _environment_precondition_reason(result)
+            if environment_reason is not None:
+                reasons.append(environment_reason)
+                environment_blocked = True
+                environment_failed_stages.add(result.stage)
+            else:
+                non_environment_stage_failure = True
 
     changed_file_set = set(request.changed_files) | set(request.inferred_changed_files) | set(request.inferred_tracked_changed_files) | set(request.inferred_untracked_task_files)
     found_source_not_declared = False
@@ -151,11 +177,19 @@ def evaluate_finalize_landing(
     if phase in {"post-commit", "pr-metadata"} and found_intended:
         reasons.append("source_dirty_tree_post_commit")
 
+    non_environment_reason = any(
+        reason not in {f"stage_failed:{stage}" for stage in environment_failed_stages}
+        and not reason.startswith("environment_precondition_unavailable:")
+        for reason in reasons
+    )
+
     if reasons:
         if "invalid_phase" in reasons:
             status = "manual_review_required"
         elif "unknown_dirty_tree" in reasons:
             status = "manual_review_required"
+        elif environment_blocked and not non_environment_stage_failure and not non_environment_reason:
+            status = "environment_blocked"
         else:
             status = "repair_required_task_caused"
         return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(status, tuple(reasons)), CodexFinalizeLandingReport(command_results, artifact_findings))

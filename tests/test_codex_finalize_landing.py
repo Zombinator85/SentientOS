@@ -45,6 +45,102 @@ def test_pr_metadata_clean_ready() -> None:
     assert res.decision.status == "ready_for_pr_metadata"
 
 
+def test_administrator_precondition_blocks_as_environment_without_weakening_audit() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    audit = CodexFinalizeLandingCommandResult(
+        "strict_audits",
+        "python verify_audits.py --strict",
+        1,
+        "Access denied: run as Administrator to reach protected memory and policy state.",
+    )
+
+    res = evaluate_finalize_landing(req, (*_ok_cmds(), audit), ())
+
+    assert res.decision.status == "environment_blocked"
+    assert "stage_failed:strict_audits" in res.decision.reasons
+    assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
+
+
+def test_missing_pinned_mypy_toolchain_is_an_environment_blocker() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    mypy = CodexFinalizeLandingCommandResult(
+        "mypy_baseline",
+        "python scripts/check_mypy_baseline.py",
+        2,
+        '{"status":"mypy_baseline_toolchain_mismatch","expected_mypy_version":"1.20.2"}',
+    )
+
+    res = evaluate_finalize_landing(req, (*_ok_cmds(), mypy), ())
+
+    assert res.decision.status == "environment_blocked"
+    assert "stage_failed:mypy_baseline" in res.decision.reasons
+    assert "environment_precondition_unavailable:mypy_baseline:pinned_toolchain_missing_or_mismatched" in res.decision.reasons
+
+
+def test_missing_audit_dependency_and_temporary_storage_are_environment_blockers() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    missing_dependency = CodexFinalizeLandingCommandResult(
+        "audit_immutability",
+        "python scripts/audit_immutability_verifier.py",
+        1,
+        "ModuleNotFoundError: No module named 'nacl'",
+    )
+    unavailable_temp = CodexFinalizeLandingCommandResult(
+        "focused_tests",
+        "python -m scripts.run_tests",
+        1,
+        "temporary-storage-unavailable: workspace temp filesystem lacks capacity",
+    )
+    docs_dependencies = CodexFinalizeLandingCommandResult(
+        "docs_check_deps",
+        "python scripts/build_docs.py --check-deps",
+        1,
+        "ENVIRONMENT/BOOTSTRAP ERROR: Docs build dependencies missing.",
+    )
+    docs_build = CodexFinalizeLandingCommandResult(
+        "docs_build",
+        "python scripts/build_docs.py",
+        2,
+        "ENVIRONMENT/BOOTSTRAP ERROR: Docs build dependencies missing.",
+    )
+
+    res = evaluate_finalize_landing(req, (*_ok_cmds(), missing_dependency, unavailable_temp, docs_dependencies, docs_build), ())
+
+    assert res.decision.status == "environment_blocked"
+    assert "stage_failed:audit_immutability" in res.decision.reasons
+    assert "environment_precondition_unavailable:audit_immutability:pynacl_missing" in res.decision.reasons
+    assert "environment_precondition_unavailable:focused_tests:temporary_storage" in res.decision.reasons
+    assert "environment_precondition_unavailable:docs_check_deps:docs_dependencies_missing" in res.decision.reasons
+    assert "environment_precondition_unavailable:docs_build:docs_dependencies_missing" in res.decision.reasons
+
+
+def test_unclassified_required_stage_failure_remains_task_repair_blocker() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    stage = CodexFinalizeLandingCommandResult("focused_tests", "pytest", 1, "assertion failed")
+
+    res = evaluate_finalize_landing(req, (stage,), ())
+
+    assert res.decision.status == "repair_required_task_caused"
+    assert res.decision.reasons == ("stage_failed:focused_tests",)
+
+
+def test_environment_blocker_does_not_mask_a_task_failure() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    administrator = CodexFinalizeLandingCommandResult(
+        "strict_audits", "python verify_audits.py --strict", 1,
+        "Access denied: run as Administrator to reach protected memory and policy state.",
+    )
+    failed_test = CodexFinalizeLandingCommandResult(
+        "focused_tests", "pytest", 1, "assertion failed",
+    )
+
+    res = evaluate_finalize_landing(req, (*_ok_cmds(), administrator, failed_test), ())
+
+    assert res.decision.status == "repair_required_task_caused"
+    assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
+    assert "stage_failed:focused_tests" in res.decision.reasons
+
+
 def test_valid_v2_witness_acceptance_reaches_existing_custody_boundary(tmp_path, monkeypatch) -> None:
     """The finalizer consumes the generic verifier result; v2 needs no production special case."""
     import json
