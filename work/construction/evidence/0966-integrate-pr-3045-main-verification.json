@@ -1,0 +1,150 @@
+{
+  "custody": {
+    "failures": [],
+    "status": "construction_continuation_custody_ready",
+    "verified_segments_before_append": 965
+  },
+  "linkcheck_latency_observations": {
+    "conclusion": "The unchanged strict linkcheck succeeded for every recorded run, but duration varied at the same default worker setting (about 71 to 250 seconds with zero observed 429s). The one-worker experiment was slower and had six 60-second 429 backoffs. These observational runs do not isolate a causal factor or establish a safe tuning. Keep strict checks and failure behavior unchanged; no code change is warranted from this sample.",
+    "configured_workers": "default (5)",
+    "main_after_pr_3045": {
+      "docs_job_id": 123280909321,
+      "duration_seconds_approx": 71,
+      "event": "push",
+      "rate_limit_429_events": 0,
+      "run_id": 40823428842,
+      "status": "success"
+    },
+    "one_worker_experiment": {
+      "duration_seconds_approx": 435,
+      "job_id": 123270116016,
+      "pull_request": 3043,
+      "rate_limit_429_events": 6,
+      "retry_delay_seconds_each": 60,
+      "status": "closed_unmerged"
+    },
+    "pr_3045": {
+      "docs_job_id": 123279250483,
+      "duration_seconds_approx": 250,
+      "event": "pull_request",
+      "rate_limit_429_events": 0,
+      "run_id": 40822922567,
+      "status": "success"
+    },
+    "prior_default_observations": {
+      "main_pr_3044_429_events": 0,
+      "main_pr_3044_seconds_approx": 132,
+      "pr_3044_429_events": 0,
+      "pr_3044_seconds_approx": 133
+    },
+    "sphinx_version": "8.2.3",
+    "strict_command": "sphinx-build -b linkcheck -W docs docs/_build/linkcheck"
+  },
+  "local_validation": {
+    "custody_after_append": {
+      "failures": [],
+      "segments_verified": 966,
+      "status": "construction_continuation_custody_ready"
+    },
+    "focused_tests": {
+      "command": "python -m scripts.run_tests tests/test_construction_continuation_custody.py tests/test_construction_index_v3.py tests/test_construction_candidate_publication.py -q",
+      "dependency_mode": "test_airlock_minimal",
+      "failures": 0,
+      "result": "passed",
+      "tests": 53
+    },
+    "git_diff_check": "passed",
+    "latest_main_preflight": "correct_remote_and_local_base"
+  },
+  "publication": {
+    "candidate_commit": "2ba28396d6cbabbce28a602c029b132c99e3457b",
+    "candidate_tree": "da68fb79ed23bdd3eea97d43cf498ba7be00772b",
+    "candidate_workflows": {
+      "CI": {
+        "run_id": 40822922567,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40822922598,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40822922586,
+        "status": "success"
+      },
+      "Gradient null regression": {
+        "run_id": 40822922681,
+        "status": "success"
+      },
+      "Invariant Tests PR": {
+        "run_id": 40822922617,
+        "status": "success"
+      },
+      "Lint Benchmark": {
+        "run_id": 40822922608,
+        "status": "success"
+      },
+      "Release": {
+        "run_id": 40822922616,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40822922700,
+        "status": "success"
+      }
+    },
+    "ci_docs_job": {
+      "duration_seconds_approx": 71,
+      "job_id": 123280909321,
+      "rate_limit_429_events": 0,
+      "strict_linkcheck": "success"
+    },
+    "merge_commit": "24a17e94abe07f70e2f0bc501575ee4d8add1391",
+    "merge_tree": "da68fb79ed23bdd3eea97d43cf498ba7be00772b",
+    "post_merge_workflows": {
+      "CI": {
+        "run_id": 40823428842,
+        "status": "success"
+      },
+      "Codex CI": {
+        "run_id": 40823428819,
+        "status": "success"
+      },
+      "Docker Image": {
+        "run_id": 40823428841,
+        "status": "success"
+      },
+      "Docs Deploy": {
+        "run_id": 40823428827,
+        "status": "success"
+      },
+      "Forge Smoke": {
+        "run_id": 40823428786,
+        "status": "skipped_by_condition"
+      },
+      "Invariant Tests": {
+        "run_id": 40823428813,
+        "status": "success"
+      },
+      "Required Quality Gate": {
+        "run_id": 40823428822,
+        "status": "success"
+      }
+    },
+    "pull_request": 3045,
+    "verified_main_file_readbacks": {
+      "active_checkpoint_v3": "6a7c9259be7f7c5c097a2a417b54af2cc0d4a8cc"
+    }
+  },
+  "schema_version": "sentientos.construction_evidence:v1",
+  "scope": "verify PR #3045 merge and post-merge workflows; close the bounded strict-linkcheck latency investigation with its latest exact-candidate and main-run observations",
+  "sequence": 966,
+  "source": {
+    "remote_ref_readback": {
+      "commit": "24a17e94abe07f70e2f0bc501575ee4d8add1391",
+      "ref": "refs/heads/main"
+    },
+    "verified_remote_main": "24a17e94abe07f70e2f0bc501575ee4d8add1391",
+    "verified_remote_main_tree": "da68fb79ed23bdd3eea97d43cf498ba7be00772b"
+  }
+}
