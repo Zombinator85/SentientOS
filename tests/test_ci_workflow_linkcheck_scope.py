@@ -8,10 +8,11 @@ from scripts.ci_linkcheck_scope import (
     changed_paths_between,
     main_link_targets_changed,
     strict_main_linkcheck_required,
+    strict_pull_request_linkcheck_required,
 )
 
 
-def test_strict_linkcheck_runs_on_pull_requests_and_docs_build_runs_on_push() -> None:
+def test_pr_linkcheck_is_scoped_while_docs_build_runs_for_every_event() -> None:
     workflow = yaml.load(
         Path(".github/workflows/ci.yml").read_text(encoding="utf-8"),
         Loader=yaml.BaseLoader,
@@ -34,14 +35,36 @@ def test_strict_linkcheck_runs_on_pull_requests_and_docs_build_runs_on_push() ->
     ]
     assert len(strict_linkchecks) == 1
     assert "steps.docs-build.outcome == 'success'" in strict_linkchecks[0]["if"]
-    assert "github.event_name == 'pull_request'" in strict_linkchecks[0]["if"]
     assert "steps.linkcheck-scope.outcome == 'failure'" in strict_linkchecks[0]["if"]
     assert "steps.linkcheck-scope.outputs.required != 'false'" in strict_linkchecks[0]["if"]
     scope_step = next(step for step in steps if step.get("id") == "linkcheck-scope")
-    assert scope_step["if"] == "github.event_name == 'push'"
-    assert "continue-on-error" not in scope_step
+    assert "--mode" in scope_step["run"]
+    assert "github.event.pull_request.base.sha" in scope_step["run"]
     assert "github.event.before" in scope_step["run"]
+    assert "continue-on-error" not in scope_step
     assert "github.sha" in scope_step["run"]
+
+
+def test_pull_request_linkcheck_scope_fails_closed_and_selects_docs_or_config_changes(
+    tmp_path: Path,
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "[README](https://github.com/Zombinator85/SentientOS/blob/main/README.md)\n",
+        encoding="utf-8",
+    )
+    required = lambda paths: strict_pull_request_linkcheck_required(docs, paths)
+
+    assert required(None)
+    assert required({"docs/architecture/system.md"})
+    assert required({"docs/conf.py"})
+    assert required({"pyproject.toml"})
+    assert required({".github/workflows/ci.yml"})
+    assert required({"scripts/ci_linkcheck_scope.py"})
+    assert required({"README.md"})
+    assert not required({"sentientos/runtime.py"})
+    assert not required({"work/construction/index-v3.json"})
 
 
 def test_changed_main_link_targets_require_post_merge_linkcheck(tmp_path: Path) -> None:

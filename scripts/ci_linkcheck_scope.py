@@ -13,6 +13,13 @@ from urllib.parse import unquote, urlsplit
 _REPOSITORY_HOSTS = {"github.com", "raw.githubusercontent.com"}
 _LINK_PATTERN = re.compile(r"https?://(?:github\.com|raw\.githubusercontent\.com)/[^\s<>\"']+")
 _SOURCE_SUFFIXES = {".md", ".rst", ".txt", ".html"}
+_PR_LINKCHECK_CONFIG_PATHS = {
+    "Makefile",
+    "pyproject.toml",
+    "scripts/build_docs.py",
+    "scripts/ci_linkcheck_scope.py",
+    ".github/workflows/ci.yml",
+}
 
 
 def _self_repository_targets(source_root: Path) -> set[str] | None:
@@ -85,6 +92,29 @@ def strict_main_linkcheck_required(
     return changed_paths is None or main_link_targets_changed(source_root, changed_paths)
 
 
+def strict_pull_request_linkcheck_required(
+    source_root: Path, changed_paths: set[str] | None
+) -> bool:
+    """Run the full external linkcheck for documentation or its configuration changes.
+
+    The documentation build still runs on every pull request. Unavailable base
+    history fails closed so an uncertain diff cannot suppress the strict check.
+    """
+    if changed_paths is None:
+        return True
+    normalized_changes = {
+        PurePosixPath(path).as_posix().strip("/") for path in changed_paths
+    }
+    if any(
+        path == "docs"
+        or path.startswith("docs/")
+        or path in _PR_LINKCHECK_CONFIG_PATHS
+        for path in normalized_changes
+    ):
+        return True
+    return main_link_targets_changed(source_root, normalized_changes)
+
+
 def changed_paths_between(base: str, head: str, *, repository_root: Path) -> set[str] | None:
     try:
         output = subprocess.run(
@@ -103,12 +133,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True)
     parser.add_argument("--head", required=True)
+    parser.add_argument("--mode", choices=("push", "pull_request"), default="push")
     parser.add_argument("--repository-root", default=".")
     parser.add_argument("--output", default=None, help="GitHub Actions output file")
     args = parser.parse_args()
     root = Path(args.repository_root).resolve()
     changed = changed_paths_between(args.base, args.head, repository_root=root)
-    required = strict_main_linkcheck_required(root / "docs", changed)
+    required = (
+        strict_pull_request_linkcheck_required(root / "docs", changed)
+        if args.mode == "pull_request"
+        else strict_main_linkcheck_required(root / "docs", changed)
+    )
     line = f"required={'true' if required else 'false'}\n"
     if args.output:
         with Path(args.output).open("a", encoding="utf-8") as output:
@@ -117,7 +152,7 @@ def main() -> int:
         print(line, end="")
     if changed is None:
         print(
-            "::warning::Unable to compare push base; running strict linkcheck fail-closed",
+            "::warning::Unable to compare event base; running strict linkcheck fail-closed",
             flush=True,
         )
     return 0

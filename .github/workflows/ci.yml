@@ -1704,9 +1704,8 @@ jobs:
       - id: docs-build
         run: make docs
       - id: linkcheck-scope
-        if: github.event_name == 'push'
-        run: python -m scripts.ci_linkcheck_scope --base "${{ github.event.before }}" --head "${{ github.sha }}" --output "$GITHUB_OUTPUT"
-      - if: ${{ always() && !cancelled() && steps.docs-build.outcome == 'success' && (github.event_name == 'pull_request' || steps.linkcheck-scope.outcome == 'failure' || steps.linkcheck-scope.outputs.required != 'false') }}
+        run: python -m scripts.ci_linkcheck_scope --mode "${{ github.event_name }}" --base "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}" --head "${{ github.sha }}" --output "$GITHUB_OUTPUT"
+      - if: ${{ always() && !cancelled() && steps.docs-build.outcome == 'success' && (steps.linkcheck-scope.outcome == 'failure' || steps.linkcheck-scope.outputs.required != 'false') }}
         run: sphinx-build -b linkcheck -W docs docs/_build/linkcheck
   helm-k8s-test:
     runs-on: ubuntu-latest
