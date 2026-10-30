@@ -88,10 +88,23 @@ def test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall(
         tick = f"2026-01-0{len(composed)}T00:00:00+00:00"
         if len(composed) == 2:
             runtime_surfaces._feedback["surfaces"]["dynamic-owner-state"] = {"status": "degraded"}
+        original_software_controller = runtime_surfaces._resident_software_transition_controller
         runtime_surfaces.build_world_state_board(tick_id=tick)
         snapshot = runtime_surfaces.current_world_state_snapshot
         observed_subjects.append({entity.subject.subject_id for entity in snapshot.entities})
+        if len(composed) == 1:
+            runtime_surfaces._resident_software_transition_controller = SimpleNamespace(
+                current_execution_provenance=lambda: {
+                    "observed_commit_sha": "a" * 40,
+                    "observed_tree_sha": "b" * 40,
+                })
+        else:
+            def unavailable_provenance():
+                raise ValueError("resident_execution_provenance_unavailable")
+            runtime_surfaces._resident_software_transition_controller = SimpleNamespace(
+                current_execution_provenance=unavailable_provenance)
         runtime_surfaces.capture_causal_introspection(tick_id=tick)
+        runtime_surfaces._resident_software_transition_controller = original_software_controller
         if len(composed) == 2:
             shutdown.set()
 
@@ -104,6 +117,10 @@ def test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall(
     assert {"sentientosd-runtime", "persistent-epistemic-state", "longitudinal-self-model"} <= observed_subjects[1]
     reconstructed = CausalIntrospectionRuntime(composed[-1].config, composed[-1].registrations).reconstruct()
     assert [item.generation for item in reconstructed] == [1, 2]
+    assert (reconstructed[0].repository_revision, reconstructed[0].repository_tree) == (
+        "a" * 40, "b" * 40)
+    assert (reconstructed[1].repository_revision, reconstructed[1].repository_tree) == (
+        None, None)
     runtime_projections = [next(projection for projection in item.projections
         if projection.domain == "runtime_supervision") for item in reconstructed]
     degraded_counts = [next(observation.bounded_value for observation in projection.observations
