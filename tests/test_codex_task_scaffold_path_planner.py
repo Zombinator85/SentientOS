@@ -270,6 +270,9 @@ def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
         ("production_self_reflection_custody_maintenance", "scripts/run_production_self_reflection_campaign.py", "Route one production trial through verified owner evidence"),
         ("production_self_reflection_custody_maintenance", "tests/test_production_self_reflection_campaign.py", "Prove production evidence identity and custody bindings"),
         ("production_self_reflection_custody_maintenance", "docs/development/production_self_reflection_campaign.md", "Document exact production evidence identity requirements"),
+        ("causal_introspection_observation_maintenance", "sentientos/causal_introspection.py", "Expose predecessor-bound read-only owner observation changes"),
+        ("causal_introspection_observation_maintenance", "tests/test_causal_introspection.py", "Prove predecessor-bound read-only owner observation changes"),
+        ("causal_introspection_observation_maintenance", "docs/architecture/causal_introspection_topology.md", "Document predecessor-bound read-only owner observation changes"),
     ),
 )
 def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, path: str, goal: str) -> None:
@@ -315,6 +318,37 @@ def test_federation_peer_projection_maintenance_profile_is_exactly_scoped() -> N
 
 
 @pytest.mark.no_legacy_skip
+def test_causal_introspection_maintenance_profile_is_exactly_scoped() -> None:
+    allowed_paths = (
+        "sentientos/causal_introspection.py",
+        "tests/test_causal_introspection.py",
+        "docs/architecture/causal_introspection_topology.md",
+    )
+    for path in allowed_paths:
+        result = plan_codex_task_scaffold_paths(
+            PlannerRequest(
+                task_name="bounded causal introspection observation maintenance",
+                task_goal="Expose predecessor-bound read-only owner observation changes",
+                subsystem_kind="causal_introspection_observation_maintenance",
+                existing_target_paths=(path,),
+            )
+        )
+        assert result.status in {"ready", "ready_with_warnings"}
+        assert result.existing_target_paths == (path,)
+
+    denied = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="bounded causal introspection observation maintenance",
+            task_goal="Expose predecessor-bound read-only owner observation changes",
+            subsystem_kind="causal_introspection_observation_maintenance",
+            existing_target_paths=("sentientos/world_state_board.py",),
+        )
+    )
+    assert denied.status == "blocked"
+    assert "existing_maintenance_target_scope_violation" in denied.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize(
     ("scope", "path", "reason"),
     (
@@ -324,6 +358,7 @@ def test_federation_peer_projection_maintenance_profile_is_exactly_scoped() -> N
         ("bootstrap_reliability_repair", "prompt_assembler.py", "existing_maintenance_target_scope_violation"),
         ("resident_transition_operator_maintenance", "sentientos/resident_cognitive_model_transition_experiment.py", "existing_maintenance_target_scope_violation"),
         ("production_self_reflection_custody_maintenance", "sentientosd.py", "existing_maintenance_target_scope_violation"),
+        ("causal_introspection_observation_maintenance", "sentientos/world_state_board.py", "existing_maintenance_target_scope_violation"),
         ("federation_peer_projection_maintenance", "sentientos/federation/peer_replay_owner.py", "existing_maintenance_target_scope_violation"),
     ),
 )

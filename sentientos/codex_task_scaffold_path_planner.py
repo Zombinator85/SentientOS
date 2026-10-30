@@ -90,6 +90,11 @@ MAINTENANCE_TARGETS = {
         "docs/development/production_self_reflection_campaign.md",
         "docs/development/codex_validation_and_landing_contract.md",
     ),
+    "causal_introspection_observation_maintenance": (
+        "sentientos/causal_introspection.py",
+        "tests/test_causal_introspection.py",
+        "docs/architecture/causal_introspection_topology.md",
+    ),
 }
 
 
