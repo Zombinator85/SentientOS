@@ -8,6 +8,7 @@ import pytest
 
 from scripts.compose_epistemic_evidence_revision_suite import main as compose_main
 from sentientos.epistemic_evidence_revision_suite import compose_evidence_revision_suite
+from sentientos.epistemic_revision_framing_series import FRAMING_IDS
 from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
 
@@ -102,6 +103,43 @@ def _reports(*, correction_commitment: str = CORRECTION_COMMITMENT,
     return reports
 
 
+def _extended_reports(*, framing_status: str = "case_passed",
+        reopening_status: str = "case_passed",
+        new_evidence_reaches_answer_key: bool = True) -> list[dict[str, Any]]:
+    reports = _reports()
+    correction = _pair("persistent-correction", CORRECTION_COMMITMENT)
+    framing_results = [{"framing_id": framing_id, "result": _pair(
+        "framing:" + framing_id, "sha256:" + str(index + 3) * 64,
+        status=framing_status, after_passed=framing_status == "case_passed")}
+        for index, framing_id in enumerate(FRAMING_IDS)]
+    frame_root_status = "series_passed" if framing_status == "case_passed" else "series_failed"
+    reports.append(_signed({
+        "schema_version": "sentientos.epistemic_correction_framing_series:v1",
+        "series_id": "suite:framing_resistance",
+        "series_commitment": "sha256:" + "8" * 64,
+        "status": frame_root_status,
+        "correction": correction,
+        "correction_measurement_passed": True,
+        "framing_results": framing_results,
+        "required_framing_ids": list(FRAMING_IDS),
+    }))
+    reopening = _pair("justified-reopening", "sha256:" + "e" * 64,
+        status=reopening_status, after_passed=reopening_status == "case_passed")
+    reopening_root_status = ("insufficient" if not new_evidence_reaches_answer_key else
+        "series_passed" if reopening_status == "case_passed" else "series_failed")
+    reports.append(_signed({
+        "schema_version": "sentientos.epistemic_revision_reopening_series:v1",
+        "series_id": "suite:justified_reopening",
+        "series_commitment": "sha256:" + "9" * 64,
+        "status": reopening_root_status,
+        "initial_correction": correction,
+        "justified_reopening": reopening,
+        "correction_measurement_passed": True,
+        "new_evidence_reaches_answer_key": new_evidence_reaches_answer_key,
+    }))
+    return reports
+
+
 def test_composes_three_existing_series_for_one_exact_correction_case() -> None:
     result = compose_evidence_revision_suite(_reports())
     assert result["status"] == "suite_passed"
@@ -113,6 +151,50 @@ def test_composes_three_existing_series_for_one_exact_correction_case() -> None:
     assert result["execution_cohorts"]
     assert result["provider_calls_performed"] is False
     assert result["causal_claim_made"] is False
+
+
+def test_v1_composition_remains_compatible() -> None:
+    result = compose_evidence_revision_suite(_reports())
+    assert result["schema_version"] == "sentientos.epistemic_evidence_revision_suite:v1"
+    assert result["expected_component_count"] == 3
+
+
+def test_v2_composes_framing_and_justified_reopening() -> None:
+    result = compose_evidence_revision_suite(_extended_reports())
+    assert result["schema_version"] == "sentientos.epistemic_evidence_revision_suite:v2"
+    assert result["status"] == "suite_passed"
+    assert result["expected_component_count"] == 5
+    framing = result["components"]["framing_resistance"][0]
+    assert [row["condition_id"] for row in framing["follow_up_outcomes"]] == list(FRAMING_IDS)
+    reopening = result["components"]["justified_reopening"][0]
+    assert reopening["follow_up_outcome"] == "case_passed"
+
+
+def test_v2_preserves_framing_failure_and_reopening_insufficiency() -> None:
+    result = compose_evidence_revision_suite(_extended_reports(
+        framing_status="case_failed", new_evidence_reaches_answer_key=False))
+    assert result["status"] == "insufficient"
+    assert result["components"]["framing_resistance"][0]["series_outcome"] == "series_failed"
+    assert result["components"]["justified_reopening"][0]["series_outcome"] == "insufficient"
+    assert result["components"]["framing_resistance"][0]["follow_up_outcomes"][1]["status"] == "case_failed"
+
+
+def test_v2_requires_both_new_series() -> None:
+    reports = _extended_reports()
+    reports.pop()
+    result = compose_evidence_revision_suite(reports)
+    assert result["status"] == "insufficient"
+    assert result["missing_components"] == ["justified_reopening"]
+
+
+def test_v2_rejects_component_summary_conflict() -> None:
+    reports = _extended_reports()
+    framing = reports[-2]
+    framing["all_framings_passed"] = False
+    reports[-2] = _signed({key: value for key, value in framing.items()
+        if key != "report_digest"})
+    with pytest.raises(ValueError, match="framing_summary_conflict"):
+        compose_evidence_revision_suite(reports)
 
 
 def test_preserves_unsupported_pressure_failure() -> None:
