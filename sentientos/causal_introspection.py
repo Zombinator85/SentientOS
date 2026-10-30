@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
-SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v1"
+SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v2"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
 MAX_PROJECTIONS = 64
 MAX_REFERENCES = 128
@@ -587,9 +587,11 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
                           contents_validated: bool = False) -> Mapping[str, Any]:
     """Describe owner-local evidence changes across one verified snapshot edge.
 
-    The report contains only digests for changed observation values. New or
-    removed source references retain their declared relationship and source
-    identity, but those declarations do not establish causation.
+    The report contains only digests for changed observation values. It also
+    compares complete repository commit/tree identities without treating them
+    as evidence of loaded code or causation. New or removed source references
+    retain their declared relationship and source identity, but those
+    declarations do not establish causation.
     """
     if not contents_validated:
         _validate_snapshot_contents(previous)
@@ -597,6 +599,34 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
     if (current.generation != previous.generation + 1
             or current.predecessor_snapshot_digest != previous.snapshot_digest):
         raise IntrospectionError("predecessor_mismatch")
+
+    def source_generation(snapshot: CausalIntrospectionSnapshot) -> dict[str, Any]:
+        revision = snapshot.repository_revision
+        tree = snapshot.repository_tree
+        revision = revision if isinstance(revision, str) and revision else None
+        tree = tree if isinstance(tree, str) and tree else None
+        return {
+            "repository_revision": revision,
+            "repository_tree": tree,
+            "available": revision is not None and tree is not None,
+        }
+
+    previous_source = source_generation(previous)
+    current_source = source_generation(current)
+    source_fields = ("repository_revision", "repository_tree")
+    changed_source_fields = (
+        [key for key in source_fields
+         if previous_source[key] != current_source[key]]
+        if previous_source["available"] and current_source["available"] else [])
+    source_generation_status = (
+        "unavailable" if not previous_source["available"] or not current_source["available"]
+        else "changed" if changed_source_fields else "stable")
+    source_generation_change = {
+        "status": source_generation_status,
+        "previous": previous_source,
+        "current": current_source,
+        "changed_fields": changed_source_fields,
+    }
 
     previous_owners = {item.owner_id: item for item in previous.projections}
     current_owners = {item.owner_id: item for item in current.projections}
@@ -687,6 +717,7 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
         "current_capture_tick": current.capture_tick,
         "previous_completion_posture": previous.completion_posture,
         "current_completion_posture": current.completion_posture,
+        "source_generation_change": source_generation_change,
         "owner_changes": owner_changes,
         "descriptive_only": True,
         "causal_inference_performed": False,
@@ -1091,6 +1122,46 @@ class CausalIntrospectionRuntime:
         if len(eligible) > 1:
             delta = _build_snapshot_delta(
                 eligible[-2], snapshot, contents_validated=True)
+            source_generation_change = delta["source_generation_change"]
+            previous_source_available = source_generation_change["previous"]["available"]
+            current_source_available = source_generation_change["current"]["available"]
+            if (source_generation_change["status"] == "changed"
+                    or previous_source_available != current_source_available):
+                if source_generation_change["status"] == "changed":
+                    disposition = "source_generation_changed"
+                elif current_source_available:
+                    disposition = "source_generation_identity_became_available"
+                else:
+                    disposition = "source_generation_identity_became_unavailable"
+                records.append({
+                    "source_kind": "repository_source_generation_delta",
+                    "source_id": f"{delta['delta_id']}:repository-source-generation",
+                    "schema_version": SNAPSHOT_DELTA_SCHEMA,
+                    "subject_id": "sentientos-runtime-source-generation",
+                    "subject_kind": "repository_source_generation",
+                    "stage": "observation",
+                    "disposition": disposition,
+                    "evidence_strength": "predecessor_bound_source_generation_delta",
+                    "payload": {
+                        "snapshot_delta_id": delta["delta_id"],
+                        "snapshot_delta_digest": delta["delta_digest"],
+                        "previous_snapshot_id": delta["previous_snapshot_id"],
+                        "previous_snapshot_digest": delta["previous_snapshot_digest"],
+                        "previous_generation": delta["previous_generation"],
+                        "current_snapshot_id": delta["current_snapshot_id"],
+                        "current_snapshot_digest": delta["current_snapshot_digest"],
+                        "current_generation": delta["current_generation"],
+                        "source_generation_change": source_generation_change,
+                        "descriptive_only": True,
+                        "causal_inference_performed": False,
+                        "causal_claim_made": False,
+                        "current_truth": False,
+                        "authority": False,
+                    },
+                    "observed_at": snapshot.capture_tick,
+                    "effect_claimed": False,
+                    "effect_proven": False,
+                })
             for owner_change in delta["owner_changes"]:
                 if owner_change["status"] == "stable":
                     continue
