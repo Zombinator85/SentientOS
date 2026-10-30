@@ -150,6 +150,88 @@ def test_snapshot_delta_binds_external_change_reference_without_claiming_causali
         verify_snapshot_delta(tampered, history)
 
 
+def test_snapshot_delta_reports_source_generation_change_without_causal_claim(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="same", key="status")
+    runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
+    runtime.capture(CaptureContext("tick-1", "commit-a", "tree-a", capture_posture="synthetic_test"))
+    runtime.capture(CaptureContext("tick-2", "commit-b", "tree-b", capture_posture="synthetic_test"))
+
+    history = runtime.reconstruct()
+    delta = build_snapshot_delta(history)
+    change = delta["source_generation_change"]
+    assert verify_snapshot_delta(delta, history) == delta
+    assert delta["schema_version"] == SNAPSHOT_DELTA_SCHEMA
+    assert change == {
+        "status": "changed",
+        "previous": {"repository_revision": "commit-a", "repository_tree": "tree-a", "available": True},
+        "current": {"repository_revision": "commit-b", "repository_tree": "tree-b", "available": True},
+        "changed_fields": ["repository_revision", "repository_tree"],
+    }
+    assert delta["owner_changes"][0]["status"] == "stable"
+    assert delta["causal_inference_performed"] is False
+    assert delta["causal_claim_made"] is False
+    assert delta["authority"] is False
+
+    records = runtime.world_state_records(before_generation=3)
+    source_records = [row for row in records
+        if row["source_kind"] == "repository_source_generation_delta"]
+    assert len(source_records) == 1
+    assert source_records[0]["disposition"] == "source_generation_changed"
+    assert source_records[0]["payload"]["source_generation_change"] == change
+    assert source_records[0]["payload"]["causal_claim_made"] is False
+    assert source_records[0]["payload"]["authority"] is False
+
+    tampered = dict(delta)
+    tampered["source_generation_change"] = dict(change, status="stable")
+    with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
+        verify_snapshot_delta(tampered, history)
+
+
+def test_snapshot_delta_marks_source_generation_unavailable_and_records_availability_loss(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="same", key="status")
+    runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
+    runtime.capture(CaptureContext("tick-1", "commit-a", "tree-a", capture_posture="synthetic_test"))
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+    history = runtime.reconstruct()
+    delta = build_snapshot_delta(history)
+    change = delta["source_generation_change"]
+    assert change["status"] == "unavailable"
+    assert change["previous"]["available"] is True
+    assert change["current"] == {
+        "repository_revision": None, "repository_tree": None, "available": False,
+    }
+    records = runtime.world_state_records(before_generation=3)
+    source_record, = [row for row in records
+        if row["source_kind"] == "repository_source_generation_delta"]
+    assert source_record["disposition"] == "source_generation_identity_became_unavailable"
+    assert source_record["payload"]["source_generation_change"] == change
+
+
+def test_snapshot_delta_reports_stable_source_generation_and_suppresses_repeated_unknown_records(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="same", key="status")
+    runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
+    runtime.capture(CaptureContext("tick-1", "commit-a", "tree-a", capture_posture="synthetic_test"))
+    runtime.capture(CaptureContext("tick-2", "commit-a", "tree-a", capture_posture="synthetic_test"))
+    known_delta = build_snapshot_delta(runtime.reconstruct())
+    assert known_delta["source_generation_change"]["status"] == "stable"
+    assert not any(row["source_kind"] == "repository_source_generation_delta"
+                   for row in runtime.world_state_records(before_generation=3))
+
+    runtime.capture(CaptureContext("tick-3", capture_posture="synthetic_test"))
+    unknown_delta = build_snapshot_delta(runtime.reconstruct())
+    assert unknown_delta["source_generation_change"]["status"] == "unavailable"
+    assert any(row["source_kind"] == "repository_source_generation_delta"
+               and row["disposition"] == "source_generation_identity_became_unavailable"
+               for row in runtime.world_state_records(before_generation=4))
+
+    runtime.capture(CaptureContext("tick-4", capture_posture="synthetic_test"))
+    repeated_unknown_delta = build_snapshot_delta(runtime.reconstruct())
+    assert repeated_unknown_delta["source_generation_change"]["status"] == "unavailable"
+    assert not any(row["source_kind"] == "repository_source_generation_delta"
+                   for row in runtime.world_state_records(before_generation=5))
+
+
 def test_snapshot_delta_ignores_capture_tick_identity_and_marks_failed_owner_unobserved(tmp_path):
     class ToggleProvider(MappingMetadataProvider):
         fail = False
