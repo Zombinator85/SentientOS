@@ -1,0 +1,27 @@
+{
+  "repository_sha": "40e6114e4438e9d828e6ba9dd4355ba721ea838f",
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_self_model_cognitive_consumption.py::test_condition_response_contrast_describes_recovery_and_divergence",
+      "rationale": "The bounded contrast deterministically distinguishes matched recovery, divergence, stability, and unanswered output without making causal claims."
+    },
+    {
+      "node_id": "tests/test_self_model_cognitive_consumption.py::test_condition_response_contrast_marks_incomplete_and_rejects_bad_conditions",
+      "rationale": "Missing, unsupported, and wrongly ordered condition evidence is counted or rejected fail closed."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_v3_assessment_is_bound_to_production_trial_receipt",
+      "rationale": "Scorer v3 binds its contrast summary into the immutable production trial receipt."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_v3_campaign_report_records_descriptive_condition_contrasts",
+      "rationale": "The campaign report exposes receipt-bound question-level contrasts and retains descriptive-only interpretation limits."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_v3_campaign_report_records_descriptive_condition_contrasts"
+  ],
+  "test_provenance_path": "/workspace/.tmp-rsi/condition-contrast-focused-tests/test_run_provenance.json"
+}

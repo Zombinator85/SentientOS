@@ -146,6 +146,38 @@ def test_v3_assessment_is_bound_to_production_trial_receipt() -> None:
         for condition in CONDITION_ORDER)
     assert all(receipt["condition_scores"][condition]["counts"]["uncertainty_handling_correct"] == 0
         for condition in CONDITION_ORDER)
+    assert receipt["schema_version"] == campaign_module.CONTRAST_RECEIPT_SCHEMA
+    assert receipt["condition_response_contrast"]["paired_question_count"] == 1
+    assert receipt["condition_response_contrast"]["response_changed_when_withheld"] == 0
+
+
+def test_v3_campaign_report_records_descriptive_condition_contrasts(tmp_path: Path) -> None:
+    protocol = _protocol(scorer_version=SCORER_V3)
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path / "campaign", protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+
+    for _ in protocol.campaign_policy["trial_ids"]:
+        evidence = _evidence()
+        evidence["condition_answers"] = {
+            CONDITION_ORDER[0]: _answers(),
+            CONDITION_ORDER[1]: [{**_answers()[0], "answer": "unknown"}],
+            CONDITION_ORDER[2]: _answers(),
+        }
+        campaign.run_one(readiness, lambda *_, evidence=evidence: evidence)
+
+    report = campaign.report()
+    verified = campaign.verify_report()
+    assert report["schema_version"] == campaign_module.CONTRAST_REPORT_SCHEMA
+    assert report["condition_response_contrast_schema"] == (
+        "sentientos.self_model_condition_response_contrast:v1")
+    assert len(report["condition_response_contrasts"]) == 2
+    assert all(row["contrast"]["changed_response_recovered_after_restore"] == 1
+               for row in report["condition_response_contrasts"])
+    assert verified["report_format"] == "current"
+    assert report["descriptive_only"] is True
+    assert report["unsupported_inferences"] == [
+        "consciousness", "identity", "learning", "sentience", "guaranteed_improvement",
+    ]
 
 
 @pytest.mark.parametrize(
