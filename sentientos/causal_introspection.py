@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
+SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v1"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
 MAX_PROJECTIONS = 64
 MAX_REFERENCES = 128
@@ -533,7 +534,7 @@ def _projection_conflicts(
         for key, values in sorted(groups.items()) if len(values) > 1)
 
 
-def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: CausalIntrospectionSnapshot | None = None) -> None:
+def _validate_snapshot_contents(snapshot: CausalIntrospectionSnapshot) -> None:
     if not isinstance(snapshot.capture_tick, str) or not snapshot.capture_tick:
         raise IntrospectionError("capture_tick_required")
     if (snapshot.schema_version != SCHEMA_VERSION or snapshot.authority is not False
@@ -547,6 +548,8 @@ def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: Causal
     expected_completion = "partial" if snapshot.capture_findings else "complete"
     if snapshot.completion_posture != expected_completion:
         raise IntrospectionError("snapshot_completion_posture_mismatch")
+    if len(snapshot.projections) > MAX_PROJECTIONS:
+        raise IntrospectionError("snapshot_projection_limit_exceeded")
     owner_ids = tuple(projection.owner_id for projection in snapshot.projections)
     projection_ids = tuple(projection.projection_id for projection in snapshot.projections)
     if len(set(owner_ids)) != len(owner_ids) or len(set(projection_ids)) != len(projection_ids):
@@ -562,17 +565,159 @@ def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: Causal
     if (not isinstance(snapshot.conflicts, tuple)
             or snapshot.conflicts != _projection_conflicts(snapshot.projections)):
         raise IntrospectionError("snapshot_conflict_inventory_mismatch")
+    expected = _digest(_snapshot_payload(snapshot))
+    if snapshot.snapshot_digest != expected or snapshot.snapshot_id != f"causal-introspection-{expected[:20]}":
+        raise IntrospectionError("snapshot_digest_mismatch")
+    if len(_canonical(_plain(snapshot))) > MAX_SNAPSHOT_BYTES:
+        raise IntrospectionError("snapshot_bytes_exceeded")
+
+
+def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: CausalIntrospectionSnapshot | None = None) -> None:
+    _validate_snapshot_contents(snapshot)
     if predecessor is None:
         if snapshot.generation != 1 or snapshot.predecessor_snapshot_digest is not None:
             raise IntrospectionError("invalid_genesis_snapshot")
     elif (snapshot.generation != predecessor.generation + 1
             or snapshot.predecessor_snapshot_digest != predecessor.snapshot_digest):
         raise IntrospectionError("predecessor_mismatch")
-    expected = _digest(_snapshot_payload(snapshot))
-    if snapshot.snapshot_digest != expected or snapshot.snapshot_id != f"causal-introspection-{expected[:20]}":
-        raise IntrospectionError("snapshot_digest_mismatch")
-    if len(_canonical(_plain(snapshot))) > MAX_SNAPSHOT_BYTES:
-        raise IntrospectionError("snapshot_bytes_exceeded")
+
+
+def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
+                          current: CausalIntrospectionSnapshot, *,
+                          contents_validated: bool = False) -> Mapping[str, Any]:
+    """Describe owner-local evidence changes across one verified snapshot edge.
+
+    The report contains only digests for changed observation values. New or
+    removed source references retain their declared relationship and source
+    identity, but those declarations do not establish causation.
+    """
+    if not contents_validated:
+        _validate_snapshot_contents(previous)
+        _validate_snapshot_contents(current)
+    if (current.generation != previous.generation + 1
+            or current.predecessor_snapshot_digest != previous.snapshot_digest):
+        raise IntrospectionError("predecessor_mismatch")
+
+    previous_owners = {item.owner_id: item for item in previous.projections}
+    current_owners = {item.owner_id: item for item in current.projections}
+    failed_current = {(item.owner_id, item.domain) for item in current.capture_findings}
+    owner_changes: list[dict[str, Any]] = []
+
+    def observation_digests(projection: OwnerIntrospectionProjection) -> dict[str, list[str]]:
+        grouped: dict[str, list[str]] = {}
+        for observation in projection.observations:
+            grouped.setdefault(observation.observation_key, []).append(
+                _digest(observation.bounded_value))
+        return {key: sorted(values) for key, values in sorted(grouped.items())}
+
+    def reference_digests(projection: OwnerIntrospectionProjection) -> dict[str, str]:
+        return {item.reference_id: _digest(_plain(item))
+                for item in projection.source_references + projection.causal_references}
+
+    for owner_id in sorted(set(previous_owners) | set(current_owners)):
+        before = previous_owners.get(owner_id)
+        after = current_owners.get(owner_id)
+        if before is None:
+            if after is None:
+                raise IntrospectionError("snapshot_delta_owner_index_invalid")
+            status = "appeared_in_capture"
+            changed_observations: list[dict[str, Any]] = []
+            changed_references: list[dict[str, Any]] = []
+            changed_trace: list[str] = []
+        elif after is None:
+            status = ("unavailable_in_current_capture"
+                      if (owner_id, before.domain) in failed_current
+                      or ("required-domain", before.domain) in failed_current
+                      else "not_observed_in_current_capture")
+            changed_observations = []
+            changed_references = []
+            changed_trace = []
+        elif before.domain != after.domain or before.owner_kind != after.owner_kind:
+            status = "owner_descriptor_changed"
+            changed_observations = []
+            changed_references = []
+            changed_trace = []
+        else:
+            before_observations = observation_digests(before)
+            after_observations = observation_digests(after)
+            changed_observations = [
+                {"observation_key": key,
+                 "previous_value_digests": before_observations.get(key, []),
+                 "current_value_digests": after_observations.get(key, [])}
+                for key in sorted(set(before_observations) | set(after_observations))
+                if before_observations.get(key, []) != after_observations.get(key, [])
+            ]
+            before_references = reference_digests(before)
+            after_references = reference_digests(after)
+            changed_references = [
+                {"reference_id": reference_id,
+                 "previous_reference_digest": before_references.get(reference_id),
+                 "current_reference_digest": after_references.get(reference_id)}
+                for reference_id in sorted(set(before_references) | set(after_references))
+                if before_references.get(reference_id) != after_references.get(reference_id)
+            ]
+            changed_trace = [dimension for dimension in TRACE_DIMENSIONS
+                if _plain(before.semantic_trace[dimension]) != _plain(after.semantic_trace[dimension])]
+            status = ("changed" if changed_observations or changed_references or changed_trace
+                      else "stable")
+
+        owner_changes.append({
+            "owner_id": owner_id,
+            "previous_domain": before.domain if before is not None else None,
+            "current_domain": after.domain if after is not None else None,
+            "previous_owner_kind": before.owner_kind if before is not None else None,
+            "current_owner_kind": after.owner_kind if after is not None else None,
+            "previous_projection_digest": before.projection_digest if before is not None else None,
+            "current_projection_digest": after.projection_digest if after is not None else None,
+            "status": status,
+            "changed_observations": changed_observations,
+            "changed_references": changed_references,
+            "changed_semantic_trace_dimensions": changed_trace,
+        })
+
+    body: dict[str, Any] = {
+        "schema_version": SNAPSHOT_DELTA_SCHEMA,
+        "previous_snapshot_id": previous.snapshot_id,
+        "previous_snapshot_digest": previous.snapshot_digest,
+        "previous_generation": previous.generation,
+        "previous_capture_tick": previous.capture_tick,
+        "current_snapshot_id": current.snapshot_id,
+        "current_snapshot_digest": current.snapshot_digest,
+        "current_generation": current.generation,
+        "current_capture_tick": current.capture_tick,
+        "previous_completion_posture": previous.completion_posture,
+        "current_completion_posture": current.completion_posture,
+        "owner_changes": owner_changes,
+        "descriptive_only": True,
+        "causal_inference_performed": False,
+        "causal_claim_made": False,
+        "current_truth": False,
+        "authority": False,
+    }
+    digest = _digest(body)
+    body["delta_id"] = f"introspection-delta-{digest[:20]}"
+    body["delta_digest"] = digest
+    return body
+
+
+def build_snapshot_delta(history: Sequence[CausalIntrospectionSnapshot]) -> Mapping[str, Any]:
+    """Build a delta from the last two snapshots after verifying full custody history."""
+    if (not isinstance(history, Sequence) or isinstance(history, (str, bytes))
+            or len(history) < 2 or len(history) > MAX_SNAPSHOT_GENERATIONS):
+        raise IntrospectionError("snapshot_delta_history_invalid")
+    predecessor: CausalIntrospectionSnapshot | None = None
+    for snapshot in history:
+        validate_snapshot(snapshot, predecessor)
+        predecessor = snapshot
+    return _build_snapshot_delta(history[-2], history[-1], contents_validated=True)
+
+
+def verify_snapshot_delta(value: Mapping[str, Any],
+                          history: Sequence[CausalIntrospectionSnapshot]) -> Mapping[str, Any]:
+    expected = build_snapshot_delta(history)
+    if dict(value) != dict(expected):
+        raise IntrospectionError("snapshot_delta_mismatch")
+    return expected
 
 
 def _snapshot_capacity_error(generation: int, custody_bytes: int, next_snapshot_bytes: int) -> str | None:
@@ -906,9 +1051,10 @@ class CausalIntrospectionRuntime:
     def world_state_records(self, *, before_generation: int) -> list[dict[str, Any]]:
         if not self.config.world_state_consumption_enabled:
             return []
-        snapshot = self.prior_snapshot(before_generation=before_generation)
-        if snapshot is None:
+        eligible = [item for item in self.reconstruct() if item.generation < before_generation]
+        if not eligible:
             return []
+        snapshot = eligible[-1]
         records: list[dict[str, Any]] = []
         for projection in snapshot.projections:
             records.append({
@@ -942,6 +1088,43 @@ class CausalIntrospectionRuntime:
                 "observed_at": projection.capture_tick,
                 "effect_claimed": False, "effect_proven": False,
             })
+        if len(eligible) > 1:
+            delta = _build_snapshot_delta(
+                eligible[-2], snapshot, contents_validated=True)
+            for owner_change in delta["owner_changes"]:
+                if owner_change["status"] == "stable":
+                    continue
+                records.append({
+                    "source_kind": "owner_introspection_delta",
+                    "source_id": f"{delta['delta_id']}:{owner_change['owner_id']}",
+                    "schema_version": SNAPSHOT_DELTA_SCHEMA,
+                    "subject_id": owner_change["owner_id"],
+                    "subject_kind": (owner_change["current_domain"]
+                                     or owner_change["previous_domain"]
+                                     or "unknown_owner_domain"),
+                    "stage": "observation",
+                    "disposition": owner_change["status"],
+                    "evidence_strength": "predecessor_bound_owner_report_delta",
+                    "payload": {
+                        "snapshot_delta_id": delta["delta_id"],
+                        "snapshot_delta_digest": delta["delta_digest"],
+                        "previous_snapshot_id": delta["previous_snapshot_id"],
+                        "previous_snapshot_digest": delta["previous_snapshot_digest"],
+                        "previous_generation": delta["previous_generation"],
+                        "current_snapshot_id": delta["current_snapshot_id"],
+                        "current_snapshot_digest": delta["current_snapshot_digest"],
+                        "current_generation": delta["current_generation"],
+                        "owner_change": owner_change,
+                        "descriptive_only": True,
+                        "causal_inference_performed": False,
+                        "causal_claim_made": False,
+                        "current_truth": False,
+                        "authority": False,
+                    },
+                    "observed_at": snapshot.capture_tick,
+                    "effect_claimed": False,
+                    "effect_proven": False,
+                })
         if snapshot.capture_findings or snapshot.conflicts:
             retained_findings = snapshot.capture_findings[:MAX_PROJECTIONS]
             retained_conflicts = snapshot.conflicts[:MAX_PROJECTIONS]

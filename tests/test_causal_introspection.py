@@ -19,9 +19,12 @@ from sentientos.causal_introspection import (
     OwnerObservation,
     ProjectionConflict,
     ProviderRegistration,
+    SNAPSHOT_DELTA_SCHEMA,
     SemanticTraceDimension,
+    build_snapshot_delta,
     build_projection,
     validate_projection,
+    verify_snapshot_delta,
     MAX_PROJECTIONS,
     MAX_SNAPSHOT_GENERATIONS,
     MAX_SNAPSHOT_CUSTODY_BYTES,
@@ -101,6 +104,89 @@ def test_three_domain_live_capture_and_next_tick_world_state(tmp_path):
     assert {fact.subject.subject_id for fact in board.facts} == {
         "serving-owner", "epistemic-owner", "supervisor-owner"}
     assert all(fact.payload["authority"] is False and fact.payload["current_truth"] is False for fact in board.facts)
+
+
+def test_snapshot_delta_binds_external_change_reference_without_claiming_causality(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="state-a", key="configuration")
+    registration = ProviderRegistration("supervisor", "runtime_supervision", provider)
+    runtime = _runtime(tmp_path, (registration,))
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+
+    intervention = CausalReference(
+        "receipt", "operator-change-1", "b" * 64,
+        "operator_updated_ruleset", "operator")
+    provider._observations = (OwnerObservation(
+        "configuration", "state-b", "configuration",
+        ("supervisor:state", "operator-change-1"),
+        production_posture="synthetic_test"),)
+    provider._references = (_reference("supervisor"), intervention)
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+    history = runtime.reconstruct()
+    delta = build_snapshot_delta(history)
+    verified = verify_snapshot_delta(delta, history)
+    owner_change, = delta["owner_changes"]
+    assert verified == delta
+    assert delta["schema_version"] == SNAPSHOT_DELTA_SCHEMA
+    assert owner_change["status"] == "changed"
+    assert owner_change["changed_observations"][0]["observation_key"] == "configuration"
+    assert "state-a" not in json.dumps(delta)
+    assert "state-b" not in json.dumps(delta)
+    assert owner_change["changed_references"][0]["reference_id"] == "operator-change-1"
+    assert delta["causal_inference_performed"] is False
+    assert delta["causal_claim_made"] is False
+    assert delta["authority"] is False
+
+    records = runtime.world_state_records(before_generation=3)
+    delta_records = [row for row in records if row["source_kind"] == "owner_introspection_delta"]
+    assert len(delta_records) == 1
+    assert delta_records[0]["payload"]["snapshot_delta_digest"] == delta["delta_digest"]
+    assert delta_records[0]["payload"]["owner_change"] == owner_change
+    assert delta_records[0]["payload"]["causal_claim_made"] is False
+
+    tampered = dict(delta)
+    tampered["causal_claim_made"] = True
+    with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
+        verify_snapshot_delta(tampered, history)
+
+
+def test_snapshot_delta_ignores_capture_tick_identity_and_marks_failed_owner_unobserved(tmp_path):
+    class ToggleProvider(MappingMetadataProvider):
+        fail = False
+
+        def project(self, context):
+            if self.fail:
+                raise RuntimeError("injected provider outage")
+            return super().project(context)
+
+    original = _provider("supervisor", "runtime_supervision", value="same", key="status")
+    provider = ToggleProvider(
+        provider_id=original.provider_id, owner_id=original._owner_id,
+        owner_kind=original._owner_kind, domain=original._domain,
+        observations=original._observations, references=original._references,
+        semantic_trace=original._semantic_trace)
+    runtime = _runtime(tmp_path, (ProviderRegistration(
+        "supervisor", "runtime_supervision", provider),))
+
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+    stable_delta = build_snapshot_delta(runtime.reconstruct())
+    assert stable_delta["owner_changes"][0]["status"] == "stable"
+    assert not any(row["source_kind"] == "owner_introspection_delta"
+                   for row in runtime.world_state_records(before_generation=3))
+
+    provider.fail = True
+    runtime.capture(CaptureContext("tick-3", capture_posture="synthetic_test"))
+    history = runtime.reconstruct()
+    unavailable_delta = build_snapshot_delta(history)
+    assert unavailable_delta["owner_changes"][0]["status"] == "unavailable_in_current_capture"
+    records = runtime.world_state_records(before_generation=4)
+    delta_records = [row for row in records if row["source_kind"] == "owner_introspection_delta"]
+    assert len(delta_records) == 1
+    assert delta_records[0]["disposition"] == "unavailable_in_current_capture"
+
+    with pytest.raises(IntrospectionError, match="predecessor_mismatch"):
+        build_snapshot_delta((history[0], history[2]))
 
 
 @pytest.mark.parametrize(("domain", "source_key", "forbidden_key"), (

@@ -113,6 +113,18 @@ in a later board. Cognition receives it through the ordinary World-State path,
 not hidden model context. Introspection itself calls no model and creates no
 action bridge.
 
+When a later World-State selects a snapshot with a verified predecessor, the
+runtime also derives bounded owner-local change records across that exact
+generation edge. The records bind both snapshot IDs and digests, identify
+changed observation keys by value digests, and retain changed source-reference
+IDs and digests. Capture-tick changes alone do not count as owner-state changes.
+Failed or absent owner capture is labeled as unobserved or unavailable rather
+than as removal. These records expose what changed in retained evidence; a
+declared external-intervention reference remains a source-owner statement and
+does not prove that it caused the change. The delta is recomputed from immutable
+snapshots, is never appended as a new history root, and carries no causal,
+truth, or authority claim.
+
 ## Coverage and remaining frontier
 
 The machine-readable `COVERAGE_MANIFEST` in
