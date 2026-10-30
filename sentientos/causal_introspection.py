@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
-SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v2"
+SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v3"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
 MAX_PROJECTIONS = 64
 MAX_REFERENCES = 128
@@ -640,6 +640,12 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
                 _digest(observation.bounded_value))
         return {key: sorted(values) for key, values in sorted(grouped.items())}
 
+    def observation_reference_ids(projection: OwnerIntrospectionProjection) -> dict[str, list[str]]:
+        grouped: dict[str, set[str]] = {}
+        for observation in projection.observations:
+            grouped.setdefault(observation.observation_key, set()).update(observation.source_refs)
+        return {key: sorted(values) for key, values in sorted(grouped.items())}
+
     def reference_digests(projection: OwnerIntrospectionProjection) -> dict[str, str]:
         return {item.reference_id: _digest(_plain(item))
                 for item in projection.source_references + projection.causal_references}
@@ -653,6 +659,7 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
             status = "appeared_in_capture"
             changed_observations: list[dict[str, Any]] = []
             changed_references: list[dict[str, Any]] = []
+            changed_observation_reference_bindings: list[dict[str, Any]] = []
             changed_trace: list[str] = []
         elif after is None:
             status = ("unavailable_in_current_capture"
@@ -661,6 +668,7 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
                       else "not_observed_in_current_capture")
             changed_observations = []
             changed_references = []
+            changed_observation_reference_bindings = []
             changed_trace = []
         elif before.domain != after.domain or before.owner_kind != after.owner_kind:
             status = "owner_descriptor_changed"
@@ -677,6 +685,17 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
                 for key in sorted(set(before_observations) | set(after_observations))
                 if before_observations.get(key, []) != after_observations.get(key, [])
             ]
+            before_bindings = observation_reference_ids(before)
+            after_bindings = observation_reference_ids(after)
+            changed_observation_reference_bindings = [
+                {
+                    "observation_key": key,
+                    "previous_reference_ids": before_bindings.get(key, []),
+                    "current_reference_ids": after_bindings.get(key, []),
+                }
+                for key in sorted(set(before_bindings) | set(after_bindings))
+                if before_bindings.get(key, []) != after_bindings.get(key, [])
+            ]
             before_references = reference_digests(before)
             after_references = reference_digests(after)
             changed_references = [
@@ -688,7 +707,8 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
             ]
             changed_trace = [dimension for dimension in TRACE_DIMENSIONS
                 if _plain(before.semantic_trace[dimension]) != _plain(after.semantic_trace[dimension])]
-            status = ("changed" if changed_observations or changed_references or changed_trace
+            status = ("changed" if changed_observations or changed_references
+                      or changed_observation_reference_bindings or changed_trace
                       else "stable")
 
         owner_changes.append({
@@ -702,6 +722,7 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
             "status": status,
             "changed_observations": changed_observations,
             "changed_references": changed_references,
+            "changed_observation_reference_bindings": changed_observation_reference_bindings,
             "changed_semantic_trace_dimensions": changed_trace,
         })
 
