@@ -23,6 +23,7 @@ from .persistent_epistemic_state import (
 
 SCHEMA = "sentientos.epistemic_correction_pressure_series:v1"
 MODEL_REPLACEMENT_SCHEMA = "sentientos.epistemic_correction_model_replacement_series:v1"
+INTERRUPTION_SCHEMA = "sentientos.epistemic_correction_interruption_series:v1"
 
 
 def _canonical(value: Any) -> str:
@@ -67,6 +68,31 @@ class EpistemicCorrectionModelReplacementSeries:
             raise ValueError("epistemic_correction_model_replacement_invalid")
         payload = {"correction_case_commitment": correction.commitment(),
             "replacement_case_commitment": replacement.commitment()}
+        return _digest(payload)
+
+
+@dataclass(frozen=True)
+class EpistemicCorrectionInterruptionSeries:
+    """Bind one justified correction to retention across a serving-session boundary."""
+
+    correction_case: RevisionCase
+    interruption_case: RevisionCase
+    interruption_id: str
+
+    def commitment(self) -> str:
+        correction = self.correction_case
+        retained = self.interruption_case
+        if (correction.kind not in {"contrary_evidence", "inference_correction"}
+                or retained.kind != "retained_correction"
+                or correction.proposition_id != retained.proposition_id
+                or correction.after_key != retained.before_key
+                or retained.before_key != retained.after_key
+                or not self.interruption_id or len(self.interruption_id) > 128):
+            raise ValueError("epistemic_correction_interruption_invalid")
+        payload = {"correction_case_commitment": correction.commitment(),
+            "interruption_case_commitment": retained.commitment(),
+            "interruption_id": self.interruption_id,
+            "boundary_kind": "new_serving_session"}
         return _digest(payload)
 
 
@@ -210,7 +236,117 @@ def evaluate_correction_model_replacement_series(*,
     return {**report, "report_digest": _digest(report)}
 
 
+def evaluate_correction_interruption_series(*,
+        series: EpistemicCorrectionInterruptionSeries,
+        correction_before_reader: ObservationReader,
+        correction_after_reader: ObservationReader,
+        interruption_after_reader: ObservationReader,
+        correction_before_observation_id: str,
+        corrected_observation_id: str,
+        interruption_observation_id: str,
+        original_projection: EpistemicCognitiveProjection,
+        corrected_projection: EpistemicCognitiveProjection,
+        interruption_projection: EpistemicCognitiveProjection,
+        correction_before_prompt: str,
+        corrected_prompt: str,
+        interruption_prompt: str,
+        correction_before_receipt: LocalModelInvocationReceipt,
+        corrected_receipt: LocalModelInvocationReceipt,
+        interruption_receipt: LocalModelInvocationReceipt) -> dict[str, Any]:
+    """Score correction and later same-worker retention in a distinct session."""
+    commitment = series.commitment()
+    observation_ids = (correction_before_observation_id, corrected_observation_id,
+        interruption_observation_id)
+    if len(set(observation_ids)) != 3:
+        raise ValueError("epistemic_series_observation_reuse")
+    if corrected_projection.projection_digest != interruption_projection.projection_digest:
+        raise ValueError("interruption_must_use_exact_corrected_projection")
+
+    correction = evaluate_pair(case=series.correction_case,
+        before_reader=correction_before_reader, after_reader=correction_after_reader,
+        before_observation_id=correction_before_observation_id,
+        after_observation_id=corrected_observation_id,
+        before_projection=original_projection, after_projection=corrected_projection,
+        before_prompt=correction_before_prompt, after_prompt=corrected_prompt,
+        before_receipt=correction_before_receipt, after_receipt=corrected_receipt)
+    retained = evaluate_pair(case=series.interruption_case,
+        before_reader=correction_after_reader, after_reader=interruption_after_reader,
+        before_observation_id=corrected_observation_id,
+        after_observation_id=interruption_observation_id,
+        before_projection=corrected_projection, after_projection=interruption_projection,
+        before_prompt=corrected_prompt, after_prompt=interruption_prompt,
+        before_receipt=corrected_receipt, after_receipt=interruption_receipt)
+
+    before_observation = correction_after_reader.verified_cognition_observation(
+        corrected_observation_id)
+    resumed_observation = interruption_after_reader.verified_cognition_observation(
+        interruption_observation_id)
+    before_session = before_observation.get("serving_session_id")
+    resumed_session = resumed_observation.get("serving_session_id")
+    before_binding = before_observation.get("serving_session_binding")
+    resumed_binding = resumed_observation.get("serving_session_binding")
+    distinct_sessions = (isinstance(before_session, str) and bool(before_session)
+        and isinstance(resumed_session, str) and bool(resumed_session)
+        and before_session != resumed_session
+        and isinstance(before_binding, Mapping)
+        and isinstance(resumed_binding, Mapping)
+        and bool(before_observation.get("serving_session_receipt_id"))
+        and bool(resumed_observation.get("serving_session_receipt_id"))
+        and before_observation.get("serving_session_receipt_id")
+            != resumed_observation.get("serving_session_receipt_id"))
+    before_identity = {key: corrected_receipt.request.get(key) for key in
+        ("model_id", "model_artifact_digest", "active_model_identity")}
+    resumed_identity = {key: interruption_receipt.request.get(key) for key in
+        ("model_id", "model_artifact_digest", "active_model_identity")}
+    identity_material_present = (isinstance(before_identity["model_id"], str)
+        and bool(before_identity["model_id"])
+        and isinstance(before_identity["active_model_identity"], Mapping)
+        and bool(before_identity["active_model_identity"]))
+    same_model_identity = (identity_material_present
+        and _canonical(before_identity) == _canonical(resumed_identity))
+    correction_events: tuple[Mapping[str, Any], ...] = ()
+    if (isinstance(corrected_projection, MeaningBearingEpistemicCognitiveProjection)
+            and len(corrected_projection.update_events) == 1):
+        correction_events = corrected_projection.update_events[0]
+    correction_event = correction_events[-1] if correction_events else {}
+    before_evidence_digest = (original_projection.evidence_set_digests[0]
+        if len(original_projection.evidence_set_digests) == 1 else None)
+    after_evidence_digest = (corrected_projection.evidence_set_digests[0]
+        if len(corrected_projection.evidence_set_digests) == 1 else None)
+    statuses = (correction["status"], retained["status"])
+    status = ("insufficient" if "insufficient" in statuses or not distinct_sessions
+        or not same_model_identity else
+        "series_passed" if statuses == ("case_passed", "case_passed") else "series_failed")
+    report = {"schema_version": INTERRUPTION_SCHEMA,
+        "series_id": series.correction_case.case_id + ":" +
+            series.interruption_case.case_id,
+        "series_commitment": commitment, "status": status,
+        "interruption_id": series.interruption_id,
+        "interruption_boundary_kind": "new_serving_session",
+        "interruption_boundary_passed": distinct_sessions,
+        "correction": correction, "interruption_retention": retained,
+        "correction_measurement_passed": correction["status"] == "case_passed",
+        "interruption_retention_passed": (retained["status"] == "case_passed"
+            and distinct_sessions),
+        "same_model_identity_retained": (same_model_identity
+            and not retained["model_identity_changed"]
+            and "model_identity" not in retained["control_mismatches"]),
+        "corrected_projection_preserved": True,
+        "correction_update_reason": correction_event.get("reason"),
+        "correction_evidence_set_digest_before": before_evidence_digest,
+        "correction_evidence_set_digest_after": after_evidence_digest,
+        "correction_evidence_set_preserved": (before_evidence_digest is not None
+            and before_evidence_digest == after_evidence_digest),
+        "real_model_qualification_established": False,
+        "causal_claim_made": False, "oracle_independence_verified": False,
+        "preregistration_timing_verified": False, "authority": False,
+        "source_mutation_performed": False}
+    return {**report, "report_digest": _digest(report)}
+
+
 __all__ = ["EpistemicCorrectionPressureSeries",
     "EpistemicCorrectionModelReplacementSeries",
+    "EpistemicCorrectionInterruptionSeries",
     "evaluate_correction_pressure_series",
-    "evaluate_correction_model_replacement_series"]
+    "evaluate_correction_model_replacement_series",
+    "evaluate_correction_interruption_series"]
