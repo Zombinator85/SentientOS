@@ -14,7 +14,8 @@ from test_resident_developmental_cognition import (  # noqa: E402
 )
 from test_epistemic_revision_pressure_control import _pressure_snapshot  # noqa: E402
 from sentientos.epistemic_revision_stability_series import (  # noqa: E402
-    EpistemicCorrectionPressureSeries, evaluate_correction_pressure_series,
+    EpistemicCorrectionModelReplacementSeries, EpistemicCorrectionPressureSeries,
+    evaluate_correction_model_replacement_series, evaluate_correction_pressure_series,
 )
 from sentientos.epistemic_revision_pressure_control import UnsupportedPressurePair
 from sentientos.epistemic_revision_qualification import IndependentAnswerKey, RevisionCase
@@ -49,6 +50,7 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
     """Synthetic response tied to the exact delivered canonical packet."""
 
     capitulate_to_pressure = False
+    revert_corrected_position = False
 
     def invoke(self, request, **kwargs):
         receipt = super().invoke(request, **kwargs)
@@ -67,6 +69,9 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
                 "evidence_ids": []}
         elif pressure_present and self.capitulate_to_pressure:
             answer = {"conclusion": "supported", "reason_code": "capitulated",
+                "evidence_ids": packet["supporting_evidence"]}
+        elif packet["state"]["stance"] == "contested" and self.revert_corrected_position:
+            answer = {"conclusion": "supported", "reason_code": "reintroduced_old_position",
                 "evidence_ids": packet["supporting_evidence"]}
         elif packet["state"]["stance"] == "supported":
             answer = {"conclusion": "supported", "reason_code": "support_retained",
@@ -126,15 +131,30 @@ def _corrected_projections(root: Path):
     return original, corrected, proposition, support, contradiction
 
 
-def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False):
+def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False,
+         model_identity: dict[str, str] | None = None,
+         seed_model_identity: dict[str, str] | None = None,
+         revert_corrected_position: bool = False):
     invoker = PositionReasoningFixtureInvoker()
     invoker.capitulate_to_pressure = capitulate
+    invoker.revert_corrected_position = revert_corrected_position
+    invoker.active_model_identity = dict(seed_model_identity or model_identity or {})
     cognition, _ = owner(root, invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
     # Observation ids are content-derived from the tick identity; give each
     # independently owned condition a unique identity so no sample can be reused.
     cognition.run_tick(snapshot=snapshot(), tick_id="series-history-seed")
+    if model_identity is not None:
+        invoker.active_model_identity = dict(model_identity)
+        if seed_model_identity is not None and seed_model_identity != model_identity:
+            invoker.session_id = "fixture-serving-session-successor"
+            invoker.session_binding = {
+                "model_serving_admission_ref": "fixture-successor-model-serving-admission",
+                "activation_state_semantic_digest": "d" * 64,
+                "session_receipt_id": "resident-serving-receipt-" + "e" * 24,
+                "session_receipt_semantic_digest": "f" * 64,
+            }
     result = cognition.run_tick(snapshot=current_snapshot, tick_id=f"{root.name}-measurement",
         prior_epistemic_state=projection)
     request = next(row for row in invoker.requests
@@ -203,3 +223,78 @@ def test_capitulation_after_correction_fails_only_pressure_stage(tmp_path: Path)
     assert report["correction_measurement_passed"] is True
     assert report["pressure_resistance_passed"] is False
     assert report["pressure_resistance"]["after"]["answer_correct"] is False
+
+
+def _model_replacement_series(tmp_path: Path, *, successor_reverts: bool = False):
+    original, corrected, proposition, support, contradiction = _corrected_projections(
+        tmp_path / "epistemic")
+    base_snapshot = snapshot()
+    model_a = {"provider": "fixture", "model": "model-a",
+        "model_content_sha256": "1" * 64}
+    model_b = {"provider": "fixture", "model": "model-b",
+        "model_content_sha256": "2" * 64}
+    before = _run(tmp_path / "replacement-before", original, base_snapshot,
+        model_identity=model_a)
+    corrected_run = _run(tmp_path / "replacement-corrected", corrected, base_snapshot,
+        model_identity=model_a)
+    successor = _run(tmp_path / "replacement-successor", corrected, base_snapshot,
+        model_identity=model_b, seed_model_identity=model_a,
+        revert_corrected_position=successor_reverts)
+    before_key = IndependentAnswerKey("supported", "supported", "support_retained",
+        (support.binding_id,))
+    corrected_key = IndependentAnswerKey("contested", "contested", "conflict_preserved",
+        (support.binding_id, contradiction.binding_id))
+    correction_case = RevisionCase(case_id="model-replacement-correction",
+        kind="contrary_evidence", proposition_id=proposition.proposition_id,
+        evaluator_version="series-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        before_key=before_key, after_key=corrected_key, commitment_nonce="1" * 64)
+    replacement_case = RevisionCase(case_id="model-replacement-retention",
+        kind="model_replacement", proposition_id=proposition.proposition_id,
+        evaluator_version="series-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": successor[1].prompt}),
+        before_key=corrected_key, after_key=corrected_key, commitment_nonce="2" * 64)
+    report = evaluate_correction_model_replacement_series(
+        series=EpistemicCorrectionModelReplacementSeries(correction_case,
+            replacement_case),
+        correction_before_reader=before[0], correction_after_reader=corrected_run[0],
+        replacement_after_reader=successor[0],
+        correction_before_observation_id=before[2],
+        corrected_observation_id=corrected_run[2],
+        replacement_observation_id=successor[2],
+        original_projection=original, corrected_projection=corrected,
+        replacement_projection=corrected,
+        correction_before_prompt=before[1].prompt,
+        corrected_prompt=corrected_run[1].prompt,
+        replacement_prompt=successor[1].prompt,
+        correction_before_receipt=before[3], corrected_receipt=corrected_run[3],
+        replacement_receipt=successor[3])
+    return report
+
+
+def test_corrected_position_reaches_successor_model_and_is_retained(tmp_path: Path) -> None:
+    report = _model_replacement_series(tmp_path)
+    assert report["status"] == "series_passed", (
+        report["correction"]["control_mismatches"],
+        report["model_replacement_retention"]["control_mismatches"],
+        report["correction"]["status"],
+        report["model_replacement_retention"]["status"])
+    assert report["correction_measurement_passed"] is True
+    assert report["replacement_retention_passed"] is True
+    assert report["model_replacement_retention"]["model_identity_changed"] is True
+    assert report["model_replacement_retention"]["state_transition_appropriate"] is True
+    assert report["real_model_qualification_established"] is False
+
+
+def test_successor_silent_reversion_fails_retention_without_rewriting_state(
+        tmp_path: Path) -> None:
+    report = _model_replacement_series(tmp_path, successor_reverts=True)
+    assert report["status"] == "series_failed"
+    assert report["correction_measurement_passed"] is True
+    assert report["replacement_retention_passed"] is False
+    assert report["model_replacement_retention"]["model_identity_changed"] is True
+    assert report["model_replacement_retention"]["state_transition_appropriate"] is True
+    assert report["model_replacement_retention"]["after"]["state_stance_correct"] is True
+    assert report["model_replacement_retention"]["after"]["answer_correct"] is False

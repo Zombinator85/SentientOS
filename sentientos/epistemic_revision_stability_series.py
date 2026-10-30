@@ -20,6 +20,7 @@ from .local_model_authority import digest_payload
 from .persistent_epistemic_state import EpistemicCognitiveProjection
 
 SCHEMA = "sentientos.epistemic_correction_pressure_series:v1"
+MODEL_REPLACEMENT_SCHEMA = "sentientos.epistemic_correction_model_replacement_series:v1"
 
 
 def _canonical(value: Any) -> str:
@@ -43,6 +44,27 @@ class EpistemicCorrectionPressureSeries:
             raise ValueError("epistemic_correction_pressure_series_invalid")
         payload = {"correction_case_commitment": self.correction_case.commitment(),
             "pressure_pair_commitment": self.pressure_pair.commitment()}
+        return _digest(payload)
+
+
+@dataclass(frozen=True)
+class EpistemicCorrectionModelReplacementSeries:
+    """Bind one justified correction to a later successor-model response."""
+
+    correction_case: RevisionCase
+    replacement_case: RevisionCase
+
+    def commitment(self) -> str:
+        correction = self.correction_case
+        replacement = self.replacement_case
+        if (correction.kind not in {"contrary_evidence", "inference_correction"}
+                or replacement.kind != "model_replacement"
+                or correction.proposition_id != replacement.proposition_id
+                or correction.after_key != replacement.before_key
+                or replacement.before_key != replacement.after_key):
+            raise ValueError("epistemic_correction_model_replacement_invalid")
+        payload = {"correction_case_commitment": correction.commitment(),
+            "replacement_case_commitment": replacement.commitment()}
         return _digest(payload)
 
 
@@ -107,4 +129,72 @@ def evaluate_correction_pressure_series(*, series: EpistemicCorrectionPressureSe
     return {**report, "report_digest": _digest(report)}
 
 
-__all__ = ["EpistemicCorrectionPressureSeries", "evaluate_correction_pressure_series"]
+def evaluate_correction_model_replacement_series(*,
+        series: EpistemicCorrectionModelReplacementSeries,
+        correction_before_reader: ObservationReader,
+        correction_after_reader: ObservationReader,
+        replacement_after_reader: ObservationReader,
+        correction_before_observation_id: str,
+        corrected_observation_id: str,
+        replacement_observation_id: str,
+        original_projection: EpistemicCognitiveProjection,
+        corrected_projection: EpistemicCognitiveProjection,
+        replacement_projection: EpistemicCognitiveProjection,
+        correction_before_prompt: str,
+        corrected_prompt: str,
+        replacement_prompt: str,
+        correction_before_receipt: LocalModelInvocationReceipt,
+        corrected_receipt: LocalModelInvocationReceipt,
+        replacement_receipt: LocalModelInvocationReceipt) -> dict[str, Any]:
+    """Score correction, then score its retention under a successor identity."""
+    commitment = series.commitment()
+    if len({correction_before_observation_id, corrected_observation_id,
+            replacement_observation_id}) != 3:
+        raise ValueError("epistemic_series_observation_reuse")
+    if (corrected_projection.projection_digest
+            != replacement_projection.projection_digest):
+        raise ValueError("replacement_must_use_exact_corrected_projection")
+    correction = evaluate_pair(case=series.correction_case,
+        before_reader=correction_before_reader,
+        after_reader=correction_after_reader,
+        before_observation_id=correction_before_observation_id,
+        after_observation_id=corrected_observation_id,
+        before_projection=original_projection,
+        after_projection=corrected_projection,
+        before_prompt=correction_before_prompt,
+        after_prompt=corrected_prompt,
+        before_receipt=correction_before_receipt,
+        after_receipt=corrected_receipt)
+    replacement = evaluate_pair(case=series.replacement_case,
+        before_reader=correction_after_reader,
+        after_reader=replacement_after_reader,
+        before_observation_id=corrected_observation_id,
+        after_observation_id=replacement_observation_id,
+        before_projection=corrected_projection,
+        after_projection=replacement_projection,
+        before_prompt=corrected_prompt,
+        after_prompt=replacement_prompt,
+        before_receipt=corrected_receipt,
+        after_receipt=replacement_receipt)
+    statuses = (correction["status"], replacement["status"])
+    status = ("insufficient" if "insufficient" in statuses else
+        "series_passed" if statuses == ("case_passed", "case_passed")
+        else "series_failed")
+    report = {"schema_version": MODEL_REPLACEMENT_SCHEMA,
+        "series_id": series.correction_case.case_id + ":" +
+            series.replacement_case.case_id,
+        "series_commitment": commitment, "status": status,
+        "correction": correction, "model_replacement_retention": replacement,
+        "correction_measurement_passed": correction["status"] == "case_passed",
+        "replacement_retention_passed": replacement["status"] == "case_passed",
+        "real_model_qualification_established": False,
+        "causal_claim_made": False, "oracle_independence_verified": False,
+        "preregistration_timing_verified": False, "authority": False,
+        "source_mutation_performed": False}
+    return {**report, "report_digest": _digest(report)}
+
+
+__all__ = ["EpistemicCorrectionPressureSeries",
+    "EpistemicCorrectionModelReplacementSeries",
+    "evaluate_correction_pressure_series",
+    "evaluate_correction_model_replacement_series"]
