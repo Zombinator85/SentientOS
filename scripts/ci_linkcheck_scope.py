@@ -20,6 +20,13 @@ _PR_LINKCHECK_CONFIG_PATHS = {
     "scripts/ci_linkcheck_scope.py",
     ".github/workflows/ci.yml",
 }
+_PR_AUTODOC_SOURCE_PATHS = {
+    "sentientos/__init__.py",
+    "sentientos/core.py",
+    "sentientos/innerworld.py",
+    "sentientos/orchestrator.py",
+    "sentientos/privilege.py",
+}
 
 
 def _self_repository_targets(source_root: Path) -> set[str] | None:
@@ -109,6 +116,7 @@ def strict_pull_request_linkcheck_required(
         path == "docs"
         or path.startswith("docs/")
         or path in _PR_LINKCHECK_CONFIG_PATHS
+        or path in _PR_AUTODOC_SOURCE_PATHS
         for path in normalized_changes
     ):
         return True

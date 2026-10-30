@@ -63,6 +63,7 @@ def test_pull_request_linkcheck_scope_fails_closed_and_selects_docs_or_config_ch
     assert required({".github/workflows/ci.yml"})
     assert required({"scripts/ci_linkcheck_scope.py"})
     assert required({"README.md"})
+    assert required({"sentientos/orchestrator.py"})
     assert not required({"sentientos/runtime.py"})
     assert not required({"work/construction/index-v3.json"})
 
