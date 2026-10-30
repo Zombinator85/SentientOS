@@ -1,0 +1,53 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "13d05b0f6dc77df0048ed83c8d822522a0b51b43",
+  "test_provenance_path": ".codex-tmp/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_governed_one_shot_request_source_binds_and_clears_material",
+      "rationale": "Exact request bytes are admitted only through a complete one-shot binding and are cleared after handoff."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_external_response_is_scored_with_durable_receipt_and_provenance",
+      "rationale": "A structured external answer is scored against the independent key only after exact durable receipt and response provenance checks."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_composer_material_runs_through_existing_admitted_controller",
+      "rationale": "Composed evidence reaches the existing external controller only after runtime admission and credential binding, and its response is scored from the durable receipt."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_failed_inference_is_preserved_as_insufficient_not_dropped",
+      "rationale": "Failed inference remains an explicit insufficient observation and cannot become a scored pass."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_failed_provider_response_retains_digest_and_never_scores",
+      "rationale": "A provider response accompanying a failed inference remains digest-bound evidence and is not scored as a successful answer."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_invalid_durable_receipt_and_response_provenance_are_rejected",
+      "rationale": "Tampered durable receipt bindings and substituted response metadata fail closed."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_managed_proxy_factory_uses_https_connect_without_forwarding_credentials",
+      "rationale": "HTTPS egress can use the managed proxy tunnel while preserving the exact target and credential boundary."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_openai_request_encoder_binds_exact_model_json_mode_and_limits",
+      "rationale": "The selected model-aware encoder emits exact endpoint-specific request framing and binds generation limits and model identity."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_missing_keyring_credential_fails_closed_and_dependency_is_declared",
+      "rationale": "Runtime keyring dependency remains declared and an absent operator credential fails with the existing sanitized error."
+    },
+    {
+      "node_id": "tests/test_external_epistemic_experiment_composer.py::test_missing_keyring_package_is_sanitized_as_unavailable_credential",
+      "rationale": "An unavailable optional keyring package is mapped to the existing sanitized credential-backend error without manufacturing a credential."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_epistemic_experiment_composer.py::test_external_response_is_scored_with_durable_receipt_and_provenance",
+    "tests/test_external_epistemic_experiment_composer.py::test_governed_one_shot_request_source_binds_and_clears_material",
+    "tests/test_external_epistemic_experiment_composer.py::test_composer_material_runs_through_existing_admitted_controller"
+  ]
+}
