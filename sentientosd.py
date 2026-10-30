@@ -2739,8 +2739,26 @@ class RuntimeMaintenanceSurfaces:
         if self._causal_introspection_runtime is None:
             return {"status": "disabled", "authority": False, "current_truth": False}
         self._causal_introspection_tick_id = tick_id
+        repository_revision = None
+        repository_tree = None
+        software_controller = self._resident_software_transition_controller
+        if software_controller is not None:
+            try:
+                current_provenance = software_controller.current_execution_provenance()
+            except Exception:
+                # The capture remains useful with unknown source identity; a failed
+                # point check must not fall back to launch-time or repository metadata.
+                current_provenance = None
+            if isinstance(current_provenance, Mapping):
+                observed_commit = current_provenance.get("observed_commit_sha")
+                observed_tree = current_provenance.get("observed_tree_sha")
+                if (isinstance(observed_commit, str) and observed_commit
+                        and isinstance(observed_tree, str) and observed_tree):
+                    repository_revision = observed_commit
+                    repository_tree = observed_tree
         snapshot = self._causal_introspection_runtime.capture(CaptureContext(
-            tick_id=tick_id, capture_posture="unknown"))
+            tick_id=tick_id, repository_revision=repository_revision,
+            repository_tree=repository_tree, capture_posture="unknown"))
         feedback = {"status": "degraded" if snapshot.completion_posture == "partial" else "ok",
             "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.snapshot_digest,
             "generation": snapshot.generation, "projection_count": len(snapshot.projections),
