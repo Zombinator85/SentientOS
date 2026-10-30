@@ -13,6 +13,9 @@ from .longitudinal_self_model import CognitiveSelfModelProjection, FALSE_AUTHORI
 
 SCHEMA = "sentientos.self_model_intervention_protocol:v1"
 ASSESSMENT_SCHEMA = "sentientos.evidence_grounded_self_assessment:v1"
+SCORER_V1 = "deterministic_exact_evidence_key:v1"
+SCORER_V2 = "deterministic_exact_evidence_key:v2"
+SUPPORTED_SCORERS = frozenset({SCORER_V1, SCORER_V2})
 CONDITION_ORDER = ("self_model_present", "self_model_withheld", "self_model_restored")
 
 
@@ -76,7 +79,10 @@ def build_answer_key(projection: CognitiveSelfModelProjection) -> Mapping[str, M
 
 
 def score_assessment(*, answer_key: Mapping[str, Mapping[str, Any]],
-                     answers: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+                     answers: Sequence[Mapping[str, Any]],
+                     scorer_version: str = SCORER_V2) -> Mapping[str, Any]:
+    if scorer_version not in SUPPORTED_SCORERS:
+        raise ValueError("unsupported_scoring_contract")
     counts = {key: 0 for key in ("supported_correct", "supported_incorrect", "unsupported_assertion",
               "correct_abstention", "incorrect_abstention", "provenance_correct",
               "provenance_incorrect", "contradiction_handling_correct", "stale_current_handling_correct")}
@@ -97,9 +103,12 @@ def score_assessment(*, answer_key: Mapping[str, Mapping[str, Any]],
         if correct and expected["answer"] == "contradicted": counts["contradiction_handling_correct"] += 1
         if correct and expected["answer"] in {"current", "historical"}: counts["stale_current_handling_correct"] += 1
     counts["correct_abstention"] = 0  # questions are emitted only when bounded evidence exists
+    if scorer_version == SCORER_V2:
+        counts["unanswered_question"] = len(answer_key) - len(seen)
     return {"schema": ASSESSMENT_SCHEMA, "counts": counts, "question_count": len(answer_key),
-            "answer_count": len(answers), "scorer": "deterministic_exact_evidence_key:v1",
+            "answer_count": len(answers), "scorer": scorer_version,
             "model_answer_has_scoring_authority": False, "authority": dict(FALSE_AUTHORITY)}
 
 
-__all__ = ["CONDITION_ORDER", "SelfModelInterventionProtocol", "build_answer_key", "make_protocol", "score_assessment"]
+__all__ = ["CONDITION_ORDER", "SCORER_V1", "SCORER_V2", "SUPPORTED_SCORERS",
+           "SelfModelInterventionProtocol", "build_answer_key", "make_protocol", "score_assessment"]

@@ -113,7 +113,7 @@ Interpretation does not become truth; a candidate has no authority by itself; ad
 
 ### History intervention
 
-A preregistered intervention holds current evidence and model constant while durable developmental history is present, withheld, and restored. It tests whether an output difference follows admitted history under the bounded projection path. It does not label the difference improvement.
+A preregistered intervention holds current evidence and model constant while durable developmental history is present, withheld, and restored. It tests whether an output difference follows admitted history under the bounded projection path. It does not label the difference improvement. Scorer v2 separately counts unanswered evidence questions, and campaign reports preserve that count by condition. Existing v1 protocols retain their original score shape when reconstructed.
 
 ### Same-frozen-state model replacement
 

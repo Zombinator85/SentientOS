@@ -2,6 +2,7 @@ from sentientos.codex_finalize_landing import (
     CodexFinalizeLandingArtifactFinding,
     CodexFinalizeLandingCommandResult,
     CodexFinalizeLandingRequest,
+    HOSTED_REQUIRED_STAGES,
     evaluate_finalize_landing,
 )
 
@@ -59,6 +60,45 @@ def test_administrator_precondition_blocks_as_environment_without_weakening_audi
     assert res.decision.status == "environment_blocked"
     assert "stage_failed:strict_audits" in res.decision.reasons
     assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
+
+
+def test_privileged_checks_can_be_deferred_only_as_explicit_pr_submission_pending() -> None:
+    req = CodexFinalizeLandingRequest(
+        "x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",),
+        defer_privileged_checks_to_hosted=True,
+    )
+    pending = tuple(
+        CodexFinalizeLandingCommandResult(
+            stage, "hosted-only", None,
+            "pending_required_hosted_administrator_verification", required=True,
+        )
+        for stage in HOSTED_REQUIRED_STAGES
+    )
+
+    result = evaluate_finalize_landing(req, (*_ok_cmds(), *pending), ())
+
+    assert result.decision.status == "ready_for_pr_submission"
+    assert set(result.decision.reasons) == {
+        f"hosted_verification_pending:{stage}" for stage in HOSTED_REQUIRED_STAGES
+    }
+
+
+def test_hosted_deferral_never_masks_a_failed_test_or_missing_privileged_stage() -> None:
+    req = CodexFinalizeLandingRequest(
+        "x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",),
+        defer_privileged_checks_to_hosted=True,
+    )
+    pending_audit = CodexFinalizeLandingCommandResult(
+        "strict_audits", "hosted-only", None,
+        "pending_required_hosted_administrator_verification", required=True,
+    )
+    failed_test = CodexFinalizeLandingCommandResult("focused_tests", "pytest", 1, "assertion failed")
+
+    result = evaluate_finalize_landing(req, (pending_audit, failed_test), ())
+
+    assert result.decision.status == "repair_required_task_caused"
+    assert "hosted_privileged_stage_deferral_incomplete:audit_immutability" in result.decision.reasons
+    assert "stage_failed:focused_tests" in result.decision.reasons
 
 
 def test_administrator_message_in_task_stage_remains_task_failure() -> None:

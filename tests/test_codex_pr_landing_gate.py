@@ -5,6 +5,11 @@ import pytest
 
 from sentientos.codex_pr_landing_gate import build_and_verify_pr_body, verify_pr_landing_gate
 from sentientos.landing_validation_plan import seal_validation_plan
+from sentientos.codex_finalize_landing import (
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
+)
 
 
 @pytest.mark.no_legacy_skip
@@ -14,6 +19,51 @@ def test_solo_profile_lands_without_exhaustive_matrix() -> None:
     body = "\n".join(["Validation profile: solo", "Exhaustive matrix disposition: not_requested_for_solo_profile", "Targeted mypy result", "Baseline result", "Docs build result", "Prompt-boundary result", "Strict audit result", "Immutability verifier result", "Unresolved risks"])
     result = verify_pr_landing_gate(proposed_pr_title=title, intended_commit_title=title, proposed_pr_body=body, validation_plan_json_text=json.dumps(plan))
     assert result.status == "codex_pr_landing_gate_ready"
+
+
+@pytest.mark.no_legacy_skip
+def test_hosted_pending_profile_allows_pr_submission_without_claiming_merge_readiness() -> None:
+    title = "[codex:x] task"
+    hosted = {
+        "status": "pending", "required": True,
+        "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+        "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+        "pending_stages": list(HOSTED_REQUIRED_STAGES), "merge_permitted": False,
+    }
+    plan = seal_validation_plan({
+        "requested_profile": "solo", "effective_profile": "solo", "repository_sha": "a" * 40,
+        "phase": "pr-metadata", "title": title, "intended_commit_title": title,
+        "changed_file_identity": [], "task_acceptance_manifest_digest": None,
+        "task_acceptance_provenance_digest": None, "focused_test_command_contract": ["pytest x"],
+        "targeted_mypy_command_contract": [], "required_stage_ids": list(HOSTED_REQUIRED_STAGES),
+        "conditionally_required_stage_ids": [], "skipped_or_deferred_stage_ids": ["matrix_summary"],
+        "stage_results": {stage: {"status": "deferred_to_hosted", "duration_seconds": 0} for stage in HOSTED_REQUIRED_STAGES},
+        "total_validation_duration_seconds": 1, "configured_total_budget_seconds": 1200,
+        "remaining_budget_seconds": 1199, "exhaustive_matrix_status": "not_requested_for_solo_profile",
+        "exhaustive_matrix_digest": None, "overall_status": "ready_for_pr_submission",
+        "hosted_verification": hosted,
+    })
+    body = "\n".join([
+        "Validation profile: solo", "Exhaustive matrix disposition: not_requested_for_solo_profile",
+        "Targeted mypy result", "Baseline result", "Docs build result", "Prompt-boundary result",
+        "Strict audit result: pending in hosted Required / Quality Gate",
+        "Immutability verifier result: pending in hosted Required / Quality Gate",
+        "Unresolved risks", "Hosted verification is pending; merge_permitted is false.",
+    ])
+    result = verify_pr_landing_gate(
+        proposed_pr_title=title, intended_commit_title=title, proposed_pr_body=body,
+        validation_plan_json_text=json.dumps(plan),
+    )
+    assert result.decision == "pr_metadata_allowed"
+    assert not result.blocker_codes
+
+    hosted["required_check_integration_id"] = 0
+    invalid_plan = seal_validation_plan({**plan, "hosted_verification": hosted})
+    invalid = verify_pr_landing_gate(
+        proposed_pr_title=title, intended_commit_title=title, proposed_pr_body=body,
+        validation_plan_json_text=json.dumps(invalid_plan),
+    )
+    assert invalid.decision == "pr_metadata_blocked"
 
 
 def _matrix(**overrides: object) -> str:

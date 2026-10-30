@@ -150,6 +150,71 @@ def test_ready_pre_commit_and_pr_metadata_artifacts_are_ready(tmp_path: Path) ->
     assert result.ready is True
 
 
+def test_explicit_hosted_pending_finalizers_allow_pr_submission_but_not_merge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request, pre_path, post_path = _transition_request(tmp_path, monkeypatch)
+    pending = {
+        "status": "pending",
+        "required": True,
+        "required_check_context": "Required / Quality Gate",
+        "required_check_integration_id": 15368,
+        "pending_stages": ["strict_audits", "audit_immutability"],
+        "merge_permitted": False,
+    }
+    for path in (pre_path, post_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["decision"]["status"] = "ready_for_pr_submission"
+        payload["hosted_verification"] = pending
+        payload["landing_validation_plan"]["overall_status"] = "ready_for_pr_submission"
+        payload["landing_validation_plan"] = seal_validation_plan(payload["landing_validation_plan"])
+        payload["report"]["commands"].extend(
+            {
+                "stage": stage,
+                "exit_code": None,
+                "required": True,
+                "output_tail": "pending_required_hosted_administrator_verification",
+            }
+            for stage in ("strict_audits", "audit_immutability")
+        )
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = evaluate_pr_metadata_guard(request)
+
+    assert result.status == "pr_metadata_guard_ready_for_submission"
+    assert result.ready is True
+    assert result.proof["hosted_verification"]["merge_permitted"] is False
+
+
+def test_hosted_pending_guard_rejects_missing_or_mutated_required_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request, pre_path, post_path = _transition_request(tmp_path, monkeypatch)
+    pending = {
+        "status": "pending", "required": True,
+        "required_check_context": "Required / Quality Gate",
+        "required_check_integration_id": 15368,
+        "pending_stages": ["strict_audits", "audit_immutability"],
+        "merge_permitted": False,
+    }
+    for path in (pre_path, post_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["decision"]["status"] = "ready_for_pr_submission"
+        payload["hosted_verification"] = pending
+        payload["landing_validation_plan"]["overall_status"] = "ready_for_pr_submission"
+        payload["landing_validation_plan"] = seal_validation_plan(payload["landing_validation_plan"])
+        payload["report"]["commands"].extend(
+            {"stage": stage, "exit_code": None, "required": True,
+             "output_tail": "pending_required_hosted_administrator_verification"}
+            for stage in ("strict_audits", "audit_immutability")
+        )
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    post = json.loads(post_path.read_text(encoding="utf-8"))
+    post["hosted_verification"]["merge_permitted"] = True
+    post_path.write_text(json.dumps(post), encoding="utf-8")
+
+    result = evaluate_pr_metadata_guard(request)
+
+    assert result.ready is False
+    assert any(reason.startswith("hosted_verification_binding_invalid") for reason in result.reasons)
+
+
 def test_solo_phase_local_plan_transition_is_ready_and_inspectable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     request, pre, post = _transition_request(tmp_path, monkeypatch)
     pre_plan = json.loads(pre.read_text())["landing_validation_plan"]

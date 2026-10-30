@@ -125,7 +125,8 @@ def test_distinct_phase_specific_validation_plans_seal_publication_handoff(tmp_p
     body=Path(inputs['body_path']).read_bytes()
     assert (first['body_sha256'],first['body_byte_length'])==(sha256_bytes(body),len(body))
     assert first['validation_profile']=='exhaustive' and first['exhaustive_matrix_status']=='matrix_reused'
-    assert first['boundary']=={'publishes_pr':False,'observes_hosted_pr':False,'grants_network_authority':False}
+    assert first['boundary']=={'publishes_pr':False,'observes_hosted_pr':False,'grants_network_authority':False,
+                               'hosted_verification_pending':False,'merge_permitted':False}
     assert not any(word in first['status'] for word in ('published','hosted','github'))
 
 @pytest.mark.parametrize(('target','field','value','reason'), [

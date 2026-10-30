@@ -352,6 +352,48 @@ def test_exact_prevalidated_matrix_reaches_ready_without_matrix_execution(monkey
 
 
 @pytest.mark.no_legacy_skip
+def test_nonprivileged_finalizer_defers_only_required_hosted_audits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from sentientos.codex_finalize_landing import HOSTED_REQUIRED_STAGES
+
+    matrix_path = tmp_path / "matrix.json"
+    _exact_matrix_artifact(matrix_path)
+    out = tmp_path / "finalizer.json"
+    observed: list[str] = []
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_tracked_changes", lambda: ())
+
+    def fake_stage(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
+        observed.append(stage_id)
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, "passed", required), _successful_runtime(stage_id, command, required)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_stage)
+    code = main([
+        "finalize", "--phase", "pre-commit", "--validation-profile", "exhaustive",
+        "--title", "x", "--intended-commit-title", "x", "--allow-no-focused-tests",
+        "--prevalidated-matrix-json", str(matrix_path), "--defer-privileged-checks-to-hosted",
+        "--output", str(out),
+    ])
+    payload = json.loads(out.read_text())
+    assert code == 0 and payload["decision"]["status"] == "ready_for_pr_submission"
+    assert set(HOSTED_REQUIRED_STAGES).isdisjoint(observed)
+    assert payload["hosted_verification"]["merge_permitted"] is False
+    commands = {item["stage"]: item for item in payload["report"]["commands"]}
+    for stage in HOSTED_REQUIRED_STAGES:
+        assert commands[stage]["required"] is True
+        assert commands[stage]["exit_code"] is None
+        assert commands[stage]["output_tail"] == "pending_required_hosted_administrator_verification"
+    assert payload["landing_validation_plan"]["stage_results"]["strict_audits"]["status"] == "deferred_to_hosted"
+
+
+@pytest.mark.no_legacy_skip
+def test_hosted_finalizer_rejects_privileged_deferral(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert main(["finalize", "--phase", "pre-commit", "--defer-privileged-checks-to-hosted"]) == 2
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize(("mutation", "reason"), [
     (lambda p: p.update(status="matrix_failed"), "matrix_status_not_passed"),
     (lambda p: p.update(status="matrix_timed_out"), "matrix_status_not_passed"),

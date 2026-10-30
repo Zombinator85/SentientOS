@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner, load_runtime_config
-from sentientos.self_model_intervention_experiment import CONDITION_ORDER, build_answer_key, make_protocol, score_assessment
+from sentientos.self_model_intervention_experiment import (
+    CONDITION_ORDER, SCORER_V1, SCORER_V2, build_answer_key, make_protocol, score_assessment,
+)
 from tests.test_resident_developmental_cognition import owner as cognition_owner, snapshot as cognition_snapshot
 from tests.test_longitudinal_self_model import record, snapshot
 
@@ -89,3 +91,21 @@ def test_resident_receipt_binds_exact_prior_projection(tmp_path: Path) -> None:
     receipt = json.loads((cognition.observations_root / f"{result.cognition_observation_ids[0]}.json").read_text())
     assert receipt["prior_tick_proven"] is True
     assert receipt["self_model_claim_ids"] == list(projection.selected_claim_ids)
+
+
+def test_v2_reports_unanswered_evidence_questions_and_v1_is_unchanged():
+    key = {
+        "claim:one:classification": {"answer": "current", "claim_id": "one", "source_evidence_ids": ("e1",)},
+        "claim:two:classification": {"answer": "historical", "claim_id": "two", "source_evidence_ids": ("e2",)},
+    }
+    answers = [{"question_id": "claim:one:classification", "answer": "current",
+        "claim_ids": ["one"], "source_evidence_ids": ["e1"]}]
+    v2 = score_assessment(answer_key=key, answers=answers, scorer_version=SCORER_V2)
+    assert v2["scorer"] == SCORER_V2
+    assert v2["counts"]["supported_correct"] == 1
+    assert v2["counts"]["unanswered_question"] == 1
+    assert v2["question_count"] == 2 and v2["answer_count"] == 1
+
+    v1 = score_assessment(answer_key=key, answers=answers, scorer_version=SCORER_V1)
+    assert v1["scorer"] == SCORER_V1
+    assert "unanswered_question" not in v1["counts"]

@@ -7,9 +7,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from sentientos.codex_landing_evidence_binding import verify_commit_matches_workspace, head_sha, tree_sha, file_sha256
+from sentientos.codex_finalize_landing import (
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
+)
 from sentientos.landing_validation_plan import verify_validation_plan_transition
 
 READY_STATUS = "pr_metadata_guard_ready"
+READY_FOR_SUBMISSION_STATUS = "pr_metadata_guard_ready_for_submission"
 SOURCE_DOC_TEST_PREFIXES = ("sentientos/", "scripts/", "tests/", "docs/", "api/")
 SOURCE_DOC_TEST_SUFFIXES = (".py", ".md", ".json", ".yaml", ".yml", ".toml", ".txt", ".bat")
 NONBLOCKING_STALE_RESULTS = {"not_required", "succeeded"}
@@ -61,6 +67,39 @@ def _decision_status(payload: Mapping[str, Any] | None) -> str:
     if isinstance(decision, Mapping):
         return str(decision.get("status", ""))
     return ""
+
+
+def _hosted_verification_pending(payload: Mapping[str, Any] | None, expected_phase: str) -> bool:
+    if not payload or _decision_status(payload) != "ready_for_pr_submission":
+        return False
+    if _request_value(payload, "phase").replace("_", "-") != expected_phase:
+        return False
+    hosted = payload.get("hosted_verification")
+    if not isinstance(hosted, Mapping) or (
+        hosted.get("status") != "pending"
+        or hosted.get("required") is not True
+        or hosted.get("required_check_context") != HOSTED_QUALITY_GATE_CONTEXT
+        or hosted.get("required_check_integration_id") != HOSTED_QUALITY_GATE_INTEGRATION_ID
+        or hosted.get("pending_stages") != list(HOSTED_REQUIRED_STAGES)
+        or hosted.get("merge_permitted") is not False
+    ):
+        return False
+    report = payload.get("report")
+    commands = report.get("commands") if isinstance(report, Mapping) else None
+    if not isinstance(commands, Sequence) or isinstance(commands, (str, bytes)):
+        return False
+    by_stage = {
+        str(item.get("stage", "")): item
+        for item in commands
+        if isinstance(item, Mapping)
+    }
+    return all(
+        isinstance(by_stage.get(stage), Mapping)
+        and by_stage[stage].get("required") is True
+        and by_stage[stage].get("exit_code") is None
+        and by_stage[stage].get("output_tail") == "pending_required_hosted_administrator_verification"
+        for stage in HOSTED_REQUIRED_STAGES
+    )
 
 
 def _request_value(payload: Mapping[str, Any] | None, key: str) -> str:
@@ -186,8 +225,25 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
     if pr_payload is None:
         reasons.append("missing_pr_metadata_finalizer")
 
+    pre_hosted_pending = _hosted_verification_pending(pre_payload, "pre-commit")
+    pr_hosted_pending = _hosted_verification_pending(pr_payload, "pr-metadata")
+    if pre_payload is not None and _decision_status(pre_payload) == "ready_for_pr_submission" and not pre_hosted_pending:
+        reasons.append("hosted_verification_binding_invalid:pre_commit")
+    if pr_payload is not None and _decision_status(pr_payload) == "ready_for_pr_submission" and not pr_hosted_pending:
+        reasons.append("hosted_verification_binding_invalid:pr_metadata")
+    if pre_payload is not None and pr_payload is not None and pre_hosted_pending != pr_hosted_pending:
+        reasons.append("hosted_verification_phase_mismatch")
+    hosted_pending = pre_hosted_pending and pr_hosted_pending
+    if hosted_pending:
+        proof["hosted_verification"] = {
+            "status": "pending",
+            "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+            "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+            "merge_permitted": False,
+        }
+
     if pre_payload is not None:
-        if _decision_status(pre_payload) != "ready_to_commit":
+        if _decision_status(pre_payload) != "ready_to_commit" and not pre_hosted_pending:
             reasons.append(f"pre_commit_decision_not_ready:{_decision_status(pre_payload) or 'missing'}")
         if _request_value(pre_payload, "title") and _request_value(pre_payload, "title") != request.title:
             reasons.append("title_mismatch:pre_commit_title")
@@ -195,7 +251,7 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
             reasons.append("title_mismatch:pre_commit_intended_commit_title")
 
     if pr_payload is not None:
-        if _decision_status(pr_payload) != "ready_for_pr_metadata":
+        if _decision_status(pr_payload) != "ready_for_pr_metadata" and not pr_hosted_pending:
             reasons.append(f"pr_metadata_decision_not_ready:{_decision_status(pr_payload) or 'missing'}")
         if _request_value(pr_payload, "title") and _request_value(pr_payload, "title") != request.title:
             reasons.append("title_mismatch:pr_metadata_title")
@@ -235,6 +291,7 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
                     pre_plan, pr_plan, workspace_binding, commit_binding,
                     pre_acceptance=pre_payload.get("task_acceptance"),
                     post_acceptance=pr_payload.get("task_acceptance"),
+                    hosted_verification_pending=hosted_pending,
                 )
                 proof["validation_plan_transition"] = transition_proof
                 reasons.extend(transition_reasons)
@@ -246,7 +303,14 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
         reasons.append("matrix_not_passed")
 
     status = _status_for_reasons(tuple(reasons))
-    return CodexPrMetadataGuardResult(status=status, ready=status == READY_STATUS, reasons=tuple(reasons), proof=proof)
+    if not reasons and hosted_pending:
+        status = READY_FOR_SUBMISSION_STATUS
+    return CodexPrMetadataGuardResult(
+        status=status,
+        ready=status in {READY_STATUS, READY_FOR_SUBMISSION_STATUS},
+        reasons=tuple(reasons),
+        proof=proof,
+    )
 
 
 def _status_for_reasons(reasons: tuple[str, ...]) -> str:
