@@ -26,7 +26,9 @@ from sentientos.read_only_campaign_report_verification import (
     verify_persisted_campaign_report,
 )
 from sentientos.resident_cognitive_model_transition_experiment import PHASES
-from sentientos.self_model_intervention_experiment import CONDITION_ORDER, SCORER_V1, SCORER_V2
+from sentientos.self_model_intervention_experiment import (
+    CONDITION_ORDER, SCORER_V1, SCORER_V2, SCORER_V3,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -129,6 +131,21 @@ def test_one_shot_exact_transition_firewall_external_scorer_and_restored_a(tmp_p
     assert receipt["model_output_has_scoring_authority"] is False
     assert receipt["post_resident_identity"] == "cognitive-a"
     assert all(receipt["condition_scores"][c]["counts"]["supported_correct"] == 1 for c in CONDITION_ORDER)
+
+
+def test_v3_assessment_is_bound_to_production_trial_receipt() -> None:
+    protocol = _protocol(scorer_version=SCORER_V3)
+    protocol.verify()
+    receipt = make_trial_receipt(protocol, "trial-1", _evidence())
+    verified = verify_trial_receipt(receipt)
+    assert verified["receipt_digest"] == receipt["receipt_digest"]
+    assert all(receipt["condition_scores"][condition]["scorer"] == SCORER_V3
+        for condition in CONDITION_ORDER)
+    assert all(receipt["condition_scores"][condition]["schema"]
+        == "sentientos.evidence_grounded_self_assessment:v2"
+        for condition in CONDITION_ORDER)
+    assert all(receipt["condition_scores"][condition]["counts"]["uncertainty_handling_correct"] == 0
+        for condition in CONDITION_ORDER)
 
 
 @pytest.mark.parametrize(
