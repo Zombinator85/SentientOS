@@ -44,3 +44,13 @@ answer that silently restores the superseded conclusion fails while the
 canonical correction remains unchanged. This qualifies a serving-session
 boundary only: synthetic fixtures do not establish process restart behavior,
 real-model retention, independent preregistration, or causal attribution.
+
+The interruption composer also accepts `outdated_evidence` corrections, such
+as withdrawing a stale support binding. The original supported answer is
+scored against the predecessor state; after withdrawal, an unknown answer is
+scored against the corrected state and its removed-evidence history. The same
+correction is then checked after the serving-session boundary. This prevents
+the retention objective from turning retained history into doctrine: a
+properly justified change to obsolete evidence must revise the position and
+remain revised, while the evaluator still makes no truth or model-qualification
+claim.

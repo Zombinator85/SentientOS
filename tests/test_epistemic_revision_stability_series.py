@@ -320,6 +320,38 @@ def _inference_correction_projections(root: Path):
     return original, corrected, proposition, support
 
 
+def _withdrawn_evidence_projections(root: Path):
+    state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
+    proposition = make_proposition(namespace="experiment", subject="sensor:gamma",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    state_owner.register_proposition(proposition)
+    support = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:expired-support", source_digest="sha256:" + "9" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2025-01-01T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group="sensor-c",
+        upstream_binding_ids=(), freshness="stale", reliability_posture="verified")
+    state_owner.bind_evidence(support)
+    initial, _ = state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="supported", reason="initialization",
+        active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
+        correlation_id="outdated-initial", tick=1, recorded_at="2025-01-01T00:01:00Z")
+    original = state_owner.cognitive_projection(max_states=1, current_tick=2,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=initial.state_digest, stance="unknown",
+        reason="evidence_withdrawal", active_binding_ids=(), removed_binding_ids=(support.binding_id,),
+        correlation_id="outdated-withdrawal", tick=2,
+        recorded_at="2026-10-30T00:02:00Z")
+    corrected = state_owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert original is not None and corrected is not None
+    assert original.evidence_set_digests != corrected.evidence_set_digests
+    return original, corrected, proposition, support
+
+
 def _inference_correction_model_replacement_series(
         tmp_path: Path, *, successor_reverts: bool = False):
     original, corrected, proposition, support = _inference_correction_projections(
@@ -422,8 +454,13 @@ def test_successor_reversion_after_inference_correction_is_scored_as_failure(
 
 def _interruption_series(tmp_path: Path, *, reverts: bool = False,
                          same_session: bool = False,
-                         inference_correction: bool = False):
-    if inference_correction:
+                         inference_correction: bool = False,
+                         outdated_evidence: bool = False):
+    if outdated_evidence:
+        original, corrected, proposition, support = _withdrawn_evidence_projections(
+            tmp_path / "epistemic")
+        contradiction = None
+    elif inference_correction:
         original, corrected, proposition, support = _inference_correction_projections(
             tmp_path / "epistemic")
         contradiction = None
@@ -444,12 +481,17 @@ def _interruption_series(tmp_path: Path, *, reverts: bool = False,
         revert_corrected_position=reverts)
     original_key = IndependentAnswerKey("supported", "supported", "support_retained",
         (support.binding_id,))
-    corrected_key = IndependentAnswerKey("contested", "contested",
-        "inference_rule_corrected" if inference_correction else "conflict_preserved",
-        (support.binding_id,) if inference_correction else
-            (support.binding_id, contradiction.binding_id))
+    if outdated_evidence:
+        corrected_key = IndependentAnswerKey("unknown", "uncertain",
+            "retain_uncertainty", ())
+    else:
+        corrected_key = IndependentAnswerKey("contested", "contested",
+            "inference_rule_corrected" if inference_correction else "conflict_preserved",
+            (support.binding_id,) if inference_correction else
+                (support.binding_id, contradiction.binding_id))
     correction_case = RevisionCase(case_id="interruption-correction",
-        kind="inference_correction" if inference_correction else "contrary_evidence",
+        kind=("outdated_evidence" if outdated_evidence else
+            "inference_correction" if inference_correction else "contrary_evidence"),
         proposition_id=proposition.proposition_id, evaluator_version="interruption-v1",
         before_prompt_digest="sha256:" + digest_payload({"prompt": before[1].prompt}),
         after_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
@@ -496,6 +538,20 @@ def test_inference_correction_without_new_facts_survives_session_boundary(
     assert report["correction_update_reason"] == "update_rule_correction"
     assert report["correction_evidence_set_preserved"] is True
     assert report["interruption_retention"]["after"]["reason_code_correct"] is True
+
+
+def test_genuinely_withdrawn_outdated_evidence_revises_and_stays_revised(
+        tmp_path: Path) -> None:
+    report, original, corrected = _interruption_series(tmp_path,
+        outdated_evidence=True)
+    assert original.evidence_set_digests != corrected.evidence_set_digests
+    assert report["status"] == "series_passed"
+    assert report["correction_update_reason"] == "evidence_withdrawal"
+    assert report["correction_evidence_set_preserved"] is False
+    assert report["correction_measurement_passed"] is True
+    assert report["interruption_retention_passed"] is True
+    assert report["interruption_retention"]["after"]["state_stance_correct"] is True
+    assert report["interruption_retention"]["after"]["answer_correct"] is True
 
 
 def test_reversion_after_new_session_is_scored_without_state_rewrite(
