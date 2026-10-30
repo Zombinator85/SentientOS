@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0ac3684f3f7ecd83695ba460fc0e5c1a381e4fc4",
+  "test_provenance_path": "/workspace/.tmp-bootstrap-introspection-tests2/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_task_scaffold_path_planner.py::test_causal_introspection_maintenance_profile_is_exactly_scoped",
+      "rationale": "The new bootstrap classification admits only the causal-introspection module, its focused tests, and its architecture guide, while rejecting an adjacent unlisted source path."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_task_scaffold_path_planner.py::test_causal_introspection_maintenance_profile_is_exactly_scoped"
+  ]
+}
