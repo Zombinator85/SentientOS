@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from .epistemic_revision_pressure_control import (
     UnsupportedPressurePair, evaluate_unsupported_pressure_pair,
@@ -17,7 +17,9 @@ from .epistemic_revision_qualification import (
 )
 from .governed_local_model_invocation import LocalModelInvocationReceipt
 from .local_model_authority import digest_payload
-from .persistent_epistemic_state import EpistemicCognitiveProjection
+from .persistent_epistemic_state import (
+    EpistemicCognitiveProjection, MeaningBearingEpistemicCognitiveProjection,
+)
 
 SCHEMA = "sentientos.epistemic_correction_pressure_series:v1"
 MODEL_REPLACEMENT_SCHEMA = "sentientos.epistemic_correction_model_replacement_series:v1"
@@ -180,6 +182,15 @@ def evaluate_correction_model_replacement_series(*,
     status = ("insufficient" if "insufficient" in statuses else
         "series_passed" if statuses == ("case_passed", "case_passed")
         else "series_failed")
+    correction_events: tuple[Mapping[str, Any], ...] = ()
+    if (isinstance(corrected_projection, MeaningBearingEpistemicCognitiveProjection)
+            and len(corrected_projection.update_events) == 1):
+        correction_events = corrected_projection.update_events[0]
+    correction_event: Mapping[str, Any] = correction_events[-1] if correction_events else {}
+    before_evidence_digest = (original_projection.evidence_set_digests[0]
+        if len(original_projection.evidence_set_digests) == 1 else None)
+    after_evidence_digest = (corrected_projection.evidence_set_digests[0]
+        if len(corrected_projection.evidence_set_digests) == 1 else None)
     report = {"schema_version": MODEL_REPLACEMENT_SCHEMA,
         "series_id": series.correction_case.case_id + ":" +
             series.replacement_case.case_id,
@@ -187,6 +198,11 @@ def evaluate_correction_model_replacement_series(*,
         "correction": correction, "model_replacement_retention": replacement,
         "correction_measurement_passed": correction["status"] == "case_passed",
         "replacement_retention_passed": replacement["status"] == "case_passed",
+        "correction_update_reason": correction_event.get("reason"),
+        "correction_evidence_set_digest_before": before_evidence_digest,
+        "correction_evidence_set_digest_after": after_evidence_digest,
+        "correction_evidence_set_preserved": (before_evidence_digest is not None
+            and before_evidence_digest == after_evidence_digest),
         "real_model_qualification_established": False,
         "causal_claim_made": False, "oracle_independence_verified": False,
         "preregistration_timing_verified": False, "authority": False,
