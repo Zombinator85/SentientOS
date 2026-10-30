@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
 from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner, load_runtime_config
 from sentientos.self_model_intervention_experiment import (
-    CONDITION_ORDER, SCORER_V1, SCORER_V2, build_answer_key, make_protocol, score_assessment,
+    CONDITION_ORDER, SCORER_V1, SCORER_V2, SCORER_V3, build_answer_key, make_protocol, score_assessment,
 )
 from tests.test_resident_developmental_cognition import owner as cognition_owner, snapshot as cognition_snapshot
 from tests.test_longitudinal_self_model import record, snapshot
@@ -109,3 +110,45 @@ def test_v2_reports_unanswered_evidence_questions_and_v1_is_unchanged():
     v1 = score_assessment(answer_key=key, answers=answers, scorer_version=SCORER_V1)
     assert v1["scorer"] == SCORER_V1
     assert "unanswered_question" not in v1["counts"]
+
+
+def test_v3_requires_abstention_for_stale_or_unresolved_evidence():
+    projection = SimpleNamespace(selected_claims=[
+        {"claim_id": "stale", "claim_category": "current_state", "status": "historical",
+         "freshness": "stale", "contradiction_state": "consistent",
+         "source_evidence_ids": ("e-stale",)},
+        {"claim_id": "uncertain", "status": "unresolved", "freshness": "unknown",
+         "contradiction_state": "unresolved", "source_evidence_ids": ("e-uncertain",)},
+        {"claim_id": "current", "status": "current", "freshness": "fresh",
+         "contradiction_state": "consistent", "source_evidence_ids": ("e-current",)},
+        {"claim_id": "conflict", "status": "contradicted", "freshness": "fresh",
+         "contradiction_state": "contradicted", "source_evidence_ids": ("e-conflict",)},
+    ])
+    legacy_key = build_answer_key(projection, scorer_version=SCORER_V2)
+    key = build_answer_key(projection, scorer_version=SCORER_V3)
+    assert legacy_key["claim:stale:classification"]["answer"] == "historical"
+    assert key["claim:stale:classification"]["answer"] == "unknown"
+    assert key["claim:uncertain:classification"]["answer"] == "unknown"
+    assert key["claim:uncertain:classification"]["classification_basis"] == "evidence_not_current_and_consistent"
+    assert key["claim:current:classification"]["answer"] == "current"
+    assert key["claim:conflict:classification"]["answer"] == "contradicted"
+
+    answer = {"question_id": "claim:uncertain:classification", "answer": "abstain",
+        "claim_ids": ["uncertain"], "source_evidence_ids": ["e-uncertain"]}
+    scored = score_assessment(answer_key=key, answers=[answer], scorer_version=SCORER_V3)
+    assert scored["schema"] == "sentientos.evidence_grounded_self_assessment:v2"
+    assert scored["counts"]["correct_abstention"] == 1
+    assert scored["counts"]["uncertainty_handling_correct"] == 1
+    assert scored["counts"]["provenance_correct"] == 1
+    assert scored["counts"]["unanswered_question"] == 3
+
+    overclaim = dict(answer, answer="current")
+    overclaim_score = score_assessment(answer_key=key, answers=[overclaim], scorer_version=SCORER_V3)
+    assert overclaim_score["counts"]["correct_abstention"] == 0
+    assert overclaim_score["counts"]["uncertainty_handling_incorrect"] == 1
+    assert overclaim_score["counts"]["supported_incorrect"] == 1
+
+    legacy_abstention = score_assessment(answer_key=legacy_key,
+        answers=[dict(answer, question_id="claim:current:classification")], scorer_version=SCORER_V2)
+    assert legacy_abstention["counts"]["correct_abstention"] == 0
+    assert legacy_abstention["counts"]["incorrect_abstention"] == 1

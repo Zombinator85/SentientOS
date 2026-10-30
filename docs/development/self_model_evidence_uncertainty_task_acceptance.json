@@ -1,0 +1,27 @@
+{
+  "repository_sha": "28ba8296399e0e49bbb4ac218433cc2bef800b55",
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_self_model_cognitive_consumption.py::test_v2_reports_unanswered_evidence_questions_and_v1_is_unchanged",
+      "rationale": "Existing scorer versions preserve unanswered-question reporting and legacy output semantics."
+    },
+    {
+      "node_id": "tests/test_self_model_cognitive_consumption.py::test_v3_requires_abstention_for_stale_or_unresolved_evidence",
+      "rationale": "Version 3 requires abstention when a current-state claim lacks fresh, consistent evidence, and preserves exact claim/source provenance."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_v2_campaign_receipt_and_report_preserve_unanswered_question_count",
+      "rationale": "The existing production campaign continues to preserve unanswered evidence counts by condition."
+    },
+    {
+      "node_id": "tests/test_production_self_reflection_campaign.py::test_v3_assessment_is_bound_to_production_trial_receipt",
+      "rationale": "The production trial protocol accepts scorer v3 and binds its assessment schema into the immutable trial receipt."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_self_reflection_campaign.py::test_v3_assessment_is_bound_to_production_trial_receipt"
+  ],
+  "test_provenance_path": "/workspace/.tmp-rsi/v3-focused-tests-final/test_run_provenance.json"
+}

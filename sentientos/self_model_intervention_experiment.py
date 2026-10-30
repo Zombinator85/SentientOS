@@ -6,21 +6,23 @@ model answer is never evidence for, or the judge of, its own correctness.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .longitudinal_self_model import CognitiveSelfModelProjection, FALSE_AUTHORITY
 
 SCHEMA = "sentientos.self_model_intervention_protocol:v1"
 ASSESSMENT_SCHEMA = "sentientos.evidence_grounded_self_assessment:v1"
+ASSESSMENT_SCHEMA_V2 = "sentientos.evidence_grounded_self_assessment:v2"
 SCORER_V1 = "deterministic_exact_evidence_key:v1"
 SCORER_V2 = "deterministic_exact_evidence_key:v2"
-SUPPORTED_SCORERS = frozenset({SCORER_V1, SCORER_V2})
+SCORER_V3 = "deterministic_exact_evidence_key:v3"
+SUPPORTED_SCORERS = frozenset({SCORER_V1, SCORER_V2, SCORER_V3})
 CONDITION_ORDER = ("self_model_present", "self_model_withheld", "self_model_restored")
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + cast(str, digest_payload(value))
+    return "sha256:" + digest_payload(value)
 
 
 @dataclass(frozen=True)
@@ -64,18 +66,55 @@ def make_protocol(*, model_id: str, model_artifact_digest: str, current_snapshot
     return replace(raw, protocol_id="self-model-protocol-" + digest[7:31], protocol_digest=digest)
 
 
-def build_answer_key(projection: CognitiveSelfModelProjection) -> Mapping[str, Mapping[str, Any]]:
-    """Build exact questions only from independently reconciled selected claims."""
-    return {
-        f"claim:{claim['claim_id']}:classification": {
-            "answer": ("contradicted" if claim["contradiction_state"] == "contradicted"
-                       else "historical" if claim["status"] in {"historical", "withdrawn"}
-                       else "current"),
+def _answer_for_claim(claim: Mapping[str, Any], *, scorer_version: str) -> tuple[str, str]:
+    status = claim.get("status")
+    contradiction = claim.get("contradiction_state")
+    freshness = claim.get("freshness")
+    if scorer_version != SCORER_V3:
+        # Reproduce the original v1/v2 mapping exactly for bound historical keys.
+        answer = ("contradicted" if contradiction == "contradicted"
+                  else "historical" if status in {"historical", "withdrawn"}
+                  else "current")
+        return answer, "legacy_classification"
+    if contradiction == "contradicted" or status == "contradicted":
+        return "contradicted", "contradiction_observed"
+    if status in {"historical", "withdrawn"}:
+        if (status == "historical"
+                and claim.get("claim_category") != "historical_interpretation"
+                and freshness in {"stale", "unknown", "not_applicable", "superseded"}):
+            return "unknown", "current_claim_lacks_current_evidence"
+        return "historical", "historical_claim"
+    if scorer_version == SCORER_V3:
+        if (status != "current" or contradiction != "consistent"
+                or freshness not in {"fresh", "aging"}):
+            return "unknown", "evidence_not_current_and_consistent"
+        return "current", "current_consistent_evidence"
+    # Keep the established v1/v2 answer-key semantics stable for old protocols.
+    return "current", "current_claim"
+
+
+def build_answer_key(projection: CognitiveSelfModelProjection, *,
+                     scorer_version: str = SCORER_V2) -> Mapping[str, Mapping[str, Any]]:
+    """Build evidence-derived questions; v3 requires abstention on uncertain claims."""
+    if scorer_version not in SUPPORTED_SCORERS:
+        raise ValueError("unsupported_scoring_contract")
+    key: dict[str, Mapping[str, Any]] = {}
+    for claim in projection.selected_claims:
+        answer, basis = _answer_for_claim(claim, scorer_version=scorer_version)
+        item: dict[str, Any] = {
+            "answer": answer,
             "claim_id": claim["claim_id"],
             "source_evidence_ids": tuple(claim["source_evidence_ids"]),
         }
-        for claim in projection.selected_claims
-    }
+        if scorer_version == SCORER_V3:
+            item.update({
+                "classification_basis": basis,
+                "evidence_status": claim.get("status"),
+                "evidence_freshness": claim.get("freshness"),
+                "contradiction_state": claim.get("contradiction_state"),
+            })
+        key[f"claim:{claim['claim_id']}:classification"] = item
+    return key
 
 
 def score_assessment(*, answer_key: Mapping[str, Mapping[str, Any]],
@@ -87,28 +126,52 @@ def score_assessment(*, answer_key: Mapping[str, Mapping[str, Any]],
               "correct_abstention", "incorrect_abstention", "provenance_correct",
               "provenance_incorrect", "contradiction_handling_correct", "stale_current_handling_correct")}
     seen: set[str] = set()
+    if scorer_version == SCORER_V3:
+        counts["uncertainty_handling_correct"] = 0
+        counts["uncertainty_handling_incorrect"] = 0
     for answer in answers:
         question_id = answer.get("question_id")
         if not isinstance(question_id, str) or question_id not in answer_key or question_id in seen:
             counts["unsupported_assertion"] += 1; continue
         seen.add(question_id); expected = answer_key[question_id]
+        if scorer_version == SCORER_V3 and expected.get("answer") == "unknown":
+            expected_claims = {str(expected["claim_id"])}
+            expected_sources = set(expected["source_evidence_ids"])
+            cited_claims = set(answer.get("claim_ids", ()))
+            cited_sources = set(answer.get("source_evidence_ids", ()))
+            provenance = expected_claims <= cited_claims and expected_sources <= cited_sources
+            counts["provenance_correct" if provenance else "provenance_incorrect"] += 1
+            if answer.get("answer") in {None, "unknown", "abstain"}:
+                counts["correct_abstention"] += 1
+                counts["uncertainty_handling_correct"] += 1
+            else:
+                counts["supported_incorrect"] += 1
+                counts["uncertainty_handling_incorrect"] += 1
+            continue
         if answer.get("answer") in {None, "unknown", "abstain"}:
             counts["incorrect_abstention"] += 1; continue
         correct = answer.get("answer") == expected["answer"]
         counts["supported_correct" if correct else "supported_incorrect"] += 1
+        expected_claims = {str(expected["claim_id"])}
+        expected_sources = set(expected["source_evidence_ids"])
         cited_claims = set(answer.get("claim_ids", ()))
         cited_sources = set(answer.get("source_evidence_ids", ()))
-        provenance = expected["claim_id"] in cited_claims and set(expected["source_evidence_ids"]) <= cited_sources
+        provenance = expected_claims <= cited_claims and expected_sources <= cited_sources
         counts["provenance_correct" if provenance else "provenance_incorrect"] += 1
         if correct and expected["answer"] == "contradicted": counts["contradiction_handling_correct"] += 1
         if correct and expected["answer"] in {"current", "historical"}: counts["stale_current_handling_correct"] += 1
-    counts["correct_abstention"] = 0  # questions are emitted only when bounded evidence exists
+    if scorer_version != SCORER_V3:
+        # Preserve the historical count shape and meaning for existing protocols.
+        counts["correct_abstention"] = 0
     if scorer_version == SCORER_V2:
         counts["unanswered_question"] = len(answer_key) - len(seen)
-    return {"schema": ASSESSMENT_SCHEMA, "counts": counts, "question_count": len(answer_key),
+    if scorer_version == SCORER_V3:
+        counts["unanswered_question"] = len(answer_key) - len(seen)
+    return {"schema": ASSESSMENT_SCHEMA_V2 if scorer_version == SCORER_V3 else ASSESSMENT_SCHEMA,
+            "counts": counts, "question_count": len(answer_key),
             "answer_count": len(answers), "scorer": scorer_version,
             "model_answer_has_scoring_authority": False, "authority": dict(FALSE_AUTHORITY)}
 
 
-__all__ = ["CONDITION_ORDER", "SCORER_V1", "SCORER_V2", "SUPPORTED_SCORERS",
+__all__ = ["CONDITION_ORDER", "SCORER_V1", "SCORER_V2", "SCORER_V3", "SUPPORTED_SCORERS",
            "SelfModelInterventionProtocol", "build_answer_key", "make_protocol", "score_assessment"]
