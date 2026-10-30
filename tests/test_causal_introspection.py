@@ -191,6 +191,42 @@ def test_snapshot_delta_reports_reference_binding_change_without_value_or_refere
         verify_snapshot_delta(tampered, history)
 
 
+def test_snapshot_delta_preserves_bounded_semantic_trace_transition_details(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="same", key="configuration")
+    runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+
+    provider._semantic_trace = dict(provider._semantic_trace,
+        WHY=SemanticTraceDimension(("supervisor:state",), "observed"))
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+    history = runtime.reconstruct()
+    delta = build_snapshot_delta(history)
+    owner_change, = delta["owner_changes"]
+    assert verify_snapshot_delta(delta, history) == delta
+    assert delta["schema_version"] == SNAPSHOT_DELTA_SCHEMA
+    assert owner_change["changed_semantic_trace_dimensions"] == [{
+        "dimension": "WHY",
+        "previous": {"observed_refs": [], "posture": "not_observed"},
+        "current": {"observed_refs": ["supervisor:state"], "posture": "observed"},
+    }]
+    assert owner_change["status"] == "changed"
+    assert delta["causal_inference_performed"] is False
+    assert delta["causal_claim_made"] is False
+    assert delta["authority"] is False
+
+    tampered = dict(delta)
+    tampered_change = dict(owner_change)
+    tampered_change["changed_semantic_trace_dimensions"] = [{
+        "dimension": "WHY",
+        "previous": {"observed_refs": [], "posture": "observed"},
+        "current": {"observed_refs": ["supervisor:state"], "posture": "observed"},
+    }]
+    tampered["owner_changes"] = [tampered_change]
+    with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
+        verify_snapshot_delta(tampered, history)
+
+
 def test_snapshot_delta_reports_source_generation_change_without_causal_claim(tmp_path):
     provider = _provider("supervisor", "runtime_supervision", value="same", key="status")
     runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
