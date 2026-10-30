@@ -20,6 +20,9 @@ from sentientos.codex_finalize_landing import (
     CodexFinalizeLandingCommandResult,
     CodexFinalizeLandingPolicy,
     CodexFinalizeLandingRequest,
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
     evaluate_finalize_landing,
 )
 from sentientos.task_acceptance import verify as verify_task_acceptance
@@ -44,7 +47,7 @@ class StageRuntime:
     command: str
     started_at: float
     completed: bool
-    exit_code: int
+    exit_code: int | None
     duration_seconds: float
     stdout_tail: str
     stderr_tail: str
@@ -701,6 +704,11 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--allow-strict-audit-repair", action="store_true")
         s.add_argument("--allow-generated-artifact-cleanup", action="store_true")
         s.add_argument("--allow-stale-evidence-refresh", action="store_true")
+        s.add_argument(
+            "--defer-privileged-checks-to-hosted",
+            action="store_true",
+            help="leave Administrator-only audit stages explicitly pending for the required hosted Quality Gate",
+        )
         s.add_argument("--max-stale-evidence-refreshes", type=int, default=1)
         s.add_argument("--allow-no-focused-tests", action="store_true")
         s.add_argument("--output")
@@ -722,6 +730,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
     normalized_phase = a.phase.replace("_", "-")
+    if a.defer_privileged_checks_to_hosted and (
+        normalized_phase not in {"pre-commit", "post-commit", "pr-metadata"}
+        or os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+    ):
+        print(json.dumps({"status": "hosted_deferral_not_allowed_in_this_context"}, indent=2))
+        return 2
     if a.overall_timeout_seconds is None:
         a.overall_timeout_seconds = (DEFAULT_SOLO_PRECOMMIT_BUDGET_SECONDS if normalized_phase == "pre-commit" else DEFAULT_SOLO_POSTCOMMIT_BUDGET_SECONDS) if a.validation_profile == "solo" else DEFAULT_OVERALL_TIMEOUT_SECONDS
     if a.stage_timeout_seconds <= 0 or a.matrix_timeout_seconds <= 0 or a.overall_timeout_seconds <= 0 or a.terminal_reserve_seconds <= 0 or a.terminal_reserve_seconds >= a.overall_timeout_seconds:
@@ -797,6 +811,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_no_focused_tests=a.allow_no_focused_tests,
         workspace_root=a.workspace_root,
         summary=a.summary,
+        defer_privileged_checks_to_hosted=a.defer_privileged_checks_to_hosted,
     )
 
     stage_specs: list[tuple[str, StageCommand, bool]] = [("preflight_hygiene", ["git", "status", "--short"], True)]
@@ -934,6 +949,30 @@ def main(argv: list[str] | None = None) -> int:
             decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"])) if acceptance_result else ["task_acceptance_blocked"]
         else:
             for stage_id, cmd, required in stage_specs:
+                if a.defer_privileged_checks_to_hosted and stage_id in HOSTED_REQUIRED_STAGES:
+                    command_text = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+                    commands.append(CodexFinalizeLandingCommandResult(
+                        stage_id,
+                        command_text,
+                        None,
+                        output_tail="pending_required_hosted_administrator_verification",
+                        required=True,
+                    ))
+                    runtime.append(StageRuntime(
+                        stage_id=stage_id,
+                        command=command_text,
+                        started_at=time.time(),
+                        completed=False,
+                        exit_code=None,
+                        duration_seconds=0.0,
+                        stdout_tail="",
+                        stderr_tail="Administrator authority is provided only by the hosted Quality Gate.",
+                        decision_impact="pending_hosted_verification",
+                        status="deferred_to_hosted",
+                        timed_out=False,
+                    ))
+                    _progress(a.progress, f"[finalizer] stage end: {stage_id} status=deferred_to_hosted")
+                    continue
                 timeout = a.matrix_timeout_seconds if stage_id == "matrix_summary" else a.stage_timeout_seconds
                 remaining = deadline - time.monotonic()
                 if remaining <= a.terminal_reserve_seconds:
@@ -1100,6 +1139,15 @@ def main(argv: list[str] | None = None) -> int:
         decision_reasons = list(landing_result.decision.reasons)
 
     payload = landing_result.to_dict()
+    if a.defer_privileged_checks_to_hosted:
+        payload["hosted_verification"] = {
+            "status": "pending",
+            "required": True,
+            "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+            "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+            "pending_stages": list(HOSTED_REQUIRED_STAGES),
+            "merge_permitted": False,
+        }
     payload["request"] = {
         "title": req.title,
         "intended_commit_title": req.intended_commit_title,
@@ -1109,6 +1157,7 @@ def main(argv: list[str] | None = None) -> int:
         "focused_test_commands": list(a.focused_test_command),
         "targeted_mypy_commands": list(a.targeted_mypy_command),
         "validation_profile": a.validation_profile,
+        "defer_privileged_checks_to_hosted": a.defer_privileged_checks_to_hosted,
     }
     if acceptance_result is not None:
         payload["task_acceptance"] = acceptance_result
@@ -1158,6 +1207,7 @@ def main(argv: list[str] | None = None) -> int:
         "configured_total_budget_seconds": a.overall_timeout_seconds, "remaining_budget_seconds": max(0.0, deadline - time.monotonic()),
         "exhaustive_matrix_status": SOLO_MATRIX_STATUS if a.validation_profile == "solo" else ("matrix_reused" if exact_matrix_reuse or prevalidated_matrix_reuse else "matrix_passed" if stage_results.get("matrix_summary", {}).get("status") == "passed" else "matrix_failed"),
         "exhaustive_matrix_digest": None if a.validation_profile == "solo" else payload.get("workspace_binding", {}).get("matrix_digest"),
+        **({"hosted_verification": payload["hosted_verification"]} if a.defer_privileged_checks_to_hosted else {}),
         "overall_status": decision_status,
     })
     payload["landing_validation_plan"] = validation_plan
@@ -1237,7 +1287,7 @@ def main(argv: list[str] | None = None) -> int:
         "terminal_cleaned_paths": [path for path, result in terminal_cleanup_results.items() if result[1] in {"removed", "restored"}],
         "rerun_required": rerun_required,
     }
-    if binding_errors and decision_status in {"ready_to_commit", "ready_for_pr_metadata"}:
+    if binding_errors and decision_status in {"ready_to_commit", "ready_for_pr_metadata", "ready_for_pr_submission"}:
         decision_status = "manual_review_required" if "runtime_root_inside_workspace" in binding_errors else "repair_required_task_caused"
         decision_reasons = binding_errors
     if acceptance_result is not None and acceptance_result.get("status") != "task_acceptance_ready":
@@ -1257,7 +1307,11 @@ def main(argv: list[str] | None = None) -> int:
 
     _progress(a.progress, f"[finalizer] decision: {decision_status}")
     _emit_and_optionally_write(payload, a.output, a.summary, decision_status)
-    return 0 if (a.phase.replace("_", "-") == "pre-commit" and decision_status == "ready_to_commit") or (a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and decision_status == "ready_for_pr_metadata") else 1
+    return 0 if (
+        (a.phase.replace("_", "-") == "pre-commit" and decision_status == "ready_to_commit")
+        or (a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and decision_status == "ready_for_pr_metadata")
+        or (a.defer_privileged_checks_to_hosted and decision_status == "ready_for_pr_submission")
+    ) else 1
 
 
 if __name__ == "__main__":

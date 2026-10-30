@@ -58,6 +58,8 @@ def test_minimal_airlock_pytest_constraint_matches_project_declaration() -> None
 def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp_path):
     pip_commands: list[list[str]] = []
     pip_environments: list[dict[str, str] | None] = []
+    pytest_data_paths: list[Path] = []
+    monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "protected-vow-data"))
     editable_statuses = iter(
         [
             EditableInstallStatus(False, "distribution-not-found"),
@@ -71,6 +73,12 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
             pip_environments.append(env)
             return _Completed(0)
         if cmd[:3] == [run_tests.sys.executable, "-m", "pytest"]:
+            assert env is not None
+            data_root = Path(env["SENTIENTOS_DATA_DIR"])
+            assert data_root.is_dir()
+            assert data_root.parent == Path(env["TMPDIR"])
+            assert data_root != tmp_path / "protected-vow-data"
+            pytest_data_paths.append(data_root)
             _write_report(env)
             return _Completed(0)
         if cmd[:3] == ["git", "rev-parse", "HEAD"]:
@@ -96,6 +104,8 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
     code = run_tests.main(["-q", "tests/test_focused.py"])
 
     assert code == 0
+    assert len(pytest_data_paths) == 1
+    assert not pytest_data_paths[0].exists()
     assert pip_commands == [
         [run_tests.sys.executable, "-m", "pip", "install", "--no-deps", "-e", "."],
         [run_tests.sys.executable, "-m", "pip", "install", "--only-binary=:all:", "-r", run_tests.CANONICAL_REQUIREMENTS_PATH],

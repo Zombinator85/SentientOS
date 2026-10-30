@@ -28,7 +28,9 @@ from .private_file_custody import (
     read_private_file_at,
 )
 from .resident_cognitive_model_transition_experiment import PHASES
-from .self_model_intervention_experiment import CONDITION_ORDER, score_assessment
+from .self_model_intervention_experiment import (
+    CONDITION_ORDER, SCORER_V2, SUPPORTED_SCORERS, score_assessment,
+)
 
 LEGACY_PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v1"
 PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v2"
@@ -39,7 +41,7 @@ VERIFIED_RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v
 LEGACY_REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
 REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v2"
 TRIAL_PROVENANCE_SCHEMA = "sentientos.production_self_reflection_trial_provenance:v1"
-SCORER = "deterministic_exact_evidence_key:v1"
+SCORER = SCORER_V2
 MIN_TRIALS, MAX_TRIALS = 2, 32
 MAX_IMMUTABLE_ARTIFACT_BYTES = 16 * 1024 * 1024
 ALIASES = {"", "latest", "current", "default", "any", "*"}
@@ -239,7 +241,7 @@ class ProductionSelfReflectionProtocol:
             "projection_id", "projection_digest", "prompt_construction_digest", "inference_budget",
             "generation_parameters", "abstention_format", "citation_format", "condition_order"}
         if not required_assessment <= set(self.assessment): raise ProductionSelfReflectionError("assessment_binding_incomplete")
-        if tuple(self.assessment["condition_order"]) != CONDITION_ORDER or self.assessment["scorer_version"] != SCORER:
+        if tuple(self.assessment["condition_order"]) != CONDITION_ORDER or self.assessment["scorer_version"] not in SUPPORTED_SCORERS:
             raise ProductionSelfReflectionError("assessment_contract_mismatch")
         if tuple(self.transition.get("phase_order", ())) != PHASES:
             raise ProductionSelfReflectionError("transition_protocol_mismatch")
@@ -1215,7 +1217,10 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
     answer_key = evidence.get("answer_key")
     if not isinstance(answer_key, Mapping) or _digest(answer_key) != protocol.assessment["answer_key_digest"]:
         raise ProductionSelfReflectionError("external_scorer_custody_mismatch")
-    scores = {condition: score_assessment(answer_key=answer_key, answers=evidence["condition_answers"][condition]) for condition in CONDITION_ORDER}
+    scores = {condition: score_assessment(answer_key=answer_key,
+        answers=evidence["condition_answers"][condition],
+        scorer_version=protocol.assessment["scorer_version"])
+        for condition in CONDITION_ORDER}
     body: dict[str, Any] = {"schema_version": VERIFIED_RECEIPT_SCHEMA if outcome_binding is not None else RECEIPT_SCHEMA, "protocol_id": protocol.protocol_id,
         "protocol_digest": protocol.protocol_digest, "trial_id": trial_id, "installation_identity": evidence["installation_identity"],
         "software_generation_before": evidence["software_generation_before"], "software_generation_after": evidence["software_generation_after"],

@@ -15,6 +15,7 @@ STABLE_LINEAGE_FIELDS = (
     "requested_profile", "effective_profile", "title", "intended_commit_title",
     "task_acceptance_manifest_digest", "task_acceptance_provenance_digest",
     "focused_test_command_contract", "targeted_mypy_command_contract",
+    "hosted_verification",
 )
 ACCEPTANCE_DIGEST_FIELDS = frozenset({
     "task_acceptance_manifest_digest",
@@ -52,9 +53,22 @@ def verify_validation_plan(plan: Mapping[str, Any]) -> tuple[bool, tuple[str, ..
     if not isinstance(stages, Mapping):
         reasons.append("validation_stage_results_invalid")
     else:
+        hosted = plan.get("hosted_verification")
+        hosted_pending = isinstance(hosted, Mapping) and hosted.get("status") == "pending"
+        hosted_values = hosted if isinstance(hosted, Mapping) else {}
+        if hosted_pending and (
+            hosted_values.get("required") is not True
+            or hosted_values.get("required_check_context") != "Required / Quality Gate"
+            or hosted_values.get("required_check_integration_id") != 15368
+            or hosted_values.get("pending_stages") != ["strict_audits", "audit_immutability"]
+            or hosted_values.get("merge_permitted") is not False
+            or plan.get("overall_status") != "ready_for_pr_submission"
+        ):
+            reasons.append("hosted_verification_plan_binding_invalid")
         for stage in plan.get("required_stage_ids", []):
             result = stages.get(stage)
-            if not isinstance(result, Mapping) or result.get("status") != "passed":
+            expected = "deferred_to_hosted" if hosted_pending and stage in {"strict_audits", "audit_immutability"} else "passed"
+            if not isinstance(result, Mapping) or result.get("status") != expected:
                 reasons.append(f"required_stage_not_passed:{stage}")
     if plan.get("artifact_digest") != canonical_digest(plan):
         reasons.append("validation_plan_digest_mismatch")
@@ -190,6 +204,7 @@ def verify_validation_plan_transition(
     workspace_binding: Mapping[str, Any], commit_binding: Mapping[str, Any],
     *, pre_acceptance: Mapping[str, Any] | None = None,
     post_acceptance: Mapping[str, Any] | None = None,
+    hosted_verification_pending: bool = False,
 ) -> tuple[bool, tuple[str, ...], dict[str, Any]]:
     """Verify two phase-local plans as one exact landing validation lineage."""
     reasons: list[str] = []
@@ -212,8 +227,10 @@ def verify_validation_plan_transition(
             reasons.append(f"validation_lineage_field_mismatch:{field}")
     if pre_plan.get("phase") != "pre-commit": reasons.append("pre_commit_validation_phase_invalid")
     if post_plan.get("phase") != "pr-metadata": reasons.append("pr_metadata_validation_phase_invalid")
-    if pre_plan.get("overall_status") != "ready_to_commit": reasons.append("pre_commit_validation_status_invalid")
-    if post_plan.get("overall_status") != "ready_for_pr_metadata": reasons.append("pr_metadata_validation_status_invalid")
+    expected_pre_status = "ready_for_pr_submission" if hosted_verification_pending else "ready_to_commit"
+    expected_post_status = "ready_for_pr_submission" if hosted_verification_pending else "ready_for_pr_metadata"
+    if pre_plan.get("overall_status") != expected_pre_status: reasons.append("pre_commit_validation_status_invalid")
+    if post_plan.get("overall_status") != expected_post_status: reasons.append("pr_metadata_validation_status_invalid")
 
     base_sha = workspace_binding.get("base_head_sha")
     parent_sha = commit_binding.get("parent_sha")
@@ -271,5 +288,7 @@ def verify_validation_plan_transition(
         "pre_repository_sha": pre_plan.get("repository_sha"), "post_repository_sha": post_plan.get("repository_sha"),
         "commit_parent_sha": parent_sha, "commit_head_sha": head_sha, "matrix_digest": matrix_digest,
         "task_acceptance_transition": acceptance_transition,
+        "hosted_verification_pending": hosted_verification_pending,
+        "merge_permitted": not hosted_verification_pending,
     }
     return not reasons, tuple(reasons), proof

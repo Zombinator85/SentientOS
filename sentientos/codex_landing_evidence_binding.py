@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.landing_validation_plan import verify_validation_plan_transition
+from sentientos.codex_finalize_landing import (
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
+)
 
 SCHEMA_VERSION = "codex_landing_evidence_binding.v1"
 PUBLICATION_HANDOFF_SCHEMA_VERSION = "sentientos.pr_publication_handoff:v1"
@@ -221,6 +226,7 @@ class PrPublicationHandoff:
     task_acceptance_manifest_sha256: str
     task_acceptance_provenance_sha256: str
     evidence_sha256: dict[str, str]
+    hosted_verification: dict[str, Any]
     boundary: dict[str, bool]
     handoff_sha256: str
 
@@ -396,9 +402,42 @@ def create_pr_publication_handoff(
     post = _json_object(pr_metadata_finalizer_path, "pr_metadata_finalizer")
     guard = _json_object(pr_metadata_guard_path, "pr_metadata_guard")
     reasons: list[str] = []
-    if _decision_status(pre) != "ready_to_commit": reasons.append("pre_commit_finalizer_not_ready")
-    if _decision_status(post) != "ready_for_pr_metadata": reasons.append("pr_metadata_finalizer_not_ready")
-    if guard.get("status") != "pr_metadata_guard_ready": reasons.append("pr_metadata_guard_not_ready")
+    hosted_pending = (
+        _decision_status(pre) == "ready_for_pr_submission"
+        and _decision_status(post) == "ready_for_pr_submission"
+    )
+    if (_decision_status(pre) == "ready_for_pr_submission") != (_decision_status(post) == "ready_for_pr_submission"):
+        reasons.append("hosted_verification_phase_mismatch")
+    if hosted_pending:
+        expected_hosted = {
+            "status": "pending",
+            "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+            "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+            "merge_permitted": False,
+        }
+        pre_hosted = pre.get("hosted_verification")
+        post_hosted = post.get("hosted_verification")
+        guard_proof_for_hosted = guard.get("proof")
+        guard_hosted = guard_proof_for_hosted.get("hosted_verification") if isinstance(guard_proof_for_hosted, Mapping) else None
+        if pre_hosted is None or post_hosted is None or guard_hosted != expected_hosted:
+            reasons.append("hosted_verification_binding_invalid")
+        for phase_payload in (pre, post):
+            value = phase_payload.get("hosted_verification")
+            if not isinstance(value, Mapping) or any(value.get(key) != expected_hosted[key] for key in expected_hosted):
+                reasons.append("hosted_verification_binding_invalid")
+            if not isinstance(value, Mapping) or value.get("required") is not True or value.get("pending_stages") != list(HOSTED_REQUIRED_STAGES):
+                reasons.append("hosted_verification_requirements_incomplete")
+        if guard.get("status") != "pr_metadata_guard_ready_for_submission":
+            reasons.append("pr_metadata_guard_not_ready_for_submission")
+        hosted_verification = expected_hosted | {
+            "required": True,
+            "pending_stages": list(HOSTED_REQUIRED_STAGES),
+        }
+    else:
+        if _decision_status(pre) != "ready_to_commit": reasons.append("pre_commit_finalizer_not_ready")
+        if _decision_status(post) != "ready_for_pr_metadata": reasons.append("pr_metadata_finalizer_not_ready")
+        if guard.get("status") != "pr_metadata_guard_ready": reasons.append("pr_metadata_guard_not_ready")
+        hosted_verification = {"status": "not_deferred", "required": False, "pending_stages": [], "merge_permitted": False}
     commit = post.get("commit_binding")
     if not isinstance(commit, Mapping):
         reasons.append("commit_binding_missing"); commit = {}
@@ -430,6 +469,7 @@ def create_pr_publication_handoff(
                 if isinstance(post_acceptance_value, Mapping)
                 else None
             ),
+            hosted_verification_pending=hosted_pending,
         )
         if not transition_ready: reasons.extend(transition_reasons)
         plan = post_plan
@@ -469,7 +509,9 @@ def create_pr_publication_handoff(
         "task_acceptance_manifest_sha256": str(acceptance.get("manifest_digest", "")),
         "task_acceptance_provenance_sha256": str(acceptance.get("provenance_digest", "")),
         "evidence_sha256": {name: file_sha256(Path(path)) for name, path in sorted(paths.items())},
-        "boundary": {"publishes_pr": False, "observes_hosted_pr": False, "grants_network_authority": False},
+        "hosted_verification": hosted_verification,
+        "boundary": {"publishes_pr": False, "observes_hosted_pr": False, "grants_network_authority": False,
+                     "hosted_verification_pending": hosted_pending, "merge_permitted": False},
     }
     return PrPublicationHandoff(**payload, handoff_sha256=digest_json(payload))
 

@@ -886,12 +886,21 @@ def main(argv: list[str] | None = None) -> int:
     # This path is the current run's failure digest, not an append-only history.
     # Remove any prior run's result before pytest so a passing run cannot upload
     # stale failures beside its own successful provenance.
-    failure_report_path.unlink(missing_ok=True)
+    if failure_report_path is not None:
+        failure_report_path.unlink(missing_ok=True)
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     run_id = uuid4().hex
     repository_sha = _git_sha(REPO_ROOT)
     env["SENTIENTOS_TEST_RUN_ID"] = run_id
     env["SENTIENTOS_REPOSITORY_SHA"] = repository_sha
+    # Tests must never inherit a developer's persistent Vow/runtime directory.
+    # Keep all default application data created by the pytest child in one
+    # private, disposable directory under the selected test temp filesystem.
+    test_data = tempfile.TemporaryDirectory(
+        prefix=f"sentientos-test-data-{run_id}-",
+        dir=env.get("TMPDIR") or tempfile.gettempdir(),
+    )
+    env["SENTIENTOS_DATA_DIR"] = test_data.name
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
     if "--junitxml" not in pytest_args and not any(arg.startswith("--junitxml=") for arg in pytest_args):
@@ -900,7 +909,10 @@ def main(argv: list[str] | None = None) -> int:
         junitxml_path = None
     if pytest_args:
         cmd.extend(pytest_args)
-    pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
+    try:
+        pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
+    finally:
+        test_data.cleanup()
     tests_collected = None
     tests_selected = None
     tests_executed = None

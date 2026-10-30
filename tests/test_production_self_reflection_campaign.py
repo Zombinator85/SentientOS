@@ -26,7 +26,7 @@ from sentientos.read_only_campaign_report_verification import (
     verify_persisted_campaign_report,
 )
 from sentientos.resident_cognitive_model_transition_experiment import PHASES
-from sentientos.self_model_intervention_experiment import CONDITION_ORDER
+from sentientos.self_model_intervention_experiment import CONDITION_ORDER, SCORER_V1, SCORER_V2
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -47,7 +47,7 @@ def _model(name: str) -> dict[str, object]:
 
 
 def _protocol(software_generation: str = "generation-1", *,
-              historical: bool = True) -> ProductionSelfReflectionProtocol:
+              historical: bool = True, scorer_version: str = SCORER_V1) -> ProductionSelfReflectionProtocol:
     protocol = ProductionSelfReflectionProtocol.create(installation_identity="installation-1", software_generation=software_generation,
         runtime_configuration={"backend": "real-local"}, model_a=_model("a"), model_b=_model("b"),
         persistent_state={"developmental_history_boundary_digest": "history-1", "composition_state_digest": "composition-1",
@@ -55,7 +55,7 @@ def _protocol(software_generation: str = "generation-1", *,
             "projection_policy": "prior-tick-only:v1", "assessment_claim_inventory_digest": "inventory-1",
             "world_state_id": "world-1", "world_state_digest": "world-digest-1"},
         assessment={"question_set_digest": "questions-1", "answer_key_digest": _d(ANSWER_KEY),
-            "scorer_version": "deterministic_exact_evidence_key:v1", "scorer_digest": "scorer-1",
+            "scorer_version": scorer_version, "scorer_digest": "scorer-1",
             "projection_id": "projection-1", "projection_digest": "projection-digest-1",
             "prompt_construction_digest": "prompt-1", "inference_budget": {"tokens": 10},
             "generation_parameters": {"temperature": 0}, "abstention_format": "abstain",
@@ -1454,3 +1454,26 @@ def test_campaign_trial_binding_fails_closed_on_wrong_or_terminal_trial(
             plan, request_id=request_id,
             trial_id="trial-2" if failure == "wrong_trial" else "trial-1",
             transition_owner=owner)
+
+
+def test_v2_campaign_receipt_and_report_preserve_unanswered_question_count(tmp_path: Path):
+    protocol = _protocol(scorer_version=SCORER_V2)
+    campaign = ProductionSelfReflectionCampaign.create(tmp_path, protocol)
+    readiness = verify_production_readiness(protocol, _observed())
+    first_receipt = None
+    for trial_index in range(2):
+        evidence = _evidence()
+        if trial_index == 0:
+            evidence["condition_answers"][CONDITION_ORDER[0]] = []
+        receipt = campaign.run_one(readiness, lambda *_args, value=evidence: value)
+        if trial_index == 0:
+            first_receipt = receipt
+    assert first_receipt is not None
+    score = first_receipt["condition_scores"][CONDITION_ORDER[0]]
+    assert score["scorer"] == SCORER_V2
+    assert score["question_count"] == 1 and score["answer_count"] == 0
+    assert score["counts"]["unanswered_question"] == 1
+    assert all(first_receipt["condition_scores"][condition]["scorer"] == SCORER_V2
+        for condition in CONDITION_ORDER)
+    report = campaign.report()
+    assert [row["unanswered_question"] for row in report["condition_scores"][CONDITION_ORDER[0]]] == [1, 0]

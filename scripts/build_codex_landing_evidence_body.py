@@ -288,11 +288,21 @@ def build_body(
     post_plan = post_payload.get("landing_validation_plan")
     if not isinstance(post_plan, Mapping):
         raise ValueError("authoritative finalizer landing validation plan is required")
+    hosted_verification_pending = False
     if isinstance(pre_plan, Mapping):
+        pre_hosted = pre_plan.get("hosted_verification")
+        post_hosted = post_plan.get("hosted_verification")
+        hosted_verification_pending = (
+            isinstance(pre_hosted, Mapping)
+            and pre_hosted.get("status") == "pending"
+            and isinstance(post_hosted, Mapping)
+            and post_hosted.get("status") == "pending"
+        )
         valid_transition, transition_reasons, _transition_proof = verify_validation_plan_transition(
             pre_plan, post_plan, pre_payload.get("workspace_binding", {}), commit_binding,
             pre_acceptance=pre_payload.get("task_acceptance"),
             post_acceptance=post_payload.get("task_acceptance"),
+            hosted_verification_pending=hosted_verification_pending,
         )
         if not valid_transition:
             raise ValueError("invalid landing validation plan transition: " + ", ".join(transition_reasons))
@@ -356,6 +366,7 @@ def build_body(
         )),
         ("### Finalizer status", _finalizer_summary(finalizer, pre_payload, post_payload)),
         ("### PR metadata guard", _guard_summary(pr_metadata_guard, parsed_artifacts.get("pr_metadata_guard", {}))),
+        *([("### Hosted verification", "Required / Quality Gate is pending for strict_audits and audit_immutability. The PR may be submitted for hosted checks; `merge_permitted` is false until the exact required check passes under an enforced repository ruleset.")] if hosted_verification_pending else []),
         ("### Unresolved risks", f"Unresolved risks: {unresolved}"),
     ]
     if validation_profile == "exhaustive":
