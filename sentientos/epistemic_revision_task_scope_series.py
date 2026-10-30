@@ -204,6 +204,19 @@ def _out_of_scope_active_sources(projection: EpistemicCognitiveProjection,
     return violations
 
 
+def evaluate_task_scope_phase_observation(*, reader: ObservationReader,
+        observation_id: str, prompt: str, projection: EpistemicCognitiveProjection,
+        scope: EpistemicTaskScope) -> dict[str, Any]:
+    """Report scope-fact delivery and active-source scope for one cognition phase."""
+    delivery_status, delivery_violations = _scope_observation(
+        reader=reader, observation_id=observation_id, prompt=prompt, scope=scope)
+    source_violations = _out_of_scope_active_sources(projection, scope)
+    return {"scope_delivery_status": delivery_status,
+        "scope_fact_delivered": delivery_status != "missing",
+        "active_evidence_scope_violations": source_violations,
+        "violation_codes": [*delivery_violations, *source_violations]}
+
+
 def evaluate_task_scoped_interruption_series(*,
         series: EpistemicTaskScopeInterruptionSeries,
         correction_before_reader: ObservationReader,
@@ -236,16 +249,14 @@ def evaluate_task_scoped_interruption_series(*,
     scope_violations: list[str] = []
     missing_scope = False
     for name, reader, observation_id, prompt, projection in phases:
-        delivery_status, delivery_violations = _scope_observation(
-            reader=reader, observation_id=observation_id, prompt=prompt, scope=scope)
-        source_violations = _out_of_scope_active_sources(projection, scope)
-        if delivery_status == "missing":
+        phase = evaluate_task_scope_phase_observation(reader=reader,
+            observation_id=observation_id, prompt=prompt, projection=projection, scope=scope)
+        if phase["scope_delivery_status"] == "missing":
             missing_scope = True
-        scope_violations.extend(f"{name}:{code}" for code in delivery_violations)
-        scope_violations.extend(f"{name}:{code}" for code in source_violations)
-        phase_reports[name] = {"scope_delivery_status": delivery_status,
-            "scope_fact_delivered": delivery_status != "missing",
-            "active_evidence_scope_violations": source_violations}
+        scope_violations.extend(f"{name}:{code}" for code in phase["violation_codes"])
+        phase_reports[name] = {key: phase[key] for key in (
+            "scope_delivery_status", "scope_fact_delivered",
+            "active_evidence_scope_violations")}
 
     measured = evaluate_correction_interruption_series(
         series=series.series,
@@ -291,4 +302,5 @@ def evaluate_task_scoped_interruption_series(*,
 
 
 __all__ = ["EpistemicTaskScope", "EpistemicTaskScopeInterruptionSeries",
+    "evaluate_task_scope_phase_observation",
     "evaluate_task_scoped_interruption_series"]
