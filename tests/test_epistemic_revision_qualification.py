@@ -14,6 +14,7 @@ from test_resident_developmental_cognition import (  # noqa: E402
 from sentientos.epistemic_revision_qualification import (
     IndependentAnswerKey, RevisionCase, capture_position, evaluate_pair,
 )
+from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
 
 
@@ -104,8 +105,41 @@ def test_pair_scores_canonical_position_and_actual_owner_response(
         report["state_transition_appropriate"])
     assert report["before"]["relevant_packet_delivered"] is True
     assert report["after"]["answer_correct"] is True
+    before_binding = report["before"]["execution_binding"]
+    after_binding = report["after"]["execution_binding"]
+    assert before_binding["complete"] is True
+    assert before_binding["model_id"] == "model-a"
+    assert before_binding["model_artifact_digest"] == "sha256:model"
+    assert before_binding["active_model_identity_digest"].startswith("sha256:")
+    assert before_binding["generation_config_digest"].startswith("sha256:")
+    assert before_binding["evaluator_version"] == "v1"
+    assert before_binding["projection_digest"] == projection.projection_digest
+    assert before_binding["condition"] == "before"
+    assert after_binding["condition"] == "after"
+    assert before_binding["active_model_identity_digest"] == after_binding["active_model_identity_digest"]
+    assert before_binding["generation_config_digest"] == after_binding["generation_config_digest"]
     assert report["real_model_qualification_established"] is False
     assert report["authority"] is False
+
+
+def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:
+    common = dict(case_id="case-1", evaluator_version="v3", condition="before",
+        model_id="worker-a", model_artifact_digest="sha256:artifact-a",
+        active_model_identity={"model_content_sha256": "a" * 64},
+        generation_config={"temperature": 0}, prompt_digest="sha256:" + "1" * 64,
+        projection_digest="sha256:" + "2" * 64, observation_digest="observation",
+        receipt_digest="receipt", output_digest="output")
+    first = build_execution_binding(**common)
+    repeated = build_execution_binding(**common)
+    replacement = build_execution_binding(**{**common, "model_id": "worker-b",
+        "model_artifact_digest": "sha256:artifact-b",
+        "active_model_identity": {"model_content_sha256": "b" * 64}})
+    incomplete = build_execution_binding(**{**common, "model_artifact_digest": None})
+
+    assert first == repeated
+    assert first["binding_digest"] != replacement["binding_digest"]
+    assert first["complete"] is True
+    assert incomplete["complete"] is False
 
 
 def test_case_rejects_unbound_or_invalid_oracle_metadata() -> None:

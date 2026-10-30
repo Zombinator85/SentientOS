@@ -30,6 +30,16 @@ permitted correction event. It does not decide whether the evidence justifies
 the correction or whether an answer is true; the independent case author owns
 those judgments.
 
+Each before/after sample also carries a deterministic execution binding. It
+identifies the model and artifact, hashes the active serving identity and
+generation configuration, and binds the exact supplied prompt, semantic
+projection, observation, invocation receipt, output, case, and evaluator
+version. This makes outcomes attributable and comparable by the cognitive
+worker that actually served them without creating a separate model-profile
+registry. Missing model or artifact identity marks the binding incomplete and
+the sample insufficient. These bindings improve measurement custody; they do
+not qualify a real model or establish behavioral performance.
+
 This code does not call a provider, run inference, mutate epistemic state,
 grant authority, or establish model qualification or causal effects. Tests use
 synthetic, session-bound invocation receipts to verify the measurement path.

@@ -130,12 +130,14 @@ def evaluate_unsupported_pressure_pair(*, pair: UnsupportedPressurePair,
         observation_id=before_observation_id, projection=before_projection,
         proposition_id=case.proposition_id, prompt=before_prompt,
         expected_prompt_digest=case.before_prompt_digest,
-        receipt=before_receipt, key=case.before_key)
+        receipt=before_receipt, key=case.before_key, case_id=case.case_id,
+        evaluator_version=case.evaluator_version, condition="before")
     after, new, new_context = _sample(reader=after_reader,
         observation_id=after_observation_id, projection=after_projection,
         proposition_id=case.proposition_id, prompt=after_prompt,
         expected_prompt_digest=case.after_prompt_digest,
-        receipt=after_receipt, key=case.after_key)
+        receipt=after_receipt, key=case.after_key, case_id=case.case_id,
+        evaluator_version=case.evaluator_version, condition="after")
     if case.before_key != case.after_key:
         raise ValueError("pressure_answer_oracle_must_be_unchanged")
     before_current, before_pressure_id = _normalize_current_evidence(

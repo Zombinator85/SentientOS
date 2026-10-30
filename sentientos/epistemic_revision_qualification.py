@@ -11,6 +11,7 @@ from typing import Any, Mapping, Protocol, Sequence
 
 from .governed_local_model_invocation import LocalModelInvocationReceipt, validate_receipt
 from .local_model_authority import digest_payload
+from .epistemic_qualification_execution_binding import build_execution_binding
 from .persistent_epistemic_state import (
     EpistemicCognitiveProjection, PersistentEpistemicStateOwner,
     semantic_packets_for_projection,
@@ -121,7 +122,8 @@ def capture_position(owner: PersistentEpistemicStateOwner, *, proposition_id: st
 def _sample(*, reader: ObservationReader, observation_id: str,
             projection: EpistemicCognitiveProjection, proposition_id: str,
             prompt: str, expected_prompt_digest: str, receipt: LocalModelInvocationReceipt,
-            key: IndependentAnswerKey) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
+            key: IndependentAnswerKey, case_id: str, evaluator_version: str,
+            condition: str) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
     observation = reader.verified_cognition_observation(observation_id)
     if (not isinstance(observation.get("serving_session_id"), str)
             or not observation.get("serving_session_id")
@@ -166,9 +168,20 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "relevant_packet_delivered": complete, "execution_status": receipt.status,
         "answer_correct": None, "reason_code_correct": None, "citations_correct": None,
         "answer_shape_valid": None, "measurement_status": "insufficient"}
+    result["execution_binding"] = build_execution_binding(
+        case_id=case_id, evaluator_version=evaluator_version, condition=condition,
+        model_id=request.get("model_id"),
+        model_artifact_digest=request.get("model_artifact_digest"),
+        active_model_identity=request.get("active_model_identity"),
+        generation_config=receipt.generation_config,
+        prompt_digest=expected_prompt_digest,
+        projection_digest=projection.projection_digest,
+        observation_digest=observation["observation_digest"],
+        receipt_digest=receipt.receipt_digest, output_digest=receipt.output_digest)
     if (not complete or receipt.output_truncated or receipt.fallback_occurred
             or receipt.status not in {"admitted_completed", "admitted_simulation"}
-            or receipt.output_text is None):
+            or receipt.output_text is None
+            or not result["execution_binding"]["complete"]):
         return result, expected_packet, context
     output = receipt.output_text
     if (digest_payload({"output": output}) != receipt.output_digest
@@ -211,10 +224,12 @@ def evaluate_pair(*, case: RevisionCase,
     commitment = case.commitment()
     before, old, old_context = _sample(reader=before_reader, observation_id=before_observation_id,
         projection=before_projection, proposition_id=case.proposition_id, prompt=before_prompt,
-        expected_prompt_digest=case.before_prompt_digest, receipt=before_receipt, key=case.before_key)
+        expected_prompt_digest=case.before_prompt_digest, receipt=before_receipt, key=case.before_key,
+        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="before")
     after, new, new_context = _sample(reader=after_reader, observation_id=after_observation_id,
         projection=after_projection, proposition_id=case.proposition_id, prompt=after_prompt,
-        expected_prompt_digest=case.after_prompt_digest, receipt=after_receipt, key=case.after_key)
+        expected_prompt_digest=case.after_prompt_digest, receipt=after_receipt, key=case.after_key,
+        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="after")
     controls = []
     for field in ("budget", "authority_map_digest"):
         if _canonical(before_receipt.request.get(field)) != _canonical(after_receipt.request.get(field)):
