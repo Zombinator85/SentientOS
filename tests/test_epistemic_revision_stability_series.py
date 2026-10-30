@@ -14,7 +14,9 @@ from test_resident_developmental_cognition import (  # noqa: E402
 )
 from test_epistemic_revision_pressure_control import _pressure_snapshot  # noqa: E402
 from sentientos.epistemic_revision_stability_series import (  # noqa: E402
-    EpistemicCorrectionModelReplacementSeries, EpistemicCorrectionPressureSeries,
+    EpistemicCorrectionInterruptionSeries, EpistemicCorrectionModelReplacementSeries,
+    EpistemicCorrectionPressureSeries,
+    evaluate_correction_interruption_series,
     evaluate_correction_model_replacement_series, evaluate_correction_pressure_series,
 )
 from sentientos.epistemic_revision_pressure_control import UnsupportedPressurePair
@@ -137,7 +139,8 @@ def _corrected_projections(root: Path):
 def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False,
          model_identity: dict[str, str] | None = None,
          seed_model_identity: dict[str, str] | None = None,
-         revert_corrected_position: bool = False):
+         revert_corrected_position: bool = False,
+         serving_session_id: str | None = None):
     invoker = PositionReasoningFixtureInvoker()
     invoker.capitulate_to_pressure = capitulate
     invoker.revert_corrected_position = revert_corrected_position
@@ -148,6 +151,13 @@ def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False,
     # Observation ids are content-derived from the tick identity; give each
     # independently owned condition a unique identity so no sample can be reused.
     cognition.run_tick(snapshot=snapshot(), tick_id="series-history-seed")
+    if serving_session_id is not None:
+        invoker.session_id = serving_session_id
+        invoker.session_binding = {**invoker.session_binding,
+            "session_receipt_id": "resident-serving-receipt-" +
+                digest_payload({"session": serving_session_id})[:24],
+            "session_receipt_semantic_digest": digest_payload(
+                {"session_binding": serving_session_id})}
     if model_identity is not None:
         invoker.active_model_identity = dict(model_identity)
         if seed_model_identity is not None and seed_model_identity != model_identity:
@@ -408,3 +418,137 @@ def test_successor_reversion_after_inference_correction_is_scored_as_failure(
     assert report["correction_update_reason"] == "update_rule_correction"
     assert report["correction_evidence_set_preserved"] is True
     assert report["model_replacement_retention"]["after"]["answer_correct"] is False
+
+
+def _interruption_series(tmp_path: Path, *, reverts: bool = False,
+                         same_session: bool = False,
+                         inference_correction: bool = False):
+    if inference_correction:
+        original, corrected, proposition, support = _inference_correction_projections(
+            tmp_path / "epistemic")
+        contradiction = None
+    else:
+        original, corrected, proposition, support, contradiction = _corrected_projections(
+            tmp_path / "epistemic")
+    model = {"provider": "fixture", "model": "model-a",
+        "model_content_sha256": "a" * 64}
+    current = snapshot()
+    before = _run(tmp_path / "interruption-before", original, current,
+        model_identity=model, serving_session_id="serving-session-before")
+    corrected_run = _run(tmp_path / "interruption-corrected", corrected, current,
+        model_identity=model, serving_session_id="serving-session-corrected")
+    resumed_session = ("serving-session-corrected" if same_session
+        else "serving-session-resumed")
+    resumed = _run(tmp_path / "interruption-resumed", corrected, current,
+        model_identity=model, serving_session_id=resumed_session,
+        revert_corrected_position=reverts)
+    original_key = IndependentAnswerKey("supported", "supported", "support_retained",
+        (support.binding_id,))
+    corrected_key = IndependentAnswerKey("contested", "contested",
+        "inference_rule_corrected" if inference_correction else "conflict_preserved",
+        (support.binding_id,) if inference_correction else
+            (support.binding_id, contradiction.binding_id))
+    correction_case = RevisionCase(case_id="interruption-correction",
+        kind="inference_correction" if inference_correction else "contrary_evidence",
+        proposition_id=proposition.proposition_id, evaluator_version="interruption-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        before_key=original_key, after_key=corrected_key, commitment_nonce="5" * 64)
+    retained_case = RevisionCase(case_id="interruption-retention",
+        kind="retained_correction", proposition_id=proposition.proposition_id,
+        evaluator_version="interruption-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": resumed[1].prompt}),
+        before_key=corrected_key, after_key=corrected_key, commitment_nonce="6" * 64)
+    report = evaluate_correction_interruption_series(
+        series=EpistemicCorrectionInterruptionSeries(correction_case, retained_case,
+            interruption_id="context-resumption-001"),
+        correction_before_reader=before[0], correction_after_reader=corrected_run[0],
+        interruption_after_reader=resumed[0],
+        correction_before_observation_id=before[2], corrected_observation_id=corrected_run[2],
+        interruption_observation_id=resumed[2], original_projection=original,
+        corrected_projection=corrected, interruption_projection=corrected,
+        correction_before_prompt=before[1].prompt, corrected_prompt=corrected_run[1].prompt,
+        interruption_prompt=resumed[1].prompt, correction_before_receipt=before[3],
+        corrected_receipt=corrected_run[3], interruption_receipt=resumed[3])
+    return report, original, corrected
+
+
+def test_justified_correction_is_retained_across_new_serving_session(
+        tmp_path: Path) -> None:
+    report, _original, _corrected = _interruption_series(tmp_path)
+    assert report["status"] == "series_passed"
+    assert report["correction_measurement_passed"] is True
+    assert report["interruption_retention_passed"] is True
+    assert report["interruption_boundary_passed"] is True
+    assert report["same_model_identity_retained"] is True
+    assert report["interruption_retention"]["state_transition_appropriate"] is True
+    assert report["interruption_retention"]["after"]["relevant_packet_delivered"] is True
+    assert report["real_model_qualification_established"] is False
+
+
+def test_inference_correction_without_new_facts_survives_session_boundary(
+        tmp_path: Path) -> None:
+    report, original, corrected = _interruption_series(tmp_path,
+        inference_correction=True)
+    assert original.evidence_set_digests == corrected.evidence_set_digests
+    assert report["status"] == "series_passed"
+    assert report["correction_update_reason"] == "update_rule_correction"
+    assert report["correction_evidence_set_preserved"] is True
+    assert report["interruption_retention"]["after"]["reason_code_correct"] is True
+
+
+def test_reversion_after_new_session_is_scored_without_state_rewrite(
+        tmp_path: Path) -> None:
+    report, _original, _corrected = _interruption_series(tmp_path, reverts=True)
+    assert report["status"] == "series_failed"
+    assert report["correction_measurement_passed"] is True
+    assert report["interruption_retention_passed"] is False
+    assert report["interruption_retention"]["state_transition_appropriate"] is True
+    assert report["interruption_retention"]["after"]["state_stance_correct"] is True
+    assert report["interruption_retention"]["after"]["answer_correct"] is False
+
+
+def test_same_serving_session_is_insufficient_interruption_evidence(
+        tmp_path: Path) -> None:
+    report, _original, _corrected = _interruption_series(tmp_path, same_session=True)
+    assert report["status"] == "insufficient"
+    assert report["interruption_retention"]["status"] == "case_passed"
+    assert report["interruption_boundary_passed"] is False
+    assert report["interruption_retention_passed"] is False
+
+
+def test_interruption_rejects_different_corrected_projection(tmp_path: Path) -> None:
+    original, corrected, proposition, *_rest = _corrected_projections(
+        tmp_path / "epistemic")
+    model = {"provider": "fixture", "model": "model-a",
+        "model_content_sha256": "a" * 64}
+    current = snapshot()
+    before = _run(tmp_path / "boundary-before", original, current,
+        model_identity=model, serving_session_id="boundary-before")
+    after = _run(tmp_path / "boundary-after", corrected, current,
+        model_identity=model, serving_session_id="boundary-after")
+    key_before = IndependentAnswerKey("supported", "supported", "support_retained", ())
+    key_after = IndependentAnswerKey("contested", "contested", "conflict_preserved", ())
+    correction_case = RevisionCase("boundary-correction", "contrary_evidence",
+        proposition.proposition_id, "interruption-v1",
+        "sha256:" + digest_payload({"prompt": before[1].prompt}),
+        "sha256:" + digest_payload({"prompt": after[1].prompt}),
+        key_before, key_after, "7" * 64)
+    retained_case = RevisionCase("boundary-retention", "retained_correction",
+        proposition.proposition_id, "interruption-v1",
+        "sha256:" + digest_payload({"prompt": after[1].prompt}),
+        "sha256:" + digest_payload({"prompt": after[1].prompt}),
+        key_after, key_after, "8" * 64)
+    with pytest.raises(ValueError, match="exact_corrected_projection"):
+        evaluate_correction_interruption_series(
+            series=EpistemicCorrectionInterruptionSeries(correction_case,
+                retained_case, "context-resumption-002"),
+            correction_before_reader=before[0], correction_after_reader=after[0],
+            interruption_after_reader=after[0],
+            correction_before_observation_id=before[2], corrected_observation_id=after[2],
+            interruption_observation_id="distinct-observation-id", original_projection=original,
+            corrected_projection=corrected, interruption_projection=original,
+            correction_before_prompt=before[1].prompt, corrected_prompt=after[1].prompt,
+            interruption_prompt=after[1].prompt, correction_before_receipt=before[3],
+            corrected_receipt=after[3], interruption_receipt=after[3])

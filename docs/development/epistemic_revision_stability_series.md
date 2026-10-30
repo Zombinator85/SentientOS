@@ -32,3 +32,15 @@ The same composer accepts an `inference_correction` case. That path binds an
 remain unchanged, then checks whether the original and successor model
 responses reflect the corrected inference. A successor reversion is scored as
 a response failure while the corrected canonical state stays intact.
+
+`EpistemicCorrectionInterruptionSeries` adds same-model retention after a
+serving-session boundary. It composes a justified correction with a
+`retained_correction` pair, requiring the later observation to come from a
+distinct owner-verified serving session and session receipt while preserving
+the exact corrected projection, answer key, and model identity. The v3 scorer
+checks both the later delivered answer and the unchanged canonical state. A
+same-session sample is reported as insufficient boundary evidence; a later
+answer that silently restores the superseded conclusion fails while the
+canonical correction remains unchanged. This qualifies a serving-session
+boundary only: synthetic fixtures do not establish process restart behavior,
+real-model retention, independent preregistration, or causal attribution.
