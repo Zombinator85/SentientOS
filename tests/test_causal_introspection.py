@@ -133,6 +133,11 @@ def test_snapshot_delta_binds_external_change_reference_without_claiming_causali
     assert "state-a" not in json.dumps(delta)
     assert "state-b" not in json.dumps(delta)
     assert owner_change["changed_references"][0]["reference_id"] == "operator-change-1"
+    assert owner_change["changed_observation_reference_bindings"] == [{
+        "observation_key": "configuration",
+        "previous_reference_ids": ["supervisor:state"],
+        "current_reference_ids": ["operator-change-1", "supervisor:state"],
+    }]
     assert delta["causal_inference_performed"] is False
     assert delta["causal_claim_made"] is False
     assert delta["authority"] is False
@@ -146,6 +151,42 @@ def test_snapshot_delta_binds_external_change_reference_without_claiming_causali
 
     tampered = dict(delta)
     tampered["causal_claim_made"] = True
+    with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
+        verify_snapshot_delta(tampered, history)
+
+
+def test_snapshot_delta_reports_reference_binding_change_without_value_or_reference_change(tmp_path):
+    provider = _provider("supervisor", "runtime_supervision", value="same", key="configuration")
+    intervention = CausalReference(
+        "receipt", "operator-change-1", "b" * 64,
+        "operator_updated_ruleset", "operator")
+    provider._references = (_reference("supervisor"), intervention)
+    runtime = _runtime(tmp_path, (ProviderRegistration("supervisor", "runtime_supervision", provider),))
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    provider._observations = (OwnerObservation(
+        "configuration", "same", "currentness",
+        ("supervisor:state", "operator-change-1"),
+        production_posture="synthetic_test"),)
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+    history = runtime.reconstruct()
+    delta = build_snapshot_delta(history)
+    owner_change, = delta["owner_changes"]
+    assert verify_snapshot_delta(delta, history) == delta
+    assert owner_change["changed_observations"] == []
+    assert owner_change["changed_references"] == []
+    assert owner_change["changed_observation_reference_bindings"] == [{
+        "observation_key": "configuration",
+        "previous_reference_ids": ["supervisor:state"],
+        "current_reference_ids": ["operator-change-1", "supervisor:state"],
+    }]
+    assert owner_change["status"] == "changed"
+    assert delta["causal_inference_performed"] is False
+    assert delta["causal_claim_made"] is False
+
+    tampered = dict(delta)
+    tampered["owner_changes"] = [dict(owner_change,
+        changed_observation_reference_bindings=[])]
     with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
         verify_snapshot_delta(tampered, history)
 
