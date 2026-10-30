@@ -26,3 +26,9 @@ serving owner records distinct model content identities. This detects a
 successor that silently restores the superseded answer even while canonical
 state remains unchanged. It remains synthetic mechanism evidence, not a real
 model transfer or qualification result.
+
+The same composer accepts an `inference_correction` case. That path binds an
+`update_rule_correction` event while requiring the exact evidence-set digest to
+remain unchanged, then checks whether the original and successor model
+responses reflect the corrected inference. A successor reversion is scored as
+a response failure while the corrected canonical state stays intact.

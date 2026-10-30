@@ -77,7 +77,10 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
             answer = {"conclusion": "supported", "reason_code": "support_retained",
                 "evidence_ids": packet["supporting_evidence"]}
         elif packet["state"]["stance"] == "contested":
-            answer = {"conclusion": "contested", "reason_code": "conflict_preserved",
+            update_reason = packet["last_update_event"]["reason"]
+            reason_code = ("inference_rule_corrected" if update_reason ==
+                "update_rule_correction" else "conflict_preserved")
+            answer = {"conclusion": "contested", "reason_code": reason_code,
                 "evidence_ids": [row["binding_id"] for row in packet["active_evidence_bindings"]]}
         else:
             answer = {"conclusion": "uncertain", "reason_code": "retain_uncertainty",
@@ -274,6 +277,89 @@ def _model_replacement_series(tmp_path: Path, *, successor_reverts: bool = False
     return report
 
 
+def _inference_correction_projections(root: Path):
+    state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
+    proposition = make_proposition(namespace="experiment", subject="sensor:beta",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    state_owner.register_proposition(proposition)
+    support = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:support", source_digest="sha256:" + "3" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group="sensor-b",
+        upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+    state_owner.bind_evidence(support)
+    initial, _ = state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="supported", reason="initialization",
+        active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
+        correlation_id="inference-initial", tick=1,
+        recorded_at="2026-01-01T00:01:00Z")
+    original = state_owner.cognitive_projection(max_states=1, current_tick=2,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=initial.state_digest, stance="contested",
+        reason="update_rule_correction", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(), correlation_id="inference-correction", tick=2,
+        recorded_at="2026-01-01T00:02:00Z")
+    corrected = state_owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert original is not None and corrected is not None
+    assert original.evidence_set_digests == corrected.evidence_set_digests
+    return original, corrected, proposition, support
+
+
+def _inference_correction_model_replacement_series(
+        tmp_path: Path, *, successor_reverts: bool = False):
+    original, corrected, proposition, support = _inference_correction_projections(
+        tmp_path / "epistemic")
+    base_snapshot = snapshot()
+    model_a = {"provider": "fixture", "model": "model-a",
+        "model_content_sha256": "1" * 64}
+    model_b = {"provider": "fixture", "model": "model-b",
+        "model_content_sha256": "2" * 64}
+    before = _run(tmp_path / "inference-before", original, base_snapshot,
+        model_identity=model_a)
+    corrected_run = _run(tmp_path / "inference-corrected", corrected, base_snapshot,
+        model_identity=model_a)
+    successor = _run(tmp_path / "inference-successor", corrected, base_snapshot,
+        model_identity=model_b, seed_model_identity=model_a,
+        revert_corrected_position=successor_reverts)
+    before_key = IndependentAnswerKey("supported", "supported", "support_retained",
+        (support.binding_id,))
+    corrected_key = IndependentAnswerKey("contested", "contested",
+        "inference_rule_corrected", (support.binding_id,))
+    correction_case = RevisionCase(case_id="inference-correction-no-new-evidence",
+        kind="inference_correction", proposition_id=proposition.proposition_id,
+        evaluator_version="series-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        before_key=before_key, after_key=corrected_key, commitment_nonce="3" * 64)
+    replacement_case = RevisionCase(case_id="inference-correction-successor-retention",
+        kind="model_replacement", proposition_id=proposition.proposition_id,
+        evaluator_version="series-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": corrected_run[1].prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": successor[1].prompt}),
+        before_key=corrected_key, after_key=corrected_key, commitment_nonce="4" * 64)
+    report = evaluate_correction_model_replacement_series(
+        series=EpistemicCorrectionModelReplacementSeries(correction_case,
+            replacement_case),
+        correction_before_reader=before[0], correction_after_reader=corrected_run[0],
+        replacement_after_reader=successor[0],
+        correction_before_observation_id=before[2],
+        corrected_observation_id=corrected_run[2],
+        replacement_observation_id=successor[2],
+        original_projection=original, corrected_projection=corrected,
+        replacement_projection=corrected,
+        correction_before_prompt=before[1].prompt,
+        corrected_prompt=corrected_run[1].prompt,
+        replacement_prompt=successor[1].prompt,
+        correction_before_receipt=before[3], corrected_receipt=corrected_run[3],
+        replacement_receipt=successor[3])
+    return report
+
+
 def test_corrected_position_reaches_successor_model_and_is_retained(tmp_path: Path) -> None:
     report = _model_replacement_series(tmp_path)
     assert report["status"] == "series_passed", (
@@ -297,4 +383,28 @@ def test_successor_silent_reversion_fails_retention_without_rewriting_state(
     assert report["model_replacement_retention"]["model_identity_changed"] is True
     assert report["model_replacement_retention"]["state_transition_appropriate"] is True
     assert report["model_replacement_retention"]["after"]["state_stance_correct"] is True
+    assert report["model_replacement_retention"]["after"]["answer_correct"] is False
+
+
+def test_inference_rule_correction_without_new_facts_reaches_successor(
+        tmp_path: Path) -> None:
+    report = _inference_correction_model_replacement_series(tmp_path)
+    assert report["status"] == "series_passed"
+    assert report["correction_measurement_passed"] is True
+    assert report["replacement_retention_passed"] is True
+    assert report["correction_update_reason"] == "update_rule_correction"
+    assert report["correction_evidence_set_preserved"] is True
+    assert (report["correction_evidence_set_digest_before"]
+        == report["correction_evidence_set_digest_after"])
+
+
+def test_successor_reversion_after_inference_correction_is_scored_as_failure(
+        tmp_path: Path) -> None:
+    report = _inference_correction_model_replacement_series(tmp_path,
+        successor_reverts=True)
+    assert report["status"] == "series_failed"
+    assert report["correction_measurement_passed"] is True
+    assert report["replacement_retention_passed"] is False
+    assert report["correction_update_reason"] == "update_rule_correction"
+    assert report["correction_evidence_set_preserved"] is True
     assert report["model_replacement_retention"]["after"]["answer_correct"] is False
