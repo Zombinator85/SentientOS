@@ -136,6 +136,10 @@ changed semantic-trace dimension its bounded previous and current posture and
 observed-reference IDs. This preserves which declared evidence pointers were
 attached to that dimension while omitting observation values; it remains a
 descriptive owner report and cannot establish causality, truth, or authority.
+Delta schema v5 also carries the bounded kind, relationship, source owner, and
+schema declaration for each changed reference alongside its digest. This can
+show that an owner declared an intervention reference on one side of an
+observed transition, without claiming that the intervention caused it.
 The delta is recomputed from immutable snapshots, is never appended as a new
 history root, and carries no causal, truth, or authority claim.
 

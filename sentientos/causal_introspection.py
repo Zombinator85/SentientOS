@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
-SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v4"
+SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v5"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
 MAX_PROJECTIONS = 64
 MAX_REFERENCES = 128
@@ -650,6 +650,17 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
         return {item.reference_id: _digest(_plain(item))
                 for item in projection.source_references + projection.causal_references}
 
+    def reference_declarations(projection: OwnerIntrospectionProjection) -> dict[str, dict[str, str]]:
+        return {
+            item.reference_id: {
+                "reference_kind": item.reference_kind,
+                "relation": item.relation,
+                "source_owner_id": item.source_owner_id,
+                "schema_version": item.schema_version,
+            }
+            for item in projection.source_references + projection.causal_references
+        }
+
     for owner_id in sorted(set(previous_owners) | set(current_owners)):
         before = previous_owners.get(owner_id)
         after = current_owners.get(owner_id)
@@ -698,10 +709,14 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
             ]
             before_references = reference_digests(before)
             after_references = reference_digests(after)
+            before_declarations = reference_declarations(before)
+            after_declarations = reference_declarations(after)
             changed_references = [
                 {"reference_id": reference_id,
                  "previous_reference_digest": before_references.get(reference_id),
-                 "current_reference_digest": after_references.get(reference_id)}
+                 "current_reference_digest": after_references.get(reference_id),
+                 "previous_declaration": before_declarations.get(reference_id),
+                 "current_declaration": after_declarations.get(reference_id)}
                 for reference_id in sorted(set(before_references) | set(after_references))
                 if before_references.get(reference_id) != after_references.get(reference_id)
             ]

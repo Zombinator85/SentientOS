@@ -132,7 +132,17 @@ def test_snapshot_delta_binds_external_change_reference_without_claiming_causali
     assert owner_change["changed_observations"][0]["observation_key"] == "configuration"
     assert "state-a" not in json.dumps(delta)
     assert "state-b" not in json.dumps(delta)
-    assert owner_change["changed_references"][0]["reference_id"] == "operator-change-1"
+    changed_reference, = owner_change["changed_references"]
+    assert changed_reference["reference_id"] == "operator-change-1"
+    assert changed_reference["previous_reference_digest"] is None
+    assert len(changed_reference["current_reference_digest"]) == 64
+    assert changed_reference["previous_declaration"] is None
+    assert changed_reference["current_declaration"] == {
+        "reference_kind": "receipt",
+        "relation": "operator_updated_ruleset",
+        "source_owner_id": "operator",
+        "schema_version": "sentientos.causal_introspection:v1",
+    }
     assert owner_change["changed_observation_reference_bindings"] == [{
         "observation_key": "configuration",
         "previous_reference_ids": ["supervisor:state"],
@@ -153,6 +163,16 @@ def test_snapshot_delta_binds_external_change_reference_without_claiming_causali
     tampered["causal_claim_made"] = True
     with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
         verify_snapshot_delta(tampered, history)
+
+    tampered_reference = dict(delta)
+    tampered_owner_change = dict(owner_change)
+    changed_reference_record = dict(owner_change["changed_references"][0])
+    changed_reference_record["current_declaration"] = dict(
+        changed_reference_record["current_declaration"], relation="caused_configuration_change")
+    tampered_owner_change["changed_references"] = [changed_reference_record]
+    tampered_reference["owner_changes"] = [tampered_owner_change]
+    with pytest.raises(IntrospectionError, match="snapshot_delta_mismatch"):
+        verify_snapshot_delta(tampered_reference, history)
 
 
 def test_snapshot_delta_reports_reference_binding_change_without_value_or_reference_change(tmp_path):
