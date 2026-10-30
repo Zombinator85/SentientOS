@@ -82,7 +82,8 @@ class EpistemicCorrectionInterruptionSeries:
     def commitment(self) -> str:
         correction = self.correction_case
         retained = self.interruption_case
-        if (correction.kind not in {"contrary_evidence", "inference_correction"}
+        if (correction.kind not in {"contrary_evidence", "inference_correction",
+                    "outdated_evidence"}
                 or retained.kind != "retained_correction"
                 or correction.proposition_id != retained.proposition_id
                 or correction.after_key != retained.before_key
