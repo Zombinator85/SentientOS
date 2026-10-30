@@ -8,7 +8,8 @@ import pytest
 
 from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner, load_runtime_config
 from sentientos.self_model_intervention_experiment import (
-    CONDITION_ORDER, SCORER_V1, SCORER_V2, SCORER_V3, build_answer_key, make_protocol, score_assessment,
+    CONDITION_ORDER, SCORER_V1, SCORER_V2, SCORER_V3, build_answer_key, make_protocol,
+    score_assessment, score_condition_response_contrast,
 )
 from tests.test_resident_developmental_cognition import owner as cognition_owner, snapshot as cognition_snapshot
 from tests.test_longitudinal_self_model import record, snapshot
@@ -152,3 +153,52 @@ def test_v3_requires_abstention_for_stale_or_unresolved_evidence():
         answers=[dict(answer, question_id="claim:current:classification")], scorer_version=SCORER_V2)
     assert legacy_abstention["counts"]["correct_abstention"] == 0
     assert legacy_abstention["counts"]["incorrect_abstention"] == 1
+
+
+def test_condition_response_contrast_describes_recovery_and_divergence():
+    key = {"q1": {"answer": "current"}, "q2": {"answer": "historical"}}
+    cited = {"claim_ids": ["c1"], "source_evidence_ids": ["e1"]}
+    answers = {
+        CONDITION_ORDER[0]: [
+            {"question_id": "q1", "answer": "current", **cited},
+            {"question_id": "q2", "answer": "historical", **cited},
+        ],
+        CONDITION_ORDER[1]: [
+            {"question_id": "q1", "answer": "unknown", **cited},
+            {"question_id": "q2", "answer": "historical", **cited},
+        ],
+        CONDITION_ORDER[2]: [
+            {"question_id": "q1", "answer": "current", **cited},
+            {"question_id": "q2", "answer": "historical", **cited},
+        ],
+    }
+
+    contrast = score_condition_response_contrast(answer_key=key, condition_answers=answers)
+
+    assert contrast["paired_question_count"] == 2
+    assert contrast["response_changed_when_withheld"] == 1
+    assert contrast["changed_response_recovered_after_restore"] == 1
+    assert contrast["changed_response_diverged_after_restore"] == 0
+    assert contrast["stable_across_all_conditions"] == 1
+    assert contrast["unanswered_in_any_condition"] == 1
+    assert contrast["descriptive_only"] is True
+    assert contrast["causal_claim_made"] is False
+    assert not any(contrast["authority"].values())
+
+    answers[CONDITION_ORDER[2]][0]["answer"] = "historical"
+    diverged = score_condition_response_contrast(answer_key=key, condition_answers=answers)
+    assert diverged["changed_response_recovered_after_restore"] == 0
+    assert diverged["changed_response_diverged_after_restore"] == 1
+
+
+def test_condition_response_contrast_marks_incomplete_and_rejects_bad_conditions():
+    key = {"q1": {"answer": "current"}}
+    answers = {condition: [] for condition in CONDITION_ORDER}
+    answers[CONDITION_ORDER[0]] = [{"question_id": "q1", "answer": "invented"}]
+    answers[CONDITION_ORDER[1]] = [{"question_id": "unknown-question", "answer": "current"}]
+    contrast = score_condition_response_contrast(answer_key=key, condition_answers=answers)
+    assert contrast["paired_question_count"] == 0
+    assert contrast["incomplete_question_count"] == 1
+    assert contrast["unsupported_response_count"] == 2
+    with pytest.raises(ValueError, match="condition_order_mismatch"):
+        score_condition_response_contrast(answer_key=key, condition_answers={})

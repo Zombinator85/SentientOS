@@ -20,6 +20,7 @@ from types import MappingProxyType
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .local_model_authority import atomic_write_json, digest_payload
+from .longitudinal_self_model import FALSE_AUTHORITY
 from .platform_fcntl import fcntl, require_flock
 from .private_file_custody import (
     PrivateFileCustodyError,
@@ -29,7 +30,8 @@ from .private_file_custody import (
 )
 from .resident_cognitive_model_transition_experiment import PHASES
 from .self_model_intervention_experiment import (
-    CONDITION_ORDER, SCORER_V2, SUPPORTED_SCORERS, score_assessment,
+    CONDITION_ORDER, CONDITION_RESPONSE_CONTRAST_SCHEMA, SCORER_V2, SCORER_V3,
+    SUPPORTED_SCORERS, score_assessment, score_condition_response_contrast,
 )
 
 LEGACY_PROTOCOL_SCHEMA = "sentientos.production_self_reflection_protocol:v1"
@@ -38,8 +40,10 @@ READINESS_SCHEMA = "sentientos.production_self_reflection_readiness:v1"
 CAMPAIGN_SCHEMA = "sentientos.production_self_reflection_campaign_state:v1"
 RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v1"
 VERIFIED_RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v2"
+CONTRAST_RECEIPT_SCHEMA = "sentientos.production_self_reflection_trial_receipt:v3"
 LEGACY_REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v1"
 REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v2"
+CONTRAST_REPORT_SCHEMA = "sentientos.production_self_reflection_campaign_report:v3"
 TRIAL_PROVENANCE_SCHEMA = "sentientos.production_self_reflection_trial_provenance:v1"
 SCORER = SCORER_V2
 MIN_TRIALS, MAX_TRIALS = 2, 32
@@ -951,7 +955,7 @@ class ProductionSelfReflectionCampaign:
 
     def _completed_report_bodies(
             self, receipts: Sequence[Mapping[str, Any]]
-            ) -> tuple[dict[str, Any], dict[str, Any]]:
+            ) -> tuple[dict[str, Any], ...]:
         scores = {
             condition: [receipt["condition_scores"][condition]["counts"]
                         for receipt in receipts]
@@ -959,9 +963,12 @@ class ProductionSelfReflectionCampaign:
         }
         has_verified_transition_provenance = any(
             "transition_stage_receipt_binding" in receipt for receipt in receipts)
+        has_condition_contrasts = any(
+            "condition_response_contrast" in receipt for receipt in receipts)
         body: dict[str, Any] = {
-            "schema_version": (REPORT_SCHEMA if has_verified_transition_provenance
-                               else LEGACY_REPORT_SCHEMA),
+            "schema_version": (CONTRAST_REPORT_SCHEMA if has_condition_contrasts else
+                               REPORT_SCHEMA if has_verified_transition_provenance else
+                               LEGACY_REPORT_SCHEMA),
             "protocol_id": self._protocol_snapshot.protocol_id,
             "planned_trial_count": len(receipts),
             "valid_completed_trials": len(receipts),
@@ -999,16 +1006,39 @@ class ProductionSelfReflectionCampaign:
                 }
                 for receipt in receipts
             ]
+        if has_condition_contrasts:
+            body["condition_response_contrast_schema"] = CONDITION_RESPONSE_CONTRAST_SCHEMA
+            body["condition_response_contrasts"] = [
+                {
+                    "trial_id": receipt["trial_id"],
+                    "receipt_id": receipt["receipt_id"],
+                    "receipt_digest": receipt["receipt_digest"],
+                    "contrast": receipt["condition_response_contrast"],
+                }
+                for receipt in receipts if "condition_response_contrast" in receipt
+            ]
         body["report_digest"] = _digest(body)
 
         legacy_body = dict(body)
         legacy_body.pop("campaign_protocol_digest", None)
         legacy_body.pop("trial_provenance_schema", None)
         legacy_body.pop("trial_provenance", None)
+        legacy_body.pop("condition_response_contrast_schema", None)
+        legacy_body.pop("condition_response_contrasts", None)
         legacy_body["schema_version"] = LEGACY_REPORT_SCHEMA
         legacy_body.pop("report_digest", None)
         legacy_body["report_digest"] = _digest(legacy_body)
-        return body, legacy_body
+        historical_bodies: list[dict[str, Any]] = []
+        if has_condition_contrasts and has_verified_transition_provenance:
+            previous_current_body = dict(body)
+            previous_current_body.pop("condition_response_contrast_schema", None)
+            previous_current_body.pop("condition_response_contrasts", None)
+            previous_current_body["schema_version"] = REPORT_SCHEMA
+            previous_current_body.pop("report_digest", None)
+            previous_current_body["report_digest"] = _digest(previous_current_body)
+            historical_bodies.append(previous_current_body)
+        historical_bodies.append(legacy_body)
+        return (body, *historical_bodies)
 
     def _read_report_bytes(self) -> bytes:
         directory_fd: int | None = None
@@ -1033,7 +1063,8 @@ class ProductionSelfReflectionCampaign:
             if state["validity"] != "valid_complete":
                 raise ProductionSelfReflectionError("campaign_incomplete")
 
-            current_body, legacy_body = self._completed_report_bodies(receipts)
+            report_bodies = self._completed_report_bodies(receipts)
+            current_body, historical_bodies = report_bodies[0], report_bodies[1:]
             report_bytes = self._read_report_bytes()
             try:
                 report = json.loads(report_bytes.decode("utf-8"))
@@ -1050,12 +1081,11 @@ class ProductionSelfReflectionCampaign:
             current_bytes = (
                 json.dumps(current_body, indent=2, sort_keys=True) + "\n"
             ).encode("utf-8")
-            legacy_bytes = (
-                json.dumps(legacy_body, indent=2, sort_keys=True) + "\n"
-            ).encode("utf-8")
             if report_bytes == current_bytes:
                 report_format = "current"
-            elif report_bytes == legacy_bytes:
+            elif any(report_bytes == (
+                    json.dumps(candidate, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8") for candidate in historical_bodies):
                 report_format = "legacy_compatible"
             else:
                 raise ProductionSelfReflectionError("campaign_report_mismatch")
@@ -1085,19 +1115,19 @@ class ProductionSelfReflectionCampaign:
             receipts = self._verify_progress(state)
             if state["validity"] != "valid_complete":
                 raise ProductionSelfReflectionError("campaign_incomplete")
-            body, legacy_body = self._completed_report_bodies(receipts)
+            report_bodies = self._completed_report_bodies(receipts)
+            body, historical_bodies = report_bodies[0], report_bodies[1:]
             report_path = self.root / "report.json"
-            legacy_bytes = (
-                json.dumps(legacy_body, indent=2, sort_keys=True) + "\n"
-            ).encode("utf-8")
+            historical_bytes = [(
+                json.dumps(candidate, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8") for candidate in historical_bodies]
             try:
                 _immutable(report_path, body)
             except ProductionSelfReflectionError as exc:
-                if exc.code != "immutable_artifact_collision" or legacy_bytes == (
-                        json.dumps(body, indent=2, sort_keys=True) + "\n").encode("utf-8"):
+                if exc.code != "immutable_artifact_collision":
                     raise
                 prior_bytes = self._read_report_bytes()
-                if prior_bytes != legacy_bytes:
+                if prior_bytes not in historical_bytes:
                     raise exc
                 prior_report = json.loads(prior_bytes.decode("utf-8"))
                 if not isinstance(prior_report, dict):
@@ -1221,7 +1251,12 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
         answers=evidence["condition_answers"][condition],
         scorer_version=protocol.assessment["scorer_version"])
         for condition in CONDITION_ORDER}
-    body: dict[str, Any] = {"schema_version": VERIFIED_RECEIPT_SCHEMA if outcome_binding is not None else RECEIPT_SCHEMA, "protocol_id": protocol.protocol_id,
+    condition_contrast = (score_condition_response_contrast(
+        answer_key=answer_key, condition_answers=evidence["condition_answers"])
+        if protocol.assessment["scorer_version"] == SCORER_V3 else None)
+    receipt_schema = (CONTRAST_RECEIPT_SCHEMA if condition_contrast is not None else
+                      VERIFIED_RECEIPT_SCHEMA if outcome_binding is not None else RECEIPT_SCHEMA)
+    body: dict[str, Any] = {"schema_version": receipt_schema, "protocol_id": protocol.protocol_id,
         "protocol_digest": protocol.protocol_digest, "trial_id": trial_id, "installation_identity": evidence["installation_identity"],
         "software_generation_before": evidence["software_generation_before"], "software_generation_after": evidence["software_generation_after"],
         "model_a_commissioning": {k: protocol.model_a[k] for k in ("commissioning_receipt_id", "commissioning_receipt_digest")},
@@ -1235,6 +1270,8 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
         "restoration_result": evidence["restoration_result"], "evidence_posture": posture, "synthetic_components": seams,
         "status": "completed", "production_evidence_collected": True, "failure_or_interruption": None,
         "autonomous_repetition_performed": False, "model_output_has_scoring_authority": False}
+    if condition_contrast is not None:
+        body["condition_response_contrast"] = condition_contrast
     if outcome_binding is not None:
         body["transition_stage_receipt_binding"] = outcome_binding
     body["receipt_id"] = "production-self-reflection-trial-" + _digest(body)[7:31]
@@ -1243,14 +1280,69 @@ def make_trial_receipt(protocol: ProductionSelfReflectionProtocol, trial_id: str
 
 def verify_trial_receipt(value: Mapping[str, Any]) -> Mapping[str, Any]:
     body = dict(value); claimed = body.pop("receipt_digest", None)
-    if (body.get("schema_version") not in {RECEIPT_SCHEMA, VERIFIED_RECEIPT_SCHEMA}
+    if (body.get("schema_version") not in {RECEIPT_SCHEMA, VERIFIED_RECEIPT_SCHEMA,
+                                            CONTRAST_RECEIPT_SCHEMA}
             or claimed != _digest(body)
             or body.get("evidence_posture") != "production_experimental_evidence"):
         raise ProductionSelfReflectionError("trial_receipt_tampered")
     receipt_id = body.pop("receipt_id", None)
     if receipt_id != "production-self-reflection-trial-" + _digest(body)[7:31]:
         raise ProductionSelfReflectionError("trial_receipt_tampered")
-    if body.get("schema_version") == VERIFIED_RECEIPT_SCHEMA:
+    if body.get("schema_version") == CONTRAST_RECEIPT_SCHEMA:
+        try:
+            contrast = dict(body["condition_response_contrast"])
+            contrast_digest = contrast.pop("contrast_digest", None)
+            expected_digests = body["condition_answer_digests"]
+            def checked_count(field: str) -> int:
+                value = contrast.get(field)
+                if type(value) is not int or value < 0:
+                    raise ProductionSelfReflectionError(
+                        "condition_response_contrast_invalid")
+                return value
+
+            question_count = checked_count("question_count")
+            paired_count = checked_count("paired_question_count")
+            incomplete_count = checked_count("incomplete_question_count")
+            unsupported_count = checked_count("unsupported_response_count")
+            changed_count = checked_count("response_changed_when_withheld")
+            recovered_count = checked_count("changed_response_recovered_after_restore")
+            diverged_count = checked_count("changed_response_diverged_after_restore")
+            stable_count = checked_count("stable_across_all_conditions")
+            unanswered_count = checked_count("unanswered_in_any_condition")
+            digest_values_valid = (
+                isinstance(expected_digests, Mapping)
+                and all(isinstance(expected_digests.get(condition), str)
+                        and re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                         expected_digests[condition])
+                        for condition in CONDITION_ORDER)
+                and isinstance(contrast.get("answer_key_digest"), str)
+                and re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                 contrast["answer_key_digest"])
+                and isinstance(contrast_digest, str)
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", contrast_digest)
+            )
+            if (contrast_digest != _digest(contrast)
+                    or contrast.get("schema_version") != CONDITION_RESPONSE_CONTRAST_SCHEMA
+                    or contrast.get("condition_order") != list(CONDITION_ORDER)
+                    or contrast.get("condition_answer_digests") != expected_digests
+                    or not digest_values_valid
+                    or set(expected_digests) != set(CONDITION_ORDER)
+                    or question_count > 512
+                    or paired_count + incomplete_count != question_count
+                    or changed_count > paired_count
+                    or recovered_count + diverged_count != changed_count
+                    or stable_count > paired_count
+                    or unanswered_count > paired_count
+                    or unsupported_count > 3 * 4096
+                    or contrast.get("descriptive_only") is not True
+                    or contrast.get("causal_claim_made") is not False
+                    or contrast.get("model_answer_has_scoring_authority") is not False
+                    or contrast.get("authority") != dict(FALSE_AUTHORITY)):
+                raise ProductionSelfReflectionError("condition_response_contrast_invalid")
+        except (KeyError, TypeError) as exc:
+            raise ProductionSelfReflectionError("condition_response_contrast_invalid") from exc
+    if (body.get("schema_version") == VERIFIED_RECEIPT_SCHEMA
+            or "transition_stage_receipt_binding" in body):
         try:
             binding = body["transition_stage_receipt_binding"]
             _verify_transition_stage_outcome_binding_record(

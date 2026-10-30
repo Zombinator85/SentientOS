@@ -107,6 +107,11 @@ without retries. Its external exact-key scorer measures supported correctness,
 unsupported assertion, abstention, provenance, contradiction, and stale/current
 handling. Output difference proves only changed output; negative and null results
 remain valid, and a model answer cannot certify its own score.
+With scorer v3, the receipt also records question-level matched response changes
+across present, withheld, and restored history conditions. It marks whether a
+response that changed while history was withheld matched the original response
+after restoration. This is descriptive evidence about outputs; it does not
+identify causation, benefit, learning, or truth.
 
 The journal survives replacement of the software or cognitive model interpreting
 it because its identities and verification depend on canonical evidence bytes,
