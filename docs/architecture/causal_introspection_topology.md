@@ -121,19 +121,23 @@ IDs and digests. Capture-tick changes alone do not count as owner-state changes.
 Failed or absent owner capture is labeled as unobserved or unavailable rather
 than as removal. These records expose what changed in retained evidence; a
 declared external-intervention reference remains a source-owner statement and
-does not prove that it caused the change. Delta schema v3 also reports changes
-to the source-reference IDs that an owner declared for each observation key.
+does not prove that it caused the change. Delta schema v4 reports changes to
+the source-reference IDs that an owner declared for each observation key.
 This binding change remains descriptive and does not establish that a reference
-caused the observation. Schema v3 retains the optional repository commit/tree
+caused the observation. Schema v4 retains the optional repository commit/tree
 identity comparison introduced in v2. It reports the identity as `stable` or
 `changed` only when both snapshots contain a complete pair; otherwise it reports
 `unavailable`. World-State receives a separate source-generation record when
 that identity changes or its availability transitions, while repeated
 unavailable-to-unavailable edges do not produce duplicate records. This is a
 change in configured source identity, not proof that already-loaded code changed
-or that a source change caused an observation. The delta is recomputed from
-immutable snapshots, is never appended as a new history root, and carries no
-causal, truth, or authority claim.
+or that a source change caused an observation. Delta schema v4 gives each
+changed semantic-trace dimension its bounded previous and current posture and
+observed-reference IDs. This preserves which declared evidence pointers were
+attached to that dimension while omitting observation values; it remains a
+descriptive owner report and cannot establish causality, truth, or authority.
+The delta is recomputed from immutable snapshots, is never appended as a new
+history root, and carries no causal, truth, or authority claim.
 
 ## Coverage and remaining frontier
 

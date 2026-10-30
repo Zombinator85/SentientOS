@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
-SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v3"
+SNAPSHOT_DELTA_SCHEMA = "sentientos.causal_introspection_snapshot_delta:v4"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
 MAX_PROJECTIONS = 64
 MAX_REFERENCES = 128
@@ -660,7 +660,7 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
             changed_observations: list[dict[str, Any]] = []
             changed_references: list[dict[str, Any]] = []
             changed_observation_reference_bindings: list[dict[str, Any]] = []
-            changed_trace: list[str] = []
+            changed_trace: list[dict[str, Any]] = []
         elif after is None:
             status = ("unavailable_in_current_capture"
                       if (owner_id, before.domain) in failed_current
@@ -705,8 +705,15 @@ def _build_snapshot_delta(previous: CausalIntrospectionSnapshot,
                 for reference_id in sorted(set(before_references) | set(after_references))
                 if before_references.get(reference_id) != after_references.get(reference_id)
             ]
-            changed_trace = [dimension for dimension in TRACE_DIMENSIONS
-                if _plain(before.semantic_trace[dimension]) != _plain(after.semantic_trace[dimension])]
+            changed_trace = [
+                {
+                    "dimension": dimension,
+                    "previous": _plain(before.semantic_trace[dimension]),
+                    "current": _plain(after.semantic_trace[dimension]),
+                }
+                for dimension in TRACE_DIMENSIONS
+                if _plain(before.semantic_trace[dimension]) != _plain(after.semantic_trace[dimension])
+            ]
             status = ("changed" if changed_observations or changed_references
                       or changed_observation_reference_bindings or changed_trace
                       else "stable")
