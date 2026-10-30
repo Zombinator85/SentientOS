@@ -5,6 +5,11 @@ import pytest
 
 from sentientos.codex_pr_validation_evidence import verify_pr_validation_evidence
 from sentientos.landing_validation_plan import seal_validation_plan
+from sentientos.codex_finalize_landing import (
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
+)
 
 
 def _body() -> str:
@@ -56,6 +61,31 @@ def _solo_plan(**overrides: object) -> dict[str, object]:
 def test_solo_profile_accepts_bound_validation_plan_without_matrix() -> None:
     result = verify_pr_validation_evidence(pr_title="[codex:x] task", intended_commit_title="[codex:x] task", pr_body=_solo_body(), validation_plan_json_text=json.dumps(_solo_plan()))
     assert result.status == "codex_pr_validation_evidence_ready"
+
+
+@pytest.mark.no_legacy_skip
+def test_hosted_pending_solo_plan_allows_submission_but_keeps_merge_prohibited() -> None:
+    plan = _solo_plan(
+        required_stage_ids=list(HOSTED_REQUIRED_STAGES),
+        stage_results={stage: {"status": "deferred_to_hosted", "duration_seconds": 0} for stage in HOSTED_REQUIRED_STAGES},
+        overall_status="ready_for_pr_submission",
+        hosted_verification={
+            "status": "pending", "required": True,
+            "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+            "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+            "pending_stages": list(HOSTED_REQUIRED_STAGES), "merge_permitted": False,
+        },
+    )
+    body = _solo_body().replace(
+        "Strict audit result: passed under hosted Administrator\nImmutability verifier result: passed",
+        "Strict audit result: pending in hosted Required / Quality Gate\nImmutability verifier result: pending in hosted Required / Quality Gate",
+    )
+    result = verify_pr_validation_evidence(
+        pr_title="[codex:x] task", intended_commit_title="[codex:x] task",
+        pr_body=body, validation_plan_json_text=json.dumps(plan),
+    )
+    assert result.status == "codex_pr_validation_evidence_ready"
+    assert not result.findings
 
 
 @pytest.mark.no_legacy_skip

@@ -8,6 +8,11 @@ import json
 from sentientos.codex_pr_metadata_contract import FORBIDDEN_LOCAL_ONLY_MARKERS, _norm, verify_pr_metadata
 from sentientos.codex_validation_matrix_lane_contract import summarize_lane_contract, verify_lane_contract
 from sentientos.landing_validation_plan import verify_validation_plan
+from sentientos.codex_finalize_landing import (
+    HOSTED_QUALITY_GATE_CONTEXT,
+    HOSTED_QUALITY_GATE_INTEGRATION_ID,
+    HOSTED_REQUIRED_STAGES,
+)
 
 
 @dataclass(frozen=True)
@@ -66,7 +71,18 @@ def verify_pr_validation_evidence(*, pr_title: str, pr_body: str, intended_commi
         findings.extend(plan_reasons)
         if plan.get("phase") != "pr-metadata":
             findings.append("validation_plan_phase_not_pr_metadata")
-        if plan.get("overall_status") != "ready_for_pr_metadata":
+        hosted = plan.get("hosted_verification")
+        hosted_submission_ready = (
+            plan.get("overall_status") == "ready_for_pr_submission"
+            and isinstance(hosted, dict)
+            and hosted.get("status") == "pending"
+            and hosted.get("required") is True
+            and hosted.get("required_check_context") == HOSTED_QUALITY_GATE_CONTEXT
+            and hosted.get("required_check_integration_id") == HOSTED_QUALITY_GATE_INTEGRATION_ID
+            and hosted.get("pending_stages") == list(HOSTED_REQUIRED_STAGES)
+            and hosted.get("merge_permitted") is False
+        )
+        if plan.get("overall_status") != "ready_for_pr_metadata" and not hosted_submission_ready:
             findings.append("validation_plan_not_ready_for_pr_metadata")
         if plan.get("title") != pr_title or (intended_commit_title and plan.get("intended_commit_title") != intended_commit_title):
             findings.append("validation_plan_title_mismatch")

@@ -6,6 +6,9 @@ from typing import Any
 
 VALID_PHASES = {"pre-commit", "post-commit", "pr-metadata"}
 VALIDATION_PROFILES = {"solo", "exhaustive"}
+HOSTED_REQUIRED_STAGES = ("strict_audits", "audit_immutability")
+HOSTED_QUALITY_GATE_CONTEXT = "Required / Quality Gate"
+HOSTED_QUALITY_GATE_INTEGRATION_ID = 15368
 
 
 def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
@@ -61,6 +64,7 @@ class CodexFinalizeLandingRequest:
     allow_current_tracked_changes: bool = False
     allow_current_task_files: bool = False
     dirty_file_classification_source: str = "declared"
+    defer_privileged_checks_to_hosted: bool = False
     allow_no_focused_tests: bool = False
     workspace_root: str = "."
     summary: bool = False
@@ -70,7 +74,7 @@ class CodexFinalizeLandingRequest:
 class CodexFinalizeLandingCommandResult:
     stage: str
     command: str
-    exit_code: int
+    exit_code: int | None
     output_tail: str = ""
     required: bool = True
 
@@ -140,7 +144,18 @@ def evaluate_finalize_landing(
     environment_blocked = False
     environment_failed_stages: set[str] = set()
     non_environment_stage_failure = False
+    hosted_pending_stages: list[str] = []
     for result in command_results:
+        if result.required and result.exit_code is None:
+            if (
+                request.defer_privileged_checks_to_hosted
+                and result.stage in HOSTED_REQUIRED_STAGES
+            ):
+                hosted_pending_stages.append(result.stage)
+                continue
+            reasons.append(f"stage_failed:{result.stage}")
+            non_environment_stage_failure = True
+            continue
         if result.required and result.exit_code != 0:
             reasons.append(f"stage_failed:{result.stage}")
             environment_reason = _environment_precondition_reason(result)
@@ -150,6 +165,13 @@ def evaluate_finalize_landing(
                 environment_failed_stages.add(result.stage)
             else:
                 non_environment_stage_failure = True
+
+    if request.defer_privileged_checks_to_hosted:
+        reasons.extend(
+            f"hosted_verification_pending:{stage}"
+            for stage in HOSTED_REQUIRED_STAGES
+            if stage in hosted_pending_stages
+        )
 
     changed_file_set = set(request.changed_files) | set(request.inferred_changed_files) | set(request.inferred_tracked_changed_files) | set(request.inferred_untracked_task_files)
     found_source_not_declared = False
@@ -177,6 +199,11 @@ def evaluate_finalize_landing(
     if phase in {"post-commit", "pr-metadata"} and found_intended:
         reasons.append("source_dirty_tree_post_commit")
 
+    if request.defer_privileged_checks_to_hosted:
+        missing_hosted_stages = sorted(set(HOSTED_REQUIRED_STAGES) - set(hosted_pending_stages))
+        if missing_hosted_stages:
+            reasons.append("hosted_privileged_stage_deferral_incomplete:" + ",".join(missing_hosted_stages))
+
     non_environment_reason = any(
         reason not in {f"stage_failed:{stage}" for stage in environment_failed_stages}
         and not reason.startswith("environment_precondition_unavailable:")
@@ -184,6 +211,23 @@ def evaluate_finalize_landing(
     )
 
     if reasons:
+        non_pending_reasons = [
+            reason for reason in reasons
+            if not reason.startswith("hosted_verification_pending:")
+        ]
+        if (
+            request.defer_privileged_checks_to_hosted
+            and hosted_pending_stages
+            and not non_pending_reasons
+        ):
+            return CodexFinalizeLandingResult(
+                pol,
+                CodexFinalizeLandingDecision(
+                    "ready_for_pr_submission",
+                    tuple(f"hosted_verification_pending:{stage}" for stage in HOSTED_REQUIRED_STAGES),
+                ),
+                CodexFinalizeLandingReport(command_results, artifact_findings),
+            )
         if "invalid_phase" in reasons:
             status = "manual_review_required"
         elif "unknown_dirty_tree" in reasons:
@@ -194,5 +238,11 @@ def evaluate_finalize_landing(
             status = "repair_required_task_caused"
         return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(status, tuple(reasons)), CodexFinalizeLandingReport(command_results, artifact_findings))
 
+    if request.defer_privileged_checks_to_hosted:
+        return CodexFinalizeLandingResult(
+            pol,
+            CodexFinalizeLandingDecision("repair_required_task_caused", ("hosted_privileged_verification_missing",)),
+            CodexFinalizeLandingReport(command_results, artifact_findings),
+        )
     ready_status = "ready_to_commit" if phase == "pre-commit" else "ready_for_pr_metadata"
     return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(ready_status, ()), CodexFinalizeLandingReport(command_results, artifact_findings))

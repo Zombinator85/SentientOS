@@ -23,7 +23,7 @@ Current agent taxonomy, privilege contracts, federation rules, procedures, and e
 2. Bootstrap first. Stop immediately on `blocked`; `BLOCKED_DO_NOT_IMPLEMENT` artifacts are diagnostic only.
 3. Implement a complete bounded task. Required validation failures are task-owned until proven otherwise; repair task-caused fallout in this workspace.
 4. Run repository-native focused tests with `python -m scripts.run_tests`, targeted mypy, the relevant matrix, docs/prompt checks when applicable, strict audits, and immutability verification. Focused tests or aggregate counts alone are not behavioral proof.
-5. Run the two-phase landing finalizer in the same implementation task. Pre-commit must return `ready_to_commit`; `unknown_dirty_tree` and `manual_review_required` block commit. Commit once. Post-commit must return `ready_for_pr_metadata`.
+5. Run the two-phase landing finalizer in the same implementation task. On a local host with Administrator authority, pre-commit must return `ready_to_commit`; `unknown_dirty_tree` and `manual_review_required` block commit. Commit once. Post-commit must return `ready_for_pr_metadata`.
 6. Require `pr_metadata_guard_ready`, generate the PR body from canonical artifacts, require `pr_body_binding_ready`, and seal `pr_publication_handoff_ready` for the exact bytes before the one external `make_pr` call. This is only `ready_for_external_pr_publication`; a payload echo is unverified publication.
 7. After external publication, only an independently supplied observation that verifies as `hosted_publication_custody_verified_exact` closes hosted publication custody. A rewritten head is a custody break even when its tree is equal; missing observation remains unverified and must not block truthful pre-publication readiness.
 8. Never final-report partial sealing while feasible task-owned repair remains. If no repository change was made, do not commit or call `make_pr`.
@@ -57,6 +57,14 @@ Use the canonical command reference above for landing. Core contribution checks 
 
 - `python -m mypy scripts/ sentientos/` (or task-targeted scope where required; never modify the baseline to hide failures)
 - `python -m scripts.run_tests -q`
+
+### Nonprivileged development and hosted verification
+
+Ordinary development and PR submission do not require local Administrator access. When the local finalizer cannot perform the Administrator-only `strict_audits` and `audit_immutability` stages, use `--defer-privileged-checks-to-hosted` for both pre-commit and PR-metadata finalization. The result must be `ready_for_pr_submission`; its evidence binds both required stages as pending and records `merge_permitted: false`. This permits preparing and submitting a PR only. It is not an audit pass, commit authorization from a privileged run, or merge authorization.
+
+The existing hosted `Required / Quality Gate` must run the real privileged audits and both finalizer phases on the exact PR candidate. Never pass the deferral option in GitHub Actions; the finalizer rejects it there. Merge only when the exact hosted check succeeds and the repository ruleset requires that check. If the ruleset does not enforce it, stop before merge and have an owner configure the rule. A failing, missing, skipped, or wrong-SHA check is not sufficient evidence.
+
+`python -m scripts.run_tests` gives each pytest child a private disposable `SENTIENTOS_DATA_DIR` beneath the selected temporary filesystem. Tests must not generate runtime state in a developer's persistent Vow/data directory.
 - `python verify_audits.py --strict`
 - `python scripts/audit_immutability_verifier.py`
 

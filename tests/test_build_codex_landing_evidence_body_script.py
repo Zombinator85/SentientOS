@@ -218,6 +218,61 @@ def test_solo_generation_without_matrix_is_truthful_and_binds(tmp_path: Path) ->
     assert "Landing Supervisor result: not required by the sealed solo validation profile." in body
     assert "pending or not yet written at ." not in body
     assert "matrix runner succeeded" not in body.lower()
+
+
+def test_hosted_pending_plans_are_supported_and_body_prohibits_merge(monkeypatch, tmp_path: Path) -> None:
+    from sentientos.codex_finalize_landing import (
+        HOSTED_QUALITY_GATE_CONTEXT,
+        HOSTED_QUALITY_GATE_INTEGRATION_ID,
+        HOSTED_REQUIRED_STAGES,
+    )
+
+    hosted = {
+        "status": "pending", "required": True,
+        "required_check_context": HOSTED_QUALITY_GATE_CONTEXT,
+        "required_check_integration_id": HOSTED_QUALITY_GATE_INTEGRATION_ID,
+        "pending_stages": list(HOSTED_REQUIRED_STAGES), "merge_permitted": False,
+    }
+    common = {
+        "requested_profile": "solo", "effective_profile": "solo", "title": TITLE,
+        "intended_commit_title": TITLE, "task_acceptance_manifest_digest": None,
+        "task_acceptance_provenance_digest": None,
+        "focused_test_command_contract": [], "targeted_mypy_command_contract": [],
+        "hosted_verification": hosted, "required_stage_ids": list(HOSTED_REQUIRED_STAGES),
+        "stage_results": {stage: {"status": "deferred_to_hosted"} for stage in HOSTED_REQUIRED_STAGES},
+        "exhaustive_matrix_status": "not_requested_for_solo_profile",
+        "overall_status": "ready_for_pr_submission",
+    }
+    pre_plan = seal_validation_plan({**common, "phase": "pre-commit"})
+    post_plan = seal_validation_plan({**common, "phase": "pr-metadata"})
+    pre = tmp_path / "pre.json"
+    post = tmp_path / "post.json"
+    guard = tmp_path / "guard.json"
+    pre.write_text(json.dumps({"decision": {"status": "ready_for_pr_submission"}, "landing_validation_plan": pre_plan, "workspace_binding": {}, "commit_binding": {}}))
+    post.write_text(json.dumps({"decision": {"status": "ready_for_pr_submission"}, "landing_validation_plan": post_plan, "commit_binding": {}}))
+    guard.write_text(json.dumps({"status": "pr_metadata_guard_ready_for_submission", "proof": {"hosted_verification": {key: hosted[key] for key in ("status", "required_check_context", "required_check_integration_id", "merge_permitted")}}}))
+    calls = []
+
+    def verify_transition(*args, hosted_verification_pending=False, **kwargs):
+        calls.append(hosted_verification_pending)
+        return True, (), {"hosted_verification_pending": hosted_verification_pending, "merge_permitted": not hosted_verification_pending}
+
+    monkeypatch.setattr("scripts.build_codex_landing_evidence_body.verify_validation_plan_transition", verify_transition)
+    output = tmp_path / "body.md"
+    assert main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--landing-supervisor-json-path", "", "--output", str(output),
+        "--pre-commit-finalizer-json-path", str(pre),
+        "--pr-metadata-finalizer-json-path", str(post),
+        "--pr-metadata-guard-json-path", str(guard),
+        "--finalizer", "ready_for_pr_submission", "--pr-metadata-guard", "pr_metadata_guard_ready_for_submission",
+        "--strict-audit", "pending in hosted gate", "--immutability-verifier", "pending in hosted gate",
+        "--unresolved-risks", "Do not merge until the required hosted check passes.",
+    ]) == 0
+    body = output.read_text()
+    assert calls == [True]
+    assert "### Hosted verification" in body
+    assert "merge_permitted` is false" in body
     assert "matrix passed" not in body.lower()
 
 

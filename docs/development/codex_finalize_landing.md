@@ -9,6 +9,7 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 ## Decisions
 - `ready_to_commit`: only valid in `pre-commit` phase.
 - `ready_for_pr_metadata`: only valid in `post-commit`/`pr-metadata` phase.
+- `ready_for_pr_submission`: nonprivileged local preparation only. It is available only when `--defer-privileged-checks-to-hosted` is explicitly requested and both Administrator-only stages are recorded as pending. It never means an audit passed or that merging is allowed.
 - `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `do_not_finalize`, `finalizer_failed`.
 - `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
 - `stale_evidence_refresh_failed` when an allowed bounded refresh fails or times out.
@@ -26,17 +27,26 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 Pre-commit allows `intended_task_change` when declared by `--changed-file`, inferred from tracked git changes with `--allow-current-tracked-changes`, and inferred from safe untracked task files with `--allow-current-task-files`. Post-commit/pr-metadata blocks all source dirty files.
 
 ## Why PR metadata is forbidden early
-Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata is forbidden until the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata`.
+Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata is forbidden until the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata` with local privileged verification, or the explicitly bounded `ready_for_pr_submission` state with the hosted-only path described below.
+
+### Nonprivileged local development
+
+Local Administrator denial must not block ordinary source changes or PR preparation. Run both local finalizer phases with `--defer-privileged-checks-to-hosted` when local Administrator authority is unavailable. The finalizer skips execution of only `strict_audits` and `audit_immutability`, emits required command evidence with `exit_code: null`, and returns `ready_for_pr_submission` only if every other required stage succeeds and the pending markers are complete. A failing stage, missing pending marker, invalid phase, or use inside GitHub Actions remains blocked. This status permits preparing/submitting the candidate for hosted verification; it does not permit merge.
+
+The local validation plan, PR metadata guard, and publication handoff bind the exact required check name (`Required / Quality Gate`), GitHub Actions app identity, and pending audit stages. They all record `merge_permitted: false`. The existing hosted Quality Gate must perform the real Administrator checks and finalizer stages against the exact PR head. The option is rejected in the hosted environment. A repository ruleset must require that exact check; absence, failure, skip, or a result for another revision blocks merge. Do not infer merge enforcement from a green Actions page alone.
+
+Repository-native `python -m scripts.run_tests` gives the pytest child a private disposable `SENTIENTOS_DATA_DIR` under its selected temporary filesystem and removes it when pytest exits. This protects persistent Vow/runtime data from test-generated state, including interrupted tests.
 
 ## Example flows
-1. Normal feature landing: run pre-commit finalizer (`ready_to_commit`) -> commit -> run post-commit finalizer (`ready_for_pr_metadata`) -> create/update PR metadata.
-2. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
-3. Stabilization with generated artifact cleanup only: allow cleanup flags and stale-evidence refresh flags; one finalizer invocation cleans artifacts, refreshes matrix/gate/supervisor evidence once, and returns the phase-appropriate terminal status when the tree is clean.
+1. Normal feature landing with local Administrator: run pre-commit finalizer (`ready_to_commit`) -> commit -> run post-commit finalizer (`ready_for_pr_metadata`) -> create/update PR metadata.
+2. Nonprivileged feature landing: run both local phases with `--defer-privileged-checks-to-hosted` (`ready_for_pr_submission`) -> create/update PR metadata -> wait for the exact required hosted Quality Gate and enforced ruleset before merge.
+3. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
+4. Stabilization with generated artifact cleanup only: allow cleanup flags and stale-evidence refresh flags; one finalizer invocation cleans artifacts, refreshes matrix/gate/supervisor evidence once, and returns the phase-appropriate terminal status when the tree is clean.
 
 
 ## Canonical two-phase command examples
 Pre-commit: run finalize with `--phase pre-commit`, `--allow-current-tracked-changes`, `--allow-current-task-files` (or explicit `--changed-file` entries), and require `ready_to_commit` before commit.
-Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting.
+Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting, or use the explicit hosted-only flow below when local Administrator access is unavailable.
 
 When an authoritative exhaustive matrix has already completed against the unchanged
 pre-commit workspace, pass its exact output as `--prevalidated-matrix-json PATH` with
@@ -410,4 +420,4 @@ Solo pre-commit has a 1,200-second total budget and post-commit/PR metadata has 
 
 Stages stream prefixed stdout and stderr, retain at most 40 nonblank lines per stream, emit a quiet heartbeat every 30 seconds, and print flushed start/end records. POSIX children run in dedicated sessions; timeout, SIGINT, SIGTERM, and controller exceptions terminate the process group, wait two seconds, then force termination. Windows uses a new process group and the closest available tree termination, but descendant enumeration remains a documented platform limitation. After cancellation or timeout, retain the finalizer artifact and rerun from fresh evidence; do not adopt a still-running child.
 
-Local proportionate proof, commit, and publication never wait for GitHub Actions or another remote status. GitHub provides storage, history, and asynchronous diagnostics rather than landing authority.
+With local Administrator authority, proportionate proof and landing follow the local finalizer states and do not wait for GitHub Actions. When local Administrator authority is unavailable, `ready_for_pr_submission` permits a PR only; the exact hosted Quality Gate must pass and be enforced by the repository ruleset before merge. GitHub provides publication and hosted verification for this path, not a substitute for local evidence or a green check on a different revision.
