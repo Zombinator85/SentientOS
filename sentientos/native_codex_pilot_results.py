@@ -112,7 +112,11 @@ def verify_native_codex_pilot_results(
         capture_row = manifest_by_trial[trial_id]
         case_id = protocol_row.get("case_id")
         condition = protocol_row.get("condition")
-        if not isinstance(case_id, str) or condition not in counts:
+        if (
+            not isinstance(case_id, str)
+            or not isinstance(condition, str)
+            or condition not in counts
+        ):
             raise ResultsIntegrityError(f"Invalid case or condition for {trial_id}")
         seen_conditions = case_conditions.setdefault(case_id, set())
         if condition in seen_conditions:
