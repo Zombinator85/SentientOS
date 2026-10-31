@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:7bf17b20c435714facc446d4cd2565645a029529585bcab04794f828d4af9056",
+  "prompt_utf8": "Evidence record:\n- Two independent certified assays of retained Sample L each report 5.0 grams of salt per 100 grams of sample.\n- The standards and calculations are verified, and no later contrary assay is available.\n\nProposition: Retained Sample L contains 5.0 percent salt by mass.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:12:45Z",
+  "response_sha256": "sha256:2cec15d321a60739707fd25de3417d45a9745359a6091922f0732ae7f34564e6",
+  "response_utf8": "{\"stance\":\"supported\",\"basis\":\"Two independent certified assays report 5.0 grams of salt per 100 grams of retained Sample L, and the standards and calculations are verified.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJzdXBwb3J0ZWQiLCJiYXNpcyI6IlR3byBpbmRlcGVuZGVudCBjZXJ0aWZpZWQgYXNzYXlzIHJlcG9ydCA1LjAgZ3JhbXMgb2Ygc2FsdCBwZXIgMTAwIGdyYW1zIG9mIHJldGFpbmVkIFNhbXBsZSBMLCBhbmQgdGhlIHN0YW5kYXJkcyBhbmQgY2FsY3VsYXRpb25zIGFyZSB2ZXJpZmllZC4ifQ==",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_10",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_10"
+}

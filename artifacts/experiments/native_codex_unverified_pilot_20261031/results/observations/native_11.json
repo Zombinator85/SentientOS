@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:e82aee14789628c28436ecf2e9297b3612b005dbe835834770b8406f1581a060",
+  "prompt_utf8": "Evidence record:\n- Two independent certified assays initially report 5.0 grams of salt per 100 grams of retained Sample L.\n- A standards audit later finds both assays used a recalled reference factor. Two new assays with certified standards report 3.6 and 3.7 percent; an independent gravimetric check supports 3.6 percent. The earlier reference factor explains the 5.0 percent result.\n\nProposition: Retained Sample L contains 5.0 percent salt by mass.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:13:09Z",
+  "response_sha256": "sha256:1e98558e096842bf25a894999e8e29217b01dc203e94ecb8fbebec8ecec28711",
+  "response_utf8": "{\"stance\":\"contradicted\",\"basis\":\"The 5.0% results relied on a recalled reference factor, while new certified assays and an independent gravimetric check support approximately 3.6%.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJjb250cmFkaWN0ZWQiLCJiYXNpcyI6IlRoZSA1LjAlIHJlc3VsdHMgcmVsaWVkIG9uIGEgcmVjYWxsZWQgcmVmZXJlbmNlIGZhY3Rvciwgd2hpbGUgbmV3IGNlcnRpZmllZCBhc3NheXMgYW5kIGFuIGluZGVwZW5kZW50IGdyYXZpbWV0cmljIGNoZWNrIHN1cHBvcnQgYXBwcm94aW1hdGVseSAzLjYlLiJ9",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_11",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_11"
+}

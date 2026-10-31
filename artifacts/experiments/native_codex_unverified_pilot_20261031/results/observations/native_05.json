@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:9d6b1d64b6c08a244e5198dff6af98283f3b697ad86af0ed8e7989bdff8b2c8e",
+  "prompt_utf8": "Evidence record:\n- The authenticated approval registry lists revision 7 as signed and active.\n- A later signed registry entry confirms revision 8 was approved and explicitly superseded revision 7. The signature is valid, and no revision after 8 is recorded.\n\nProposition: Revision 7 is the currently approved operating procedure.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:10:33Z",
+  "response_sha256": "sha256:3b6a646411dca76d252312b37f5beae3df162741888c6521ace3ab488e82e013",
+  "response_utf8": "{\"stance\":\"contradicted\",\"basis\":\"The signed active revision 8 explicitly superseded revision 7, and no later revision is recorded.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJjb250cmFkaWN0ZWQiLCJiYXNpcyI6IlRoZSBzaWduZWQgYWN0aXZlIHJldmlzaW9uIDggZXhwbGljaXRseSBzdXBlcnNlZGVkIHJldmlzaW9uIDcsIGFuZCBubyBsYXRlciByZXZpc2lvbiBpcyByZWNvcmRlZC4ifQ==",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_05",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_05"
+}
