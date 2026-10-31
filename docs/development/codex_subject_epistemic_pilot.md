@@ -79,3 +79,6 @@ test cross-model transfer. Use a commissioned model through the governed
 SentientOS serving path for those claims. No provider API credential or
 SentientOS runtime grant is used by the runner. Inference is still performed
 by the authenticated ChatGPT service through Codex CLI.
+
+The latest native Codex capability control and its execution limits are recorded
+in [`native_codex_pilot_capability_20261031.md`](native_codex_pilot_capability_20261031.md).
