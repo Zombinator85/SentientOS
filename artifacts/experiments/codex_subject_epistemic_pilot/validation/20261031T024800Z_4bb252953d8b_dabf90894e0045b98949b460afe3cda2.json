@@ -1,0 +1,182 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_subject_epistemic_pilot.py::test_answer_key_tampering_after_capture_is_rejected": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_captured_response_tampering_is_detected_by_report_seal": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_chatgpt_login_status_on_stderr_is_recognized": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_failed_inference_is_preserved_and_scores_insufficient": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_failure_diagnostic_masks_secrets_urls_and_paths": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_interrupted_run_checkpoints_and_resumes_without_repeating_slots": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_invalid_model_response_is_preserved_and_scores_insufficient": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_missing_chatgpt_login_is_rejected_before_any_observation": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_protocol_tampering_after_preregistration_blocks_before_calls": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_resume_rejects_tampered_in_progress_checkpoint": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_reused_cli_session_ids_are_rejected_as_non_independent": 0,
+    "tests/test_codex_subject_epistemic_pilot.py::test_tampered_preregistration_receipt_blocks_before_calls": 0,
+    "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "tests_failed",
+      "rule": "== 0",
+      "threshold": 0,
+      "value": 1
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 14,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "exit_reason": "pytest-failed",
+  "failure_report_path": "/tmp/sentientos-landing/glow/test_runs/test_failure_digest.json",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "4bb252953d8b92f16d238d2eeee696360ce376a2",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-landing/glow/test_runs/pytest_junitxml_fd7f5b41932d4251a5e640a050dc89b8.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failed_inference_is_preserved_and_scores_insufficient",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_invalid_model_response_is_preserved_and_scores_insufficient",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_protocol_tampering_after_preregistration_blocks_before_calls",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_tampered_preregistration_receipt_blocks_before_calls",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_reused_cli_session_ids_are_rejected_as_non_independent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_answer_key_tampering_after_capture_is_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_captured_response_tampering_is_detected_by_report_seal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_missing_chatgpt_login_is_rejected_before_any_observation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_chatgpt_login_status_on_stderr_is_recognized",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failure_diagnostic_masks_secrets_urls_and_paths",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_interrupted_run_checkpoints_and_resumes_without_repeating_slots",
+      "outcome": "failed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_resume_rejects_tampered_in_progress_checkpoint",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "84c0f6f4a4f6aee5f27798c2c0fc54be912029878cd9f55da3eb4e477ef9ee55",
+  "provenance_hash": "d1fb8d3a45e4950ce5a4b6c7587d984e60db9aefd281635c614aeb28fb7e5857",
+  "pytest_args": [
+    "tests/test_codex_subject_epistemic_pilot.py",
+    "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py",
+    "-q"
+  ],
+  "pytest_exit_code": 1,
+  "python": "/tmp/sentientos-landing/.venv/bin/python",
+  "repo_root": "/tmp/sentientos-landing",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "c01d8a61acf045a5b23d1289b3db5f07",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples",
+    "tests/test_codex_subject_epistemic_pilot.py::test_failed_inference_is_preserved_and_scores_insufficient",
+    "tests/test_codex_subject_epistemic_pilot.py::test_invalid_model_response_is_preserved_and_scores_insufficient",
+    "tests/test_codex_subject_epistemic_pilot.py::test_protocol_tampering_after_preregistration_blocks_before_calls",
+    "tests/test_codex_subject_epistemic_pilot.py::test_tampered_preregistration_receipt_blocks_before_calls",
+    "tests/test_codex_subject_epistemic_pilot.py::test_reused_cli_session_ids_are_rejected_as_non_independent",
+    "tests/test_codex_subject_epistemic_pilot.py::test_answer_key_tampering_after_capture_is_rejected",
+    "tests/test_codex_subject_epistemic_pilot.py::test_captured_response_tampering_is_detected_by_report_seal",
+    "tests/test_codex_subject_epistemic_pilot.py::test_missing_chatgpt_login_is_rejected_before_any_observation",
+    "tests/test_codex_subject_epistemic_pilot.py::test_chatgpt_login_status_on_stderr_is_recognized",
+    "tests/test_codex_subject_epistemic_pilot.py::test_failure_diagnostic_masks_secrets_urls_and_paths",
+    "tests/test_codex_subject_epistemic_pilot.py::test_interrupted_run_checkpoints_and_resumes_without_repeating_slots",
+    "tests/test_codex_subject_epistemic_pilot.py::test_resume_rejects_tampered_in_progress_checkpoint",
+    "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands"
+  ],
+  "selection_flags": [
+    "tests/test_codex_subject_epistemic_pilot.py",
+    "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 14,
+  "tests_executed": 14,
+  "tests_failed": 1,
+  "tests_passed": 13,
+  "tests_selected": 14,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-31T02:48:00.144116+00:00",
+  "validation_complete": false,
+  "validation_status": "validation_failed",
+  "xfail_rate": 0.0
+}

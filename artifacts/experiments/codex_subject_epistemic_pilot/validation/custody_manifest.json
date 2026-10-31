@@ -1,0 +1,51 @@
+{
+  "schema": "sentientos.codex_subject_pilot_validation_custody:v1",
+  "created_at_utc": "2026-10-31T02:53:12.881175+00:00",
+  "files": [
+    {
+      "source": "/tmp/sentientos-landing/glow/test_runs/provenance/20261031T024800Z_4bb252953d8b_dabf90894e0045b98949b460afe3cda2.json",
+      "path": "20261031T024800Z_4bb252953d8b_dabf90894e0045b98949b460afe3cda2.json",
+      "sha256": "a5471a52ef583b06eb3de1ac7b42164c5a80d28b8867e8861cbf471af5f1af0a",
+      "provenance_hash": "d1fb8d3a45e4950ce5a4b6c7587d984e60db9aefd281635c614aeb28fb7e5857",
+      "previous_provenance_hash": "84c0f6f4a4f6aee5f27798c2c0fc54be912029878cd9f55da3eb4e477ef9ee55",
+      "validation_status": "validation_failed",
+      "tests_selected": 14,
+      "tests_passed": 13,
+      "tests_failed": 1
+    },
+    {
+      "source": "/tmp/sentientos-landing/glow/test_runs/provenance/20261031T024828Z_4bb252953d8b_58782b72441a407abfb22c8a49748dea.json",
+      "path": "20261031T024828Z_4bb252953d8b_58782b72441a407abfb22c8a49748dea.json",
+      "sha256": "39cf6c03c99a36fbc1efda5263eeefe8eab914d6a00040ff13a99cf4f2fa2cc2",
+      "provenance_hash": "9f92ac4939fb276e0bf0c7525ff1519557b8d063e40e137135d8a154f5edf378",
+      "previous_provenance_hash": "d1fb8d3a45e4950ce5a4b6c7587d984e60db9aefd281635c614aeb28fb7e5857",
+      "validation_status": "validation_complete",
+      "tests_selected": 14,
+      "tests_passed": 14,
+      "tests_failed": 0
+    },
+    {
+      "source": "/tmp/sentientos-landing/glow/test_runs/provenance/20261031T024845Z_4bb252953d8b_0a02075d629540d292f094c1e94c83c3.json",
+      "path": "20261031T024845Z_4bb252953d8b_0a02075d629540d292f094c1e94c83c3.json",
+      "sha256": "2bf34b0f6349c28ba94c4bbe4ed2474699a2d3be3cc4af9a2008ea83dc184314",
+      "provenance_hash": "a3c58e504a6c01913cf5121fe7ddd7aafd46b1488a4e08e06a6a3a3ce171d5c8",
+      "previous_provenance_hash": "9f92ac4939fb276e0bf0c7525ff1519557b8d063e40e137135d8a154f5edf378",
+      "validation_status": "validation_complete",
+      "tests_selected": 14,
+      "tests_passed": 14,
+      "tests_failed": 0
+    },
+    {
+      "source": "glow/test_runs/test_run_provenance.json",
+      "path": "test_run_provenance.json",
+      "sha256": "2bf34b0f6349c28ba94c4bbe4ed2474699a2d3be3cc4af9a2008ea83dc184314",
+      "provenance_hash": "a3c58e504a6c01913cf5121fe7ddd7aafd46b1488a4e08e06a6a3a3ce171d5c8",
+      "previous_provenance_hash": "9f92ac4939fb276e0bf0c7525ff1519557b8d063e40e137135d8a154f5edf378",
+      "validation_status": "validation_complete",
+      "tests_selected": 14,
+      "tests_passed": 14,
+      "tests_failed": 0
+    }
+  ],
+  "chain_predecessor_in_prior_custody": "84c0f6f4a4f6aee5f27798c2c0fc54be912029878cd9f55da3eb4e477ef9ee55"
+}
