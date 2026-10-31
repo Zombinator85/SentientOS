@@ -14,7 +14,8 @@ settings, locale, and executable paths; API keys, GitHub tokens, and current
 thread/session identifiers are excluded. A short diagnostic line is retained
 for failures after masking tokens, URLs, and filesystem paths.
 
-After a slot fails with a classified transport or authentication error, the
+After a slot fails with a classified transport or authentication error,
+including the Codex service-admission marker `no_biscuit_no_service`, the
 runner stops issuing further inference commands. It records every remaining
 preregistered slot as `not_attempted_global_failure`, bound to its prompt
 digest and the failed slot that caused the stop. Those slots contain no

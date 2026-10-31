@@ -349,6 +349,40 @@ def test_causal_introspection_maintenance_profile_is_exactly_scoped() -> None:
 
 
 @pytest.mark.no_legacy_skip
+def test_codex_subject_epistemic_pilot_maintenance_profile_is_exactly_scoped() -> None:
+    allowed_paths = (
+        "sentientos/codex_subject_epistemic_pilot_runner.py",
+        "tests/test_codex_subject_epistemic_pilot.py",
+        "docs/development/codex_subject_epistemic_pilot.md",
+    )
+    for path in allowed_paths:
+        result = plan_codex_task_scaffold_paths(
+            PlannerRequest(
+                task_name="bounded Codex subject epistemic pilot maintenance",
+                task_goal="Preserve the preregistered model-response pilot and its evidence boundaries",
+                subsystem_kind="codex_subject_epistemic_pilot_maintenance",
+                existing_target_paths=(path,),
+            )
+        )
+        assert result.status in {"ready", "ready_with_warnings"}
+        assert result.existing_target_paths == (path,)
+
+    denied = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="bounded Codex subject epistemic pilot maintenance",
+            task_goal="Preserve the preregistered model-response pilot and its evidence boundaries",
+            subsystem_kind="codex_subject_epistemic_pilot_maintenance",
+            existing_target_paths=(
+                "sentientos/codex_subject_epistemic_pilot_runner.py",
+                "sentientos/codex_subject_epistemic_pilot_runner.pyc",
+            ),
+        )
+    )
+    assert denied.status == "blocked"
+    assert "existing_maintenance_target_scope_violation" in denied.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
 @pytest.mark.parametrize(
     ("scope", "path", "reason"),
     (

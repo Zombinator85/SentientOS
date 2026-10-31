@@ -25,6 +25,13 @@ be tracked regular files with no symlink component. This changes task-scope
 metadata only: it creates no file, performs no mutation, and grants no
 execution or runtime authority.
 
+The `codex_subject_epistemic_pilot_maintenance` classification is limited to
+the pilot runner, its focused test module, and its operator-facing development
+page. It does not admit protocol, preregistration, answer-key, observation,
+score, or runtime-state artifacts as maintenance targets. The same
+tracked-file, no-symlink, and exact-path checks apply, and the classification
+grants no inference or prompt-disclosure authority.
+
 The scaffold is a task-planning aid, not a universal authorization ritual.
 Explicit `[untested]` construction work may use the `AGENTS.md` construction
 exception without running the complete landing lifecycle. When bootstrap is

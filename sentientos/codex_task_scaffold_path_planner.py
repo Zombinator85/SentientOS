@@ -95,6 +95,11 @@ MAINTENANCE_TARGETS = {
         "tests/test_causal_introspection.py",
         "docs/architecture/causal_introspection_topology.md",
     ),
+    "codex_subject_epistemic_pilot_maintenance": (
+        "sentientos/codex_subject_epistemic_pilot_runner.py",
+        "tests/test_codex_subject_epistemic_pilot.py",
+        "docs/development/codex_subject_epistemic_pilot.md",
+    ),
 }
 
 
