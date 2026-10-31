@@ -4640,7 +4640,9 @@ class ResidentDevelopmentalCognitionOwner:
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
                   protocol: Any | None = None,
                   objective_plan: Mapping[str, Any] | None = None,
-                  epistemic_revision_probe: bool = False) -> ResidentCognitionObservation:
+                  epistemic_revision_probe: bool = False,
+                  epistemic_revision_probe_expected_prompt_digest: str | None = None
+                  ) -> ResidentCognitionObservation:
         # Keep the full eligible set in custody metadata for withheld controls;
         # only the bounded selected suffix is put into the model prompt.
         records = projection.records
@@ -4899,6 +4901,11 @@ class ResidentDevelopmentalCognitionOwner:
                     "task_family_source_fact_ids": sorted(family_fact_ids),
                     "task_family_source_fact_ids_digest": _digest(sorted(family_fact_ids)),
                     "task_family_evidence_posture": "operator_declared_family_bound_to_admitted_source_facts"})
+        if (epistemic_revision_probe_expected_prompt_digest is not None
+                and _digest({"prompt": prompt})
+                    != epistemic_revision_probe_expected_prompt_digest):
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_prompt_digest_mismatch")
         request = self.invoker.build_request(
             purpose=purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation,
@@ -5207,16 +5214,24 @@ class ResidentDevelopmentalCognitionOwner:
             objective_request_id=None, objective_request_digest=None)
 
     def run_epistemic_revision_probe_once(self, *, snapshot: WorldStateSnapshot,
-            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection
+            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
+            expected_prompt_digest: str | None = None
             ) -> ResidentDevelopmentalCycleResult:
         """Capture one bounded revision judgment through the governed cognition owner."""
         if (self.config.comparison_enabled or self.objective_task is not None
-                or not isinstance(prior_epistemic_state, EpistemicCognitiveProjection)):
+                or not isinstance(prior_epistemic_state, EpistemicCognitiveProjection)
+                or (expected_prompt_digest is not None
+                    and (not isinstance(expected_prompt_digest, str)
+                        or len(expected_prompt_digest) != 71
+                        or not expected_prompt_digest.startswith("sha256:")
+                        or any(char not in "0123456789abcdef"
+                            for char in expected_prompt_digest[7:])))):
             raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_configuration_invalid")
         return self._run_tick(snapshot=snapshot, tick_id=tick_id,
             prior_self_model=None, prior_epistemic_state=prior_epistemic_state,
             objective_task=None, objective_only=False, objective_request_id=None,
-            objective_request_digest=None, epistemic_revision_probe=True)
+            objective_request_digest=None, epistemic_revision_probe=True,
+            epistemic_revision_probe_expected_prompt_digest=expected_prompt_digest)
 
     def objective_request_disposition(self, *, request_id: str,
             request_digest: str) -> str:
@@ -5257,7 +5272,9 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_task: Any | None, objective_only: bool,
                  objective_request_id: str | None,
                  objective_request_digest: str | None,
-                 epistemic_revision_probe: bool = False) -> ResidentDevelopmentalCycleResult:
+                 epistemic_revision_probe: bool = False,
+                 epistemic_revision_probe_expected_prompt_digest: str | None = None
+                 ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
@@ -5266,14 +5283,18 @@ class ResidentDevelopmentalCognitionOwner:
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
                 objective_request_digest=objective_request_digest,
-                epistemic_revision_probe=epistemic_revision_probe)
+                epistemic_revision_probe=epistemic_revision_probe,
+                epistemic_revision_probe_expected_prompt_digest=(
+                    epistemic_revision_probe_expected_prompt_digest))
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
                 objective_request_digest=objective_request_digest,
-                epistemic_revision_probe=epistemic_revision_probe)
+                epistemic_revision_probe=epistemic_revision_probe,
+                epistemic_revision_probe_expected_prompt_digest=(
+                    epistemic_revision_probe_expected_prompt_digest))
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
@@ -5281,7 +5302,9 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_task: Any | None = None, objective_only: bool = False,
                  objective_request_id: str | None = None,
                  objective_request_digest: str | None = None,
-                 epistemic_revision_probe: bool = False) -> ResidentDevelopmentalCycleResult:
+                 epistemic_revision_probe: bool = False,
+                 epistemic_revision_probe_expected_prompt_digest: str | None = None
+                 ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
@@ -5384,7 +5407,9 @@ class ResidentDevelopmentalCognitionOwner:
                                     projection=prior, with_history=has_developmental_history,
                                     condition_id="with-history" if has_developmental_history else "prior-context",
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
-                                    epistemic_revision_probe=epistemic_revision_probe))
+                                    epistemic_revision_probe=epistemic_revision_probe,
+                                    epistemic_revision_probe_expected_prompt_digest=(
+                                        epistemic_revision_probe_expected_prompt_digest)))
             else:
                 # Freeze the exact history that fits the real inference context
                 # before preregistering the comparison. Conditions rerun this
