@@ -61,6 +61,20 @@ def test_selected_plan_validates_and_dry_run_is_zero_effect(tmp_path: Path) -> N
     assert result["status"] == "inspection_ready" and not root.exists()
 
 
+def test_json_round_tripped_plan_preserves_catalog_url_binding(tmp_path: Path) -> None:
+    """Persisted JSON turns catalog URL tuples into lists; identity remains exact."""
+    _, catalog, plan = fixture(tmp_path)
+    persisted_plan = json.loads(json.dumps(plan))
+    assert isinstance(persisted_plan["artifact_urls"], list)
+
+    validate_binding(persisted_plan, catalog)
+    result = acquire_runtime_artifact(persisted_plan, catalog_path=catalog, escrow_root=tmp_path / "absent")
+
+    assert result["status"] == "inspection_ready"
+    assert result["network_performed"] is False
+    assert result["download_performed"] is False
+
+
 @pytest.mark.parametrize(("change","code"), [(lambda p:p.update(status="blocked"), "provisioning_plan_not_selected"),
     (lambda p:p.update(runtime_id="wrong"), "invalid_provisioning_plan"),
     (lambda p:p.update(runtime_catalog_digest="0"*64), "invalid_provisioning_plan"),

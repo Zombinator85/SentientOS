@@ -109,7 +109,11 @@ def validate_binding(plan: Mapping[str, Any], catalog_path: Path | str) -> tuple
         raise AcquisitionError("runtime_source_ambiguous")
     identity = ("engine", "backend_family", "backend_variant", "package_name", "package_version",
                 "artifact_filename", "artifact_sha256", "artifact_urls")
-    if any(plan[key] != entry[key] for key in identity):
+    if any(
+        (not isinstance(plan[key], (list, tuple)) or tuple(plan[key]) != tuple(entry[key]))
+        if key == "artifact_urls" else plan[key] != entry[key]
+        for key in identity
+    ):
         raise AcquisitionError("runtime_artifact_identity_mismatch")
     if plan["artifact_size_bytes"] != entry["artifact_size_bytes"]:
         raise AcquisitionError("runtime_artifact_size_mismatch")
