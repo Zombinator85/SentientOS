@@ -236,9 +236,17 @@ def evaluate_pair(*, case: RevisionCase,
             controls.append(field)
     if _canonical(before_receipt.generation_config) != _canonical(after_receipt.generation_config):
         controls.append("generation_config")
-    for field in ("instruction", "prior_self_model", "developmental_history"):
-        if _canonical(old_context.get(field)) != _canonical(new_context.get(field)):
-            controls.append(field)
+    # Compare the full shared context so newly added prompt fields cannot
+    # become untracked confounds. The epistemic state is the intended state
+    # treatment; current evidence may change in evidence-arrival/withdrawal
+    # cases and is checked separately for cases that require it to stay fixed.
+    ignored_context = {"prior_epistemic_state", "current_evidence"}
+    old_fixed_context = {key: value for key, value in old_context.items()
+        if key not in ignored_context}
+    new_fixed_context = {key: value for key, value in new_context.items()
+        if key not in ignored_context}
+    if _canonical(old_fixed_context) != _canonical(new_fixed_context):
+        controls.append("prompt_context")
     old_identity = {k: before_receipt.request.get(k) for k in
         ("model_id", "model_artifact_digest", "active_model_identity")}
     new_identity = {k: after_receipt.request.get(k) for k in old_identity}
