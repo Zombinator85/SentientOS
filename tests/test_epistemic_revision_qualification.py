@@ -21,6 +21,7 @@ from sentientos.governed_local_model_invocation import (
 )
 from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
+from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -184,6 +185,25 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
     assert "expected_stance" not in capture["prompt"]
     assert result.written_record_id is None
     assert result.writeback_receipt_id is None
+
+    verified = cognition.verified_epistemic_revision_probe_capture(
+        result.cognition_observation_ids[0])
+    assert verified.prompt == request.prompt
+    assert verified.receipt.output_text == receipt.output_text
+    assert verified.receipt.receipt_digest == receipt.receipt_digest
+    assert verified.observation_digest == capture["observation_digest"]
+
+    # Recomputing the capture's local digest cannot rebind a changed prompt to
+    # the independently persisted request and cognition observation.
+    capture["prompt"] += " altered"
+    capture.pop("capture_digest")
+    capture["capture_digest"] = "sha256:" + digest_payload(capture)
+    capture_path.write_text(json.dumps(capture, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="epistemic_revision_probe_capture_invalid"):
+        cognition.verified_epistemic_revision_probe_capture(
+            result.cognition_observation_ids[0])
 
 
 def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:
