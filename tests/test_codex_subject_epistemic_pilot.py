@@ -43,6 +43,9 @@ if "GLOBAL_TRANSPORT_FAILURE" in prompt:
 if "GLOBAL_AUTH_FAILURE" in prompt:
     print("HTTP 401 Unauthorized", file=sys.stderr)
     raise SystemExit(17)
+if "GLOBAL_AUTH_CONNECT_FAILURE" in prompt:
+    print("failed to connect to websocket: HTTP error: 401 Unauthorized", file=sys.stderr)
+    raise SystemExit(17)
 if "GLOBAL_SERVICE_DENIAL" in prompt:
     print("HTTP 451 no_biscuit_no_service", file=sys.stderr)
     raise SystemExit(17)
@@ -142,6 +145,7 @@ def test_failed_inference_is_preserved_and_scores_insufficient(tmp_path):
 @pytest.mark.parametrize(("marker", "category"), [
     ("GLOBAL_TRANSPORT_FAILURE", "transport_error"),
     ("GLOBAL_AUTH_FAILURE", "authentication_error"),
+    ("GLOBAL_AUTH_CONNECT_FAILURE", "authentication_error"),
     ("GLOBAL_SERVICE_DENIAL", "authentication_error"),
     ("GLOBAL_CLI_FAILURE", "codex_cli_or_provider_error"),
     ("GLOBAL_USAGE_FAILURE", "codex_cli_usage_or_configuration_error"),

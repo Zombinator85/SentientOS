@@ -26,6 +26,11 @@ not increase the attempted-call count. The scorer retains them as
 schema-invalid answer is preserved as that per-slot outcome; later prompts may
 still run because the CLI call itself succeeded.
 
+Authentication markers take precedence over generic connection wording. For
+example, `failed to connect to websocket: HTTP error: 401 Unauthorized` is
+recorded as `authentication_error`, while a connection failure without an
+authentication response remains `transport_error`.
+
 Each preflight and each individual inference process gets a private writable
 `HOME` and `CODEX_HOME`. The runner references the existing `auth.json` by
 symlink and never copies or reads its contents. It fails before starting an

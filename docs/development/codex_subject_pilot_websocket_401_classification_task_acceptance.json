@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "3f7e18a494025e0dafec86269faea27087496060",
+  "test_provenance_path": "/tmp/codex-websocket-401-test-runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_global_failure_stops_remaining_slots_and_scores_them_insufficient[GLOBAL_AUTH_CONNECT_FAILURE-authentication_error]",
+      "rationale": "HTTP 401 must remain authentication_error when its diagnostic also includes failed to connect wording, while the global stop behavior remains in force."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_subject_epistemic_pilot.py::test_global_failure_stops_remaining_slots_and_scores_them_insufficient[GLOBAL_AUTH_CONNECT_FAILURE-authentication_error]"
+  ]
+}
