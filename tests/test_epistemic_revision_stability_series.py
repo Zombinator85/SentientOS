@@ -23,6 +23,7 @@ from sentientos.epistemic_revision_pressure_control import UnsupportedPressurePa
 from sentientos.epistemic_revision_qualification import IndependentAnswerKey, RevisionCase
 from sentientos.local_model_authority import digest_payload
 from sentientos.epistemic_revision_probe_runner import run_correction_pressure_series_once
+from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.persistent_epistemic_state import (
     PersistentEpistemicStateOwner, make_evidence_binding, make_proposition,
 )
@@ -239,17 +240,19 @@ def test_capitulation_after_correction_fails_only_pressure_stage(tmp_path: Path)
     assert report["pressure_resistance"]["after"]["answer_correct"] is False
 
 
-def _probe_prompt(root: Path, projection, current_snapshot) -> str:
+def _probe_prompt(root: Path, projection, current_snapshot, *, tick_id: str) -> str:
     invoker = PositionReasoningFixtureInvoker()
     cognition, _ = owner(root, invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
-    result = cognition.run_epistemic_revision_probe_once(snapshot=current_snapshot,
-        tick_id="prompt-preview", prior_epistemic_state=projection)
-    assert result.status == "epistemic_revision_probe_completed"
-    request = next(row for row in invoker.requests
-        if row.purpose == "resident_developmental_retrieval_cognition")
-    return request.prompt
+    preview = cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=current_snapshot, tick_id=tick_id,
+        prior_epistemic_state=projection)
+    assert preview["model_invocation_performed"] is False
+    assert preview["probe_observation_written"] is False
+    assert invoker.requests == []
+    assert not cognition.state_path.exists()
+    return preview["prompt"]
 
 
 def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
@@ -262,10 +265,14 @@ def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
     pressured = _pressure_snapshot(pressure_id, proposition.proposition_id,
         pressure_statement)
     prompts = (
-        _probe_prompt(tmp_path / "preview-original", original, neutral),
-        _probe_prompt(tmp_path / "preview-corrected", corrected, neutral),
-        _probe_prompt(tmp_path / "preview-pressure-before", corrected, neutral),
-        _probe_prompt(tmp_path / "preview-pressure-after", corrected, pressured),
+        _probe_prompt(tmp_path / "preview-original", original, neutral,
+            tick_id="runner-live-series:correction-before"),
+        _probe_prompt(tmp_path / "preview-corrected", corrected, neutral,
+            tick_id="runner-live-series:correction-after"),
+        _probe_prompt(tmp_path / "preview-pressure-before", corrected, neutral,
+            tick_id="runner-live-series:pressure-before"),
+        _probe_prompt(tmp_path / "preview-pressure-after", corrected, pressured,
+            tick_id="runner-live-series:pressure-after"),
     )
     before_key = IndependentAnswerKey("supported", "supported", "support_retained",
         (support.binding_id,))
@@ -285,6 +292,23 @@ def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
         commitment_nonce="4" * 64)
     series = EpistemicCorrectionPressureSeries(correction,
         UnsupportedPressurePair(pressure_case, pressure_statement))
+    mismatched_pressure_case = replace(pressure_case,
+        after_prompt_digest="sha256:" + "f" * 64)
+    mismatched_series = EpistemicCorrectionPressureSeries(correction,
+        UnsupportedPressurePair(mismatched_pressure_case, pressure_statement))
+    preflight_invoker = PositionReasoningFixtureInvoker()
+    preflight_cognition, _ = owner(tmp_path / "preflight", invoker=preflight_invoker,
+        allowed_source_kinds=("capability_registry", "owner_introspection"),
+        max_selected_facts=16)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="epistemic_revision_probe_prompt_digest_mismatch"):
+        run_correction_pressure_series_once(cognition=preflight_cognition,
+            series=mismatched_series, original_snapshot=neutral,
+            corrected_snapshot=neutral, pressure_snapshot=pressured,
+            original_projection=original, corrected_projection=corrected,
+            tick_prefix="runner-live-series")
+    assert preflight_invoker.requests == []
+
     invoker = PositionReasoningFixtureInvoker()
     cognition, _ = owner(tmp_path / "runner", invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),

@@ -29,9 +29,11 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         tick_prefix: str) -> dict[str, Any]:
     """Capture and score a correction followed by a pressure-only comparison.
 
-    The four expected prompt digests are checked by the cognition owner before
-    each invocation. If any call or capture fails, prior captures remain in
-    owner custody and this function does not retry or continue the series.
+    All four exact prompts are first composed through the owner's no-inference
+    preview path and checked against the sealed digests before the first
+    invocation. The owner repeats each digest check immediately before its
+    invocation. If any call or capture fails, prior captures remain in owner
+    custody and this function does not retry or continue the series.
     """
     if (not isinstance(cognition, ResidentDevelopmentalCognitionOwner)
             or not isinstance(series, EpistemicCorrectionPressureSeries)
@@ -63,6 +65,14 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         ("pressure-after", pressure_snapshot, corrected_projection,
             pressure.after_prompt_digest),
     )
+    for condition, snapshot, projection, expected_prompt_digest in conditions:
+        preview = cognition.preview_epistemic_revision_probe_prompt(
+            snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
+            prior_epistemic_state=projection)
+        if preview.get("prompt_digest") != expected_prompt_digest:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_prompt_digest_mismatch")
+
     captures: list[VerifiedEpistemicRevisionProbeCapture] = []
     for condition, snapshot, projection, expected_prompt_digest in conditions:
         result = cognition.run_epistemic_revision_probe_once(

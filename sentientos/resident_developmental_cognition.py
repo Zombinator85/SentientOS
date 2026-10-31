@@ -220,6 +220,14 @@ class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
 
+class _EpistemicRevisionProbePromptPreview(Exception):
+    """Internal control flow that returns a composed prompt before any call."""
+
+    def __init__(self, prompt: str) -> None:
+        super().__init__("epistemic_revision_probe_prompt_preview")
+        self.prompt = prompt
+
+
 def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -4641,6 +4649,7 @@ class ResidentDevelopmentalCognitionOwner:
                   protocol: Any | None = None,
                   objective_plan: Mapping[str, Any] | None = None,
                   epistemic_revision_probe: bool = False,
+                  epistemic_revision_probe_prompt_preview: bool = False,
                   epistemic_revision_probe_expected_prompt_digest: str | None = None
                   ) -> ResidentCognitionObservation:
         # Keep the full eligible set in custody metadata for withheld controls;
@@ -4654,6 +4663,8 @@ class ResidentDevelopmentalCognitionOwner:
         )
         if epistemic_revision_probe and (purpose != COGNITION_PURPOSE or protocol is not None
                 or objective_plan is not None):
+            raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_scope_invalid")
+        if epistemic_revision_probe_prompt_preview and not epistemic_revision_probe:
             raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_scope_invalid")
         invalid_quarantine_custody_context = any(
             isinstance(fact, Mapping)
@@ -4859,6 +4870,8 @@ class ResidentDevelopmentalCognitionOwner:
                 projection=prior_epistemic_state, history_present=with_history))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
+        if epistemic_revision_probe_prompt_preview:
+            raise _EpistemicRevisionProbePromptPreview(prompt)
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
         upstream_evidence = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
                                "current_projection_id": current.projection_id,
@@ -5212,6 +5225,52 @@ class ResidentDevelopmentalCognitionOwner:
             prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
             objective_task=self.objective_task, objective_only=False,
             objective_request_id=None, objective_request_digest=None)
+
+    def preview_epistemic_revision_probe_prompt(self, *, snapshot: WorldStateSnapshot,
+            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection
+            ) -> dict[str, Any]:
+        """Compose the exact probe prompt without admission, invocation, or capture.
+
+        This is the controller-side preparation step for sealing prompt digests.
+        It shares the production prompt builder and deliberately stops before
+        request construction, authority admission, model invocation, or probe
+        observation publication. Reading owner state may perform the owner's
+        normal verified recovery of an interrupted prior tick.
+        """
+        if (not self.config.enabled or self.config.comparison_enabled
+                or self.objective_task is not None
+                or not isinstance(prior_epistemic_state, EpistemicCognitiveProjection)
+                or not isinstance(tick_id, str) or not tick_id or len(tick_id) > 256
+                or not validate_snapshot(snapshot).valid):
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_configuration_invalid")
+        with self._composition_lock():
+            state = self._state()
+            if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
+                    or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
+                raise ResidentDevelopmentalCognitionError("tick_already_completed")
+            if (len(state["completed_ticks"]) + len(state["incomplete_ticks"])
+                    >= MAX_RECOVERED_TICKS):
+                raise ResidentDevelopmentalCognitionError(
+                    "composition_state_retention_limit_exceeded")
+            prior = self._prior_projection(state, tick_id)
+            current = self._current_projection(snapshot)
+            with_history = bool(prior.requested_record_ids)
+            try:
+                self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                    projection=prior, with_history=with_history,
+                    condition_id="with-history" if with_history else "prior-context",
+                    prior_epistemic_state=prior_epistemic_state,
+                    epistemic_revision_probe=True,
+                    epistemic_revision_probe_prompt_preview=True)
+            except _EpistemicRevisionProbePromptPreview as preview:
+                return {"prompt": preview.prompt,
+                    "prompt_digest": _digest({"prompt": preview.prompt}),
+                    "model_identity": _observed_current_cognition_model_identity(self.invoker),
+                    "model_invocation_performed": False,
+                    "probe_observation_written": False}
+        raise ResidentDevelopmentalCognitionError(
+            "epistemic_revision_probe_prompt_preview_unavailable")
 
     def run_epistemic_revision_probe_once(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
