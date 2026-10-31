@@ -12,13 +12,25 @@ from test_resident_developmental_cognition import (  # noqa: E402
     SessionBoundFakeInvoker, epistemic_projection, owner, snapshot,
 )
 from sentientos.epistemic_revision_qualification import (
-    IndependentAnswerKey, RevisionCase, capture_position, evaluate_pair,
+    IndependentAnswerKey, RevisionCase, _prompt_context_mismatch,
+    capture_position, evaluate_pair,
 )
 from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
 
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
+    before = {"instruction": "same", "prior_epistemic_state": {"stance": "supported"},
+        "current_evidence": {"fact": "old"}, "future_prompt_field": {"mode": "one"}}
+    after = {"instruction": "same", "prior_epistemic_state": {"stance": "contradicted"},
+        "current_evidence": {"fact": "new"}, "future_prompt_field": {"mode": "one"}}
+
+    assert _prompt_context_mismatch(before, after) is False
+    after["future_prompt_field"] = {"mode": "two"}
+    assert _prompt_context_mismatch(before, after) is True
 
 
 @pytest.fixture(autouse=True)
