@@ -16,7 +16,8 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 
 PROTOCOL_SCHEMA = "sentientos.codex_subject_epistemic_pilot_protocol:v1"
 PREREG_SCHEMA = "sentientos.codex_subject_epistemic_pilot_preregistration:v1"
@@ -288,6 +289,41 @@ def _failure_category(returncode: int, stderr: str) -> str | None:
     return "codex_cli_or_provider_error"
 
 
+def _login_file(environment: Mapping[str, str]) -> Path:
+    """Locate the existing Codex login file without reading credential bytes."""
+    configured_home = environment.get("CODEX_HOME")
+    if configured_home:
+        source_home = Path(configured_home).expanduser()
+    else:
+        source_home = Path(environment.get("HOME") or str(Path.home())).expanduser() / ".codex"
+    auth_file = source_home / "auth.json"
+    try:
+        if not auth_file.is_file():
+            raise ValueError("codex_chatgpt_login_file_unavailable")
+    except OSError as exc:
+        raise ValueError("codex_chatgpt_login_file_unavailable") from exc
+    return auth_file
+
+
+@contextmanager
+def _private_cli_environment(base_environment: Mapping[str, str], auth_file: Path,
+        directory: str | Path) -> Iterator[dict[str, str]]:
+    """Give one CLI process writable scratch homes and reference login by symlink."""
+    root = Path(directory)
+    codex_home = root / "codex-home"
+    home = root / "home"
+    try:
+        codex_home.mkdir(mode=0o700)
+        home.mkdir(mode=0o700)
+        os.symlink(auth_file, codex_home / "auth.json")
+    except OSError as exc:
+        raise ValueError("codex_chatgpt_login_reference_unavailable") from exc
+    child_environment = dict(base_environment)
+    child_environment["CODEX_HOME"] = str(codex_home)
+    child_environment["HOME"] = str(home)
+    yield child_environment
+
+
 def _interrupted_observation(row: Mapping[str, str], model: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "observation_id": row["observation_id"], "case_id": row["case_id"],
@@ -412,22 +448,25 @@ def run_observations(protocol_path: str | Path, preregistration_path: str | Path
     env = {key: value for key, value in os.environ.items()
         if key in SAFE_CLI_ENVIRONMENT}
     env["NO_COLOR"] = "1"
-    try:
-        version_result = subprocess.run([*executable, "--version"], capture_output=True,
-            text=True, timeout=20, check=False, env=env)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ValueError("codex_cli_version_unavailable") from exc
-    cli_version = version_result.stdout.strip() if version_result.returncode == 0 else "unavailable"
-    if version_result.returncode != 0:
-        raise ValueError("codex_cli_version_unavailable")
-    try:
-        login_result = subprocess.run([*executable, "login", "status"], capture_output=True,
-            text=True, timeout=20, check=False, env=env)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ValueError("codex_chatgpt_login_status_unavailable") from exc
-    if (login_result.returncode != 0
-            or "Logged in using ChatGPT" not in login_result.stdout + login_result.stderr):
-        raise ValueError("codex_chatgpt_login_required")
+    auth_file = _login_file(env)
+    with tempfile.TemporaryDirectory(prefix="codex-subject-preflight-") as preflight_dir:
+        with _private_cli_environment(env, auth_file, preflight_dir) as preflight_env:
+            try:
+                version_result = subprocess.run([*executable, "--version"], capture_output=True,
+                    text=True, timeout=20, check=False, env=preflight_env)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise ValueError("codex_cli_version_unavailable") from exc
+            cli_version = version_result.stdout.strip() if version_result.returncode == 0 else "unavailable"
+            if version_result.returncode != 0:
+                raise ValueError("codex_cli_version_unavailable")
+            try:
+                login_result = subprocess.run([*executable, "login", "status"], capture_output=True,
+                    text=True, timeout=20, check=False, env=preflight_env)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise ValueError("codex_chatgpt_login_status_unavailable") from exc
+            if (login_result.returncode != 0
+                    or "Logged in using ChatGPT" not in login_result.stdout + login_result.stderr):
+                raise ValueError("codex_chatgpt_login_required")
     with tempfile.TemporaryDirectory(prefix="codex-subject-pilot-") as isolated_cwd:
         schema_path = Path(isolated_cwd) / "answer.schema.json"
         schema_path.write_bytes(_canonical(_OUTPUT_SCHEMA))
@@ -435,32 +474,33 @@ def run_observations(protocol_path: str | Path, preregistration_path: str | Path
             if any(item.get("observation_id") == row["observation_id"]
                     for item in report["observations"]):
                 continue
-            report["active_observation_id"] = row["observation_id"]
-            report = _seal({key: value for key, value in report.items() if key != "report_digest"})
-            _write_json(report_path, report)
             with tempfile.TemporaryDirectory(prefix="call-") as call_dir:
-                final_path = Path(call_dir) / "final-answer.json"
-                command = [*executable, "exec", "--ephemeral", "--ignore-user-config",
-                    "--sandbox", "read-only",
-                    "--skip-git-repo-check", "--json", "--model", protocol["model"]["id"],
-                    "--config", f'model_reasoning_effort="{protocol["model"]["reasoning_effort"]}"',
-                    "--output-schema", str(schema_path), "--output-last-message", str(final_path),
-                    "--cd", isolated_cwd, "-"]
-                try:
-                    completed = subprocess.run(command, input=row["prompt"], capture_output=True,
-                        text=True, timeout=180, check=False, cwd=isolated_cwd,
-                        env=env)
-                    stdout, stderr, returncode = completed.stdout, completed.stderr, completed.returncode
-                except subprocess.TimeoutExpired as exc:
-                    stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-                    stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-                    returncode = 124
-                except OSError as exc:
-                    stdout, stderr, returncode = "", type(exc).__name__, 127
-                try:
-                    response_text = final_path.read_text(encoding="utf-8") if final_path.is_file() else None
-                except (OSError, UnicodeError):
-                    response_text = None
+                with _private_cli_environment(env, auth_file, call_dir) as call_env:
+                    report["active_observation_id"] = row["observation_id"]
+                    report = _seal({key: value for key, value in report.items() if key != "report_digest"})
+                    _write_json(report_path, report)
+                    final_path = Path(call_dir) / "final-answer.json"
+                    command = [*executable, "exec", "--ephemeral", "--ignore-user-config",
+                        "--sandbox", "read-only",
+                        "--skip-git-repo-check", "--json", "--model", protocol["model"]["id"],
+                        "--config", f'model_reasoning_effort="{protocol["model"]["reasoning_effort"]}"',
+                        "--output-schema", str(schema_path), "--output-last-message", str(final_path),
+                        "--cd", isolated_cwd, "-"]
+                    try:
+                        completed = subprocess.run(command, input=row["prompt"], capture_output=True,
+                            text=True, timeout=180, check=False, cwd=isolated_cwd,
+                            env=call_env)
+                        stdout, stderr, returncode = completed.stdout, completed.stderr, completed.returncode
+                    except subprocess.TimeoutExpired as exc:
+                        stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                        stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                        returncode = 124
+                    except OSError as exc:
+                        stdout, stderr, returncode = "", type(exc).__name__, 127
+                    try:
+                        response_text = final_path.read_text(encoding="utf-8") if final_path.is_file() else None
+                    except (OSError, UnicodeError):
+                        response_text = None
                 result = _observation_result(row=row, returncode=returncode,
                     stdout=stdout, stderr=stderr, response_text=response_text,
                     cli_version=cli_version, model=protocol["model"])
