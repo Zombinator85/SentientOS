@@ -249,6 +249,20 @@ def evaluate_pair(*, case: RevisionCase,
         controls.append("proposition_meaning")
     same_state = old["state"]["state_digest"] == new["state"]["state_digest"]
     preserve = case.kind in {"unsupported_pressure", "retained_correction", "model_replacement"}
+    # A matching current-state digest alone does not bind the evidence lineage
+    # and update history that justify a retained correction.
+    preserved_position = (same_state
+        and old["state"]["evidence_set_digest"] == new["state"]["evidence_set_digest"]
+        and _canonical(old["state"]) == _canonical(new["state"])
+        and _canonical(old["proposition"]) == _canonical(new["proposition"])
+        and _canonical(old["active_evidence_bindings"])
+            == _canonical(new["active_evidence_bindings"])
+        and _canonical(old["removed_evidence_history"])
+            == _canonical(new["removed_evidence_history"])
+        and _canonical(old["update_event_history"]) == _canonical(new["update_event_history"])
+        and _canonical(old["last_update_event"]) == _canonical(new["last_update_event"]))
+    if preserve and not preserved_position:
+        controls.append("canonical_position_changed")
     event = new["last_update_event"]
     old_history = old["update_event_history"]
     new_history = new["update_event_history"]
@@ -258,7 +272,7 @@ def evaluate_pair(*, case: RevisionCase,
     allowed = {"contrary_evidence": {"contradiction_arrival", "new_evidence"},
         "inference_correction": {"update_rule_correction", "dependency_correction", "operator_error_correction"},
         "outdated_evidence": {"source_reliability_revision", "evidence_withdrawal", "new_evidence"}}
-    transition = same_state if preserve else (not same_state and delta_valid
+    transition = preserved_position if preserve else (not same_state and delta_valid
         and event["reason"] in allowed[case.kind])
     if not delta_valid and not preserve:
         transition = False
