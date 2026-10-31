@@ -14,17 +14,17 @@ settings, locale, and executable paths; API keys, GitHub tokens, and current
 thread/session identifiers are excluded. A short diagnostic line is retained
 for failures after masking tokens, URLs, and filesystem paths.
 
-After a slot fails with a classified transport or authentication error,
-including the Codex service-admission marker `no_biscuit_no_service`, the
-runner stops issuing further inference commands. It records every remaining
-preregistered slot as `not_attempted_global_failure`, bound to its prompt
-digest and the failed slot that caused the stop. Those slots contain no
-candidate response or session identity and do not increase the attempted-call
-count. The scorer retains them as `insufficient`. Other per-slot failures, such
-as an inference timeout or malformed answer, remain recorded and the runner
-continues the preregistered series. Resume fills any missing stop records
-before considering another invocation, so it cannot relaunch after a recorded
-global failure.
+After any failed inference CLI invocation, including transport, authentication,
+service-admission, timeout, configuration, or provider errors, the runner stops
+issuing further inference commands. It also stops after an interrupted active
+slot: resume records that slot as `interrupted_unknown`, marks all remaining
+prompts `not_attempted_global_failure`, and makes no additional Codex call.
+Each unattempted slot is bound to its prompt digest and the failure that caused
+the stop. Those slots contain no candidate response or session identity and do
+not increase the attempted-call count. The scorer retains them as
+`insufficient`. A successful CLI session that returns a malformed or
+schema-invalid answer is preserved as that per-slot outcome; later prompts may
+still run because the CLI call itself succeeded.
 
 Each preflight and each individual inference process gets a private writable
 `HOME` and `CODEX_HOME`. The runner references the existing `auth.json` by
@@ -39,8 +39,9 @@ recording each outcome. Resume validates the checkpoint against the unchanged
 protocol and preregistration, preserves captured responses and failures, and
 never repeats a recorded slot. If the process stopped while a slot was active,
 resume records that slot as `interrupted_unknown`: prompt transmission may have
-occurred, so the runner does not retry it. Scoring treats an interrupted slot
-as insufficient and rejects any checkpoint that is still in progress.
+occurred, so the runner does not retry it or start later slots. Remaining slots
+are recorded as not attempted, and scoring treats the interrupted slot as
+insufficient. Scoring rejects any checkpoint that is still in progress.
 
 The protocol consists of four persistent-epistemic proposition cases with an
 original state, a corrected state, and a pressure-only state. The latter adds
