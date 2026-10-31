@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 
@@ -11,16 +12,24 @@ from sentientos.codex_subject_epistemic_pilot_runner import (
 )
 
 
-FAKE_CODEX = r'''import json, pathlib, sys
+FAKE_CODEX = r'''import json, os, pathlib, sys
 args = sys.argv[1:]
 if args == ["--version"]:
     print("codex-cli fake-1")
     raise SystemExit(0)
 if args == ["login", "status"]:
+    if not (pathlib.Path(os.environ["CODEX_HOME"]) / "auth.json").is_symlink():
+        raise SystemExit(31)
     print("Logged in using ChatGPT")
     raise SystemExit(0)
 if args[0] != "exec":
     raise SystemExit(2)
+codex_home = pathlib.Path(os.environ["CODEX_HOME"])
+home = pathlib.Path(os.environ["HOME"])
+if not (codex_home / "auth.json").is_symlink():
+    raise SystemExit(32)
+(codex_home / "writable-probe").write_text("ok", encoding="utf-8")
+(home / "writable-probe").write_text("ok", encoding="utf-8")
 if "--ask-for-approval" in args:
     raise SystemExit(2)
 prompt = sys.stdin.read()
@@ -64,6 +73,14 @@ def _inputs(tmp_path: Path, *, failing: bool = False):
     fake = tmp_path / "fake_codex.py"
     fake.write_text(FAKE_CODEX, encoding="utf-8")
     return protocol_path, key_path, fake
+
+
+@pytest.fixture(autouse=True)
+def fake_authenticated_codex_home(tmp_path: Path, monkeypatch):
+    home = tmp_path / "codex-login"
+    home.mkdir()
+    (home / "auth.json").write_text("fixture-only-login-material", encoding="utf-8")
+    monkeypatch.setenv("CODEX_HOME", str(home))
 
 
 @pytest.mark.no_legacy_skip
@@ -274,3 +291,86 @@ def test_resume_rejects_tampered_in_progress_checkpoint(tmp_path):
     raw_path.write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="pilot_resume_checkpoint_binding_invalid"):
         run_observations(protocol, prereg_path, raw_path, codex_command=str(fake), resume=True)
+
+
+@pytest.mark.no_legacy_skip
+def test_runner_uses_private_writable_home_and_references_login_without_copy(tmp_path, monkeypatch):
+    protocol, keys, fake = _inputs(tmp_path)
+    prereg_path, raw_path = tmp_path / "prereg.json", tmp_path / "observations.json"
+    preregister(protocol, keys, prereg_path)
+    source_home = Path(os.environ["CODEX_HOME"])
+    source_auth = source_home / "auth.json"
+    inherited_home = Path(os.environ.get("HOME", ""))
+    original_run = subprocess.run
+    homes: list[tuple[str, str, str]] = []
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-inherit")
+    monkeypatch.setenv("CODEX_SESSION_ID", "must-not-inherit")
+    monkeypatch.setenv("UNRELATED_PRIVATE_VALUE", "must-not-inherit")
+
+    def inspect_child(command, *args, **kwargs):
+        env = kwargs.get("env", {})
+        if "exec" in command:
+            codex_home = Path(env["CODEX_HOME"])
+            home = Path(env["HOME"])
+            auth = codex_home / "auth.json"
+            assert codex_home != source_home and home != inherited_home
+            assert auth.is_symlink() and os.path.samefile(auth, source_auth)
+            assert "OPENAI_API_KEY" not in env
+            assert "CODEX_SESSION_ID" not in env
+            assert "UNRELATED_PRIVATE_VALUE" not in env
+            homes.append((str(codex_home), str(home), str(auth.resolve())))
+        return original_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", inspect_child)
+    run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+    assert len(homes) == 12
+    assert len({row[0] for row in homes}) == 12
+    assert len({row[1] for row in homes}) == 12
+    assert all(not Path(row[0]).exists() and not Path(row[1]).exists() for row in homes)
+    assert source_auth.read_text(encoding="utf-8") == "fixture-only-login-material"
+
+
+@pytest.mark.no_legacy_skip
+def test_missing_login_file_blocks_before_cli_execution(tmp_path, monkeypatch):
+    protocol, keys, fake = _inputs(tmp_path)
+    prereg_path = tmp_path / "prereg.json"
+    preregister(protocol, keys, prereg_path)
+    absent = tmp_path / "empty-codex-home"
+    absent.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(absent))
+    called = []
+    original_run = subprocess.run
+
+    def track(command, *args, **kwargs):
+        called.append(command)
+        return original_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", track)
+    with pytest.raises(ValueError, match="login_file_unavailable"):
+        run_observations(protocol, prereg_path, tmp_path / "observations.json", codex_command=str(fake))
+    assert called == []
+
+
+@pytest.mark.no_legacy_skip
+def test_login_symlink_failure_preserves_empty_checkpoint_without_starting_slot(tmp_path, monkeypatch):
+    protocol, keys, fake = _inputs(tmp_path)
+    prereg_path, raw_path = tmp_path / "prereg.json", tmp_path / "observations.json"
+    preregister(protocol, keys, prereg_path)
+    original_run = subprocess.run
+    invoked = []
+
+    def track(command, *args, **kwargs):
+        if "exec" in command:
+            invoked.append(command)
+        return original_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", track)
+    monkeypatch.setattr("sentientos.codex_subject_epistemic_pilot_runner.os.symlink",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("read only")))
+    with pytest.raises(ValueError, match="login_reference_unavailable"):
+        run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+    report = json.loads(raw_path.read_text(encoding="utf-8"))
+    assert report["observations"] == []
+    assert report["attempted_observations"] == 0
+    assert report["active_observation_id"] is None
+    assert invoked == []

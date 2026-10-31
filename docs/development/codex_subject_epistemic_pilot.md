@@ -14,6 +14,14 @@ settings, locale, and executable paths; API keys, GitHub tokens, and current
 thread/session identifiers are excluded. A short diagnostic line is retained
 for failures after masking tokens, URLs, and filesystem paths.
 
+Each preflight and each individual inference process gets a private writable
+`HOME` and `CODEX_HOME`. The runner references the existing `auth.json` by
+symlink and never copies or reads its contents. It fails before starting an
+observation if the login file is unavailable or the reference cannot be made.
+Temporary homes are removed after each process; the model-call slot is marked
+active only after this setup succeeds, so a local setup failure remains
+retryable without being misreported as a possibly transmitted prompt.
+
 The runner atomically checkpoints before starting each slot and after
 recording each outcome. Resume validates the checkpoint against the unchanged
 protocol and preregistration, preserves captured responses and failures, and

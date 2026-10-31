@@ -1,67 +1,95 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "4bb252953d8b92f16d238d2eeee696360ce376a2",
-  "test_provenance_path": "artifacts/experiments/codex_subject_epistemic_pilot/validation/test_run_provenance.json",
+  "repository_sha": "9f7922458a723af4d57c9043c5f118495c1f01e5",
+  "test_provenance_path": "/tmp/codex-solo-supervisor-validation/test_run_provenance.json",
   "required_nodes": [
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples",
-      "rationale": "A fake Codex CLI proves the complete 12-slot protocol, capture, and independent scoring lifecycle without model calls."
+      "rationale": "Fake CLI covers all 12 conditions, candidate capture, and independent scoring without model calls."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failed_inference_is_preserved_and_scores_insufficient",
-      "rationale": "Inference failure remains an explicit insufficient observation."
+      "rationale": "Failed execution remains an insufficient result."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_invalid_model_response_is_preserved_and_scores_insufficient",
-      "rationale": "A successful CLI exit with an invalid candidate schema is retained and does not score as a pass."
+      "rationale": "Invalid structured output is preserved and never scores as a pass."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_protocol_tampering_after_preregistration_blocks_before_calls",
-      "rationale": "Prompt changes after preregistration are rejected before execution."
+      "rationale": "Post-preregistration prompt tampering is rejected."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_tampered_preregistration_receipt_blocks_before_calls",
-      "rationale": "An altered preregistration receipt is rejected before execution."
+      "rationale": "Tampered preregistration evidence is rejected."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_reused_cli_session_ids_are_rejected_as_non_independent",
-      "rationale": "Responses without distinct ephemeral CLI session identities cannot satisfy the pilot."
+      "rationale": "Reused sessions fail the independent-session check."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_answer_key_tampering_after_capture_is_rejected",
-      "rationale": "Held-out scoring keys remain bound to their pre-inference commitment."
+      "rationale": "Held-out scoring keys remain bound to preregistration."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_captured_response_tampering_is_detected_by_report_seal",
-      "rationale": "Response report edits are detected before scoring."
+      "rationale": "Captured-response tampering is detected before scoring."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_missing_chatgpt_login_is_rejected_before_any_observation",
-      "rationale": "The runner fails closed without the intended ChatGPT login."
+      "rationale": "Unavailable ChatGPT login is rejected before observations."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_chatgpt_login_status_on_stderr_is_recognized",
-      "rationale": "The CLI's legitimate login status is recognized regardless of output stream."
+      "rationale": "Login status is recognized on either output stream."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failure_diagnostic_masks_secrets_urls_and_paths",
-      "rationale": "Failure detail helps diagnose transport errors while masking credentials, URLs, and paths."
-    },
-    {
-      "node_id": "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands",
-      "rationale": "The public command exposes the required three-stage workflow."
+      "rationale": "Failure details redact sensitive material."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_interrupted_run_checkpoints_and_resumes_without_repeating_slots",
-      "rationale": "An interruption retains prior observations, marks the active request unknown without retrying it, and resumes later slots."
+      "rationale": "Interrupted slots are preserved and not repeated."
     },
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_resume_rejects_tampered_in_progress_checkpoint",
-      "rationale": "Resume fails closed when durable checkpoint custody is invalid."
+      "rationale": "Resume rejects altered checkpoint custody."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_runner_uses_private_writable_home_and_references_login_without_copy",
+      "rationale": "Fake CLI validates private writable homes, symlink-only login reference, environment isolation, per-call uniqueness, and cleanup."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_missing_login_file_blocks_before_cli_execution",
+      "rationale": "Missing login material blocks before CLI execution."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_login_symlink_failure_preserves_empty_checkpoint_without_starting_slot",
+      "rationale": "Setup failure leaves no active slot and is not misreported as a transmitted prompt."
+    },
+    {
+      "node_id": "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands",
+      "rationale": "The CLI retains its preregister, run/resume, and score surfaces."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_plan_is_supervised_without_matrix_and_keeps_exact_plan_digest",
+      "rationale": "A sealed solo validation plan can reach supervisor readiness without matrix evidence, with its digest retained."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_plan_digest_or_title_tampering_blocks_supervision",
+      "rationale": "Mutated or title-crossed solo plans fail closed."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_supervision_rejects_matrix_evidence",
+      "rationale": "Supplying matrix evidence alongside a solo plan is rejected rather than mixing profiles."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor_script.py::test_cli_accepts_sealed_solo_plan_without_matrix",
+      "rationale": "The landing-supervisor CLI accepts the sealed solo-plan path without requiring a matrix."
     }
   ],
   "successful_path_nodes": [
-    "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples"
+    "tests/test_codex_landing_supervisor.py::test_solo_plan_is_supervised_without_matrix_and_keeps_exact_plan_digest"
   ]
 }
