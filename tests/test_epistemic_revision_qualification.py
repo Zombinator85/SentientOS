@@ -38,6 +38,22 @@ def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields(
     assert _prompt_context_mismatch(before, after) is True
 
 
+def test_successor_model_identity_is_the_only_additional_prompt_treatment() -> None:
+    before = {"instruction": "same",
+        "developmental_history_target_model_identity": {"model": "a"},
+        "future_prompt_field": "same"}
+    after = {"instruction": "same",
+        "developmental_history_target_model_identity": {"model": "b"},
+        "future_prompt_field": "same"}
+
+    assert _prompt_context_mismatch(before, after) is True
+    assert _prompt_context_mismatch(before, after,
+        additional_treatment_fields=("developmental_history_target_model_identity",)) is False
+    after["future_prompt_field"] = "changed"
+    assert _prompt_context_mismatch(before, after,
+        additional_treatment_fields=("developmental_history_target_model_identity",)) is True
+
+
 @pytest.fixture(autouse=True)
 def _isolate_runtime_and_timestamps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -249,6 +265,21 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
     assert report["before"]["answer_correct"] is True
     assert report["after"]["answer_correct"] is True
     assert report["real_model_qualification_established"] is False
+
+
+def test_probe_expected_prompt_digest_blocks_before_invocation(tmp_path: Path) -> None:
+    projection, _proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    invoker = SessionBoundFakeInvoker()
+    cognition, _ = owner(tmp_path / "cognition", invoker=invoker)
+
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="epistemic_revision_probe_prompt_digest_mismatch"):
+        cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
+            tick_id="wrong-preregistered-prompt",
+            prior_epistemic_state=projection,
+            expected_prompt_digest="sha256:" + "0" * 64)
+
+    assert invoker.requests == []
 
 
 def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:

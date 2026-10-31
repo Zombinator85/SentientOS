@@ -71,9 +71,11 @@ def _object(text: str) -> dict[str, Any]:
     return value
 
 
-def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]) -> bool:
+def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any], *,
+        additional_treatment_fields: Sequence[str] = ()) -> bool:
     """Return whether paired prompts differ outside the intended treatment fields."""
-    ignored = {"prior_epistemic_state", "current_evidence"}
+    ignored = {"prior_epistemic_state", "current_evidence",
+        *additional_treatment_fields}
     before_fixed = {key: value for key, value in before.items() if key not in ignored}
     after_fixed = {key: value for key, value in after.items() if key not in ignored}
     return _canonical(before_fixed) != _canonical(after_fixed)
@@ -259,7 +261,10 @@ def evaluate_pair(*, case: RevisionCase,
     # become untracked confounds. The epistemic state is the intended state
     # treatment; current evidence may change in evidence-arrival/withdrawal
     # cases and is checked separately for cases that require it to stay fixed.
-    if _prompt_context_mismatch(old_context, new_context):
+    treatment_fields = (("developmental_history_target_model_identity",)
+        if case.kind == "model_replacement" else ())
+    if _prompt_context_mismatch(old_context, new_context,
+            additional_treatment_fields=treatment_fields):
         controls.append("prompt_context")
     old_identity = {k: before_receipt.request.get(k) for k in
         ("model_id", "model_artifact_digest", "active_model_identity")}
