@@ -14,6 +14,12 @@ HOSTED_QUALITY_GATE_INTEGRATION_ID = 15368
 def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
     """Name known runtime preconditions without treating their failure as success."""
     output = result.output_tail
+    lowered_output = output.lower()
+    if (
+        "operation not permitted" in lowered_output
+        and "sandbox" in lowered_output
+    ):
+        return f"environment_precondition_unavailable:{result.stage}:sandbox_policy_restriction"
     if result.stage == "focused_tests" and (
         "run_tests dependency bootstrap failed" in output
         or "minimal-test-airlock-install-failed" in output
@@ -41,6 +47,8 @@ def _authority_denial_reason(result: CodexFinalizeLandingCommandResult) -> str |
     output = result.output_tail.lower()
     if result.stage == "strict_audits" and "access denied: run as administrator" in output:
         return "authority_denied:strict_audits:administrator_required"
+    if "operation not permitted" in output and "sandbox" in output:
+        return None
     if "permission denied" in output or "operation not permitted" in output:
         return f"authority_denied:{result.stage}:explicit_access_denial"
     return None
