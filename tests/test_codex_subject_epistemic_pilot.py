@@ -136,7 +136,7 @@ def test_preregister_run_and_score_four_correction_pressure_triples(tmp_path):
 
 
 @pytest.mark.no_legacy_skip
-@pytest.mark.parametrize("prior_score", [None, b"prior score record\\n"])
+@pytest.mark.parametrize("prior_score", [None, b"prior score record\n"])
 def test_score_write_failure_preserves_observations_and_retries_without_inference(
         tmp_path, monkeypatch, prior_score):
     protocol, keys, fake = _inputs(tmp_path)
