@@ -288,14 +288,14 @@ def _failure_category(returncode: int, stderr: str) -> str | None:
         return "codex_cli_usage_or_configuration_error"
     if any(token in lowered for token in ("certificate", "tls", "x509")):
         return "transport_trust_error"
-    if any(token in lowered for token in ("proxy", "connect", "network", "dns", "socket")):
-        return "transport_error"
     if "no_biscuit_no_service" in lowered or re.search(
             r"\bhttp\s+451\b[^\n]{0,160}\bno[_ -]?service\b", lowered):
         return "authentication_error"
     if any(token in lowered for token in (
             "unauthorized", "authentication", "logged in", "credential")):
         return "authentication_error"
+    if any(token in lowered for token in ("proxy", "connect", "network", "dns", "socket")):
+        return "transport_error"
     return "codex_cli_or_provider_error"
 
 
