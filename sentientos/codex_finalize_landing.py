@@ -14,8 +14,17 @@ HOSTED_QUALITY_GATE_INTEGRATION_ID = 15368
 def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
     """Name known runtime preconditions without treating their failure as success."""
     output = result.output_tail
-    if result.stage == "strict_audits" and "Access denied: run as Administrator" in output:
-        return f"environment_precondition_unavailable:{result.stage}:administrator_required"
+    if result.stage == "focused_tests" and (
+        "run_tests dependency bootstrap failed" in output
+        or "minimal-test-airlock-install-failed" in output
+    ):
+        return "environment_precondition_unavailable:focused_tests:python_dependency_bootstrap_failed"
+    if (
+        result.stage == "focused_tests"
+        and "SSLCertVerificationError" in output
+        and any(marker in output.lower() for marker in ("pip", "dependency", "bootstrap"))
+    ):
+        return "environment_precondition_unavailable:focused_tests:package_bootstrap_tls_trust"
     if result.stage == "mypy_baseline" and "mypy_baseline_toolchain_mismatch" in output:
         return "environment_precondition_unavailable:mypy_baseline:pinned_toolchain_missing_or_mismatched"
     if result.stage == "audit_immutability" and "ModuleNotFoundError: No module named 'nacl'" in output:
@@ -24,6 +33,16 @@ def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) 
         return f"environment_precondition_unavailable:{result.stage}:docs_dependencies_missing"
     if "temporary-storage-unavailable" in output:
         return f"environment_precondition_unavailable:{result.stage}:temporary_storage"
+    return None
+
+
+def _authority_denial_reason(result: CodexFinalizeLandingCommandResult) -> str | None:
+    """Identify explicit privilege denials so workflow recovery cannot retry them."""
+    output = result.output_tail.lower()
+    if result.stage == "strict_audits" and "access denied: run as administrator" in output:
+        return "authority_denied:strict_audits:administrator_required"
+    if "permission denied" in output or "operation not permitted" in output:
+        return f"authority_denied:{result.stage}:explicit_access_denial"
     return None
 
 
@@ -143,6 +162,8 @@ def evaluate_finalize_landing(
 
     environment_blocked = False
     environment_failed_stages: set[str] = set()
+    authority_denied = False
+    authority_denied_stages: set[str] = set()
     non_environment_stage_failure = False
     hosted_pending_stages: list[str] = []
     for result in command_results:
@@ -158,8 +179,13 @@ def evaluate_finalize_landing(
             continue
         if result.required and result.exit_code != 0:
             reasons.append(f"stage_failed:{result.stage}")
+            authority_reason = _authority_denial_reason(result)
             environment_reason = _environment_precondition_reason(result)
-            if environment_reason is not None:
+            if authority_reason is not None:
+                reasons.append(authority_reason)
+                authority_denied = True
+                authority_denied_stages.add(result.stage)
+            elif environment_reason is not None:
                 reasons.append(environment_reason)
                 environment_blocked = True
                 environment_failed_stages.add(result.stage)
@@ -205,8 +231,10 @@ def evaluate_finalize_landing(
             reasons.append("hosted_privileged_stage_deferral_incomplete:" + ",".join(missing_hosted_stages))
 
     non_environment_reason = any(
-        reason not in {f"stage_failed:{stage}" for stage in environment_failed_stages}
+        reason not in ({f"stage_failed:{stage}" for stage in environment_failed_stages}
+                       | {f"stage_failed:{stage}" for stage in authority_denied_stages})
         and not reason.startswith("environment_precondition_unavailable:")
+        and not reason.startswith("authority_denied:")
         for reason in reasons
     )
 
@@ -232,6 +260,8 @@ def evaluate_finalize_landing(
             status = "manual_review_required"
         elif "unknown_dirty_tree" in reasons:
             status = "manual_review_required"
+        elif authority_denied and not non_environment_stage_failure and not non_environment_reason:
+            status = "authority_denied"
         elif environment_blocked and not non_environment_stage_failure and not non_environment_reason:
             status = "environment_blocked"
         else:
