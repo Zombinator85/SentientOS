@@ -1,0 +1,26 @@
+{
+  "answer_key_canonical_sha256": "sha256:5ae116e91ce82c58d88bd01266e634f35fcfd3bd682f897a4edd894905eec52f",
+  "answer_key_custody": "separate external mode-0600 file; never included in subject task context",
+  "answer_key_file_path": "/tmp/sentientos-evidence-custody/native_codex_unverified_pilot_20261031/answer_keys.json",
+  "answer_key_file_sha256": "sha256:4fc8a88c0724a2d0e3704ded3a0240a621845433ccbda0f7a7cc055c9ddf95a5",
+  "case_count": 4,
+  "condition_count": {
+    "corrected": 4,
+    "original": 4,
+    "pressure_only": 4
+  },
+  "condition_id": "native_codex_delegation_context_free_model_unverified",
+  "not_an_observation": true,
+  "original_astra_protocol_unchanged": true,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "protocol_canonical_sha256": "sha256:7ec20a156629127c600d0f949c4b87c2236d3143f916e70aed5c300e02932d28",
+  "protocol_file_sha256": "sha256:c57775604926ba5002174a5be2e2a5ccda46d87d80785edd3141e5f5e0af346b",
+  "protocol_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/protocol.json",
+  "receipt_digest": "sha256:2720b255264af44715d26a8155b2a0cc1237b40b661998d0ab40d7da3d444799",
+  "schema_version": "sentientos.native_codex_delegation_exploratory_preregistration:v1",
+  "sealed_at_utc": "2026-10-31T17:48:48.678678Z",
+  "status": "preregistered_before_subject_inference",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "trial_count": 12
+}
