@@ -61,6 +61,18 @@ RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
         },
     },
 }
+RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA = {
+    "type": "object", "required": ["conclusion", "reason_code", "evidence_ids"],
+    "additionalProperties": False,
+    "properties": {
+        "conclusion": {"type": "string", "enum": ["unknown", "suspended",
+            "provisionally_supported", "supported", "contested",
+            "provisionally_contradicted", "contradicted", "superseded"]},
+        "reason_code": {"type": "string", "minLength": 1, "maxLength": 128},
+        "evidence_ids": {"type": "array", "maxItems": 256, "uniqueItems": True,
+            "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    },
+}
 
 def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)
@@ -299,7 +311,9 @@ class GovernedLocalModelInvoker:
             if purpose not in allowed_structured_purposes or expected_output_format != "json":
                 raise ValueError("structured output is restricted to governed JSON purposes")
             if (purpose == "resident_developmental_retrieval_cognition"
-                    and dict(structured_output_schema) != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA):
+                    and dict(structured_output_schema) not in [
+                        RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]):
                 raise ValueError("structured_output_schema_not_canonical")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
@@ -332,7 +346,8 @@ class GovernedLocalModelInvoker:
                 canonical_schema = judgment_output_schema(proposition=str(request.linkage.get("proposition") or ""), allowed_observation_namespace=str(request.linkage.get("allowed_observation_namespace") or ""))
                 if dict(schema) != canonical_schema: reasons.append("structured_output_schema_not_canonical")
             elif request.purpose == "resident_developmental_retrieval_cognition":
-                if schema != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA:
+                if schema not in [RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+                        RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA]:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":

@@ -12,6 +12,7 @@ from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model import ActiveModelIdentity
@@ -146,6 +147,33 @@ def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path
         )
     assert fake.calls == 1
 
+
+def test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_retrieval_cognition",
+        prompt="bounded epistemic revision probe",
+        caller="resident_developmental_cognition",
+        correlation_id="epistemic-revision-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+    )
+    receipt = inv.invoke(request)
+    assert receipt.status == "admitted_completed"
+    assert request.structured_output_schema == RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
+    assert fake.calls == 1
+
+    altered = {**RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+        "properties": {**RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA["properties"],
+            "unexpected": {"type": "string"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_retrieval_cognition",
+            prompt="bounded epistemic revision probe",
+            caller="resident_developmental_cognition",
+            correlation_id="epistemic-revision-json-altered",
+            expected_output_format="json", structured_output_schema=altered)
+    assert fake.calls == 1
 
 def test_mutating_cognition_schema_after_request_build_cannot_widen_invocation(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path)

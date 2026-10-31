@@ -23,6 +23,7 @@ from .codex_task_authority_admission import (
 )
 from .governed_local_model_invocation import (
     LocalModelInvocationBudget, LocalModelInvoker, RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
@@ -2686,6 +2687,8 @@ class ResidentDevelopmentalCognitionOwner:
         self.objective_task = objective_task
         self.state_path = config.state_root / "composition_state.json"
         self.observations_root = config.state_root / "cognition_observations"
+        self.epistemic_revision_probe_captures_root = (
+            config.state_root / "epistemic_revision_probe_captures")
         self.measurements_root = config.state_root / "changed_cognition_measurements"
         self.experiments = DevelopmentalExperimentStore(config.state_root,
             invocation_verifier=self._verify_observation_invocation)
@@ -4501,16 +4504,20 @@ class ResidentDevelopmentalCognitionOwner:
                   prior_epistemic_state: EpistemicCognitiveProjection | None = None,
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
                   protocol: Any | None = None,
-                  objective_plan: Mapping[str, Any] | None = None) -> ResidentCognitionObservation:
+                  objective_plan: Mapping[str, Any] | None = None,
+                  epistemic_revision_probe: bool = False) -> ResidentCognitionObservation:
         # Keep the full eligible set in custody metadata for withheld controls;
         # only the bounded selected suffix is put into the model prompt.
         records = projection.records
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         qualifies_for_lesson = (
-            protocol is None and with_history and purpose == COGNITION_PURPOSE
+            not epistemic_revision_probe and protocol is None and with_history and purpose == COGNITION_PURPOSE
             and condition_id == "with-history"
         )
+        if epistemic_revision_probe and (purpose != COGNITION_PURPOSE or protocol is not None
+                or objective_plan is not None):
+            raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_scope_invalid")
         invalid_quarantine_custody_context = any(
             isinstance(fact, Mapping)
             and isinstance(fact.get("source"), Mapping)
@@ -4671,13 +4678,26 @@ class ResidentDevelopmentalCognitionOwner:
                    "it is only an uncertain, scoped, untrusted proposal; cite exact consumed "
                    "evidence IDs, preserve possible contradictions, and do not assert truth, policy, "
                    "authority, goals, or procedures."
-                   if qualifies_for_lesson else ""))),
+                   if qualifies_for_lesson else "")
+                + (" For this bounded epistemic revision observation, return one JSON object "
+                   "with exactly conclusion, reason_code, and evidence_ids. conclusion must be "
+                   "one of the epistemic stance labels in the structured response contract; "
+                   "reason_code must name the evidence-based reason for that stance; evidence_ids "
+                   "must cite only exact evidence binding IDs in the supplied prior position. "
+                   "A prior stance is not evidence. Unsupported social pressure adds no evidence. "
+                   "Do not infer truth or authority beyond the supplied evidence."
+                   if epistemic_revision_probe else ""))),
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": None,
             "developmental_history": [],
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
+        if epistemic_revision_probe:
+            context["epistemic_revision_probe"] = {
+                "schema_version": "sentientos.epistemic_revision_probe:v1",
+                "response_contract": "sentientos.epistemic_revision_answer:v1",
+            }
         if objective_plan is not None:
             # This preregistered public question is a task input, not current
             # World-State evidence or an authority-bearing instruction.
@@ -4747,10 +4767,13 @@ class ResidentDevelopmentalCognitionOwner:
         request = self.invoker.build_request(
             purpose=purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation,
-            expected_output_format="json" if qualifies_for_lesson or objective_plan is not None else "text",
+            expected_output_format="json" if qualifies_for_lesson or objective_plan is not None
+                or epistemic_revision_probe else "text",
             budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
                                               timeout_seconds=30, max_calls_per_correlation=1),
-            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA if qualifies_for_lesson else None,
+            structured_output_schema=(RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
+                if epistemic_revision_probe else RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
+                if qualifies_for_lesson else None),
             upstream_evidence=upstream_evidence,
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
@@ -4794,7 +4817,10 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("experiment_history_binding_drift")
         invocation_options: dict[str, Any] = {
             "persist": True,
-            "include_output_in_receipt": False,
+            # Research probes retain the delivered response in the invocation
+            # receipt for later independent qualification. Ordinary cognition
+            # keeps the existing output-redaction default.
+            "include_output_in_receipt": epistemic_revision_probe,
         }
         if self.resource_context_owner is not None:
             # Each preregistered condition consumes its own owner-issued
@@ -4936,6 +4962,30 @@ class ResidentDevelopmentalCognitionOwner:
         )
         if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V7:
             self._verify_observation_invocation(asdict(observation))
+        if epistemic_revision_probe:
+            capture: dict[str, Any] = {
+                "schema_version": "sentientos.epistemic_revision_probe_capture:v1",
+                "observation_id": observation.observation_id,
+                "observation_digest": observation.observation_digest,
+                "prompt": prompt,
+                "request": request.to_receipt_request_dict(),
+                "receipt": receipt.to_dict(include_output=True),
+                "answer_key_included": False,
+            }
+            capture["capture_digest"] = _digest(capture)
+            try:
+                directory_fd = _open_store_directory(
+                    self.epistemic_revision_probe_captures_root, create=True)
+                os.close(directory_fd)
+                _publish_store_json(
+                    self.epistemic_revision_probe_captures_root
+                        / f"{observation.observation_id}.json",
+                    capture,
+                    collision_error="epistemic_revision_probe_capture_identity_collision",
+                    max_bytes=MAX_COMPOSITION_STATE_BYTES)
+            except (OSError, DevelopmentalWritebackError) as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "epistemic_revision_probe_capture_publication_failed") from exc
         try:
             _publish_store_json(self.observations_root / f"{observation.observation_id}.json",
                 asdict(observation), collision_error="cognition_observation_identity_collision")
@@ -5021,6 +5071,18 @@ class ResidentDevelopmentalCognitionOwner:
             objective_task=self.objective_task, objective_only=False,
             objective_request_id=None, objective_request_digest=None)
 
+    def run_epistemic_revision_probe_once(self, *, snapshot: WorldStateSnapshot,
+            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection
+            ) -> ResidentDevelopmentalCycleResult:
+        """Capture one bounded revision judgment through the governed cognition owner."""
+        if (self.config.comparison_enabled or self.objective_task is not None
+                or not isinstance(prior_epistemic_state, EpistemicCognitiveProjection)):
+            raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_configuration_invalid")
+        return self._run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=None, prior_epistemic_state=prior_epistemic_state,
+            objective_task=None, objective_only=False, objective_request_id=None,
+            objective_request_digest=None, epistemic_revision_probe=True)
+
     def objective_request_disposition(self, *, request_id: str,
             request_digest: str) -> str:
         """Return whether this bounded request is new, completed, or interrupted."""
@@ -5059,7 +5121,8 @@ class ResidentDevelopmentalCognitionOwner:
                  prior_epistemic_state: EpistemicCognitiveProjection | None,
                  objective_task: Any | None, objective_only: bool,
                  objective_request_id: str | None,
-                 objective_request_digest: str | None) -> ResidentDevelopmentalCycleResult:
+                 objective_request_digest: str | None,
+                 epistemic_revision_probe: bool = False) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
@@ -5067,20 +5130,23 @@ class ResidentDevelopmentalCognitionOwner:
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
-                objective_request_digest=objective_request_digest)
+                objective_request_digest=objective_request_digest,
+                epistemic_revision_probe=epistemic_revision_probe)
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
-                objective_request_digest=objective_request_digest)
+                objective_request_digest=objective_request_digest,
+                epistemic_revision_probe=epistemic_revision_probe)
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
                  prior_epistemic_state: EpistemicCognitiveProjection | None = None,
                  objective_task: Any | None = None, objective_only: bool = False,
                  objective_request_id: str | None = None,
-                 objective_request_digest: str | None = None) -> ResidentDevelopmentalCycleResult:
+                 objective_request_digest: str | None = None,
+                 epistemic_revision_probe: bool = False) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
@@ -5174,7 +5240,7 @@ class ResidentDevelopmentalCognitionOwner:
         has_prior_self_model = prior_self_model is not None
         has_prior_epistemic_state = prior_epistemic_state is not None
         should_cognize = (has_developmental_history or has_prior_self_model
-                          or has_prior_epistemic_state)
+                          or has_prior_epistemic_state or epistemic_revision_probe)
         should_run_history_comparison = (self.config.comparison_enabled
                                          and has_developmental_history)
         if should_cognize:
@@ -5182,7 +5248,8 @@ class ResidentDevelopmentalCognitionOwner:
                 observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                                     projection=prior, with_history=has_developmental_history,
                                     condition_id="with-history" if has_developmental_history else "prior-context",
-                                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state))
+                                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+                                    epistemic_revision_probe=epistemic_revision_probe))
             else:
                 # Freeze the exact history that fits the real inference context
                 # before preregistering the comparison. Conditions rerun this
@@ -5325,6 +5392,19 @@ class ResidentDevelopmentalCognitionOwner:
                 tick_id, snapshot.snapshot_id, prior_record_ids=prior.requested_record_ids,
                 cognition_observation_ids=tuple(item.observation_id for item in observations),
                 changed_cognition_measurement_id=measurement_id,
+                canonical_explicit_user_retention_mutated=False)
+
+        if epistemic_revision_probe:
+            state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
+                if row.get("tick_id") != tick_id]
+            state["completed_ticks"].append({"tick_id": tick_id,
+                "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+                "record_id": None, "receipt_id": None,
+                "epistemic_revision_probe": True})
+            self._save_state(state)
+            return ResidentDevelopmentalCycleResult("epistemic_revision_probe_completed",
+                tick_id, snapshot.snapshot_id, prior_record_ids=prior.requested_record_ids,
+                cognition_observation_ids=tuple(item.observation_id for item in observations),
                 canonical_explicit_user_retention_mutated=False)
 
         fact_ids = self._select_fact_ids(snapshot, set(state["processed_selection_ids"]))
