@@ -46,6 +46,12 @@ if "GLOBAL_AUTH_FAILURE" in prompt:
 if "GLOBAL_SERVICE_DENIAL" in prompt:
     print("HTTP 451 no_biscuit_no_service", file=sys.stderr)
     raise SystemExit(17)
+if "GLOBAL_CLI_FAILURE" in prompt:
+    print("provider request failed without a response", file=sys.stderr)
+    raise SystemExit(17)
+if "GLOBAL_USAGE_FAILURE" in prompt:
+    print("invalid CLI invocation", file=sys.stderr)
+    raise SystemExit(2)
 if "INVALID_RESPONSE" in prompt:
     text = json.dumps({"stance": "not-a-valid-stance"}, separators=(",", ":"))
 else:
@@ -137,6 +143,8 @@ def test_failed_inference_is_preserved_and_scores_insufficient(tmp_path):
     ("GLOBAL_TRANSPORT_FAILURE", "transport_error"),
     ("GLOBAL_AUTH_FAILURE", "authentication_error"),
     ("GLOBAL_SERVICE_DENIAL", "authentication_error"),
+    ("GLOBAL_CLI_FAILURE", "codex_cli_or_provider_error"),
+    ("GLOBAL_USAGE_FAILURE", "codex_cli_usage_or_configuration_error"),
 ])
 def test_global_failure_stops_remaining_slots_and_scores_them_insufficient(
         tmp_path, monkeypatch, marker, category):
@@ -367,14 +375,25 @@ def test_interrupted_run_checkpoints_and_resumes_without_repeating_slots(tmp_pat
     with pytest.raises(ValueError, match="pilot_observation_output_exists_use_resume"):
         run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
 
+    exec_calls = []
+    actual_run = subprocess.run
+
+    def count_exec(command, *args, **kwargs):
+        if "exec" in command:
+            exec_calls.append(command)
+        return actual_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", count_exec)
     resumed = run_observations(protocol, prereg_path, raw_path,
         codex_command=str(fake), resume=True)
     by_id = {item["observation_id"]: item for item in resumed["observations"]}
     assert resumed["run_state"] == "complete"
-    assert resumed["attempted_observations"] == 12
+    assert resumed["attempted_observations"] == 2
+    assert exec_calls == []
     assert by_id[first_id]["status"] == "response_captured"
     assert by_id[active_id]["status"] == "interrupted_unknown"
-    assert sum(item["status"] == "response_captured" for item in resumed["observations"]) == 11
+    assert sum(item["status"] == "not_attempted_global_failure"
+        for item in resumed["observations"]) == 10
     score = score_observations(protocol, keys, prereg_path, raw_path, score_path)
     assert score["status"] == "insufficient"
     assert next(item for item in score["scored_observations"]

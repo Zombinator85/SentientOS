@@ -27,7 +27,12 @@ MAX_FILE_BYTES = 1_048_576
 MAX_OBSERVATIONS = 12
 EXPECTED_CONDITIONS = ("original", "corrected", "pressure_only")
 STANCE_VALUES = frozenset({"supported", "contradicted", "unknown", "suspended"})
-GLOBAL_FAILURE_CATEGORIES = frozenset({"transport_error", "authentication_error"})
+GLOBAL_FAILURE_CATEGORIES = frozenset({
+    "transport_trust_error", "transport_error", "authentication_error",
+    "inference_timeout", "codex_executable_unavailable",
+    "codex_cli_usage_or_configuration_error", "codex_cli_or_provider_error",
+    "interrupted_unknown",
+})
 SAFE_CLI_ENVIRONMENT = frozenset({
     "PATH", "HOME", "CODEX_HOME", "CODEX_CONFIG_DIR", "TMPDIR", "TEMP", "TMP",
     "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy",
