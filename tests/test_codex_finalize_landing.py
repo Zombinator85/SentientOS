@@ -218,18 +218,16 @@ def test_ambiguous_operation_not_permitted_remains_an_authority_denial() -> None
     assert "authority_denied:focused_tests:explicit_access_denial" in result.decision.reasons
 
 
-def test_operation_not_permitted_by_sandbox_is_an_environment_blocker() -> None:
+def test_access_denied_by_sandbox_is_an_environment_blocker() -> None:
     req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
-    denied = CodexFinalizeLandingCommandResult(
-        "focused_tests", "python -m scripts.run_tests", 1,
-        "Operation not permitted by sandbox policy",
-    )
-
-    result = evaluate_finalize_landing(req, (denied,), ())
-
-    assert result.decision.status == "environment_blocked"
-    assert "environment_precondition_unavailable:focused_tests:sandbox_policy_restriction" in result.decision.reasons
-    assert not any(reason.startswith("authority_denied:") for reason in result.decision.reasons)
+    for message in ("Operation not permitted by sandbox policy", "Permission denied by sandbox policy"):
+        denied = CodexFinalizeLandingCommandResult(
+            "focused_tests", "python -m scripts.run_tests", 1, message,
+        )
+        result = evaluate_finalize_landing(req, (denied,), ())
+        assert result.decision.status == "environment_blocked"
+        assert "environment_precondition_unavailable:focused_tests:sandbox_policy_restriction" in result.decision.reasons
+        assert not any(reason.startswith("authority_denied:") for reason in result.decision.reasons)
 
 
 def test_environment_blocker_does_not_mask_a_task_failure() -> None:
