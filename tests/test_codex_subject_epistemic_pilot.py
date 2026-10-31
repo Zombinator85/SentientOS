@@ -94,6 +94,17 @@ def _inputs(tmp_path: Path, *, failing: bool = False):
     return protocol_path, key_path, fake
 
 
+@pytest.mark.no_legacy_skip
+def test_unverified_astra_model_identifier_is_rejected_before_preregistration(tmp_path):
+    protocol, keys, _fake = _inputs(tmp_path)
+    data = json.loads(protocol.read_text(encoding="utf-8"))
+    data["model"]["id"] = "gpt-6.1-astra"
+    protocol.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pilot_model_must_be_pinned"):
+        preregister(protocol, keys, tmp_path / "prereg.json")
+
+
 @pytest.fixture(autouse=True)
 def fake_authenticated_codex_home(tmp_path: Path, monkeypatch):
     home = tmp_path / "codex-login"
