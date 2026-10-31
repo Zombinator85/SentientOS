@@ -38,7 +38,7 @@ def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields(
     after["developmental_history_target_model_identity"] = "model-b"
     assert _prompt_context_mismatch(before, after) is True
     assert _prompt_context_mismatch(before, after,
-        intended_treatment_fields=frozenset({"developmental_history_target_model_identity"})) is False
+        additional_treatment_fields=("developmental_history_target_model_identity",)) is False
     del before["developmental_history_target_model_identity"]
     del after["developmental_history_target_model_identity"]
     after["future_prompt_field"] = {"mode": "two"}
@@ -238,7 +238,7 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
             receipt = super().invoke(request, **kwargs)
             if request.purpose != "resident_developmental_retrieval_cognition":
                 return receipt
-            output = '{"conclusion":"uncertain","reason_code":"retain_uncertainty","evidence_ids":[]}'
+            output = '{"conclusion":"unknown","reason_code":"unpreregistered_fixture_label","evidence_ids":[]}'
             simulated = replace(receipt, output_text=output,
                 output_digest=digest_payload({"output": output}),
                 output_size_bytes=len(output.encode("utf-8")))
@@ -259,7 +259,7 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
     after_capture = after_owner.verified_epistemic_revision_probe_capture(after_id)
     # This fixture test exercises only capture-to-scorer wiring; fixture prompt
     # generation after capture does not establish experimental preregistration.
-    key = IndependentAnswerKey("unknown", "uncertain", "retain_uncertainty", ())
+    key = IndependentAnswerKey("unknown", "unknown", "retain_uncertainty", ())
     case = RevisionCase(case_id="captured-retention", kind="retained_correction",
         proposition_id=proposition.proposition_id, evaluator_version="v1",
         before_prompt_digest="sha256:" + digest_payload({"prompt": before_capture.prompt}),
@@ -274,7 +274,54 @@ def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None
     assert report["status"] == "case_passed"
     assert report["before"]["answer_correct"] is True
     assert report["after"]["answer_correct"] is True
+    assert report["after"]["reason_code_correct"] is None
+    assert report["after"]["reason_code_scoring_status"] == (
+        "not_scored_probe_vocabulary_not_exposed")
     assert report["real_model_qualification_established"] is False
+
+
+def test_probe_scorer_records_malformed_stance_as_invalid_answer(tmp_path: Path) -> None:
+    class MalformedProbeInvoker(StructuredFixtureInvoker):
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            if request.purpose != "resident_developmental_retrieval_cognition":
+                return receipt
+            output = '{"conclusion":[],"reason_code":"fixture","evidence_ids":[]}'
+            malformed = replace(receipt, output_text=output,
+                output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")))
+            self.receipts.pop(receipt.receipt_id, None)
+            self.receipts[malformed.receipt_id] = malformed
+            return malformed
+
+    projection, proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    before_owner, _ = owner(tmp_path / "before", invoker=MalformedProbeInvoker())
+    after_owner, _ = owner(tmp_path / "after", invoker=MalformedProbeInvoker())
+    before_result = before_owner.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="malformed-probe-before", prior_epistemic_state=projection)
+    after_result = after_owner.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="malformed-probe-after", prior_epistemic_state=projection)
+    before_capture = before_owner.verified_epistemic_revision_probe_capture(
+        before_result.cognition_observation_ids[0])
+    after_capture = after_owner.verified_epistemic_revision_probe_capture(
+        after_result.cognition_observation_ids[0])
+    key = IndependentAnswerKey("unknown", "unknown", "unused_reason_key", ())
+    case = RevisionCase(case_id="malformed-probe", kind="retained_correction",
+        proposition_id=proposition.proposition_id, evaluator_version="v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before_capture.prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": after_capture.prompt}),
+        before_key=key, after_key=key, commitment_nonce="b" * 64)
+
+    report = evaluate_verified_probe_pair(case=case,
+        before_reader=before_owner, after_reader=after_owner,
+        before_observation_id=before_capture.observation_id,
+        after_observation_id=after_capture.observation_id,
+        before_projection=projection, after_projection=projection)
+
+    assert report["status"] == "case_failed"
+    assert report["before"]["measurement_status"] == "scored"
+    assert report["before"]["answer_shape_valid"] is False
+    assert report["before"]["reason_code_correct"] is None
 
 
 def test_probe_expected_prompt_digest_blocks_before_invocation(tmp_path: Path) -> None:

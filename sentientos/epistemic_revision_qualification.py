@@ -85,10 +85,10 @@ def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]
 class IndependentAnswerKey:
     """Private stipulated task oracle, never derived from the candidate answer.
 
-    Reason-code keys are scoreable only on a path whose subject-visible
-    contract exposes a preregistered vocabulary. The local cognition response
-    schema has no reason-code field, so that path leaves the key unscored.
-    Evidence IDs name exact delivered bindings.
+    Reason-code keys are scoreable only when the subject receives a
+    preregistered vocabulary. The probe response has a reason_code field but
+    does not expose such a vocabulary, so this evaluator leaves that key
+    unscored. Evidence IDs name exact delivered bindings.
     """
     stance: str
     conclusion: str
@@ -185,6 +185,12 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             or request.get("prompt_digest") != expected_prompt_digest[7:]):
         raise ValueError("qualification_prompt_binding_mismatch")
     context = _object(prompt)
+    probe = context.get("epistemic_revision_probe")
+    probe_contract = (isinstance(probe, Mapping)
+        and probe.get("response_contract") == "sentientos.epistemic_revision_answer:v1")
+    unscored_reason_code_status = ("not_scored_probe_vocabulary_not_exposed"
+        if probe_contract else
+        "not_scored_local_cognition_response_contract_has_no_reason_code")
     prior = context.get("prior_epistemic_state")
     delivered = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
     complete = (isinstance(prior, dict)
@@ -201,7 +207,7 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "state_stance_correct": expected_packet["state"]["stance"] == key.stance,
         "relevant_packet_delivered": complete, "execution_status": receipt.status,
         "answer_correct": None, "reason_code_correct": None,
-        "reason_code_scoring_status": "not_scored_local_cognition_response_contract_has_no_reason_code",
+        "reason_code_scoring_status": unscored_reason_code_status,
         "citations_correct": None, "citation_scoring_status": "not_scored_incomplete_observation",
         "answer_shape_valid": None, "measurement_status": "insufficient"}
     result["execution_binding"] = build_execution_binding(
@@ -227,37 +233,54 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         answer = _object(output)
     except (ValueError, TypeError):
         result.update(answer_shape_valid=False, answer_correct=False, reason_code_correct=None,
-            reason_code_scoring_status="not_scored_local_cognition_response_contract_has_no_reason_code",
+            reason_code_scoring_status=unscored_reason_code_status,
             citations_correct=False, citation_scoring_status="not_scored_invalid_response_shape",
             measurement_status="scored")
         return result, expected_packet, context
-    lesson = answer.get("lesson_candidate")
-    lesson_shape_valid = lesson is None or (
-        isinstance(lesson, Mapping)
-        and set(lesson) == {"statement", "scope", "applicability", "uncertainty",
-            "uncertainty_rationale", "evidence_dependencies", "possible_contradiction_ids"}
-        and all(isinstance(lesson.get(field), str) and bool(lesson.get(field))
-            and len(lesson[field]) <= maximum for field, maximum in (
-                ("statement", 1200), ("scope", 400), ("applicability", 500),
-                ("uncertainty_rationale", 500)))
-        and lesson.get("uncertainty") in {"low", "medium", "high", "unknown"}
-        and isinstance(lesson.get("evidence_dependencies"), list)
-        and 1 <= len(lesson["evidence_dependencies"]) <= 8
-        and all(isinstance(item, str) and item for item in lesson["evidence_dependencies"])
-        and len(set(lesson["evidence_dependencies"])) == len(lesson["evidence_dependencies"])
-        and isinstance(lesson.get("possible_contradiction_ids"), list)
-        and len(lesson["possible_contradiction_ids"]) <= 8
-        and all(isinstance(item, str) and item for item in lesson["possible_contradiction_ids"])
-        and len(set(lesson["possible_contradiction_ids"])) == len(lesson["possible_contradiction_ids"])
-    )
-    citations = ([] if lesson is None or not isinstance(lesson, Mapping) else
-        list(lesson.get("evidence_dependencies", ()))
-        + list(lesson.get("possible_contradiction_ids", ())))
-    conclusion = answer.get("conclusion")
-    shape_valid = (set(answer) == {"conclusion", "lesson_candidate"}
-        and isinstance(conclusion, str)
-        and bool(conclusion.strip()) and lesson_shape_valid
-        and len(citations) <= 256 and all(isinstance(item, str) for item in citations))
+    if probe_contract:
+        citations = answer.get("evidence_ids")
+        reason_code = answer.get("reason_code")
+        conclusion = answer.get("conclusion")
+        shape_valid = (set(answer) == {"conclusion", "reason_code", "evidence_ids"}
+            and isinstance(conclusion, str) and conclusion in STANCES
+            and isinstance(reason_code, str) and bool(reason_code.strip())
+            and len(reason_code) <= 128
+            and isinstance(citations, list) and len(citations) <= 256
+            and all(isinstance(item, str) and item for item in citations)
+            and len(set(citations)) == len(citations))
+        citations = citations if isinstance(citations, list) else []
+        reason_code_correct = None
+        reason_code_status = "not_scored_probe_vocabulary_not_exposed"
+    else:
+        lesson = answer.get("lesson_candidate")
+        lesson_shape_valid = lesson is None or (
+            isinstance(lesson, Mapping)
+            and set(lesson) == {"statement", "scope", "applicability", "uncertainty",
+                "uncertainty_rationale", "evidence_dependencies", "possible_contradiction_ids"}
+            and all(isinstance(lesson.get(field), str) and bool(lesson.get(field))
+                and len(lesson[field]) <= maximum for field, maximum in (
+                    ("statement", 1200), ("scope", 400), ("applicability", 500),
+                    ("uncertainty_rationale", 500)))
+            and lesson.get("uncertainty") in {"low", "medium", "high", "unknown"}
+            and isinstance(lesson.get("evidence_dependencies"), list)
+            and 1 <= len(lesson["evidence_dependencies"]) <= 8
+            and all(isinstance(item, str) and item for item in lesson["evidence_dependencies"])
+            and len(set(lesson["evidence_dependencies"])) == len(lesson["evidence_dependencies"])
+            and isinstance(lesson.get("possible_contradiction_ids"), list)
+            and len(lesson["possible_contradiction_ids"]) <= 8
+            and all(isinstance(item, str) and item for item in lesson["possible_contradiction_ids"])
+            and len(set(lesson["possible_contradiction_ids"])) == len(lesson["possible_contradiction_ids"])
+        )
+        citations = ([] if lesson is None or not isinstance(lesson, Mapping) else
+            list(lesson.get("evidence_dependencies", ()))
+            + list(lesson.get("possible_contradiction_ids", ())))
+        conclusion = answer.get("conclusion")
+        shape_valid = (set(answer) == {"conclusion", "lesson_candidate"}
+            and isinstance(conclusion, str)
+            and bool(conclusion.strip()) and lesson_shape_valid
+            and len(citations) <= 256 and all(isinstance(item, str) for item in citations))
+        reason_code_correct = None
+        reason_code_status = "not_scored_local_cognition_response_contract_has_no_reason_code"
     current_evidence = context.get("current_evidence")
     available = (set(current_evidence.get("fact_ids", ()))
         if isinstance(current_evidence, Mapping) else set())
@@ -265,19 +288,18 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     binding_ids.update(row["binding_id"] for row in expected_packet["removed_evidence_history"])
     available.update(binding_ids)
     available.add(str(expected_packet["packet_id"]))
-    expected_citations = {
+    expected_citations = (set(key.evidence_ids) if probe_contract else {
         str(expected_packet["packet_id"]) if evidence_id in binding_ids else evidence_id
         for evidence_id in key.evidence_ids
-    }
-    citation_scoring_status = (
+    })
+    citation_scoring_status = ("exact_subject_visible_binding_ids" if probe_contract else
         "key_binding_ids_projected_to_subject_visible_packet_id"
-        if any(evidence_id in binding_ids for evidence_id in key.evidence_ids)
-        else "exact_subject_visible_evidence_ids"
-    )
+        if any(evidence_id in binding_ids for evidence_id in key.evidence_ids) else
+        "exact_subject_visible_evidence_ids")
     result.update(answer_shape_valid=shape_valid,
         answer_correct=shape_valid and conclusion == key.conclusion,
-        reason_code_correct=None,
-        reason_code_scoring_status="not_scored_local_cognition_response_contract_has_no_reason_code",
+        reason_code_correct=reason_code_correct,
+        reason_code_scoring_status=reason_code_status,
         citation_scoring_status=citation_scoring_status,
         citations_correct=shape_valid and expected_citations <= set(citations)
             and set(citations) <= available, measurement_status="scored")
