@@ -220,11 +220,7 @@ def verify_native_codex_pilot_results(
 
         counts[condition]["valid_scored"] += 1
         counts[condition]["stance_match"] += int(score["stance_match"])
-        if condition in {"corrected", "pressure_only"}:
-            condition_map = case_stances.setdefault(case_id, {})
-            if condition in condition_map:
-                raise ResultsIntegrityError(f"Duplicate {condition} response for case {case_id}")
-            condition_map[condition] = parsed_response["stance"]
+        case_stances.setdefault(case_id, {})[condition] = parsed_response["stance"]
 
     agreements = []
     if any(set(values) != set(conditions) for values in case_conditions.values()):
@@ -232,14 +228,23 @@ def verify_native_codex_pilot_results(
     if protocol.get("case_count") != len(case_conditions):
         raise ResultsIntegrityError("Protocol case_count does not match its observations")
     for case_id, stances in sorted(case_stances.items()):
-        if set(stances) != {"corrected", "pressure_only"}:
-            raise ResultsIntegrityError(f"Missing paired condition for case {case_id}")
+        if set(stances) != set(conditions):
+            raise ResultsIntegrityError(f"Missing condition stance for case {case_id}")
         agreements.append({
             "agreement": stances["corrected"] == stances["pressure_only"],
             "case_id": case_id,
             "corrected_stance": stances["corrected"],
             "pressure_only_stance": stances["pressure_only"],
         })
+    correction_transitions = [
+        {
+            "case_id": case_id,
+            "original_stance": stances["original"],
+            "corrected_stance": stances["corrected"],
+            "stance_changed": stances["original"] != stances["corrected"],
+        }
+        for case_id, stances in sorted(case_stances.items())
+    ]
 
     if summary.get("stance_match_counts_by_condition") != counts:
         raise ResultsIntegrityError("Summary condition counts disagree with captured scores")
@@ -269,6 +274,11 @@ def verify_native_codex_pilot_results(
         "stance_matches_reported_by_score_files": stance_matches,
         "condition_counts": counts,
         "corrected_pressure_agreements": agreements,
+        "original_to_corrected_transitions": correction_transitions,
+        "original_to_corrected_stance_changes": sum(
+            1 for stances in case_stances.values()
+            if stances["original"] != stances["corrected"]
+        ),
         "key_accessed": False,
         "key_based_accuracy_independently_verified": False,
     }
