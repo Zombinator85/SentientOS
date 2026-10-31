@@ -1,5 +1,7 @@
 # Nonprivileged engineering continuity
 
+**Default: continue engineering.** This page gives a bounded recovery recipe, not a universal development gate. For ordinary operator-requested work, an unavailable validation dependency or remote transport should not halt independent coding. The strict landing obligations below apply only when formal acceptance/release was selected under [AGENTS.md](../../AGENTS.md).
+
 This workflow keeps routine engineering moving when a host lacks dependencies or
 has a limited runtime, while preserving the repository's authority, evidence,
 and landing controls. It does not grant the agent administrative access.
@@ -40,7 +42,7 @@ and landing controls. It does not grant the agent administrative access.
    evidence, or let the blocked stage imply that unrelated work is complete.
    Return to the blocked stage only when a materially different authorized
    environment or new evidence changes its preconditions.
-6. **Keep landing authority intact.** A local environment recovery does not
+6. **When formal acceptance was selected, keep landing authority intact.** A local environment recovery does not
    count as a passing test, audit, finalizer, or hosted check. Required checks
    must still pass on the exact candidate. The only local privileged deferral
    is the existing `strict_audits` and `audit_immutability` path to the hosted
