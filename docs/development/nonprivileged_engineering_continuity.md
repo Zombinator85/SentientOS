@@ -1,6 +1,6 @@
 # Nonprivileged engineering continuity
 
-**Default: continue engineering.** This page gives a bounded recovery recipe, not a universal development gate. For ordinary operator-requested work, an unavailable validation dependency or remote transport should not halt independent coding. The strict landing obligations below apply only when formal acceptance/release was selected under [AGENTS.md](../../AGENTS.md).
+**Default: continue engineering.** This page gives a bounded recovery recipe, not a universal development gate. For ordinary operator-requested work, an unavailable validation dependency or remote transport should not halt independent coding. The strict landing obligations below apply only when formal acceptance/release was selected under [AGENTS.md](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md).
 
 This workflow keeps routine engineering moving when a host lacks dependencies or
 has a limited runtime, while preserving the repository's authority, evidence,

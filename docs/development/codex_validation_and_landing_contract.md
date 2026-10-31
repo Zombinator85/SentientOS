@@ -2,7 +2,7 @@
 
 ## Applicability: opt-in formal assurance
 
-This document specifies the **strict, operator-selected acceptance/release workflow**, not the everyday development workflow. Unless the operator explicitly requests formal acceptance or an automated production/release pipeline invokes it, none of the bootstrap, clean-tree, finalizer, matrix, metadata, exact-node, PR-publication, or hosted-gate steps below are prerequisites for editing, experimenting, committing, or sharing development work. The default is the autonomous development workflow in [AGENTS.md](../../AGENTS.md). Results must still be reported accurately; original evidence must not be silently rewritten.
+This document specifies the **strict, operator-selected acceptance/release workflow**, not the everyday development workflow. Unless the operator explicitly requests formal acceptance or an automated production/release pipeline invokes it, none of the bootstrap, clean-tree, finalizer, matrix, metadata, exact-node, PR-publication, or hosted-gate steps below are prerequisites for editing, experimenting, committing, or sharing development work. The default is the autonomous development workflow in [AGENTS.md](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md). Results must still be reported accurately; original evidence must not be silently rewritten.
 
 All “must”, “require”, “stop”, and “block” statements below are scoped to a task **after** formal acceptance has been selected. A blocked external publication path is not a failure of completed local inference.
 

@@ -1,6 +1,6 @@
 # Whole-System Codex Task Template
 
-**Use only when helpful.** This is a strict-acceptance task template, not a requirement before coding. Ordinary development follows [AGENTS.md](../../AGENTS.md) and can begin without bootstrap, an exhaustive task contract, or landing ceremonies.
+**Use only when helpful.** This is a strict-acceptance task template, not a requirement before coding. Ordinary development follows [AGENTS.md](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md) and can begin without bootstrap, an exhaustive task contract, or landing ceremonies.
 
 Use this compact issue structure. Stable repository law is inherited from root [`AGENTS.md`](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md); validation policy comes from [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md), and executable commands come only from [`codex_finalize_landing.md`](codex_finalize_landing.md).
 
