@@ -7,6 +7,7 @@ import subprocess
 
 import pytest
 
+import sentientos.codex_subject_epistemic_pilot_runner as pilot_runner
 from sentientos.codex_subject_epistemic_pilot_runner import (
     _redacted_cli_diagnostic, preregister, run_observations, score_observations,
 )
@@ -35,6 +36,12 @@ if "--ask-for-approval" in args:
 prompt = sys.stdin.read()
 if "FAIL_INFERENCE" in prompt:
     print("inference unavailable", file=sys.stderr)
+    raise SystemExit(17)
+if "GLOBAL_TRANSPORT_FAILURE" in prompt:
+    print("websocket network connection failed", file=sys.stderr)
+    raise SystemExit(17)
+if "GLOBAL_AUTH_FAILURE" in prompt:
+    print("HTTP 401 Unauthorized", file=sys.stderr)
     raise SystemExit(17)
 if "INVALID_RESPONSE" in prompt:
     text = json.dumps({"stance": "not-a-valid-stance"}, separators=(",", ":"))
@@ -120,6 +127,93 @@ def test_failed_inference_is_preserved_and_scores_insufficient(tmp_path):
     assert score["status"] == "insufficient"
     assert next(row for row in score["scored_observations"]
         if row["observation_id"] == "case-0-corrected")["outcome"] == "insufficient"
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(("marker", "category"), [
+    ("GLOBAL_TRANSPORT_FAILURE", "transport_error"),
+    ("GLOBAL_AUTH_FAILURE", "authentication_error"),
+])
+def test_global_failure_stops_remaining_slots_and_scores_them_insufficient(
+        tmp_path, monkeypatch, marker, category):
+    protocol, keys, fake = _inputs(tmp_path)
+    data = json.loads(protocol.read_text(encoding="utf-8"))
+    data["observations"][0]["prompt"] += " " + marker
+    protocol.write_text(json.dumps(data), encoding="utf-8")
+    prereg_path, raw_path, score_path = (tmp_path / name for name in
+        ("prereg.json", "observations.json", "score.json"))
+    preregister(protocol, keys, prereg_path)
+    actual_run = subprocess.run
+    exec_calls = []
+
+    def count_exec(command, *args, **kwargs):
+        if "exec" in command:
+            exec_calls.append(command)
+        return actual_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", count_exec)
+    raw = run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+    assert len(exec_calls) == 1
+    assert raw["attempted_observations"] == 1
+    assert raw["run_state"] == "complete"
+    failed = raw["observations"][0]
+    assert failed["failure_category"] == category
+    skipped = raw["observations"][1:]
+    assert len(skipped) == 11
+    assert all(item["status"] == "not_attempted_global_failure" for item in skipped)
+    assert all(item["candidate"] is None and item["candidate_response_text"] is None
+        and item["cli_session_id"] is None for item in skipped)
+    score = score_observations(protocol, keys, prereg_path, raw_path, score_path)
+    assert score["status"] == "insufficient"
+    assert all(item["outcome"] == "insufficient" for item in score["scored_observations"])
+
+
+@pytest.mark.no_legacy_skip
+def test_resume_after_global_failure_completes_without_cli_invocation(tmp_path, monkeypatch):
+    protocol, keys, fake = _inputs(tmp_path)
+    data = json.loads(protocol.read_text(encoding="utf-8"))
+    data["observations"][0]["prompt"] += " GLOBAL_AUTH_FAILURE"
+    protocol.write_text(json.dumps(data), encoding="utf-8")
+    prereg_path, raw_path = tmp_path / "prereg.json", tmp_path / "observations.json"
+    preregister(protocol, keys, prereg_path)
+    with monkeypatch.context() as patcher:
+        patcher.setattr(pilot_runner, "_complete_report",
+            lambda *_args: (_ for _ in ()).throw(KeyboardInterrupt()))
+        with pytest.raises(KeyboardInterrupt):
+            run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+
+    checkpoint = json.loads(raw_path.read_text(encoding="utf-8"))
+    assert checkpoint["run_state"] == "in_progress"
+    assert checkpoint["attempted_observations"] == 1
+    assert sum(item["status"] == "not_attempted_global_failure"
+        for item in checkpoint["observations"]) == 11
+
+    def no_cli_invocation(*_args, **_kwargs):
+        raise AssertionError("resume invoked Codex after recorded global failure")
+
+    monkeypatch.setattr(subprocess, "run", no_cli_invocation)
+    resumed = run_observations(protocol, prereg_path, raw_path,
+        codex_command=str(fake), resume=True)
+    assert resumed["run_state"] == "complete"
+    assert resumed["attempted_observations"] == 1
+
+
+@pytest.mark.no_legacy_skip
+def test_scoring_preserves_complete_historical_report_with_later_observations(tmp_path):
+    protocol, keys, fake = _inputs(tmp_path)
+    prereg_path, raw_path, score_path = (tmp_path / name for name in
+        ("prereg.json", "observations.json", "score.json"))
+    preregister(protocol, keys, prereg_path)
+    raw = run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+    raw["observations"][0].update({"status": "failed_inference", "exit_code": 17,
+        "candidate": None, "candidate_response_text": None,
+        "failure_category": "transport_error", "failure_detail": "historical transport failure"})
+    raw = pilot_runner._seal({key: value for key, value in raw.items() if key != "report_digest"})
+    raw_path.write_text(json.dumps(raw), encoding="utf-8")
+    score = score_observations(protocol, keys, prereg_path, raw_path, score_path)
+    assert score["status"] == "insufficient"
+    assert len(score["scored_observations"]) == 12
+    assert sum(item["outcome"] == "insufficient" for item in score["scored_observations"]) == 1
 
 
 @pytest.mark.no_legacy_skip

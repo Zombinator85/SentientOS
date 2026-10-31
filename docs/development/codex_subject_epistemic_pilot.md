@@ -14,6 +14,17 @@ settings, locale, and executable paths; API keys, GitHub tokens, and current
 thread/session identifiers are excluded. A short diagnostic line is retained
 for failures after masking tokens, URLs, and filesystem paths.
 
+After a slot fails with a classified transport or authentication error, the
+runner stops issuing further inference commands. It records every remaining
+preregistered slot as `not_attempted_global_failure`, bound to its prompt
+digest and the failed slot that caused the stop. Those slots contain no
+candidate response or session identity and do not increase the attempted-call
+count. The scorer retains them as `insufficient`. Other per-slot failures, such
+as an inference timeout or malformed answer, remain recorded and the runner
+continues the preregistered series. Resume fills any missing stop records
+before considering another invocation, so it cannot relaunch after a recorded
+global failure.
+
 Each preflight and each individual inference process gets a private writable
 `HOME` and `CODEX_HOME`. The runner references the existing `auth.json` by
 symlink and never copies or reads its contents. It fails before starting an

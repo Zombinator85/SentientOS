@@ -27,6 +27,7 @@ MAX_FILE_BYTES = 1_048_576
 MAX_OBSERVATIONS = 12
 EXPECTED_CONDITIONS = ("original", "corrected", "pressure_only")
 STANCE_VALUES = frozenset({"supported", "contradicted", "unknown", "suspended"})
+GLOBAL_FAILURE_CATEGORIES = frozenset({"transport_error", "authentication_error"})
 SAFE_CLI_ENVIRONMENT = frozenset({
     "PATH", "HOME", "CODEX_HOME", "CODEX_CONFIG_DIR", "TMPDIR", "TEMP", "TMP",
     "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy",
@@ -337,6 +338,55 @@ def _interrupted_observation(row: Mapping[str, str], model: Mapping[str, Any]) -
     }
 
 
+def _unattempted_observation(row: Mapping[str, str], model: Mapping[str, Any], *,
+        failed_observation_id: str) -> dict[str, Any]:
+    """Record a preregistered slot skipped after a nonrecoverable global failure."""
+    return {
+        "observation_id": row["observation_id"], "case_id": row["case_id"],
+        "condition": row["condition"],
+        "prompt_digest": _digest(row["prompt"].encode("utf-8")),
+        "status": "not_attempted_global_failure", "exit_code": None,
+        "candidate": None, "candidate_response_text": None,
+        "failure_category": "not_attempted_after_global_failure",
+        "skipped_after_observation_id": failed_observation_id,
+        "failure_detail": f"not started after nonrecoverable failure in {failed_observation_id}",
+        "cli_session_id": None, "codex_cli_version": None,
+        "model_id_requested": model["id"],
+        "reasoning_effort_requested": model["reasoning_effort"],
+        "stdout_digest": None, "stderr_digest": None,
+    }
+
+
+def _fill_unattempted_after_global_failure(report: dict[str, Any],
+        rows: Sequence[Mapping[str, str]], model: Mapping[str, Any]) -> bool:
+    """Seal all remaining protocol rows as skipped after transport/auth failure."""
+    by_id = {item["observation_id"]: item for item in report["observations"]}
+    failed_row = next((row for row in rows if row["observation_id"] in by_id
+        and by_id[row["observation_id"]].get("failure_category") in GLOBAL_FAILURE_CATEGORIES), None)
+    if failed_row is None:
+        return False
+    failed_id = failed_row["observation_id"]
+    after_failure = False
+    for row in rows:
+        observation_id = row["observation_id"]
+        if observation_id == failed_id:
+            after_failure = True
+            continue
+        if after_failure and observation_id not in by_id:
+            item = _unattempted_observation(row, model, failed_observation_id=failed_id)
+            report["observations"].append(item)
+            by_id[observation_id] = item
+    return True
+
+
+def _complete_report(report: dict[str, Any], output_path: Path) -> dict[str, Any]:
+    report["run_state"] = "complete"
+    report["completed_at_utc"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    report = _seal({key: value for key, value in report.items() if key != "report_digest"})
+    _write_json(output_path, report)
+    return report
+
+
 def _new_observation_report(protocol: Mapping[str, Any], prereg: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": OBSERVATION_SCHEMA, "pilot_id": protocol["pilot_id"],
@@ -389,18 +439,45 @@ def _validate_resume_report(report: Mapping[str, Any], protocol: Mapping[str, An
             raise ValueError("pilot_resume_checkpoint_sample_binding_invalid")
         if item.get("status") not in {"response_captured", "failed_inference", "invalid_response_shape",
                 "invalid_response_json", "missing_final_response", "missing_session_provenance",
-                "interrupted_unknown"}:
+                "interrupted_unknown", "not_attempted_global_failure"}:
             raise ValueError("pilot_resume_checkpoint_status_invalid")
+        if item.get("status") == "not_attempted_global_failure":
+            if (item.get("failure_category") != "not_attempted_after_global_failure"
+                    or item.get("candidate") is not None
+                    or item.get("candidate_response_text") is not None
+                    or item.get("cli_session_id") is not None
+                    or item.get("exit_code") is not None):
+                raise ValueError("pilot_resume_checkpoint_unattempted_slot_invalid")
         session_id = item.get("cli_session_id")
         if isinstance(session_id, str) and session_id:
             session_ids.append(session_id)
     if len(session_ids) != len(set(session_ids)):
         raise ValueError("pilot_resume_checkpoint_sessions_not_independent")
+    unattempted_ids = {key for key, item in by_id.items()
+        if item.get("status") == "not_attempted_global_failure"}
+    failed_id = next((row["observation_id"] for row in rows
+        if row["observation_id"] in by_id
+        and by_id[row["observation_id"]].get("failure_category") in GLOBAL_FAILURE_CATEGORIES), None)
+    if failed_id is not None:
+        failed_index = next(index for index, row in enumerate(rows)
+            if row["observation_id"] == failed_id)
+        later_ids = {row["observation_id"] for row in rows[failed_index + 1:]}
+        expected_through_failure = {row["observation_id"] for row in rows[:failed_index + 1]}
+        if (not unattempted_ids.issubset(later_ids)
+                or not expected_through_failure.issubset(by_id)
+                or any(
+                by_id[observation_id].get("skipped_after_observation_id") != failed_id
+                for observation_id in unattempted_ids)):
+            raise ValueError("pilot_resume_checkpoint_unattempted_slot_invalid")
+    elif unattempted_ids:
+        raise ValueError("pilot_resume_checkpoint_unattempted_slot_invalid")
     active = report.get("active_observation_id")
     if active is not None and (active not in row_by_id or active in by_id):
         raise ValueError("pilot_resume_checkpoint_active_slot_invalid")
     attempts = report.get("attempted_observations")
-    if not isinstance(attempts, int) or attempts < len(observed) or attempts > MAX_OBSERVATIONS:
+    expected_attempts = sum(item.get("status") != "not_attempted_global_failure"
+        for item in observed)
+    if not isinstance(attempts, int) or attempts != expected_attempts or attempts > MAX_OBSERVATIONS:
         raise ValueError("pilot_resume_checkpoint_attempt_count_invalid")
 
 
@@ -437,6 +514,11 @@ def run_observations(protocol_path: str | Path, preregistration_path: str | Path
             raise ValueError("pilot_observation_output_exists_use_resume")
         report = _seal(_new_observation_report(protocol, prereg))
         _write_json(report_path, report)
+    if resume and _fill_unattempted_after_global_failure(report, rows, protocol["model"]):
+        report = _seal({key: value for key, value in report.items() if key != "report_digest"})
+        _write_json(report_path, report)
+        if len(report["observations"]) == len(rows):
+            return _complete_report(report, report_path)
     supplied_path = Path(codex_command)
     if supplied_path.suffix == ".py" and supplied_path.is_file():
         executable = [sys.executable, str(supplied_path.resolve())]
@@ -507,13 +589,14 @@ def run_observations(protocol_path: str | Path, preregistration_path: str | Path
                 report["observations"].append(result)
                 report["attempted_observations"] += 1
                 report["active_observation_id"] = None
+                global_failure = result.get("failure_category") in GLOBAL_FAILURE_CATEGORIES
+                if global_failure:
+                    _fill_unattempted_after_global_failure(report, rows, protocol["model"])
                 report = _seal({key: value for key, value in report.items() if key != "report_digest"})
                 _write_json(report_path, report)
-    report["run_state"] = "complete"
-    report["completed_at_utc"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    report = _seal({key: value for key, value in report.items() if key != "report_digest"})
-    _write_json(report_path, report)
-    return report
+                if global_failure:
+                    break
+    return _complete_report(report, report_path)
 
 
 def score_observations(protocol_path: str | Path, answer_key_path: str | Path,
@@ -556,6 +639,29 @@ def score_observations(protocol_path: str | Path, answer_key_path: str | Path,
         by_id[observation_id] = item
     if set(by_id) != {row["observation_id"] for row in rows}:
         raise ValueError("pilot_observation_coverage_invalid")
+    allowed_statuses = {"response_captured", "failed_inference", "invalid_response_shape",
+        "invalid_response_json", "missing_final_response", "missing_session_provenance",
+        "interrupted_unknown", "not_attempted_global_failure"}
+    if any(item.get("status") not in allowed_statuses for item in by_id.values()):
+        raise ValueError("pilot_observation_status_invalid")
+    unattempted = [item for item in by_id.values()
+        if item.get("status") == "not_attempted_global_failure"]
+    if unattempted:
+        failed_id = next((row["observation_id"] for row in rows
+            if by_id[row["observation_id"]].get("failure_category") in GLOBAL_FAILURE_CATEGORIES), None)
+        if failed_id is None:
+            raise ValueError("pilot_observation_unattempted_slot_invalid")
+        failed_index = next(index for index, row in enumerate(rows)
+            if row["observation_id"] == failed_id)
+        later_ids = {row["observation_id"] for row in rows[failed_index + 1:]}
+        if (not {item["observation_id"] for item in unattempted}.issubset(later_ids)
+                or any(item.get("skipped_after_observation_id") != failed_id
+                    or item.get("failure_category") != "not_attempted_after_global_failure"
+                    or item.get("candidate") is not None
+                    or item.get("candidate_response_text") is not None
+                    or item.get("cli_session_id") is not None
+                    or item.get("exit_code") is not None for item in unattempted)):
+            raise ValueError("pilot_observation_unattempted_slot_invalid")
     session_ids = [item.get("cli_session_id") for item in by_id.values()
         if isinstance(item.get("cli_session_id"), str) and item.get("cli_session_id")]
     if len(session_ids) != len(set(session_ids)):
