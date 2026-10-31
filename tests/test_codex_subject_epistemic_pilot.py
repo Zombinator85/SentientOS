@@ -167,7 +167,12 @@ def test_score_write_failure_preserves_observations_and_retries_without_inferenc
         assert score_path.read_bytes() == prior_score
     assert list(tmp_path.glob(".score.json.*.tmp")) == []
 
-    recovered = score_observations(protocol, keys, prereg_path, raw_path, score_path)
+    def reject_inference_replay(*_args, **_kwargs):
+        raise AssertionError("score retry must not invoke inference")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(pilot_runner.subprocess, "run", reject_inference_replay)
+        recovered = score_observations(protocol, keys, prereg_path, raw_path, score_path)
     assert recovered["status"] == "series_passed"
     assert raw_path.read_bytes() == raw_bytes
     assert json.loads(score_path.read_text(encoding="utf-8")) == recovered
