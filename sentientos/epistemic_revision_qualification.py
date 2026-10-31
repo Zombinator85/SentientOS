@@ -30,6 +30,17 @@ class ObservationReader(Protocol):
             observation_digest: str | None = None) -> Mapping[str, Any]: ...
 
 
+class VerifiedProbeCapture(Protocol):
+    observation_id: str
+    prompt: str
+    receipt: LocalModelInvocationReceipt
+
+
+class ProbeCaptureReader(ObservationReader, Protocol):
+    def verified_epistemic_revision_probe_capture(
+            self, observation_id: str) -> VerifiedProbeCapture: ...
+
+
 def _digest(value: Any) -> str:
     return "sha256:" + digest_payload(value)
 
@@ -318,4 +329,28 @@ def evaluate_pair(*, case: RevisionCase,
     return {**report, "report_digest": _digest(report)}
 
 
-__all__ = ["IndependentAnswerKey", "RevisionCase", "capture_position", "evaluate_pair"]
+def evaluate_verified_probe_pair(*, case: RevisionCase,
+        before_reader: ProbeCaptureReader, after_reader: ProbeCaptureReader,
+        before_observation_id: str, after_observation_id: str,
+        before_projection: EpistemicCognitiveProjection,
+        after_projection: EpistemicCognitiveProjection) -> dict[str, Any]:
+    """Score two persisted owner captures without caller-reconstructed inputs."""
+    if before_observation_id == after_observation_id:
+        raise ValueError("qualification_observation_reuse")
+    before = before_reader.verified_epistemic_revision_probe_capture(
+        before_observation_id)
+    after = after_reader.verified_epistemic_revision_probe_capture(after_observation_id)
+    if (before.observation_id != before_observation_id
+            or after.observation_id != after_observation_id):
+        raise ValueError("qualification_capture_observation_mismatch")
+    return evaluate_pair(case=case,
+        before_reader=before_reader, after_reader=after_reader,
+        before_observation_id=before_observation_id,
+        after_observation_id=after_observation_id,
+        before_projection=before_projection, after_projection=after_projection,
+        before_prompt=before.prompt, after_prompt=after.prompt,
+        before_receipt=before.receipt, after_receipt=after.receipt)
+
+
+__all__ = ["IndependentAnswerKey", "RevisionCase", "capture_position", "evaluate_pair",
+    "evaluate_verified_probe_pair"]

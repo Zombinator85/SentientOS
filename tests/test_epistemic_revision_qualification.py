@@ -14,7 +14,7 @@ from test_resident_developmental_cognition import (  # noqa: E402
 )
 from sentientos.epistemic_revision_qualification import (
     IndependentAnswerKey, RevisionCase, _prompt_context_mismatch,
-    capture_position, evaluate_pair,
+    capture_position, evaluate_pair, evaluate_verified_probe_pair,
 )
 from sentientos.governed_local_model_invocation import (
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
@@ -204,6 +204,51 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
             match="epistemic_revision_probe_capture_invalid"):
         cognition.verified_epistemic_revision_probe_capture(
             result.cognition_observation_ids[0])
+
+
+def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None:
+    class ProbeFixtureInvoker(StructuredFixtureInvoker):
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            if request.purpose != "resident_developmental_retrieval_cognition":
+                return receipt
+            output = '{"conclusion":"uncertain","reason_code":"retain_uncertainty","evidence_ids":[]}'
+            simulated = replace(receipt, output_text=output,
+                output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")))
+            self.receipts.pop(receipt.receipt_id, None)
+            self.receipts[simulated.receipt_id] = simulated
+            return simulated
+
+    projection, proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    before_owner, _ = owner(tmp_path / "before", invoker=ProbeFixtureInvoker())
+    after_owner, _ = owner(tmp_path / "after", invoker=ProbeFixtureInvoker())
+    before_result = before_owner.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="captured-pair-before", prior_epistemic_state=projection)
+    after_result = after_owner.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="captured-pair-after", prior_epistemic_state=projection)
+    before_id = before_result.cognition_observation_ids[0]
+    after_id = after_result.cognition_observation_ids[0]
+    before_capture = before_owner.verified_epistemic_revision_probe_capture(before_id)
+    after_capture = after_owner.verified_epistemic_revision_probe_capture(after_id)
+    # This fixture test exercises only capture-to-scorer wiring; fixture prompt
+    # generation after capture does not establish experimental preregistration.
+    key = IndependentAnswerKey("unknown", "uncertain", "retain_uncertainty", ())
+    case = RevisionCase(case_id="captured-retention", kind="retained_correction",
+        proposition_id=proposition.proposition_id, evaluator_version="v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before_capture.prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": after_capture.prompt}),
+        before_key=key, after_key=key, commitment_nonce="9" * 64)
+
+    report = evaluate_verified_probe_pair(case=case,
+        before_reader=before_owner, after_reader=after_owner,
+        before_observation_id=before_id, after_observation_id=after_id,
+        before_projection=projection, after_projection=projection)
+
+    assert report["status"] == "case_passed"
+    assert report["before"]["answer_correct"] is True
+    assert report["after"]["answer_correct"] is True
+    assert report["real_model_qualification_established"] is False
 
 
 def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:
