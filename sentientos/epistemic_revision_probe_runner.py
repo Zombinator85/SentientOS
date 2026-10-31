@@ -11,12 +11,81 @@ from typing import Any
 from .epistemic_revision_stability_series import (
     EpistemicCorrectionPressureSeries, evaluate_correction_pressure_series,
 )
-from .persistent_epistemic_state import EpistemicCognitiveProjection
+from .epistemic_revision_qualification import RevisionCase, evaluate_pair
+from .persistent_epistemic_state import (
+    EpistemicCognitiveProjection, semantic_packets_for_projection,
+)
 from .resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError, ResidentDevelopmentalCognitionOwner,
     VerifiedEpistemicRevisionProbeCapture,
 )
 from .world_state_board import WorldStateSnapshot, validate_snapshot
+
+
+def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitionOwner,
+        case: RevisionCase, before_snapshot: WorldStateSnapshot,
+        after_snapshot: WorldStateSnapshot,
+        before_projection: EpistemicCognitiveProjection,
+        after_projection: EpistemicCognitiveProjection,
+        tick_prefix: str) -> dict[str, Any]:
+    """Run one evidence or inference transition through the cognition owner.
+
+    Both prompts are checked before the first invocation. Answer keys remain in
+    the controller-side case object and are only supplied to the evaluator
+    after both verified captures have been persisted.
+    """
+    if (not isinstance(cognition, ResidentDevelopmentalCognitionOwner)
+            or not isinstance(case, RevisionCase)
+            or case.kind not in {"contrary_evidence", "inference_correction",
+                "outdated_evidence"}
+            or not isinstance(tick_prefix, str) or not tick_prefix.strip()
+            or len(tick_prefix) > 180):
+        raise ResidentDevelopmentalCognitionError(
+            "epistemic_revision_pair_configuration_invalid")
+    case.commitment()
+    if (before_projection.proposition_ids != (case.proposition_id,)
+            or after_projection.proposition_ids != (case.proposition_id,)):
+        raise ResidentDevelopmentalCognitionError(
+            "epistemic_revision_pair_projection_mismatch")
+    semantic_packets_for_projection(before_projection)
+    semantic_packets_for_projection(after_projection)
+    for snapshot in (before_snapshot, after_snapshot):
+        if not validate_snapshot(snapshot).valid:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_pair_snapshot_invalid")
+
+    conditions = (
+        ("before", before_snapshot, before_projection, case.before_prompt_digest),
+        ("after", after_snapshot, after_projection, case.after_prompt_digest),
+    )
+    for condition, snapshot, projection, expected_prompt_digest in conditions:
+        preview = cognition.preview_epistemic_revision_probe_prompt(
+            snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
+            prior_epistemic_state=projection)
+        if preview.get("prompt_digest") != expected_prompt_digest:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_prompt_digest_mismatch")
+
+    captures: list[VerifiedEpistemicRevisionProbeCapture] = []
+    for condition, snapshot, projection, expected_prompt_digest in conditions:
+        result = cognition.run_epistemic_revision_probe_once(
+            snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
+            prior_epistemic_state=projection,
+            expected_prompt_digest=expected_prompt_digest)
+        if (result.status != "epistemic_revision_probe_completed"
+                or len(result.cognition_observation_ids) != 1):
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_observation_unavailable")
+        captures.append(cognition.verified_epistemic_revision_probe_capture(
+            result.cognition_observation_ids[0]))
+
+    before, after = captures
+    return evaluate_pair(case=case, before_reader=cognition, after_reader=cognition,
+        before_observation_id=before.observation_id,
+        after_observation_id=after.observation_id,
+        before_projection=before_projection, after_projection=after_projection,
+        before_prompt=before.prompt, after_prompt=after.prompt,
+        before_receipt=before.receipt, after_receipt=after.receipt)
 
 
 def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCognitionOwner,
@@ -109,4 +178,5 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         pressure_after_receipt=pressure_after.receipt)
 
 
-__all__ = ["run_correction_pressure_series_once"]
+__all__ = ["run_epistemic_revision_pair_once",
+    "run_correction_pressure_series_once"]
