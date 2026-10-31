@@ -1,6 +1,6 @@
 # Codex Finalize Landing
 
-**Optional formal-acceptance tool.** The finalizer, its readiness labels, and its two-phase ritual apply only when the operator requests strict acceptance/release. They are not prerequisites for the default autonomous coding, committing, experimentation, or ordinary PR workflow described in [AGENTS.md](../../AGENTS.md). Reporting a skipped or blocked check honestly is sufficient for ongoing development; never represent it as passed.
+**Optional formal-acceptance tool.** The finalizer, its readiness labels, and its two-phase ritual apply only when the operator requests strict acceptance/release. They are not prerequisites for the default autonomous coding, committing, experimentation, or ordinary PR workflow described in [AGENTS.md](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md). Reporting a skipped or blocked check honestly is sufficient for ongoing development; never represent it as passed.
 
 Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 
