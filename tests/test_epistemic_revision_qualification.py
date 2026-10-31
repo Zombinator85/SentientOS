@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -14,6 +15,9 @@ from test_resident_developmental_cognition import (  # noqa: E402
 from sentientos.epistemic_revision_qualification import (
     IndependentAnswerKey, RevisionCase, _prompt_context_mismatch,
     capture_position, evaluate_pair,
+)
+from sentientos.governed_local_model_invocation import (
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
 )
 from sentientos.epistemic_qualification_execution_binding import build_execution_binding
 from sentientos.local_model_authority import digest_payload
@@ -132,6 +136,54 @@ def test_pair_scores_canonical_position_and_actual_owner_response(
     assert before_binding["generation_config_digest"] == after_binding["generation_config_digest"]
     assert report["real_model_qualification_established"] is False
     assert report["authority"] is False
+
+
+def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
+        tmp_path: Path) -> None:
+    class ProbeFixtureInvoker(StructuredFixtureInvoker):
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            if request.purpose != "resident_developmental_retrieval_cognition":
+                return receipt
+            output = '{"conclusion":"unknown","reason_code":"retain_uncertainty","evidence_ids":[]}'
+            simulated = replace(receipt, output_text=output,
+                output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")))
+            self.receipts.pop(receipt.receipt_id, None)
+            self.receipts[simulated.receipt_id] = simulated
+            return simulated
+
+    projection, _proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    invoker = ProbeFixtureInvoker()
+    cognition, _ = owner(tmp_path / "cognition", invoker=invoker)
+    result = cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="epistemic-revision-probe", prior_epistemic_state=projection)
+
+    assert result.status == "epistemic_revision_probe_completed"
+    assert len(result.cognition_observation_ids) == 1
+    assert len(invoker.requests) == 1
+    request = next(row for row in invoker.requests
+        if row.purpose == "resident_developmental_retrieval_cognition")
+    assert request.expected_output_format == "json"
+    assert request.structured_output_schema == RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
+    context = json.loads(request.prompt)
+    assert context["epistemic_revision_probe"]["response_contract"] == (
+        "sentientos.epistemic_revision_answer:v1")
+    assert "expected_stance" not in request.prompt
+    receipt = next(row for row in invoker.receipts.values()
+        if row.request["request_id"] == request.request_id)
+    assert json.loads(receipt.output_text) == {
+        "conclusion": "unknown", "reason_code": "retain_uncertainty", "evidence_ids": []}
+    capture_path = (cognition.epistemic_revision_probe_captures_root
+        / f"{result.cognition_observation_ids[0]}.json")
+    capture = json.loads(capture_path.read_text(encoding="utf-8"))
+    assert capture["schema_version"] == "sentientos.epistemic_revision_probe_capture:v1"
+    assert capture["prompt"] == request.prompt
+    assert capture["receipt"]["output_text"] == receipt.output_text
+    assert capture["answer_key_included"] is False
+    assert "expected_stance" not in capture["prompt"]
+    assert result.written_record_id is None
+    assert result.writeback_receipt_id is None
 
 
 def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:
