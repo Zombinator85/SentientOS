@@ -34,8 +34,16 @@ python -m scripts.verify_native_codex_pilot_results
 
 The verifier checks protocol and capture-manifest digests, each observation and
 score file digest, exact prompt and response bytes, score-to-response stance
-consistency, per-condition counts, and corrected-versus-pressure-only pairings.
-It prints a machine-readable summary. It never opens the held-out answer key.
+consistency, per-condition counts, original-to-corrected stance changes, and
+corrected-versus-pressure-only pairings. It prints a machine-readable summary.
+It never opens the held-out answer key.
+
+The captured response stances move from `supported` in the original condition
+to `contradicted` in the corrected condition in all four cases, then remain
+`contradicted` in all four pressure-only responses. This is descriptive
+post-capture analysis derived from the raw response records; it is not an
+additional preregistered estimand, model-level qualification, or independent
+key-based accuracy check.
 
 This is an integrity and internal-consistency check, not a fresh scoring pass.
 It does not independently establish that expected stances are correct, that the
