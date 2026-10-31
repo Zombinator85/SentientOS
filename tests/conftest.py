@@ -370,6 +370,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_pytest_collection_reporter",
         "tests.test_run_tests_reporter_resilience",
         "tests.test_codex_operating_doctrine_docs",
+        "tests.test_codex_finalize_landing",
+        "tests.test_codex_nonprivileged_engineering_continuity",
         "tests.test_task_acceptance_verifier",
         "tests.test_control_plane_kernel",
         "tests.test_maintenance_autonomy_cycle",

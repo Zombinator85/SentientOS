@@ -46,7 +46,7 @@ def test_pr_metadata_clean_ready() -> None:
     assert res.decision.status == "ready_for_pr_metadata"
 
 
-def test_administrator_precondition_blocks_as_environment_without_weakening_audit() -> None:
+def test_administrator_denial_is_classified_as_authority_boundary() -> None:
     req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
     audit = CodexFinalizeLandingCommandResult(
         "strict_audits",
@@ -57,9 +57,9 @@ def test_administrator_precondition_blocks_as_environment_without_weakening_audi
 
     res = evaluate_finalize_landing(req, (*_ok_cmds(), audit), ())
 
-    assert res.decision.status == "environment_blocked"
+    assert res.decision.status == "authority_denied"
     assert "stage_failed:strict_audits" in res.decision.reasons
-    assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
+    assert "authority_denied:strict_audits:administrator_required" in res.decision.reasons
 
 
 def test_privileged_checks_can_be_deferred_only_as_explicit_pr_submission_pending() -> None:
@@ -179,6 +179,44 @@ def test_unclassified_required_stage_failure_remains_task_repair_blocker() -> No
     assert res.decision.reasons == ("stage_failed:focused_tests",)
 
 
+def test_dependency_bootstrap_failure_is_environment_blocked_not_task_defect() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    bootstrap = CodexFinalizeLandingCommandResult(
+        "focused_tests", "python -m scripts.run_tests", 1,
+        "run_tests dependency bootstrap failed: minimal-test-airlock-install-failed",
+    )
+
+    result = evaluate_finalize_landing(req, (bootstrap,), ())
+
+    assert result.decision.status == "environment_blocked"
+    assert "environment_precondition_unavailable:focused_tests:python_dependency_bootstrap_failed" in result.decision.reasons
+
+
+def test_package_bootstrap_tls_failure_is_environment_blocked() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    bootstrap = CodexFinalizeLandingCommandResult(
+        "focused_tests", "python -m scripts.run_tests", 1,
+        "pip subprocess SSL error SSLCertVerificationError while resolving package dependencies",
+    )
+
+    result = evaluate_finalize_landing(req, (bootstrap,), ())
+
+    assert result.decision.status == "environment_blocked"
+    assert "environment_precondition_unavailable:focused_tests:package_bootstrap_tls_trust" in result.decision.reasons
+
+
+def test_explicit_nonprivileged_access_denial_is_never_scheduled_for_environment_retry() -> None:
+    req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
+    denied = CodexFinalizeLandingCommandResult(
+        "focused_tests", "python -m scripts.run_tests", 1, "Operation not permitted by sandbox policy",
+    )
+
+    result = evaluate_finalize_landing(req, (denied,), ())
+
+    assert result.decision.status == "authority_denied"
+    assert "authority_denied:focused_tests:explicit_access_denial" in result.decision.reasons
+
+
 def test_environment_blocker_does_not_mask_a_task_failure() -> None:
     req = CodexFinalizeLandingRequest("x", "x", "/tmp/m.json", phase="pre-commit", focused_test_commands=("t",))
     administrator = CodexFinalizeLandingCommandResult(
@@ -192,7 +230,7 @@ def test_environment_blocker_does_not_mask_a_task_failure() -> None:
     res = evaluate_finalize_landing(req, (*_ok_cmds(), administrator, failed_test), ())
 
     assert res.decision.status == "repair_required_task_caused"
-    assert "environment_precondition_unavailable:strict_audits:administrator_required" in res.decision.reasons
+    assert "authority_denied:strict_audits:administrator_required" in res.decision.reasons
     assert "stage_failed:focused_tests" in res.decision.reasons
 
 

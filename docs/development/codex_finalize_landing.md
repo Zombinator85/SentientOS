@@ -10,11 +10,12 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 - `ready_to_commit`: only valid in `pre-commit` phase.
 - `ready_for_pr_metadata`: only valid in `post-commit`/`pr-metadata` phase.
 - `ready_for_pr_submission`: nonprivileged local preparation only. It is available only when `--defer-privileged-checks-to-hosted` is explicitly requested and both Administrator-only stages are recorded as pending. It never means an audit passed or that merging is allowed.
-- `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `do_not_finalize`, `finalizer_failed`.
+- `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `authority_denied`, `do_not_finalize`, `finalizer_failed`.
 - `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
 - `stale_evidence_refresh_failed` when an allowed bounded refresh fails or times out.
 - `generated_artifact_cleanup_incomplete` when cleanup was allowed but generated artifacts remain after the cleanup/refresh decision point.
-- `environment_blocked` when required verification failures are explained by known host preconditions, including the Administrator identity for the `strict_audits` stage, the pinned mypy toolchain, required docs or audit dependencies, or adequate temporary storage. Administrator denial output from any other stage remains a task failure. The stage remains failed and readiness is denied; this status does not waive or satisfy the check. If a task-caused failure is also present, the finalizer keeps `repair_required_task_caused` so the environment status cannot mask it.
+- `environment_blocked` when required verification failures are explained by known environmental preconditions, including package bootstrap failure, package TLS trust setup, the pinned mypy toolchain, required docs or audit dependencies, or adequate temporary storage. The stage remains failed and readiness is denied; this status does not waive or satisfy the check. If a task-caused failure is also present, the finalizer keeps `repair_required_task_caused` so the environment status cannot mask it.
+- `authority_denied` when a required stage reports an explicit access denial, including an Administrator denial in `strict_audits`. This is an authority boundary, not a dependency problem to retry or work around. Do not elevate the process or move the protected operation into a disposable container. Use only the documented hosted deferral for the two designated privileged audit stages; all other authority denials remain blocked.
 
 ## Dirty-tree classes
 - `intended_task_change`

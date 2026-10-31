@@ -30,6 +30,11 @@ Current agent taxonomy, privilege contracts, federation rules, procedures, and e
 
 The policy source is [`docs/development/codex_validation_and_landing_contract.md`](docs/development/codex_validation_and_landing_contract.md). The executable commands and finalizer statuses are canonical in [`docs/development/codex_finalize_landing.md`](docs/development/codex_finalize_landing.md). Do not copy their full ritual into templates, roadmaps, or prompts.
 
+### Nonprivileged engineering continuity
+
+For routine dependency, docs, and focused-validation failures, follow
+[`docs/development/nonprivileged_engineering_continuity.md`](docs/development/nonprivileged_engineering_continuity.md): classify the evidence, make one bounded recovery in an already authorized disposable environment, preserve its outputs, and continue independent authorized work. Never retry explicit authority denials or move a protected operation into a container to evade its gate. A recovered environment does not satisfy a failed required check; use the normal finalizer, hosted `Required / Quality Gate`, and merge controls.
+
 ## Repository navigation
 
 - Active work and sealed boundaries: [`docs/development/codex_open_work_roadmap_index.md`](docs/development/codex_open_work_roadmap_index.md)
