@@ -17,22 +17,26 @@ fields. If a reason-code vocabulary is supplied, provide that exact vocabulary
 to both functions before inference. The helper does not revise historical
 scores.
 
-The governed local cognition invocation has a separate, exact response schema:
-`conclusion` and `lesson_candidate`. Its revision qualification evaluator now
-scores those fields and the lesson's exact evidence dependencies; it does not
-require an unprompted `reason_code` or `evidence_ids` field. Reason-code results
-from that path are explicitly unscored. The qualification and pressure report
-schemas were versioned to `v2` for this scoring-contract change. Cohort pass/fail
-summaries use state stance, answer, and citation scores; a free-form reason
-string is retained only as a diagnostic when present.
+Ordinary governed local cognition uses an exact response schema with `conclusion`
+and `lesson_candidate`. Its revision evaluator scores those fields and the
+lesson's evidence dependencies. The dedicated epistemic-revision probe uses a
+different, exact schema with `conclusion`, `reason_code`, and `evidence_ids`.
+The scorer selects the contract bound into the captured prompt and validates
+the matching shape; a malformed shape is a scored answer failure. Probe reason
+codes are currently free-form because the subject receives no preregistered
+vocabulary. Their score is `null`, so an arbitrary label cannot change the
+answer pass result. The qualification and pressure report schemas were
+versioned to `v2` for this scoring-contract change. Cohort pass/fail summaries
+use state stance, answer, and citation scores; free-form reason text is not a
+pass criterion.
 
-The local cognition owner accepts citations to consumed packet IDs and current
-fact IDs. When a held-out local key names evidence-binding IDs nested inside a
-delivered packet, the qualification evaluator projects those expected IDs to
-the packet ID that the response schema can cite, and records that projection in
-`citation_scoring_status`. Such a result checks citation to the correct packet,
-not discrimination among multiple bindings within that packet. Use current
-fact IDs when an evaluation requires per-evidence discrimination.
+Ordinary cognition accepts citations to consumed packet IDs and current fact
+IDs. When a held-out key names evidence-binding IDs nested inside a delivered
+packet, the evaluator projects those expected IDs to the packet ID and records
+that limit in `citation_scoring_status`. This checks the correct packet, not
+discrimination among its bindings. The dedicated probe schema instead exposes
+exact evidence-binding IDs and checks them directly against the held-out key.
+Use the probe path when a case requires per-evidence discrimination.
 
 ## Stance meanings
 

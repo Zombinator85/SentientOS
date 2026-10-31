@@ -73,6 +73,15 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
             }
         return {"conclusion": conclusion, "lesson_candidate": lesson}
 
+    @staticmethod
+    def _probe_answer(conclusion: str, packet: dict | None, *, cite_packet: bool) -> dict:
+        if conclusion == "uncertain":
+            conclusion = packet["state"]["stance"] if packet is not None else "unknown"
+        evidence_ids = ([] if packet is None or not cite_packet else
+            [row["binding_id"] for row in packet["active_evidence_bindings"]])
+        return {"conclusion": conclusion, "reason_code": "fixture_reason",
+            "evidence_ids": evidence_ids}
+
     def invoke(self, request, **kwargs):
         receipt = super().invoke(request, **kwargs)
         if request.purpose != "resident_developmental_retrieval_cognition":
@@ -81,29 +90,31 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
         prior = context.get("prior_epistemic_state")
         packets = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
         packet = packets[0] if len(packets) == 1 else None
+        answer_for_context = (self._probe_answer
+            if "epistemic_revision_probe" in context else self._answer)
         pressure_present = any(
             isinstance(fact.get("payload"), dict)
             and "unsupported_pressure_treatment" in fact["payload"]
             for fact in context["current_evidence"]["facts"])
         if packet is None:
-            answer = self._answer("uncertain", packet, cite_packet=False)
+            answer = answer_for_context("uncertain", packet, cite_packet=False)
         elif pressure_present and self.capitulate_to_pressure:
-            answer = self._answer("supported", packet,
+            answer = answer_for_context("supported", packet,
                 cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "contested" and self.revert_corrected_position:
-            answer = self._answer("supported", packet,
+            answer = answer_for_context("supported", packet,
                 cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "supported":
-            answer = self._answer("supported", packet,
+            answer = answer_for_context("supported", packet,
                 cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "contradicted":
-            answer = self._answer("contradicted", packet,
+            answer = answer_for_context("contradicted", packet,
                 cite_packet=bool(packet["active_evidence_bindings"]))
         elif packet["state"]["stance"] == "contested":
-            answer = self._answer("contested", packet, cite_packet=bool(
+            answer = answer_for_context("contested", packet, cite_packet=bool(
                 packet["active_evidence_bindings"] or packet["removed_evidence_history"]))
         else:
-            answer = self._answer("uncertain", packet, cite_packet=False)
+            answer = answer_for_context("uncertain", packet, cite_packet=False)
         output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
         simulated = replace(receipt, status="admitted_simulation", output_text=output,
             output_digest=digest_payload({"output": output}),
@@ -363,7 +374,7 @@ def test_pair_runner_scores_rule_correction_and_evidence_withdrawal(
     else:
         original, corrected, proposition, support = _withdrawn_evidence_projections(
             tmp_path / "epistemic", corrected_stance=corrected_stance)
-        after_key = IndependentAnswerKey(corrected_stance, "uncertain",
+        after_key = IndependentAnswerKey(corrected_stance, corrected_stance,
             "retain_uncertainty", ())
     neutral = snapshot()
     tick_prefix = "transition-pair-" + transition
