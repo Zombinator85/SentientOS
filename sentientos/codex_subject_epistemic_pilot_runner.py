@@ -128,7 +128,7 @@ def _validate_protocol(protocol: Mapping[str, Any]) -> list[dict[str, str]]:
     if not _valid_id(protocol.get("pilot_id")):
         raise ValueError("pilot_identity_invalid")
     model = protocol.get("model")
-    if not isinstance(model, Mapping) or model.get("id") not in {"gpt-6-astra", "gpt-6.1-astra"}:
+    if not isinstance(model, Mapping) or model.get("id") != "gpt-6-astra":
         raise ValueError("pilot_model_must_be_pinned")
     if model.get("reasoning_effort") not in {"low", "medium", "high", "xhigh", "max"}:
         raise ValueError("pilot_reasoning_effort_invalid")
