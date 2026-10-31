@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from sentientos.landing_validation_plan import verify_validation_plan
+
 
 @dataclass(frozen=True)
 class CodexLandingSupervisorPolicy:
@@ -26,11 +28,12 @@ class CodexLandingSupervisorLaneResult:
 class CodexLandingSupervisorRequest:
     title: str
     intended_commit_title: str
-    matrix_json_text: str
+    matrix_json_text: str = ""
     changed_files: tuple[str, ...] = ()
     baseline_summary: dict[str, Any] | None = None
     pr_landing_gate_result: dict[str, Any] | None = None
     now_utc: datetime | None = None
+    validation_plan_json_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,8 @@ class CodexLandingSupervisorDecision:
 class CodexLandingSupervisorReport:
     reasons: tuple[str, ...]
     failed_lanes: tuple[CodexLandingSupervisorLaneResult, ...]
+    validation_profile: str
+    validation_plan_digest: str | None
 
 
 @dataclass(frozen=True)
@@ -84,41 +89,73 @@ def evaluate_landing_supervisor(request: CodexLandingSupervisorRequest, policy: 
     if request.title != request.intended_commit_title:
         reasons.append("title_mismatch")
 
-    try:
-        matrix = _parse_matrix(request.matrix_json_text)
-    except Exception:
-        return CodexLandingSupervisorResult(
-            policy=pol,
-            decision=CodexLandingSupervisorDecision("do_not_finalize", "do_not_finalize", False, False),
-            report=CodexLandingSupervisorReport(reasons=("matrix_malformed",), failed_lanes=()),
-        )
-
-    now_utc = request.now_utc or datetime.now(timezone.utc)
-    if _matrix_stale(matrix, now_utc=now_utc, max_age_seconds=pol.max_matrix_age_seconds):
-        reasons.append("matrix_stale_or_missing_timestamp")
-
-    required_failures = int(matrix.get("required_failure_count", 0))
-    if required_failures > 0:
-        reasons.append("matrix_failed")
-        for lane in matrix.get("required_failures", []):
-            reruns: tuple[str, ...] = (f"python -m scripts.run_tests -q {lane}", "python scripts/run_work_item_review_packet_matrix.py --summary")
-            if str(lane) == "strict_audits":
-                reruns = (
-                    "python scripts/codex_strict_audit_repair.py diagnose --summary",
-                    "python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary",
-                    "python verify_audits.py --strict",
-                    "python scripts/audit_immutability_verifier.py",
-                    "python scripts/run_work_item_review_packet_matrix.py --summary",
-                )
-            failed.append(
-                CodexLandingSupervisorLaneResult(
-                    lane=str(lane),
-                    status="failed",
-                    classification="repair_required_task_caused",
-                    likely_affected_files=request.changed_files,
-                    rerun_commands=reruns,
-                )
+    validation_profile = "exhaustive"
+    validation_plan_digest: str | None = None
+    matrix: dict[str, Any] | None = None
+    if request.validation_plan_json_text is not None:
+        try:
+            plan = json.loads(request.validation_plan_json_text)
+            if not isinstance(plan, dict):
+                raise ValueError("validation plan must be an object")
+        except (json.JSONDecodeError, ValueError):
+            plan = {}
+            reasons.append("validation_plan_malformed")
+        valid_plan, plan_reasons = verify_validation_plan(plan)
+        if not valid_plan:
+            reasons.extend(plan_reasons)
+        validation_profile = str(plan.get("effective_profile", ""))
+        validation_plan_digest = str(plan.get("artifact_digest", "")) or None
+        if plan.get("title") != request.title:
+            reasons.append("validation_plan_title_mismatch")
+        if plan.get("intended_commit_title") != request.intended_commit_title:
+            reasons.append("validation_plan_commit_title_mismatch")
+        if validation_profile == "solo":
+            if plan.get("overall_status") not in {"ready_to_commit", "ready_for_pr_metadata", "ready_for_pr_submission"}:
+                reasons.append("solo_validation_plan_not_ready")
+            if request.matrix_json_text:
+                reasons.append("matrix_supplied_for_solo_profile")
+        else:
+            if not request.matrix_json_text:
+                reasons.append("matrix_missing_for_exhaustive_profile")
+    if validation_profile != "solo":
+        try:
+            matrix = _parse_matrix(request.matrix_json_text)
+        except Exception:
+            return CodexLandingSupervisorResult(
+                policy=pol,
+                decision=CodexLandingSupervisorDecision("do_not_finalize", "do_not_finalize", False, False),
+                report=CodexLandingSupervisorReport(
+                    reasons=tuple([*reasons, "matrix_malformed"]), failed_lanes=(),
+                    validation_profile=validation_profile, validation_plan_digest=validation_plan_digest,
+                ),
             )
+
+        now_utc = request.now_utc or datetime.now(timezone.utc)
+        if _matrix_stale(matrix, now_utc=now_utc, max_age_seconds=pol.max_matrix_age_seconds):
+            reasons.append("matrix_stale_or_missing_timestamp")
+
+        required_failures = int(matrix.get("required_failure_count", 0))
+        if required_failures > 0:
+            reasons.append("matrix_failed")
+            for lane in matrix.get("required_failures", []):
+                reruns: tuple[str, ...] = (f"python -m scripts.run_tests -q {lane}", "python scripts/run_work_item_review_packet_matrix.py --summary")
+                if str(lane) == "strict_audits":
+                    reruns = (
+                        "python scripts/codex_strict_audit_repair.py diagnose --summary",
+                        "python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary",
+                        "python verify_audits.py --strict",
+                        "python scripts/audit_immutability_verifier.py",
+                        "python scripts/run_work_item_review_packet_matrix.py --summary",
+                    )
+                failed.append(
+                    CodexLandingSupervisorLaneResult(
+                        lane=str(lane),
+                        status="failed",
+                        classification="repair_required_task_caused",
+                        likely_affected_files=request.changed_files,
+                        rerun_commands=reruns,
+                    )
+                )
 
     baseline = request.baseline_summary or {}
     if int(baseline.get("new_errors", 0)) > 0:
@@ -136,13 +173,19 @@ def evaluate_landing_supervisor(request: CodexLandingSupervisorRequest, policy: 
         return CodexLandingSupervisorResult(
             policy=pol,
             decision=CodexLandingSupervisorDecision(status=decision, decision=decision, pr_metadata_allowed=False, final_report_allowed=False),
-            report=CodexLandingSupervisorReport(reasons=tuple(reasons), failed_lanes=tuple(failed)),
+            report=CodexLandingSupervisorReport(
+                reasons=tuple(reasons), failed_lanes=tuple(failed),
+                validation_profile=validation_profile, validation_plan_digest=validation_plan_digest,
+            ),
         )
 
     return CodexLandingSupervisorResult(
         policy=pol,
         decision=CodexLandingSupervisorDecision(status="ready_for_pr_metadata", decision="ready_for_pr_metadata", pr_metadata_allowed=True, final_report_allowed=True),
-        report=CodexLandingSupervisorReport(reasons=(), failed_lanes=()),
+        report=CodexLandingSupervisorReport(
+            reasons=(), failed_lanes=(), validation_profile=validation_profile,
+            validation_plan_digest=validation_plan_digest,
+        ),
     )
 
 

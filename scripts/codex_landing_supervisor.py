@@ -19,7 +19,11 @@ def _matrix_text(args: argparse.Namespace) -> str:
     if args.matrix_json:
         p = Path(args.matrix_json)
         return p.read_text(encoding="utf-8") if p.exists() else args.matrix_json
-    raise SystemExit("One of --matrix-json or --matrix-json-path is required")
+    return ""
+
+
+def _validation_plan_text(args: argparse.Namespace) -> str | None:
+    return Path(args.validation_plan_json_path).read_text(encoding="utf-8") if args.validation_plan_json_path else None
 
 
 def _print(result: dict[str, object], summary: bool) -> None:
@@ -42,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         s.add_argument("--intended-commit-title", required=True)
         s.add_argument("--matrix-json")
         s.add_argument("--matrix-json-path")
+        s.add_argument("--validation-plan-json-path")
         s.add_argument("--baseline-json")
         s.add_argument("--changed-file", action="append", default=[])
         s.add_argument("--output")
@@ -55,7 +60,17 @@ def main(argv: list[str] | None = None) -> int:
         gate_result = {"decision": "pr_metadata_allowed"}
     elif a.landing_gate_status in {"failed", "blocked"}:
         gate_result = {"decision": "pr_metadata_blocked"}
-    req = CodexLandingSupervisorRequest(title=a.title, intended_commit_title=a.intended_commit_title, matrix_json_text=_matrix_text(a), changed_files=tuple(a.changed_file), baseline_summary=baseline, pr_landing_gate_result=gate_result)
+    if not a.validation_plan_json_path and not (a.matrix_json or a.matrix_json_path):
+        raise SystemExit("Provide a matrix for exhaustive supervision or --validation-plan-json-path for solo supervision")
+    req = CodexLandingSupervisorRequest(
+        title=a.title,
+        intended_commit_title=a.intended_commit_title,
+        matrix_json_text=_matrix_text(a),
+        changed_files=tuple(a.changed_file),
+        baseline_summary=baseline,
+        pr_landing_gate_result=gate_result,
+        validation_plan_json_text=_validation_plan_text(a),
+    )
     result = evaluate_landing_supervisor(req).to_dict()
     if a.output:
         Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")

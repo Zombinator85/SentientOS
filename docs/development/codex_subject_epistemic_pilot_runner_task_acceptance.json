@@ -1,8 +1,8 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "cb928f1dfa19755043ca94724098dd614074521d",
-  "test_provenance_path": "/tmp/codex-subject-writable-home-validation-success/test_run_provenance.json",
+  "repository_sha": "9f7922458a723af4d57c9043c5f118495c1f01e5",
+  "test_provenance_path": "/tmp/codex-solo-supervisor-validation/test_run_provenance.json",
   "required_nodes": [
     {
       "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples",
@@ -71,9 +71,25 @@
     {
       "node_id": "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands",
       "rationale": "The CLI retains its preregister, run/resume, and score surfaces."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_plan_is_supervised_without_matrix_and_keeps_exact_plan_digest",
+      "rationale": "A sealed solo validation plan can reach supervisor readiness without matrix evidence, with its digest retained."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_plan_digest_or_title_tampering_blocks_supervision",
+      "rationale": "Mutated or title-crossed solo plans fail closed."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor.py::test_solo_supervision_rejects_matrix_evidence",
+      "rationale": "Supplying matrix evidence alongside a solo plan is rejected rather than mixing profiles."
+    },
+    {
+      "node_id": "tests/test_codex_landing_supervisor_script.py::test_cli_accepts_sealed_solo_plan_without_matrix",
+      "rationale": "The landing-supervisor CLI accepts the sealed solo-plan path without requiring a matrix."
     }
   ],
   "successful_path_nodes": [
-    "tests/test_codex_subject_epistemic_pilot.py::test_runner_uses_private_writable_home_and_references_login_without_copy"
+    "tests/test_codex_landing_supervisor.py::test_solo_plan_is_supervised_without_matrix_and_keeps_exact_plan_digest"
   ]
 }
