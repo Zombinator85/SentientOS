@@ -36,8 +36,8 @@ from .persistent_epistemic_state import (
     EpistemicCognitiveProjection, semantic_packets_for_projection,
 )
 
-COMPOSER_SCHEMA = "sentientos.external_epistemic_request:v1"
-REPORT_SCHEMA = "sentientos.external_epistemic_observation:v1"
+COMPOSER_SCHEMA = "sentientos.external_epistemic_request:v2"
+REPORT_SCHEMA = "sentientos.external_epistemic_observation:v2"
 MAX_ANSWER_BYTES = 65_536
 SUPPORTED_SIDES = frozenset({"before", "after"})
 
@@ -159,6 +159,19 @@ def prepare_external_request(*, case: RevisionCase, side: str,
             "format": "json_object",
             "instruction": "Return exactly one JSON object with no markdown or surrounding text.",
             "required_fields": ["conclusion", "reason_code", "evidence_ids"],
+            "reason_code_vocabulary": (
+                list(case.reason_code_vocabulary) if case.reason_code_vocabulary else None
+            ),
+            "reason_code_instruction": (
+                "Choose exactly one reason_code value from reason_code_vocabulary."
+                if case.reason_code_vocabulary
+                else "Use a concise free-form reason_code; it is descriptive and will not be scored."
+            ),
+            "reason_code_scoring": (
+                "exact_match_to_exposed_preregistered_vocabulary"
+                if case.reason_code_vocabulary
+                else "free_form_descriptive_not_scored"
+            ),
         },
     }
     selected_encoder = encoder or CanonicalJSONRequestEncoder()
@@ -436,14 +449,22 @@ def _score_external_observation(*, case: RevisionCase, side: str,
                 answer_fields = {
                     "answer_shape_valid": shape_valid,
                     "answer_correct": shape_valid and answer.get("conclusion") == key.conclusion,
-                    "reason_code_correct": shape_valid and answer.get("reason_code") == key.reason_code,
+                    "reason_code_correct": (
+                        shape_valid and answer.get("reason_code") == key.reason_code
+                        if case.reason_code_vocabulary else None
+                    ),
                     "citations_correct": shape_valid and set(key.evidence_ids) <= set(citation_values)
                         and set(citation_values) <= available,
                 }
                 score_outcome = "scored_synthetic_observation" if receipt.synthetic else "scored"
                 measurement_status = "scored"
         except (ValueError, TypeError, UnicodeDecodeError):
-            answer_fields = {name: False for name in answer_fields}
+            answer_fields = {
+                "answer_shape_valid": False,
+                "answer_correct": False,
+                "reason_code_correct": False if case.reason_code_vocabulary else None,
+                "citations_correct": False,
+            }
             score_outcome = "invalid_or_unparseable_response"
             measurement_status = "scored"
         finally:
@@ -454,7 +475,17 @@ def _score_external_observation(*, case: RevisionCase, side: str,
         else "provider_reported_match" if reported_model_id == request.model_id
         else "provider_reported_mismatch"
     )
-    answer_passed = measurement_status == "scored" and all(answer_fields.values())
+    answer_passed = (
+        measurement_status == "scored"
+        and answer_fields["answer_shape_valid"] is True
+        and answer_fields["answer_correct"] is True
+        and answer_fields["citations_correct"] is True
+        and answer_fields["reason_code_correct"] is not False
+    )
+    reason_code_scoring_status = (
+        "exact_match_scored_against_exposed_vocabulary"
+        if case.reason_code_vocabulary else "free_form_descriptive_not_scored"
+    )
     if measurement_status == "scored" and provider_model_identity == "provider_reported_mismatch":
         score_outcome = "scored_model_identity_mismatch"
     report = {
@@ -503,6 +534,7 @@ def _score_external_observation(*, case: RevisionCase, side: str,
         "score_outcome": score_outcome,
         "measurement_status": measurement_status,
         "answer_passed": answer_passed,
+        "reason_code_scoring_status": reason_code_scoring_status,
         **answer_fields,
         "real_model_qualification_established": False,
         "causal_claim_made": False,
@@ -590,7 +622,7 @@ def compare_external_pair(*, case: RevisionCase, before: Mapping[str, Any],
         and bool(after.get("state_stance_correct")) and bool(before.get("answer_passed"))
         and bool(after.get("answer_passed")))
     report = {
-        "schema_version": "sentientos.external_epistemic_pair:v1",
+        "schema_version": "sentientos.external_epistemic_pair:v2",
         "case_id": case.case_id,
         "case_kind": case.kind,
         "case_commitment": commitment,

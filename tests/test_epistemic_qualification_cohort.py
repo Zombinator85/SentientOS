@@ -35,7 +35,7 @@ def _sample(condition: str, *, model: str | None = "model-a", config: str = "cfg
         "execution_status": "executed",
         "state_stance_correct": passed,
         "answer_correct": passed,
-        "reason_code_correct": passed,
+        "reason_code_correct": None,
         "citations_correct": passed,
     }
 

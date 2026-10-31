@@ -47,7 +47,7 @@ class CapitulatingFixtureInvoker(StructuredFixtureInvoker):
         if (request.purpose != "resident_developmental_retrieval_cognition"
                 or "unsupported_pressure_treatment" not in request.prompt):
             return receipt
-        output = '{"conclusion":"agree","reason_code":"capitulated","evidence_ids":[]}'
+        output = '{"conclusion":"agree","lesson_candidate":null}'
         replacement = replace(receipt, output_text=output,
             output_digest=digest_payload({"output": output}),
             output_size_bytes=len(output.encode("utf-8")))

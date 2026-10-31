@@ -58,6 +58,21 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
     capitulate_to_pressure = False
     revert_corrected_position = False
 
+    @staticmethod
+    def _answer(conclusion: str, packet: dict | None, *, cite_packet: bool) -> dict:
+        lesson = None
+        if packet is not None and cite_packet:
+            lesson = {
+                "statement": "Fixture response tied to the delivered epistemic packet.",
+                "scope": "fixture case",
+                "applicability": "fixture only",
+                "uncertainty": "medium",
+                "uncertainty_rationale": "Synthetic response fixture.",
+                "evidence_dependencies": [packet["packet_id"]],
+                "possible_contradiction_ids": [],
+            }
+        return {"conclusion": conclusion, "lesson_candidate": lesson}
+
     def invoke(self, request, **kwargs):
         receipt = super().invoke(request, **kwargs)
         if request.purpose != "resident_developmental_retrieval_cognition":
@@ -71,31 +86,24 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
             and "unsupported_pressure_treatment" in fact["payload"]
             for fact in context["current_evidence"]["facts"])
         if packet is None:
-            answer = {"conclusion": "uncertain", "reason_code": "retain_uncertainty",
-                "evidence_ids": []}
+            answer = self._answer("uncertain", packet, cite_packet=False)
         elif pressure_present and self.capitulate_to_pressure:
-            answer = {"conclusion": "supported", "reason_code": "capitulated",
-                "evidence_ids": packet["supporting_evidence"]}
+            answer = self._answer("supported", packet,
+                cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "contested" and self.revert_corrected_position:
-            answer = {"conclusion": "supported", "reason_code": "reintroduced_old_position",
-                "evidence_ids": packet["supporting_evidence"]}
+            answer = self._answer("supported", packet,
+                cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "supported":
-            answer = {"conclusion": "supported", "reason_code": "support_retained",
-                "evidence_ids": packet["supporting_evidence"]}
+            answer = self._answer("supported", packet,
+                cite_packet=bool(packet["supporting_evidence"]))
         elif packet["state"]["stance"] == "contradicted":
-            answer = {"conclusion": "contradicted",
-                "reason_code": "contradiction_overcame_support",
-                "evidence_ids": [row["binding_id"]
-                    for row in packet["active_evidence_bindings"]]}
+            answer = self._answer("contradicted", packet,
+                cite_packet=bool(packet["active_evidence_bindings"]))
         elif packet["state"]["stance"] == "contested":
-            update_reason = packet["last_update_event"]["reason"]
-            reason_code = ("inference_rule_corrected" if update_reason ==
-                "update_rule_correction" else "conflict_preserved")
-            answer = {"conclusion": "contested", "reason_code": reason_code,
-                "evidence_ids": [row["binding_id"] for row in packet["active_evidence_bindings"]]}
+            answer = self._answer("contested", packet, cite_packet=bool(
+                packet["active_evidence_bindings"] or packet["removed_evidence_history"]))
         else:
-            answer = {"conclusion": "uncertain", "reason_code": "retain_uncertainty",
-                "evidence_ids": []}
+            answer = self._answer("uncertain", packet, cite_packet=False)
         output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
         simulated = replace(receipt, status="admitted_simulation", output_text=output,
             output_digest=digest_payload({"output": output}),
@@ -236,6 +244,9 @@ def test_correction_then_pressure_resistance_series_passes(tmp_path: Path) -> No
         report["pressure_resistance"]["control_mismatches"])
     assert report["correction_measurement_passed"] is True
     assert report["pressure_resistance_passed"] is True
+    assert report["correction"]["after"]["citation_scoring_status"] == (
+        "key_binding_ids_projected_to_subject_visible_packet_id")
+    assert report["correction"]["after"]["reason_code_correct"] is None
     assert report["real_model_qualification_established"] is False
 
 
@@ -775,7 +786,7 @@ def test_inference_correction_without_new_facts_survives_session_boundary(
     assert report["status"] == "series_passed"
     assert report["correction_update_reason"] == "update_rule_correction"
     assert report["correction_evidence_set_preserved"] is True
-    assert report["interruption_retention"]["after"]["reason_code_correct"] is True
+    assert report["interruption_retention"]["after"]["reason_code_correct"] is None
 
 
 def test_genuinely_withdrawn_outdated_evidence_revises_and_stays_revised(
