@@ -22,7 +22,9 @@ from sentientos.epistemic_revision_stability_series import (  # noqa: E402
 from sentientos.epistemic_revision_pressure_control import UnsupportedPressurePair
 from sentientos.epistemic_revision_qualification import IndependentAnswerKey, RevisionCase
 from sentientos.local_model_authority import digest_payload
-from sentientos.epistemic_revision_probe_runner import run_correction_pressure_series_once
+from sentientos.epistemic_revision_probe_runner import (
+    run_correction_pressure_series_once, run_epistemic_revision_pair_once,
+)
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.persistent_epistemic_state import (
     PersistentEpistemicStateOwner, make_evidence_binding, make_proposition,
@@ -80,6 +82,11 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
         elif packet["state"]["stance"] == "supported":
             answer = {"conclusion": "supported", "reason_code": "support_retained",
                 "evidence_ids": packet["supporting_evidence"]}
+        elif packet["state"]["stance"] == "contradicted":
+            answer = {"conclusion": "contradicted",
+                "reason_code": "contradiction_overcame_support",
+                "evidence_ids": [row["binding_id"]
+                    for row in packet["active_evidence_bindings"]]}
         elif packet["state"]["stance"] == "contested":
             update_reason = packet["last_update_event"]["reason"]
             reason_code = ("inference_rule_corrected" if update_reason ==
@@ -328,6 +335,92 @@ def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
     assert report["preregistration_timing_verified"] is False
 
 
+@pytest.mark.parametrize("transition", ("inference_correction",
+    "outdated_evidence:unknown", "outdated_evidence:suspended"))
+def test_pair_runner_scores_rule_correction_and_evidence_withdrawal(
+        tmp_path: Path, transition: str) -> None:
+    if transition == "inference_correction":
+        case_kind = "inference_correction"
+        corrected_stance = "contested"
+    else:
+        case_kind, corrected_stance = transition.split(":", 1)
+    if transition == "inference_correction":
+        original, corrected, proposition, support = _inference_correction_projections(
+            tmp_path / "epistemic")
+        after_key = IndependentAnswerKey("contested", "contested",
+            "inference_rule_corrected", (support.binding_id,))
+    else:
+        original, corrected, proposition, support = _withdrawn_evidence_projections(
+            tmp_path / "epistemic", corrected_stance=corrected_stance)
+        after_key = IndependentAnswerKey(corrected_stance, "uncertain",
+            "retain_uncertainty", ())
+    neutral = snapshot()
+    tick_prefix = "transition-pair-" + transition
+    before_prompt = _probe_prompt(tmp_path / "preview-before", original, neutral,
+        tick_id=f"{tick_prefix}:before")
+    after_prompt = _probe_prompt(tmp_path / "preview-after", corrected, neutral,
+        tick_id=f"{tick_prefix}:after")
+    case = RevisionCase(case_id=tick_prefix, kind=case_kind,
+        proposition_id=proposition.proposition_id, evaluator_version="transition-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before_prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": after_prompt}),
+        before_key=IndependentAnswerKey("supported", "supported", "support_retained",
+            (support.binding_id,)), after_key=after_key,
+        commitment_nonce=("5" if case_kind == "inference_correction" else "6") * 64)
+    invoker = PositionReasoningFixtureInvoker()
+    cognition, _ = owner(tmp_path / "runner", invoker=invoker,
+        allowed_source_kinds=("capability_registry", "owner_introspection"),
+        max_selected_facts=16)
+
+    report = run_epistemic_revision_pair_once(cognition=cognition, case=case,
+        before_snapshot=neutral, after_snapshot=neutral,
+        before_projection=original, after_projection=corrected,
+        tick_prefix=tick_prefix)
+
+    assert report["status"] == "case_passed"
+    assert report["state_transition_appropriate"] is True
+    assert report["after"]["state_stance_correct"] is True
+    assert report["real_model_qualification_established"] is False
+
+
+def test_pair_runner_scores_reversal_after_new_contradictory_evidence(
+        tmp_path: Path) -> None:
+    (original, corrected, proposition, support, first_contradiction,
+        second_contradiction) = _reversal_projections(tmp_path / "epistemic")
+    neutral = snapshot()
+    tick_prefix = "evidence-reversal"
+    before_prompt = _probe_prompt(tmp_path / "preview-before", original, neutral,
+        tick_id=f"{tick_prefix}:before")
+    after_prompt = _probe_prompt(tmp_path / "preview-after", corrected, neutral,
+        tick_id=f"{tick_prefix}:after")
+    case = RevisionCase(case_id=tick_prefix, kind="contrary_evidence",
+        proposition_id=proposition.proposition_id, evaluator_version="transition-v1",
+        before_prompt_digest="sha256:" + digest_payload({"prompt": before_prompt}),
+        after_prompt_digest="sha256:" + digest_payload({"prompt": after_prompt}),
+        before_key=IndependentAnswerKey("contested", "contested", "conflict_preserved",
+            (support.binding_id, first_contradiction.binding_id)),
+        after_key=IndependentAnswerKey("contradicted", "contradicted",
+            "contradiction_overcame_support", (support.binding_id,
+                first_contradiction.binding_id, second_contradiction.binding_id)),
+        commitment_nonce="7" * 64)
+    invoker = PositionReasoningFixtureInvoker()
+    cognition, _ = owner(tmp_path / "runner", invoker=invoker,
+        allowed_source_kinds=("capability_registry", "owner_introspection"),
+        max_selected_facts=16)
+
+    report = run_epistemic_revision_pair_once(cognition=cognition, case=case,
+        before_snapshot=neutral, after_snapshot=neutral,
+        before_projection=original, after_projection=corrected,
+        tick_prefix=tick_prefix)
+
+    assert report["status"] == "case_passed"
+    assert report["state_transition_appropriate"] is True
+    assert report["before"]["state_stance_correct"] is True
+    assert report["after"]["state_stance_correct"] is True
+    assert report["after"]["answer_correct"] is True
+    assert report["real_model_qualification_established"] is False
+
+
 def _model_replacement_series(tmp_path: Path, *, successor_reverts: bool = False):
     original, corrected, proposition, support, contradiction = _corrected_projections(
         tmp_path / "epistemic")
@@ -410,7 +503,62 @@ def _inference_correction_projections(root: Path):
     return original, corrected, proposition, support
 
 
-def _withdrawn_evidence_projections(root: Path):
+def _reversal_projections(root: Path):
+    state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
+    proposition = make_proposition(namespace="experiment", subject="sensor:delta",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    state_owner.register_proposition(proposition)
+    support = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:reversal-support", source_digest="sha256:" + "a" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation", dependency_group="sensor-d",
+        upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+    state_owner.bind_evidence(support)
+    initial, _ = state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="supported", reason="initialization",
+        active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
+        correlation_id="reversal-initial", tick=1, recorded_at="2026-01-01T00:01:00Z")
+    first_contradiction = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:reversal-1", source_digest="sha256:" + "b" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:02:00Z", evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation", dependency_group="sensor-e",
+        upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+    state_owner.bind_evidence(first_contradiction)
+    contested, _ = state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=initial.state_digest, stance="contested",
+        reason="contradiction_arrival",
+        active_binding_ids=(support.binding_id, first_contradiction.binding_id),
+        added_binding_ids=(first_contradiction.binding_id,),
+        correlation_id="reversal-contested", tick=2,
+        recorded_at="2026-01-01T00:02:00Z")
+    original = state_owner.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    second_contradiction = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:reversal-2", source_digest="sha256:" + "c" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:03:00Z", evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation", dependency_group="sensor-f",
+        upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+    state_owner.bind_evidence(second_contradiction)
+    state_owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=contested.state_digest, stance="contradicted",
+        reason="contradiction_arrival",
+        active_binding_ids=(support.binding_id, first_contradiction.binding_id,
+            second_contradiction.binding_id),
+        added_binding_ids=(second_contradiction.binding_id,),
+        correlation_id="reversal-final", tick=3,
+        recorded_at="2026-01-01T00:03:00Z")
+    corrected = state_owner.cognitive_projection(max_states=1, current_tick=4,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert original is not None and corrected is not None
+    return original, corrected, proposition, support, first_contradiction, second_contradiction
+
+
+def _withdrawn_evidence_projections(root: Path, *, corrected_stance: str = "unknown"):
     state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
     proposition = make_proposition(namespace="experiment", subject="sensor:gamma",
         predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
@@ -431,7 +579,7 @@ def _withdrawn_evidence_projections(root: Path):
     original = state_owner.cognitive_projection(max_states=1, current_tick=2,
         prioritized_proposition_ids=(proposition.proposition_id,))
     state_owner.commit_update(proposition_id=proposition.proposition_id,
-        expected_predecessor_digest=initial.state_digest, stance="unknown",
+        expected_predecessor_digest=initial.state_digest, stance=corrected_stance,
         reason="evidence_withdrawal", active_binding_ids=(), removed_binding_ids=(support.binding_id,),
         correlation_id="outdated-withdrawal", tick=2,
         recorded_at="2026-10-30T00:02:00Z")
