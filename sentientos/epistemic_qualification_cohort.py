@@ -11,11 +11,11 @@ from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 
-SCHEMA = "sentientos.epistemic_qualification_cohort:v1"
+SCHEMA = "sentientos.epistemic_qualification_cohort:v2"
 MAX_REPORTS = 256
 MAX_REPORT_BYTES = 1_048_576
 SCORE_FIELDS = (
-    "state_stance_correct", "answer_correct", "reason_code_correct", "citations_correct",
+    "state_stance_correct", "answer_correct", "citations_correct",
 )
 IDENTITY_FIELDS = (
     "model_id", "model_artifact_digest", "active_model_identity_digest",

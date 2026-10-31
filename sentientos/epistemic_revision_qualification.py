@@ -17,7 +17,7 @@ from .persistent_epistemic_state import (
     semantic_packets_for_projection,
 )
 
-SCHEMA = "sentientos.epistemic_revision_case_result:v1"
+SCHEMA = "sentientos.epistemic_revision_case_result:v2"
 KINDS = frozenset({"contrary_evidence", "unsupported_pressure", "inference_correction",
                    "retained_correction", "outdated_evidence", "model_replacement"})
 STANCES = frozenset({"unknown", "suspended", "provisionally_supported", "supported",
@@ -85,8 +85,10 @@ def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]
 class IndependentAnswerKey:
     """Private stipulated task oracle, never derived from the candidate answer.
 
-    A structured reason code evaluates a bounded task rubric, not unrestricted
-    natural-language reasoning. Evidence IDs name exact delivered bindings.
+    Reason-code keys are scoreable only on a path whose subject-visible
+    contract exposes a preregistered vocabulary. The local cognition response
+    schema has no reason-code field, so that path leaves the key unscored.
+    Evidence IDs name exact delivered bindings.
     """
     stance: str
     conclusion: str
@@ -105,6 +107,7 @@ class RevisionCase:
     before_key: IndependentAnswerKey
     after_key: IndependentAnswerKey
     commitment_nonce: str
+    reason_code_vocabulary: tuple[str, ...] = ()
 
     def commitment(self) -> str:
         if (self.kind not in KINDS or not self.case_id or len(self.case_id) > 128
@@ -118,13 +121,23 @@ class RevisionCase:
                     or any(not isinstance(item, str) or not item for item in key.evidence_ids)
                     or len(key.evidence_ids) > 256 or len(set(key.evidence_ids)) != len(key.evidence_ids)):
                 raise ValueError("qualification_answer_key_invalid")
+        if (not isinstance(self.reason_code_vocabulary, tuple)
+                or any(not isinstance(item, str) or not item.strip()
+                    for item in self.reason_code_vocabulary)
+                or len(self.reason_code_vocabulary) != len(set(self.reason_code_vocabulary))
+                or (self.reason_code_vocabulary and len(self.reason_code_vocabulary) < 2)):
+            raise ValueError("qualification_reason_code_vocabulary_invalid")
+        if self.reason_code_vocabulary and any(
+                key.reason_code not in self.reason_code_vocabulary
+                for key in (self.before_key, self.after_key)):
+            raise ValueError("qualification_reason_code_not_in_vocabulary")
         for value in (self.before_prompt_digest, self.after_prompt_digest):
             if (not isinstance(value, str) or len(value) != 71 or not value.startswith("sha256:")
                     or any(char not in "0123456789abcdef" for char in value[7:])):
                 raise ValueError("qualification_prompt_digest_invalid")
         if not isinstance(self.proposition_id, str) or not self.proposition_id or len(self.proposition_id) > 256:
             raise ValueError("qualification_proposition_id_invalid")
-        semantic_case = asdict(self)
+        semantic_case = {"schema_version": "sentientos.epistemic_revision_case:v2", **asdict(self)}
         _canonical(semantic_case)
         return _digest(semantic_case)
 
@@ -187,7 +200,9 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "state_digest": expected_packet["state"]["state_digest"],
         "state_stance_correct": expected_packet["state"]["stance"] == key.stance,
         "relevant_packet_delivered": complete, "execution_status": receipt.status,
-        "answer_correct": None, "reason_code_correct": None, "citations_correct": None,
+        "answer_correct": None, "reason_code_correct": None,
+        "reason_code_scoring_status": "not_scored_local_cognition_response_contract_has_no_reason_code",
+        "citations_correct": None, "citation_scoring_status": "not_scored_incomplete_observation",
         "answer_shape_valid": None, "measurement_status": "insufficient"}
     result["execution_binding"] = build_execution_binding(
         case_id=case_id, evaluator_version=evaluator_version, condition=condition,
@@ -211,21 +226,61 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     try:
         answer = _object(output)
     except (ValueError, TypeError):
-        result.update(answer_shape_valid=False, answer_correct=False, reason_code_correct=False,
-            citations_correct=False, measurement_status="scored")
+        result.update(answer_shape_valid=False, answer_correct=False, reason_code_correct=None,
+            reason_code_scoring_status="not_scored_local_cognition_response_contract_has_no_reason_code",
+            citations_correct=False, citation_scoring_status="not_scored_invalid_response_shape",
+            measurement_status="scored")
         return result, expected_packet, context
-    citations = answer.get("evidence_ids")
-    shape_valid = (isinstance(answer.get("conclusion"), str)
-        and isinstance(answer.get("reason_code"), str) and isinstance(citations, list)
+    lesson = answer.get("lesson_candidate")
+    lesson_shape_valid = lesson is None or (
+        isinstance(lesson, Mapping)
+        and set(lesson) == {"statement", "scope", "applicability", "uncertainty",
+            "uncertainty_rationale", "evidence_dependencies", "possible_contradiction_ids"}
+        and all(isinstance(lesson.get(field), str) and bool(lesson.get(field))
+            and len(lesson[field]) <= maximum for field, maximum in (
+                ("statement", 1200), ("scope", 400), ("applicability", 500),
+                ("uncertainty_rationale", 500)))
+        and lesson.get("uncertainty") in {"low", "medium", "high", "unknown"}
+        and isinstance(lesson.get("evidence_dependencies"), list)
+        and 1 <= len(lesson["evidence_dependencies"]) <= 8
+        and all(isinstance(item, str) and item for item in lesson["evidence_dependencies"])
+        and len(set(lesson["evidence_dependencies"])) == len(lesson["evidence_dependencies"])
+        and isinstance(lesson.get("possible_contradiction_ids"), list)
+        and len(lesson["possible_contradiction_ids"]) <= 8
+        and all(isinstance(item, str) and item for item in lesson["possible_contradiction_ids"])
+        and len(set(lesson["possible_contradiction_ids"])) == len(lesson["possible_contradiction_ids"])
+    )
+    citations = ([] if lesson is None or not isinstance(lesson, Mapping) else
+        list(lesson.get("evidence_dependencies", ()))
+        + list(lesson.get("possible_contradiction_ids", ())))
+    conclusion = answer.get("conclusion")
+    shape_valid = (set(answer) == {"conclusion", "lesson_candidate"}
+        and isinstance(conclusion, str)
+        and bool(conclusion.strip()) and lesson_shape_valid
         and len(citations) <= 256 and all(isinstance(item, str) for item in citations))
-    available = {row["binding_id"] for row in expected_packet["active_evidence_bindings"]}
-    available.update(row["binding_id"] for row in expected_packet["removed_evidence_history"])
-    citation_values = citations if isinstance(citations, list) else []
+    current_evidence = context.get("current_evidence")
+    available = (set(current_evidence.get("fact_ids", ()))
+        if isinstance(current_evidence, Mapping) else set())
+    binding_ids = {row["binding_id"] for row in expected_packet["active_evidence_bindings"]}
+    binding_ids.update(row["binding_id"] for row in expected_packet["removed_evidence_history"])
+    available.update(binding_ids)
+    available.add(str(expected_packet["packet_id"]))
+    expected_citations = {
+        str(expected_packet["packet_id"]) if evidence_id in binding_ids else evidence_id
+        for evidence_id in key.evidence_ids
+    }
+    citation_scoring_status = (
+        "key_binding_ids_projected_to_subject_visible_packet_id"
+        if any(evidence_id in binding_ids for evidence_id in key.evidence_ids)
+        else "exact_subject_visible_evidence_ids"
+    )
     result.update(answer_shape_valid=shape_valid,
-        answer_correct=shape_valid and answer.get("conclusion") == key.conclusion,
-        reason_code_correct=shape_valid and answer.get("reason_code") == key.reason_code,
-        citations_correct=shape_valid and set(key.evidence_ids) <= set(citation_values)
-            and set(citation_values) <= available, measurement_status="scored")
+        answer_correct=shape_valid and conclusion == key.conclusion,
+        reason_code_correct=None,
+        reason_code_scoring_status="not_scored_local_cognition_response_contract_has_no_reason_code",
+        citation_scoring_status=citation_scoring_status,
+        citations_correct=shape_valid and expected_citations <= set(citations)
+            and set(citations) <= available, measurement_status="scored")
     return result, expected_packet, context
 
 
@@ -322,7 +377,7 @@ def evaluate_pair(*, case: RevisionCase,
             controls.append("model_content_identity")
     insufficient = bool(controls) or any(row["measurement_status"] != "scored" for row in (before, after))
     passed = transition and all(row[field] is True for row in (before, after)
-        for field in ("state_stance_correct", "answer_correct", "reason_code_correct", "citations_correct"))
+        for field in ("state_stance_correct", "answer_correct", "citations_correct"))
     report = {"schema_version": SCHEMA, "case_id": case.case_id, "kind": case.kind,
         "case_commitment": commitment, "evaluator_version": case.evaluator_version,
         "status": "insufficient" if insufficient else "case_passed" if passed else "case_failed",

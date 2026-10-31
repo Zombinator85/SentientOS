@@ -34,6 +34,13 @@ def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields(
         "current_evidence": {"fact": "new"}, "future_prompt_field": {"mode": "one"}}
 
     assert _prompt_context_mismatch(before, after) is False
+    before["developmental_history_target_model_identity"] = "model-a"
+    after["developmental_history_target_model_identity"] = "model-b"
+    assert _prompt_context_mismatch(before, after) is True
+    assert _prompt_context_mismatch(before, after,
+        intended_treatment_fields=frozenset({"developmental_history_target_model_identity"})) is False
+    del before["developmental_history_target_model_identity"]
+    del after["developmental_history_target_model_identity"]
     after["future_prompt_field"] = {"mode": "two"}
     assert _prompt_context_mismatch(before, after) is True
 
@@ -79,7 +86,7 @@ class StructuredFixtureInvoker(SessionBoundFakeInvoker):
         receipt = super().invoke(request, **kwargs)
         if request.purpose != "resident_developmental_retrieval_cognition":
             return receipt
-        output = '{"conclusion":"uncertain","reason_code":"retain_uncertainty","evidence_ids":[]}'
+        output = '{"conclusion":"uncertain","lesson_candidate":null}'
         simulated = replace(receipt, status="admitted_simulation", output_text=output,
             output_digest=digest_payload({"output": output}),
             output_size_bytes=len(output.encode("utf-8")),
@@ -138,6 +145,9 @@ def test_pair_scores_canonical_position_and_actual_owner_response(
         report["state_transition_appropriate"])
     assert report["before"]["relevant_packet_delivered"] is True
     assert report["after"]["answer_correct"] is True
+    assert report["after"]["reason_code_correct"] is None
+    assert report["after"]["citations_correct"] is True
+    assert report["after"]["citation_scoring_status"] == "exact_subject_visible_evidence_ids"
     before_binding = report["before"]["execution_binding"]
     after_binding = report["after"]["execution_binding"]
     assert before_binding["complete"] is True

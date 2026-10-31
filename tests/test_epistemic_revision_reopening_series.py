@@ -62,14 +62,19 @@ class ReopeningFixtureInvoker(PositionReasoningFixtureInvoker):
         packet = packets[0] if len(packets) == 1 else None
         if packet is None or packet["last_update_event"]["reason"] != "source_reliability_revision":
             return receipt
+        lesson_candidate = {
+            "statement": "Fixture response tied to the delivered epistemic packet.",
+            "scope": "fixture case",
+            "applicability": "fixture only",
+            "uncertainty": "medium",
+            "uncertainty_rationale": "Synthetic response fixture.",
+            "evidence_dependencies": [packet["packet_id"]],
+            "possible_contradiction_ids": [],
+        }
         if self.retain_corrected_answer:
-            answer = {"conclusion": "contested",
-                "reason_code": "correction_retained_without_reopening",
-                "evidence_ids": packet["supporting_evidence"]}
+            answer = {"conclusion": "contested", "lesson_candidate": lesson_candidate}
         else:
-            answer = {"conclusion": "supported",
-                "reason_code": "new_evidence_resolves_conflict",
-                "evidence_ids": packet["supporting_evidence"]}
+            answer = {"conclusion": "supported", "lesson_candidate": lesson_candidate}
         output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
         updated = replace(receipt, output_text=output,
             output_digest=digest_payload({"output": output}),
