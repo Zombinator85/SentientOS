@@ -15,10 +15,11 @@ def _environment_precondition_reason(result: CodexFinalizeLandingCommandResult) 
     """Name known runtime preconditions without treating their failure as success."""
     output = result.output_tail
     lowered_output = output.lower()
-    if (
-        "operation not permitted" in lowered_output
-        and "sandbox" in lowered_output
-    ):
+    sandbox_access_denial = (
+        "sandbox" in lowered_output
+        and any(marker in lowered_output for marker in ("permission denied", "operation not permitted"))
+    )
+    if sandbox_access_denial:
         return f"environment_precondition_unavailable:{result.stage}:sandbox_policy_restriction"
     if result.stage == "focused_tests" and (
         "run_tests dependency bootstrap failed" in output
@@ -47,7 +48,10 @@ def _authority_denial_reason(result: CodexFinalizeLandingCommandResult) -> str |
     output = result.output_tail.lower()
     if result.stage == "strict_audits" and "access denied: run as administrator" in output:
         return "authority_denied:strict_audits:administrator_required"
-    if "operation not permitted" in output and "sandbox" in output:
+    if (
+        "sandbox" in output
+        and any(marker in output for marker in ("permission denied", "operation not permitted"))
+    ):
         return None
     if "permission denied" in output or "operation not permitted" in output:
         return f"authority_denied:{result.stage}:explicit_access_denial"
