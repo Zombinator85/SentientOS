@@ -22,8 +22,9 @@ from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from .governed_local_model_invocation import (
-    LocalModelInvocationBudget, LocalModelInvoker, RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
-    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+    LocalModelInvocationBudget, LocalModelInvocationReceipt, LocalModelInvoker,
+    RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+    RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA, validate_receipt,
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
@@ -36,7 +37,8 @@ from .developmental_history_intervention_experiment import (
 )
 from .local_model_authority import digest_payload
 from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
-    open_private_directory, publish_immutable_bytes, replace_private_bytes)
+    open_private_directory, publish_immutable_bytes, read_private_file_at,
+    replace_private_bytes)
 from .platform_fcntl import fcntl, require_flock
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import (EpistemicCognitiveProjection,
@@ -2370,6 +2372,18 @@ class ResidentDevelopmentalCycleResult:
     canonical_explicit_user_retention_mutated: bool = False
 
 
+@dataclass(frozen=True)
+class VerifiedEpistemicRevisionProbeCapture:
+    """Durable probe input and output reconciled to its owner observation and receipt."""
+
+    observation_id: str
+    observation_digest: str
+    capture_digest: str
+    prompt: str
+    request: Mapping[str, Any]
+    receipt: LocalModelInvocationReceipt
+
+
 def verified_objective_measurement_summary(*, experiments: DevelopmentalExperimentStore,
         measurement_id: str, request: Mapping[str, Any],
         verify_observation: Callable[[Mapping[str, Any]], Mapping[str, Any] | None]) -> Mapping[str, Any]:
@@ -3855,6 +3869,127 @@ class ResidentDevelopmentalCognitionOwner:
                 or (observation_digest is not None and observation.get("observation_digest") != observation_digest)):
             raise ResidentDevelopmentalCognitionError("cognition_observation_not_verified")
         return dict(observation)
+
+    def verified_epistemic_revision_probe_capture(
+            self, observation_id: str) -> VerifiedEpistemicRevisionProbeCapture:
+        """Reopen one raw probe capture and bind it to its verified observation and receipt.
+
+        This is read-only. It does not load or invoke a model, and does not accept a
+        caller-supplied prompt, receipt, output, or answer key.
+        """
+        if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
+                or len(observation_id) != len("devcog-") + 24
+                or any(char not in "0123456789abcdef" for char in observation_id[7:])):
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_capture_identity_invalid")
+        filename = observation_id + ".json"
+        try:
+            if os.name == "nt":
+                entries = read_regular_files(self.epistemic_revision_probe_captures_root,
+                    max_entries=1, max_file_bytes=MAX_COMPOSITION_STATE_BYTES,
+                    max_total_bytes=MAX_COMPOSITION_STATE_BYTES,
+                    selected_names=(filename,))
+                if len(entries) != 1 or entries[0][0] != filename:
+                    raise ResidentDevelopmentalCognitionError(
+                        "epistemic_revision_probe_capture_unavailable")
+                raw = entries[0][1]
+            else:
+                root_fd = _open_store_directory(
+                    self.epistemic_revision_probe_captures_root, create=False)
+                try:
+                    raw = read_private_file_at(root_fd, filename,
+                        max_bytes=MAX_COMPOSITION_STATE_BYTES)
+                finally:
+                    os.close(root_fd)
+        except ResidentDevelopmentalCognitionError:
+            raise
+        except (OSError, DevelopmentalWritebackError, PrivateFileCustodyError,
+                WindowsHandleCustodyError) as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_capture_unavailable") from exc
+        try:
+            capture = json.loads(raw.decode("utf-8"))
+            if (not isinstance(capture, dict)
+                    or json.dumps(capture, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw
+                    or set(capture) != {"schema_version", "observation_id",
+                        "observation_digest", "prompt", "request", "receipt",
+                        "answer_key_included", "capture_digest"}):
+                raise ValueError("capture_shape")
+            semantic = dict(capture)
+            capture_digest = semantic.pop("capture_digest")
+            if (capture.get("schema_version") !=
+                    "sentientos.epistemic_revision_probe_capture:v1"
+                    or capture.get("observation_id") != observation_id
+                    or capture.get("answer_key_included") is not False
+                    or not isinstance(capture_digest, str)
+                    or capture_digest != _digest(semantic)
+                    or not isinstance(capture.get("prompt"), str)
+                    or not isinstance(capture.get("request"), Mapping)
+                    or not isinstance(capture.get("receipt"), Mapping)):
+                raise ValueError("capture_binding")
+            receipt_payload = dict(capture["receipt"])
+            valid, reasons = validate_receipt(receipt_payload)
+            if not valid or "output_text" not in receipt_payload:
+                raise ValueError("receipt_invalid:" + ",".join(reasons))
+            receipt = LocalModelInvocationReceipt(
+                request=receipt_payload["request"], status=receipt_payload["status"],
+                reason_codes=tuple(receipt_payload["reason_codes"]),
+                output_text=receipt_payload.get("output_text"),
+                output_digest=receipt_payload["output_digest"],
+                output_size_bytes=receipt_payload["output_size_bytes"],
+                generation_config=receipt_payload["generation_config"],
+                admission_decision_ref=receipt_payload["admission_decision_ref"],
+                purpose=receipt_payload["purpose"],
+                latency_ms=receipt_payload.get("latency_ms", 0),
+                output_truncated=receipt_payload["output_truncated"],
+                fallback_occurred=receipt_payload["fallback_occurred"],
+                effects=receipt_payload["effects"],
+                observed_at=receipt_payload["observed_at"],
+                resource_allocation_digest=receipt_payload.get("resource_allocation_digest"),
+                resource_attempt_id=receipt_payload.get("resource_attempt_id"),
+                resource_consumption_receipt_digests=tuple(
+                    receipt_payload.get("resource_consumption_receipt_digests", ())),
+                resource_linkage_digest=receipt_payload.get("resource_linkage_digest"),
+                schema_version=receipt_payload["schema_version"],
+                backend_completion=receipt_payload.get("backend_completion"))
+            if (receipt.purpose != "resident_developmental_retrieval_cognition"
+                    or receipt.request.get("expected_output_format") != "json"
+                    or receipt.request.get("structured_output_schema")
+                        != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
+                    or capture["request"] != dict(receipt.request)):
+                raise ValueError("probe_request_mismatch")
+            observation = self.verified_cognition_observation(observation_id,
+                str(capture["observation_digest"]))
+            persisted_receipt = self._verify_observation_invocation(observation)
+            if (persisted_receipt is None
+                    or persisted_receipt.get("receipt_id") != receipt.receipt_id
+                    or persisted_receipt.get("receipt_digest") != receipt.receipt_digest
+                    or persisted_receipt.get("request") != dict(receipt.request)
+                    or persisted_receipt.get("status") != receipt.status
+                    or persisted_receipt.get("output_digest") != receipt.output_digest
+                    or persisted_receipt.get("output_size_bytes") != receipt.output_size_bytes
+                    or persisted_receipt.get("output_truncated") != receipt.output_truncated
+                    or persisted_receipt.get("generation_config")
+                        != dict(receipt.generation_config)
+                    or persisted_receipt.get("observed_at") != receipt.observed_at
+                    or observation.get("epistemic_prompt_digest")
+                        != "sha256:" + receipt.request.get("prompt_digest", "")
+                    or receipt.request.get("prompt_digest")
+                        != digest_payload({"prompt": capture["prompt"]})
+                    or observation.get("inference_receipt_id") != receipt.receipt_id
+                    or observation.get("inference_receipt_digest") != receipt.receipt_digest
+                    or observation.get("output_digest") != receipt.output_digest):
+                raise ValueError("capture_observation_receipt_mismatch")
+            return VerifiedEpistemicRevisionProbeCapture(
+                observation_id=observation_id,
+                observation_digest=str(capture["observation_digest"]),
+                capture_digest=capture_digest,
+                prompt=capture["prompt"], request=dict(receipt.request), receipt=receipt)
+        except ResidentDevelopmentalCognitionError:
+            raise
+        except (KeyError, TypeError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_capture_invalid") from exc
 
     def verify_transition_observation(self, *, stage: str, evidence: Mapping[str, Any],
                                      expected_model_identity: Mapping[str, Any],
