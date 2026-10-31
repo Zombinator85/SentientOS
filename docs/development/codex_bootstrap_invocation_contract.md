@@ -48,6 +48,7 @@ Existing-file maintenance uses one of three explicit subsystem classifications:
 - `construction_custody_reconciliation`: existing files under `work/construction/` only.
 - `bootstrap_reliability_repair`: the bootstrapper, path planner, scaffold, CLI, their named tests, and their two development guides only.
 - `causal_introspection_observation_maintenance`: `sentientos/causal_introspection.py`, its focused test, and `docs/architecture/causal_introspection_topology.md` only.
+- `codex_subject_epistemic_pilot_maintenance`: `sentientos/codex_subject_epistemic_pilot_runner.py`, `tests/test_codex_subject_epistemic_pilot.py`, and `docs/development/codex_subject_epistemic_pilot.md` only.
 
 Pass each target with `--existing-target`. The planner checks the literal relative path, regular-file type, symlink-free path, tracked status, and subsystem-specific allowlist. It rejects missing, untracked, traversal, and out-of-scope targets. These maintenance classifications cannot declare new module or CLI scaffold paths. Existing-target admission is planning metadata, not a permission to mutate the file or perform an effect.
 

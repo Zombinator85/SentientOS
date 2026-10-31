@@ -43,6 +43,9 @@ if "GLOBAL_TRANSPORT_FAILURE" in prompt:
 if "GLOBAL_AUTH_FAILURE" in prompt:
     print("HTTP 401 Unauthorized", file=sys.stderr)
     raise SystemExit(17)
+if "GLOBAL_SERVICE_DENIAL" in prompt:
+    print("HTTP 451 no_biscuit_no_service", file=sys.stderr)
+    raise SystemExit(17)
 if "INVALID_RESPONSE" in prompt:
     text = json.dumps({"stance": "not-a-valid-stance"}, separators=(",", ":"))
 else:
@@ -133,6 +136,7 @@ def test_failed_inference_is_preserved_and_scores_insufficient(tmp_path):
 @pytest.mark.parametrize(("marker", "category"), [
     ("GLOBAL_TRANSPORT_FAILURE", "transport_error"),
     ("GLOBAL_AUTH_FAILURE", "authentication_error"),
+    ("GLOBAL_SERVICE_DENIAL", "authentication_error"),
 ])
 def test_global_failure_stops_remaining_slots_and_scores_them_insufficient(
         tmp_path, monkeypatch, marker, category):
