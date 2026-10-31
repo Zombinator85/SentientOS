@@ -1,0 +1,67 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4bb252953d8b92f16d238d2eeee696360ce376a2",
+  "test_provenance_path": "artifacts/experiments/codex_subject_epistemic_pilot/validation/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples",
+      "rationale": "A fake Codex CLI proves the complete 12-slot protocol, capture, and independent scoring lifecycle without model calls."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failed_inference_is_preserved_and_scores_insufficient",
+      "rationale": "Inference failure remains an explicit insufficient observation."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_invalid_model_response_is_preserved_and_scores_insufficient",
+      "rationale": "A successful CLI exit with an invalid candidate schema is retained and does not score as a pass."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_protocol_tampering_after_preregistration_blocks_before_calls",
+      "rationale": "Prompt changes after preregistration are rejected before execution."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_tampered_preregistration_receipt_blocks_before_calls",
+      "rationale": "An altered preregistration receipt is rejected before execution."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_reused_cli_session_ids_are_rejected_as_non_independent",
+      "rationale": "Responses without distinct ephemeral CLI session identities cannot satisfy the pilot."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_answer_key_tampering_after_capture_is_rejected",
+      "rationale": "Held-out scoring keys remain bound to their pre-inference commitment."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_captured_response_tampering_is_detected_by_report_seal",
+      "rationale": "Response report edits are detected before scoring."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_missing_chatgpt_login_is_rejected_before_any_observation",
+      "rationale": "The runner fails closed without the intended ChatGPT login."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_chatgpt_login_status_on_stderr_is_recognized",
+      "rationale": "The CLI's legitimate login status is recognized regardless of output stream."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_failure_diagnostic_masks_secrets_urls_and_paths",
+      "rationale": "Failure detail helps diagnose transport errors while masking credentials, URLs, and paths."
+    },
+    {
+      "node_id": "tests/test_plan_codex_subject_epistemic_pilot_runner_script.py::test_runner_cli_lists_preregister_run_and_score_commands",
+      "rationale": "The public command exposes the required three-stage workflow."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_interrupted_run_checkpoints_and_resumes_without_repeating_slots",
+      "rationale": "An interruption retains prior observations, marks the active request unknown without retrying it, and resumes later slots."
+    },
+    {
+      "node_id": "tests/test_codex_subject_epistemic_pilot.py::test_resume_rejects_tampered_in_progress_checkpoint",
+      "rationale": "Resume fails closed when durable checkpoint custody is invalid."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_subject_epistemic_pilot.py::test_preregister_run_and_score_four_correction_pressure_triples"
+  ]
+}
