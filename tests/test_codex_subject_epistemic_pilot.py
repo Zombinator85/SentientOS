@@ -136,6 +136,49 @@ def test_preregister_run_and_score_four_correction_pressure_triples(tmp_path):
 
 
 @pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("prior_score", [None, b"prior score record\n"])
+def test_score_write_failure_preserves_observations_and_retries_without_inference(
+        tmp_path, monkeypatch, prior_score):
+    protocol, keys, fake = _inputs(tmp_path)
+    prereg_path, raw_path, score_path = (tmp_path / name for name in
+        ("prereg.json", "observations.json", "score.json"))
+    preregister(protocol, keys, prereg_path)
+    raw = run_observations(protocol, prereg_path, raw_path, codex_command=str(fake))
+    raw_bytes = raw_path.read_bytes()
+    if prior_score is not None:
+        score_path.write_bytes(prior_score)
+
+    real_replace = os.replace
+
+    def fail_score_promotion(source, destination):
+        if Path(destination) == score_path:
+            raise OSError("fixture failure promoting score artifact")
+        return real_replace(source, destination)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(pilot_runner.os, "replace", fail_score_promotion)
+        with pytest.raises(OSError, match="promoting score artifact"):
+            score_observations(protocol, keys, prereg_path, raw_path, score_path)
+
+    assert raw_path.read_bytes() == raw_bytes
+    if prior_score is None:
+        assert not score_path.exists()
+    else:
+        assert score_path.read_bytes() == prior_score
+    assert list(tmp_path.glob(".score.json.*.tmp")) == []
+
+    def reject_inference_replay(*_args, **_kwargs):
+        raise AssertionError("score retry must not invoke inference")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(pilot_runner.subprocess, "run", reject_inference_replay)
+        recovered = score_observations(protocol, keys, prereg_path, raw_path, score_path)
+    assert recovered["status"] == "series_passed"
+    assert raw_path.read_bytes() == raw_bytes
+    assert json.loads(score_path.read_text(encoding="utf-8")) == recovered
+
+
+@pytest.mark.no_legacy_skip
 def test_failed_inference_is_preserved_and_scores_insufficient(tmp_path):
     protocol, keys, fake = _inputs(tmp_path, failing=True)
     prereg_path, raw_path, score_path = (tmp_path / name for name in
