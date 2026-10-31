@@ -10,13 +10,17 @@ and landing controls. It does not grant the agent administrative access.
 
 1. **Classify the observed failure.** A failed assertion, type error, or source
    audit finding is task-caused and must be repaired. Missing packages, an
-   unavailable pinned toolchain, package-bootstrap TLS trust, or temporary
-   storage limits are environmental. Explicit `Permission denied`, `Operation
-   not permitted`, or Administrator-required output is an authority denial.
-   Preserve the command, exit code, output, timestamp, workspace SHA, and test
-   provenance for each attempt.
+   unavailable pinned toolchain, package-bootstrap TLS trust, temporary
+   storage limits, and an explicit sandbox-policy restriction are environmental.
+   `Permission denied`, `Operation not permitted`, or Administrator-required
+   output without a clear sandbox-policy marker is an authority denial. Preserve
+   the command, exit code, output, timestamp, workspace SHA, and test provenance
+   for each attempt.
 2. **Recover once for a routine environmental blocker.** Recover once in a
-   bounded attempt. Prefer a disposable
+   bounded attempt. For a sandbox-policy restriction, use only the platform's
+   supported permission workflow; rerun the blocked command only after the
+   required capability is explicitly granted. Never retry unchanged policy or
+   switch to another transport to evade a denial. Prefer a disposable
    environment already authorized by the execution platform. Install docs,
    typing, or test dependencies there from the repository's declared groups and
    lockfiles. Use the supported proxy and CA trust supplied for that runtime.
