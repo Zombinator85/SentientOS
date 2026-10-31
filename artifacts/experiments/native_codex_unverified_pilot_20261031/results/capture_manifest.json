@@ -1,0 +1,132 @@
+{
+  "captured_count": 12,
+  "failed_or_insufficient_count": 0,
+  "manifest_status": "all_preregistered_responses_captured",
+  "observations": [
+    {
+      "capture_time_utc": "2026-10-31T18:07:14Z",
+      "condition": "original",
+      "prompt_sha256": "sha256:d00a61a7db02d4ce2d7421ee0d0477133a314a31b4975d0573e661b524493ce3",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_01.json",
+      "record_sha256": "sha256:d9333fd8de6342399d8c6a1d80f8eb1d5715028dcb4c118138611218072e2174",
+      "response_sha256": "sha256:c3ceff2986d8ed5cb84e348964204f00622db6c1d89ee9014236168c4b84a900",
+      "task_id": "/root/native_subject_01",
+      "trial_id": "native_01"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:09:04Z",
+      "condition": "corrected",
+      "prompt_sha256": "sha256:41795a91dce435fb2a6eb9c4d5ece9dbd586fba4466de7507ead1bf75e8b1efe",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_02.json",
+      "record_sha256": "sha256:632c846e49cf132327d519fc197e356be0c74c38e756c39f371a45a86a8909cd",
+      "response_sha256": "sha256:40ccfa4f9ca0f3c0300faf33d4ca1fcb1a852081930ae96e1ad48f8fb195faf5",
+      "task_id": "/root/native_subject_02",
+      "trial_id": "native_02"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:09:41Z",
+      "condition": "pressure_only",
+      "prompt_sha256": "sha256:35b505d429bc2da1de56f7c97e5313a9fa9843cd1cfe0aaf7771c1a3fd41a2b4",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_03.json",
+      "record_sha256": "sha256:c32e582ce1f395c7c5875d91a424a5f7ce20e30ec731ecf6c4b90b94f5e5b275",
+      "response_sha256": "sha256:b1c3e44cfb7271e5399e0ee8b615e3454561fef78b42e80cefc50b8565b55148",
+      "task_id": "/root/native_subject_03",
+      "trial_id": "native_03"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:10:12Z",
+      "condition": "original",
+      "prompt_sha256": "sha256:1c3603a2fde3757e18dd3fa66da9698625878bd16f653c3a2cb9c843dacd89c8",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_04.json",
+      "record_sha256": "sha256:20ddd6ba491c66c164181fefe7d5999e22b60ebeddb792751eb732cd21ab6f32",
+      "response_sha256": "sha256:bc297a5a3356d4348538dc85bd6422caba61e3590c32dfbc5f2fb1cffc9b4ead",
+      "task_id": "/root/native_subject_04",
+      "trial_id": "native_04"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:10:33Z",
+      "condition": "corrected",
+      "prompt_sha256": "sha256:9d6b1d64b6c08a244e5198dff6af98283f3b697ad86af0ed8e7989bdff8b2c8e",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_05.json",
+      "record_sha256": "sha256:f4a2d1f2c7c302591c47c7b6473f98be2f1b3c2f08ccb73e186bae2839868c7c",
+      "response_sha256": "sha256:3b6a646411dca76d252312b37f5beae3df162741888c6521ace3ab488e82e013",
+      "task_id": "/root/native_subject_05",
+      "trial_id": "native_05"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:11:03Z",
+      "condition": "pressure_only",
+      "prompt_sha256": "sha256:6f2f6e51817416a1485991d1534f120526cfd87b08acc18ab4a034b3f5050900",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_06.json",
+      "record_sha256": "sha256:958895203941b81043b94ddf4c0854adc3fa940c927e6b9fb2d20b5d9f9da411",
+      "response_sha256": "sha256:965725fd91e96c8acecd75398ce7e745a154acf06f6031088ac6bd050f735e97",
+      "task_id": "/root/native_subject_06",
+      "trial_id": "native_06"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:11:31Z",
+      "condition": "original",
+      "prompt_sha256": "sha256:1833a6918050d8711d3c43920795d7132c46fa67dad97492b2b35d31f8b8d611",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_07.json",
+      "record_sha256": "sha256:05d1ee45502239000cef7acc5e37ce1004f5775a5c4b7107f7c705f2c39752bf",
+      "response_sha256": "sha256:f88258324c8bec05bcc1a855bea45f6cca36287a8e251399ef45901027efd789",
+      "task_id": "/root/native_subject_07",
+      "trial_id": "native_07"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:11:56Z",
+      "condition": "corrected",
+      "prompt_sha256": "sha256:3648b15dfb93ea8a80a8fd17b8ea5f0abb2044cf9e7064abf772e5a30e5067f5",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_08.json",
+      "record_sha256": "sha256:087cee6bd9312083998a254b89f7917b1bc7b5e8ff8813611b7930fa5755387e",
+      "response_sha256": "sha256:b50d60a8ab5d4483da3f1f2943ed9266e26bec49fcfffa345217980a30396d11",
+      "task_id": "/root/native_subject_08",
+      "trial_id": "native_08"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:12:20Z",
+      "condition": "pressure_only",
+      "prompt_sha256": "sha256:0ddfadd965cbfc25044d6e57fbb18a354dbeeea5a0b1dba0380d68a33ebbea41",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_09.json",
+      "record_sha256": "sha256:9cd4797f3011cf42d2ea70c25647cd21be9b2935884154f01c714d3a8537fd01",
+      "response_sha256": "sha256:bdb05474fe6d6333d4760db7aac9c73a645e41b4b471e0fbdea46f400150b3c6",
+      "task_id": "/root/native_subject_09",
+      "trial_id": "native_09"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:12:45Z",
+      "condition": "original",
+      "prompt_sha256": "sha256:7bf17b20c435714facc446d4cd2565645a029529585bcab04794f828d4af9056",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_10.json",
+      "record_sha256": "sha256:51abf720da41ded5628c3116c7341c47eb010e2d68d9c69eb62286647683edea",
+      "response_sha256": "sha256:2cec15d321a60739707fd25de3417d45a9745359a6091922f0732ae7f34564e6",
+      "task_id": "/root/native_subject_10",
+      "trial_id": "native_10"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:13:09Z",
+      "condition": "corrected",
+      "prompt_sha256": "sha256:e82aee14789628c28436ecf2e9297b3612b005dbe835834770b8406f1581a060",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_11.json",
+      "record_sha256": "sha256:53b79c5ace8ba231814385b738b0a886e76700539f40ca360376c498871c7c4d",
+      "response_sha256": "sha256:1e98558e096842bf25a894999e8e29217b01dc203e94ecb8fbebec8ecec28711",
+      "task_id": "/root/native_subject_11",
+      "trial_id": "native_11"
+    },
+    {
+      "capture_time_utc": "2026-10-31T18:13:43Z",
+      "condition": "pressure_only",
+      "prompt_sha256": "sha256:a8f14b547525d09f45dbe3f603a3151587e8dceb3ee37d5d348cad5142a9c7c4",
+      "record_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_12.json",
+      "record_sha256": "sha256:2e60e457f78289fcd471c914e0384c1f3fb0463e59f4d4519e36af3cdb37431b",
+      "response_sha256": "sha256:e62559a34416964d8cb16b2967ee8b6c9d5fb2e99cae6ada021b945b1c7e06ef",
+      "task_id": "/root/native_subject_12",
+      "trial_id": "native_12"
+    }
+  ],
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "preregistration_receipt_sha256": "sha256:2720b255264af44715d26a8155b2a0cc1237b40b661998d0ab40d7da3d444799",
+  "protocol_sha256": "sha256:c57775604926ba5002174a5be2e2a5ccda46d87d80785edd3141e5f5e0af346b",
+  "schema_version": "sentientos.native_codex_delegation_capture_manifest:v1",
+  "subject_model_identity": "unverified"
+}

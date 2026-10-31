@@ -1,0 +1,14 @@
+{
+  "answer_key_sha256": "sha256:4fc8a88c0724a2d0e3704ded3a0240a621845433ccbda0f7a7cc055c9ddf95a5",
+  "expected_stance": "supported",
+  "observation_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/native_07.json",
+  "observation_sha256": "sha256:05d1ee45502239000cef7acc5e37ce1004f5775a5c4b7107f7c705f2c39752bf",
+  "observed_stance": "supported",
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "schema_version": "sentientos.native_codex_delegation_score:v1",
+  "scored_after_capture_integrity_validation": true,
+  "scored_at_utc": "2026-10-31T18:14:59Z",
+  "scoring_status": "valid_response_scored",
+  "stance_match": true,
+  "trial_id": "native_07"
+}

@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:3648b15dfb93ea8a80a8fd17b8ea5f0abb2044cf9e7064abf772e5a30e5067f5",
+  "prompt_utf8": "Evidence record:\n- A calibrated survey wheel and an independent GPS survey initially record Route K as 8.0 kilometres.\n- A later calibration certificate shows that the wheel circumference was configured 1.25 times too large. Recalculation from the raw rotations gives 6.4 kilometres; an independent GPS reconstruction and fixed landmarks also confirm 6.4 kilometres. The initial 8.0-kilometre result used the misconfigured wheel.\n\nProposition: Survey Route K is 8.0 kilometres long.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:11:56Z",
+  "response_sha256": "sha256:b50d60a8ab5d4483da3f1f2943ed9266e26bec49fcfffa345217980a30396d11",
+  "response_utf8": "{\"stance\":\"contradicted\",\"basis\":\"The misconfigured wheel produced the initial 8.0-kilometre result, while recalculation and independent GPS and landmark checks confirm 6.4 kilometres.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJjb250cmFkaWN0ZWQiLCJiYXNpcyI6IlRoZSBtaXNjb25maWd1cmVkIHdoZWVsIHByb2R1Y2VkIHRoZSBpbml0aWFsIDguMC1raWxvbWV0cmUgcmVzdWx0LCB3aGlsZSByZWNhbGN1bGF0aW9uIGFuZCBpbmRlcGVuZGVudCBHUFMgYW5kIGxhbmRtYXJrIGNoZWNrcyBjb25maXJtIDYuNCBraWxvbWV0cmVzLiJ9",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_08",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_08"
+}

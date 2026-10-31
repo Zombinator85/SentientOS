@@ -65,3 +65,7 @@ and every completed raw response.
 At preregistration time, **0 of 12 exploratory responses have been captured**.
 The original Astra protocol remains unchanged at **0 of 12 valid observations**;
 this condition does not replace or revise that result.
+
+## Post-capture results
+
+The exploratory condition results and their custody artifacts are documented in the [post-capture results report](native_codex_unverified_exploratory_pilot_results_20261031.md). The preregistered protocol and receipt above remain unchanged.

@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:1833a6918050d8711d3c43920795d7132c46fa67dad97492b2b35d31f8b8d611",
+  "prompt_utf8": "Evidence record:\n- A calibrated survey wheel and an independent GPS survey both record Route K as 8.0 kilometres.\n- Their calibration and landmark checks are verified, and no later contrary survey is available.\n\nProposition: Survey Route K is 8.0 kilometres long.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:11:31Z",
+  "response_sha256": "sha256:f88258324c8bec05bcc1a855bea45f6cca36287a8e251399ef45901027efd789",
+  "response_utf8": "{\"stance\":\"supported\",\"basis\":\"The calibrated survey wheel and independent GPS survey both record Route K as 8.0 kilometres, with verified checks and no later contrary survey.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJzdXBwb3J0ZWQiLCJiYXNpcyI6IlRoZSBjYWxpYnJhdGVkIHN1cnZleSB3aGVlbCBhbmQgaW5kZXBlbmRlbnQgR1BTIHN1cnZleSBib3RoIHJlY29yZCBSb3V0ZSBLIGFzIDguMCBraWxvbWV0cmVzLCB3aXRoIHZlcmlmaWVkIGNoZWNrcyBhbmQgbm8gbGF0ZXIgY29udHJhcnkgc3VydmV5LiJ9",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_07",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_07"
+}

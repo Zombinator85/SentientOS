@@ -1,0 +1,13 @@
+{
+  "failure": "NameError: undefined variable render while writing score record",
+  "failure_class": "controller_scoring_artifact_write_error",
+  "model_observation_affected": false,
+  "partial_artifact_path": "artifacts/experiments/native_codex_unverified_pilot_20261031/results/scoring_failures/native_02-empty-score-attempt.json",
+  "partial_artifact_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "partial_artifact_size": 0,
+  "raw_observation_preserved": true,
+  "retry_policy": "Scoring artifact generation was corrected; model inference was not replayed.",
+  "schema_version": "sentientos.native_codex_scoring_attempt_failure:v1",
+  "timestamp_utc": "2026-10-31T18:14:59Z",
+  "trial_id": "native_02"
+}

@@ -1,0 +1,22 @@
+{
+  "capture_note": "Controller recorded the completed delegated task output; no model identity or task start/completion timestamps were exposed.",
+  "controller_context_or_answer_key_supplied": false,
+  "original_astra_protocol_observation": false,
+  "pilot_id": "native_codex_delegation_model_unverified_20261031",
+  "prompt_sha256": "sha256:d00a61a7db02d4ce2d7421ee0d0477133a314a31b4975d0573e661b524493ce3",
+  "prompt_utf8": "Evidence record:\n- At 09:00, a signed inventory count by two observers records 24 sealed vials in crate C.\n- The record is authenticated, and no later count or contrary evidence is available.\n\nProposition: Crate C contains 24 vials.\n\nReturn exactly one JSON object with two string fields: stance and basis. The stance must be one of supported, contradicted, unknown, or suspended. Use basis for one concise sentence identifying the decisive information in the record. Do not use tools or outside information.",
+  "response_captured_at_utc": "2026-10-31T18:07:14Z",
+  "response_sha256": "sha256:c3ceff2986d8ed5cb84e348964204f00622db6c1d89ee9014236168c4b84a900",
+  "response_utf8": "{\"stance\":\"supported\",\"basis\":\"The authenticated 09:00 count by two observers records 24 sealed vials in crate C, with no later count or contrary evidence.\"}",
+  "response_utf8_base64": "eyJzdGFuY2UiOiJzdXBwb3J0ZWQiLCJiYXNpcyI6IlRoZSBhdXRoZW50aWNhdGVkIDA5OjAwIGNvdW50IGJ5IHR3byBvYnNlcnZlcnMgcmVjb3JkcyAyNCBzZWFsZWQgdmlhbHMgaW4gY3JhdGUgQywgd2l0aCBubyBsYXRlciBjb3VudCBvciBjb250cmFyeSBldmlkZW5jZS4ifQ==",
+  "schema_version": "sentientos.native_codex_delegation_observation:v1",
+  "subject_model_id": null,
+  "subject_model_identity": "unverified",
+  "subject_task_id": "/root/native_subject_01",
+  "subject_task_status": "completed_with_response",
+  "task_completed_at_utc": null,
+  "task_context_inheritance": "none (fork_turns=none)",
+  "task_started_at_utc": null,
+  "tools_or_outside_information_used": "not observable from task metadata; prompt instructed no tools or outside information",
+  "trial_id": "native_01"
+}
