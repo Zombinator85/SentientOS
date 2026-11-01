@@ -31,6 +31,7 @@ class SemanticScannerDaemon:
 
     def scan(self, entries: Sequence[str]) -> dict[str, object]:
         risks: list[dict[str, object]] = []
+        risk_scores: list[float] = []
         motif_counters: MutableMapping[str, int] = defaultdict(int)
 
         for index, entry in enumerate(entries):
@@ -39,6 +40,7 @@ class SemanticScannerDaemon:
             for token in hits:
                 motif_counters[token] += 1
             risk_score = (len(hits) / max(len(tokens), 1)) if tokens else 0.0
+            risk_scores.append(risk_score)
             risks.append(
                 {
                     "index": index,
@@ -49,7 +51,7 @@ class SemanticScannerDaemon:
             )
 
         cascade_alerts = [motif for motif, count in motif_counters.items() if count >= self.repeat_threshold]
-        max_risk = max((row["risk"] for row in risks), default=0.0)
+        max_risk = max(risk_scores, default=0.0)
         covenant_alert = bool(max_risk >= self.escalation_threshold or cascade_alerts)
 
         report = {
