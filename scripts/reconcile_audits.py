@@ -11,10 +11,13 @@ import subprocess
 import importlib.util
 import sys
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from sentientos.audit_doctor import AuditDoctorReport, diagnose, repair_baseline, repair_runtime, write_docket, write_report
 from sentientos.audit_sink import resolve_audit_paths
+
+if TYPE_CHECKING:
+    from sentientos.audit_reconcile import AuditReconcileResult as TypedAuditReconcileResult
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,7 +49,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> str:
     return str(path.relative_to(REPO_ROOT))
 
 
-def _write_docket(result: object, verify_output: str, *, doctor_report_path: str | None = None, doctor_docket_path: str | None = None) -> str:
+def _write_docket(result: TypedAuditReconcileResult, verify_output: str, *, doctor_report_path: str | None = None, doctor_docket_path: str | None = None) -> str:
     docket_path = FORGE_DIR / f"audit_docket_{_ts()}.json"
     payload: dict[str, object] = {"kind": "audit_docket", "verify_output": verify_output, **result_to_json(result)}
     if doctor_report_path:
@@ -62,15 +65,16 @@ def _run_verify() -> tuple[int, str]:
     return completed.returncode, output
 
 
-def _merge_results(primary: object, parsed: object) -> object:
-    primary_obj = primary  # type: ignore[assignment]
-    parsed_obj = parsed  # type: ignore[assignment]
-    findings = list(primary_obj.findings)
-    findings.extend(parsed_obj.findings)
-    status = primary_obj.status
-    if primary_obj.status == "clean" and parsed_obj.status != "clean":
-        status = parsed_obj.status
-    return AuditReconcileResult(status=status, findings=findings, artifacts_written=list(primary_obj.artifacts_written))
+def _merge_results(
+    primary: TypedAuditReconcileResult,
+    parsed: TypedAuditReconcileResult,
+) -> TypedAuditReconcileResult:
+    findings = list(primary.findings)
+    findings.extend(parsed.findings)
+    status = primary.status
+    if primary.status == "clean" and parsed.status != "clean":
+        status = parsed.status
+    return AuditReconcileResult(status=status, findings=findings, artifacts_written=list(primary.artifacts_written))
 
 
 def _accept_drift(reason: str) -> int:
@@ -104,7 +108,12 @@ def _doctor_flow() -> tuple[Literal["repaired", "needs_decision", "failed"], str
         baseline_after, baseline_action = repair_baseline(REPO_ROOT, sink.baseline_path)
         if baseline_action is not None:
             actions.append(baseline_action)
-    samples = [str(item.get("sample", "")) for item in findings.get("runtime_findings", []) if isinstance(item, dict)]
+    runtime_findings = findings.get("runtime_findings")
+    samples = (
+        [str(item.get("sample", "")) for item in runtime_findings if isinstance(item, dict)]
+        if isinstance(runtime_findings, list)
+        else []
+    )
     docket_path = None
     if actions:
         docket_path = write_docket(REPO_ROOT, sink.runtime_path, actions, samples)

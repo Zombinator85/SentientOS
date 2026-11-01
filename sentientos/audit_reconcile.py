@@ -59,7 +59,13 @@ def _sha256_text(text: str) -> str:
 
 def _git_head_text(repo_root: Path, path: Path) -> str | None:
     rel = path.relative_to(repo_root)
-    completed = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], check=False, capture_output=True, text=True)
+    completed = subprocess.run(
+        ["git", "show", f"HEAD:{rel.as_posix()}"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     if completed.returncode != 0:
         return None
     return completed.stdout
