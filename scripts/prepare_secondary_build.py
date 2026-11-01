@@ -329,19 +329,21 @@ def _verify_cuda_runtime(
         encoding="utf-8",
         creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
     ) as proc:
-        assert proc.stdout is not None
+        stdout = proc.stdout
+        if stdout is None:
+            raise RuntimeError("llama-server stdout pipe was not created")
 
         log_queue: queue.Queue[str] = queue.Queue()
         stop_event = threading.Event()
 
         def _pump_stdout() -> None:
             try:
-                for line in proc.stdout:
+                for line in stdout:
                     log_queue.put(line.rstrip())
                     if stop_event.is_set():
                         continue
             finally:
-                proc.stdout.close()
+                stdout.close()
 
         reader = threading.Thread(target=_pump_stdout, name="llama-server-log", daemon=True)
         reader.start()

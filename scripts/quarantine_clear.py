@@ -14,7 +14,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_incident import (
     build_base_context, build_incident, inspect_quarantine_incident_custody,
 )
-from sentientos.integrity_quarantine import QuarantineStateError, clear, load_state
+from sentientos.integrity_quarantine import QuarantineState, QuarantineStateError, clear, load_state
 from sentientos.receipt_anchors import verify_receipt_anchors
 from sentientos.receipt_chain import verify_receipt_chain
 from sentientos.remediation_pack import find_pack_for_incident_or_trace, remediation_status_for_pack
@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         if pack_id:
             remediation_status, remediation_run = remediation_status_for_pack(root, pack_id=pack_id)
 
-    checks["quarantine_remediation"] = {
+    remediation_check: dict[str, object] = {
         "required": require_remediation,
         "override": override,
         "incident_id": quarantine.last_incident_id,
@@ -127,14 +127,15 @@ def main(argv: list[str] | None = None) -> int:
         "remediation_run_path": remediation_run.get("report_path") if remediation_run is not None else None,
         "status": remediation_status,
     }
+    checks["quarantine_remediation"] = remediation_check
 
     if require_remediation:
         if linked_pack is None:
             failures.append("remediation_incomplete")
-            checks["quarantine_remediation"]["expected_pack_hint"] = "pulse/remediation_packs.jsonl linked by incident_id/governance_trace_id"
+            remediation_check["expected_pack_hint"] = "pulse/remediation_packs.jsonl linked by incident_id/governance_trace_id"
         elif remediation_status != "completed":
             failures.append("remediation_incomplete")
-            checks["quarantine_remediation"]["expected_run_hint"] = (
+            remediation_check["expected_run_hint"] = (
                 f"glow/forge/remediation/runs/run_*_{linked_pack.get('pack_id')}.json"
             )
 
@@ -207,7 +208,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    state = admission.handler_result
+    state_result = admission.handler_result
+    if not isinstance(state_result, QuarantineState):
+        print(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "failures": ["quarantine_clear_result_missing"],
+                    "checks": checks,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 1
+    state = state_result
     override_note = ""
     if override and "remediation_incomplete" in failures:
         override_note = " remediation override used"

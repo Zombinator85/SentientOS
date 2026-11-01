@@ -59,14 +59,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         dry_run=args.dry_run,
         created_at=args.created_at,
     )
-    payload = summarize_builtin_runner_transaction_wing(records) if args.summary else {
-        "policy": records.policy.to_dict(),
-        "plan": records.plan.to_dict(),
-        "request": records.request.to_dict(),
-        "result": records.result.to_dict() if records.result else None,
-        "receipt": records.receipt.to_dict() if records.receipt else None,
-        "closure_report": records.closure_report.to_dict() if records.closure_report else None,
-    }
+    payload: dict[str, object]
+    if args.summary:
+        payload = summarize_builtin_runner_transaction_wing(records)
+    else:
+        payload = {
+            "policy": records.policy.to_dict(),
+            "plan": records.plan.to_dict(),
+            "request": records.request.to_dict(),
+            "result": records.result.to_dict() if records.result else None,
+            "receipt": records.receipt.to_dict() if records.receipt else None,
+            "closure_report": records.closure_report.to_dict() if records.closure_report else None,
+        }
     if args.summary and workspace_mode:
         payload["workspace_transaction_orchestrator_only"] = True
         payload["single_target_scope"] = "one explicit relative target inside one explicit workspace root"
