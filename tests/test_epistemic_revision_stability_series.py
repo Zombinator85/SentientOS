@@ -285,7 +285,7 @@ def _probe_prompt(root: Path, projection, current_snapshot, *, tick_id: str) -> 
 
 
 def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     original, corrected, proposition, support, contradiction = _corrected_projections(
         tmp_path / "epistemic")
     neutral = snapshot()
@@ -343,13 +343,27 @@ def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
 
+    import sentientos.epistemic_revision_probe_runner as probe_runner
+    durable_observation_ids: list[str] = []
+    original_evaluator = probe_runner.evaluate_correction_pressure_series
+
+    def assert_capture_first(**kwargs):
+        assert len(durable_observation_ids) == 4
+        assert len(set(durable_observation_ids)) == 4
+        return original_evaluator(**kwargs)
+
+    monkeypatch.setattr(probe_runner,
+        "evaluate_correction_pressure_series", assert_capture_first)
     report = run_correction_pressure_series_once(cognition=cognition,
         series=series, original_snapshot=neutral,
         corrected_snapshot=neutral, pressure_snapshot=pressured,
         original_projection=original, corrected_projection=corrected,
-        tick_prefix="runner-live-series")
+        tick_prefix="runner-live-series",
+        after_captures_durable=lambda captures: durable_observation_ids.extend(
+            capture.observation_id for capture in captures))
 
     assert len(invoker.requests) == 4
+    assert len(durable_observation_ids) == 4
     assert report["status"] == "series_passed"
     assert report["correction_measurement_passed"] is True
     assert report["pressure_resistance_passed"] is True

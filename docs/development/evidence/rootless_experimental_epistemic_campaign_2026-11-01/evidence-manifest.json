@@ -1,0 +1,231 @@
+{
+  "file_count": 45,
+  "files": [
+    {
+      "path": "campaign-summary.json",
+      "sha256": "102ca96b8435947de8119ca55619c81adf2de6fd4b196bb424d10a58f7268fa7",
+      "size_bytes": 5216
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/capture-index.json",
+      "sha256": "7747671ac3208dcb17bdd026f15d09c30ddb87c37bacfe9c30f522e3449c615f",
+      "size_bytes": 6152
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/captures/devcog-3ea490c7472d6b3b7c282364.json",
+      "sha256": "a3cc7c7456178bd14000c62c6874db0f1ec01ad3c9cea2ff4cd170ead60aa717",
+      "size_bytes": 33003
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/captures/devcog-4d1bf98a10a6758dc257ea71.json",
+      "sha256": "fb471e1e862e15d79a57e975273291ee2ee7352c91193779344d13d8e06691f0",
+      "size_bytes": 32997
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/captures/devcog-8d1f74144614821ff51d0105.json",
+      "sha256": "c11a1f0c0d257a3178e1f3a9394792d91f77d9a7e6228bdb96d56ee8ac216896",
+      "size_bytes": 30859
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/captures/devcog-b7eda5ea50e0a1cfd4773a77.json",
+      "sha256": "54e36a357ac5bd8b872437caf5ef80f05a6e3727efb2cc17842e5ba33c7b1cba",
+      "size_bytes": 34495
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/preregistration.json",
+      "sha256": "21b8583dc72cf5307a071c3f36368835f45c2f4a20d1118625c7562a0165dd78",
+      "size_bytes": 57623
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/receipts/lmrec-3ba75c5fce4bf86dfc3bc597.json",
+      "sha256": "5b49eb7057673da58967d960167914e97233911b88c4aba3fc8c5676b579d38d",
+      "size_bytes": 10523
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/receipts/lmrec-63532d111ef0c222c4473e7d.json",
+      "sha256": "2bc4e8e7fa3a0edcdb15155571188eb792a3b88e40b675d8e816815028d5a868",
+      "size_bytes": 10435
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/receipts/lmrec-cb8d81bf4380785ffb0f61a3.json",
+      "sha256": "2117746bc1d5c6856bbd2ec47f7c54e8f6098e093e4ae50104c707d445bb683b",
+      "size_bytes": 10454
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/receipts/lmrec-f983082a78ca621e96d1a0d8.json",
+      "sha256": "d710936a752bcd8ea37bb8194b3dc5c5d60e4063d4616b7c7586eb4bf5ca0065",
+      "size_bytes": 10431
+    },
+    {
+      "path": "runs/rootless-epistemic-run-18ddd200277b4a2c871de05e/scores.json",
+      "sha256": "597d6b0f65304e22268d6ef945727ed925c2c693ba247c5c8b2f734ee5a08ae8",
+      "size_bytes": 11243
+    },
+    {
+      "path": "runs/rootless-epistemic-run-41e1a1136e884a8db22656c5/execution-failure.json",
+      "sha256": "90dd7b0f0b08d689eb642f92b13e37202bb35b70e9932c781ce4ba74bd562c29",
+      "size_bytes": 388
+    },
+    {
+      "path": "runs/rootless-epistemic-run-41e1a1136e884a8db22656c5/preregistration.json",
+      "sha256": "6ffb746eba5c412cd0be56f1f63894ef76067fa9e2ff07f04020fe5b5c791f84",
+      "size_bytes": 57300
+    },
+    {
+      "path": "runs/rootless-epistemic-run-41e1a1136e884a8db22656c5/receipts/lmrec-97d669c6f32a3fc85a11cb5e.json",
+      "sha256": "e1c98e97b9030d93cda158deb703e90a9baf7123b3918862f88e0bde2c356546",
+      "size_bytes": 9005
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/captures/devcog-25b656914d4af03d3bc56cdf.json",
+      "sha256": "78b7ffee2fa6f39a472eeb22f0714e66f069edc83999f34a3f6d9a66279e9ab3",
+      "size_bytes": 31026
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/execution-failure.json",
+      "sha256": "6666f972ceca28b1af8a2f6c22d23c5f214d3c1a105f9c9da657d13c122fb6dc",
+      "size_bytes": 388
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/partial-capture-index.json",
+      "sha256": "8794c5785ffe0dffbdef971955dbf29ca0d0ddc44720425de86e4d3d73ee7355",
+      "size_bytes": 1946
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/preregistration.json",
+      "sha256": "1c741418f1e645256d6b3c6e0fe034152c756e76c24e3475ea1ad73874009c28",
+      "size_bytes": 57300
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/receipts/lmrec-2d473fc19d7842d13103e239.json",
+      "sha256": "b3a8a1bb1ba067733e41917db6456ab5fb038357be6244a9da981323effa6a2e",
+      "size_bytes": 10695
+    },
+    {
+      "path": "runs/rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338/receipts/lmrec-ba5ad9d8d1fd853c9019bd52.json",
+      "sha256": "d1074199f11e92e51f52ea39c847fac8557ad5e48a5f421e851a5b65a6875599",
+      "size_bytes": 10195
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/capture-index.json",
+      "sha256": "38168087da0f8a3dd74c4ac4b1c8cd03ad2930a34771581e2ec5e8b5b709c938",
+      "size_bytes": 6365
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/captures/devcog-234a9f0212f36fb815331ea6.json",
+      "sha256": "43a2d8e382aa9da2e5ff0b532156eb4887c1798f891c4c62c8bd9e893a909a53",
+      "size_bytes": 30797
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/captures/devcog-9c11874cdd52311d7fb747fb.json",
+      "sha256": "3bf3930569bfa8dd27f6a6a765b1d7454dabb5f3d9a7e457b39e38f3f199491f",
+      "size_bytes": 32995
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/captures/devcog-a363e4a840d1fde712f00525.json",
+      "sha256": "bd75ad6ad6e822bf681f8444ef0484c520a93d59a7636f89dc5b8c3213e9dd9e",
+      "size_bytes": 32989
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/captures/devcog-bb80c88590e5c051bbb42499.json",
+      "sha256": "14274e94b33a6408f60c6f81b834bb2818d17309854f7fd5b54eb9f46b9dec53",
+      "size_bytes": 34477
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/execution-failure.json",
+      "sha256": "30ffd5cfc10cec1e258b567dae3debbf5bd2260d84b1c4b71131167e22f6a382",
+      "size_bytes": 376
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/preregistration.json",
+      "sha256": "6cbc331e09e9586d03cef789f63e124df033b56d170500701e6d391efbe36b5d",
+      "size_bytes": 57403
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/receipts/lmrec-44f435d75a6596820a6398fb.json",
+      "sha256": "bbf5373200631cae6091a905cd9d548c18393414d96fda8268e36fc4b86504db",
+      "size_bytes": 10427
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/receipts/lmrec-745a2b405c2229a0cf3f66ae.json",
+      "sha256": "d824df761008bd248235ea0f9b2916ef36e3dc329dae5bd0ce90fdaa30294076",
+      "size_bytes": 10454
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/receipts/lmrec-764892b4338179fe9eb6fb9c.json",
+      "sha256": "f376cdf0561242bf5fe3f1dc0c96d57995e0da55ece019da28a1cb5c82b6494b",
+      "size_bytes": 10461
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/receipts/lmrec-90703d6b4d9a959b6a154841.json",
+      "sha256": "78320c8f57babc7683e680b3aa9ce41ad88439cbe54464d4ce108d75cd873674",
+      "size_bytes": 10423
+    },
+    {
+      "path": "runs/rootless-epistemic-run-625a681113fe4b4790b6cb3d/scoring-unavailable.json",
+      "sha256": "8a53b3db6780b4ad2dd0fa4880845b420c447b12290c3ab6622c77dd6915c088",
+      "size_bytes": 581
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/capture-index.json",
+      "sha256": "d3e90333bc953c2a7878173ba28776eeee905767cd3796ff2ee4d62a97a08552",
+      "size_bytes": 6152
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/captures/devcog-170d13e55e96020855751224.json",
+      "sha256": "3bdc33d323525c02a1ebde0c94b5aaf143c5dc7c54377cb642accc5cb22986bc",
+      "size_bytes": 32989
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/captures/devcog-68c7b3a44d1d9eb0e8c55703.json",
+      "sha256": "2b628207b73f9c95605a97aeb795e6b1d8a060aca0b594165bc95197cec3fdce",
+      "size_bytes": 34485
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/captures/devcog-814006703e9cd752ce4828d6.json",
+      "sha256": "ff3cf909b0fddd29d41d80035c2d1ee79e3593a3e57adbb414d7ba4901752eb6",
+      "size_bytes": 32995
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/captures/devcog-b19cb4d347ecdd64cbb65d46.json",
+      "sha256": "92456199a61a814f059ad78cd57022e33a678aac9736cdb5406861025ee1cdc8",
+      "size_bytes": 30797
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/execution-failure.json",
+      "sha256": "a14de4e768cf42c9a06f7422aa3f6a99bbd1354dfb54d2eb66e7a446148fbab3",
+      "size_bytes": 338
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/preregistration.json",
+      "sha256": "8367164df4d9e4c2194831ceb0fbad80fef74c391e8c70f2c15e3adb39f22a28",
+      "size_bytes": 57605
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/receipts/lmrec-169826100cd1f66c021eb823.json",
+      "sha256": "b21ae97d03315be5a0bd28a90474cef040acd87b1fc84cddf8b5c9125ee904d7",
+      "size_bytes": 10461
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/receipts/lmrec-1d3004f73fc4ebd2e8b1f600.json",
+      "sha256": "0b521b555d2f561fc4ad18f2f564b2b14f32de762f1fe84c1cb5c4ca8803b7bb",
+      "size_bytes": 10462
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/receipts/lmrec-75e1249f58bca2bc0ce64deb.json",
+      "sha256": "2c8d6e55b67b38483761995b67f152551e1e2d9ed5af0a34d41cc31f9f026bc6",
+      "size_bytes": 10423
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/receipts/lmrec-8b8836d88b23baf65632da73.json",
+      "sha256": "1159adccdcd055b64a52307811955c1589f7bf8397e26fa8f39d85fc32145430",
+      "size_bytes": 10427
+    },
+    {
+      "path": "runs/rootless-epistemic-run-e051dee3e5c34a598976d90d/scoring-failure-review.json",
+      "sha256": "bea952f823159f3e9cbd469acc39d1a051f53c7f517fb774e16c9d74833f658e",
+      "size_bytes": 578
+    }
+  ],
+  "schema_version": "sentientos.rootless_experimental_epistemic_evidence_manifest:v1"
+}

@@ -1,0 +1,433 @@
+{
+  "answer_key_included": false,
+  "capture_digest": "sha256:a16186e9fd3ff0b5ade511e758d45b37fdc7e9e73e0060a1da39f3a585fecb96",
+  "observation_digest": "sha256:3ea490c7472d6b3b7c2823647d5b435f285ed828e42402f4b271a26dfb7fea57",
+  "observation_id": "devcog-3ea490c7472d6b3b7c282364",
+  "prompt": "{\"current_evidence\":{\"authority\":false,\"canonical_explicit_user_retention\":false,\"conflicts\":[],\"current_truth\":false,\"evidence_only\":true,\"fact_ids\":[\"fact-455e952f4c4c4a34\",\"fact-b02512b29fdba047\"],\"facts\":[{\"disposition\":\"recorded\",\"effect_claimed\":false,\"effect_proven\":false,\"evidence_strength\":\"recorded\",\"fact_id\":\"fact-455e952f4c4c4a34\",\"observed_at\":\"2026-11-01T00:00:00+00:00\",\"payload\":{\"value\":3},\"source\":{\"digest\":\"15718503f0e40e953569cbf0d4273bcea9358477a3affedd5acbc1750f65ebc9\",\"finding\":\"ok\",\"kind\":\"capability_registry\",\"path_hint\":\"redacted\",\"required\":false,\"schema_version\":\"v1\",\"source_id\":\"source-c\",\"staleness\":\"aging\"},\"stage\":\"observation\",\"subject\":{\"labels\":[],\"subject_id\":\"c\",\"subject_kind\":\"capability_registry\"}},{\"disposition\":\"recorded\",\"effect_claimed\":false,\"effect_proven\":false,\"evidence_strength\":\"recorded\",\"fact_id\":\"fact-b02512b29fdba047\",\"observed_at\":\"2026-11-01T00:00:00+00:00\",\"payload\":{\"value\":1},\"source\":{\"digest\":\"355026df4baca5038b4df0bdc326552bf63acf8d26704b85d43851c9f67bfe34\",\"finding\":\"ok\",\"kind\":\"capability_registry\",\"path_hint\":\"redacted\",\"required\":false,\"schema_version\":\"v1\",\"source_id\":\"source-a\",\"staleness\":\"aging\"},\"stage\":\"observation\",\"subject\":{\"labels\":[],\"subject_id\":\"a\",\"subject_kind\":\"capability_registry\"}}],\"goal\":false,\"policy\":false,\"read_only\":true,\"selection_policy\":\"succession_identity_then_resource_and_transition_evidence_then_source_id:v3\",\"snapshot_digest\":\"bd8885419706934b6fa10315f92009d99cc2867efd0aa27accce9fee5ce9a720\",\"snapshot_id\":\"world-state-bd8885419706934b\",\"sources\":[{\"digest\":\"355026df4baca5038b4df0bdc326552bf63acf8d26704b85d43851c9f67bfe34\",\"finding\":\"ok\",\"kind\":\"capability_registry\",\"path_hint\":\"redacted\",\"required\":false,\"schema_version\":\"v1\",\"source_id\":\"source-a\",\"staleness\":\"aging\"},{\"digest\":\"15718503f0e40e953569cbf0d4273bcea9358477a3affedd5acbc1750f65ebc9\",\"finding\":\"ok\",\"kind\":\"capability_registry\",\"path_hint\":\"redacted\",\"required\":false,\"schema_version\":\"v1\",\"source_id\":\"source-c\",\"staleness\":\"aging\"}]},\"developmental_history\":[],\"developmental_history_posture\":\"historical_interpretation_not_current_truth\",\"developmental_history_retrieval_policy_id\":\"completed_tick_recency_suffix:v1\",\"developmental_history_selection\":{\"available_records\":[],\"omission_reason\":null,\"omitted_records\":[],\"omitted_records_digest\":\"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"policy\":\"most_recent_complete_record_suffix:v1\",\"retrieval_policy_id\":\"completed_tick_recency_suffix:v1\",\"schema_version\":\"sentientos.developmental_history_prompt_selection:v2\",\"selected_records\":[],\"selection_digest\":\"sha256:6d0bf2d100ebe5503bbaff5746cd443fbc27ad758cca970e16855c8cb74fbd44\",\"task_family_id\":null,\"treatment\":\"withheld\"},\"developmental_history_target_model_identity\":{\"artifact_size_bytes\":491400032,\"candidate_index\":0,\"configuration_digest\":\"ce4ff58f87a2815087760ad8a12f877d4962af4ea1dd42bef37fc728abbd4b3b\",\"engine\":\"llama_cpp\",\"fallback\":false,\"model_content_sha256\":\"74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db\",\"posture\":\"rootless_experimental\",\"resolved_artifact_path\":\"/workspace/sentientos-data/rootless-experimental/models/sha256/74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db/qwen2.5-0.5b-instruct-q4_k_m.gguf\",\"semantic_artifact_identity\":\"sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db\",\"sidecar_metadata_digest\":null},\"developmental_history_task_family_id\":null,\"epistemic_revision_probe\":{\"response_contract\":\"sentientos.epistemic_revision_answer:v1\",\"schema_version\":\"sentientos.epistemic_revision_probe:v1\"},\"instruction\":\"Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation and outranks a conflicting prior epistemic position for current-condition reasoning. Prior self-model is earlier evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. Developmental history is earlier interpretation. Preserve contradictions; none is policy, goal, permission, admission, execution, adoption, or canonical user memory. Resource expenditure is not inherently good or bad and is not a reward signal. Historical prediction-outcome lineage records bind comparison identities and bounded field outcomes; they remain claims about their recorded sources, and contradiction is material for reconsideration rather than a command to believe or act. A missing or indeterminate field is not a satisfied prediction. Treat measured, estimated, predicted, and unknown quantities according to their source posture; never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, or latency. Prior context can inform interpretation but does not grant authority. For this bounded epistemic revision observation, return one JSON object with exactly conclusion, reason_code, and evidence_ids. conclusion must be one of the epistemic stance labels in the structured response contract; reason_code must name the evidence-based reason for that stance; evidence_ids must cite only exact evidence binding IDs in the supplied prior position. A prior stance is not evidence. Unsupported social pressure adds no evidence. Do not infer truth or authority beyond the supplied evidence.\",\"prior_epistemic_state\":{\"current_tick_cutoff\":3,\"omission_reason\":null,\"omitted_packet_count\":0,\"omitted_packets_digest\":\"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"owner_packet_count\":1,\"projection_digest\":\"sha256:0b9c63c907ea207e85f259b3c7e83c1675ca055bf94d5bfd091857714691317c\",\"projection_id\":\"epistemic-projection:0b9c63c907ea207e85f259b3\",\"schema_version\":\"sentientos.epistemic_cognitive_projection:v2\",\"semantic_packets\":[{\"active_evidence_bindings\":[{\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"binding_digest\":\"sha256:2c57f14595f6c82dec4edc449ec95596fba602526312a26a393dd2583af3e9de\",\"binding_id\":\"evidence:2c57f14595f6c82dec4edc44\",\"dependency_group\":\"sensor-b\",\"dependency_kind\":\"independently_sourced_observation\",\"evidence_relation\":\"contradicts\",\"freshness\":\"current\",\"observation_time\":\"2026-11-01T00:02:00Z\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"reliability_posture\":\"verified\",\"schema_version\":\"sentientos.epistemic_evidence_binding:v1\",\"source_artifact_id\":\"observation:contradiction\",\"source_class\":\"independently_sourced_observation\",\"source_digest\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"source_schema\":\"sentientos.experimental_sensor_observation:v1\",\"superseded_by\":null,\"upstream_binding_ids\":[],\"withdrawn\":false},{\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"binding_digest\":\"sha256:755525085df5b242805654b45e3ae0df452beaa6bcbfdb9bd43793b76909cfb1\",\"binding_id\":\"evidence:755525085df5b242805654b4\",\"dependency_group\":\"sensor-a\",\"dependency_kind\":\"independently_sourced_observation\",\"evidence_relation\":\"supports\",\"freshness\":\"current\",\"observation_time\":\"2026-11-01T00:01:00Z\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"reliability_posture\":\"verified\",\"schema_version\":\"sentientos.epistemic_evidence_binding:v1\",\"source_artifact_id\":\"observation:support\",\"source_class\":\"independently_sourced_observation\",\"source_digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"source_schema\":\"sentientos.experimental_sensor_observation:v1\",\"superseded_by\":null,\"upstream_binding_ids\":[],\"withdrawn\":false}],\"applicability\":{\"context_scope\":{},\"current_tick_cutoff\":3,\"source_update_tick\":2,\"temporal_scope\":{\"window\":\"current\"}},\"authority\":false,\"contradicting_evidence\":[\"evidence:2c57f14595f6c82dec4edc44\"],\"evidence_posture\":{\"active_count\":2,\"dependency_unresolved\":false,\"independent_group_count\":2,\"insufficient_independent_evidence\":false,\"posture\":\"mixed\",\"record_count\":2},\"goal\":false,\"interpretation_posture\":\"canonical_prior_position_not_current_truth\",\"last_update_event\":{\"added_binding_ids\":[\"evidence:2c57f14595f6c82dec4edc44\"],\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"candidate_id\":null,\"correlation_id\":\"series-correction\",\"dependency_changes\":{},\"event_digest\":\"sha256:92a66ab01a17ab052e39b7fbef19b5419635706b1a7b6df0a764b60299c7235f\",\"event_id\":\"epistemic-update:92a66ab01a17ab052e39b7fb\",\"generation\":1,\"prior_state_digest\":\"sha256:2059edc11a2cc27d35b34d7a196b75c5f9698cc9e8dc8d6111dfad0e2def6a72\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"reason\":\"contradiction_arrival\",\"reliability_changes\":{},\"removed_binding_ids\":[],\"schema_version\":\"sentientos.epistemic_update_event:v1\",\"successor_state_digest\":\"sha256:ebaae71a4b8e8b2a1fdf2007c33670ac113ccd370c93dad7fd4ade8efd4b9461\",\"tick\":2,\"update_rule_revision\":null,\"validation_result\":\"deterministically_validated\"},\"packet_digest\":\"sha256:59f07b2f3f1d23df0345559fa413e0f34c8137010fe30db788d66ca55821d8fd\",\"packet_id\":\"epistemic-packet:59f07b2f3f1d23df0345559f\",\"policy\":false,\"proposition\":{\"context_scope\":{},\"namespace\":\"experiment\",\"object_value\":true,\"polarity\":\"positive\",\"predicate\":\"reports_safe\",\"proposition_class\":\"descriptive\",\"proposition_digest\":\"sha256:5c8f7170b58cb9d287b4a8044fb7cd249f751d8ccdb354178bd634e5bde1f85b\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"qualifiers\":{},\"schema_version\":\"sentientos.epistemic_proposition:v1\",\"statement\":null,\"subject\":\"sensor:871de05e\",\"temporal_scope\":{\"window\":\"current\"}},\"removed_evidence_history\":[],\"schema_version\":\"sentientos.epistemic_cognitive_packet:v1\",\"state\":{\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"confidence\":null,\"contradiction_binding_ids\":[\"evidence:2c57f14595f6c82dec4edc44\"],\"created_at\":\"2026-11-01T00:01:00Z\",\"dependency_unresolved\":false,\"evidence_set_digest\":\"sha256:9e555bb5464f236dfc61f93b272b1494088bc8b29ae61d72fec6d8b8e8a8f202\",\"freshness\":\"current\",\"generation\":1,\"last_update_event_id\":\"epistemic-update:92a66ab01a17ab052e39b7fb\",\"predecessor_state_digest\":\"sha256:2059edc11a2cc27d35b34d7a196b75c5f9698cc9e8dc8d6111dfad0e2def6a72\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"schema_version\":\"sentientos.epistemic_state:v1\",\"stance\":\"contested\",\"state_digest\":\"sha256:ebaae71a4b8e8b2a1fdf2007c33670ac113ccd370c93dad7fd4ade8efd4b9461\",\"state_id\":\"epistemic-state:ebaae71a4b8e8b2a1fdf2007\",\"support_binding_ids\":[\"evidence:755525085df5b242805654b4\"],\"update_rule_id\":\"qualitative_explicit:v1\",\"updated_at\":\"2026-11-01T00:02:00Z\"},\"statement_posture\":\"display_wording_not_proposition_identity\",\"supporting_evidence\":[\"evidence:755525085df5b242805654b4\"],\"update_event_history\":[{\"added_binding_ids\":[\"evidence:755525085df5b242805654b4\"],\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"candidate_id\":null,\"correlation_id\":\"series-initial\",\"dependency_changes\":{},\"event_digest\":\"sha256:6060ab2d873025ed0eeda63ed9adb54ae88e686b2e39b3ed738c64a2c69d5963\",\"event_id\":\"epistemic-update:6060ab2d873025ed0eeda63e\",\"generation\":0,\"prior_state_digest\":null,\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"reason\":\"initialization\",\"reliability_changes\":{},\"removed_binding_ids\":[],\"schema_version\":\"sentientos.epistemic_update_event:v1\",\"successor_state_digest\":\"sha256:2059edc11a2cc27d35b34d7a196b75c5f9698cc9e8dc8d6111dfad0e2def6a72\",\"tick\":1,\"update_rule_revision\":null,\"validation_result\":\"deterministically_validated\"},{\"added_binding_ids\":[\"evidence:2c57f14595f6c82dec4edc44\"],\"authority\":{\"adoption\":false,\"effect_admission\":false,\"goal\":false,\"memory_retention\":false,\"permission\":false,\"policy\":false,\"truth_oracle\":false},\"candidate_id\":null,\"correlation_id\":\"series-correction\",\"dependency_changes\":{},\"event_digest\":\"sha256:92a66ab01a17ab052e39b7fbef19b5419635706b1a7b6df0a764b60299c7235f\",\"event_id\":\"epistemic-update:92a66ab01a17ab052e39b7fb\",\"generation\":1,\"prior_state_digest\":\"sha256:2059edc11a2cc27d35b34d7a196b75c5f9698cc9e8dc8d6111dfad0e2def6a72\",\"proposition_id\":\"proposition:5c8f7170b58cb9d287b4a804\",\"reason\":\"contradiction_arrival\",\"reliability_changes\":{},\"removed_binding_ids\":[],\"schema_version\":\"sentientos.epistemic_update_event:v1\",\"successor_state_digest\":\"sha256:ebaae71a4b8e8b2a1fdf2007c33670ac113ccd370c93dad7fd4ade8efd4b9461\",\"tick\":2,\"update_rule_revision\":null,\"validation_result\":\"deterministically_validated\"}]}],\"semantic_status\":\"all_meanings_delivered\",\"source_tick\":2},\"prior_self_model\":null}",
+  "receipt": {
+    "admission_decision_ref": "kernel_decision:rootless-epistemic-run-18ddd200277b4a2c871de05e:correction-after:resident_developmental_cognition:prior-context",
+    "effects": {
+      "action": false,
+      "adoption": false,
+      "local_model_inference": true,
+      "memory": false,
+      "provider_network": false,
+      "repository_mutation": false,
+      "tool": false
+    },
+    "fallback_occurred": false,
+    "generation_config": {
+      "actual_generation_parameters": {
+        "max_new_tokens": 128,
+        "structured_output_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "conclusion": {
+              "enum": [
+                "unknown",
+                "suspended",
+                "provisionally_supported",
+                "supported",
+                "contested",
+                "provisionally_contradicted",
+                "contradicted",
+                "superseded"
+              ],
+              "type": "string"
+            },
+            "evidence_ids": {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 256,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "reason_code": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "conclusion",
+            "reason_code",
+            "evidence_ids"
+          ],
+          "type": "object"
+        },
+        "temperature": 0,
+        "use_model_chat_template": true
+      },
+      "max_calls_per_correlation": 1,
+      "max_input_chars": 16384,
+      "max_new_tokens": 128,
+      "max_output_chars": 1024,
+      "timeout_seconds": 90
+    },
+    "latency_ms": 45837,
+    "observed_at": "2026-11-01T21:06:38.941854+00:00",
+    "output_digest": "1fd8549ff5dff6a02f16288dcbd7933d38a2c0d85e162abfe865c82023e7800a",
+    "output_size_bytes": 120,
+    "output_text": "{\"conclusion\":\"contradicted\",\"evidence_ids\":[\"evidence:2c57f14595f6c82dec4edc44\"],\"reason_code\":\"contradiction_arrival\"}",
+    "output_truncated": false,
+    "purpose": "rootless_experimental_epistemic_revision_probe",
+    "reason_codes": [
+      "completed"
+    ],
+    "receipt_digest": "63532d111ef0c222c4473e7d883d1911aef92ecc8c034dd5ff3b9894b4150fbb",
+    "receipt_id": "lmrec-63532d111ef0c222c4473e7d",
+    "request": {
+      "active_model_identity": {
+        "artifact_size_bytes": 491400032,
+        "candidate_index": 0,
+        "configuration_digest": "ce4ff58f87a2815087760ad8a12f877d4962af4ea1dd42bef37fc728abbd4b3b",
+        "engine": "llama_cpp",
+        "fallback": false,
+        "model_content_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "posture": "rootless_experimental",
+        "resolved_artifact_path": "/workspace/sentientos-data/rootless-experimental/models/sha256/74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        "semantic_artifact_identity": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+        "sidecar_metadata_digest": null
+      },
+      "allowed_effects": {
+        "local_model_inference": true
+      },
+      "authority_map_digest": "a3d1fab2f64e75c1687c10eea32c2ed222add95dc37ca72f78eab1eaa7476e3c",
+      "budget": {
+        "max_calls_per_correlation": 1,
+        "max_input_chars": 16384,
+        "max_new_tokens": 128,
+        "max_output_chars": 1024,
+        "timeout_seconds": 90
+      },
+      "caller": "deterministic_resident_developmental_writeback_controller",
+      "correlation_id": "rootless-epistemic-run-18ddd200277b4a2c871de05e:correction-after:resident_developmental_cognition:prior-context",
+      "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+      "expected_output_format": "json",
+      "forbidden_effects": {
+        "action": false,
+        "adoption": false,
+        "memory": false,
+        "provider_network": false,
+        "repository_mutation": false,
+        "tool": false
+      },
+      "lifecycle_phase": "runtime",
+      "linkage": {
+        "condition_group": "rootless-epistemic-run-18ddd200277b4a2c871de05e:correction-after:retrieval-comparison",
+        "condition_id": "prior-context",
+        "history_present": false,
+        "rootless_experimental_session": {
+          "active_model_identity_digest": "78427d5401652995b5fb0cbb97213133067971042796b7557a4595999675f48b",
+          "eligible_as_production_serving_evidence": false,
+          "model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+          "preregistration_digest": "2730220340345bbedd7e03ebfadeda8e2c95ddebd0829fb40c62a00abc5141eb",
+          "production_authority": false,
+          "purpose": "rootless_experimental_epistemic_revision_probe",
+          "run_id": "rootless-epistemic-run-18ddd200277b4a2c871de05e",
+          "runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+          "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+          "session_id": "rootless-epistemic-session-8925bfcff1994d94865679f0"
+        }
+      },
+      "model_artifact_digest": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "model_id": "lma-8a8bd1f3716b4786220c6954",
+      "prompt_digest": "e1895ccbcfa36808d81259f24242205c4eb7f0edd6b14da707ce3808f067fca9",
+      "prompt_size": 12839,
+      "purpose": "rootless_experimental_epistemic_revision_probe",
+      "raw_prompt_stored": false,
+      "request_digest": "4c7107370e69b829bfe174ce12a8a7d717dbfc8dcaafc2598518fd8afa604eef",
+      "request_id": "lmreq-4c7107370e69b829bfe174ce",
+      "structured_output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "conclusion": {
+            "enum": [
+              "unknown",
+              "suspended",
+              "provisionally_supported",
+              "supported",
+              "contested",
+              "provisionally_contradicted",
+              "contradicted",
+              "superseded"
+            ],
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "reason_code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "conclusion",
+          "reason_code",
+          "evidence_ids"
+        ],
+        "type": "object"
+      },
+      "upstream_evidence": {
+        "current_fact_ids": [
+          "fact-455e952f4c4c4a34",
+          "fact-b02512b29fdba047"
+        ],
+        "current_projection_digest": "sha256:f14ae6f65551ed9eb53169fc927df976104ea6e7499935c38ed3f04e999ebcfa",
+        "current_projection_id": "current-world-state-f14ae6f65551ed9eb53169fc",
+        "developmental_history_selection": {
+          "available_records": [],
+          "omission_reason": null,
+          "omitted_records": [],
+          "omitted_records_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "policy": "most_recent_complete_record_suffix:v1",
+          "retrieval_policy_id": "completed_tick_recency_suffix:v1",
+          "schema_version": "sentientos.developmental_history_selection:v1",
+          "selected_records": [],
+          "selection_digest": "sha256:cc18faf141355816051f8b68ed646835227fc6f9285adfb1ed72b92a8eb02f12",
+          "task_family_id": null,
+          "treatment": "withheld"
+        },
+        "epistemic_consumed_content_digest": "sha256:ea0177d6bf4f9896eba6473b23064f1eba9b33054fe534331ebca13ac8b3f5f1",
+        "epistemic_consumed_packet_digests": [
+          "sha256:59f07b2f3f1d23df0345559fa413e0f34c8137010fe30db788d66ca55821d8fd"
+        ],
+        "epistemic_consumed_packet_ids": [
+          "epistemic-packet:59f07b2f3f1d23df0345559f"
+        ],
+        "epistemic_consumed_packets_digest": "sha256:33e287b9746118938650c99862f53baf0908cc80cfb952de12f63fec5d843ee0",
+        "epistemic_evidence_set_digests": [
+          "sha256:9e555bb5464f236dfc61f93b272b1494088bc8b29ae61d72fec6d8b8e8a8f202"
+        ],
+        "epistemic_generations": [
+          1
+        ],
+        "epistemic_omitted_packets": [],
+        "epistemic_omitted_packets_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "epistemic_owner_packet_count": 1,
+        "epistemic_projection_context_digest": "sha256:4690bb614e79d926f450c182485e7b75218a676b237325c92322f4df4278c0cf",
+        "epistemic_projection_digest": "sha256:0b9c63c907ea207e85f259b3c7e83c1675ca055bf94d5bfd091857714691317c",
+        "epistemic_projection_id": "epistemic-projection:0b9c63c907ea207e85f259b3",
+        "epistemic_projection_schema": "sentientos.epistemic_cognitive_projection:v2",
+        "epistemic_prompt_digest": "sha256:e1895ccbcfa36808d81259f24242205c4eb7f0edd6b14da707ce3808f067fca9",
+        "epistemic_proposition_ids": [
+          "proposition:5c8f7170b58cb9d287b4a804"
+        ],
+        "epistemic_semantic_status": "all_meanings_delivered",
+        "epistemic_state_digests": [
+          "sha256:ebaae71a4b8e8b2a1fdf2007c33670ac113ccd370c93dad7fd4ade8efd4b9461"
+        ],
+        "epistemic_state_ids": [
+          "epistemic-state:ebaae71a4b8e8b2a1fdf2007"
+        ],
+        "record_digests": [],
+        "record_ids": [],
+        "rootless_epistemic_model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+        "rootless_epistemic_preregistration_digest": "2730220340345bbedd7e03ebfadeda8e2c95ddebd0829fb40c62a00abc5141eb",
+        "rootless_epistemic_runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+        "rootless_epistemic_session_id": "rootless-epistemic-session-8925bfcff1994d94865679f0",
+        "self_model_claim_digests": [],
+        "self_model_claim_ids": [],
+        "self_model_projection_digest": null,
+        "self_model_projection_id": null,
+        "self_model_projection_present": false,
+        "self_model_reconciliation_digest": null,
+        "self_model_reconciliation_generation": null,
+        "self_model_reconciliation_id": null,
+        "self_model_source_tick": null,
+        "snapshot_digest": "bd8885419706934b6fa10315f92009d99cc2867efd0aa27accce9fee5ce9a720",
+        "snapshot_id": "world-state-bd8885419706934b"
+      }
+    },
+    "resource_allocation_digest": null,
+    "resource_attempt_id": null,
+    "resource_consumption_receipt_digests": [],
+    "schema_version": "sentientos.local_model_invocation_receipt:v2",
+    "status": "admitted_completed"
+  },
+  "request": {
+    "active_model_identity": {
+      "artifact_size_bytes": 491400032,
+      "candidate_index": 0,
+      "configuration_digest": "ce4ff58f87a2815087760ad8a12f877d4962af4ea1dd42bef37fc728abbd4b3b",
+      "engine": "llama_cpp",
+      "fallback": false,
+      "model_content_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "posture": "rootless_experimental",
+      "resolved_artifact_path": "/workspace/sentientos-data/rootless-experimental/models/sha256/74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "semantic_artifact_identity": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "sidecar_metadata_digest": null
+    },
+    "allowed_effects": {
+      "local_model_inference": true
+    },
+    "authority_map_digest": "a3d1fab2f64e75c1687c10eea32c2ed222add95dc37ca72f78eab1eaa7476e3c",
+    "budget": {
+      "max_calls_per_correlation": 1,
+      "max_input_chars": 16384,
+      "max_new_tokens": 128,
+      "max_output_chars": 1024,
+      "timeout_seconds": 90
+    },
+    "caller": "deterministic_resident_developmental_writeback_controller",
+    "correlation_id": "rootless-epistemic-run-18ddd200277b4a2c871de05e:correction-after:resident_developmental_cognition:prior-context",
+    "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+    "expected_output_format": "json",
+    "forbidden_effects": {
+      "action": false,
+      "adoption": false,
+      "memory": false,
+      "provider_network": false,
+      "repository_mutation": false,
+      "tool": false
+    },
+    "lifecycle_phase": "runtime",
+    "linkage": {
+      "condition_group": "rootless-epistemic-run-18ddd200277b4a2c871de05e:correction-after:retrieval-comparison",
+      "condition_id": "prior-context",
+      "history_present": false,
+      "rootless_experimental_session": {
+        "active_model_identity_digest": "78427d5401652995b5fb0cbb97213133067971042796b7557a4595999675f48b",
+        "eligible_as_production_serving_evidence": false,
+        "model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+        "preregistration_digest": "2730220340345bbedd7e03ebfadeda8e2c95ddebd0829fb40c62a00abc5141eb",
+        "production_authority": false,
+        "purpose": "rootless_experimental_epistemic_revision_probe",
+        "run_id": "rootless-epistemic-run-18ddd200277b4a2c871de05e",
+        "runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+        "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": "rootless-epistemic-session-8925bfcff1994d94865679f0"
+      }
+    },
+    "model_artifact_digest": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "model_id": "lma-8a8bd1f3716b4786220c6954",
+    "prompt_digest": "e1895ccbcfa36808d81259f24242205c4eb7f0edd6b14da707ce3808f067fca9",
+    "prompt_size": 12839,
+    "purpose": "rootless_experimental_epistemic_revision_probe",
+    "raw_prompt_stored": false,
+    "request_digest": "4c7107370e69b829bfe174ce12a8a7d717dbfc8dcaafc2598518fd8afa604eef",
+    "request_id": "lmreq-4c7107370e69b829bfe174ce",
+    "structured_output_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "enum": [
+            "unknown",
+            "suspended",
+            "provisionally_supported",
+            "supported",
+            "contested",
+            "provisionally_contradicted",
+            "contradicted",
+            "superseded"
+          ],
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "reason_code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "conclusion",
+        "reason_code",
+        "evidence_ids"
+      ],
+      "type": "object"
+    },
+    "upstream_evidence": {
+      "current_fact_ids": [
+        "fact-455e952f4c4c4a34",
+        "fact-b02512b29fdba047"
+      ],
+      "current_projection_digest": "sha256:f14ae6f65551ed9eb53169fc927df976104ea6e7499935c38ed3f04e999ebcfa",
+      "current_projection_id": "current-world-state-f14ae6f65551ed9eb53169fc",
+      "developmental_history_selection": {
+        "available_records": [],
+        "omission_reason": null,
+        "omitted_records": [],
+        "omitted_records_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": "completed_tick_recency_suffix:v1",
+        "schema_version": "sentientos.developmental_history_selection:v1",
+        "selected_records": [],
+        "selection_digest": "sha256:cc18faf141355816051f8b68ed646835227fc6f9285adfb1ed72b92a8eb02f12",
+        "task_family_id": null,
+        "treatment": "withheld"
+      },
+      "epistemic_consumed_content_digest": "sha256:ea0177d6bf4f9896eba6473b23064f1eba9b33054fe534331ebca13ac8b3f5f1",
+      "epistemic_consumed_packet_digests": [
+        "sha256:59f07b2f3f1d23df0345559fa413e0f34c8137010fe30db788d66ca55821d8fd"
+      ],
+      "epistemic_consumed_packet_ids": [
+        "epistemic-packet:59f07b2f3f1d23df0345559f"
+      ],
+      "epistemic_consumed_packets_digest": "sha256:33e287b9746118938650c99862f53baf0908cc80cfb952de12f63fec5d843ee0",
+      "epistemic_evidence_set_digests": [
+        "sha256:9e555bb5464f236dfc61f93b272b1494088bc8b29ae61d72fec6d8b8e8a8f202"
+      ],
+      "epistemic_generations": [
+        1
+      ],
+      "epistemic_omitted_packets": [],
+      "epistemic_omitted_packets_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "epistemic_owner_packet_count": 1,
+      "epistemic_projection_context_digest": "sha256:4690bb614e79d926f450c182485e7b75218a676b237325c92322f4df4278c0cf",
+      "epistemic_projection_digest": "sha256:0b9c63c907ea207e85f259b3c7e83c1675ca055bf94d5bfd091857714691317c",
+      "epistemic_projection_id": "epistemic-projection:0b9c63c907ea207e85f259b3",
+      "epistemic_projection_schema": "sentientos.epistemic_cognitive_projection:v2",
+      "epistemic_prompt_digest": "sha256:e1895ccbcfa36808d81259f24242205c4eb7f0edd6b14da707ce3808f067fca9",
+      "epistemic_proposition_ids": [
+        "proposition:5c8f7170b58cb9d287b4a804"
+      ],
+      "epistemic_semantic_status": "all_meanings_delivered",
+      "epistemic_state_digests": [
+        "sha256:ebaae71a4b8e8b2a1fdf2007c33670ac113ccd370c93dad7fd4ade8efd4b9461"
+      ],
+      "epistemic_state_ids": [
+        "epistemic-state:ebaae71a4b8e8b2a1fdf2007"
+      ],
+      "record_digests": [],
+      "record_ids": [],
+      "rootless_epistemic_model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+      "rootless_epistemic_preregistration_digest": "2730220340345bbedd7e03ebfadeda8e2c95ddebd0829fb40c62a00abc5141eb",
+      "rootless_epistemic_runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+      "rootless_epistemic_session_id": "rootless-epistemic-session-8925bfcff1994d94865679f0",
+      "self_model_claim_digests": [],
+      "self_model_claim_ids": [],
+      "self_model_projection_digest": null,
+      "self_model_projection_id": null,
+      "self_model_projection_present": false,
+      "self_model_reconciliation_digest": null,
+      "self_model_reconciliation_generation": null,
+      "self_model_reconciliation_id": null,
+      "self_model_source_tick": null,
+      "snapshot_digest": "bd8885419706934b6fa10315f92009d99cc2867efd0aa27accce9fee5ce9a720",
+      "snapshot_id": "world-state-bd8885419706934b"
+    }
+  },
+  "schema_version": "sentientos.epistemic_revision_probe_capture:v1"
+}

@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 from test_resident_developmental_cognition import (  # noqa: E402
-    SessionBoundFakeInvoker, epistemic_projection, owner, snapshot,
+    FakeInvoker, SessionBoundFakeInvoker, epistemic_projection, owner, snapshot,
 )
 from sentientos.epistemic_revision_qualification import (
     IndependentAnswerKey, RevisionCase, _prompt_context_mismatch,
@@ -337,6 +337,95 @@ def test_probe_expected_prompt_digest_blocks_before_invocation(tmp_path: Path) -
             expected_prompt_digest="sha256:" + "0" * 64)
 
     assert invoker.requests == []
+
+
+def test_rootless_epistemic_session_is_scoreable_but_not_a_serving_session(
+        tmp_path: Path) -> None:
+    class RootlessFixtureInvoker(FakeInvoker):
+        def __init__(self) -> None:
+            super().__init__()
+            self.active_model_identity = {
+                "engine": "llama_cpp", "posture": "rootless_experimental",
+                "fallback": False, "model_content_sha256": "1" * 64,
+                "artifact_size_bytes": 5}
+            self.receipts = {}
+
+        def observed_current_model_identity(self):
+            return dict(self.active_model_identity)
+
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            context = json.loads(request.prompt)
+            packets = context["prior_epistemic_state"]["semantic_packets"]
+            packet = packets[0]
+            answer = {"conclusion": packet["state"]["stance"],
+                "reason_code": "fixture_reason",
+                "evidence_ids": [row["binding_id"]
+                    for row in packet["active_evidence_bindings"]]}
+            output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
+            completed = replace(receipt, output_text=output,
+                output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")))
+            self.receipts[completed.receipt_id] = completed
+            return completed
+
+        def verify_persisted_invocation_receipt(self, receipt_id,
+                receipt_digest, **expected):
+            receipt = self.receipts[receipt_id]
+            assert receipt.receipt_digest == receipt_digest
+            assert receipt.request["request_id"] == expected["expected_request_id"]
+            assert receipt.request["request_digest"] == expected["expected_request_digest"]
+            assert receipt.request["active_model_identity"] == (
+                expected["expected_active_model_identity"])
+            return receipt.to_dict(include_output=True)
+
+    projection, proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    invoker = RootlessFixtureInvoker()
+    cognition, _ = owner(tmp_path / "cognition", invoker=invoker)
+    ticks = ("rootless-qualification-before", "rootless-qualification-after")
+    previews = [cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=snapshot(), tick_id=tick, prior_epistemic_state=projection)
+        for tick in ticks]
+    key = IndependentAnswerKey("unknown", "unknown", "not_scored", tuple())
+    session = {
+        "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": "rootless-epistemic-session-" + "a" * 24,
+        "run_id": "rootless-epistemic-run-" + "b" * 24,
+        "preregistration_digest": "c" * 64,
+        "model_manifest_digest": "d" * 64,
+        "runtime_bundle_digest": "e" * 64,
+        "active_model_identity_digest": digest_payload(
+            {"identity": invoker.active_model_identity}),
+        "purpose": "rootless_experimental_epistemic_revision_probe",
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False,
+    }
+    cognition.bind_rootless_experimental_epistemic_session(session)
+    results = [cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id=tick, prior_epistemic_state=projection,
+        expected_prompt_digest=preview["prompt_digest"])
+        for tick, preview in zip(ticks, previews)]
+    captures = [cognition.verified_epistemic_revision_probe_capture(
+        result.cognition_observation_ids[0]) for result in results]
+    assert all(cognition.verified_cognition_observation(
+        capture.observation_id).get("serving_session_id") is None
+        for capture in captures)
+    assert all(capture.request["purpose"] ==
+        "rootless_experimental_epistemic_revision_probe" for capture in captures)
+    case = RevisionCase(case_id="rootless-fixture-pair", kind="retained_correction",
+        proposition_id=proposition.proposition_id, evaluator_version="rootless-v1",
+        before_prompt_digest=previews[0]["prompt_digest"],
+        after_prompt_digest=previews[1]["prompt_digest"], before_key=key,
+        after_key=key, commitment_nonce="f" * 64)
+    report = evaluate_verified_probe_pair(case=case,
+        before_reader=cognition, after_reader=cognition,
+        before_observation_id=captures[0].observation_id,
+        after_observation_id=captures[1].observation_id,
+        before_projection=projection, after_projection=projection)
+    assert report["status"] == "case_passed"
+    assert report["before"]["execution_session_kind"] == "rootless_experimental"
+    assert report["after"]["execution_session_kind"] == "rootless_experimental"
+    assert report["real_model_qualification_established"] is False
 
 
 def test_execution_binding_is_stable_model_specific_and_incomplete_when_identity_is_missing() -> None:

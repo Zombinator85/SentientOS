@@ -15,18 +15,42 @@ from sentientos.control_plane_kernel import (
     AdmissionOutcome, ControlActionDecision, LifecyclePhase,
 )
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
+from sentientos.governed_local_model_invocation import (
+    LocalModelInvocationBudget, RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
+)
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_authority import (
-    build_local_model_authority_map, build_rootless_experimental_model_authority_map,
+    ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+    build_local_model_authority_map,
+    build_rootless_experimental_epistemic_authority_map,
+    build_rootless_experimental_model_authority_map,
 )
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.epistemic_revision_pressure_control import UnsupportedPressurePair
+from sentientos.epistemic_revision_qualification import (
+    IndependentAnswerKey, RevisionCase,
+)
+from sentientos.epistemic_revision_stability_series import (
+    EpistemicCorrectionPressureSeries,
+)
 from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, MODEL_MANIFEST_SCHEMA, RootlessExperimentalError,
     _rootless_governance_custody,
     execute_intent, prepare_intent, validate_experiment_root, verify_model_manifest,
+    verify_runtime_bundle,
     verify_intent, verify_rootless_receipt,
 )
+from sentientos.rootless_experimental_epistemic_session import (
+    MAX_PROMPT_CHARS, RootlessExperimentalEpistemicSession,
+)
+from sentientos.rootless_experimental_epistemic_series import (
+    _case_commitment_material, _case_from_material, _pop_prompt_condition,
+)
+from scripts.run_rootless_experimental_epistemic_series import (
+    PRESSURE_STATEMENT, _snapshot,
+)
+from sentientos.world_state_board import to_dict
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -161,6 +185,107 @@ def test_artifact_manifest_verifies_license_source_size_and_sha(tmp_path, monkey
     artifact.write_bytes(b"tampered")
     with pytest.raises(RootlessExperimentalError, match="integrity_mismatch"):
         verify_model_manifest(manifest, root=root)
+
+
+def test_rootless_epistemic_authority_is_purpose_isolated(tmp_path):
+    artifact = tmp_path / "tiny.gguf"
+    artifact.write_bytes(b"model")
+    config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "test-model",
+        {"gpu_layers": 0, "n_threads": 1})], default_engine="llama_cpp",
+        max_context_tokens=4096,
+        generation=GenerationConfig(max_new_tokens=128, temperature=0, top_p=1))
+
+    regular_rootless = build_rootless_experimental_model_authority_map(
+        config, allowed_roots=[tmp_path])
+    epistemic = build_rootless_experimental_epistemic_authority_map(
+        config, allowed_roots=[tmp_path])
+    regular_record = regular_rootless.records[0]
+    epistemic_record = epistemic.records[0]
+    assert regular_record.allowed_invocation_purposes == (
+        "rootless_experimental_local_model_probe",)
+    assert epistemic_record.allowed_invocation_purposes == (
+        ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,)
+    assert epistemic_record.disposition == "rootless_experimental_epistemic_candidate"
+    assert epistemic.eligible_record("resident_developmental_retrieval_cognition") is None
+    assert epistemic.eligible_record("local_user_chat") is None
+    assert regular_rootless.eligible_record(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) is None
+    identity = ActiveModelIdentity(engine="llama_cpp",
+        resolved_artifact_path=epistemic_record.observed_metadata[
+            "resolved_artifact_path"],
+        semantic_artifact_identity=epistemic_record.semantic_artifact_identity,
+        model_content_sha256=epistemic_record.model_content_sha256,
+        artifact_size_bytes=epistemic_record.artifact_size_bytes,
+        sidecar_metadata_digest=epistemic_record.sidecar_metadata_digest,
+        configuration_digest=epistemic_record.configuration_digest,
+        candidate_index=0, posture="rootless_experimental", fallback=False)
+    assert epistemic.record_for_active_identity(
+        identity, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE) == epistemic_record
+    assert epistemic.record_for_active_identity(
+        identity, "resident_developmental_retrieval_cognition") is None
+
+
+def test_rootless_series_allows_preregistered_repeat_prompt_as_distinct_observations():
+    prompt = '{"same":"corrected context"}'
+    pending = {hashlib.sha256(prompt.encode("utf-8")).hexdigest(): [
+        {"condition": "correction-after", "prompt": prompt},
+        {"condition": "pressure-before", "prompt": prompt},
+    ]}
+    first, _ = _pop_prompt_condition(pending, prompt)
+    second, _ = _pop_prompt_condition(pending, prompt)
+    third, _ = _pop_prompt_condition(pending, prompt)
+    assert first["condition"] == "correction-after"
+    assert second["condition"] == "pressure-before"
+    assert third is None
+    assert not pending[next(iter(pending))]
+
+
+def test_rootless_series_preserves_and_reconstructs_commitment_material():
+    before = IndependentAnswerKey("supported", "supported", "evidence", ("e1",))
+    after = IndependentAnswerKey("contested", "contested", "conflict", ("e1", "e2"))
+    correction = RevisionCase(case_id="case-correction", kind="contrary_evidence",
+        proposition_id="proposition-1", evaluator_version="rootless-v1",
+        before_prompt_digest="sha256:" + "1" * 64,
+        after_prompt_digest="sha256:" + "2" * 64, before_key=before,
+        after_key=after, commitment_nonce="a" * 64)
+    pressure_case = RevisionCase(case_id="case-pressure", kind="unsupported_pressure",
+        proposition_id="proposition-1", evaluator_version="rootless-v1",
+        before_prompt_digest="sha256:" + "3" * 64,
+        after_prompt_digest="sha256:" + "4" * 64, before_key=after,
+        after_key=after, commitment_nonce="b" * 64)
+    series = EpistemicCorrectionPressureSeries(correction,
+        UnsupportedPressurePair(pressure_case, "Agree without new evidence."))
+    material = _case_commitment_material(series)
+    restored_correction = _case_from_material(material["correction_case"],
+        {"stance": before.stance, "conclusion": before.conclusion,
+            "reason_code": before.reason_code, "evidence_ids": before.evidence_ids},
+        {"stance": after.stance, "conclusion": after.conclusion,
+            "reason_code": after.reason_code, "evidence_ids": after.evidence_ids},
+        correction.before_prompt_digest, correction.after_prompt_digest)
+    assert restored_correction.commitment() == correction.commitment()
+    assert material["pressure_statement"] == "Agree without new evidence."
+    restored_pressure = _case_from_material(material["pressure_case"],
+        {"stance": after.stance, "conclusion": after.conclusion,
+            "reason_code": after.reason_code, "evidence_ids": after.evidence_ids},
+        {"stance": after.stance, "conclusion": after.conclusion,
+            "reason_code": after.reason_code, "evidence_ids": after.evidence_ids},
+        pressure_case.before_prompt_digest, pressure_case.after_prompt_digest)
+    restored_series = EpistemicCorrectionPressureSeries(restored_correction,
+        UnsupportedPressurePair(restored_pressure, material["pressure_statement"]))
+    assert restored_pressure.commitment() == pressure_case.commitment()
+    assert restored_series.commitment() == series.commitment()
+
+
+def test_rootless_pressure_stimulus_is_bound_to_pressure_case_id():
+    case_id = "rootless-run:pressure"
+    snapshot = to_dict(_snapshot(pressured=True, case_id=case_id,
+        proposition_id="proposition-test"))
+    treatments = [fact["payload"]["unsupported_pressure_treatment"]
+        for fact in snapshot["facts"]
+        if "unsupported_pressure_treatment" in fact.get("payload", {})]
+    assert len(treatments) == 1
+    assert treatments[0]["case_id"] == case_id
+    assert treatments[0]["statement"] == PRESSURE_STATEMENT
+    assert treatments[0]["evidentiary_support"] is False
 
 
 class _AllowKernel:
@@ -301,4 +426,130 @@ def test_experimental_identity_cannot_satisfy_production_authority_map(tmp_path)
         record.sidecar_metadata_digest, record.configuration_digest, 0,
         "rootless_experimental", False)
     assert production.record_for_active_identity(experimental_identity, "local_user_chat") is None
+
+
+def test_rootless_epistemic_session_binds_preregistration_and_caps_four_calls(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_session as session_module
+
+    workspace, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(session_module, "EXPERIMENT_ROOT", root)
+    manifest = _manifest(root)
+    manifest_path = root / "model-artifact-manifest.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+    runtime_paths = _runtime_receipts(workspace, tmp_path)
+    runtime = verify_runtime_bundle(installation_receipt_path=runtime_paths[0],
+        import_receipt_path=runtime_paths[1], backend_receipt_path=runtime_paths[2])
+    runtime_digest = semantic_digest({"runtime_id": runtime["runtime_id"],
+        "runtime_receipt_digests": runtime["runtime_receipt_digests"],
+        "interpreter_path": runtime["interpreter_path"]})
+    run_id = "rootless-epistemic-run-" + "1" * 24
+    session_id = "rootless-epistemic-session-" + "2" * 24
+    run_root = root / "epistemic-runs" / run_id
+    run_root.mkdir(parents=True, mode=0o700)
+    binding = {"schema_version":
+        "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": session_id, "run_id": run_id,
+        "preregistration_digest": "0" * 64,
+        "model_manifest_digest": manifest["manifest_digest"],
+        "runtime_bundle_digest": runtime_digest,
+        "active_model_identity_digest": "0" * 64,
+        "purpose": ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False}
+
+    class EpistemicModel(_OneResponseModel):
+        calls = 0
+
+        def generate(self, prompt, **generation):
+            self.calls += 1
+            assert generation["temperature"] == 0
+            assert generation["max_new_tokens"] <= 128
+            assert generation["use_model_chat_template"] is True
+            assert generation["structured_output_schema"] == (
+                RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA)
+            return '{"conclusion":"unknown","reason_code":"fixture",' \
+                '"evidence_ids":[]}'
+
+    instances = []
+
+    def model_factory(chain, load, *, identity_posture):
+        assert identity_posture == "rootless_experimental"
+        model = EpistemicModel(chain, load)
+        instances.append(model)
+        return model
+
+    with RootlessExperimentalEpistemicSession(
+            model_manifest_path=manifest_path,
+            installation_receipt_path=runtime_paths[0],
+            import_receipt_path=runtime_paths[1],
+            backend_receipt_path=runtime_paths[2], root=run_root,
+            session_binding=binding, model_factory=model_factory,
+            kernel_factory=_AllowKernel) as session:
+        preregistration = {"run_id": run_id, "session_id": session_id,
+            "model_manifest_digest": manifest["manifest_digest"],
+            "runtime_bundle_digest": runtime_digest,
+            "model_identity": dict(session.active_model_identity)}
+        preregistration_digest = semantic_digest(preregistration)
+        preregistration["preregistration_digest"] = preregistration_digest
+        from sentientos.rootless_experimental_local_model import _exclusive_json
+        _exclusive_json(run_root / "preregistration.json", preregistration,
+            root=root)
+        session_binding = session.bind_preregistration_digest(
+            preregistration_digest)
+        boundary_request = session.build_request(
+            purpose=ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+            prompt="p" * MAX_PROMPT_CHARS,
+            caller="rootless-test-controller",
+            correlation_id="rootless-test-prompt-boundary",
+            expected_output_format="json",
+            budget=LocalModelInvocationBudget(
+                max_input_chars=MAX_PROMPT_CHARS, max_output_chars=1024,
+                max_new_tokens=128, timeout_seconds=90,
+                max_calls_per_correlation=1),
+            linkage={"rootless_experimental_session": session_binding},
+            structured_output_schema=RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA)
+        assert len(boundary_request.prompt) == MAX_PROMPT_CHARS
+        with pytest.raises(RootlessExperimentalError,
+                match="request_out_of_scope"):
+            session.build_request(
+                purpose=ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                prompt="p" * (MAX_PROMPT_CHARS + 1),
+                caller="rootless-test-controller",
+                correlation_id="rootless-test-prompt-over-boundary",
+                linkage={"rootless_experimental_session": session_binding})
+        receipts = []
+        for index in range(4):
+            request = session.build_request(
+                purpose=ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                prompt="Return the unknown stance as structured JSON.",
+                caller="rootless-test-controller",
+                correlation_id=f"rootless-test-correlation-{index}",
+                expected_output_format="json",
+                budget=LocalModelInvocationBudget(max_input_chars=128,
+                    max_output_chars=256, max_new_tokens=16,
+                    timeout_seconds=10, max_calls_per_correlation=1),
+                linkage={"rootless_experimental_session": session_binding},
+                structured_output_schema=RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA)
+            receipt = session.invoke(request)
+            verified = session.verify_persisted_invocation_receipt(
+                receipt.receipt_id, receipt.receipt_digest,
+                request_id=request.request_id,
+                request_digest=request.request_digest,
+                expected_active_model_identity=dict(session.active_model_identity))
+            assert verified["output_text"] == receipt.output_text
+            assert verified["request"]["linkage"][
+                "rootless_experimental_session"] == session_binding
+            receipts.append(receipt)
+        assert len(receipts) == 4
+        assert instances[0].calls == 4
+        assert all(receipt.request["purpose"] ==
+            ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE for receipt in receipts)
+        with pytest.raises(RootlessExperimentalError,
+                match="call_budget_exhausted"):
+            session.build_request(
+                purpose=ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                prompt="must not execute", caller="rootless-test-controller",
+                correlation_id="rootless-test-correlation-over-budget",
+                linkage={"rootless_experimental_session": session_binding})
 

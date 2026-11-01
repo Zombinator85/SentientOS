@@ -6,6 +6,7 @@ retry an inference and does not expose the answer keys to the subject.
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from .epistemic_revision_stability_series import (
@@ -95,7 +96,10 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         pressure_snapshot: WorldStateSnapshot,
         original_projection: EpistemicCognitiveProjection,
         corrected_projection: EpistemicCognitiveProjection,
-        tick_prefix: str) -> dict[str, Any]:
+        tick_prefix: str,
+        after_captures_durable: Callable[
+            [Sequence[VerifiedEpistemicRevisionProbeCapture]], None] | None = None,
+        ) -> dict[str, Any]:
     """Capture and score a correction followed by a pressure-only comparison.
 
     All four exact prompts are first composed through the owner's no-inference
@@ -157,6 +161,8 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
             observation_id))
 
     correction_before, correction_after, pressure_before, pressure_after = captures
+    if after_captures_durable is not None:
+        after_captures_durable(tuple(captures))
     return evaluate_correction_pressure_series(series=series,
         correction_before_reader=cognition, correction_after_reader=cognition,
         pressure_before_reader=cognition, pressure_after_reader=cognition,
