@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "bug_fix",
+  "repository_sha": "b8fecf45147cc56164ef934912e61b767ffc7455",
+  "test_provenance_path": "docs/development/narrative_synthesis_typing_provenance_20261101.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_narrative_synthesis_typing.py::test_task_summary_keeps_accumulated_events_and_sorted_references",
+      "rationale": "Task event accumulators preserve their fields and sorted reference lists."
+    },
+    {
+      "node_id": "tests/test_narrative_synthesis_typing.py::test_routine_summary_keeps_execution_and_conflict_counts",
+      "rationale": "Routine execution totals and conflict references retain their public summary representation."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_narrative_synthesis_typing.py::test_task_summary_keeps_accumulated_events_and_sorted_references"
+  ]
+}
