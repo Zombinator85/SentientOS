@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "bug_fix",
+  "repository_sha": "4c3d8e44f637a5f3c38e74f6f1c128aea7ea425f",
+  "test_provenance_path": "docs/development/narrative_admission_log_task_acceptance_provenance_20261101.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_narrative_mentions_forgetting_without_details",
+      "rationale": "Narrative collection reads the task-admission log through its supported accessor."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic",
+      "rationale": "A real simulated forget diff completes through narrative collection."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_forecast_surfaces_exceedance",
+      "rationale": "Pressure forecast still surfaces projected budget exceedance."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic"
+  ]
+}
