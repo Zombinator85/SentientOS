@@ -79,9 +79,21 @@ class SelfNarrativeEngine:
                 "chapter_count": 0,
             }
 
-        qualia_values = [chapter.get("qualia_theme") for chapter in self._chapters]
-        ethics_values = [chapter.get("ethical_theme") for chapter in self._chapters]
-        metacog_values = [chapter.get("metacog_theme") for chapter in self._chapters]
+        qualia_values = [
+            value
+            for chapter in self._chapters
+            if isinstance((value := chapter.get("qualia_theme")), str)
+        ]
+        ethics_values = [
+            value
+            for chapter in self._chapters
+            if isinstance((value := chapter.get("ethical_theme")), str)
+        ]
+        metacog_values = [
+            value
+            for chapter in self._chapters
+            if isinstance((value := chapter.get("metacog_theme")), str)
+        ]
 
         return {
             "core_themes": {
