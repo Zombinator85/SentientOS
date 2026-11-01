@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Dict
 
 import pytest
 
 from sentientos.consciousness.integration import run_consciousness_cycle
 from sentientos.daemons import pulse_bus
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 class StubArbitrator:
@@ -119,3 +122,34 @@ def test_introspection_and_simulation_privacy() -> None:
     assert result["simulation_output"]["summary"] == "stable"
     assert result["simulation_output"]["transcript"] == ["safe"]
     assert simulation.cycles == 1
+
+
+def test_integration_copies_mapping_outputs() -> None:
+    class MappingArbitrator:
+        def run_cycle(self) -> None:
+            return None
+
+        def telemetry_snapshot(self):
+            return MappingProxyType({"focus": "stable"})
+
+    class MappingKernel:
+        def run_cycle(self):
+            return MappingProxyType({"generated": False})
+
+    result = run_consciousness_cycle(
+        {"arbitrator": MappingArbitrator(), "kernel": MappingKernel()}
+    )
+    assert result["pulse_updates"] == {"focus": "stable"}
+    assert result["self_model_updates"] == {"generated": False}
+
+
+def test_integration_rejects_invalid_optional_paths_and_snapshots() -> None:
+    with pytest.raises(TypeError, match="pressure_snapshot_path"):
+        run_consciousness_cycle(
+            {"include_pressure_snapshot": True, "pressure_snapshot_path": object()}
+        )
+
+    with pytest.raises(TypeError, match="pulse_snapshot must be a mapping"):
+        run_consciousness_cycle(
+            {"inner_narrator": lambda *_args, **_kwargs: "unused", "pulse_snapshot": "invalid"}
+        )
