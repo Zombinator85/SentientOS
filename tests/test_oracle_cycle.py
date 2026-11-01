@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -26,6 +27,8 @@ from sentientos.oracle_cycle import (
     WorkspaceSubmission,
     Updater,
 )
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 @pytest.fixture(autouse=True)
@@ -207,6 +210,21 @@ def test_commit_watcher_invokes_healer_on_failure(tmp_path: Path, ledger: Recove
     assert ledger.entries[-1]["status"] == "commit_failed"
 
 
+def test_commit_watcher_skips_auto_merge_without_both_controls(ledger: RecoveryLedger) -> None:
+    observation = CommitObservation(
+        commit_sha="f" * 40,
+        status="success",
+        ci_passed=True,
+        merged=False,
+        timestamp=datetime.now(timezone.utc),
+    )
+    watcher = CommitWatcher(RecordingGitHubClient(observation), ledger)
+    assert watcher._attempt_auto_merge(observation) == {
+        "status": "skipped",
+        "reason": "merge_controls_unavailable",
+    }
+
+
 def test_research_timer_runs_on_schedule(tmp_path: Path, ledger: RecoveryLedger) -> None:
     oracle, client = _build_guidance(tmp_path, ledger, response="Progress summary")
     workspace = RecordingWorkspaceClient()
@@ -240,6 +258,32 @@ def test_research_timer_runs_on_schedule(tmp_path: Path, ledger: RecoveryLedger)
     assert workspace.instructions[-1][0].startswith("Commit the latest deep research report")
     assert client.questions[-1].startswith("Summarize SentientOS GitHub progress")
     assert ledger.entries[-1]["status"] == "deep_research_recorded"
+
+
+def test_research_timer_recovers_from_malformed_persisted_timestamp(
+    tmp_path: Path, ledger: RecoveryLedger
+) -> None:
+    oracle, _client = _build_guidance(tmp_path, ledger)
+    executor = CodexExecutor(RecordingWorkspaceClient(), ledger=ledger)
+    state_path = tmp_path / "research_state.json"
+    state_path.write_text('{"last_research":{"invalid":true}}', encoding="utf-8")
+    timer = ResearchTimer(
+        oracle,
+        executor,
+        ledger,
+        glow_root=tmp_path / "glow",
+        state_path=state_path,
+    )
+    observation = CommitObservation(
+        commit_sha="a" * 40,
+        status="success",
+        ci_passed=True,
+        merged=True,
+        timestamp=datetime.now(timezone.utc),
+    )
+    assert timer.record_commit(observation) is None
+    repaired_state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert isinstance(repaired_state["last_research"], str)
 
 
 def test_updater_records_successful_update(tmp_path: Path, ledger: RecoveryLedger) -> None:

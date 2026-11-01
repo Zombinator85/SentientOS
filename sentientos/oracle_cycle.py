@@ -312,7 +312,7 @@ class LedgerLink:
             details["previous_commit"] = previous_commit
         if health_report is not None:
             details["health"] = dict(health_report.probes)
-        anomaly_details = {}
+        anomaly_details: dict[str, object] = {}
         if previous_commit:
             anomaly_details["previous_commit"] = previous_commit
         anomaly = Anomaly("system_update", commit_sha, anomaly_details)
@@ -768,7 +768,7 @@ class NarratorLink:
         evaluation: CIEvaluation,
     ) -> None:
         message = "A self-amendment was merged after passing all checks."
-        record = {
+        record: dict[str, object] = {
             "event": "success",
             "message": message,
             "pr_number": pull_request.number,
@@ -815,7 +815,7 @@ class NarratorLink:
             message = (
                 "The last update failed; a last-known-good commit was not available."
             )
-        record = {
+        record: dict[str, object] = {
             "event": "update_rollback",
             "message": message,
             "failed_commit": failed_commit,
@@ -991,6 +991,8 @@ class CommitWatcher:
         return observation
 
     def _attempt_auto_merge(self, observation: CommitObservation) -> dict[str, object]:
+        if self._ci_checker is None or self._merge_gate is None:
+            return {"status": "skipped", "reason": "merge_controls_unavailable"}
         candidates = self._pr_monitor.scan() if self._pr_monitor is not None else []
         pull_request = next((pr for pr in candidates if pr.head_sha == observation.commit_sha), None)
         if pull_request is None:
@@ -1231,7 +1233,10 @@ class ResearchTimer:
         timestamp = _ensure_utc(now or observation.timestamp)
         state = self._load_state()
         state["last_commit"] = observation.timestamp.isoformat()
-        last_research = _parse_timestamp(state.get("last_research"))
+        last_research_value = state.get("last_research")
+        last_research = _parse_timestamp(
+            last_research_value if isinstance(last_research_value, str) else None
+        )
         if last_research is None:
             state["last_research"] = timestamp.isoformat()
             self._save_state(state)
