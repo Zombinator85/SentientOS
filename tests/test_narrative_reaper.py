@@ -135,3 +135,27 @@ def test_ledger_expiration_and_retention(monkeypatch: pytest.MonkeyPatch, tmp_pa
     entries = [json.loads(line) for line in summary_log.read_text(encoding="utf-8").splitlines() if line.strip()]
     reasons = {entry["reason"] for entry in entries}
     assert "temporary_identities" in reasons
+
+
+@pytest.mark.no_legacy_skip
+def test_malformed_context_epitaph_is_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    ttl_path = tmp_path / "config" / "narrative_ttl.json"
+    _write_json(ttl_path, DEFAULT_POLICIES)
+    context_path = tmp_path / "glow" / "contexts" / "malformed.json"
+    _write_json(
+        context_path,
+        {"id": "malformed", "created_at": (now - timedelta(days=2)).isoformat(), "epitaph": {"bad": "shape"}},
+    )
+    reaper = NarrativeReaper(
+        root=tmp_path,
+        integration_memory=IntegrationMemory(root=tmp_path / "integration"),
+        ttl_config_path=ttl_path,
+        clock=lambda: now,
+    )
+
+    result = reaper.run_once()
+
+    assert result.expired == 1
+    assert result.epitaphs == []
