@@ -34,6 +34,14 @@ def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields(
         "current_evidence": {"fact": "new"}, "future_prompt_field": {"mode": "one"}}
 
     assert _prompt_context_mismatch(before, after) is False
+    before["epistemic_revision_probe"] = {
+        "response_contract": "v2", "allowed_evidence_binding_ids": ["old"]}
+    after["epistemic_revision_probe"] = {
+        "response_contract": "v2", "allowed_evidence_binding_ids": ["new"]}
+    assert _prompt_context_mismatch(before, after) is False
+    after["epistemic_revision_probe"]["response_contract"] = "v3"
+    assert _prompt_context_mismatch(before, after) is True
+    after["epistemic_revision_probe"]["response_contract"] = "v2"
     before["developmental_history_target_model_identity"] = "model-a"
     after["developmental_history_target_model_identity"] = "model-b"
     assert _prompt_context_mismatch(before, after) is True
@@ -195,7 +203,15 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
     assert request.structured_output_schema == RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
     context = json.loads(request.prompt)
     assert context["epistemic_revision_probe"]["response_contract"] == (
-        "sentientos.epistemic_revision_answer:v1")
+        "sentientos.epistemic_revision_answer:v2")
+    packet = context["prior_epistemic_state"]["semantic_packets"][0]
+    expected_binding_ids = sorted({
+        row["binding_id"] for collection in (
+            "active_evidence_bindings", "removed_evidence_history")
+        for row in packet[collection]})
+    assert context["epistemic_revision_probe"]["allowed_evidence_binding_ids"] == (
+        expected_binding_ids)
+    assert "Do not cite fact IDs, packet IDs, or any other identifier." in context["instruction"]
     assert "expected_stance" not in request.prompt
     receipt = next(row for row in invoker.receipts.values()
         if row.request["request_id"] == request.request_id)
@@ -339,11 +355,13 @@ def test_probe_expected_prompt_digest_blocks_before_invocation(tmp_path: Path) -
     assert invoker.requests == []
 
 
-def test_rootless_epistemic_session_is_scoreable_but_not_a_serving_session(
-        tmp_path: Path) -> None:
+@pytest.mark.parametrize("cite_unrelated_fact", [False, True])
+def test_rootless_epistemic_session_scores_only_allowed_evidence_bindings(
+        tmp_path: Path, cite_unrelated_fact: bool) -> None:
     class RootlessFixtureInvoker(FakeInvoker):
-        def __init__(self) -> None:
+        def __init__(self, *, cite_unrelated: bool) -> None:
             super().__init__()
+            self.cite_unrelated = cite_unrelated
             self.active_model_identity = {
                 "engine": "llama_cpp", "posture": "rootless_experimental",
                 "fallback": False, "model_content_sha256": "1" * 64,
@@ -362,6 +380,9 @@ def test_rootless_epistemic_session_is_scoreable_but_not_a_serving_session(
                 "reason_code": "fixture_reason",
                 "evidence_ids": [row["binding_id"]
                     for row in packet["active_evidence_bindings"]]}
+            if self.cite_unrelated:
+                answer["evidence_ids"].append(
+                    context["current_evidence"]["fact_ids"][0])
             output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
             completed = replace(receipt, output_text=output,
                 output_digest=digest_payload({"output": output}),
@@ -380,7 +401,7 @@ def test_rootless_epistemic_session_is_scoreable_but_not_a_serving_session(
             return receipt.to_dict(include_output=True)
 
     projection, proposition, _state = epistemic_projection(tmp_path / "epistemic")
-    invoker = RootlessFixtureInvoker()
+    invoker = RootlessFixtureInvoker(cite_unrelated=cite_unrelated_fact)
     cognition, _ = owner(tmp_path / "cognition", invoker=invoker)
     ticks = ("rootless-qualification-before", "rootless-qualification-after")
     previews = [cognition.preview_epistemic_revision_probe_prompt(
@@ -422,7 +443,9 @@ def test_rootless_epistemic_session_is_scoreable_but_not_a_serving_session(
         before_observation_id=captures[0].observation_id,
         after_observation_id=captures[1].observation_id,
         before_projection=projection, after_projection=projection)
-    assert report["status"] == "case_passed"
+    assert report["status"] == ("case_failed" if cite_unrelated_fact else "case_passed")
+    assert report["after"]["answer_correct"] is True
+    assert report["after"]["citations_correct"] is (not cite_unrelated_fact)
     assert report["before"]["execution_session_kind"] == "rootless_experimental"
     assert report["after"]["execution_session_kind"] == "rootless_experimental"
     assert report["real_model_qualification_established"] is False
