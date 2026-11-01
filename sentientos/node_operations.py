@@ -285,7 +285,7 @@ def node_health(root: Path) -> dict[str, object]:
         "health_state": state,
         "constitution_state": constitution.get("constitution_state"),
         "integrity_overall": status.get("integrity_overall"),
-        "runtime_data_state": (status.get("health_domain") if isinstance(status.get("health_domain"), dict) else {}).get("runtime_data"),
+        "runtime_data_state": _object_mapping(status.get("health_domain")).get("runtime_data"),
         "degraded_modes": constitution.get("degraded_modes", []),
         "missing_required_artifacts": constitution.get("missing_required_artifacts", []),
         "exit_code": 0 if state == "healthy" else 1 if state == "degraded" else 2 if state == "restricted" else 3,

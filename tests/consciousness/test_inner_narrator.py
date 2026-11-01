@@ -34,6 +34,17 @@ def test_generate_reflection_deterministic(tmp_path: Path) -> None:
     assert reflection_text.count(".") <= 3
 
 
+def test_generate_reflection_ignores_malformed_pressure_domains() -> None:
+    reflection, *_ = generate_reflection(
+        {},
+        self_state.load(),
+        pressure_snapshot={"pressure_by_subsystem": {"malformed": "object"}},
+        cognitive_posture="overloaded",
+    )
+
+    assert "core domains" in reflection
+
+
 def test_run_cycle_updates_self_model(tmp_path: Path) -> None:
     pulse_snapshot: Dict[str, object] = {
         "cycle": 2,

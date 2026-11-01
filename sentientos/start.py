@@ -12,6 +12,7 @@ from typing import Callable, Dict, Mapping, Optional, Tuple
 
 from .dashboard.console import ConsoleDashboard, LogBuffer
 from .dashboard.status_source import make_log_stream_source, make_status_source
+from .persona.state import PersonaState
 from .experiments import demo_gallery
 from .runtime.bootstrap import (
     ensure_default_config,
@@ -167,7 +168,12 @@ def run(init_only: bool = False) -> int:
         supervisor.start_all()
     else:
         shell.start()
-    interval = max(1.0, float(config["runtime"].get("watchdog_interval", 5.0)) / 2.0)
+    runtime_config = config.get("runtime")
+    runtime_settings = runtime_config if isinstance(runtime_config, Mapping) else {}
+    watchdog_interval = runtime_settings.get("watchdog_interval", 5.0)
+    if not isinstance(watchdog_interval, (int, float)) or isinstance(watchdog_interval, bool):
+        watchdog_interval = 5.0
+    interval = max(1.0, float(watchdog_interval) / 2.0)
 
     dashboard_config = config.get("dashboard")
     if isinstance(dashboard_config, dict) and dashboard_config.get("enabled", False):
@@ -175,9 +181,10 @@ def run(init_only: bool = False) -> int:
         log_buffer = LogBuffer()
         shell.register_dashboard_notifier(log_buffer.add)
 
-        def _persona_state() -> Optional[object]:
+        def _persona_state() -> Optional[PersonaState]:
             loop = getattr(shell, "_persona_loop", None)
-            return getattr(loop, "state", None)
+            state = getattr(loop, "state", None)
+            return state if isinstance(state, PersonaState) else None
 
         status_source = make_status_source(
             config=config,

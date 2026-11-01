@@ -105,3 +105,12 @@ def test_self_model_updates_on_emit(tmp_path: Path) -> None:
     assert model["last_cycle_result"] in {"emitted", "emit_failed"}
     assert "goal_context" in model
     assert model["attention_hint"] == "introspection"
+
+
+def test_kernel_accepts_string_self_state_path(tmp_path: Path) -> None:
+    path = tmp_path / "glow" / "self.json"
+    kernel = SentienceKernel(emitter=lambda event: event, self_path=str(path))
+
+    kernel.run_cycle()
+
+    assert path.exists()
