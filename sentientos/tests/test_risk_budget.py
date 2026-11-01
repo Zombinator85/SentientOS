@@ -7,7 +7,7 @@ from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_merge_train import ForgeMergeTrain, TrainState
 from sentientos.forge_model import ForgeSession
-from sentientos.risk_budget import compute_risk_budget, derive_risk_budget
+from sentientos.risk_budget import _load_override, compute_risk_budget, derive_risk_budget
 from sentientos.github_merge import MergeResult, RebaseResult
 from sentientos.forge_merge_train import TrainEntry
 
@@ -144,3 +144,24 @@ def test_merge_train_uses_risk_budget_throttle_reason(tmp_path: Path, monkeypatc
     assert result["reason"] == "risk_budget_throttle"
     state = train.load_state()
     assert state.entries[0].last_error == "risk_budget_throttle"
+
+
+def test_risk_budget_override_ignores_malformed_field_types(tmp_path: Path) -> None:
+    override_path = tmp_path / "override.json"
+    override_path.write_text(
+        '{"schema_version": true, "pressure_level": "3", "posture": "unknown", '
+        '"quarantine_active": "yes", "allow_publish": false, "notes": {"bad": true}}',
+        encoding="utf-8",
+    )
+    base = derive_risk_budget(
+        posture="balanced", pressure_level=1, operating_mode="normal", quarantine_active=False
+    )
+
+    result = _load_override(override_path, base=base)
+
+    assert result.schema_version == base.schema_version
+    assert result.pressure_level == base.pressure_level
+    assert result.posture == base.posture
+    assert result.quarantine_active is base.quarantine_active
+    assert result.allow_publish is False
+    assert result.notes == base.notes

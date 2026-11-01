@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Mapping
 
 from sentientos.event_stream import record_forge_event
 
@@ -185,15 +185,55 @@ def _load_override(path: Path, *, base: RiskBudget) -> RiskBudget:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return base
-    if not isinstance(payload, dict):
+    if not isinstance(payload, Mapping):
         return base
-    merged = base.to_dict()
-    merged.update({k: v for k, v in payload.items() if k in merged})
-    merged["notes"] = [str(item) for item in merged.get("notes", []) if isinstance(item, str)]
-    try:
-        return RiskBudget(**merged)
-    except TypeError:
-        return base
+
+    def int_value(key: str, fallback: int) -> int:
+        value = payload.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else fallback
+
+    def bool_value(key: str, fallback: bool) -> bool:
+        value = payload.get(key)
+        return value if isinstance(value, bool) else fallback
+
+    posture = base.posture
+    posture_value = payload.get("posture")
+    if posture_value == "stability":
+        posture = "stability"
+    elif posture_value == "balanced":
+        posture = "balanced"
+    elif posture_value == "velocity":
+        posture = "velocity"
+
+    operating_mode = base.operating_mode
+    mode_value = payload.get("operating_mode")
+    if isinstance(mode_value, str) and mode_value in {"normal", "cautious", "recovery", "lockdown"}:
+        operating_mode = _normalize_mode(mode_value)
+
+    created_at_value = payload.get("created_at")
+    created_at = created_at_value if isinstance(created_at_value, str) else base.created_at
+    notes_value = payload.get("notes")
+    notes = [item for item in notes_value if isinstance(item, str)] if isinstance(notes_value, list) else list(base.notes or [])
+
+    return RiskBudget(
+        schema_version=int_value("schema_version", base.schema_version),
+        created_at=created_at,
+        posture=posture,
+        pressure_level=int_value("pressure_level", base.pressure_level),
+        operating_mode=operating_mode,
+        quarantine_active=bool_value("quarantine_active", base.quarantine_active),
+        router_k_max=int_value("router_k_max", base.router_k_max),
+        router_m_max=int_value("router_m_max", base.router_m_max),
+        router_allow_escalation=bool_value("router_allow_escalation", base.router_allow_escalation),
+        forge_max_files_changed=int_value("forge_max_files_changed", base.forge_max_files_changed),
+        forge_max_runs_per_hour=int_value("forge_max_runs_per_hour", base.forge_max_runs_per_hour),
+        forge_max_runs_per_day=int_value("forge_max_runs_per_day", base.forge_max_runs_per_day),
+        forge_max_retries=int_value("forge_max_retries", base.forge_max_retries),
+        allow_automerge=bool_value("allow_automerge", base.allow_automerge),
+        allow_publish=bool_value("allow_publish", base.allow_publish),
+        allow_federation_adopt=bool_value("allow_federation_adopt", base.allow_federation_adopt),
+        notes=notes,
+    )
 
 
 def _normalize_mode(mode: str) -> OperatingMode:
