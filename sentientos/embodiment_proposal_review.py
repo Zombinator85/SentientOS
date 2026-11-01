@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -25,6 +26,13 @@ ALLOWED_REVIEW_OUTCOMES = {
     "reviewed_approved_for_next_stage",
 }
 ALLOWED_REVIEWER_KINDS = {"operator", "system_policy", "diagnostic", "test_fixture"}
+
+
+def _review_timestamp(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    timestamp = float(value)
+    return timestamp if math.isfinite(timestamp) else 0.0
 
 
 def classify_embodied_proposal_review_outcome(review_outcome: str) -> str:
@@ -320,7 +328,7 @@ def resolve_embodied_proposal_review_state(*, proposals: Sequence[Mapping[str, A
             continue
         supplied_digest = row.get("proposal_digest")
         key = (pid, supplied_digest if isinstance(supplied_digest, str) else None)
-        ts = float(row.get("created_at") or 0.0)
+        ts = _review_timestamp(row.get("created_at"))
         rid = str(row.get("review_receipt_id") or "")
         outcome = classify_embodied_proposal_review_outcome(str(row.get("review_outcome") or "pending_review"))
         current = latest.get(key)
@@ -357,7 +365,8 @@ def summarize_embodied_proposal_review_status(*, proposals: Sequence[Mapping[str
         if state != "pending_review":
             continue
         row = by_id.get(pid, {})
-        flags = row.get("risk_flags") if isinstance(row.get("risk_flags"), Mapping) else {}
+        raw_flags = row.get("risk_flags")
+        flags = raw_flags if isinstance(raw_flags, Mapping) else {}
         if flags.get("biometric_sensitive") or flags.get("emotion_sensitive"):
             high_risk_pending += 1
 
