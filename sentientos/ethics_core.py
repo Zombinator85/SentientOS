@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Any
+from typing import Any, Dict, List, Mapping, TypedDict
 
-_CORE_VALUES: List[Dict[str, int]] = [
+class CoreValue(TypedDict):
+    name: str
+    priority: int
+
+
+_CORE_VALUES: List[CoreValue] = [
     {"name": "integrity", "priority": 10},
     {"name": "harm_avoidance", "priority": 9},
     {"name": "transparency", "priority": 8},
@@ -27,11 +32,11 @@ class EthicalCore:
             plan_payload = {key: value for key, value in plan.items()}
 
         plan_result = self.evaluate_plan(plan_payload)
-        conflicts = plan_result.get("conflicts") or []
+        conflicts = _conflict_records(plan_result.get("conflicts"))
 
         return {
             "ok": bool(plan_result.get("ok", True)),
-            "conflicts": [dict(conflict) for conflict in conflicts],
+            "conflicts": conflicts,
             "values": self.list_values(),
         }
 
@@ -68,7 +73,13 @@ class EthicalCore:
 
         return {"ok": len(conflicts) == 0, "conflicts": conflicts}
 
-    def list_values(self) -> List[Dict[str, int]]:
+    def list_values(self) -> List[CoreValue]:
         """List the guiding ethical values used for evaluations."""
 
         return [value.copy() for value in _CORE_VALUES]
+
+
+def _conflict_records(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, Mapping)]
