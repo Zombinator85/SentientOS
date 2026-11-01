@@ -409,13 +409,16 @@ def _evidence_summary(
     finding_count: int,
 ) -> ProviderInvocationDenialAttestationEvidenceSummary:
     receipt_data = _mapping(receipt)
-    linked = sum(1 for item in (receipt, external_review_packet, denial_review_receipt, readiness_manifest) if _mapping(item))
-    external_ready = external_security_review_packet_ready_for_review(external_review_packet) if _mapping(external_review_packet) else bool(receipt_data.get("external_review_packet_digest", ""))
-    denial_affirmed = provider_invocation_denial_review_affirms_forbidden_invocation(denial_review_receipt) if _mapping(denial_review_receipt) else bool(receipt_data.get("invocation_denial_review_digest", ""))
-    readiness_metadata = provider_invocation_readiness_forbids_invocation(readiness_manifest) if _mapping(readiness_manifest) else bool(receipt_data.get("readiness_digest", ""))
+    review_data = _mapping(external_review_packet)
+    denial_data = _mapping(denial_review_receipt)
+    readiness_data = _mapping(readiness_manifest)
+    linked = sum(1 for item in (receipt_data, review_data, denial_data, readiness_data) if item)
+    external_ready = external_security_review_packet_ready_for_review(review_data) if review_data else bool(receipt_data.get("external_review_packet_digest", ""))
+    denial_affirmed = provider_invocation_denial_review_affirms_forbidden_invocation(denial_data) if denial_data else bool(receipt_data.get("invocation_denial_review_digest", ""))
+    readiness_metadata = provider_invocation_readiness_forbids_invocation(readiness_data) if readiness_data else bool(receipt_data.get("readiness_digest", ""))
     return ProviderInvocationDenialAttestationEvidenceSummary(
         linked_artifact_count=linked,
-        export_receipt_ready=external_audit_export_receipt_ready_for_export_review(receipt) if receipt_data else False,
+        export_receipt_ready=external_audit_export_receipt_ready_for_export_review(receipt_data) if receipt_data else False,
         external_review_packet_ready=external_ready,
         denial_review_affirmed=denial_affirmed,
         readiness_metadata_only=readiness_metadata,
@@ -476,34 +479,37 @@ def build_provider_invocation_denial_attestation(
     **flag_overrides: Any,
 ) -> ProviderInvocationDenialAttestation:
     receipt_data = _mapping(external_audit_export_receipt)
+    review_data = _mapping(external_review_packet)
+    denial_data = _mapping(invocation_denial_review_receipt)
+    readiness_data = _mapping(readiness_manifest)
     receipt_digest = str(receipt_data.get("export_receipt_digest", "")) if receipt_data else ""
     if receipt_data and not receipt_digest:
-        receipt_digest = compute_external_audit_export_receipt_digest(external_audit_export_receipt)
+        receipt_digest = compute_external_audit_export_receipt_digest(receipt_data)
     expected_match = not expected_export_receipt_digest or expected_export_receipt_digest == receipt_digest
     findings: list[str] = []
     warnings: list[str] = []
 
     if not receipt_data:
         findings.append("export_receipt_missing")
-    elif str(receipt_data.get("export_status", "")) not in _EXPORT_READY_STATUSES or not external_audit_export_receipt_ready_for_export_review(external_audit_export_receipt):
+    elif str(receipt_data.get("export_status", "")) not in _EXPORT_READY_STATUSES or not external_audit_export_receipt_ready_for_export_review(receipt_data):
         findings.append(f"export_not_ready:{receipt_data.get('export_status', '')}")
-    if receipt_data and not external_audit_export_receipt_is_metadata_only(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_is_metadata_only(receipt_data):
         findings.append("sensitive_material:export_receipt_not_metadata_only")
-    if receipt_data and not external_audit_export_receipt_does_not_export(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_does_not_export(receipt_data):
         findings.append("io_attempt:export_receipt_exports")
-    if receipt_data and not external_audit_export_receipt_preserves_invocation_denial(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_preserves_invocation_denial(receipt_data):
         findings.append("invocation_override:export_receipt_denial_not_preserved")
-    if receipt_data and not external_audit_export_receipt_contains_no_prompt_text(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_prompt_text(receipt_data):
         findings.append("sensitive_material:prompt_text")
-    if receipt_data and not external_audit_export_receipt_contains_no_secrets(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_secrets(receipt_data):
         findings.append("sensitive_material:secrets")
-    if receipt_data and not external_audit_export_receipt_contains_no_endpoints(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_endpoints(receipt_data):
         findings.append("sensitive_material:endpoints")
-    if receipt_data and not external_audit_export_receipt_contains_no_clients(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_clients(receipt_data):
         findings.append("sensitive_material:clients")
-    if receipt_data and not external_audit_export_receipt_contains_no_network_handles(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_network_handles(receipt_data):
         findings.append("runtime_authority:network_handles")
-    if receipt_data and not external_audit_export_receipt_contains_no_runtime_authority(external_audit_export_receipt):
+    if receipt_data and not external_audit_export_receipt_contains_no_runtime_authority(receipt_data):
         findings.append("runtime_authority:runtime_or_provider_material")
     if expected_export_receipt_digest and not expected_match:
         findings.append("export_receipt_digest_mismatch")
@@ -515,11 +521,11 @@ def build_provider_invocation_denial_attestation(
         findings.append(f"unknown_scope:{attestation_scope}")
     if decision not in _ATTESTING_DECISIONS:
         warnings.append(f"decision_not_attestation:{decision}")
-    if _mapping(external_review_packet) and not external_security_review_packet_ready_for_review(external_review_packet):
+    if review_data and not external_security_review_packet_ready_for_review(review_data):
         findings.append("linked_artifact_contradiction:external_review_packet_not_ready")
-    if _mapping(invocation_denial_review_receipt) and not provider_invocation_denial_review_affirms_forbidden_invocation(invocation_denial_review_receipt):
+    if denial_data and not provider_invocation_denial_review_affirms_forbidden_invocation(denial_data):
         findings.append("linked_artifact_contradiction:denial_review_not_affirmed")
-    if _mapping(readiness_manifest) and not provider_invocation_readiness_forbids_invocation(readiness_manifest):
+    if readiness_data and not provider_invocation_readiness_forbids_invocation(readiness_data):
         findings.append("linked_artifact_contradiction:readiness_not_denial_only")
 
     marker_counts = _scan_categories(attestor_ref, attestation_label, rationale, accepted_evidence_codes, rejected_evidence_codes, accepted_denial_codes, rejected_denial_codes, approved_constraint_codes, rejected_constraint_codes)
@@ -544,7 +550,7 @@ def build_provider_invocation_denial_attestation(
     )
     deduped_findings = _dedupe(findings)
     deduped_warnings = _dedupe(warnings) or ("formal_denial_attestation_only", "metadata_only", "export_io_not_performed", "provider_invocation_remains_forbidden")
-    evidence_summary = _evidence_summary(external_audit_export_receipt, external_review_packet, invocation_denial_review_receipt, readiness_manifest, len(constraints), len(deduped_warnings), len(deduped_findings))
+    evidence_summary = _evidence_summary(receipt_data, review_data, denial_data, readiness_data, len(constraints), len(deduped_warnings), len(deduped_findings))
     status = _status_from_findings(deduped_findings, decision, expired)
     attestation = ProviderInvocationDenialAttestation(
         attestation_id=attestation_id or "provider-invocation-denial-attestation:pending-digest",
@@ -572,7 +578,7 @@ def build_provider_invocation_denial_attestation(
         rejected_evidence_codes=_dedupe(_tuple_str(rejected_evidence_codes)),
         accepted_denial_codes=_dedupe(_tuple_str(accepted_denial_codes)),
         rejected_denial_codes=_dedupe(_tuple_str(rejected_denial_codes)),
-        invocation_denial_preserved=bool(receipt_data and external_audit_export_receipt_preserves_invocation_denial(external_audit_export_receipt) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
+        invocation_denial_preserved=bool(receipt_data and external_audit_export_receipt_preserves_invocation_denial(receipt_data) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
         metadata_only=not any(field_values.values()) and not marker_counts,
         export_io_not_performed=not any(field_values[field_name] for field_name in _IO_FIELDS),
         external_delivery_not_performed=not any(field_values[field_name] for field_name in ("external_delivery_performed", "network_upload_performed", "email_delivery_performed", "webhook_delivery_performed")),
@@ -593,7 +599,41 @@ def build_provider_invocation_denial_attestation(
         warnings=deduped_warnings,
         constraints=constraints,
         rationale=str(rationale),
-        **field_values,
+        export_io_performed=field_values["export_io_performed"],
+        external_delivery_performed=field_values["external_delivery_performed"],
+        network_upload_performed=field_values["network_upload_performed"],
+        email_delivery_performed=field_values["email_delivery_performed"],
+        webhook_delivery_performed=field_values["webhook_delivery_performed"],
+        file_write_performed=field_values["file_write_performed"],
+        object_storage_write_performed=field_values["object_storage_write_performed"],
+        prompt_text_included=field_values["prompt_text_included"],
+        hidden_chain_of_thought_included=field_values["hidden_chain_of_thought_included"],
+        raw_payloads_included=field_values["raw_payloads_included"],
+        secrets_included=field_values["secrets_included"],
+        secret_references_included=field_values["secret_references_included"],
+        endpoints_included=field_values["endpoints_included"],
+        endpoint_references_included=field_values["endpoint_references_included"],
+        clients_included=field_values["clients_included"],
+        client_references_included=field_values["client_references_included"],
+        network_handles_included=field_values["network_handles_included"],
+        runtime_handles_included=field_values["runtime_handles_included"],
+        provider_params_included=field_values["provider_params_included"],
+        model_params_included=field_values["model_params_included"],
+        tool_schemas_included=field_values["tool_schemas_included"],
+        invocation_allowed=field_values["invocation_allowed"],
+        provider_send_allowed=field_values["provider_send_allowed"],
+        network_allowed=field_values["network_allowed"],
+        credential_use_allowed=field_values["credential_use_allowed"],
+        endpoint_use_allowed=field_values["endpoint_use_allowed"],
+        client_use_allowed=field_values["client_use_allowed"],
+        provider_sdk_allowed=field_values["provider_sdk_allowed"],
+        semantic_generation_allowed=field_values["semantic_generation_allowed"],
+        tool_calls_allowed=field_values["tool_calls_allowed"],
+        memory_retrieval_allowed=field_values["memory_retrieval_allowed"],
+        memory_write_allowed=field_values["memory_write_allowed"],
+        retention_allowed=field_values["retention_allowed"],
+        action_execution_allowed=field_values["action_execution_allowed"],
+        routing_allowed=field_values["routing_allowed"],
     )
     digest = compute_provider_invocation_denial_attestation_digest(attestation)
     return replace(attestation, attestation_id=attestation_id or f"provider-invocation-denial-attestation:{digest[-16:]}", attestation_digest=digest)
