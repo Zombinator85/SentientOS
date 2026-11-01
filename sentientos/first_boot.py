@@ -246,9 +246,10 @@ class FirstBootWizard:
         if self._driver_manager is not None:
             snapshot = self._driver_manager.refresh()
             raw_devices = snapshot.get("devices", []) if isinstance(snapshot, Mapping) else []
-            for entry in raw_devices:
-                if isinstance(entry, Mapping):
-                    devices.append(entry)
+            if isinstance(raw_devices, Iterable) and not isinstance(raw_devices, (str, bytes)):
+                for entry in raw_devices:
+                    if isinstance(entry, Mapping):
+                        devices.append(entry)
         needs_install: List[Mapping[str, object]] = []
         for device in devices:
             status = str(device.get("status", "")).lower()
