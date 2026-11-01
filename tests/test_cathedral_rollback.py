@@ -4,9 +4,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from sentientos.cathedral import Amendment
 from sentientos.cathedral.apply import AmendmentApplicator
 from sentientos.runtime import bootstrap
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _prepare_config(tmp_path: Path) -> dict[str, object]:

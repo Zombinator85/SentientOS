@@ -71,36 +71,36 @@ class RollbackEngine:
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            errors = {"metadata": "Rollback metadata corrupted"}
-            self._write_ledger_error(amendment_id, errors["metadata"], auto)
-            return RollbackResult(status="error", errors=errors)
+            metadata_errors = {"metadata": "Rollback metadata corrupted"}
+            self._write_ledger_error(amendment_id, metadata_errors["metadata"], auto)
+            return RollbackResult(status="error", errors=metadata_errors)
 
         if not isinstance(metadata, Mapping):
-            errors = {"metadata": "Rollback metadata malformed"}
-            self._write_ledger_error(amendment_id, errors["metadata"], auto)
-            return RollbackResult(status="error", errors=errors)
+            malformed_errors = {"metadata": "Rollback metadata malformed"}
+            self._write_ledger_error(amendment_id, malformed_errors["metadata"], auto)
+            return RollbackResult(status="error", errors=malformed_errors)
 
         original = metadata.get("original")
         digest = metadata.get("digest")
 
         if not isinstance(original, Mapping):
-            errors = {"original": "Original snapshot missing"}
-            self._write_ledger_error(amendment_id, errors["original"], auto)
-            return RollbackResult(status="error", errors=errors)
+            original_errors = {"original": "Original snapshot missing"}
+            self._write_ledger_error(amendment_id, original_errors["original"], auto)
+            return RollbackResult(status="error", errors=original_errors)
         if not isinstance(digest, str) or not digest:
-            errors = {"digest": "Rollback metadata missing digest"}
-            self._write_ledger_error(amendment_id, errors["digest"], auto)
-            return RollbackResult(status="error", errors=errors)
+            digest_errors = {"digest": "Rollback metadata missing digest"}
+            self._write_ledger_error(amendment_id, digest_errors["digest"], auto)
+            return RollbackResult(status="error", errors=digest_errors)
 
         ledger_digest = self._resolve_ledger_digest(amendment_id)
         if ledger_digest is None:
-            errors = {"ledger": "Ledger entry not found for amendment"}
-            self._write_ledger_error(amendment_id, errors["ledger"], auto)
-            return RollbackResult(status="error", errors=errors)
+            ledger_errors = {"ledger": "Ledger entry not found for amendment"}
+            self._write_ledger_error(amendment_id, ledger_errors["ledger"], auto)
+            return RollbackResult(status="error", errors=ledger_errors)
         if ledger_digest != digest:
-            errors = {"digest": "Rollback metadata digest mismatch"}
-            self._write_ledger_error(amendment_id, errors["digest"], auto)
-            return RollbackResult(status="error", errors=errors)
+            digest_errors = {"digest": "Rollback metadata digest mismatch"}
+            self._write_ledger_error(amendment_id, digest_errors["digest"], auto)
+            return RollbackResult(status="error", errors=digest_errors)
 
         proposed = copy.deepcopy(self.runtime_config)
         reverted: Dict[str, Any] = {}
