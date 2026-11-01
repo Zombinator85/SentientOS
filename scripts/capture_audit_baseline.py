@@ -4,11 +4,13 @@ import argparse
 import hashlib
 import json
 import subprocess
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from scripts import converge_audits, verify_audits
+from scripts.verify_audits import AuditIssue
 
 __version__ = "1"
 SCHEMA_VERSION = 1
@@ -50,25 +52,25 @@ def _manifest_fingerprint(manifest: list[dict[str, Any]]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _issues_by_code(issues_by_path: dict[str, list[dict[str, Any]]]) -> dict[str, int]:
+def _issues_by_code(issues_by_path: Mapping[str, Sequence[AuditIssue]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for path in sorted(issues_by_path):
         for issue in issues_by_path[path]:
-            code = str(issue.get("code", "unknown"))
+            code = issue["code"]
             counts[code] = counts.get(code, 0) + 1
     return dict(sorted(counts.items()))
 
 
-def _issue_tuples(issues_by_path: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
+def _issue_tuples(issues_by_path: Mapping[str, Sequence[AuditIssue]]) -> list[dict[str, str]]:
     flattened: list[dict[str, str]] = []
     for path in sorted(issues_by_path):
         for issue in issues_by_path[path]:
             flattened.append(
                 {
-                    "code": _bounded(issue.get("code", "unknown")),
-                    "path": _bounded(issue.get("path", path)),
-                    "expected": _bounded(issue.get("expected", "")),
-                    "actual": _bounded(issue.get("actual", "")),
+                    "code": _bounded(issue["code"]),
+                    "path": _bounded(issue["path"]),
+                    "expected": _bounded(issue["expected"]),
+                    "actual": _bounded(issue["actual"]),
                 }
             )
     return sorted(flattened, key=lambda i: (i["code"], i["path"], i["expected"], i["actual"]))
