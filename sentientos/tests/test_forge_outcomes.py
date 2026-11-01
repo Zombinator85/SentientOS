@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sentientos.forge_outcomes import summarize_report
+from sentientos.contract_sentinel import ContractSentinel, SentinelState
 
 import pytest
 
@@ -89,3 +90,18 @@ def test_summarize_report_ignores_malformed_optional_containers() -> None:
     assert summary.progress_delta_percent is None
     assert summary.no_improvement_streak == 0
     assert summary.audit_status is None
+
+
+def test_summarize_report_retains_transaction_status_for_sentinel_gating(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    summary = summarize_report({"outcome": "success", "transaction_status": "rolled_back"})
+    sentinel = ContractSentinel(repo_root=tmp_path)
+    monkeypatch.setattr(sentinel, "_latest_sentinel_outcome", lambda *, domain: summary)
+    state = SentinelState()
+
+    result = sentinel._apply_progress_decision(domain="audit_integrity", state=state)
+
+    assert summary.transaction_status == "rolled_back"
+    assert result == "stagnation_backoff"
+    assert "audit_integrity" in state.last_stagnation_at_by_domain
