@@ -21,9 +21,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
+        artifact_paths = payload.get("artifact_paths")
+        summary_path = artifact_paths.get("summary") if isinstance(artifact_paths, dict) else None
         print(
             f"status={payload.get('status')} spec_count={payload.get('spec_count')} "
-            f"summary={((payload.get('artifact_paths') if isinstance(payload.get('artifact_paths'), dict) else {}).get('summary'))}"
+            f"summary={summary_path}"
         )
     return 0 if payload.get("status") == "passed" else 2
 
