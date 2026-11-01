@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 from types import MappingProxyType
-from typing import Dict, Mapping, Tuple
+from typing import Dict, Literal, Mapping, Tuple, TypedDict
 
 from embodiment.silhouette_store import load_recent_silhouettes
 import sys
@@ -94,6 +94,35 @@ class KernelCheckpoint:
     digest: str
 
 
+class _CheckpointPayload(TypedDict):
+    version: str
+    governance: Mapping[str, object]
+    embodiment: Mapping[str, object]
+    digest: str
+
+
+class _ValidatedGovernance(TypedDict):
+    identity_invariants: Tuple[str, str, str]
+    doctrine_digest: str
+    active_policy_pointer: Tuple[str, int]
+    authority_flags: Dict[str, bool]
+    system_phase: str
+    posture_flags: str
+    constraint_rejustify_deadline: int
+    last_justification_at: int
+    federation_compat_digest: Dict[str, str]
+    kernel_epoch: int
+
+
+class _ValidatedEmbodiment(TypedDict):
+    sensor_presence_flags: Dict[str, bool]
+    sensor_health_flags: Dict[str, bool]
+    actuator_output_state: Dict[str, bool]
+    delta_signals: Dict[str, int]
+    kernel_seq: int
+    kernel_time: int
+
+
 @dataclass(frozen=True, slots=True)
 class KernelEpochAudit:
     epoch_id: int
@@ -126,7 +155,7 @@ class KernelEpoch:
     def __enter__(self) -> "KernelEpoch":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> Literal[False]:
         self._audit = self._kernel.end_epoch()
         return False
 
@@ -467,7 +496,7 @@ class ResidentKernel:
             raise
         if validated:
             self._governance._apply(_UPDATE_TOKEN, **validated)
-            self._track_epoch_fields(validated.keys())
+            self._track_epoch_fields(tuple(validated))
 
     def update_embodiment(self, writer_id: str, **changes: object) -> None:
         self._ensure_epoch_active()
@@ -481,7 +510,7 @@ class ResidentKernel:
             raise
         if validated:
             self._embodiment._apply(_UPDATE_TOKEN, **validated)
-            self._track_epoch_fields(validated.keys())
+            self._track_epoch_fields(tuple(validated))
 
     def begin_epoch(self, writer_id: str) -> KernelEpoch:
         if self._active_epoch is not None:
@@ -529,39 +558,37 @@ class ResidentKernel:
         )
 
     def pause_epoch(self) -> None:
-        self._ensure_epoch_active()
-        self._active_epoch.paused = True
+        self._require_epoch_session().paused = True
 
     def resume_epoch(self) -> None:
-        self._ensure_epoch_active()
-        self._active_epoch.paused = False
+        self._require_epoch_session().paused = False
 
     def create_checkpoint(self, *, force: bool = False) -> KernelCheckpoint:
-        self._ensure_epoch_active()
+        session = self._require_epoch_session()
         if self._checkpoint_in_progress or self._restore_in_progress:
             self._log_audit_warning(
                 "checkpoint contention detected",
                 action="create_checkpoint",
-                epoch_id=self._active_epoch.epoch_id,
+                epoch_id=session.epoch_id,
                 in_progress=self._checkpoint_in_progress,
                 restore_in_progress=self._restore_in_progress,
             )
             raise KernelMisuseError("Checkpoint already in progress")
-        if self._checkpoint_epoch_id == self._active_epoch.epoch_id and not force:
+        if self._checkpoint_epoch_id == session.epoch_id and not force:
             self._log_audit_warning(
                 "duplicate checkpoint attempt blocked",
                 action="create_checkpoint",
-                epoch_id=self._active_epoch.epoch_id,
+                epoch_id=session.epoch_id,
             )
             raise KernelMisuseError("Checkpoint already recorded for this epoch")
-        if self._checkpoint_epoch_id == self._active_epoch.epoch_id and force:
+        if self._checkpoint_epoch_id == session.epoch_id and force:
             self._log_audit_warning(
                 "forced checkpoint override",
                 action="create_checkpoint",
-                epoch_id=self._active_epoch.epoch_id,
+                epoch_id=session.epoch_id,
             )
         self._checkpoint_in_progress = True
-        self._checkpoint_epoch_id = self._active_epoch.epoch_id
+        self._checkpoint_epoch_id = session.epoch_id
         try:
             governance = {
                 "identity_invariants": self._governance.identity_invariants,
@@ -678,9 +705,7 @@ class ResidentKernel:
             self._restore_in_progress = False
         self._governance._apply(_UPDATE_TOKEN, **validated_governance)
         self._embodiment._apply(_UPDATE_TOKEN, **validated_embodiment)
-        self._track_epoch_fields(
-            tuple(validated_governance.keys()) + tuple(validated_embodiment.keys())
-        )
+        self._track_epoch_fields(tuple(validated_governance) + tuple(validated_embodiment))
         digest = self._hash_checkpoint_payload(
             _KERNEL_VERSION,
             validated_governance,
@@ -702,7 +727,7 @@ class ResidentKernel:
         governance = checkpoint.governance
         embodiment = checkpoint.embodiment
         current_epoch = self._governance.kernel_epoch
-        prior_epoch = governance["kernel_epoch"]
+        prior_epoch = self._checkpoint_integer(governance, "kernel_epoch")
         if current_epoch < prior_epoch:
             raise KernelCorruptionError("kernel_epoch regressed")
         if current_epoch > prior_epoch + 1:
@@ -713,38 +738,65 @@ class ResidentKernel:
         if self._governance.identity_invariants != governance["identity_invariants"]:
             raise KernelCorruptionError("identity_invariants drift detected")
         current_phase = self._governance.system_phase
-        prior_phase = governance["system_phase"]
+        prior_phase = self._checkpoint_string(governance, "system_phase")
         if current_phase != prior_phase:
-            allowed = _ALLOWED_PHASE_TRANSITIONS.get(prior_phase, set())
+            allowed = _ALLOWED_PHASE_TRANSITIONS.get(prior_phase, set[str]())
             if current_phase not in allowed:
                 raise KernelCorruptionError(
                     f"Illegal phase transition: {prior_phase} -> {current_phase}"
                 )
         monotonic_pairs = [
-            ("kernel_seq", self._embodiment.kernel_seq, embodiment["kernel_seq"]),
-            ("kernel_time", self._embodiment.kernel_time, embodiment["kernel_time"]),
+            ("kernel_seq", self._embodiment.kernel_seq, self._checkpoint_integer(embodiment, "kernel_seq")),
+            ("kernel_time", self._embodiment.kernel_time, self._checkpoint_integer(embodiment, "kernel_time")),
             (
                 "last_justification_at",
                 self._governance.last_justification_at,
-                governance["last_justification_at"],
+                self._checkpoint_integer(governance, "last_justification_at"),
             ),
             (
                 "constraint_rejustify_deadline",
                 self._governance.constraint_rejustify_deadline,
-                governance["constraint_rejustify_deadline"],
+                self._checkpoint_integer(governance, "constraint_rejustify_deadline"),
             ),
         ]
         for field, current, prior in monotonic_pairs:
             if current < prior:
                 raise KernelCorruptionError(f"{field} regressed")
-        for key, prior in embodiment["delta_signals"].items():
+        for key, prior in self._checkpoint_integer_map(embodiment, "delta_signals").items():
             current = self._embodiment.delta_signals.get(key, 0)
             if current < prior:
                 raise KernelCorruptionError("delta_signals regressed")
 
+    def _checkpoint_integer(self, values: Mapping[str, object], field: str) -> int:
+        value = values.get(field)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise KernelCorruptionError(f"Checkpoint {field} is not an integer")
+        return value
+
+    def _checkpoint_string(self, values: Mapping[str, object], field: str) -> str:
+        value = values.get(field)
+        if not isinstance(value, str):
+            raise KernelCorruptionError(f"Checkpoint {field} is not a string")
+        return value
+
+    def _checkpoint_integer_map(
+        self, values: Mapping[str, object], field: str
+    ) -> Mapping[str, int]:
+        value = values.get(field)
+        if not isinstance(value, Mapping) or any(
+            not isinstance(key, str)
+            or not isinstance(count, int)
+            or isinstance(count, bool)
+            for key, count in value.items()
+        ):
+            raise KernelCorruptionError(f"Checkpoint {field} is not an integer mapping")
+        return value
+
     def _coerce_checkpoint_payload(
         self, checkpoint: KernelCheckpoint | Mapping[str, object]
-    ) -> Dict[str, object]:
+    ) -> _CheckpointPayload:
+        version: object
+        digest: object
         if isinstance(checkpoint, KernelCheckpoint):
             version = checkpoint.version
             governance = self._defrost_mapping(checkpoint.governance)
@@ -764,6 +816,8 @@ class ResidentKernel:
             raise KernelInvariantError("Checkpoint digest must be a non-empty string")
         if not isinstance(version, str) or not version:
             raise KernelInvariantError("Checkpoint version must be a non-empty string")
+        if not isinstance(governance, Mapping) or not isinstance(embodiment, Mapping):
+            raise KernelInvariantError("Checkpoint sections must be mappings")
         return {
             "version": version,
             "governance": governance,
@@ -775,7 +829,7 @@ class ResidentKernel:
         self,
         governance: Mapping[str, object],
         embodiment: Mapping[str, object],
-    ) -> Tuple[Dict[str, object], Dict[str, object]]:
+    ) -> Tuple[_ValidatedGovernance, _ValidatedEmbodiment]:
         self._reject_unknown_fields(governance, _ALLOWED_GOV_FIELDS)
         self._reject_unknown_fields(embodiment, _ALLOWED_EMB_FIELDS)
         policy_pointer = self._validate_policy_pointer(governance["active_policy_pointer"])
@@ -784,7 +838,7 @@ class ResidentKernel:
             0,
             "last_justification_at",
         )
-        validated_governance = {
+        validated_governance: _ValidatedGovernance = {
             "identity_invariants": self._validate_identity_invariants(
                 governance["identity_invariants"]
             ),
@@ -809,7 +863,7 @@ class ResidentKernel:
             ),
             "kernel_epoch": self._validate_epoch_value(governance["kernel_epoch"]),
         }
-        validated_embodiment = {
+        validated_embodiment: _ValidatedEmbodiment = {
             "sensor_presence_flags": self._validate_bool_map(
                 embodiment["sensor_presence_flags"],
                 _ALLOWED_SENSORS,
@@ -962,7 +1016,9 @@ class ResidentKernel:
             return [self._normalize_for_hash(item) for item in value]
         return value
 
-    def _reject_unknown_fields(self, changes: Mapping[str, object], allowed: set) -> None:
+    def _reject_unknown_fields(
+        self, changes: Mapping[str, object], allowed: set[str]
+    ) -> None:
         unknown = [field for field in changes if field not in allowed]
         if unknown:
             raise KernelMisuseError(f"Unknown fields: {', '.join(sorted(unknown))}")
@@ -971,10 +1027,10 @@ class ResidentKernel:
         self,
         writer_id: str,
         changes: Mapping[str, object],
-        field_writers: Mapping[str, set],
+        field_writers: Mapping[str, set[str]],
     ) -> None:
         for field in changes:
-            allowed = field_writers.get(field, set())
+            allowed = field_writers.get(field, set[str]())
             if writer_id not in allowed:
                 raise KernelUnauthorizedError(
                     f"Writer '{writer_id}' cannot update '{field}'"
@@ -1047,19 +1103,21 @@ class ResidentKernel:
                 "sensor_presence_flags",
             )
         if "sensor_health_flags" in changes:
-            updates["sensor_health_flags"] = self._validate_bool_map(
+            sensor_health = self._validate_bool_map(
                 changes["sensor_health_flags"],
                 _ALLOWED_SENSORS,
                 "sensor_health_flags",
             )
-            self._validate_sensor_health(updates["sensor_health_flags"])
+            updates["sensor_health_flags"] = sensor_health
+            self._validate_sensor_health(sensor_health)
         if "actuator_output_state" in changes:
-            updates["actuator_output_state"] = self._validate_bool_map(
+            actuator_state = self._validate_bool_map(
                 changes["actuator_output_state"],
                 _ALLOWED_ACTUATORS,
                 "actuator_output_state",
             )
-            self._validate_actuator_state(updates["actuator_output_state"])
+            updates["actuator_output_state"] = actuator_state
+            self._validate_actuator_state(actuator_state)
         if "delta_signals" in changes:
             updates["delta_signals"] = self._validate_counter_map(
                 changes["delta_signals"],
@@ -1215,6 +1273,12 @@ class ResidentKernel:
     def _ensure_epoch_active(self) -> None:
         if self._active_epoch is None:
             raise KernelWriteOutsideEpochError("Kernel mutations require an epoch")
+
+    def _require_epoch_session(self) -> _EpochSessionState:
+        self._ensure_epoch_active()
+        if self._active_epoch is None:
+            raise KernelWriteOutsideEpochError("Kernel mutations require an epoch")
+        return self._active_epoch
 
     def _note_epoch_rejection(self) -> None:
         if self._active_epoch is not None:
