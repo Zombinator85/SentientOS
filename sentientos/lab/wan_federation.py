@@ -334,7 +334,7 @@ def deterministic_wan_fault_schedule(*, scenario: str, topology: str, seed: int,
     for seq, action in enumerate(spec.get("actions", []), start=1):
         offset = min(duration_s, max(0.0, _to_float(action.get("at_s"), default=0.0) + rng.uniform(0.01, 0.08)))
         rows.append({"sequence": seq, "offset_s": round(offset, 3), **action})
-    rows.sort(key=lambda row: float(row["offset_s"]))
+    rows.sort(key=lambda row: _to_float(row["offset_s"]))
     return rows
 
 
@@ -396,7 +396,7 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _classify_ssh_step(step: dict[str, object]) -> str:
+def _classify_ssh_step(step: Mapping[str, object]) -> str:
     exit_code = _to_int(step.get("exit_code"), default=1)
     stderr = str(step.get("stderr") or "").lower()
     if exit_code == 0:
@@ -412,7 +412,7 @@ def _classify_ssh_step(step: dict[str, object]) -> str:
     return "transport_failure"
 
 
-def classify_remote_preflight(*, check: dict[str, object], mkdir: dict[str, object], cleanup_failures: int = 0) -> tuple[str, list[str]]:
+def classify_remote_preflight(*, check: Mapping[str, object], mkdir: Mapping[str, object], cleanup_failures: int = 0) -> tuple[str, list[str]]:
     check_class = _classify_ssh_step(check)
     mkdir_class = _classify_ssh_step(mkdir)
     classes: list[str] = []
@@ -492,20 +492,20 @@ def _update_remote_preflight_observatory(
         lane_name = str(rec.get("lane") or "unknown")
         for bucket, key in ((by_host, host), (by_scenario, scen), (by_lane, lane_name)):
             row = bucket.setdefault(key, {"total": 0, "success": 0})
-            row["total"] = int(row["total"]) + 1
+            row["total"] = _to_int(row["total"]) + 1
             if str(rec.get("status") or "") == "ok":
-                row["success"] = int(row["success"]) + 1
+                row["success"] = _to_int(row["success"]) + 1
         classification = str(rec.get("classification") or "unknown")
         classification_counts[classification] = classification_counts.get(classification, 0) + 1
 
     def _with_rate(rows: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
         out: dict[str, dict[str, object]] = {}
         for key, row in sorted(rows.items()):
-            total = max(1, int(row.get("total", 0)))
+            total = max(1, _to_int(row.get("total", 0)))
             out[key] = {
-                "total": int(row.get("total", 0)),
-                "success": int(row.get("success", 0)),
-                "success_rate": round(float(int(row.get("success", 0)) / total), 4),
+                "total": _to_int(row.get("total", 0)),
+                "success": _to_int(row.get("success", 0)),
+                "success_rate": round(_to_int(row.get("success", 0)) / total, 4),
             }
         return out
 
@@ -641,9 +641,9 @@ def run_wan_federation_lab(
     host_by_id = {host.host_id: host for host in hosts}
     nodes = _as_rows(topology.get("nodes"))
     active: list[dict[str, object]] = []
-    for row in nodes:
-        node_id = str(row.get("node_id") or "")
-        host_id = str(row.get("host_id") or "")
+    for node_spec in nodes:
+        node_id = str(node_spec.get("node_id") or "")
+        host_id = str(node_spec.get("host_id") or "")
         host = host_by_id[host_id]
         if remote_smoke and host.transport != "local":
             node_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id
@@ -669,9 +669,9 @@ def run_wan_federation_lab(
         if host.transport == "local":
             stdout = (node_root / "glow/lab/worker_stdout.log").open("a", encoding="utf-8")
             stderr = (node_root / "glow/lab/worker_stderr.log").open("a", encoding="utf-8")
-            proc = subprocess.Popen(command, cwd=root, stdout=stdout, stderr=stderr, text=True)
-            active.append({"host_id": host_id, "node_id": node_id, "proc": proc, "transport": "local", "node_root": str(node_root)})
-            append_jsonl(transitions, {"ts": iso_now(), "state": "running", "host_id": host_id, "node_id": node_id, "pid": proc.pid, "transport": "local"})
+            worker_process = subprocess.Popen(command, cwd=root, stdout=stdout, stderr=stderr, text=True)
+            active.append({"host_id": host_id, "node_id": node_id, "proc": worker_process, "transport": "local", "node_root": str(node_root)})
+            append_jsonl(transitions, {"ts": iso_now(), "state": "running", "host_id": host_id, "node_id": node_id, "pid": worker_process.pid, "transport": "local"})
         else:
             adapter = _transport(host.transport)
             remote_cmd = [
@@ -712,11 +712,11 @@ def run_wan_federation_lab(
     time.sleep(0.2)
     exit_codes: dict[str, int] = {}
     for row in active:
-        proc = row.get("proc")
-        if not isinstance(proc, subprocess.Popen):
+        process_candidate = row.get("proc")
+        if not isinstance(process_candidate, subprocess.Popen):
             continue
-        proc.terminate()
-        code = int(proc.wait(timeout=5))
+        process_candidate.terminate()
+        code = int(process_candidate.wait(timeout=5))
         exit_codes[str(row["node_id"])] = code
         append_jsonl(transitions, {"ts": iso_now(), "state": "stopped", "host_id": row["host_id"], "node_id": row["node_id"], "exit_code": code})
 
@@ -759,8 +759,8 @@ def run_wan_federation_lab(
         row["cleanup_failures"] = cleanup_failures
         if row.get("transport") == "ssh":
             status, labels = classify_remote_preflight(
-                check=row.get("check") if isinstance(row.get("check"), dict) else {},
-                mkdir=row.get("mkdir") if isinstance(row.get("mkdir"), dict) else {},
+                check=_as_mapping(row.get("check")),
+                mkdir=_as_mapping(row.get("mkdir")),
                 cleanup_failures=cleanup_failures,
             )
             row["classification"] = status
@@ -789,7 +789,7 @@ def run_wan_federation_lab(
                 "node_truth_artifacts": truth_artifacts,
             }
             trust_payload = read_json(node_root / "glow/pulse_trust/epoch_state.json")
-            node_rows[node_id]["trust"] = trust_payload
+            node_rows[node_id] = {**_as_mapping(node_rows[node_id]), "trust": trust_payload}
             digest_rows.append(json.dumps(trust_payload, sort_keys=True))
         per_host[host.host_id] = {"host": host.__dict__, "nodes": node_rows}
 
@@ -823,7 +823,7 @@ def run_wan_federation_lab(
             node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
             node_truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
-            completeness = node_truth_payload.get("completeness") if isinstance(node_truth_payload.get("completeness"), dict) else {}
+            completeness = _as_mapping(_as_mapping(node_truth_payload).get("completeness"))
             completeness_rows.append(
                 {
                     "host_id": host.host_id,
@@ -1027,9 +1027,9 @@ def run_wan_federation_lab(
     truth_artifact_paths = _as_mapping(truth_payload.get("artifact_paths"))
     if truth_artifact_paths:
         merged_paths = dict(artifact_paths)
-        for key, path in truth_artifact_paths.items():
-            if isinstance(path, str):
-                merged_paths[str(key)] = str(Path(path).relative_to(root))
+        for key, artifact_value in truth_artifact_paths.items():
+            if isinstance(artifact_value, str):
+                merged_paths[str(key)] = str(Path(artifact_value).relative_to(root))
         payload["artifact_paths"] = merged_paths
         artifact_paths = merged_paths
     payload["failure_classification"] = classify_wan_failure_surface(payload=payload)
@@ -1044,16 +1044,16 @@ def run_wan_federation_lab(
 
 
 def classify_wan_failure_surface(*, payload: dict[str, object]) -> str:
-    preflight_rows = payload.get("preflight_rows") if isinstance(payload.get("preflight_rows"), list) else []
-    if any(str(row.get("classification") or "") in {"transport_auth_failure"} for row in preflight_rows if isinstance(row, dict)):
+    preflight_rows = _as_rows(payload.get("preflight_rows"))
+    if any(str(row.get("classification") or "") == "transport_auth_failure" for row in preflight_rows):
         return "remote_transport_or_auth_failure"
-    if any(str(row.get("classification") or "") == "provisioning_failure" for row in preflight_rows if isinstance(row, dict)):
+    if any(str(row.get("classification") or "") == "provisioning_failure" for row in preflight_rows):
         return "remote_environment_drift_or_provisioning_failure"
-    truth = payload.get("truth_oracle") if isinstance(payload.get("truth_oracle"), dict) else {}
-    policy = truth.get("contradiction_policy") if isinstance(truth.get("contradiction_policy"), dict) else {}
+    truth = _as_mapping(payload.get("truth_oracle"))
+    policy = _as_mapping(truth.get("contradiction_policy"))
     if str(policy.get("outcome") or "") in {"warning", "blocking_failure", "indeterminate"}:
         return "truth_or_gate_contradiction_failure"
-    oracle = payload.get("oracle") if isinstance(payload.get("oracle"), dict) else {}
+    oracle = _as_mapping(payload.get("oracle"))
     if not bool(oracle.get("passed", False)):
         return "scenario_or_runtime_regression"
     return "passed"
@@ -1146,16 +1146,29 @@ def run_wan_release_gate(
             clean=clean,
             remote_smoke=remote_smoke,
         )
-        truth = run.get("truth_oracle") if isinstance(run.get("truth_oracle"), dict) else {}
-        completeness = truth.get("scenario_evidence_completeness") if isinstance(truth.get("scenario_evidence_completeness"), dict) else {}
-        policy = truth.get("contradiction_policy") if isinstance(truth.get("contradiction_policy"), dict) else evaluate_release_gate(
-            scenario=scenario_name,
-            dimensions=truth.get("dimensions") if isinstance(truth.get("dimensions"), dict) else {},
-            provenance=truth.get("provenance") if isinstance(truth.get("provenance"), dict) else {},
-            oracle_contradictions=truth.get("contradictions") if isinstance(truth.get("contradictions"), list) else [],
-            profile=profile,
-            evidence_completeness=completeness,
-        )
+        truth = _as_mapping(run.get("truth_oracle"))
+        completeness = _as_mapping(truth.get("scenario_evidence_completeness"))
+        policy_value = truth.get("contradiction_policy")
+        if isinstance(policy_value, dict):
+            policy = policy_value
+        else:
+            dimensions_value = truth.get("dimensions")
+            provenance_value = truth.get("provenance")
+            contradictions_value = truth.get("contradictions")
+            completeness_value = truth.get("scenario_evidence_completeness")
+            contradictions = (
+                [dict(item) for item in contradictions_value if isinstance(item, Mapping)]
+                if isinstance(contradictions_value, list)
+                else []
+            )
+            policy = evaluate_release_gate(
+                scenario=scenario_name,
+                dimensions=dimensions_value if isinstance(dimensions_value, dict) else {},
+                provenance=provenance_value if isinstance(provenance_value, dict) else {},
+                oracle_contradictions=contradictions,
+                profile=profile,
+                evidence_completeness=completeness_value if isinstance(completeness_value, dict) else {},
+            )
         completeness_rows.append(
             {
                 "scenario": scenario_name,
@@ -1211,7 +1224,7 @@ def run_wan_release_gate(
             "schema_version": 1,
             "profile": profile,
             "scenario_count": len(scenario_results),
-            "missing_evidence_nonblocking_total": sum(int((row.get("counts") or {}).get("missing_evidence_nonblocking", 0)) for row in scenario_results),
+            "missing_evidence_nonblocking_total": sum(_to_int(_as_mapping(row.get("counts")).get("missing_evidence_nonblocking")) for row in scenario_results),
             "degraded_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") == "pass_with_degradation"],
             "contradiction_driven_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") in {"warning", "blocking_failure"}],
         },
