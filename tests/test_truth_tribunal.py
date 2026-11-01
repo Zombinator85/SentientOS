@@ -44,3 +44,36 @@ def test_truth_tribunal_verdicts_and_referral(tmp_path: Path) -> None:
     assert referral_path.exists()
     referral_entries = referral_path.read_text(encoding="utf-8").strip().splitlines()
     assert any("shadow override allowed" in line for line in referral_entries)
+
+
+@pytest.mark.no_legacy_skip
+def test_truth_tribunal_defaults_malformed_numeric_evidence(tmp_path: Path) -> None:
+    conflict_path = tmp_path / "malformed_conflict.jsonl"
+    conflict_path.write_text(
+        json.dumps(
+            {
+                "claim": "uncertain evidence",
+                "witness_approvals": "invalid",
+                "witness_rejections": None,
+                "integration_memory_hits": "unknown",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    verdicts = adjudicate_conflicts(
+        conflict_path,
+        [],
+        [{"claim": "uncertain evidence", "frequency": "invalid"}],
+        referrals_path=tmp_path / "referrals.jsonl",
+    )
+
+    assert verdicts == [
+        {
+            "claim": "uncertain evidence",
+            "verdict": "false",
+            "confidence": 0.25,
+            "sources": [],
+        }
+    ]
