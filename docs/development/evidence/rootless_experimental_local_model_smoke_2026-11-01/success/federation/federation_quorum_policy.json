@@ -1,0 +1,17 @@
+{
+  "action_classes": {
+    "advisory": "low_impact_advisory",
+    "coordination_update": "medium_impact_coordination",
+    "governance_update": "high_impact_control",
+    "lineage_rewrite": "high_impact_control",
+    "restart_daemon": "high_impact_control"
+  },
+  "requirements": {
+    "high_impact_control": 2,
+    "low_impact_advisory": 1,
+    "medium_impact_coordination": 1
+  },
+  "schema_version": 1,
+  "trusted_peers": [],
+  "updated_at": "2026-11-01T00:42:23.789640+00:00"
+}

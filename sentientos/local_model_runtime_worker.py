@@ -15,13 +15,23 @@ MAX_PROTOCOL_BYTES = 65536
 
 _WORKER = r'''import hashlib,json,os,sys
 PREFIX="SENTIENTOS_LOCAL_MODEL_WORKER="
+try:
+ import resource
+except ImportError:
+ resource=None
+def resources():
+ if resource is None: return {"peak_rss_kib":None,"user_cpu_seconds":None,"system_cpu_seconds":None}
+ usage=resource.getrusage(resource.RUSAGE_SELF)
+ return {"peak_rss_kib":int(usage.ru_maxrss),"user_cpu_seconds":usage.ru_utime,"system_cpu_seconds":usage.ru_stime}
 def emit(v):
  data=json.dumps(v,sort_keys=True,separators=(",",":"))
  if len(data.encode())>65536: raise RuntimeError("response_too_large")
  print(PREFIX+data,flush=True)
 try:
  from llama_cpp import Llama
- path=sys.argv[1]; expected=sys.argv[2]; layers=int(sys.argv[3]); nctx=int(sys.argv[4])
+ path=sys.argv[1]; expected=sys.argv[2]; layers=int(sys.argv[3]); nctx=int(sys.argv[4]); nthreads=int(sys.argv[5]); posture=sys.argv[6]
+ if posture not in {"production","rootless_experimental"}: raise RuntimeError("invalid_identity_posture")
+ if not 0 <= nthreads <= 256: raise RuntimeError("invalid_thread_limit")
  h=hashlib.sha256(); size=0
  with open(path,"rb") as f:
   while True:
@@ -29,8 +39,8 @@ try:
    if not b: break
    h.update(b); size+=len(b)
  if h.hexdigest()!=expected: raise RuntimeError("artifact_identity_mismatch")
- model=Llama(model_path=path,n_ctx=nctx,n_gpu_layers=layers,verbose=False)
- emit({"type":"ready","interpreter_path":os.path.realpath(sys.executable),"artifact_sha256":h.hexdigest(),"artifact_size_bytes":size,"engine":"llama_cpp"})
+ model=Llama(model_path=path,n_ctx=nctx,n_gpu_layers=layers,verbose=False,**({"n_threads":nthreads} if nthreads else {}))
+ emit({"type":"ready","interpreter_path":os.path.realpath(sys.executable),"artifact_sha256":h.hexdigest(),"artifact_size_bytes":size,"engine":"llama_cpp","posture":posture,**resources()})
  for line in sys.stdin:
   if len(line.encode())>65536: raise RuntimeError("request_too_large")
   request=json.loads(line)
@@ -42,7 +52,7 @@ try:
   result=model(rendered,max_tokens=min(int(generation.get("max_new_tokens",8)),512),temperature=float(generation.get("temperature",0)),top_p=float(generation.get("top_p",1)))
   output=str(result["choices"][0]["text"])
   if len(output)>32768: raise RuntimeError("response_too_large")
-  emit({"type":"generated","output":output})
+  emit({"type":"generated","output":output,**resources()})
 except Exception as exc:
  emit({"type":"error","error_type":type(exc).__name__,"diagnostic":str(exc)[:512]})
  sys.exit(70)
@@ -59,17 +69,30 @@ def _environment() -> dict[str, str]:
 class ExactRuntimeLocalModel:
     """LocalModel-compatible session whose llama.cpp calls stay in one exact interpreter."""
 
-    def __init__(self, chain: Mapping[str, Any], load: Mapping[str, Any], *, startup_timeout: float = 30) -> None:
+    def __init__(self, chain: Mapping[str, Any], load: Mapping[str, Any], *, startup_timeout: float = 30,
+                 identity_posture: str = "production") -> None:
+        if identity_posture not in {"production", "rootless_experimental"}:
+            raise ModelLoadError("invalid model identity posture")
+        n_threads = int(load.get("n_threads", 0))
+        if not 0 <= n_threads <= 256:
+            raise ModelLoadError("invalid model thread limit")
+        max_new_tokens = int(load.get("max_new_tokens", 8))
+        if not 1 <= max_new_tokens <= 512:
+            raise ModelLoadError("invalid model generation limit")
+        candidate_options = {"gpu_layers": int(load["n_gpu_layers"])}
+        if n_threads:
+            candidate_options["n_threads"] = n_threads
         self.config = ModelConfig(
             [ModelCandidate(Path(str(chain["artifact_path"])), "llama_cpp", str(chain["model_id"]),
-                            {"gpu_layers": int(load["n_gpu_layers"])})],
+                            candidate_options)],
             default_engine="llama_cpp", max_context_tokens=int(load["n_ctx"]),
-            generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1),
+            generation=GenerationConfig(max_new_tokens=max_new_tokens, temperature=0, top_p=1),
         )
         interpreter = Path(str(chain["interpreter_path"])).resolve(strict=True)
         self._process = subprocess.Popen(
             [str(interpreter), "-I", "-u", "-c", _WORKER, str(chain["artifact_path"]),
-             str(chain["artifact_sha256"]), str(load["n_gpu_layers"]), str(load["n_ctx"])],
+             str(chain["artifact_sha256"]), str(load["n_gpu_layers"]), str(load["n_ctx"]),
+             str(n_threads), identity_posture],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             bufsize=1, env=_environment(), cwd=str(Path(str(chain["artifact_path"])).parent),
         )
@@ -77,10 +100,17 @@ class ExactRuntimeLocalModel:
         ready = self._read()
         expected = {"type": "ready", "interpreter_path": str(interpreter),
                     "artifact_sha256": chain["artifact_sha256"],
-                    "artifact_size_bytes": chain["artifact_size_bytes"], "engine": "llama_cpp"}
+                    "artifact_size_bytes": chain["artifact_size_bytes"], "engine": "llama_cpp",
+                    "posture": identity_posture,
+                    "peak_rss_kib": ready.get("peak_rss_kib"),
+                    "user_cpu_seconds": ready.get("user_cpu_seconds"),
+                    "system_cpu_seconds": ready.get("system_cpu_seconds")}
         if ready != expected:
             self.close()
             raise ModelLoadError("exact runtime worker identity mismatch")
+        self.peak_rss_kib = ready["peak_rss_kib"]
+        self.user_cpu_seconds = ready["user_cpu_seconds"]
+        self.system_cpu_seconds = ready["system_cpu_seconds"]
         candidate = self.config.candidates[0]
         from .local_model import candidate_configuration_digest
         self.active_identity = ActiveModelIdentity(
@@ -89,7 +119,7 @@ class ExactRuntimeLocalModel:
             model_content_sha256=str(chain["artifact_sha256"]), artifact_size_bytes=int(chain["artifact_size_bytes"]),
             sidecar_metadata_digest=None,
             configuration_digest=candidate_configuration_digest(candidate, self.config, "llama_cpp"),
-            candidate_index=0, posture="production", fallback=False,
+            candidate_index=0, posture=identity_posture, fallback=False,
         )
 
     def _read(self) -> dict[str, Any]:
@@ -114,8 +144,12 @@ class ExactRuntimeLocalModel:
             assert self._process.stdin is not None
             self._process.stdin.write(data + "\n"); self._process.stdin.flush()
             response = self._read()
-        if set(response) != {"type", "output"} or response["type"] != "generated" or not isinstance(response["output"], str):
+        if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds", "system_cpu_seconds"}
+                or response["type"] != "generated" or not isinstance(response["output"], str)):
             raise ModelLoadError("exact runtime worker malformed response")
+        self.peak_rss_kib = response["peak_rss_kib"]
+        self.user_cpu_seconds = response["user_cpu_seconds"]
+        self.system_cpu_seconds = response["system_cpu_seconds"]
         return response["output"]
 
     def describe(self) -> str:

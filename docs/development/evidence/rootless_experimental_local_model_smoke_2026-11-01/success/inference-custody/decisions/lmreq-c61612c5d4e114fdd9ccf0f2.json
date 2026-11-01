@@ -1,0 +1,60 @@
+{
+  "action_kind": "local_model_inference",
+  "actor": "deterministic_rootless_experimental_local_model_controller",
+  "actor_source": "deterministic_rootless_experimental_local_model_controller",
+  "admission_decision_ref": "kernel_decision:rootless-experiment-8d87b53da1a04943a771a166b7b99596",
+  "authority_class": "local_model_inference",
+  "correlation_id": "rootless-experiment-8d87b53da1a04943a771a166b7b99596",
+  "current_phase": "runtime",
+  "delegate_checks_consulted": [
+    "admission_dedupe",
+    "runtime_governor"
+  ],
+  "delegated_outcomes": {
+    "admission_dedupe": {
+      "correlation_id": "rootless-experiment-8d87b53da1a04943a771a166b7b99596",
+      "expires_at": 1793497343.722646,
+      "first_seen": 1793493743.722646,
+      "key_shape": "(current_phase.value, correlation_id)",
+      "max_entries": 4096,
+      "phase": "runtime",
+      "scope": "process_local",
+      "ttl_seconds": 3600.0
+    },
+    "runtime_governor": {
+      "action_class": "local_model_inference",
+      "action_family": "local_model",
+      "action_priority": 3,
+      "allowed": true,
+      "correlation_id": "rootless-experiment-8d87b53da1a04943a771a166b7b99596",
+      "mode": "shadow",
+      "origin": "deterministic_rootless_experimental_local_model_controller",
+      "reason": "unknown_action_type",
+      "reason_hash": "0fa81681f441a922aa93c46c8aa3fed7c2c34ccdeb284397f70aa762c3c6e6df",
+      "sampled_pressure": {
+        "composite": 0.0233,
+        "cpu": 0.0,
+        "gpu": 0.0,
+        "io": 0.0931,
+        "sampled_at": "2026-11-01T00:42:23.722740+00:00",
+        "thermal": 0.0
+      },
+      "scope": "local",
+      "subject": "deterministic_rootless_experimental_local_model_controller"
+    }
+  },
+  "event_type": "control_plane_decision",
+  "execution_owner": "deterministic_rootless_experimental_local_model_controller",
+  "federation_context": null,
+  "final_disposition": "allow",
+  "lifecycle_phase": "runtime",
+  "outcome": "allow",
+  "proof_budget_context": null,
+  "protected_mutation_intent": null,
+  "reason_codes": [
+    "admitted"
+  ],
+  "requested_phase": "runtime",
+  "target_subsystem": "governed_local_model_invocation",
+  "timestamp": "2026-11-01T00:42:23.791568+00:00"
+}

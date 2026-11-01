@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, cast
 
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
-from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
+from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
+    ROOTLESS_EXPERIMENTAL_PURPOSE, atomic_write_json, digest_payload, validate_authority_map)
 from .causal_resource_principal import CausalResourcePrincipal
 from .causal_resource_principal_authentication import AuthenticatedRootPrincipalEvidence
 from .causal_resource_principal_currentness import CurrentAuthenticatedRootPrincipalEvidence
@@ -26,7 +27,7 @@ class LocalModelInvoker(Protocol):
 
 INTERVENTION_PURPOSE = "resident_developmental_history_intervention_experiment"
 MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment"
-SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment"}
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment", ROOTLESS_EXPERIMENTAL_PURPOSE}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
@@ -361,9 +362,16 @@ class GovernedLocalModelInvoker:
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
         production_identity = identity is not None and getattr(identity, "posture", None) == "production"
-        if production_identity or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE}:
+        rootless_experimental_identity = (identity is not None
+            and getattr(identity, "posture", None) == "rootless_experimental")
+        if (production_identity or rootless_experimental_identity
+                or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke",
+                    "maintenance_implementation", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE}):
             if identity is None: reasons.append("active_model_identity_unavailable")
-            elif identity.fallback or identity.posture != "production": reasons.append("active_model_not_production")
+            elif identity.fallback or (production_identity and identity.posture != "production"):
+                reasons.append("active_model_not_production")
+            elif rootless_experimental_identity and request.purpose != ROOTLESS_EXPERIMENTAL_PURPOSE:
+                reasons.append("rootless_experimental_purpose_mismatch")
             elif self.authority_map.record_for_active_identity(identity, request.purpose) != record: reasons.append("active_model_authority_mismatch")
             if identity is not None and request.active_model_identity != identity.to_dict(): reasons.append("active_model_request_identity_mismatch")
 
@@ -398,7 +406,7 @@ class GovernedLocalModelInvoker:
                 if resource_context is None or attempt_id is not None:
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                        generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
+                        generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
                         gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                         if pre_effect_guard is not None:
                             try: pre_effect_guard()

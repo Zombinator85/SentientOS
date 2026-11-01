@@ -1,0 +1,1 @@
+{"epoch_id": "epoch-0001", "event": "bootstrap_epoch", "signing_key_path": "/vow/keys/ed25519_private.key", "timestamp": "2026-11-01T00:42:23.735039+00:00", "verify_key_path": "/vow/keys/ed25519_public.key"}

@@ -1,0 +1,94 @@
+{
+  "admission_decision_ref": "kernel_decision:rootless-experiment-4e9a160ae1774e2088022be4e8fe763e",
+  "effects": {
+    "action": false,
+    "adoption": false,
+    "local_model_inference": false,
+    "memory": false,
+    "provider_network": false,
+    "repository_mutation": false,
+    "tool": false
+  },
+  "fallback_occurred": false,
+  "generation_config": {
+    "actual_generation_parameters": {},
+    "max_calls_per_correlation": 1,
+    "max_input_chars": 2048,
+    "max_new_tokens": 16,
+    "max_output_chars": 1024,
+    "timeout_seconds": 90.0
+  },
+  "latency_ms": 14,
+  "observed_at": "2026-11-01T00:40:02.692364+00:00",
+  "output_digest": null,
+  "output_size_bytes": 0,
+  "output_truncated": false,
+  "purpose": "rootless_experimental_local_model_probe",
+  "reason_codes": [
+    "runtime_governor_error"
+  ],
+  "receipt_digest": "ce346b99a15550ae964cb1b04bbb7e01c110334cd97a582e719d5843760de0af",
+  "receipt_id": "lmrec-ce346b99a15550ae964cb1b0",
+  "request": {
+    "active_model_identity": {
+      "artifact_size_bytes": 491400032,
+      "candidate_index": 0,
+      "configuration_digest": "4af1b1a54de0bbe1b88917d85ef3fb925ea4ebe180f683cba2978ef115c0f091",
+      "engine": "llama_cpp",
+      "fallback": false,
+      "model_content_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "posture": "rootless_experimental",
+      "resolved_artifact_path": "/workspace/sentientos-data/rootless-experimental/models/sha256/74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "semantic_artifact_identity": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "sidecar_metadata_digest": null
+    },
+    "allowed_effects": {
+      "local_model_inference": true
+    },
+    "authority_map_digest": "c86b0a3637116d64c03fd059bd21a6349cfbfc942d00cc874bbf2364ae8852de",
+    "budget": {
+      "max_calls_per_correlation": 1,
+      "max_input_chars": 2048,
+      "max_new_tokens": 16,
+      "max_output_chars": 1024,
+      "timeout_seconds": 90.0
+    },
+    "caller": "deterministic_rootless_experimental_local_model_controller",
+    "correlation_id": "rootless-experiment-4e9a160ae1774e2088022be4e8fe763e",
+    "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+    "expected_output_format": "text",
+    "forbidden_effects": {
+      "action": false,
+      "adoption": false,
+      "memory": false,
+      "provider_network": false,
+      "repository_mutation": false,
+      "tool": false
+    },
+    "lifecycle_phase": "runtime",
+    "linkage": {
+      "eligible_as_production_commissioning_evidence": false,
+      "experimental_rootless": true
+    },
+    "model_artifact_digest": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "model_id": "lma-351172cc5a180b458851dd2e",
+    "prompt_digest": "fa6d630d6ff4d86b60bd622063b1f8c6bb624aaffe8e90b4bfd8a1e4de52d642",
+    "prompt_size": 87,
+    "purpose": "rootless_experimental_local_model_probe",
+    "raw_prompt_stored": false,
+    "request_digest": "86f63d0869ae052ae0cf628db14f2ad30f9f41b0908c9b15e2249ae6392e5dcc",
+    "request_id": "lmreq-86f63d0869ae052ae0cf628d",
+    "structured_output_schema": null,
+    "upstream_evidence": {
+      "model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+      "rootless_experimental_intent_digest": "9ed452d2290c936b72c2648f74fdd002f656d6b5e7bf081cd81486139c984657",
+      "rootless_experimental_intent_id": "rootless-experimental-intent-7f6dcfa0eefb469ab8145127",
+      "runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371"
+    }
+  },
+  "resource_allocation_digest": null,
+  "resource_attempt_id": null,
+  "resource_consumption_receipt_digests": [],
+  "schema_version": "sentientos.local_model_invocation_receipt:v2",
+  "status": "deferred"
+}

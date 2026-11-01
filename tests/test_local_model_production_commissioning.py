@@ -147,9 +147,12 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     class Process:
         def __init__(self):
             ready = {"type":"ready", "interpreter_path":str(interpreter.resolve()), "artifact_sha256":chain["artifact_sha256"],
-                     "artifact_size_bytes":chain["artifact_size_bytes"], "engine":"llama_cpp"}
+                     "artifact_size_bytes":chain["artifact_size_bytes"], "engine":"llama_cpp",
+                     "posture":"production", "peak_rss_kib":1024,
+                     "user_cpu_seconds":0.1, "system_cpu_seconds":0.01}
             self.stdin=Pipe(); self.stdout=Pipe(["SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps(ready)+"\n",
-                "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"bounded"})+"\n",
+                "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"bounded",
+                    "peak_rss_kib":2048,"user_cpu_seconds":0.2,"system_cpu_seconds":0.02})+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"shutdown"})+"\n"]); self.stderr=Pipe(); self.closed=False
         def poll(self): return None if not self.closed else 0
         def wait(self, timeout=None): self.closed=True; return 0

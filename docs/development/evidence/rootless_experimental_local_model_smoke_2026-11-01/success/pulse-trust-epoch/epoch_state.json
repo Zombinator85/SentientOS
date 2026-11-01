@@ -1,0 +1,20 @@
+{
+  "active_epoch_id": "epoch-0001",
+  "compromise_response_mode": false,
+  "decision_counters": {},
+  "epochs": {
+    "epoch-0001": {
+      "activated_at": "2026-11-01T00:42:23.735039+00:00",
+      "closed": false,
+      "key_id": null,
+      "revoked": false,
+      "signing_key_path": "/vow/keys/ed25519_private.key",
+      "status": "active",
+      "transition_from": null,
+      "verify_key_path": "/vow/keys/ed25519_public.key"
+    }
+  },
+  "revoked_epochs": [],
+  "schema_version": 1,
+  "transition_counter": 0
+}

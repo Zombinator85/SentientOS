@@ -1,0 +1,781 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_capability_registry.py::test_authorization_review_capabilities_are_review_and_schema_only": 0,
+    "tests/test_capability_registry.py::test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only": 0,
+    "tests/test_capability_registry.py::test_builtin_runner_transaction_orchestrator_capabilities_are_bounded": 0,
+    "tests/test_capability_registry.py::test_context_hygiene_denial_phase_capabilities_are_metadata_only": 0,
+    "tests/test_capability_registry.py::test_controlled_authorization_and_trace_capabilities_are_non_live": 0,
+    "tests/test_capability_registry.py::test_default_registry_builds_deterministically_and_validates": 0,
+    "tests/test_capability_registry.py::test_default_registry_represents_phase4_privilege_broker_as_eligibility_only": 0,
+    "tests/test_capability_registry.py::test_direct_fan_pwm_is_deferred_or_blocked_not_implemented": 0,
+    "tests/test_capability_registry.py::test_dry_run_audit_closure_capabilities_are_dry_run_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_dry_run_execution_harness_capabilities_are_simulation_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_execution_proof_wing_capabilities_are_proof_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_federation_evidence_is_implemented_but_not_transport_adoption_or_sync": 0,
+    "tests/test_capability_registry.py::test_final_live_memory_commit_review_gate_registered": 0,
+    "tests/test_capability_registry.py::test_fulfillment_authorization_capabilities_are_metadata_only_and_execution_deferred": 0,
+    "tests/test_capability_registry.py::test_fulfillment_executor_contract_capabilities_are_contract_only_and_real_execution_deferred": 0,
+    "tests/test_capability_registry.py::test_gui_and_browser_interaction_implemented_but_gated": 0,
+    "tests/test_capability_registry.py::test_hardware_driver_awareness_references_driver_manager": 0,
+    "tests/test_capability_registry.py::test_host_actuation_safety_capabilities_are_metadata_only_and_real_actions_blocked": 0,
+    "tests/test_capability_registry.py::test_host_fulfillment_authorization_consumption_custody_capability_is_metadata_only": 0,
+    "tests/test_capability_registry.py::test_host_local_authorization_grant_custody_capability_is_metadata_only": 0,
+    "tests/test_capability_registry.py::test_host_steward_boundary_capabilities_are_metadata_only_and_runners_blocked": 0,
+    "tests/test_capability_registry.py::test_live_commit_safety_interlock_registered": 0,
+    "tests/test_capability_registry.py::test_live_grant_readiness_capabilities_are_metadata_only_and_real_actions_remain_deferred": 0,
+    "tests/test_capability_registry.py::test_live_memory_commit_dry_run_adapter_capability_is_metadata_only": 0,
+    "tests/test_capability_registry.py::test_local_authorization_capabilities_are_record_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_local_diagnostic_effect_registry_records_are_narrow_and_general_effects_deferred": 0,
+    "tests/test_capability_registry.py::test_local_diagnostic_exact_rollback_capabilities_are_exact_artifact_only": 0,
+    "tests/test_capability_registry.py::test_local_effect_transaction_ledger_capabilities_are_bounded": 0,
+    "tests/test_capability_registry.py::test_local_model_chat_records_canonical_startup_without_recovery_or_deployment": 0,
+    "tests/test_capability_registry.py::test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_organs": 0,
+    "tests/test_capability_registry.py::test_phase5_registry_represents_actuation_fulfillment_as_rehearsal_only": 0,
+    "tests/test_capability_registry.py::test_provider_invocation_remains_blocked_or_deferred": 0,
+    "tests/test_capability_registry.py::test_real_effect_admission_registry_records_are_planning_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_real_live_memory_commit_adapter_readiness_gate_registered": 0,
+    "tests/test_capability_registry.py::test_real_memory_root_admission_gate_registered": 0,
+    "tests/test_capability_registry.py::test_registry_has_operator_confirmed_preflight_run": 0,
+    "tests/test_capability_registry.py::test_registry_includes_operator_lifecycle_closure_review_capability": 0,
+    "tests/test_capability_registry.py::test_registry_update_from_dry_run_audit_closure_preserves_real_action_deferral": 0,
+    "tests/test_capability_registry.py::test_registry_update_from_dry_run_execution_receipt_preserves_real_action_deferral": 0,
+    "tests/test_capability_registry.py::test_registry_update_from_executor_contract_readiness_preserves_deferred_execution": 0,
+    "tests/test_capability_registry.py::test_registry_update_from_fulfillment_authorization_consumption_keeps_real_actions_blocked": 0,
+    "tests/test_capability_registry.py::test_registry_updates_from_authorization_review_keep_real_actions_deferred_or_blocked": 0,
+    "tests/test_capability_registry.py::test_registry_updates_from_collector_backed_inventory_and_resource_report_without_control": 0,
+    "tests/test_capability_registry.py::test_registry_updates_from_execution_readiness_and_supervisor_keep_real_actions_blocked": 0,
+    "tests/test_capability_registry.py::test_registry_updates_from_local_authorization_ledger_without_fulfillment": 0,
+    "tests/test_capability_registry.py::test_registry_updates_from_reviewer_proof_bundle_keep_authority_deferred": 0,
+    "tests/test_capability_registry.py::test_review_digest_capability_registered": 0,
+    "tests/test_capability_registry.py::test_reviewer_proof_bundle_capabilities_are_export_only_and_real_actions_deferred": 0,
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_envelope_registered": 0,
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_gate_registered": 0,
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_packet_registered": 0,
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_registered": 0,
+    "tests/test_capability_registry.py::test_summary_shape_is_metadata_only_and_digest_changes_on_metadata": 0,
+    "tests/test_capability_registry.py::test_trace_export_and_reviewer_demo_capabilities_are_proof_only": 0,
+    "tests/test_capability_registry.py::test_update_registry_from_real_effect_admission_preserves_deferred_real_backends": 0,
+    "tests/test_capability_registry.py::test_validation_rejects_fan_pwm_implemented_claim_without_source_or_proof": 0,
+    "tests/test_capability_registry.py::test_validation_rejects_federation_evidence_as_transport": 0,
+    "tests/test_capability_registry.py::test_validation_rejects_provider_network_prompt_authority_claims": 0,
+    "tests/test_capability_registry.py::test_validation_rejects_unsupported_implemented_host_actuation_without_requirements": 0,
+    "tests/test_capability_registry.py::test_work_item_promotion_gate_capability_is_metadata_only": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_admission_registry_marks_metadata_only_and_blocks_broader_authority": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_execution_registry_helper_marks_blocked_surfaces": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_execution_verification_registry_helper_marks_read_only_and_blocks_broader_authority": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_closure_registry_helper_marks_metadata_only_and_blocks_broader_authority": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_orchestration_registry_marks_bounded_and_blocks_broader_authority": 0,
+    "tests/test_capability_registry.py::test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded": 0,
+    "tests/test_capability_registry.py::test_workspace_file_effect_capabilities_are_explicit_single_file_only": 0,
+    "tests/test_capability_registry.py::test_workspace_file_runner_transaction_capabilities_are_bounded": 0,
+    "tests/test_capability_registry.py::test_workspace_file_transaction_orchestrator_capabilities_are_implemented_and_bounded": 0,
+    "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound": 0,
+    "tests/test_governed_local_model_invocation.py::test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable": 0,
+    "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice": 0,
+    "tests/test_governed_local_model_invocation.py::test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped": 0,
+    "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure": 0,
+    "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation": 0,
+    "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked": 0,
+    "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped": 0,
+    "tests/test_local_model_authority.py::test_authority_map_blocks_provider_and_tampering": 0,
+    "tests/test_local_model_authority.py::test_authority_map_rejects_digest_mismatch_and_oversized_candidate_count": 0,
+    "tests/test_local_model_authority.py::test_authority_map_verifies_local_gguf_and_stable_when_moved": 0,
+    "tests/test_local_model_production_commissioning.py::test_commissioning_authorization_mismatch_fails_before_model_load": 0,
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[incompatible]": 0,
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[malformed]": 0,
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[stale]": 0,
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[timeout]": 0,
+    "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction": 0,
+    "tests/test_local_model_production_commissioning.py::test_exact_runtime_worker_identity_environment_protocol_and_shutdown": 0,
+    "tests/test_local_model_production_commissioning.py::test_fabricated_self_consistent_commissioning_receipt_does_not_activate": 0,
+    "tests/test_local_model_production_commissioning.py::test_legacy_activation_environment_no_longer_configures_chat": 0,
+    "tests/test_local_model_production_commissioning.py::test_production_commission_activate_and_serve_governed_chat_end_to_end": 0,
+    "tests/test_local_model_production_commissioning.py::test_route_configuration_is_explicit_and_ambient_independent": 0,
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[digest]": 0,
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[evidence]": 0,
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[schema]": 0,
+    "tests/test_rootless_experimental_local_model.py::test_artifact_manifest_verifies_license_source_size_and_sha": 0,
+    "tests/test_rootless_experimental_local_model.py::test_denied_control_plane_never_executes_model_and_receipt_is_not_production_custody": 0,
+    "tests/test_rootless_experimental_local_model.py::test_experimental_custody_is_workspace_scoped_and_rejects_symlinks": 0,
+    "tests/test_rootless_experimental_local_model.py::test_experimental_identity_cannot_satisfy_production_authority_map": 0,
+    "tests/test_rootless_experimental_local_model.py::test_governor_auxiliary_state_is_scoped_and_restored": 0,
+    "tests/test_rootless_experimental_local_model.py::test_one_shot_executor_uses_governed_invoker_and_verifiable_nonproduction_receipt": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 100,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "166d1dbb36e56fdc4998993d7152736aadd89437",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-rootless-experimental/glow/test_runs/pytest_junitxml_1ebac02ac292481b8f8c14195548ac12.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_experimental_custody_is_workspace_scoped_and_rejects_symlinks",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_governor_auxiliary_state_is_scoped_and_restored",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_artifact_manifest_verifies_license_source_size_and_sha",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_one_shot_executor_uses_governed_invoker_and_verifiable_nonproduction_receipt",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_denied_control_plane_never_executes_model_and_receipt_is_not_production_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_rootless_experimental_local_model.py::test_experimental_identity_cannot_satisfy_production_authority_map",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_authority.py::test_authority_map_verifies_local_gguf_and_stable_when_moved",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_authority.py::test_authority_map_blocks_provider_and_tampering",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_authority.py::test_authority_map_rejects_digest_mismatch_and_oversized_candidate_count",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_route_configuration_is_explicit_and_ambient_independent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[malformed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[incompatible]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[timeout]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[stale]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_commissioning_authorization_mismatch_fails_before_model_load",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_fabricated_self_consistent_commissioning_receipt_does_not_activate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[schema]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[evidence]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_exact_runtime_worker_identity_environment_protocol_and_shutdown",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_legacy_activation_environment_no_longer_configures_chat",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning.py::test_production_commission_activate_and_serve_governed_chat_end_to_end",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_default_registry_builds_deterministically_and_validates",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_summary_shape_is_metadata_only_and_digest_changes_on_metadata",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_direct_fan_pwm_is_deferred_or_blocked_not_implemented",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_hardware_driver_awareness_references_driver_manager",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_gui_and_browser_interaction_implemented_but_gated",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_federation_evidence_is_implemented_but_not_transport_adoption_or_sync",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_provider_invocation_remains_blocked_or_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_context_hygiene_denial_phase_capabilities_are_metadata_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_validation_rejects_unsupported_implemented_host_actuation_without_requirements",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_validation_rejects_fan_pwm_implemented_claim_without_source_or_proof",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_validation_rejects_provider_network_prompt_authority_claims",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_local_model_chat_records_canonical_startup_without_recovery_or_deployment",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_validation_rejects_federation_evidence_as_transport",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_updates_from_collector_backed_inventory_and_resource_report_without_control",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_organs",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_default_registry_represents_phase4_privilege_broker_as_eligibility_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_phase5_registry_represents_actuation_fulfillment_as_rehearsal_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_execution_proof_wing_capabilities_are_proof_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_updates_from_execution_readiness_and_supervisor_keep_real_actions_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_authorization_review_capabilities_are_review_and_schema_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_updates_from_authorization_review_keep_real_actions_deferred_or_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_controlled_authorization_and_trace_capabilities_are_non_live",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_trace_export_and_reviewer_demo_capabilities_are_proof_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_reviewer_proof_bundle_capabilities_are_export_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_updates_from_reviewer_proof_bundle_keep_authority_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_host_actuation_safety_capabilities_are_metadata_only_and_real_actions_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_live_grant_readiness_capabilities_are_metadata_only_and_real_actions_remain_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_local_authorization_capabilities_are_record_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_updates_from_local_authorization_ledger_without_fulfillment",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_fulfillment_authorization_capabilities_are_metadata_only_and_execution_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_update_from_fulfillment_authorization_consumption_keeps_real_actions_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_fulfillment_executor_contract_capabilities_are_contract_only_and_real_execution_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_update_from_executor_contract_readiness_preserves_deferred_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_dry_run_execution_harness_capabilities_are_simulation_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_update_from_dry_run_execution_receipt_preserves_real_action_deferral",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_dry_run_audit_closure_capabilities_are_dry_run_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_update_from_dry_run_audit_closure_preserves_real_action_deferral",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_real_effect_admission_registry_records_are_planning_only_and_real_actions_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_update_registry_from_real_effect_admission_preserves_deferred_real_backends",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_local_diagnostic_effect_registry_records_are_narrow_and_general_effects_deferred",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_local_diagnostic_exact_rollback_capabilities_are_exact_artifact_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_local_effect_transaction_ledger_capabilities_are_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_host_steward_boundary_capabilities_are_metadata_only_and_runners_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_builtin_runner_transaction_orchestrator_capabilities_are_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_file_effect_capabilities_are_explicit_single_file_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_file_runner_transaction_capabilities_are_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_file_transaction_orchestrator_capabilities_are_implemented_and_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_execution_registry_helper_marks_blocked_surfaces",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_execution_verification_registry_helper_marks_read_only_and_blocks_broader_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_closure_registry_helper_marks_metadata_only_and_blocks_broader_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_admission_registry_marks_metadata_only_and_blocks_broader_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_orchestration_registry_marks_bounded_and_blocks_broader_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_work_item_promotion_gate_capability_is_metadata_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_has_operator_confirmed_preflight_run",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_registry_includes_operator_lifecycle_closure_review_capability",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_review_digest_capability_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_live_memory_commit_dry_run_adapter_capability_is_metadata_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_live_commit_safety_interlock_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_gate_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_real_memory_root_admission_gate_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_real_live_memory_commit_adapter_readiness_gate_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_final_live_memory_commit_review_gate_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_packet_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_envelope_registered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_host_local_authorization_grant_custody_capability_is_metadata_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_capability_registry.py::test_host_fulfillment_authorization_consumption_custody_capability_is_metadata_only",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "52dbece62fc3d70dfc07c0545f332bd4b87c8c53ae5babacc3a692cdb48617f1",
+  "provenance_hash": "9496b5a5365b57fa69c5766f06ac9e7629b9c160f8d1e4fe054c0fd1dea33f47",
+  "pytest_args": [
+    "tests/test_rootless_experimental_local_model.py",
+    "tests/test_local_model_authority.py",
+    "tests/test_governed_local_model_invocation.py",
+    "tests/test_local_model_production_commissioning.py",
+    "tests/test_capability_registry.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "2199dc1debbf475587fec293c5c54ec1",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_rootless_experimental_local_model.py::test_experimental_custody_is_workspace_scoped_and_rejects_symlinks",
+    "tests/test_rootless_experimental_local_model.py::test_governor_auxiliary_state_is_scoped_and_restored",
+    "tests/test_rootless_experimental_local_model.py::test_artifact_manifest_verifies_license_source_size_and_sha",
+    "tests/test_rootless_experimental_local_model.py::test_one_shot_executor_uses_governed_invoker_and_verifiable_nonproduction_receipt",
+    "tests/test_rootless_experimental_local_model.py::test_denied_control_plane_never_executes_model_and_receipt_is_not_production_custody",
+    "tests/test_rootless_experimental_local_model.py::test_experimental_identity_cannot_satisfy_production_authority_map",
+    "tests/test_local_model_authority.py::test_authority_map_verifies_local_gguf_and_stable_when_moved",
+    "tests/test_local_model_authority.py::test_authority_map_blocks_provider_and_tampering",
+    "tests/test_local_model_authority.py::test_authority_map_rejects_digest_mismatch_and_oversized_candidate_count",
+    "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound",
+    "tests/test_governed_local_model_invocation.py::test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable",
+    "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice",
+    "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure",
+    "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked",
+    "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped",
+    "tests/test_governed_local_model_invocation.py::test_epistemic_revision_json_schema_is_canonical_and_purpose_scoped",
+    "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation",
+    "tests/test_local_model_production_commissioning.py::test_route_configuration_is_explicit_and_ambient_independent",
+    "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction",
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[malformed]",
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[incompatible]",
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[timeout]",
+    "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[stale]",
+    "tests/test_local_model_production_commissioning.py::test_commissioning_authorization_mismatch_fails_before_model_load",
+    "tests/test_local_model_production_commissioning.py::test_fabricated_self_consistent_commissioning_receipt_does_not_activate",
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[schema]",
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[digest]",
+    "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[evidence]",
+    "tests/test_local_model_production_commissioning.py::test_exact_runtime_worker_identity_environment_protocol_and_shutdown",
+    "tests/test_local_model_production_commissioning.py::test_legacy_activation_environment_no_longer_configures_chat",
+    "tests/test_local_model_production_commissioning.py::test_production_commission_activate_and_serve_governed_chat_end_to_end",
+    "tests/test_capability_registry.py::test_default_registry_builds_deterministically_and_validates",
+    "tests/test_capability_registry.py::test_summary_shape_is_metadata_only_and_digest_changes_on_metadata",
+    "tests/test_capability_registry.py::test_direct_fan_pwm_is_deferred_or_blocked_not_implemented",
+    "tests/test_capability_registry.py::test_hardware_driver_awareness_references_driver_manager",
+    "tests/test_capability_registry.py::test_gui_and_browser_interaction_implemented_but_gated",
+    "tests/test_capability_registry.py::test_federation_evidence_is_implemented_but_not_transport_adoption_or_sync",
+    "tests/test_capability_registry.py::test_provider_invocation_remains_blocked_or_deferred",
+    "tests/test_capability_registry.py::test_context_hygiene_denial_phase_capabilities_are_metadata_only",
+    "tests/test_capability_registry.py::test_validation_rejects_unsupported_implemented_host_actuation_without_requirements",
+    "tests/test_capability_registry.py::test_validation_rejects_fan_pwm_implemented_claim_without_source_or_proof",
+    "tests/test_capability_registry.py::test_validation_rejects_provider_network_prompt_authority_claims",
+    "tests/test_capability_registry.py::test_local_model_chat_records_canonical_startup_without_recovery_or_deployment",
+    "tests/test_capability_registry.py::test_validation_rejects_federation_evidence_as_transport",
+    "tests/test_capability_registry.py::test_registry_updates_from_collector_backed_inventory_and_resource_report_without_control",
+    "tests/test_capability_registry.py::test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_organs",
+    "tests/test_capability_registry.py::test_default_registry_represents_phase4_privilege_broker_as_eligibility_only",
+    "tests/test_capability_registry.py::test_phase5_registry_represents_actuation_fulfillment_as_rehearsal_only",
+    "tests/test_capability_registry.py::test_execution_proof_wing_capabilities_are_proof_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_registry_updates_from_execution_readiness_and_supervisor_keep_real_actions_blocked",
+    "tests/test_capability_registry.py::test_authorization_review_capabilities_are_review_and_schema_only",
+    "tests/test_capability_registry.py::test_registry_updates_from_authorization_review_keep_real_actions_deferred_or_blocked",
+    "tests/test_capability_registry.py::test_controlled_authorization_and_trace_capabilities_are_non_live",
+    "tests/test_capability_registry.py::test_trace_export_and_reviewer_demo_capabilities_are_proof_only",
+    "tests/test_capability_registry.py::test_reviewer_proof_bundle_capabilities_are_export_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_registry_updates_from_reviewer_proof_bundle_keep_authority_deferred",
+    "tests/test_capability_registry.py::test_host_actuation_safety_capabilities_are_metadata_only_and_real_actions_blocked",
+    "tests/test_capability_registry.py::test_live_grant_readiness_capabilities_are_metadata_only_and_real_actions_remain_deferred",
+    "tests/test_capability_registry.py::test_local_authorization_capabilities_are_record_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_registry_updates_from_local_authorization_ledger_without_fulfillment",
+    "tests/test_capability_registry.py::test_fulfillment_authorization_capabilities_are_metadata_only_and_execution_deferred",
+    "tests/test_capability_registry.py::test_registry_update_from_fulfillment_authorization_consumption_keeps_real_actions_blocked",
+    "tests/test_capability_registry.py::test_fulfillment_executor_contract_capabilities_are_contract_only_and_real_execution_deferred",
+    "tests/test_capability_registry.py::test_registry_update_from_executor_contract_readiness_preserves_deferred_execution",
+    "tests/test_capability_registry.py::test_dry_run_execution_harness_capabilities_are_simulation_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_registry_update_from_dry_run_execution_receipt_preserves_real_action_deferral",
+    "tests/test_capability_registry.py::test_dry_run_audit_closure_capabilities_are_dry_run_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_registry_update_from_dry_run_audit_closure_preserves_real_action_deferral",
+    "tests/test_capability_registry.py::test_real_effect_admission_registry_records_are_planning_only_and_real_actions_deferred",
+    "tests/test_capability_registry.py::test_update_registry_from_real_effect_admission_preserves_deferred_real_backends",
+    "tests/test_capability_registry.py::test_local_diagnostic_effect_registry_records_are_narrow_and_general_effects_deferred",
+    "tests/test_capability_registry.py::test_local_diagnostic_exact_rollback_capabilities_are_exact_artifact_only",
+    "tests/test_capability_registry.py::test_local_effect_transaction_ledger_capabilities_are_bounded",
+    "tests/test_capability_registry.py::test_host_steward_boundary_capabilities_are_metadata_only_and_runners_blocked",
+    "tests/test_capability_registry.py::test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only",
+    "tests/test_capability_registry.py::test_builtin_runner_transaction_orchestrator_capabilities_are_bounded",
+    "tests/test_capability_registry.py::test_workspace_file_effect_capabilities_are_explicit_single_file_only",
+    "tests/test_capability_registry.py::test_workspace_file_runner_transaction_capabilities_are_bounded",
+    "tests/test_capability_registry.py::test_workspace_file_transaction_orchestrator_capabilities_are_implemented_and_bounded",
+    "tests/test_capability_registry.py::test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded",
+    "tests/test_capability_registry.py::test_workspace_change_set_execution_registry_helper_marks_blocked_surfaces",
+    "tests/test_capability_registry.py::test_workspace_change_set_execution_verification_registry_helper_marks_read_only_and_blocks_broader_authority",
+    "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_closure_registry_helper_marks_metadata_only_and_blocks_broader_authority",
+    "tests/test_capability_registry.py::test_workspace_change_set_admission_registry_marks_metadata_only_and_blocks_broader_authority",
+    "tests/test_capability_registry.py::test_workspace_change_set_lifecycle_orchestration_registry_marks_bounded_and_blocks_broader_authority",
+    "tests/test_capability_registry.py::test_work_item_promotion_gate_capability_is_metadata_only",
+    "tests/test_capability_registry.py::test_registry_has_operator_confirmed_preflight_run",
+    "tests/test_capability_registry.py::test_registry_includes_operator_lifecycle_closure_review_capability",
+    "tests/test_capability_registry.py::test_review_digest_capability_registered",
+    "tests/test_capability_registry.py::test_live_memory_commit_dry_run_adapter_capability_is_metadata_only",
+    "tests/test_capability_registry.py::test_live_commit_safety_interlock_registered",
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_registered",
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_gate_registered",
+    "tests/test_capability_registry.py::test_real_memory_root_admission_gate_registered",
+    "tests/test_capability_registry.py::test_real_live_memory_commit_adapter_readiness_gate_registered",
+    "tests/test_capability_registry.py::test_final_live_memory_commit_review_gate_registered",
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_packet_registered",
+    "tests/test_capability_registry.py::test_sandboxed_live_memory_commit_adapter_envelope_registered",
+    "tests/test_capability_registry.py::test_host_local_authorization_grant_custody_capability_is_metadata_only",
+    "tests/test_capability_registry.py::test_host_fulfillment_authorization_consumption_custody_capability_is_metadata_only"
+  ],
+  "selection_flags": [
+    "tests/test_rootless_experimental_local_model.py",
+    "tests/test_local_model_authority.py",
+    "tests/test_governed_local_model_invocation.py",
+    "tests/test_local_model_production_commissioning.py",
+    "tests/test_capability_registry.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 100,
+  "tests_executed": 100,
+  "tests_failed": 0,
+  "tests_passed": 100,
+  "tests_selected": 100,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T00:50:22.309964+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
