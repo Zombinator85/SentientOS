@@ -75,8 +75,17 @@ def verify_recent_operator_reports(repo_root: Path, *, last: int = 10) -> Verify
     checked_n = 0
     last_ok_hash: str | None = None
     for row in rows:
+        raw_schema_version = row.get("schema_version")
+        if raw_schema_version is None:
+            schema_version = 1
+        elif isinstance(raw_schema_version, int) and not isinstance(raw_schema_version, bool):
+            schema_version = raw_schema_version
+        elif isinstance(raw_schema_version, str) and raw_schema_version.isdecimal():
+            schema_version = int(raw_schema_version)
+        else:
+            return _fail(policy.enforce, checked_n, last_ok_hash, "schema_version_invalid")
         payload = {
-            "schema_version": int(row.get("schema_version") or 1),
+            "schema_version": schema_version,
             "kind": as_str(row.get("kind")) or "",
             "object_id": as_str(row.get("object_id")) or "",
             "created_at": as_str(row.get("created_at")) or "",
