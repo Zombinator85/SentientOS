@@ -303,7 +303,7 @@ _MARKER_CATEGORIES: Mapping[str, tuple[str, ...]] = {
 def _mapping(value: Any) -> Mapping[str, Any]:
     if value is None:
         return {}
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return asdict(value)
     if isinstance(value, Mapping):
         return value
@@ -323,7 +323,7 @@ def _dedupe(values: Sequence[str]) -> tuple[str, ...]:
 
 
 def _stable(value: Any) -> Any:
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return _stable(asdict(value))
     if isinstance(value, Mapping):
         return {str(key): _stable(value[key]) for key in sorted(value)}
@@ -502,7 +502,7 @@ def build_provider_invocation_denial_closure_manifest(
     attestation_data = _mapping(formal_attestation)
     attestation_digest = str(attestation_data.get("attestation_digest", "")) if attestation_data else ""
     if attestation_data and not attestation_digest:
-        attestation_digest = compute_provider_invocation_denial_attestation_digest(formal_attestation)
+        attestation_digest = compute_provider_invocation_denial_attestation_digest(attestation_data)
     expected_match = not expected_attestation_digest or expected_attestation_digest == attestation_digest
     release_codes = _dedupe(_tuple_str(release_blocker_codes))
     future_codes = _dedupe(_tuple_str(future_clearance_requirement_codes))
@@ -517,25 +517,25 @@ def build_provider_invocation_denial_closure_manifest(
         findings.append("formal_attestation_missing")
     else:
         status = str(attestation_data.get("attestation_status", ""))
-        if status not in _READY_ATTESTATION_STATUSES or not provider_invocation_denial_attestation_ready(formal_attestation):
+        if status not in _READY_ATTESTATION_STATUSES or not provider_invocation_denial_attestation_ready(attestation_data):
             findings.append(f"attestation_not_ready:{status}")
-        if not provider_invocation_denial_attestation_is_metadata_only(formal_attestation):
+        if not provider_invocation_denial_attestation_is_metadata_only(attestation_data):
             findings.append("sensitive_material:attestation_not_metadata_only")
-        if not provider_invocation_denial_attestation_denies_invocation(formal_attestation):
+        if not provider_invocation_denial_attestation_denies_invocation(attestation_data):
             findings.append("invocation_override:attestation_does_not_deny_invocation")
-        if not provider_invocation_denial_attestation_does_not_export(formal_attestation):
+        if not provider_invocation_denial_attestation_does_not_export(attestation_data):
             findings.append("io_attempt:attestation_export_attempt")
-        if not provider_invocation_denial_attestation_contains_no_prompt_text(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_prompt_text(attestation_data):
             findings.append("sensitive_material:attestation_prompt_text")
-        if not provider_invocation_denial_attestation_contains_no_secrets(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_secrets(attestation_data):
             findings.append("sensitive_material:attestation_secrets")
-        if not provider_invocation_denial_attestation_contains_no_endpoints(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_endpoints(attestation_data):
             findings.append("sensitive_material:attestation_endpoints")
-        if not provider_invocation_denial_attestation_contains_no_clients(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_clients(attestation_data):
             findings.append("sensitive_material:attestation_clients")
-        if not provider_invocation_denial_attestation_contains_no_network_handles(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_network_handles(attestation_data):
             findings.append("runtime_authority:attestation_network_handles")
-        if not provider_invocation_denial_attestation_contains_no_runtime_authority(formal_attestation):
+        if not provider_invocation_denial_attestation_contains_no_runtime_authority(attestation_data):
             findings.append("runtime_authority:attestation_runtime_authority")
     if expected_attestation_digest and not expected_match:
         findings.append("attestation_digest_mismatch")
@@ -645,7 +645,7 @@ def build_provider_invocation_denial_closure_manifest(
         approved_constraint_codes=approved_codes,
         rejected_constraint_codes=rejected_constraint_codes_tuple,
         metadata_only=not any(field_values.values()) and not marker_counts,
-        invocation_denial_preserved=bool(attestation_data and provider_invocation_denial_attestation_denies_invocation(formal_attestation) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
+        invocation_denial_preserved=bool(attestation_data and provider_invocation_denial_attestation_denies_invocation(attestation_data) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
         provider_invocation_release_blocked=bool(flag_overrides.get("provider_invocation_release_blocked", True)) is True,
         export_io_not_performed=not any(field_values[field_name] for field_name in _IO_FIELDS),
         external_delivery_not_performed=not any(field_values[field_name] for field_name in ("external_delivery_performed", "network_upload_performed", "email_delivery_performed", "webhook_delivery_performed")),
@@ -665,7 +665,41 @@ def build_provider_invocation_denial_closure_manifest(
         constraints=constraints,
         requirements=requirements,
         rationale=str(rationale),
-        **field_values,
+        export_io_performed=field_values["export_io_performed"],
+        external_delivery_performed=field_values["external_delivery_performed"],
+        network_upload_performed=field_values["network_upload_performed"],
+        email_delivery_performed=field_values["email_delivery_performed"],
+        webhook_delivery_performed=field_values["webhook_delivery_performed"],
+        file_write_performed=field_values["file_write_performed"],
+        object_storage_write_performed=field_values["object_storage_write_performed"],
+        prompt_text_included=field_values["prompt_text_included"],
+        hidden_chain_of_thought_included=field_values["hidden_chain_of_thought_included"],
+        raw_payloads_included=field_values["raw_payloads_included"],
+        secrets_included=field_values["secrets_included"],
+        secret_references_included=field_values["secret_references_included"],
+        endpoints_included=field_values["endpoints_included"],
+        endpoint_references_included=field_values["endpoint_references_included"],
+        clients_included=field_values["clients_included"],
+        client_references_included=field_values["client_references_included"],
+        network_handles_included=field_values["network_handles_included"],
+        runtime_handles_included=field_values["runtime_handles_included"],
+        provider_params_included=field_values["provider_params_included"],
+        model_params_included=field_values["model_params_included"],
+        tool_schemas_included=field_values["tool_schemas_included"],
+        invocation_allowed=field_values["invocation_allowed"],
+        provider_send_allowed=field_values["provider_send_allowed"],
+        network_allowed=field_values["network_allowed"],
+        credential_use_allowed=field_values["credential_use_allowed"],
+        endpoint_use_allowed=field_values["endpoint_use_allowed"],
+        client_use_allowed=field_values["client_use_allowed"],
+        provider_sdk_allowed=field_values["provider_sdk_allowed"],
+        semantic_generation_allowed=field_values["semantic_generation_allowed"],
+        tool_calls_allowed=field_values["tool_calls_allowed"],
+        memory_retrieval_allowed=field_values["memory_retrieval_allowed"],
+        memory_write_allowed=field_values["memory_write_allowed"],
+        retention_allowed=field_values["retention_allowed"],
+        action_execution_allowed=field_values["action_execution_allowed"],
+        routing_allowed=field_values["routing_allowed"],
     )
     digest = compute_provider_invocation_denial_closure_digest(manifest)
     return replace(manifest, closure_manifest_id=closure_manifest_id or f"provider-invocation-denial-closure:{digest}", closure_digest=digest)
