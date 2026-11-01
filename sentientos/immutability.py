@@ -220,11 +220,12 @@ def update_manifest(
 
     if not normalized:
         manifest["files"] = files_section
-        manifest["manifest_sha256"] = _hash_files(files_section)
+        manifest_hash = _hash_files(files_section)
+        manifest["manifest_sha256"] = manifest_hash
         generated = manifest.get("generated")
         if isinstance(generated, str):
             manifest["signature"] = _sign_manifest(
-                files_section, generated, manifest["manifest_sha256"]
+                files_section, generated, manifest_hash
             )
         return manifest
 
