@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
@@ -70,6 +71,33 @@ def test_cognitive_state_snapshot_redacts_pressure_fields() -> None:
     assert "content_id" not in pressure["pressure_by_subsystem"][0]
     assert "cause" not in pressure["overload_domains"][0]
     assert pressure["overload"] is True
+
+
+def test_cognitive_state_snapshot_orders_subsystems_by_string_value() -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot={
+            "pressure_by_subsystem": [
+                {"subsystem": "zeta", "count": 1},
+                {"subsystem": "alpha", "count": 1},
+            ]
+        }
+    )
+    pressure = snapshot["pressure_snapshot"]
+    assert pressure is not None
+    assert [entry["subsystem"] for entry in pressure["pressure_by_subsystem"]] == ["alpha", "zeta"]
+
+
+def test_cognitive_state_snapshot_defaults_unusable_transition_duration(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        "sentientos.consciousness.cognitive_state.derive_posture_transition",
+        lambda _history: {"posture_duration": "unavailable", "posture_transition": None},
+    )
+    monkeypatch.setattr(
+        "sentientos.consciousness.cognitive_state.derive_load_narrative",
+        lambda _history, _transition: SimpleNamespace(value="STABLE_OPERATION"),
+    )
+    snapshot = build_cognitive_state_snapshot(pressure_snapshot=None)
+    assert snapshot["posture_duration"] == 0
 
 
 def test_cognitive_state_snapshot_does_not_mutate_inputs() -> None:
