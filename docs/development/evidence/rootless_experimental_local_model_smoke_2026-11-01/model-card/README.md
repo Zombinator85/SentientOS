@@ -63,9 +63,9 @@ For users, to achieve chatbot-like experience, it is recommended to commence in 
 
 Detailed evaluation results are reported in this [📑 blog](https://qwenlm.github.io/blog/qwen2.5/).
 
-For quantized models, the benchmark results against the original bfloat16 models can be found [here](https://qwen.readthedocs.io/en/latest/benchmark/quantization_benchmark.html)
+The [Qwen2.5 quantization benchmark](https://qwen.readthedocs.io/en/v2.5/benchmark/quantization_benchmark.html) is marked as not yet updated for Qwen2.5 and reports Qwen2 GPTQ/AWQ results; it does not evaluate this Q4_K_M GGUF artifact.
 
-For requirements on GPU memory and the respective throughput, see results [here](https://qwen.readthedocs.io/en/latest/benchmark/speed_benchmark.html).
+The [Qwen2.5 speed benchmark](https://qwen.readthedocs.io/en/v2.5/benchmark/speed_benchmark.html) reports GPU throughput for BF16, GPTQ, and AWQ configurations. Those figures do not estimate CPU inference speed for this GGUF model.
 
 ## Citation
 
