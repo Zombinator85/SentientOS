@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import deque
 from datetime import datetime, timezone
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Protocol
+from typing import TYPE_CHECKING, Callable, Deque, Dict, Iterable, List, Optional, Protocol
 
 import hashlib
 import json
@@ -17,7 +17,8 @@ import os
 import time
 
 from logging_config import get_log_path
-from sentientos.governance.routine_delegation import RoutineProposal, RoutineSpec, make_routine_proposal
+if TYPE_CHECKING:
+    from sentientos.governance.routine_delegation import RoutineProposal, RoutineSpec
 
 
 LOG_PATH = get_log_path("cor_events.jsonl", "COR_LOG")
@@ -342,7 +343,7 @@ class CORSubsystem:
             for key, suppression in self._proposal_suppression.items()
         }
         snapshot = {
-            "beliefs": sorted(beliefs, key=lambda item: item["hypothesis"]),
+            "beliefs": sorted(beliefs, key=lambda item: str(item["hypothesis"])),
             "suppressed": suppressions,
             "global_silence_until": self._global_silence_until,
             "forgotten_hypotheses": sorted(_hash_reference(item) for item in self._forgotten_hypotheses),
@@ -357,6 +358,8 @@ class CORSubsystem:
         return tuple(sorted(self._forgotten_hypotheses))
 
     def propose_routine(self, summary: str, spec: RoutineSpec, *, proposed_by: str = "cor") -> RoutineProposal:
+        from sentientos.governance.routine_delegation import make_routine_proposal
+
         proposal = make_routine_proposal(summary=summary, spec=spec, proposed_by=proposed_by)
         self._log_event("routine_proposal", proposal.to_dict())
         return proposal
@@ -380,7 +383,7 @@ class CORSubsystem:
             return
         activity = event.payload.get("activity")
         if isinstance(activity, str) and activity != self.context.current_activity:
-            transition = {
+            transition: dict[str, object] = {
                 "from": self.context.current_activity,
                 "to": activity,
                 "timestamp": event.timestamp,
