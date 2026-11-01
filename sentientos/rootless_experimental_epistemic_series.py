@@ -22,8 +22,8 @@ from .local_runtime_provisioning import semantic_digest
 from .persistent_epistemic_state import EpistemicCognitiveProjection
 from .resident_developmental_cognition import ResidentDevelopmentalCognitionOwner
 from .rootless_experimental_local_model import (
-    EXPERIMENT_ROOT, RootlessExperimentalError, _exclusive_json,
-    _no_symlink_path, _read_json,
+    EXPERIMENT_ROOT, MAX_RECORD_BYTES, RootlessExperimentalError,
+    _exclusive_json, _no_symlink_path, _read_json,
 )
 from .rootless_experimental_epistemic_session import (
     MAX_CALLS, MAX_CONTEXT_TOKENS, MAX_NEW_TOKENS, MAX_OUTPUT_CHARS,
@@ -93,6 +93,106 @@ def _pop_prompt_condition(prompts_by_sha: dict[str, list[dict[str, Any]]],
     prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     matching = prompts_by_sha.get(prompt_sha)
     return (matching.pop(0), prompt_sha) if matching else (None, prompt_sha)
+
+
+def _partial_score_artifact_state(score_path: Path) -> dict[str, Any]:
+    try:
+        relative_path = str(score_path.relative_to(EXPERIMENT_ROOT))
+    except ValueError:
+        return {"path": None, "status": "outside_experiment_root",
+            "size_bytes": None, "sha256": None}
+    try:
+        candidate = _no_symlink_path(score_path)
+        candidate.relative_to(EXPERIMENT_ROOT.resolve(strict=True))
+        if not candidate.exists():
+            return {"path": relative_path, "status": "absent",
+                "size_bytes": None, "sha256": None}
+        if not candidate.is_file():
+            return {"path": relative_path, "status": "not_a_regular_file",
+                "size_bytes": None, "sha256": None}
+        size = candidate.stat().st_size
+        if size > MAX_RECORD_BYTES:
+            return {"path": relative_path, "status": "over_record_limit",
+                "size_bytes": size, "sha256": None}
+        with candidate.open("rb") as stream:
+            contents = stream.read(MAX_RECORD_BYTES + 1)
+        if len(contents) > MAX_RECORD_BYTES:
+            return {"path": relative_path, "status": "over_record_limit",
+                "size_bytes": candidate.stat().st_size, "sha256": None}
+    except (OSError, ValueError, RootlessExperimentalError):
+        return {"path": relative_path, "status": "unavailable",
+            "size_bytes": None, "sha256": None}
+    return {"path": relative_path, "status": "captured",
+        "size_bytes": len(contents),
+        "sha256": hashlib.sha256(contents).hexdigest()}
+
+
+def _persist_series_failure_record(run_root: Path, *, run_id: str,
+        preregistration_digest: str, captures_durable: bool,
+        capture_index_digest: str | None, error: Exception) -> None:
+    failure_code = getattr(error, "code", None) or type(error).__name__
+    if captures_durable:
+        failure = {
+            "schema_version": "sentientos.rootless_experimental_epistemic_scoring_failure:v1",
+            "run_id": run_id,
+            "preregistration_digest": preregistration_digest,
+            "capture_index_digest": capture_index_digest,
+            "captured_observations": MAX_CALLS,
+            "failure_type": type(error).__name__,
+            "failure_code": failure_code,
+            "scoring_started": True,
+            "score_record_write_attempted": False,
+            "complete_score_record_written": False,
+            "inference_replayed": False,
+            "production_authority": False,
+        }
+        failure_name = "scoring-failure-review.json"
+    else:
+        failure = {
+            "schema_version": "sentientos.rootless_experimental_epistemic_failure:v1",
+            "run_id": run_id,
+            "preregistration_digest": preregistration_digest,
+            "failure_type": type(error).__name__,
+            "failure_code": failure_code,
+            "inference_replayed": False,
+            "production_authority": False,
+        }
+        failure_name = "execution-failure.json"
+    try:
+        _exclusive_json(run_root / failure_name, failure, root=EXPERIMENT_ROOT)
+    except Exception as failure_exc:
+        raise RootlessExperimentalError(
+            "epistemic_series_failure_record_unavailable") from failure_exc
+
+
+def _persist_score_record(run_root: Path, score: Mapping[str, Any]) -> dict[str, Any]:
+    score_path = run_root / "scores.json"
+    score_record: dict[str, Any] = dict(score)
+    try:
+        score_record["score_record_digest"] = semantic_digest(score_record)
+        _exclusive_json(score_path, score_record, root=EXPERIMENT_ROOT)
+    except Exception as exc:
+        failure = {
+            "schema_version": "sentientos.rootless_experimental_scoring_write_failure:v1",
+            "run_id": score_record.get("run_id"),
+            "preregistration_digest": score_record.get("preregistration_digest"),
+            "capture_index_digest": score_record.get("capture_index_digest"),
+            "attempted_score_record_digest": score_record.get("score_record_digest"),
+            "failure_type": type(exc).__name__,
+            "failure_code": getattr(exc, "code", None) or type(exc).__name__,
+            "complete_score_record_written": False,
+            "partial_score_artifact": _partial_score_artifact_state(score_path),
+            "inference_replayed": False,
+            "production_authority": False,
+        }
+        try:
+            _exclusive_json(run_root / "scoring-write-failure.json", failure,
+                root=EXPERIMENT_ROOT)
+        except Exception as failure_exc:
+            raise RootlessExperimentalError(
+                "epistemic_scoring_failure_record_unavailable") from failure_exc
+        raise RootlessExperimentalError("epistemic_score_record_write_failed") from exc
+    return score_record
 
 
 def run_rootless_experimental_correction_pressure_series_once(*,
@@ -228,7 +328,11 @@ def run_rootless_experimental_correction_pressure_series_once(*,
         body["preregistration_digest"]))
     cognition.bind_rootless_experimental_epistemic_session(binding)
 
+    captures_durable = False
+    capture_index_digest: str | None = None
+
     def preserve_captures(captures: Any) -> None:
+        nonlocal captures_durable, capture_index_digest
         if len(captures) != MAX_CALLS:
             raise RootlessExperimentalError("epistemic_capture_count_invalid")
         persisted_keys = _read_json(key_path)
@@ -315,6 +419,8 @@ def run_rootless_experimental_correction_pressure_series_once(*,
         index["capture_index_digest"] = semantic_digest(index)
         _exclusive_json(run_root / "capture-index.json", index,
             root=EXPERIMENT_ROOT)
+        capture_index_digest = str(index["capture_index_digest"])
+        captures_durable = True
 
     try:
         report = run_correction_pressure_series_once(cognition=cognition,
@@ -326,18 +432,10 @@ def run_rootless_experimental_correction_pressure_series_once(*,
             tick_prefix=run_identity,
             after_captures_durable=preserve_captures)
     except Exception as exc:
-        failure = {"schema_version":
-            "sentientos.rootless_experimental_epistemic_failure:v1",
-            "run_id": run_identity,
-            "preregistration_digest": body["preregistration_digest"],
-            "failure_type": type(exc).__name__,
-            "failure_code": getattr(exc, "code", None) or type(exc).__name__,
-            "inference_replayed": False, "production_authority": False}
-        try:
-            _exclusive_json(run_root / "execution-failure.json", failure,
-                root=EXPERIMENT_ROOT)
-        except Exception:
-            pass
+        _persist_series_failure_record(run_root, run_id=run_identity,
+            preregistration_digest=body["preregistration_digest"],
+            captures_durable=captures_durable,
+            capture_index_digest=capture_index_digest, error=exc)
         raise
     score: dict[str, Any] = {"schema_version":
         "sentientos.rootless_experimental_epistemic_scores:v1",
@@ -348,8 +446,7 @@ def run_rootless_experimental_correction_pressure_series_once(*,
         "result": report, "production_authority": False,
         "eligible_as_production_commissioning_evidence": False,
         "eligible_as_production_serving_evidence": False}
-    score["score_record_digest"] = semantic_digest(score)
-    _exclusive_json(run_root / "scores.json", score, root=EXPERIMENT_ROOT)
+    score = _persist_score_record(run_root, score)
     return {"preregistration": body, "capture_index": _read_capture_index_digest(run_root),
         "scores": score, "run_root": str(run_root),
         "held_out_key_path": str(key_path)}
