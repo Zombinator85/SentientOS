@@ -1,0 +1,93 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_strategic_adaptation_typing.py::test_load_proposal_preserves_nested_json_record_types": 0,
+    "tests/test_strategic_adaptation_typing.py::test_load_proposal_rejects_non_numeric_guardrails": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 2,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "e8af211b761ae76c97ae3b824ad91b4520b20d7a",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-strategic-provenance/pytest_junitxml_c4655b82c9c04ba186cba17185cc1772.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_strategic_adaptation_typing.py::test_load_proposal_preserves_nested_json_record_types",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_strategic_adaptation_typing.py::test_load_proposal_rejects_non_numeric_guardrails",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "86d4c36e0478a23e102c2ca2278833195a37d7fd99c6b164c0b1e77238398857",
+  "pytest_args": [
+    "tests/test_strategic_adaptation_typing.py",
+    "-q",
+    "-m",
+    "legacy or no_legacy_skip",
+    "-k",
+    "test_load_proposal_preserves_nested_json_record_types or test_load_proposal_rejects_non_numeric_guardrails"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "b6c8f5f59a6440a5a4f554ca26f87eb7",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_strategic_adaptation_typing.py::test_load_proposal_preserves_nested_json_record_types",
+    "tests/test_strategic_adaptation_typing.py::test_load_proposal_rejects_non_numeric_guardrails"
+  ],
+  "selection_flags": [
+    "tests/test_strategic_adaptation_typing.py",
+    "-m",
+    "-k"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 2,
+  "tests_executed": 2,
+  "tests_failed": 0,
+  "tests_passed": 2,
+  "tests_selected": 2,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T02:09:50.067361+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
