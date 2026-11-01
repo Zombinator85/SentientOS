@@ -165,6 +165,72 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     assert wizard.last_summary == summary
 
 
+@pytest.mark.no_legacy_skip
+def test_wizard_validates_decoded_yaml_scalars_before_using_them(tmp_path: Path) -> None:
+    config_path = tmp_path / "vow/config.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        "codex_mode: repair\n"
+        "codex_interval: '7200'\n"
+        "codex_max_iterations: '4'\n"
+        "federation_peer_name: 42\n"
+        "federation_peers:\n  - tcp://aurora:7777\n",
+        encoding="utf-8",
+    )
+    wizard = FirstBootWizard(
+        ledger_path=tmp_path / "daemon/logs/ledger.jsonl",
+        config_path=config_path,
+        completion_path=tmp_path / "vow/first_boot_complete",
+        ledger_writer=lambda _path, _entry: None,
+        pulse_publisher=lambda event: event,
+        blessing_hook=lambda: None,
+    )
+
+    summary = wizard.run(force=True)
+
+    assert summary["codex"]["mode"] == "repair"
+    assert summary["codex"]["interval"] == 7200
+    assert summary["codex"]["max_iterations"] == 4
+    assert summary["federation"]["peer_name"] == "42"
+    assert summary["federation"]["addresses"] == ["tcp://aurora:7777"]
+
+
+@pytest.mark.no_legacy_skip
+def test_wizard_reports_invalid_yaml_integer_fields_as_value_errors(tmp_path: Path) -> None:
+    config_path = tmp_path / "vow/config.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text("codex_interval: [not, an, integer]\n", encoding="utf-8")
+    wizard = FirstBootWizard(
+        ledger_path=tmp_path / "daemon/logs/ledger.jsonl",
+        config_path=config_path,
+        completion_path=tmp_path / "vow/first_boot_complete",
+        ledger_writer=lambda _path, _entry: None,
+        pulse_publisher=lambda event: event,
+        blessing_hook=lambda: None,
+    )
+
+    with pytest.raises(ValueError, match="codex_interval must be an integer"):
+        wizard.run(force=True)
+
+
+@pytest.mark.no_legacy_skip
+def test_wizard_rejects_non_finite_yaml_integer_fields(tmp_path: Path) -> None:
+    config_path = tmp_path / "vow/config.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text("codex_interval: .inf\n", encoding="utf-8")
+    wizard = FirstBootWizard(
+        ledger_path=tmp_path / "daemon/logs/ledger.jsonl",
+        config_path=config_path,
+        completion_path=tmp_path / "vow/first_boot_complete",
+        ledger_writer=lambda _path, _entry: None,
+        pulse_publisher=lambda event: event,
+        blessing_hook=lambda: None,
+    )
+
+    with pytest.raises(ValueError, match="codex_interval must be an integer"):
+        wizard.run(force=True)
+
+
 def test_wizard_skip_when_completed(tmp_path: Path) -> None:
     ledger_entries: List[dict[str, object]] = []
     approval_calls: List[str] = []

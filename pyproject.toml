@@ -148,6 +148,7 @@ py-modules = ["sentient_api"]
 
 [tool.mypy]
 python_version = "3.11"
+mypy_path = "stubs"
 ignore_missing_imports = true
 exclude = ["tests"]
 files = ["sentientos"]
