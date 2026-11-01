@@ -359,6 +359,13 @@ def test_simulation_does_not_mutate_state(tmp_path: Path) -> None:
         )
     )
     assert isinstance(diff, ForgetDiff)
+    assert isinstance(diff.authority_deltas, tuple)
+    assert all(isinstance(item, Mapping) for item in diff.authority_deltas)
+    assert diff.narrative_summary_hashes
+    assert all(
+        isinstance(item.get("view"), str) and isinstance(item.get("hash"), str)
+        for item in diff.narrative_summary_hashes
+    )
     assert registry.get_routine(spec.routine_id) is not None
     assert manager.get_class("Focus") is not None
     assert read_forget_log(service.log_path) == []
