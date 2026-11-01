@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from sentientos.integrity_snapshot import compare_integrity_snapshots, emit_integrity_snapshot
-from sentientos.signed_strategic import maybe_publish_strategic_witness, sign_object, verify_latest
+from sentientos.signed_strategic import latest_signature, maybe_publish_strategic_witness, sign_object, verify_latest
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -97,3 +97,14 @@ def test_snapshot_includes_strategic_tip(tmp_path: Path, monkeypatch) -> None:  
 
     snap = emit_integrity_snapshot(tmp_path)
     assert snap.latest_strategic_sig_hash == sig.sig_hash[:16]
+
+
+def test_latest_signature_defaults_malformed_schema_version(tmp_path: Path) -> None:
+    index_path = tmp_path / "glow/forge/strategic/signatures/signatures_index.jsonl"
+    index_path.parent.mkdir(parents=True)
+    index_path.write_text('{"schema_version":"invalid"}\n', encoding="utf-8")
+
+    latest = latest_signature(tmp_path)
+
+    assert latest is not None
+    assert latest.schema_version == 1
