@@ -214,11 +214,12 @@ def run_bootstrap(repo_root: Path, *, reason: str, create_checkpoint: bool) -> d
             scheduling_window_open=True,
             storm_active=False,
         )
+        pending_actions = ledger_schedule.get("pending_actions")
         artifacts.append({
             "artifact": "trust_ledger_state",
             "path": "glow/federation/trust_ledger_state.json",
             "source": "trust_ledger.build_probe_schedule",
-            "pending_actions": len(ledger_schedule.get("pending_actions", [])) if isinstance(ledger_schedule.get("pending_actions"), list) else 0,
+            "pending_actions": len(pending_actions) if isinstance(pending_actions, list) else 0,
         })
 
         governor_decision = get_runtime_governor().admit_action(
