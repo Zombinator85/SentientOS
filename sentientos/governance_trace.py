@@ -144,14 +144,16 @@ class GovernanceTraceRecorder:
                 "gate_results": list(auto_result.gate_results or []),
             }
             if auto_result.attempted:
-                payload["reason_stack"] = [*list(payload.get("reason_stack") or []), "auto_remediation_attempted"]
+                reason_stack = _string_list(payload.get("reason_stack"))
+                payload["reason_stack"] = [*reason_stack, "auto_remediation_attempted"]
                 if auto_result.status == "succeeded":
-                    payload["reason_stack"] = [*list(payload.get("reason_stack") or []), "auto_remediation_succeeded"]
-                    payload["gates_evaluated"] = [*list(payload.get("gates_evaluated") or []), *list(auto_result.gate_results or [])]
+                    payload["reason_stack"] = [*reason_stack, "auto_remediation_attempted", "auto_remediation_succeeded"]
+                    payload["gates_evaluated"] = [*_record_list(payload.get("gates_evaluated")), *(auto_result.gate_results or [])]
                 elif auto_result.status == "failed":
-                    payload["reason_stack"] = [*list(payload.get("reason_stack") or []), "auto_remediation_failed"]
+                    payload["reason_stack"] = [*reason_stack, "auto_remediation_attempted", "auto_remediation_failed"]
                 abs_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            auto_remediation = payload.get("auto_remediation") if isinstance(payload.get("auto_remediation"), dict) else None
+            auto_remediation_value = payload.get("auto_remediation")
+            auto_remediation = auto_remediation_value if isinstance(auto_remediation_value, dict) else None
 
         response: dict[str, object] = {
             "trace_id": trace_id,
@@ -159,7 +161,7 @@ class GovernanceTraceRecorder:
             "trace_summary": {
                 "final_decision": final_decision,
                 "final_reason": final_reason,
-                "reason_stack": [str(item) for item in list(payload.get("reason_stack") or [])[:6]],
+                "reason_stack": _string_list(payload.get("reason_stack"))[:6],
             },
         }
         if remediation is not None:
@@ -218,3 +220,15 @@ def _iso_now() -> str:
 
 def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _record_list(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, dict)]
