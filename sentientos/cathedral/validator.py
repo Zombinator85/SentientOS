@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Mapping
+from typing import Any, Iterable, List, Mapping, TypeGuard
 
 from .amendment import Amendment
 
 __all__ = ["validate_amendment"]
 
 
-def _is_structured_mapping(value: Any) -> bool:
+def _is_structured_mapping(value: object) -> TypeGuard[Mapping[str, Any]]:
     return isinstance(value, Mapping)
 
 
@@ -119,7 +119,7 @@ def _validate_collection_domain(payload: Any, errors: List[str], domain: str, ca
                         errors.append(f"{domain}.{category}.{op} entries must be strings")
             else:
                 if not isinstance(value, Mapping):
-                    errors.append(f"{domain}.{category}.update must be a mapping")
+                    errors.append(f"{domain}.{category}.{op} must be a mapping")
                     continue
                 for name, metadata in value.items():
                     if not isinstance(name, str):
