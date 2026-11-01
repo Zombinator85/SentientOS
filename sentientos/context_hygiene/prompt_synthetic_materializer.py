@@ -402,20 +402,20 @@ def validate_synthetic_prompt_materialization_input(materializer_input: Syntheti
     audit_data = _mapping(audit)
     if not policy_data:
         findings.append(_finding("missing_policy_decision", "Phase 77 policy decision is required"))
-    elif not policy_decision_allows_synthetic_materializer(policy):
-        if policy_decision_requires_operator_review(policy):
+    else:
+        if not policy_decision_allows_synthetic_materializer(policy_data) and policy_decision_requires_operator_review(policy_data):
             if review is None:
                 findings.append(_finding("operator_review_required", "Phase 77 policy requires a matching Phase 78 operator review", "review"))
-            elif not operator_review_satisfies_policy_decision(policy, review):
+            elif not operator_review_satisfies_policy_decision(policy_data, review):
                 findings.append(_finding("operator_review_unsatisfied", "operator review receipt does not satisfy policy decision"))
-        else:
+        elif not policy_decision_allows_synthetic_materializer(policy_data):
             findings.append(_finding("policy_denied", "Phase 77 policy does not allow synthetic materializer"))
     if review is not None:
         for review_finding in validate_prompt_operator_review_receipt(review):
             findings.append(_finding(f"review_{review_finding.code}", review_finding.detail, review_finding.severity))
     if not audit_data:
         findings.append(_finding("missing_audit_receipt", "Phase 74 audit receipt is required"))
-    elif not audit_receipt_allows_shadow_materializer(audit):
+    elif not audit_receipt_allows_shadow_materializer(audit_data):
         findings.append(_finding("audit_disallows_shadow_materializer", "Phase 74 audit receipt does not allow shadow materializer"))
 
     for label, item in (("policy", policy), ("audit", audit), ("review", review), ("input", materializer_input)):
