@@ -28,10 +28,12 @@ def embodiment_ingress_receipt_ref(snapshot: Mapping[str, Any], *, salt: str = "
 def classify_embodied_pressure(snapshot: Mapping[str, Any]) -> list[str]:
     classes: list[str] = []
     modalities = set(snapshot.get("modalities_present", []))
-    audio_ctx = snapshot.get("current_audio_context") if isinstance(snapshot.get("current_audio_context"), Mapping) else {}
+    raw_audio_ctx = snapshot.get("current_audio_context")
+    audio_ctx = raw_audio_ctx if isinstance(raw_audio_ctx, Mapping) else {}
     if "audio" in modalities or audio_ctx.get("message"):
         classes.append("memory_write_pressure")
-    feedback_ctx = snapshot.get("current_feedback_context") if isinstance(snapshot.get("current_feedback_context"), Mapping) else {}
+    raw_feedback_ctx = snapshot.get("current_feedback_context")
+    feedback_ctx = raw_feedback_ctx if isinstance(raw_feedback_ctx, Mapping) else {}
     if "feedback" in modalities or feedback_ctx.get("action"):
         classes.append("feedback_action_pressure")
     if "vision" in modalities:
@@ -46,7 +48,8 @@ def classify_embodied_pressure(snapshot: Mapping[str, Any]) -> list[str]:
 
 
 def build_memory_ingress_candidate(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
-    audio = snapshot.get("current_audio_context") or {}
+    raw_audio = snapshot.get("current_audio_context")
+    audio = raw_audio if isinstance(raw_audio, Mapping) else {}
     message = audio.get("message")
     if not message:
         return None
@@ -61,7 +64,8 @@ def build_memory_ingress_candidate(snapshot: Mapping[str, Any]) -> dict[str, Any
 
 
 def build_feedback_ingress_candidate(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
-    feedback = snapshot.get("current_feedback_context") or {}
+    raw_feedback = snapshot.get("current_feedback_context")
+    feedback = raw_feedback if isinstance(raw_feedback, Mapping) else {}
     action = feedback.get("action")
     if not action:
         return None
