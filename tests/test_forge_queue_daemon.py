@@ -13,7 +13,15 @@ from sentientos.forge_queue import (
     ForgeQueueCustodyError,
     ForgeReceiptLedgerError,
     ForgeRequest,
+    _receipt_from_row,
 )
+
+
+def test_receipt_reader_rejects_non_boolean_drift_marker() -> None:
+    receipt = _receipt_from_row({"request_id": "r1", "status": "failed", "has_drift": "false"})
+
+    assert receipt is not None
+    assert receipt.has_drift is None
 
 
 @pytest.fixture(autouse=True)

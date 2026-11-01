@@ -524,7 +524,11 @@ def _apply_injection(node_root: Path, *, node_id: str, injection: dict[str, Any]
         write_json(node_root / "glow/governor/rollup.json", rollup)
     elif typ == "noisy_subject_pressure":
         counters_path = node_root / "glow/lab/fairness_counters.json"
-        counters = read_json(counters_path) if counters_path.exists() else {"schema_version": 1, "subject_events": 0, "blocked": 0}
+        counters: dict[str, object] = (
+            read_json(counters_path)
+            if counters_path.exists()
+            else {"schema_version": 1, "subject_events": 0, "blocked": 0}
+        )
         count = max(1, _as_int(injection.get("count"), 1))
         counters["subject_events"] = _as_int(counters.get("subject_events")) + count
         counters["blocked"] = _as_int(counters.get("blocked")) + max(1, count // 2)

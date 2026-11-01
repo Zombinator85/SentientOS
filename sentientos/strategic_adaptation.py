@@ -210,12 +210,13 @@ def apply_approved_proposal(repo_root: Path, proposal: GoalGraphAdjustmentPropos
     persist_goal_graph(root, new_graph)
     new_hash = goal_graph_hash(new_graph)
     change_id = f"change_{_safe_ts(_iso_now())}_{proposal.proposal_id}"
+    applied_at = _iso_now()
     rel_path = CHANGES_DIR / f"{change_id}.json"
     payload = {
         "schema_version": 1,
         "change_id": change_id,
         "proposal_id": proposal.proposal_id,
-        "applied_at": _iso_now(),
+        "applied_at": applied_at,
         "approved_by": approved_by,
         "old_goal_graph_hash": old_hash,
         "new_goal_graph_hash": new_hash,
@@ -246,7 +247,7 @@ def apply_approved_proposal(repo_root: Path, proposal: GoalGraphAdjustmentPropos
         schema_version=1,
         links={"proposal_id": proposal.proposal_id, "goal_graph_hash": new_hash},
         summary={"status": "applied", "approved_by": approved_by},
-        ts=payload["applied_at"],
+        ts=applied_at,
     )
     return change_id
 
@@ -657,8 +658,15 @@ def _compute_allocation_for_snapshot(*, graph: GoalGraph, snapshot: dict[str, ob
     pressure_level = snapshot.get("pressure_level", 0)
     if type(pressure_level) is not int:
         raise ValueError("invalid_snapshot_pressure_level")
+    posture_value = snapshot.get("posture", "balanced")
+    if posture_value == "stability":
+        posture = "stability"
+    elif posture_value == "velocity":
+        posture = "velocity"
+    else:
+        posture = "balanced"
     budget = derive_risk_budget(
-        posture=str(snapshot.get("posture", "balanced")),
+        posture=posture,
         pressure_level=pressure_level,
         operating_mode=str(snapshot.get("operating_mode", "normal")),
         quarantine_active=bool(snapshot.get("quarantine_active", False)),
