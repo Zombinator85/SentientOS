@@ -13,7 +13,7 @@ import os
 import socket
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Callable, Dict, Iterable, Iterator, Sequence
+from typing import Any, Callable, Dict, Iterable, Iterator, Mapping, NoReturn, Sequence
 
 import reflection_stream as rs
 import trust_engine as te
@@ -41,8 +41,8 @@ class PluginContext:
     caller_module: str | None
     headless: bool
     dry_run: bool
-    governance: MappingProxyType
-    embodiment: MappingProxyType
+    governance: Mapping[str, Any]
+    embodiment: Mapping[str, Any]
 
     def _require_capability(self, capability: str) -> None:
         if capability not in self.capabilities:
@@ -84,17 +84,17 @@ class BasePlugin:
     requires_epoch: bool | None = None
     capabilities: Sequence[str] | None = None
 
-    def execute(self, event: Dict[str, Any], context: PluginContext | None = None) -> Dict[str, Any]:
+    def execute(self, event: Mapping[str, Any], context: PluginContext | None = None) -> Dict[str, Any]:
         """Run the plug-in for real hardware."""
         raise NotImplementedError
 
-    def simulate(self, event: Dict[str, Any], context: PluginContext | None = None) -> Dict[str, Any]:
+    def simulate(self, event: Mapping[str, Any], context: PluginContext | None = None) -> Dict[str, Any]:
         """Simulate execution in headless mode."""
         return {"simulated": True}
 
     def run(
         self,
-        event: Dict[str, Any],
+        event: Mapping[str, Any],
         *,
         context: PluginContext | None = None,
         dry_run: bool = False,
@@ -130,7 +130,7 @@ def get_kernel() -> ResidentKernel | None:
 
 def _invoke_plugin_method(
     method: Callable[..., Dict[str, Any]],
-    event: Dict[str, Any],
+    event: Mapping[str, Any],
     context: PluginContext | None,
 ) -> Dict[str, Any]:
     try:
@@ -186,18 +186,18 @@ def _sandbox_capabilities(capabilities: Sequence[str]) -> Iterator[None]:
     if "filesystem" not in caps:
         original_open = builtins.open
 
-        def blocked_open(*_args, **_kwargs):
+        def blocked_open(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("filesystem capability required")
 
-        builtins.open = blocked_open  # type: ignore[assignment]
+        builtins.open = blocked_open
         _restore(builtins, "open", original_open)
 
         original_os_open = os.open
 
-        def blocked_os_open(*_args, **_kwargs):
+        def blocked_os_open(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("filesystem capability required")
 
-        os.open = blocked_os_open  # type: ignore[assignment]
+        os.open = blocked_os_open
         _restore(os, "open", original_os_open)
 
     if "subprocess" not in caps:
@@ -209,14 +209,14 @@ def _sandbox_capabilities(capabilities: Sequence[str]) -> Iterator[None]:
         original_check_call = subprocess.check_call
         original_check_output = subprocess.check_output
 
-        def blocked_subprocess(*_args, **_kwargs):
+        def blocked_subprocess(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("subprocess capability required")
 
-        subprocess.Popen = blocked_subprocess  # type: ignore[assignment]
-        subprocess.run = blocked_subprocess  # type: ignore[assignment]
-        subprocess.call = blocked_subprocess  # type: ignore[assignment]
-        subprocess.check_call = blocked_subprocess  # type: ignore[assignment]
-        subprocess.check_output = blocked_subprocess  # type: ignore[assignment]
+        setattr(subprocess, "Popen", blocked_subprocess)
+        setattr(subprocess, "run", blocked_subprocess)
+        setattr(subprocess, "call", blocked_subprocess)
+        setattr(subprocess, "check_call", blocked_subprocess)
+        setattr(subprocess, "check_output", blocked_subprocess)
         _restore(subprocess, "Popen", original_popen)
         _restore(subprocess, "run", original_run)
         _restore(subprocess, "call", original_call)
@@ -226,11 +226,11 @@ def _sandbox_capabilities(capabilities: Sequence[str]) -> Iterator[None]:
         original_os_system = os.system
         original_os_popen = os.popen
 
-        def blocked_os_system(*_args, **_kwargs):
+        def blocked_os_system(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("subprocess capability required")
 
-        os.system = blocked_os_system  # type: ignore[assignment]
-        os.popen = blocked_os_system  # type: ignore[assignment]
+        os.system = blocked_os_system
+        os.popen = blocked_os_system
         _restore(os, "system", original_os_system)
         _restore(os, "popen", original_os_popen)
 
@@ -238,21 +238,21 @@ def _sandbox_capabilities(capabilities: Sequence[str]) -> Iterator[None]:
         original_socket = socket.socket
         original_create_connection = socket.create_connection
 
-        def blocked_socket(*_args, **_kwargs):
+        def blocked_socket(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("network capability required")
 
-        socket.socket = blocked_socket  # type: ignore[assignment]
-        socket.create_connection = blocked_socket  # type: ignore[assignment]
+        setattr(socket, "socket", blocked_socket)
+        setattr(socket, "create_connection", blocked_socket)
         _restore(socket, "socket", original_socket)
         _restore(socket, "create_connection", original_create_connection)
         import urllib.request
 
         original_urlopen = urllib.request.urlopen
 
-        def blocked_urlopen(*_args, **_kwargs):
+        def blocked_urlopen(*_args: Any, **_kwargs: Any) -> NoReturn:
             raise PermissionError("network capability required")
 
-        urllib.request.urlopen = blocked_urlopen  # type: ignore[assignment]
+        urllib.request.urlopen = blocked_urlopen
         _restore(urllib.request, "urlopen", original_urlopen)
 
     try:
