@@ -27,8 +27,10 @@ class AuditSinkConfig:
 
 def _resolve_mode(raw: str | None) -> AuditMode:
     normalized = (raw or "runtime").strip().lower()
-    if normalized in {"baseline", "runtime", "both"}:
-        return normalized
+    if normalized == "baseline":
+        return "baseline"
+    if normalized == "both":
+        return "both"
     return "runtime"
 
 
