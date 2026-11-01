@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, is_dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, NamedTuple, Sequence
+from typing import Any, Mapping, NamedTuple, Sequence, cast
 
 from sentientos.local_diagnostic_effect import (
     DEFAULT_ARTIFACT_NAME,
@@ -363,32 +363,16 @@ class BuiltinLocalEffectRunnerWingRecords(NamedTuple):
     block_receipt: BuiltinRunnerBlockReceipt | None
 
 
-def _string_keyed_mapping(value: object, *, field: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ValueError(f"{field}_must_be_mapping")
-    normalized: dict[str, Any] = {}
-    for key, item in value.items():
-        if not isinstance(key, str):
-            raise ValueError(f"{field}_keys_must_be_strings")
-        normalized[key] = item
-    return normalized
-
-
-def _source_payload(source: object) -> Mapping[str, Any]:
+def _source_payload(source: Any) -> Mapping[str, Any]:
+    if hasattr(source, "to_dict"):
+        return cast(Mapping[str, Any], source.to_dict())
+    if hasattr(source, "_asdict"):
+        return cast(Mapping[str, Any], source._asdict())
+    if hasattr(source, "__dataclass_fields__"):
+        return asdict(source)
     if isinstance(source, Mapping):
-        return _string_keyed_mapping(source, field="runner_record")
-    to_dict = getattr(source, "to_dict", None)
-    if callable(to_dict):
-        payload: object = to_dict()
-    else:
-        asdict_method = getattr(source, "_asdict", None)
-        if callable(asdict_method):
-            payload = asdict_method()
-        elif is_dataclass(source) and not isinstance(source, type):
-            payload = asdict(source)
-        else:
-            raise ValueError("runner_record_must_be_mapping_or_record")
-    return _string_keyed_mapping(payload, field="runner_record")
+        return source
+    raise TypeError("runner record must be a mapping or expose a record serializer")
 
 
 def _canonical(value: Any) -> str:
@@ -418,8 +402,10 @@ def _json_write(path: Path, payload: Mapping[str, Any]) -> None:
 def _load_json(path: str | Path | None) -> dict[str, Any]:
     if path is None:
         return {}
-    payload: object = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
-    return _string_keyed_mapping(payload, field="runner_json_record")
+    payload = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("runner receipt payload must be a JSON object")
+    return payload
 
 
 def _record_ids_and_digests(records: Sequence[Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -656,27 +642,27 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
     if request.dry_run:
         return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("dry-run request validated; underlying write/delete not performed",), warnings=("dry_run_no_host_mutation_performed",), invoked=False))
     if request.action_kind == "local_diagnostic_artifact_write":
-        effect_records = run_local_diagnostic_effect_wing(output_dir=request.output_dir or "", artifact_name=request.artifact_name or DEFAULT_ARTIFACT_NAME, force_overwrite=request.force, dry_run=False, created_at=request.created_at)
+        write_records = run_local_diagnostic_effect_wing(output_dir=request.output_dir or "", artifact_name=request.artifact_name or DEFAULT_ARTIFACT_NAME, force_overwrite=request.force, dry_run=False, created_at=request.created_at)
         output_dir = Path(request.output_dir or "").expanduser()
-        if effect_records.result.effect_status == "local_diagnostic_effect_performed":
+        if write_records.result.effect_status == "local_diagnostic_effect_performed":
             paths = {
-                "effect_receipt.json": effect_records.receipt.to_dict(),
-                "postcondition_check.json": effect_records.postcondition_check.to_dict(),
-                "production_audit.json": effect_records.production_audit_receipt.to_dict(),
-                "rollback_plan.json": effect_records.rollback_plan.to_dict(),
+                "effect_receipt.json": write_records.receipt.to_dict(),
+                "postcondition_check.json": write_records.postcondition_check.to_dict(),
+                "production_audit.json": write_records.production_audit_receipt.to_dict(),
+                "rollback_plan.json": write_records.rollback_plan.to_dict(),
             }
             for name, payload in paths.items():
                 _json_write(output_dir / name, payload)
-        produced = (effect_records.receipt, effect_records.postcondition_check, effect_records.production_audit_receipt, effect_records.rollback_plan)
-        success = effect_records.result.effect_status == "local_diagnostic_effect_performed" and effect_records.result.real_effect_performed
+        produced = (write_records.receipt, write_records.postcondition_check, write_records.production_audit_receipt, write_records.rollback_plan)
+        success = write_records.result.effect_status == "local_diagnostic_effect_performed" and write_records.result.real_effect_performed
         status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
-        outputs = tuple(str(output_dir / name) for name in ("effect_receipt.json", "postcondition_check.json", "production_audit.json", "rollback_plan.json")) + (effect_records.result.output_path,)
+        outputs = tuple(str(output_dir / name) for name in ("effect_receipt.json", "postcondition_check.json", "production_audit.json", "rollback_plan.json")) + (write_records.result.output_path,)
         evidence = ("in-process local diagnostic artifact write invoked through bounded built-in runner",) if success else ("local diagnostic artifact write did not perform a host mutation",)
-        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=effect_records.result.warning_codes, local_effect=success, invoked=True))
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=write_records.result.warning_codes, local_effect=success, invoked=True))
     if request.action_kind == "local_diagnostic_exact_rollback":
-        effect_receipt_payload = _load_json(request.effect_receipt_path)
+        rollback_effect_receipt_payload = _load_json(request.effect_receipt_path)
         rollback_plan_payload = _load_json(request.rollback_plan_path)
-        rollback_records = run_local_diagnostic_exact_rollback_wing(effect_receipt_payload, rollback_plan_payload, output_dir_scope=request.output_dir_scope or "", allow_missing_artifact=False, dry_run=False, created_at=request.created_at)
+        rollback_records = run_local_diagnostic_exact_rollback_wing(rollback_effect_receipt_payload, rollback_plan_payload, output_dir_scope=request.output_dir_scope or "", allow_missing_artifact=False, dry_run=False, created_at=request.created_at)
         output_dir = Path(request.output_dir_scope or "").expanduser()
         if rollback_records.result.rollback_status == "local_diagnostic_exact_rollback_performed":
             for name, payload in {
@@ -720,14 +706,17 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
         evidence = ("in-process workspace-scoped single-file update invoked through bounded built-in runner",) if success else ("workspace-scoped file update did not perform a host mutation",)
         return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_workspace_records, warnings=workspace_records.result.warning_codes, workspace_effect=success, invoked=True))
     if request.action_kind == "workspace_scoped_file_exact_rollback":
-        effect_receipt_payload = _load_json(request.workspace_effect_receipt_path)
-        rollback_plan_payload = _load_json(request.workspace_rollback_plan_path)
+        workspace_effect_receipt_payload = _load_json(request.workspace_effect_receipt_path)
+        workspace_rollback_plan_payload = _load_json(request.workspace_rollback_plan_path)
         output_dir = Path(request.workspace_root_scope or "").expanduser()
-        if Path(str(rollback_plan_payload.get("workspace_root", ""))).expanduser().resolve(strict=False) != output_dir.resolve(strict=False):
+        if Path(str(workspace_rollback_plan_payload.get("workspace_root", ""))).expanduser().resolve(strict=False) != output_dir.resolve(strict=False):
             return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("workspace root scope did not match rollback plan",), warnings=("workspace_root_scope_mismatch",), invoked=False))
-        effect_receipt = WorkspaceFileEffectReceipt(**effect_receipt_payload)
-        workspace_rollback_plan = WorkspaceFileRollbackPlan(**rollback_plan_payload)
-        workspace_rollback_records = run_workspace_file_rollback_wing(effect_receipt=effect_receipt, rollback_plan=workspace_rollback_plan, created_at=request.created_at)
+        workspace_effect_receipt = WorkspaceFileEffectReceipt(**workspace_effect_receipt_payload)
+        workspace_rollback_plan = WorkspaceFileRollbackPlan(**workspace_rollback_plan_payload)
+        workspace_rollback_records = run_workspace_file_rollback_wing(
+            effect_receipt=workspace_effect_receipt,
+            rollback_plan=workspace_rollback_plan,
+            created_at=request.created_at)
         if workspace_rollback_records.rollback_result.real_rollback_performed:
             for name, payload in {
                 "workspace_rollback_result.json": workspace_rollback_records.rollback_result.to_dict(),
