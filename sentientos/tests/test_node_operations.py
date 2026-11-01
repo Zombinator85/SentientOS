@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from sentientos.attestation import read_json
-from sentientos.node_operations import build_incident_bundle, node_health, run_bootstrap
+from sentientos.node_operations import _health_from_surfaces, build_incident_bundle, node_health, run_bootstrap
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -89,3 +89,10 @@ def test_restore_flow_preserves_broken_history_and_writes_checkpoint(tmp_path: P
 
     assert (tmp_path / "logs/privileged_audit.jsonl").read_text(encoding="utf-8") == broken
     assert any(phase["phase"] == "restore_and_reanchor" for phase in report["phases"])
+
+
+def test_health_rollup_tolerates_malformed_nested_domain_payload() -> None:
+    assert _health_from_surfaces(
+        {"constitution_state": "healthy"},
+        {"integrity_overall": "ok", "health_domain": "unexpected-shape"},
+    ) == "healthy"
