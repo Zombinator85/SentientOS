@@ -139,10 +139,12 @@ class InnervationContext:
     cold_path_annotation: Optional[str] = None
 
     def __post_init__(self) -> None:
-        self.constraint_id = self.constraint_id or f"{self.module}::{self.action}"
+        constraint_id = self.constraint_id or f"{self.module}::{self.action}"
+        self.constraint_id = constraint_id
         self.registry = self.registry or ConstraintRegistry()
         self._gate = ConstraintRegistrationGate(self.registry)
-        self.pressure_engine = self.pressure_engine or ConstraintEngagementEngine(registry=self.registry)
+        pressure_engine = self.pressure_engine or ConstraintEngagementEngine(registry=self.registry)
+        self.pressure_engine = pressure_engine
         self.affective_overlay = self.affective_overlay or ac.capture_affective_context(
             f"{self.module}:{self.action}", overlay={"friction": 0.25}
         )
@@ -153,14 +155,15 @@ class InnervationContext:
         if self.telemetry_channel is None and self.require_telemetry:
             self.telemetry_channel = f"{self.module}:{self.action}:telemetry"
         if self.causal_explainer is None:
-            self.causal_explainer = lambda: self.pressure_engine.explain_pressure(self.constraint_id)  # type: ignore[assignment]
+            self.causal_explainer = lambda: pressure_engine.explain_pressure(constraint_id)
 
     @staticmethod
-    def _normalize_uncertainty(raw: Optional[float], affective_overlay: Mapping[str, object]) -> float:
-        if raw is None:
-            raw = affective_overlay.get("uncertainty", 0.25)  # type: ignore[arg-type]
+    def _normalize_uncertainty(raw: float | None, affective_overlay: Mapping[str, object]) -> float:
+        candidate: object = raw if raw is not None else affective_overlay.get("uncertainty", 0.25)
+        if isinstance(candidate, bool) or not isinstance(candidate, (int, float, str)):
+            raise ConstraintContextMissingError("uncertainty must be numeric")
         try:
-            value = float(raw)
+            value = float(candidate)
         except Exception as exc:
             raise ConstraintContextMissingError("uncertainty must be numeric") from exc
         return max(0.0, min(1.0, value))
@@ -169,9 +172,10 @@ class InnervationContext:
         """Validate innervation before action execution."""
 
         ac.require_affective_context({"affective_context": self.affective_overlay})
-        record = self._gate.enforce(
-            self.constraint_id, self.constraint_justification, lineage_from=self.lineage_from
-        )
+        constraint_id = self.constraint_id
+        if constraint_id is None:
+            raise ConstraintContextMissingError("constraint identifier is missing")
+        record = self._gate.enforce(constraint_id, self.constraint_justification, lineage_from=self.lineage_from)
         if self.telemetry_channel is None:
             if not allow_cold_path:
                 raise ColdPathViolation(
@@ -202,12 +206,17 @@ class InnervationContext:
         self.validate(allow_cold_path=allow_cold_path)
         if "record_signal" not in self.pressure_hooks:
             raise InnervationViolation("pressure hook 'record_signal' is missing; cannot accumulate pressure")
+        pressure_engine = self.pressure_engine
+        constraint_id = self.constraint_id
+        affective_overlay = self.affective_overlay
+        if pressure_engine is None or constraint_id is None or affective_overlay is None:
+            raise MissingInnervationError("innervation pressure context is incomplete")
         blocked_flag = status == "blocked" if blocked is None else blocked
-        state, _ = self.pressure_engine.record_signal(  # type: ignore[arg-type]
-            self.constraint_id,
+        state, _ = pressure_engine.record_signal(
+            constraint_id,
             magnitude if magnitude > 0 else 0.1,
             reason=reason or status,
-            affective_context=self.affective_overlay,
+            affective_context=affective_overlay,
             blocked=blocked_flag,
             provenance=self.sensor_provenance,
             assumptions=self.assumptions,
@@ -222,7 +231,10 @@ class InnervationContext:
         """Ensure causal explanation exists and is schema-valid."""
 
         try:
-            explanation = self.causal_explainer()  # type: ignore[operator]
+            causal_explainer = self.causal_explainer
+            if causal_explainer is None:
+                raise CausalExplanationMissingError("causal explainer is missing")
+            explanation = causal_explainer()
         except CausalExplanationMissingError as exc:
             raise CausalExplanationViolation(
                 f"action '{self.module}:{self.action}' cannot engage without causal explanation"
