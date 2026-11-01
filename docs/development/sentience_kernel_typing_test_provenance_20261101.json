@@ -1,0 +1,103 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_consciousness_pressure_context.py::test_consciousness_cycle_includes_pressure_context": 0,
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_behavior_unchanged_without_pressure_snapshot": 0,
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_reflects_overload_bias": 0,
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_uses_safe_defaults_for_malformed_persisted_scalars": 0,
+    "sentientos/tests/test_consciousness_pressure_context.py::test_overload_reflected_in_narrative_summary": 0,
+    "sentientos/tests/test_consciousness_pressure_context.py::test_pressure_snapshot_deterministic_and_read_only": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 3,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "0b915dd5e9c5e6808b3981e3e901ce23768751fb",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-kernel-provenance/pytest_junitxml_46aac1556e484b558546dd913bd1435d.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_behavior_unchanged_without_pressure_snapshot",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_reflects_overload_bias",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_uses_safe_defaults_for_malformed_persisted_scalars",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "255a423b2700030f0ebec96241b299fa7ae4973aaa206927c34336265f54744d",
+  "pytest_args": [
+    "sentientos/tests/test_consciousness_pressure_context.py",
+    "-q",
+    "-k",
+    "kernel_behavior_unchanged_without_pressure_snapshot or kernel_reflects_overload_bias or kernel_uses_safe_defaults_for_malformed_persisted_scalars"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "01535abb83bf4131b42c93780738e307",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_consciousness_pressure_context.py::test_pressure_snapshot_deterministic_and_read_only",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_consciousness_cycle_includes_pressure_context",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_behavior_unchanged_without_pressure_snapshot",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_reflects_overload_bias",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_uses_safe_defaults_for_malformed_persisted_scalars",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_overload_reflected_in_narrative_summary"
+  ],
+  "selection_flags": [
+    "sentientos/tests/test_consciousness_pressure_context.py",
+    "-k"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 3,
+  "tests_executed": 3,
+  "tests_failed": 0,
+  "tests_passed": 3,
+  "tests_selected": 6,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T01:56:17.831709+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
