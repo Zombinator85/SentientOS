@@ -25,7 +25,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import task_admission
 import task_executor
@@ -1488,7 +1488,7 @@ def resolve_unified_orchestration_result(
 
 def _recent_external_fulfillment_summary(
     repo_root: Path,
-    recent_intents: list[Mapping[str, Any]],
+    recent_intents: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Collect compact external fulfillment evidence linked to recent external intents."""
 
@@ -1637,12 +1637,12 @@ def resolve_unified_orchestration_result_surface(
             venue = "codex_implementation"
         elif intent_kind == "deep_research_work_order":
             venue = "deep_research_audit"
-        packet = packet_linkage.get((linkage_id, venue)) if linkage_id and venue else None
+        handoff_packet: dict[str, Any] | None = packet_linkage.get((linkage_id, venue)) if linkage_id and venue else None
         unified_rows.append(
             resolve_unified_orchestration_result(
                 root,
                 handoff=handoff,
-                handoff_packet=packet,
+                handoff_packet=handoff_packet,
                 executor_log_path=executor_log_path,
             )
         )
@@ -6031,7 +6031,8 @@ def derive_proposal_packet_continuity_review(
         packet_ids = {str(row.get("handoff_packet_id") or "") for row in proposal_packets if str(row.get("handoff_packet_id") or "")}
         current_candidates = 0
         for row in proposal_packets:
-            lineage_map = row.get("packet_lineage") if isinstance(row.get("packet_lineage"), Mapping) else {}
+            lineage_value = row.get("packet_lineage")
+            lineage_map: Mapping[str, Any] = lineage_value if isinstance(lineage_value, Mapping) else {}
             supersedes_id = str(lineage_map.get("supersedes_handoff_packet_id") or "")
             if supersedes_id:
                 repacketization_count += 1
