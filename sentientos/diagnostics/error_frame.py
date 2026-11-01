@@ -264,7 +264,7 @@ def frame_exception(
     resolved_class = error_class or _default_error_class(exc, failed_phase)
     resolved_code = error_code or _default_error_code(resolved_class, failed_phase, exc)
     summary = human_summary or f"{type(exc).__name__}: {exc}"
-    details = {
+    details: dict[str, Any] = {
         "exception_type": type(exc).__name__,
         "message": str(exc),
         "traceback": _traceback_excerpt(exc),
