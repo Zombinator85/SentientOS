@@ -24,6 +24,7 @@ from sentientos.governance.intentional_forgetting import (
     read_forget_log,
     read_forget_pressure,
     read_forget_pressure_budgets,
+    _pressure_budget_status,
 )
 from sentientos.governance.routine_delegation import (
     RoutineAction,
@@ -487,6 +488,7 @@ def test_simulation_diff_is_deterministic(tmp_path: Path) -> None:
     first = service.simulate_forget(request)
     second = service.simulate_forget(request)
     assert first.to_dict() == second.to_dict()
+    assert first.to_dict()["request"]["defer_acknowledged"] is False
 
 
 def test_rollback_proof_is_deterministic(tmp_path: Path) -> None:
@@ -1251,6 +1253,15 @@ def test_pressure_budget_forecast_surfaces_exceedance(tmp_path: Path) -> None:
         )
     )
     assert any(item.get("status") == "would_exceed" for item in diff.pressure_budgets)
+
+
+@pytest.mark.parametrize("subsystems", ["malformed", [None]])
+def test_pressure_budget_status_rejects_malformed_subsystem_records(subsystems: object) -> None:
+    with pytest.raises(ValueError, match="invalid_forget_pressure_subsystem"):
+        _pressure_budget_status(
+            [{"event": "intentional_forget_pressure", "forget_tx_id": "tx-1", "status": "active", "subsystems": subsystems}],
+            {"budget_domain": ForgetPressureBudget(max_outstanding=1)},
+        )
 
 
 def test_reconciliation_frees_budget_capacity(tmp_path: Path) -> None:
