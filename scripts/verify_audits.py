@@ -24,10 +24,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 import audit_immutability as ai
 from scripts import tooling_status
-try:
-    from scripts.cli_common import resolve_repo_root
-except ModuleNotFoundError:  # script execution fallback
-    from cli_common import resolve_repo_root
 from sentientos.recovery_tasks import enqueue_audit_chain_repair_task
 
 RESULT_PATH = Path("glow/audits/verify_audits_result.json")
@@ -75,6 +71,16 @@ VALID_EXTS = {".jsonl", ".json", ".log"}
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _resolve_cli_root(repo_root: str | None) -> Path:
+    try:
+        from scripts.cli_common import resolve_repo_root as resolve_package_root
+    except ModuleNotFoundError:  # script execution fallback
+        from cli_common import resolve_repo_root as resolve_script_root
+
+        return resolve_script_root(repo_root)
+    return resolve_package_root(repo_root)
 
 
 def _bounded_text(value: object) -> str:
@@ -427,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
 
     global REPO_ROOT, ROOT
-    REPO_ROOT = resolve_repo_root(args.repo_root)
+    REPO_ROOT = _resolve_cli_root(args.repo_root)
     ROOT = REPO_ROOT
     all_issues: List[str] = []
     structured_issues: List[AuditIssue] = []
@@ -530,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             strict_summary = None
 
-        status_label = "passed"
+        status_label: Literal["passed", "failed", "skipped", "error", "missing"] = "passed"
         reason = None
         exit_code = 0
         if not chain_ok and not args.strict:
