@@ -1,9 +1,16 @@
+import asyncio
 import json
+import logging
 from pathlib import Path
 
 import pytest
 
 from sentientos.config import PrivacyConfig, PrivacyRedactionConfig
+from sentientos.logging_middleware import Request
+from sentientos.logging_middleware import RedactingLoggingMiddleware
+from sentientos.logging_middleware import Response
+from sentientos.optional_deps import dependency_available
+from sentientos.privacy import LogRedactor
 from sentientos.privacy import PrivacyManager
 
 
@@ -34,3 +41,39 @@ def test_hash_capsule_records_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert vault.exists()
     lines = [json.loads(line) for line in vault.read_text(encoding="utf-8").splitlines() if line]
     assert any(entry["token"] == "pii@example.com" for entry in lines)
+
+
+def test_redacting_middleware_masks_authorization_header(caplog: pytest.LogCaptureFixture) -> None:
+    if dependency_available("starlette"):
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/private",
+                "query_string": b"",
+                "headers": [(b"authorization", b"Bearer test-secret-token")],
+                "server": ("localhost", 80),
+                "scheme": "http",
+            }
+        )
+    else:
+        request = Request(path="/private", method="GET")
+        request.headers["authorization"] = "Bearer test-secret-token"
+
+    response = Response(status_code=201)
+    logger = logging.getLogger("sentientos.access.test")
+    middleware = RedactingLoggingMiddleware(
+        app=object(),
+        redactor=LogRedactor(PrivacyRedactionConfig(enable=True)),
+        logger=logger,
+    )
+
+    async def call_next(_: Request) -> Response:
+        return response
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        result = asyncio.run(middleware.dispatch(request, call_next))
+
+    assert result is response
+    assert "path=/private method=GET status=201" in caplog.text
+    assert "Bearer test-secret-token" not in caplog.text
