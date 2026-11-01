@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from typing import Dict, Mapping, Type
+from typing import Dict, Mapping
 
-from .base import ExternalAdapter
-
-
-_ADAPTERS: Dict[str, Type[ExternalAdapter]] = {}
+from .base import ExternalAdapterFactory
 
 
-def register_adapter(adapter_id: str, adapter_cls: Type[ExternalAdapter]) -> None:
+_ADAPTERS: Dict[str, ExternalAdapterFactory] = {}
+
+
+def register_adapter(adapter_id: str, adapter_cls: ExternalAdapterFactory) -> None:
     _ADAPTERS[adapter_id] = adapter_cls
 
 
-def get_adapter(adapter_id: str) -> Type[ExternalAdapter]:
+def get_adapter(adapter_id: str) -> ExternalAdapterFactory:
     try:
         return _ADAPTERS[adapter_id]
     except KeyError as exc:
@@ -20,7 +20,7 @@ def get_adapter(adapter_id: str) -> Type[ExternalAdapter]:
         raise KeyError(f"unknown adapter '{adapter_id}'. Available adapters: {available}") from exc
 
 
-def list_adapters() -> Mapping[str, Type[ExternalAdapter]]:
+def list_adapters() -> Mapping[str, ExternalAdapterFactory]:
     return dict(_ADAPTERS)
 
 

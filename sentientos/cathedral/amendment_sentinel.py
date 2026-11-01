@@ -84,7 +84,7 @@ class AmendmentSentinel:
 
         status = "approved" if approved else "delayed"
         if status == "delayed":
-            self._record_hold(amendment, reasons, vote)
+            self._record_hold(amendment, reasons, vote.to_dict())
 
         return AmendmentIntercept(
             amendment_id=amendment.id,
