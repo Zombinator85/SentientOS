@@ -16,6 +16,42 @@ RoutineAuthorityImpact = str
 RoutineReversibility = str
 
 
+def _as_mapping(value: object) -> Mapping[str, object]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _mutable_state_section(value: object) -> MutableMapping[str, object]:
+    return {str(key): item for key, item in _as_mapping(value).items()}
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item) for item in value if item)
+
+
+def _optional_int(value: object) -> int | None:
+    if not isinstance(value, (int, float, str)):
+        return None
+    try:
+        return int(value)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _int_or_default(value: object, default: int) -> int:
+    result = _optional_int(value)
+    return result if result is not None else default
+
+
+def _time_window(value: object) -> tuple[str, str] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    return str(value[0]), str(value[1])
+
+
 class RoutinePolicyViolation(RuntimeError):
     """Raised when a routine violates non-negotiable authority bounds."""
 
@@ -127,15 +163,19 @@ class RoutineDefinition:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> "RoutineDefinition":
-        approval_payload = payload.get("approval") or {}
+        approval_payload = _as_mapping(payload.get("approval"))
         approval = RoutineApproval(
             approval_id=str(approval_payload.get("approval_id", "")),
             approved_by=str(approval_payload.get("approved_by", "")),
             approved_at=str(approval_payload.get("approved_at", "")),
             summary=str(approval_payload.get("summary", "")),
             trigger_summary=str(approval_payload.get("trigger_summary", "")),
-            scope_summary=tuple(str(s) for s in approval_payload.get("scope_summary", ()) if s),
-            rationale=approval_payload.get("rationale") if approval_payload.get("rationale") else None,
+            scope_summary=_string_tuple(approval_payload.get("scope_summary", ())),
+            rationale=(
+                str(approval_payload["rationale"])
+                if approval_payload.get("rationale")
+                else None
+            ),
         )
         return cls(
             routine_id=str(payload.get("routine_id", "")),
@@ -143,30 +183,22 @@ class RoutineDefinition:
             trigger_description=str(payload.get("trigger_description", "")),
             action_id=str(payload.get("action_id", "")),
             action_description=str(payload.get("action_description", "")),
-            scope=tuple(str(s) for s in payload.get("scope", ()) if s),
+            scope=_string_tuple(payload.get("scope", ())),
             reversibility=str(payload.get("reversibility", "")),
             authority_impact=str(payload.get("authority_impact", "")),
             expiration=str(payload.get("expiration")) if payload.get("expiration") else None,
-            priority=int(payload.get("priority")) if payload.get("priority") is not None else None,
+            priority=_optional_int(payload.get("priority")),
             precedence_group=str(payload.get("precedence_group")) if payload.get("precedence_group") else None,
             group_priority=(
-                int(payload.get("group_priority")) if payload.get("group_priority") is not None else None
+                _optional_int(payload.get("group_priority"))
             ),
-            precedence_conditions=tuple(
-                str(condition)
-                for condition in payload.get("precedence_conditions", ())
-                if condition
-            ),
-            trigger_specificity=int(payload.get("trigger_specificity", 0) or 0),
-            time_window=(
-                tuple(payload.get("time_window", ()))
-                if payload.get("time_window")
-                else None
-            ),
+            precedence_conditions=_string_tuple(payload.get("precedence_conditions", ())),
+            trigger_specificity=_int_or_default(payload.get("trigger_specificity", 0), 0),
+            time_window=_time_window(payload.get("time_window")),
             approval=approval,
             created_at=str(payload.get("created_at", "")),
             created_by=str(payload.get("created_by", "")),
-            policy=dict(payload.get("policy") or {}),
+            policy=dict(_as_mapping(payload.get("policy"))),
         )
 
 
@@ -373,11 +405,15 @@ class RoutineRegistry:
         return routine_ids
 
     def list_routines(self) -> tuple[RoutineDefinition, ...]:
-        return tuple(RoutineDefinition.from_dict(payload) for payload in self._state["routines"].values())
+        return tuple(
+            RoutineDefinition.from_dict(_as_mapping(payload))
+            for payload in self._state["routines"].values()
+            if isinstance(payload, Mapping)
+        )
 
     def get_routine(self, routine_id: str) -> RoutineDefinition | None:
         payload = self._state["routines"].get(routine_id)
-        if payload is None:
+        if not isinstance(payload, Mapping):
             return None
         return RoutineDefinition.from_dict(payload)
 
@@ -414,16 +450,10 @@ class RoutineRegistry:
     def _load_state(self) -> MutableMapping[str, MutableMapping[str, object]]:
         if not self.store_path.exists():
             return {"routines": {}, "revoked": {}, "forgotten": {}}
-        payload = json.loads(self.store_path.read_text(encoding="utf-8"))
-        routines = payload.get("routines", {})
-        revoked = payload.get("revoked", {})
-        forgotten = payload.get("forgotten", {})
-        if not isinstance(routines, dict):
-            routines = {}
-        if not isinstance(revoked, dict):
-            revoked = {}
-        if not isinstance(forgotten, dict):
-            forgotten = {}
+        payload = _as_mapping(json.loads(self.store_path.read_text(encoding="utf-8")))
+        routines = _mutable_state_section(payload.get("routines", {}))
+        revoked = _mutable_state_section(payload.get("revoked", {}))
+        forgotten = _mutable_state_section(payload.get("forgotten", {}))
         return {"routines": routines, "revoked": revoked, "forgotten": forgotten}
 
     def _save_state(self) -> None:

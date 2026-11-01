@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
+from pathlib import Path
 from typing import Mapping
 
 import pytest
@@ -13,6 +16,7 @@ from sentientos.governance.routine_delegation import (
     RoutineActionResult,
     RoutineApproval,
     RoutineCatalog,
+    RoutineDefinition,
     RoutineExecutor,
     RoutinePolicyViolation,
     RoutineRegistry,
@@ -21,6 +25,23 @@ from sentientos.governance.routine_delegation import (
     make_routine_approval,
 )
 import task_executor
+
+
+def test_cor_and_governance_exports_import_without_order_sensitive_cycle() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from sentientos.cor import CORSubsystem; "
+            "from sentientos.governance import IntentionalForgettingService; "
+            "assert CORSubsystem is not None and IntentionalForgettingService is not None",
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def _make_catalog(counter: dict[str, int], *, trigger_result: bool = True) -> RoutineCatalog:
@@ -144,6 +165,48 @@ def test_routines_only_run_after_approval(tmp_path) -> None:
     registry.approve_routine(spec, _make_approval(spec))
     executor.run(registry.list_routines(), catalog, {"time": "18:00"})
     assert counter["calls"] == 1
+
+
+def test_routine_definition_deserialization_narrows_malformed_json_values() -> None:
+    routine = RoutineDefinition.from_dict(
+        {
+            "approval": [],
+            "scope": {"unexpected": "mapping"},
+            "priority": object(),
+            "group_priority": "not-an-integer",
+            "trigger_specificity": object(),
+            "precedence_conditions": "not-a-sequence",
+            "time_window": ["18:00"],
+            "policy": ["not", "a", "mapping"],
+        }
+    )
+
+    assert routine.approval.approval_id == ""
+    assert routine.scope == ()
+    assert routine.priority is None
+    assert routine.group_priority is None
+    assert routine.trigger_specificity == 0
+    assert routine.precedence_conditions == ()
+    assert routine.time_window is None
+    assert routine.policy == {}
+
+
+def test_registry_ignores_malformed_routine_records(tmp_path) -> None:
+    store_path = tmp_path / "routines.json"
+    store_path.write_text(
+        json.dumps(
+            {
+                "routines": {"malformed": ["not", "a", "record"]},
+                "revoked": None,
+                "forgotten": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = RoutineRegistry(store_path=store_path, log_path=tmp_path / "routine_log.jsonl")
+
+    assert registry.list_routines() == ()
+    assert registry.get_routine("malformed") is None
 
 
 def test_revocation_halts_execution_immediately(tmp_path) -> None:
@@ -357,7 +420,10 @@ def test_conflict_pause_prompts_once_and_replays_deterministically(tmp_path) -> 
     assert counters["a"] == 0
     assert counters["b"] == 0
 
-    logs = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    logs = [
+        json.loads(line).get("data", {})
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+    ]
     prompts = [entry for entry in logs if entry.get("event") == "routine_conflict_prompt"]
     detections = [entry for entry in logs if entry.get("event") == "routine_conflict_detected"]
     assert len(prompts) == 1
