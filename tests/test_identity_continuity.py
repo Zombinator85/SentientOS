@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 
 import pytest
 
@@ -296,6 +297,35 @@ def test_drift_detection_classification() -> None:
 
     with pytest.raises(system_identity.IdentityDriftError):
         system_identity.enforce_identity_drift(baseline, critical)
+
+
+def test_identity_digest_rejects_malformed_numeric_policy_fields() -> None:
+    with pytest.raises(ValueError, match="max_steps_must_be_integer"):
+        system_identity.compute_system_identity_digest(
+            admission_policy={"max_steps": []},
+            control_policy=control_policy.load_policy(),
+            closure_limits=task_executor.load_closure_limits(),
+        )
+
+    with pytest.raises(ValueError, match="max_closure_iterations_must_be_integer"):
+        system_identity.compute_system_identity_digest(
+            admission_policy=_make_policy(),
+            control_policy=control_policy.load_policy(),
+            closure_limits={"max_closure_iterations": {"invalid": True}},
+        )
+
+
+def test_identity_digest_rejects_dataclass_type_instead_of_instance() -> None:
+    @dataclass
+    class ClosureLimits:
+        max_closure_iterations: int = 2
+
+    with pytest.raises(TypeError, match="identity_source_must_be_dataclass_instance"):
+        system_identity.compute_system_identity_digest(
+            admission_policy=_make_policy(),
+            control_policy=control_policy.load_policy(),
+            closure_limits=ClosureLimits,
+        )
 
 
 def test_critical_drift_halts_execution(monkeypatch: pytest.MonkeyPatch) -> None:

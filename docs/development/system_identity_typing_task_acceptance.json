@@ -1,0 +1,24 @@
+{
+  "repository_sha": "822e572066ad24fd74040c3b1b533bbbc77de6bd",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_identity_continuity.py::test_drift_detection_classification",
+      "rationale": "Valid admission and closure-policy dataclasses continue to produce stable benign and critical drift classifications."
+    },
+    {
+      "node_id": "tests/test_identity_continuity.py::test_identity_digest_rejects_malformed_numeric_policy_fields",
+      "rationale": "Malformed persisted numeric policy fields raise a clear ValueError instead of incidental conversion exceptions."
+    },
+    {
+      "node_id": "tests/test_identity_continuity.py::test_identity_digest_rejects_dataclass_type_instead_of_instance",
+      "rationale": "A dataclass type is rejected explicitly instead of being passed to dataclasses.asdict as if it were an instance."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_identity_continuity.py::test_drift_detection_classification",
+    "tests/test_identity_continuity.py::test_identity_digest_rejects_malformed_numeric_policy_fields"
+  ],
+  "task_classification": "bug_fix",
+  "test_provenance_path": "docs/development/system_identity_typing_test_provenance_20261101.json"
+}
