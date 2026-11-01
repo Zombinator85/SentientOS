@@ -247,28 +247,35 @@ class ContradictionRegistry:
         claim = {"id": claim_id, "topic": topic, "value": value, "confidence": confidence}
         self.topics.setdefault(topic, []).append(claim)
 
-        contradictions: list[tuple[Mapping[str, object], ContradictionLink]] = []
+        contradictions: list[tuple[float, ContradictionLink]] = []
         for existing in self.topics[topic]:
+            existing_id = existing.get("id")
+            existing_value = existing.get("value")
+            existing_confidence = existing.get("confidence")
             if (
-                existing["id"] != claim_id
-                and existing["value"] != value
-                and existing["confidence"] >= self.high_confidence
+                isinstance(existing_id, str)
+                and isinstance(existing_value, str)
+                and isinstance(existing_confidence, (int, float))
+                and not isinstance(existing_confidence, bool)
+                and existing_id != claim_id
+                and existing_value != value
+                and existing_confidence >= self.high_confidence
                 and confidence >= self.high_confidence
             ):
                 contradictions.append(
                     (
-                        existing,
-                        ContradictionLink(topic=topic, claim_a=claim_id, claim_b=existing["id"]),
+                        float(existing_confidence),
+                        ContradictionLink(topic=topic, claim_a=claim_id, claim_b=existing_id),
                     )
                 )
 
         if contradictions:
             links = self.contradictions_by_topic.setdefault(topic, [])
-            for existing, link in contradictions:
+            for existing_confidence, link in contradictions:
                 if link not in links:
                     links.append(link)
                     volatility_score = self.ledger.estimate_volatility(
-                        [confidence, float(existing.get("confidence", 0.0))]
+                        [confidence, existing_confidence]
                     )
                     self.ledger.record_contradiction(
                         f"contradiction:{link.claim_a}:{link.claim_b}",
