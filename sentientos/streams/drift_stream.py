@@ -116,7 +116,7 @@ class DriftEventStream(EventStreamAdapter):
             if entry.get("type") != "drift_detected":
                 continue
             drift_type = entry.get("drift_type")
-            flag = _DRIFT_TYPE_FLAGS.get(drift_type)
+            flag = _DRIFT_TYPE_FLAGS.get(drift_type) if isinstance(drift_type, str) else None
             if not flag:
                 continue
             date_value = _entry_date(entry)
@@ -175,7 +175,7 @@ class DriftEventStream(EventStreamAdapter):
             if date_value is None or date_value in seen_dates:
                 continue
             drift_type = entry.get("drift_type")
-            flag = _DRIFT_TYPE_FLAGS.get(drift_type)
+            flag = _DRIFT_TYPE_FLAGS.get(drift_type) if isinstance(drift_type, str) else None
             timestamp = entry.get("timestamp")
             timestamp_str = timestamp if isinstance(timestamp, str) else f"{date_value}T00:00:00+00:00"
             report = DriftReport(date=date_value, timestamp=timestamp_str)
