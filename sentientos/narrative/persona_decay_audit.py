@@ -7,7 +7,7 @@ from typing import Iterable, Mapping, Sequence
 OUTDATED_SYMBOLS = {"legacy", "deprecated", "obsolete"}
 
 
-def _flatten_text(blobs: Iterable[str]) -> list[str]:
+def _flatten_text(blobs: Iterable[object]) -> list[str]:
     phrases: list[str] = []
     for blob in blobs:
         for chunk in str(blob).split(","):
@@ -18,12 +18,20 @@ def _flatten_text(blobs: Iterable[str]) -> list[str]:
 
 
 def _canon_mismatch(identity_fragments: Mapping[str, object]) -> float:
-    canon = set(_flatten_text(identity_fragments.get("canon", [])))
-    current = set(_flatten_text(identity_fragments.get("current", [])))
+    canon = set(_flatten_text(_text_values(identity_fragments.get("canon"))))
+    current = set(_flatten_text(_text_values(identity_fragments.get("current"))))
     if not canon:
         return 0.0
     agreement = len(canon & current) / len(canon)
     return round(1 - agreement, 2)
+
+
+def _text_values(value: object) -> Iterable[object]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return value
+    return []
 
 
 def _symbolic_drift(glow_digests: Sequence[Mapping[str, object]] | Sequence[str]) -> float:
@@ -80,7 +88,7 @@ def audit_persona_decay(
         "symbolic drift": symbolic_score,
         "feedback divergence": feedback_score,
     }
-    dominant_symptom = max(symptom_candidates, key=symptom_candidates.get)
+    dominant_symptom = max(symptom_candidates, key=lambda item: symptom_candidates[item])
 
     symptom_labels = {
         "canon mismatch": "canon mismatch drift",
