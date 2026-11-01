@@ -51,10 +51,13 @@ class ConsentScope:
                 except ValueError:
                     continue
         raw_duration = payload.get("duration_seconds", 0)
-        try:
-            duration = int(raw_duration)
-        except (TypeError, ValueError):
+        if isinstance(raw_duration, bool) or not isinstance(raw_duration, (str, int, float)):
             duration = 0
+        else:
+            try:
+                duration = int(raw_duration)
+            except (TypeError, ValueError, OverflowError):
+                duration = 0
         return cls(
             signal_types=tuple(signal_types),
             duration_seconds=duration,
@@ -173,7 +176,7 @@ class ConsentLedger:
         revoked_at: datetime | None = None,
     ) -> dict[str, object]:
         revoked_at = revoked_at or datetime.now(timezone.utc)
-        entry = {
+        entry: dict[str, object] = {
             "event": "consent_revoke",
             "contract_id": contract_id,
             "reason": reason or "operator_revocation",

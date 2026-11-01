@@ -209,15 +209,15 @@ def _memory_entry(
     direction: SignalDirection,
     signal_type: SignalType,
 ) -> dict[str, object]:
-    entry = {
+    tags = ["embodiment", signal_type.value.lower(), memory_class.value.lower()]
+    entry: dict[str, object] = {
         "id": simulation_id,
         "category": "event",
         "source": f"embodiment:{direction.value.lower()}",
         "summary": f"{direction.value} {signal_type.value} simulated",
         "payload": dict(payload),
-        "tags": ["embodiment", signal_type.value.lower(), memory_class.value.lower()],
+        "tags": _tags_for_memory_class(memory_class, tags),
     }
-    entry["tags"] = _tags_for_memory_class(memory_class, entry["tags"])
     return entry
 
 
