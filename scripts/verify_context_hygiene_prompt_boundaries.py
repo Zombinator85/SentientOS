@@ -1251,7 +1251,6 @@ def _identifier_contains_forbidden_field(name: str, path: Path | None = None, re
         )
     ):
         return None
-    rel = _display_path(path, repo_root)
     if name in MODULE_SPECIFIC_METADATA_FIELD_ALLOWLIST.get(rel, frozenset()):
         return None
     if name in METADATA_ONLY_FIELD_ALLOWLIST_NAMES or name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
