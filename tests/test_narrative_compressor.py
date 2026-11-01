@@ -1,6 +1,9 @@
+import pytest
+
 from sentientos.narrative import NarrativeCompressor
 
 
+@pytest.mark.no_legacy_skip
 def test_narrative_compressor_collapses_duplicates_and_builds_motifs():
     compressor = NarrativeCompressor()
     entries = [
@@ -17,3 +20,10 @@ def test_narrative_compressor_collapses_duplicates_and_builds_motifs():
     assert "a" in anchors_for_dawn and "c" in anchors_for_dawn
     motifs = {item["motif"] for item in result["motifs"]}
     assert "dawn" in motifs
+
+
+@pytest.mark.no_legacy_skip
+def test_narrative_compressor_ignores_non_list_tags() -> None:
+    result = NarrativeCompressor().compress([{"text": "dawn returns", "tags": None}])
+
+    assert result["canonical_entries"][0]["tags"] == []
