@@ -84,6 +84,29 @@ def test_drift_replay_order_and_bounds(tmp_path: Path) -> None:
     assert all("silhouette" not in item.payload for item in replay)
 
 
+def test_drift_stream_ignores_non_string_drift_types(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_path = tmp_path / "drift.jsonl"
+    append_json(
+        log_path,
+        {"type": "drift_detected", "drift_type": {"invalid": "shape"}, "dates": ["2024-01-02"]},
+    )
+    stream = DriftEventStream(
+        log_path=log_path,
+        replay_policy=ReplayPolicy(max_replay_items=5, max_replay_bytes=200_000),
+    )
+    assert stream.replay(None, limit=5) == []
+
+    monkeypatch.setattr(
+        "sentientos.streams.drift_stream.follow_audit_entries",
+        lambda *_args, **_kwargs: iter(
+            [("digest", {"type": "drift_detected", "drift_type": ["invalid"], "dates": ["2024-01-03"]})]
+        ),
+    )
+    tail_events = list(stream.tail(None, should_stop=lambda: False))
+    assert len(tail_events) == 1
+    assert tail_events[0].payload["summary_counts"] == {"flags_total": 0}
+
+
 def test_tail_audit_entries_max_bytes(tmp_path: Path) -> None:
     log_path = tmp_path / "pressure.jsonl"
     for idx in range(3):
