@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 from hashlib import sha256
+from importlib import import_module
 import os
 from pathlib import Path
 from typing import Any, Iterator
@@ -24,9 +25,23 @@ from sentientos.schema_registry import SchemaName, normalize
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, verify_signed_rollups
 from sentientos.signed_strategic import verify_recent
 try:
-    from scripts.cli_common import resolve_repo_root
+    _cli_common = import_module("scripts.cli_common")
 except ModuleNotFoundError:  # script execution fallback
-    from cli_common import resolve_repo_root
+    _cli_common = import_module("cli_common")
+resolve_repo_root = getattr(_cli_common, "resolve_repo_root")
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
 
 
 @contextmanager
@@ -67,8 +82,8 @@ def _budgeted_verify(root: Path, *, last_n: int) -> dict[str, dict[str, object]]
             results[name] = {"status": "skipped", "reason": "skipped_budget_exhausted", "checked_n": 0}
             continue
         if name == "attestation_snapshot_signatures":
-            check = verify_recent_snapshots(root, last=verify_last_n)
-            results[name] = {"status": check.status if check.status else "ok", "reason": check.reason or "ok", "checked_n": check.checked_n}
+            snapshot_check = verify_recent_snapshots(root, last=verify_last_n)
+            results[name] = {"status": snapshot_check.status if snapshot_check.status else "ok", "reason": snapshot_check.reason or "ok", "checked_n": snapshot_check.checked_n}
         elif name == "rollup_signatures":
             ok, reason = verify_signed_rollups(root, last_weeks=verify_last_n)
             if ok:
@@ -77,12 +92,12 @@ def _budgeted_verify(root: Path, *, last_n: int) -> dict[str, dict[str, object]]
                 enforce = os.getenv("SENTIENTOS_ROLLUP_SIG_ENFORCE", "0") == "1"
                 results[name] = {"status": "fail" if enforce else "warn", "reason": reason or "rollup_signature_verify_failed", "checked_n": 0}
         else:
-            check = verify_recent(root, last=verify_last_n)
-            if check.ok:
-                results[name] = {"status": "ok", "reason": "ok", "checked_n": check.checked_n}
+            strategic_check = verify_recent(root, last=verify_last_n)
+            if strategic_check.ok:
+                results[name] = {"status": "ok", "reason": "ok", "checked_n": strategic_check.checked_n}
             else:
                 enforce = os.getenv("SENTIENTOS_STRATEGIC_SIG_ENFORCE", "0") == "1"
-                results[name] = {"status": "fail" if enforce else "warn", "reason": check.reason or "strategic_signature_verify_failed", "checked_n": check.checked_n}
+                results[name] = {"status": "fail" if enforce else "warn", "reason": strategic_check.reason or "strategic_signature_verify_failed", "checked_n": strategic_check.checked_n}
 
     return results
 
@@ -94,7 +109,7 @@ def _maybe_emit_snapshot(root: Path, *, emit_requested: bool, integrity_payload:
         return {"emitted": False, "reason": "replay_write_not_permitted", "path": None}
     integrity_hash = sha256(canonical_json_bytes(integrity_payload)).hexdigest()
     now = str(integrity_payload.get("ts") or iso_now())
-    min_interval = max(1, int(os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_MIN_INTERVAL_SECONDS", "600")))
+    min_interval = max(1, _coerce_int(os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_MIN_INTERVAL_SECONDS", "600"), default=600))
     allowed = should_emit_snapshot(
         root,
         ts=now,
@@ -160,7 +175,7 @@ def _persist_integrity_status(root: Path, integrity_payload: dict[str, object]) 
         artifact_id=ts,
         relative_path=str(rel),
         schema_name="integrity_status",
-        schema_version=int(integrity_payload.get("schema_version") or 1),
+        schema_version=_coerce_int(integrity_payload.get("schema_version") or 1, default=1),
         links={
             "policy_hash": integrity_payload.get("policy_hash"),
             "integrity_status_hash": sha256(canonical_json_bytes(integrity_payload)).hexdigest(),
@@ -258,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         artifact_id=str(payload.get("ts") or out_rel.name),
         relative_path=str(out_rel),
         schema_name=SchemaName.FORGE_REPLAY_REPORT,
-        schema_version=int(payload.get("schema_version") or 1),
+        schema_version=_coerce_int(payload.get("schema_version") or 1, default=1),
         links={
             "policy_hash": payload.get("policy_hash"),
             "integrity_status_hash": payload.get("integrity_status_hash"),
@@ -284,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
     print(canonical_json_bytes(payload).decode("utf-8"), end="")
-    return int(payload.get("exit_code", 3))
+    return _coerce_int(payload.get("exit_code", 3), default=3)
 
 
 if __name__ == "__main__":
