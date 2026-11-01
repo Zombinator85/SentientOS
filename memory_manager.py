@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import os
+import re
 import stat
 import secrets
 import time
@@ -17,7 +18,7 @@ from datetime import timezone
 from functools import wraps
 from pathlib import Path
 from threading import RLock
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, ParamSpec, Sequence, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, ParamSpec, Sequence, TextIO, TypeVar, Union
 
 from tools.storage_policy import (
     StoragePolicyConfig as StoragePolicy,
@@ -39,6 +40,7 @@ class MemorySidecarIncompleteError(ValueError):
 
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
+JSONRecord = Dict[str, Any]
 from emotions import empty_emotion_vector
 import emotion_memory as em
 import semantic_embeddings as se
@@ -175,7 +177,7 @@ def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) ->
 
 
 @contextmanager
-def _open_legacy_memory_text(path: Path, mode: str):
+def _open_legacy_memory_text(path: Path, mode: str) -> Iterator[TextIO]:
     """Open a shared sidecar through held custody; replace-mode writes publish atomically."""
     if mode not in {"a", "w"}:
         raise ValueError("legacy_memory_write_mode_invalid")
@@ -321,7 +323,12 @@ def _read_legacy_raw_fragment(name: str) -> bytes | None:
             if exc.args == ("explicit_file_missing",):
                 return None
             raise PermissionError("legacy_raw_memory_fragment_custody_unavailable") from exc
-    directory_fd = _open_legacy_raw_directory()
+    try:
+        directory_fd = _open_legacy_raw_directory()
+    except FileNotFoundError:
+        # A memory root with no raw subtree is an empty store. The write path
+        # creates that subtree only when a fragment is actually published.
+        return None
     descriptor: int | None = None
     try:
         descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
@@ -357,7 +364,7 @@ def _read_legacy_raw_fragment(name: str) -> bytes | None:
         os.close(directory_fd)
 
 # Registered callbacks invoked whenever a new reflection is stored.
-ReflectionListener = Callable[[dict], None]
+ReflectionListener = Callable[[JSONRecord], None]
 _REFLECTION_LISTENERS: list[ReflectionListener] = []
 
 
@@ -367,7 +374,7 @@ def add_reflection_listener(listener: ReflectionListener) -> None:
     _REFLECTION_LISTENERS.append(listener)
 
 
-def _notify_reflection_listeners(summary: dict) -> None:
+def _notify_reflection_listeners(summary: JSONRecord) -> None:
     if not _REFLECTION_LISTENERS:
         return
     for listener in list(_REFLECTION_LISTENERS):
@@ -428,8 +435,8 @@ def _legacy_fragment_paths() -> list[Path]:
     try:
         names: list[str] = []
         total = 0
-        with os.scandir(directory_fd) as entries:
-            for index, entry in enumerate(entries):
+        with os.scandir(directory_fd) as directory_entries:
+            for index, entry in enumerate(directory_entries):
                 if index >= 4096:
                     raise PermissionError("legacy_raw_memory_scan_bound_exceeded")
                 if not entry.name.endswith(".json"):
@@ -452,7 +459,7 @@ def _legacy_fragment_paths() -> list[Path]:
 
 
 
-def _load_fragment(fragment_id: str) -> dict | None:
+def _load_fragment(fragment_id: str) -> JSONRecord | None:
     path = _fragment_path(fragment_id)
     if _is_canonical_retention_path(path) or path.parent != RAW_PATH:
         return None
@@ -492,7 +499,7 @@ def _unlink_legacy_raw_fragment(fragment_id: str) -> bool:
         os.close(directory_fd)
 
 
-def _write_fragment(fragment_id: str, data: dict) -> None:
+def _write_fragment(fragment_id: str, data: JSONRecord) -> None:
     path = _fragment_path(fragment_id)
     if _is_canonical_retention_path(path):
         raise PermissionError("canonical_retention_artifact_is_not_a_legacy_fragment")
@@ -548,7 +555,7 @@ def _write_fragment(fragment_id: str, data: dict) -> None:
         os.close(directory_fd)
 
 
-def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterable[dict]:
+def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterable[JSONRecord]:
     """Yield raw memory fragments as dictionaries.
 
     Parameters
@@ -571,12 +578,12 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
             break
 
 
-def _load_index_records() -> list[dict]:
+def _load_index_records() -> list[JSONRecord]:
     payload = _read_legacy_memory_file(VECTOR_INDEX_PATH)
     if payload is None:
         return []
     lines = payload.decode("utf-8").splitlines()
-    records: list[dict] = []
+    records: list[JSONRecord] = []
     for i, line in enumerate(lines):
         if not line.strip():
             continue
@@ -592,7 +599,7 @@ def _load_index_records() -> list[dict]:
     return records
 
 
-def _save_index_records(records: Sequence[dict]) -> None:
+def _save_index_records(records: Sequence[JSONRecord]) -> None:
     if len(records) > 4096:
         raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", 0)
     with _INDEX_LOCK:
@@ -602,7 +609,7 @@ def _save_index_records(records: Sequence[dict]) -> None:
 
 
 @contextmanager
-def _vector_index_transaction():
+def _vector_index_transaction() -> Iterator[None]:
     from sentientos.platform_fcntl import fcntl, require_flock
     require_flock()
     if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
@@ -644,7 +651,7 @@ def _remove_from_index(fragment_id: str) -> None:
 
 
 @contextmanager
-def _memory_tomb_lock():
+def _memory_tomb_lock() -> Iterator[None]:
     from sentientos.platform_fcntl import fcntl, require_flock
     require_flock()
     if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
@@ -679,7 +686,7 @@ def _memory_tomb_lock():
         os.close(root_fd)
 
 
-def _append_tomb(entry: Dict) -> None:
+def _append_tomb(entry: JSONRecord) -> None:
     """Append a digest- and predecessor-bound purge event under single-writer lock."""
     _authorize_legacy_mutation()
     with _memory_tomb_lock():
@@ -707,10 +714,10 @@ def _append_tomb(entry: Dict) -> None:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
-    intents: dict[str, Dict] = {}
+def _collapse_tomb_operations(records: Sequence[JSONRecord]) -> List[JSONRecord]:
+    intents: dict[str, JSONRecord] = {}
     results: dict[str, str] = {}
-    ordinary: list[Dict] = []
+    ordinary: list[JSONRecord] = []
     for entry in records:
         event_type = entry.get("event_type")
         if event_type not in {"purge_intent", "purge_result"}:
@@ -734,7 +741,7 @@ def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
         results[operation_id] = state
     if set(results) - set(intents):
         raise MemorySidecarIncompleteError("memory_tomb_orphan_result", 0)
-    projected: list[Dict] = list(ordinary)
+    projected: list[JSONRecord] = list(ordinary)
     for operation_id, intent in intents.items():
         value = dict(intent)
         state = results.get(operation_id)
@@ -769,15 +776,15 @@ def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
 
 def list_tomb(
     *, tag: str | None = None, reason: str | None = None, date: str | None = None
-) -> List[Dict]:
+) -> List[JSONRecord]:
     """Return tomb entries filtered by tag, reason, or date."""
     payload = _read_legacy_memory_file(TOMB_PATH)
     if payload is None:
         return []
-    out: List[Dict] = []
+    out: List[JSONRecord] = []
     lines = payload.decode("utf-8").splitlines()
     raw_lines = payload.splitlines()
-    parsed_records: list[Dict] = []
+    parsed_records: list[JSONRecord] = []
     previous_line_digest: str | None = None
     for line_number, (line, raw_line) in enumerate(zip(lines, raw_lines), 1):
         if not line.strip():
@@ -818,7 +825,7 @@ def list_tomb(
     return out
 
 
-def _estimate_importance(entry: dict) -> float:
+def _estimate_importance(entry: JSONRecord) -> float:
     text = entry.get("text", "")
     score = 0.35
     word_count = len(text.split())
@@ -880,7 +887,7 @@ def append_memory(
         print("[MEMORY] Incognito mode enabled – skipping persistence")
         return "incognito"
     fragment_id = _hash(text + datetime.datetime.utcnow().isoformat())
-    entry = {
+    entry: JSONRecord = {
         "id": fragment_id,
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "tags": tags or [],
@@ -920,7 +927,7 @@ def append_memory(
     return fragment_id
 
 
-def _update_vector_index_locked(entry: Dict, vector: Vector) -> None:
+def _update_vector_index_locked(entry: JSONRecord, vector: Vector) -> None:
     """Update derived metadata while the caller holds the cross-process lock."""
     records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
     record = {
@@ -939,7 +946,7 @@ def _update_vector_index_locked(entry: Dict, vector: Vector) -> None:
     print(f"[VECTOR] Index updated for {entry['id']}")
 
 
-def _update_vector_index(entry: Dict) -> None:
+def _update_vector_index(entry: JSONRecord) -> None:
     vector = _vectorize(entry["text"])
     with _INDEX_LOCK, _vector_index_transaction():
         _update_vector_index_locked(entry, vector)
@@ -970,26 +977,33 @@ def _vectorize(text: str) -> Vector:
 
 def _cosine(a: Vector, b: Vector) -> float:
     """Cosine similarity for dict or list vectors."""
+    dot: float
     if isinstance(a, dict) and isinstance(b, dict):
-        dot = sum(a.get(t, 0) * b.get(t, 0) for t in a)
+        dot = math.fsum(a.get(t, 0) * b.get(t, 0) for t in a)
         mag = (sum(v * v for v in a.values()) ** 0.5) * (
             sum(v * v for v in b.values()) ** 0.5
         )
         return dot / mag if mag else 0.0
-    # assume numeric vectors
-    if len(a) != len(b):
+    if not isinstance(a, list) or not isinstance(b, list):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    mag = (sum(x * x for x in a) ** 0.5) * (sum(y * y for y in b) ** 0.5)
+    # Lists are numeric vectors after the container-kind check above.
+    numeric_a: list[float] = a
+    numeric_b: list[float] = b
+    if len(numeric_a) != len(numeric_b):
+        return 0.0
+    dot = math.fsum(x * y for x, y in zip(numeric_a, numeric_b))
+    mag = math.sqrt(math.fsum(x * x for x in numeric_a)) * math.sqrt(
+        math.fsum(y * y for y in numeric_b)
+    )
     return dot / mag if mag else 0.0
 
 
-def _load_index() -> List[Dict]:
+def _load_index() -> List[JSONRecord]:
     return list(_load_index_records())
 
 
 @contextmanager
-def _observation_log_lock():
+def _observation_log_lock() -> Iterator[None]:
     """Serialize one observation fragment/log publication across processes."""
     from sentientos.platform_fcntl import fcntl, require_flock
     require_flock()
@@ -1227,6 +1241,7 @@ def _store_observation_summary_unlocked(summary: Mapping[str, Any]) -> Dict[str,
         return prior
 
     raw_existing = _read_legacy_raw_fragment(fragment_id + ".json")
+    record: JSONRecord
     if raw_existing is not None:
         try:
             existing_fragment = json.loads(raw_existing.decode("utf-8"))
@@ -1254,7 +1269,7 @@ def _store_observation_summary_unlocked(summary: Mapping[str, Any]) -> Dict[str,
             for rec in previous if isinstance(rec.get("embedding"), list)
         ]
         novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
-        record: Dict[str, Any] = dict(source_payload)
+        record = dict(source_payload)
         record.setdefault("objects", [])
         record.setdefault("novel_objects", [])
         record.setdefault("transcripts", [])
@@ -1449,7 +1464,7 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
         result["persistence_status"] = "incognito_not_persisted"
         return result
 
-    fragment = {
+    fragment: JSONRecord = {
         "id": fragment_id,
         "timestamp": timestamp,
         "tags": ["reflection", "curiosity"],
@@ -1636,10 +1651,10 @@ def is_reflection_loop(snippet: str) -> bool:
 
 
 def _reconcile_vector_index_unlocked(
-) -> tuple[list[dict], dict[str, dict], int, int, int]:
+) -> tuple[list[JSONRecord], dict[str, JSONRecord], int, int, int]:
     """Reconcile derived retrieval rows from bounded owner raw fragments."""
     index = _load_index_records()
-    index_by_id: dict[str, dict] = {}
+    index_by_id: dict[str, JSONRecord] = {}
     for row in index:
         fragment_id = row.get("id")
         if not isinstance(fragment_id, str) or not fragment_id:
@@ -1661,7 +1676,7 @@ def _reconcile_vector_index_unlocked(
         elif state == "deleted" or not entry.get("event_type"):
             purged_ids.add(fragment_id)
 
-    raw_fragments: dict[str, dict] = {}
+    raw_fragments: dict[str, JSONRecord] = {}
     for path in _legacy_fragment_paths():
         fragment = _load_fragment(path.stem)
         if fragment is None:
@@ -1673,8 +1688,8 @@ def _reconcile_vector_index_unlocked(
             raise MemorySidecarIncompleteError("purged_fragment_reappeared", 0)
         raw_fragments[fragment_id] = fragment
 
-    reconciled: list[dict] = []
-    sources: dict[str, dict] = {}
+    reconciled: list[JSONRecord] = []
+    sources: dict[str, JSONRecord] = {}
     added = 0
     removed = 0
     changed = False
@@ -1687,8 +1702,10 @@ def _reconcile_vector_index_unlocked(
         source_text = source.get("text")
         if not isinstance(source_text, str):
             raise MemorySidecarIncompleteError("legacy_raw_fragment_text_invalid", 0)
-        row = index_by_id.pop(fragment_id, None)
-        if row is None:
+        existing_row = index_by_id.get(fragment_id)
+        if existing_row is not None:
+            del index_by_id[fragment_id]
+        if existing_row is None:
             row = {
                 "id": fragment_id,
                 "vector": _vectorize(source_text),
@@ -1703,6 +1720,7 @@ def _reconcile_vector_index_unlocked(
             added += 1
             changed = True
         else:
+            row = existing_row
             if row.get("snippet") != source_text[:400]:
                 raise MemorySidecarIncompleteError("vector_index_fragment_payload_conflict", 0)
             if "tags" in row and row.get("tags") != source.get("tags", []):
@@ -1753,7 +1771,7 @@ def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
     )
     q_vec = _vectorize(query)
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-    scored: List[tuple[float, dict]] = []
+    scored: List[tuple[float, JSONRecord]] = []
     for row in index:
         snippet = row.get("snippet", "")
         if not snippet or is_reflection_loop(snippet):
@@ -1802,7 +1820,7 @@ def get_context(query: str, k: int = 6) -> List[str]:
     with _INDEX_LOCK, _vector_index_transaction():
         return _get_context_unlocked(query, k)
 
-def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
+def search_by_tags(tags: List[str], limit: int = 5) -> list[JSONRecord]:
     """Return recent memory fragments matching all ``tags``.
 
     Results are ordered from newest to oldest and truncated to ``limit``.
@@ -1816,7 +1834,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
         ts = data.get("timestamp")
         entries.append((ts, data))
     entries.sort(key=lambda x: x[0] or "", reverse=True)
-    results: list[dict] = []
+    results: list[JSONRecord] = []
     wanted = set(tags)
     for _, data in entries:
         entry_tags = set(data.get("tags", []))
@@ -1856,7 +1874,7 @@ def _purge_memory_unlocked(
         and fragment.get("id")
     }
     files = list(_legacy_fragment_paths())
-    entries: List[tuple[datetime.datetime, Path, dict]] = []
+    entries: List[tuple[datetime.datetime, Path, JSONRecord]] = []
     for f in files:
         data = _load_fragment(f.stem)
         if data is None:
@@ -1865,7 +1883,7 @@ def _purge_memory_unlocked(
         entries.append((ts, f, data))
     entries.sort(key=lambda x: x[0])
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     removed = 0
     removed_names: set[str] = set()
     if max_age_days is not None:
@@ -2018,7 +2036,7 @@ def _prune_legacy_summary_files(
 
 
 
-def _write_topic_summaries(entries: Sequence[dict]) -> None:
+def _write_topic_summaries(entries: Sequence[JSONRecord]) -> None:
     topics: Dict[str, List[str]] = {}
     for data in entries:
         tags = data.get("tags", []) or []
@@ -2044,7 +2062,7 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
     _prune_legacy_summary_files(TOPIC_PATH, suffix=".md", keep_names=keep_names)
 
 
-def _extract_session_id(entry: dict) -> str | None:
+def _extract_session_id(entry: JSONRecord) -> str | None:
     meta = entry.get("meta")
     if isinstance(meta, dict):
         for key in ("session", "conversation", "thread", "goal"):
@@ -2052,7 +2070,7 @@ def _extract_session_id(entry: dict) -> str | None:
             if value:
                 return str(value)
     for tag in entry.get("tags", []) or []:
-        if ":" in tag:
+        if isinstance(tag, str) and ":" in tag:
             prefix, value = tag.split(":", 1)
             if prefix in {"session", "conversation", "goal"} and value:
                 return value
@@ -2062,13 +2080,13 @@ def _extract_session_id(entry: dict) -> str | None:
     return None
 
 
-def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
+def _write_session_digest(session_id: str, entries: Sequence[JSONRecord]) -> None:
     if not session_id or not entries:
         return
     entries = sorted(entries, key=lambda item: item.get("timestamp", ""))
     start = entries[0].get("timestamp", "")
     end = entries[-1].get("timestamp", "")
-    tags = collections.Counter()
+    tags: collections.Counter[str] = collections.Counter()
     highlights: list[str] = []
     for entry in entries[-10:]:
         tags.update(entry.get("tags", []) or [])
@@ -2089,8 +2107,8 @@ def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
     print(f"[SUMMARY] Session digest updated → {out}")
 
 
-def _write_turn_summaries(entries: Sequence[dict]) -> None:
-    sessions: dict[str, list[dict]] = {}
+def _write_turn_summaries(entries: Sequence[JSONRecord]) -> None:
+    sessions: dict[str, list[JSONRecord]] = {}
     for entry in entries:
         session_id = _extract_session_id(entry)
         if not session_id:
@@ -2101,7 +2119,7 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
     keep_session_names: set[str] = set()
     for session_id, session_entries in sessions.items():
         session_entries.sort(key=lambda item: item.get("timestamp", ""))
-        turns: list[dict] = []
+        turns: list[JSONRecord] = []
         for item in session_entries[-50:]:
             text = (item.get("summary") or item.get("text", "")).strip().replace("\n", " ")
             turns.append(
@@ -2129,7 +2147,7 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
 def _summarize_memory_unlocked() -> None:
     """Rebuild daily and topic summaries from one locked raw-memory snapshot."""
     summaries: Dict[str, List[str]] = {}
-    entries: List[dict] = []
+    entries: List[JSONRecord] = []
     for fp in _legacy_fragment_paths():
         data = _load_fragment(fp.stem)
         if data is None:
@@ -2171,7 +2189,7 @@ def _apply_forgetting_curve_unlocked(
     """Apply decay with recoverable, non-replayed deletion custody."""
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     removed = 0
-    kept_records: list[dict] = []
+    kept_records: list[JSONRecord] = []
     pending_purge_ids = {
         str(fragment.get("id"))
         for entry in list_tomb()
@@ -2282,8 +2300,8 @@ def _reflection_importance(status: str) -> float:
 def save_reflection(
     *,
     parent: str,
-    intent: dict,
-    result: dict | None,
+    intent: JSONRecord,
+    result: JSONRecord | None,
     reason: str,
     next_step: str | None = None,
     user: str = "",
@@ -2374,11 +2392,11 @@ def recent_reflections(
     plugin: str | None = None,
     user: str | None = None,
     failures_only: bool = False,
-) -> list[dict]:
+) -> list[JSONRecord]:
     """Return recent reflection entries with optional filters."""
 
     files = sorted(_legacy_fragment_paths(), reverse=True)
-    out: list[dict] = []
+    out: list[JSONRecord] = []
     for fp in files:
         data = _load_fragment(fp.stem)
         if data is None:
@@ -2438,7 +2456,7 @@ def recent_escalations(limit: int = 5) -> list[str]:
 
 
 @contextmanager
-def _goal_store_lock():
+def _goal_store_lock() -> Iterator[None]:
     from sentientos.platform_fcntl import fcntl, require_flock
     require_flock()
     if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
@@ -2473,7 +2491,7 @@ def _goal_store_lock():
         os.close(root_fd)
 
 
-def _load_goals() -> list[dict]:
+def _load_goals() -> list[JSONRecord]:
     payload = _read_legacy_memory_file(GOALS_PATH)
     if payload is None:
         return []
@@ -2492,7 +2510,7 @@ def _load_goals() -> list[dict]:
     return value
 
 
-def _save_goals(goals: list[dict]) -> None:
+def _save_goals(goals: list[JSONRecord]) -> None:
     with _open_legacy_memory_text(GOALS_PATH, "w") as handle:
         handle.write(json.dumps(goals, ensure_ascii=False, indent=2))
 
@@ -2501,12 +2519,12 @@ def _save_goals(goals: list[dict]) -> None:
 def add_goal(
     text: str,
     *,
-    intent: dict | None = None,
+    intent: JSONRecord | None = None,
     user: str = "",
     priority: int = 1,
     deadline: str | None = None,
     schedule_at: str | None = None,
-) -> dict:
+) -> JSONRecord:
     """Create and persist a new goal entry."""
 
     goal = {
@@ -2533,7 +2551,7 @@ def add_goal(
 
 
 @_legacy_mutation_operation
-def save_goal(goal: dict) -> None:
+def save_goal(goal: JSONRecord) -> None:
     goal_id = goal.get("id") if isinstance(goal, dict) else None
     if not isinstance(goal_id, str) or not goal_id:
         raise ValueError("Goal identity is required")
@@ -2560,18 +2578,18 @@ def delete_goal(goal_id: str) -> None:
         _save_goals(goals)
 
 
-def get_goal(goal_id: str) -> dict | None:
+def get_goal(goal_id: str) -> JSONRecord | None:
     for g in _load_goals():
         if g.get("id") == goal_id:
             return g
     return None
 
 
-def next_goal() -> dict | None:
+def next_goal() -> JSONRecord | None:
     """Return the next due goal by priority and schedule."""
     goals = get_goals(open_only=False)
     now = datetime.datetime.utcnow()
-    due: list[dict] = []
+    due: list[JSONRecord] = []
     for g in goals:
         if g.get("status") in {"completed", "stuck"}:
             continue
@@ -2592,7 +2610,7 @@ def next_goal() -> dict | None:
     return due[0] if due else None
 
 
-def get_goals(*, open_only: bool = False) -> list[dict]:
+def get_goals(*, open_only: bool = False) -> list[JSONRecord]:
     goals = _load_goals()
     if open_only:
         goals = [g for g in goals if g.get("status") == "open"]

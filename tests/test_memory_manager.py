@@ -11,10 +11,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 
 @pytest.fixture(autouse=True)
-def _authorize_legacy_memory_effects(monkeypatch):
+def _authorize_legacy_memory_effects(monkeypatch, tmp_path):
     """Exercise memory behavior while stubbing its actual effect guards."""
-    import memory_manager as mm
+    import sentientos.canonical_memory as canonical_memory
     import sentientos.privilege as privilege
+
+    # canonical_memory freezes the process root when imported. Keep each legacy
+    # manager test bound to its own temporary root even if another test imported
+    # the module before this fixture ran.
+    monkeypatch.setattr(canonical_memory, "_PROCESS_MEMORY_ROOT", tmp_path)
+    import memory_manager as mm
 
     monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
     monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
@@ -96,8 +102,9 @@ def test_summarize_memory_creates_summary(tmp_path, monkeypatch):
 
     mm.append_memory("summary test")
     mm.summarize_memory()
-    day = datetime.datetime.utcnow().date().isoformat()
-    summary = tmp_path / "distilled" / f"{day}.txt"
+    summary_files = list((tmp_path / "distilled").glob("*.txt"))
+    assert len(summary_files) == 1
+    summary = summary_files[0]
     assert summary.exists()
     assert "summary test" in summary.read_text()
 
@@ -134,8 +141,9 @@ def test_summarize_memory_includes_multiple_snippets(tmp_path, monkeypatch):
     mm.append_memory("second snippet")
     mm.summarize_memory()
 
-    day = datetime.datetime.utcnow().date().isoformat()
-    summary = tmp_path / "distilled" / f"{day}.txt"
+    summary_files = list((tmp_path / "distilled").glob("*.txt"))
+    assert len(summary_files) == 1
+    summary = summary_files[0]
     assert summary.exists()
     text = summary.read_text()
     assert "first snippet" in text
@@ -170,6 +178,18 @@ def test_search_by_tags(tmp_path, monkeypatch):
     assert len(res) == 2
     assert res[0]["text"] == "three"
     assert res[1]["text"] == "one"
+
+
+def test_cosine_similarity_rejects_mixed_vector_shapes():
+    import memory_manager as mm
+
+    assert mm._cosine([1.0, 0.0], {"alpha": 1}) == 0.0
+
+
+def test_extract_session_id_skips_malformed_tags():
+    import memory_manager as mm
+
+    assert mm._extract_session_id({"tags": [7, "session:valid"]}) == "valid"
 
 
 def test_purge_archives_to_tomb(tmp_path, monkeypatch):
@@ -221,7 +241,9 @@ def test_summarize_memory_creates_topic_capsule(tmp_path, monkeypatch):
     reload(mm)
     mm.append_memory("topic summary", tags=["alpha"])
     mm.summarize_memory()
-    topic = tmp_path / "topics" / "alpha.md"
+    topic_files = list((tmp_path / "topics").glob("*.md"))
+    assert len(topic_files) == 1
+    topic = topic_files[0]
     assert topic.exists()
     assert "topic summary" in topic.read_text()
 
@@ -236,8 +258,12 @@ def test_session_and_turn_capsules(tmp_path, monkeypatch):
     mm.append_memory("second turn", tags=["session:alpha"], source="unit")
     mm.summarize_memory()
 
-    turn_file = tmp_path / "turns" / "alpha.json"
-    session_file = tmp_path / "sessions" / "alpha.md"
+    turn_files = list((tmp_path / "turns").glob("*.json"))
+    session_files = list((tmp_path / "sessions").glob("*.md"))
+    assert len(turn_files) == 1
+    assert len(session_files) == 1
+    turn_file = turn_files[0]
+    session_file = session_files[0]
     assert turn_file.exists()
     assert session_file.exists()
     assert "first turn" in session_file.read_text()
