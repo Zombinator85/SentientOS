@@ -12,6 +12,8 @@ from sentientos.innervation import (
     innervated_action,
 )
 
+pytestmark = pytest.mark.no_legacy_skip
+
 class _DemoActor(InnervatedAction):
     @innervated_action()
     def perform(self) -> str:
@@ -91,3 +93,14 @@ def test_pressure_hooks_bypass_blocked():
     actor = _DemoActor(ctx)
     with pytest.raises(InnervationViolation):
         actor.perform()
+
+
+@pytest.mark.parametrize("uncertainty", [True, [], {}, object()])
+def test_uncertainty_from_affective_context_must_be_numeric(uncertainty):
+    with pytest.raises(ConstraintContextMissingError, match="uncertainty must be numeric"):
+        InnervationContext(
+            module="demo",
+            action="invalid-uncertainty",
+            constraint_justification="uncertainty input must be validated",
+            affective_overlay={"uncertainty": uncertainty},
+        )
