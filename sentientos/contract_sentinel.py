@@ -377,7 +377,7 @@ class ContractSentinel:
             "contract_alert_counts": dict(summary.contract_alert_counts),
             "contract_row_summary_counts": dict(summary.contract_row_summary_counts),
             "created_at": summary.created_at,
-            "transaction_status": getattr(summary, "transaction_status", None),
+            "transaction_status": summary.transaction_status,
         }
         state.last_progress_by_domain[domain] = essentials
 
@@ -480,7 +480,7 @@ class ContractSentinel:
         if not rows:
             return "unknown"
         last = rows[-1] if isinstance(rows[-1], dict) else {}
-        essentials = {
+        essentials: dict[str, Any] = {
             "run_id": str(last.get("run_id", "")),
             "goal_id": last.get("goal_id"),
             "campaign_id": last.get("campaign_id"),
