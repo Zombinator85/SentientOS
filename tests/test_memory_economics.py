@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import datetime
 
+import pytest
+
 from sentientos.memory_economics import (
     MemoryBudget,
     MemoryClass,
+    classify_memory,
+    select_pressure_tier,
     simulate_memory_economics,
 )
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _entry(entry_id: str, *, tags: list[str] | None = None, category: str = "event") -> dict[str, object]:
@@ -142,3 +148,8 @@ def test_simulation_only_flag_is_true() -> None:
     )
     plan = simulate_memory_economics(entries, budget=budget, pressure_snapshot=_snapshot(0))
     assert plan.simulation_only is True
+
+
+def test_malformed_tags_and_pressure_values_fail_to_safe_defaults() -> None:
+    assert classify_memory({"tags": "proof"}) == MemoryClass.CONTEXTUAL
+    assert select_pressure_tier({"total_active_pressure": []}).name == "quiet"
