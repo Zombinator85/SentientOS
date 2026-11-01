@@ -348,7 +348,8 @@ class RuntimeGovernor:
                 "path": str(state_path),
                 "last_error": None,
             }
-        entries = payload.get("entries") if isinstance(payload, dict) and isinstance(payload.get("entries"), list) else []
+        entries_value: object = payload.get("entries") if isinstance(payload, dict) else None
+        entries = entries_value if isinstance(entries_value, list) else []
         degraded_errors = {
             "audit_integrity_failed",
             "remote_doctrine_failed",

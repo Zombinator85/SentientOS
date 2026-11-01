@@ -77,6 +77,12 @@ def _readiness_verdict(required_layers: Mapping[str, str], blocker: str) -> str:
     return "ready_for_initial_slice_onboarding"
 
 
+def _mapping_rows(value: object) -> list[Mapping[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, Mapping)]
+
+
 def _canonical_execution_rows() -> list[dict[str, object]]:
     root = Path(os.getenv("SENTIENTOS_FEDERATION_ROOT", "/glow/federation"))
     path = root / "canonical_execution.jsonl"
@@ -181,6 +187,14 @@ def build_federation_mutation_control_preflight(
     if isinstance(fixture, Mapping) and fixture.get("repo_root"):
         repo_root = Path(str(fixture["repo_root"]))
     lifecycle_diag = _bounded_federation_lifecycle_diagnostic(repo_root)
+    lifecycle_coherence = lifecycle_diag.get("lifecycle_trace_coherence")
+    trace_coherence_map = (
+        lifecycle_coherence.get("trace_coherence_map")
+        if isinstance(lifecycle_coherence, Mapping)
+        else None
+    )
+    coherent_intents = _mapping_rows(trace_coherence_map)
+    canonical_intents = _mapping_rows(canonical_diag.get("typed_vs_canonical_by_intent"))
 
     return {
         "slice_id": "federation_mutation_control_slice",
@@ -273,7 +287,7 @@ def build_federation_mutation_control_preflight(
             "canonically_onboarded_now": list(BOUNDED_FEDERATION_CANONICAL_ACTIONS),
             "coherent_lifecycle_intents": [
                 intent.get("typed_action_id")
-                for intent in lifecycle_diag["lifecycle_trace_coherence"]["trace_coherence_map"]
+                for intent in coherent_intents
                 if intent.get("trace_state") == "coherent_end_to_end"
             ],
             "linkage_fields_enabling_resolution": [
@@ -287,7 +301,7 @@ def build_federation_mutation_control_preflight(
             "remaining_partial_seed_gaps": "intents with no observed canonical rows remain unresolved until first live correlation is present",
             "typed_but_not_yet_canonical_observed": [
                 row["action_id"]
-                for row in canonical_diag["typed_vs_canonical_by_intent"]
+                for row in canonical_intents
                 if row["execution_state"] == "typed_not_yet_canonical_observed"
             ],
             "remaining_out_of_scope": list(typed_action_diag["untyped_out_of_scope_intents"]),
