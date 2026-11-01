@@ -98,3 +98,21 @@ def test_abstain_or_dissent_blocks_quorum(temp_paths: tuple[Path, Path]):
     assert verdicts_path.read_text() == ""
     recorded = json.loads(ledger_path.read_text().strip())
     assert recorded["votes"]["AgentThree"] == "abstain"
+
+
+def test_from_dict_rejects_malformed_vote_mapping() -> None:
+    vote = CouncilVote.from_dict(
+        {
+            "proposal_id": "proposal-malformed",
+            "proposal_type": "doctrine_update",
+            "origin": "test_suite",
+            "summary": "Malformed persisted votes are ignored",
+            "proposed_by": "pytest",
+            "timestamp": "2026-11-01T00:00:00Z",
+            "votes": "not-a-mapping",
+            "quorum_required": {"unexpected": "shape"},
+        }
+    )
+
+    assert vote.votes == {}
+    assert vote.quorum_required == 3
