@@ -10,7 +10,11 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import TYPE_CHECKING
 import venv
+
+if TYPE_CHECKING:
+    from sentientos.forge_env import ForgeEnv
 
 
 @dataclass(slots=True)
@@ -31,7 +35,7 @@ class ForgeEnvCacheEntry:
     marker_ok: bool
 
 
-def resolve_cached_env(repo_root: Path, want_extras: str | None) -> "ForgeEnv":
+def resolve_cached_env(repo_root: Path, want_extras: str | None) -> ForgeEnv:
     from sentientos.forge_env import ForgeEnv
 
     key = _build_key(repo_root, want_extras)
@@ -120,9 +124,12 @@ def prune_cache(repo_root: Path, max_entries: int = 5, max_age_days: int = 14) -
     if len(survivors) <= max_entries:
         return removed
 
+    earliest = datetime.min.replace(tzinfo=timezone.utc)
     survivors_sorted = sorted(
         survivors,
-        key=lambda item: _parse_iso(item[1].last_used_at) if item[1] is not None else datetime.min.replace(tzinfo=timezone.utc),
+        key=lambda item: (
+            _parse_iso(item[1].last_used_at) or earliest if item[1] is not None else earliest
+        ),
     )
     for path, _meta in survivors_sorted[: max(0, len(survivors_sorted) - max_entries)]:
         _safe_rmtree(path)
