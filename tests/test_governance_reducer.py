@@ -1,8 +1,11 @@
 from copy import deepcopy
 
+import pytest
+
 from sentientos.governance import GovernanceReducer
 
 
+@pytest.mark.no_legacy_skip
 def test_governance_reducer_compresses_without_mutation():
     council = [
         {"proposal_id": "p1", "proposal_type": "symbol_approval", "status": "no_quorum", "summary": "align symbols"},
@@ -37,3 +40,10 @@ def test_governance_reducer_compresses_without_mutation():
     assert concord == originals["concord"]
     assert sanctions == originals["sanctions"]
     assert amendments == originals["amendments"]
+
+
+@pytest.mark.no_legacy_skip
+def test_governance_reducer_ignores_malformed_dissent_counts():
+    result = GovernanceReducer().reduce([], [], [{"agent": "alpha", "dissent": object()}], [])
+
+    assert result["dissent_overlap"] is False
