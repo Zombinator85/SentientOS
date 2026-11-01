@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+from sentientos import auto_remediation
 from sentientos.auto_remediation import maybe_auto_run_pack, should_auto_run_pack
 from scripts import run_remediation_pack
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _write_pack(root: Path, *, pack_id: str = "pack_1", destructive: bool = False, allowlisted: bool = True) -> dict[str, object]:
@@ -85,6 +91,46 @@ def test_failed_run_attempts_respect_max_attempts(tmp_path: Path, monkeypatch) -
     decision = should_auto_run_pack(tmp_path, operating_mode="recovery", pack=pack, incident_id="inc-1", governance_trace_id="trace-1")
     assert decision.status == "failed"
     assert decision.reason == "max_attempts_reached"
+
+
+def test_auto_run_rejects_non_list_steps(tmp_path: Path) -> None:
+    pack = _write_pack(tmp_path)
+    pack_path = tmp_path / str(pack["pack_path"])
+    payload = json.loads(pack_path.read_text(encoding="utf-8"))
+    payload["steps"] = {"unexpected": "mapping"}
+    pack_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    decision = should_auto_run_pack(
+        tmp_path,
+        operating_mode="recovery",
+        pack=pack,
+        incident_id="inc-1",
+        governance_trace_id="trace-1",
+    )
+    assert decision.status == "failed"
+    assert decision.reason == "invalid_steps"
+
+
+def test_gate_runners_use_verification_ok_property(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        auto_remediation,
+        "maybe_verify_audit_chain",
+        lambda _root, *, context: (SimpleNamespace(ok=True), False, False, None),
+    )
+    monkeypatch.setattr(
+        auto_remediation,
+        "maybe_verify_receipt_chain",
+        lambda _root, *, context: (SimpleNamespace(ok=True), False, False),
+    )
+    monkeypatch.setattr(
+        auto_remediation,
+        "maybe_verify_receipt_anchors",
+        lambda _root, *, context: (SimpleNamespace(ok=True), False, False),
+    )
+
+    assert auto_remediation._run_audit_gate(tmp_path, context="test")["result"] == "pass"
+    assert auto_remediation._run_receipt_gate(tmp_path, context="test")["result"] == "pass"
+    assert auto_remediation._run_anchor_gate(tmp_path, context="test")["result"] == "pass"
 
 
 def test_failed_auto_run_records_attempt(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
