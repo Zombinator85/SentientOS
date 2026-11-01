@@ -16,7 +16,7 @@ def enqueue_mode_escalation_tasks(repo_root: Path, *, mode: str, reason: str, in
     for kind, command in _default_commands():
         if (kind, "open") in existing_open:
             continue
-        row = {
+        row: dict[str, object] = {
             "kind": kind,
             "created_at": _iso_now(),
             "reason": reason,
@@ -34,7 +34,7 @@ def enqueue_audit_chain_repair_task(repo_root: Path, *, reason: str, incident_id
     open_kinds = {str(row.get("kind")) for row in rows if str(row.get("status", "open")) != "done"}
     if "audit_chain_repair" in open_kinds:
         return None
-    row = {
+    row: dict[str, object] = {
         "kind": "audit_chain_repair",
         "created_at": _iso_now(),
         "reason": reason,
@@ -55,7 +55,7 @@ def append_task_record(repo_root: Path, row: dict[str, object]) -> None:
 
 
 def mark_done(repo_root: Path, *, kind: str, note: str | None = None) -> dict[str, object]:
-    row = {"kind": kind, "done_at": _iso_now(), "status": "done", "note": note or ""}
+    row: dict[str, object] = {"kind": kind, "done_at": _iso_now(), "status": "done", "note": note or ""}
     append_task_record(repo_root, row)
     return row
 
