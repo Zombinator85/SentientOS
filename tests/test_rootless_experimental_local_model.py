@@ -130,8 +130,20 @@ def test_rootless_post_capture_scoring_failure_binds_durable_capture_index(
     monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
     run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "3" * 24)
     run_root.mkdir(parents=True, mode=0o700)
+    capture_index = {
+        "schema_version": "sentientos.rootless_experimental_epistemic_capture_index:v1",
+        "run_id": run_root.name,
+        "preregistration_digest": "f" * 64,
+        "capture_count": 4,
+        "captures": [],
+        "scoring_started": False,
+        "production_authority": False,
+    }
+    capture_index["capture_index_digest"] = semantic_digest(capture_index)
+    series_module._exclusive_json(run_root / "capture-index.json", capture_index,
+        root=root)
     error = RootlessExperimentalError("pressure_treatment_binding_invalid")
-    capture_digest = "e" * 64
+    capture_digest = capture_index["capture_index_digest"]
 
     _persist_series_failure_record(run_root, run_id=run_root.name,
         preregistration_digest="f" * 64, captures_durable=True,
@@ -152,6 +164,43 @@ def test_rootless_post_capture_scoring_failure_binds_durable_capture_index(
     assert failure["inference_replayed"] is False
     assert failure["production_authority"] is False
     assert not (run_root / "execution-failure.json").exists()
+
+
+def test_rootless_post_capture_failure_rejects_changed_capture_index(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "5" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+    capture_index = {
+        "schema_version": "sentientos.rootless_experimental_epistemic_capture_index:v1",
+        "run_id": run_root.name,
+        "preregistration_digest": "2" * 64,
+        "capture_count": 4,
+        "captures": [],
+        "scoring_started": False,
+        "production_authority": False,
+    }
+    capture_index["capture_index_digest"] = semantic_digest(capture_index)
+    series_module._exclusive_json(run_root / "capture-index.json", capture_index,
+        root=root)
+    changed_index = dict(capture_index)
+    changed_index.pop("capture_index_digest")
+    changed_index["capture_count"] = 3
+    changed_index["capture_index_digest"] = semantic_digest(changed_index)
+    (run_root / "capture-index.json").write_text(
+        json.dumps(changed_index), encoding="utf-8")
+
+    with pytest.raises(RootlessExperimentalError,
+            match="epistemic_scoring_failure_capture_index_changed"):
+        _persist_series_failure_record(run_root, run_id=run_root.name,
+            preregistration_digest="2" * 64, captures_durable=True,
+            capture_index_digest=capture_index["capture_index_digest"],
+            error=ValueError("scoring failed"))
+
+    assert not (run_root / "scoring-failure-review.json").exists()
 
 
 def test_rootless_pre_capture_failure_remains_execution_failure(
