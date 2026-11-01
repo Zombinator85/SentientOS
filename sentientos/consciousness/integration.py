@@ -10,6 +10,7 @@ activity.
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Sequence
 
 from version_consensus import VersionConsensus
@@ -87,7 +88,7 @@ def load_simulation_engine() -> type:
     return SimulationEngine
 
 
-def _coerce_mapping(candidate: Mapping[str, object] | None, name: str) -> MutableMapping[str, object]:
+def _coerce_mapping(candidate: object, name: str) -> MutableMapping[str, object]:
     if candidate is None:
         return {}
     if not isinstance(candidate, Mapping):
@@ -112,6 +113,8 @@ def _resolve_pressure_snapshot(context: Mapping[str, object]) -> Optional[Dict[s
     snapshot = context.get("pressure_snapshot")
     if snapshot is None and context.get("include_pressure_snapshot"):
         path = context.get("pressure_snapshot_path")
+        if path is not None and not isinstance(path, (str, Path)):
+            raise TypeError("pressure_snapshot_path must be a string or Path if provided")
         snapshot = build_forget_pressure_snapshot(path=path) if path else build_forget_pressure_snapshot()
     if snapshot is None:
         return None
@@ -149,7 +152,7 @@ def _maybe_run_arbitrator(context: Mapping[str, object]) -> Optional[Dict[str, o
         else:
             arbitrator.run_cycle()
     telemetry = arbitrator.telemetry_snapshot() if hasattr(arbitrator, "telemetry_snapshot") else None
-    return telemetry if isinstance(telemetry, Mapping) else None
+    return dict(telemetry) if isinstance(telemetry, Mapping) else None
 
 
 def _maybe_run_kernel(context: Mapping[str, object]) -> Optional[Dict[str, object]]:
@@ -172,7 +175,7 @@ def _maybe_run_kernel(context: Mapping[str, object]) -> Optional[Dict[str, objec
             report = run_cycle(**kwargs) if kwargs else kernel.run_cycle()
         else:
             report = kernel.run_cycle()
-        return report if isinstance(report, Mapping) else None
+        return dict(report) if isinstance(report, Mapping) else None
     return None
 
 
