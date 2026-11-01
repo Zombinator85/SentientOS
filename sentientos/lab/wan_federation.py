@@ -334,7 +334,7 @@ def deterministic_wan_fault_schedule(*, scenario: str, topology: str, seed: int,
     for seq, action in enumerate(spec.get("actions", []), start=1):
         offset = min(duration_s, max(0.0, _to_float(action.get("at_s"), default=0.0) + rng.uniform(0.01, 0.08)))
         rows.append({"sequence": seq, "offset_s": round(offset, 3), **action})
-    rows.sort(key=lambda row: _to_float(row["offset_s"]))
+    rows.sort(key=lambda row: _to_float(row.get("offset_s")))
     return rows
 
 
@@ -396,7 +396,7 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _classify_ssh_step(step: Mapping[str, object]) -> str:
+def _classify_ssh_step(step: dict[str, object]) -> str:
     exit_code = _to_int(step.get("exit_code"), default=1)
     stderr = str(step.get("stderr") or "").lower()
     if exit_code == 0:
@@ -412,7 +412,7 @@ def _classify_ssh_step(step: Mapping[str, object]) -> str:
     return "transport_failure"
 
 
-def classify_remote_preflight(*, check: Mapping[str, object], mkdir: Mapping[str, object], cleanup_failures: int = 0) -> tuple[str, list[str]]:
+def classify_remote_preflight(*, check: dict[str, object], mkdir: dict[str, object], cleanup_failures: int = 0) -> tuple[str, list[str]]:
     check_class = _classify_ssh_step(check)
     mkdir_class = _classify_ssh_step(mkdir)
     classes: list[str] = []
@@ -482,30 +482,32 @@ def _update_remote_preflight_observatory(
         history_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     records = [json.loads(line) for line in lines]
 
-    by_host: dict[str, dict[str, object]] = {}
-    by_scenario: dict[str, dict[str, object]] = {}
-    by_lane: dict[str, dict[str, object]] = {}
+    by_host: dict[str, dict[str, int]] = {}
+    by_scenario: dict[str, dict[str, int]] = {}
+    by_lane: dict[str, dict[str, int]] = {}
     classification_counts: dict[str, int] = {}
     for rec in records:
         host = str(rec.get("host_id") or "unknown")
         scen = str(rec.get("scenario") or "unknown")
         lane_name = str(rec.get("lane") or "unknown")
-        for bucket, key in ((by_host, host), (by_scenario, scen), (by_lane, lane_name)):
-            row = bucket.setdefault(key, {"total": 0, "success": 0})
-            row["total"] = _to_int(row["total"]) + 1
+        for counter_table, counter_key in (
+            (by_host, host), (by_scenario, scen), (by_lane, lane_name)):
+            counter_row = counter_table.setdefault(
+                counter_key, {"total": 0, "success": 0})
+            counter_row["total"] += 1
             if str(rec.get("status") or "") == "ok":
-                row["success"] = _to_int(row["success"]) + 1
+                counter_row["success"] += 1
         classification = str(rec.get("classification") or "unknown")
         classification_counts[classification] = classification_counts.get(classification, 0) + 1
 
-    def _with_rate(rows: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+    def _with_rate(rows: dict[str, dict[str, int]]) -> dict[str, dict[str, object]]:
         out: dict[str, dict[str, object]] = {}
         for key, row in sorted(rows.items()):
-            total = max(1, _to_int(row.get("total", 0)))
+            total = max(1, row.get("total", 0))
             out[key] = {
-                "total": _to_int(row.get("total", 0)),
-                "success": _to_int(row.get("success", 0)),
-                "success_rate": round(_to_int(row.get("success", 0)) / total, 4),
+                "total": row.get("total", 0),
+                "success": row.get("success", 0),
+                "success_rate": round(row.get("success", 0) / total, 4),
             }
         return out
 
@@ -639,11 +641,11 @@ def run_wan_federation_lab(
     write_json(run_root / "remote_preflight_report.json", {"schema_version": 1, "rows": preflight_rows})
 
     host_by_id = {host.host_id: host for host in hosts}
-    nodes = _as_rows(topology.get("nodes"))
+    topology_nodes = _as_rows(topology.get("nodes"))
     active: list[dict[str, object]] = []
-    for node_spec in nodes:
-        node_id = str(node_spec.get("node_id") or "")
-        host_id = str(node_spec.get("host_id") or "")
+    for node_row in topology_nodes:
+        node_id = str(node_row.get("node_id") or "")
+        host_id = str(node_row.get("host_id") or "")
         host = host_by_id[host_id]
         if remote_smoke and host.transport != "local":
             node_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id
@@ -669,9 +671,9 @@ def run_wan_federation_lab(
         if host.transport == "local":
             stdout = (node_root / "glow/lab/worker_stdout.log").open("a", encoding="utf-8")
             stderr = (node_root / "glow/lab/worker_stderr.log").open("a", encoding="utf-8")
-            worker_process = subprocess.Popen(command, cwd=root, stdout=stdout, stderr=stderr, text=True)
-            active.append({"host_id": host_id, "node_id": node_id, "proc": worker_process, "transport": "local", "node_root": str(node_root)})
-            append_jsonl(transitions, {"ts": iso_now(), "state": "running", "host_id": host_id, "node_id": node_id, "pid": worker_process.pid, "transport": "local"})
+            proc = subprocess.Popen(command, cwd=root, stdout=stdout, stderr=stderr, text=True)
+            active.append({"host_id": host_id, "node_id": node_id, "proc": proc, "transport": "local", "node_root": str(node_root)})
+            append_jsonl(transitions, {"ts": iso_now(), "state": "running", "host_id": host_id, "node_id": node_id, "pid": proc.pid, "transport": "local"})
         else:
             adapter = _transport(host.transport)
             remote_cmd = [
@@ -701,7 +703,7 @@ def run_wan_federation_lab(
         if deadline > time.monotonic():
             time.sleep(deadline - time.monotonic())
         host_filter = str(action.get("host") or "")
-        for node in nodes:
+        for node in topology_nodes:
             if host_filter and str(node.get("host_id") or "") != host_filter:
                 continue
             node_root = Path(host_by_id[str(node.get("host_id") or "")].runtime_root) / "nodes" / str(node.get("node_id") or "")
@@ -711,14 +713,14 @@ def run_wan_federation_lab(
 
     time.sleep(0.2)
     exit_codes: dict[str, int] = {}
-    for row in active:
-        process_candidate = row.get("proc")
-        if not isinstance(process_candidate, subprocess.Popen):
+    for active_row in active:
+        active_process = active_row.get("proc")
+        if not isinstance(active_process, subprocess.Popen):
             continue
-        process_candidate.terminate()
-        code = int(process_candidate.wait(timeout=5))
-        exit_codes[str(row["node_id"])] = code
-        append_jsonl(transitions, {"ts": iso_now(), "state": "stopped", "host_id": row["host_id"], "node_id": row["node_id"], "exit_code": code})
+        active_process.terminate()
+        code = int(active_process.wait(timeout=5))
+        exit_codes[str(active_row["node_id"])] = code
+        append_jsonl(transitions, {"ts": iso_now(), "state": "stopped", "host_id": active_row["host_id"], "node_id": active_row["node_id"], "exit_code": code})
 
     remote_collection_rows: list[dict[str, object]] = []
     cleanup_failures_by_host: dict[str, int] = {}
@@ -726,7 +728,7 @@ def run_wan_federation_lab(
         if host.transport != "ssh":
             continue
         adapter = _transport("ssh")
-        for node in [node for node in nodes if str(node.get("host_id") or "") == host.host_id]:
+        for node in [node for node in topology_nodes if str(node.get("host_id") or "") == host.host_id]:
             node_id = str(node.get("node_id") or "")
             target_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id / "glow/lab"
             target_root.mkdir(parents=True, exist_ok=True)
@@ -758,9 +760,11 @@ def run_wan_federation_lab(
         cleanup_failures = _to_int(cleanup_failures_by_host.get(host_id), default=0)
         row["cleanup_failures"] = cleanup_failures
         if row.get("transport") == "ssh":
+            check_value = row.get("check")
+            mkdir_value = row.get("mkdir")
             status, labels = classify_remote_preflight(
-                check=_as_mapping(row.get("check")),
-                mkdir=_as_mapping(row.get("mkdir")),
+                check=cast(dict[str, object], check_value) if isinstance(check_value, dict) else {},
+                mkdir=cast(dict[str, object], mkdir_value) if isinstance(mkdir_value, dict) else {},
                 cleanup_failures=cleanup_failures,
             )
             row["classification"] = status
@@ -773,14 +777,14 @@ def run_wan_federation_lab(
     per_host: dict[str, dict[str, object]] = {}
     digest_rows: list[str] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
-        node_rows: dict[str, object] = {}
+        host_nodes = [node for node in topology_nodes if str(node.get("host_id") or "") == host.host_id]
+        per_host_node_records: dict[str, dict[str, object]] = {}
         for node in host_nodes:
             node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
             health = node_health(node_root)
             truth_artifacts = emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host.host_id)
-            node_rows[node_id] = {
+            per_host_node_records[node_id] = {
                 "health": health,
                 "constitution": read_json(node_root / "glow/constitution/constitution_summary.json"),
                 "trust": read_json(node_root / "glow/pulse_trust/epoch_state.json"),
@@ -789,14 +793,14 @@ def run_wan_federation_lab(
                 "node_truth_artifacts": truth_artifacts,
             }
             trust_payload = read_json(node_root / "glow/pulse_trust/epoch_state.json")
-            node_rows[node_id] = {**_as_mapping(node_rows[node_id]), "trust": trust_payload}
+            per_host_node_records[node_id]["trust"] = trust_payload
             digest_rows.append(json.dumps(trust_payload, sort_keys=True))
-        per_host[host.host_id] = {"host": host.__dict__, "nodes": node_rows}
+        per_host[host.host_id] = {"host": host.__dict__, "nodes": per_host_node_records}
 
     replay_rows: dict[str, dict[str, object]] = {}
     if emit_replay:
         for host in hosts:
-            host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
+            host_nodes = [node for node in topology_nodes if str(node.get("host_id") or "") == host.host_id]
             for node in host_nodes:
                 node_id = str(node.get("node_id") or "")
                 node_root = Path(host.runtime_root) / "nodes" / node_id
@@ -818,12 +822,12 @@ def run_wan_federation_lab(
 
     completeness_rows: list[dict[str, object]] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
+        host_nodes = [node for node in topology_nodes if str(node.get("host_id") or "") == host.host_id]
         for node in host_nodes:
             node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
             node_truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
-            completeness = _as_mapping(_as_mapping(node_truth_payload).get("completeness"))
+            completeness = _as_mapping(node_truth_payload.get("completeness"))
             completeness_rows.append(
                 {
                     "host_id": host.host_id,
@@ -838,7 +842,7 @@ def run_wan_federation_lab(
 
     node_evidence_summary_rows: list[dict[str, object]] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
+        host_nodes = [node for node in topology_nodes if str(node.get("host_id") or "") == host.host_id]
         for node in host_nodes:
             node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
@@ -892,7 +896,7 @@ def run_wan_federation_lab(
     write_json(run_root / "convergence_summary.json", {"schema_version": 1, "expected": expected, "observed": observed, "checks": checks, "convergence_class": convergence})
 
     cluster_digest = hashlib.sha256("\n".join(sorted(digest_rows)).encode("utf-8")).hexdigest()
-    write_json(run_root / "final_cluster_digest.json", {"schema_version": 1, "digest": cluster_digest, "node_count": len(nodes), "seed": seed})
+    write_json(run_root / "final_cluster_digest.json", {"schema_version": 1, "digest": cluster_digest, "node_count": len(topology_nodes), "seed": seed})
 
     fairness_by_host: dict[str, dict[str, int]] = {}
     for row in node_evidence_summary_rows:
@@ -930,7 +934,7 @@ def run_wan_federation_lab(
                 "continuation_missing_nodes": sum(1 for row in node_evidence_summary_rows if row.get("continuation_descends_from_anchor") is False),
             },
             "fairness_pressure_summary": fairness_by_host,
-            "cluster_digest_evidence": {"cluster_digest": cluster_digest, "node_count": len(nodes)},
+            "cluster_digest_evidence": {"cluster_digest": cluster_digest, "node_count": len(topology_nodes)},
             "replay_posture_summary": {
                 "replay_confirmed_or_compatible": sum(1 for row in node_evidence_summary_rows if str(row.get("replay_state") or "") in {"replay_confirmed", "replay_compatible_evidence"}),
                 "replay_not_requested": sum(1 for row in node_evidence_summary_rows if str(row.get("replay_state") or "") == "no_replay_evidence_requested"),
@@ -946,7 +950,7 @@ def run_wan_federation_lab(
             topology=topology_name,
             seed=seed,
             hosts=[host.__dict__ for host in hosts],
-            nodes=[dict(row) for row in nodes],
+            nodes=[dict(row) for row in topology_nodes],
         )
 
     if emit_bundle:
@@ -991,7 +995,7 @@ def run_wan_federation_lab(
         "topology": topology_name,
         "seed": seed,
         "hosts": [host.__dict__ for host in hosts],
-        "nodes": nodes,
+        "nodes": [dict(row) for row in topology_nodes],
         "process_exit_codes": exit_codes,
         "host_artifacts": per_host,
         "oracle": {"expected": expected, "observed": observed, "checks": checks, "convergence_class": convergence, "passed": all(checks.values())},
@@ -1027,9 +1031,9 @@ def run_wan_federation_lab(
     truth_artifact_paths = _as_mapping(truth_payload.get("artifact_paths"))
     if truth_artifact_paths:
         merged_paths = dict(artifact_paths)
-        for key, artifact_value in truth_artifact_paths.items():
-            if isinstance(artifact_value, str):
-                merged_paths[str(key)] = str(Path(artifact_value).relative_to(root))
+        for key, truth_path_value in truth_artifact_paths.items():
+            if isinstance(truth_path_value, str):
+                merged_paths[str(key)] = str(Path(truth_path_value).relative_to(root))
         payload["artifact_paths"] = merged_paths
         artifact_paths = merged_paths
     payload["failure_classification"] = classify_wan_failure_surface(payload=payload)
@@ -1044,10 +1048,14 @@ def run_wan_federation_lab(
 
 
 def classify_wan_failure_surface(*, payload: dict[str, object]) -> str:
-    preflight_rows = _as_rows(payload.get("preflight_rows"))
-    if any(str(row.get("classification") or "") == "transport_auth_failure" for row in preflight_rows):
+    preflight_value = payload.get("preflight_rows")
+    preflight_rows = preflight_value if isinstance(preflight_value, list) else []
+    preflight_mappings = [_as_mapping(row) for row in preflight_rows]
+    if any(str(row.get("classification") or "") == "transport_auth_failure"
+           for row in preflight_mappings):
         return "remote_transport_or_auth_failure"
-    if any(str(row.get("classification") or "") == "provisioning_failure" for row in preflight_rows):
+    if any(str(row.get("classification") or "") == "provisioning_failure"
+           for row in preflight_mappings):
         return "remote_environment_drift_or_provisioning_failure"
     truth = _as_mapping(payload.get("truth_oracle"))
     policy = _as_mapping(truth.get("contradiction_policy"))
@@ -1149,26 +1157,22 @@ def run_wan_release_gate(
         truth = _as_mapping(run.get("truth_oracle"))
         completeness = _as_mapping(truth.get("scenario_evidence_completeness"))
         policy_value = truth.get("contradiction_policy")
-        if isinstance(policy_value, dict):
-            policy = policy_value
-        else:
-            dimensions_value = truth.get("dimensions")
-            provenance_value = truth.get("provenance")
-            contradictions_value = truth.get("contradictions")
-            completeness_value = truth.get("scenario_evidence_completeness")
-            contradictions = (
-                [dict(item) for item in contradictions_value if isinstance(item, Mapping)]
-                if isinstance(contradictions_value, list)
-                else []
-            )
-            policy = evaluate_release_gate(
-                scenario=scenario_name,
-                dimensions=dimensions_value if isinstance(dimensions_value, dict) else {},
-                provenance=provenance_value if isinstance(provenance_value, dict) else {},
-                oracle_contradictions=contradictions,
-                profile=profile,
-                evidence_completeness=completeness_value if isinstance(completeness_value, dict) else {},
-            )
+        contradictions_value = truth.get("contradictions")
+        contradiction_rows = (
+            [dict(value) for value in contradictions_value if isinstance(value, Mapping)]
+            if isinstance(contradictions_value, list) else [])
+        policy = policy_value if isinstance(policy_value, dict) else evaluate_release_gate(
+            scenario=scenario_name,
+            dimensions={
+                str(key): dict(value)
+                for key, value in _as_mapping(truth.get("dimensions")).items()
+                if isinstance(value, Mapping)
+            },
+            provenance=dict(_as_mapping(truth.get("provenance"))),
+            oracle_contradictions=contradiction_rows,
+            profile=profile,
+            evidence_completeness=dict(completeness),
+        )
         completeness_rows.append(
             {
                 "scenario": scenario_name,
@@ -1224,7 +1228,8 @@ def run_wan_release_gate(
             "schema_version": 1,
             "profile": profile,
             "scenario_count": len(scenario_results),
-            "missing_evidence_nonblocking_total": sum(_to_int(_as_mapping(row.get("counts")).get("missing_evidence_nonblocking")) for row in scenario_results),
+            "missing_evidence_nonblocking_total": sum(_to_int(_as_mapping(row.get("counts")).get(
+                "missing_evidence_nonblocking")) for row in scenario_results),
             "degraded_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") == "pass_with_degradation"],
             "contradiction_driven_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") in {"warning", "blocking_failure"}],
         },
