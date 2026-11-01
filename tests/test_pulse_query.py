@@ -15,6 +15,8 @@ from sentientos import pulse_query
 from sentientos.daemons import pulse_bus
 from sentientos.daemons.monitoring_daemon import MonitoringDaemon
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 @pytest.fixture
 def ledger_path(tmp_path, monkeypatch) -> Path:
@@ -205,3 +207,18 @@ def test_query_logging_writes_ledger(tmp_path, monkeypatch, ledger_path) -> None
     assert metrics_entry["filters"]["priority"] == "critical"
     assert metrics_entry["filters"]["window"] == "24h"
     assert metrics_entry["count"] == 1
+
+
+def test_metrics_filter_normalizes_malformed_numeric_fields() -> None:
+    summary = pulse_query._apply_metrics_filters(
+        {"window_seconds": {"invalid": True}, "total_events": "not-a-count"},
+        {},
+    )
+    assert summary["window_seconds"] == 0
+    assert summary["total_events"] == 0
+
+
+def test_anomaly_normalizer_rejects_unexpected_shapes() -> None:
+    assert pulse_query._coerce_anomalies({"name": "single"}) == {"name": "single"}
+    assert pulse_query._coerce_anomalies([{"name": "valid"}, None, "invalid"]) == [{"name": "valid"}]
+    assert pulse_query._coerce_anomalies("invalid") is None

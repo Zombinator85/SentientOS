@@ -7,6 +7,7 @@ import binascii
 import copy
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -77,6 +78,12 @@ def _serialize_event_for_signature(event: Mapping[str, object]) -> bytes:
     payload = copy.deepcopy(dict(event))
     payload.pop("signature", None)
     payload.pop("source_peer", None)
+    payload.pop("event_hash", None)
+    payload.pop("correlation_id", None)
+    payload.pop("ingress_status", None)
+    payload.pop("ingress_reason", None)
+    payload.pop("ingress_classification", None)
+    payload.pop("federation_protocol_posture", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
@@ -369,11 +376,13 @@ def _apply_metrics_filters(
     metrics: Mapping[str, object],
     filters: Mapping[str, str],
 ) -> Dict[str, object]:
-    duration_seconds = int(metrics.get("window_seconds", 0))
+    duration_seconds = max(_nonnegative_int(metrics.get("window_seconds")), 0)
     duration = timedelta(seconds=max(duration_seconds, 0)) if duration_seconds else None
     if not filters:
         summary = dict(metrics)
-        total = int(summary.get("total_events", 0))
+        total = max(_nonnegative_int(summary.get("total_events")), 0)
+        summary["window_seconds"] = duration_seconds
+        summary["total_events"] = total
         if duration_seconds:
             minutes = max(duration_seconds / 60, 1e-9)
             hours = max(duration_seconds / 3600, 1e-9)
@@ -484,9 +493,13 @@ def query_metrics(
     if latest_snapshot is None:
         raise ValueError(f"Window {label} not present in monitoring snapshots")
 
-    summary = _apply_metrics_filters(latest_snapshot["metrics"], normalized_filters)
-    anomalies = _filter_anomalies(latest_snapshot["anomalies"], normalized_filters)
-    response = {
+    metrics_payload = latest_snapshot.get("metrics")
+    if not isinstance(metrics_payload, Mapping):
+        raise ValueError(f"Window {label} has invalid monitoring metrics")
+    anomalies_payload = _coerce_anomalies(latest_snapshot.get("anomalies"))
+    summary = _apply_metrics_filters(metrics_payload, normalized_filters)
+    anomalies = _filter_anomalies(anomalies_payload, normalized_filters)
+    response: dict[str, object] = {
         "window": label,
         "filters": normalized_filters,
         "summary": summary,
@@ -495,6 +508,29 @@ def query_metrics(
     }
     _log_query("metrics", requester, {**normalized_filters, "window": label}, 1)
     return response
+
+
+def _coerce_anomalies(value: object) -> Sequence[Mapping[str, object]] | Mapping[str, object] | None:
+    if isinstance(value, Mapping):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [item for item in value if isinstance(item, Mapping)]
+    return None
+
+
+def _nonnegative_int(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if math.isfinite(value) else 0
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
 
 
 def get_metrics(window: str, filters: Mapping[str, object] | None = None) -> dict[str, object]:
