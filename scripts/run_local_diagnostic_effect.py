@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -20,12 +20,12 @@ from sentientos.local_diagnostic_effect import (  # noqa: E402
 )
 
 
-def _compact_summary(summary: dict[str, object], *, dry_run: bool) -> dict[str, object]:
-    result = summary["result"]  # type: ignore[index]
-    receipt = summary["receipt"]  # type: ignore[index]
-    postcondition = summary["postcondition_check"]  # type: ignore[index]
-    rollback = summary["rollback_receipt"]  # type: ignore[index]
-    audit = summary["production_audit_receipt"]  # type: ignore[index]
+def _compact_summary(summary: dict[str, Any], *, dry_run: bool) -> dict[str, object]:
+    result = summary["result"]
+    receipt = summary["receipt"]
+    postcondition = summary["postcondition_check"]
+    rollback = summary["rollback_receipt"]
+    audit = summary["production_audit_receipt"]
     return {
         "dry_run": dry_run,
         "effect_status": result["effect_status"],
