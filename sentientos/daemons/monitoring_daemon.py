@@ -50,6 +50,17 @@ class AnomalyThreshold:
     name: str = "threshold"
 
 
+def _query_http_port(value: object) -> int:
+    """Parse an optional port from untrusted configuration."""
+
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 class _QueryHTTPServer(ThreadingHTTPServer):
     """HTTP server that exposes read-only monitoring query endpoints."""
 
@@ -403,10 +414,7 @@ class MonitoringDaemon:
             return
         host_value = config.get("query_http_host", "127.0.0.1")
         host = str(host_value).strip() or "127.0.0.1"
-        try:
-            port = int(config.get("query_http_port", 0))
-        except (TypeError, ValueError):
-            port = 0
+        port = _query_http_port(config.get("query_http_port", 0))
         enabled = bool(config.get("query_http_enabled"))
         try:
             server = _QueryHTTPServer(
