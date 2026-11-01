@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Literal
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -30,6 +30,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 from logging_config import resolve_log_path
 from scripts import tooling_status
+from scripts.tooling_status import Status
 from sentientos import immutability
 
 DEFAULT_MANIFEST = immutability.DEFAULT_MANIFEST_PATH
@@ -49,7 +50,7 @@ PRIVILEGED_PATHS = [
 
 @dataclass
 class AuditCheckOutcome:
-    status: str
+    status: Status
     reason: str | None = None
     recorded_events: list[dict[str, Any]] | None = None
 
@@ -171,7 +172,7 @@ def verify_once(
             ok = False
             _record({"event": "tamper_detected", "file": file, "ts": ts})
         _record({"event": "immutability_check", "file": file, "status": status, "ts": ts})
-    outcome = "passed" if ok else "failed"
+    outcome: Literal["passed", "failed"] = "passed" if ok else "failed"
     reason = None if ok else "tamper_detected"
     return AuditCheckOutcome(outcome, reason=reason, recorded_events=recorded)
 
