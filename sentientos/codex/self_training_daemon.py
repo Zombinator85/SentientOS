@@ -105,23 +105,27 @@ class SelfTrainingDaemon:
 
     def _degradation_amount(self, entry: Mapping[str, object]) -> float:
         if "accuracy_drop" in entry:
-            try:
-                return float(entry.get("accuracy_drop", 0.0))
-            except (TypeError, ValueError):
-                return 0.0
+            return self._numeric_value(entry.get("accuracy_drop")) or 0.0
         if "degradation" in entry:
-            try:
-                return float(entry.get("degradation", 0.0))
-            except (TypeError, ValueError):
-                return 0.0
-        baseline = entry.get("baseline_accuracy")
-        current = entry.get("current_accuracy")
+            return self._numeric_value(entry.get("degradation")) or 0.0
+        baseline = self._numeric_value(entry.get("baseline_accuracy"))
+        current = self._numeric_value(entry.get("current_accuracy"))
         if baseline is not None and current is not None:
-            try:
-                return float(baseline) - float(current)
-            except (TypeError, ValueError):
-                return 0.0
+            return baseline - current
         return 0.0
+
+    @staticmethod
+    def _numeric_value(value: object) -> float | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
 
     def _failure_label(self, entry: Mapping[str, object]) -> str:
         failure = entry.get("failure_reason") or entry.get("failure") or entry.get("reason") or ""
