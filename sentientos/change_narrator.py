@@ -66,6 +66,13 @@ def _ledger_entry_id(entry: Mapping[str, object]) -> str:
     return json.dumps({"t": timestamp, "s": status, "a": anomaly_subject}, sort_keys=True)
 
 
+def _state_string_set(state: Mapping[str, object], key: str) -> set[str]:
+    value = state.get(key)
+    if not isinstance(value, list):
+        return set()
+    return {item for item in value if isinstance(item, str)}
+
+
 @dataclass(slots=True)
 class LedgerRecord:
     """Structured RecoveryLedger entry."""
@@ -156,7 +163,7 @@ class ScopeFilter:
                 return now - timedelta(days=amount)
             if unit.startswith("week"):
                 return now - timedelta(weeks=amount)
-        parsed = _parse_iso_timestamp(expression)
+        parsed = _parse_iso_timestamp(expression if isinstance(expression, str) else None)
         if parsed:
             return parsed
         return None
@@ -212,13 +219,14 @@ class ChangeCollector:
 
     def collect(self, scope: ScopeFilter, *, now: datetime | None = None) -> ChangeSet:
         state = self._load_state()
-        baseline = _parse_iso_timestamp(state.get("last_reported_at"))
+        last_reported_at = state.get("last_reported_at")
+        baseline = _parse_iso_timestamp(last_reported_at if isinstance(last_reported_at, str) else None)
         if scope.since and baseline:
             baseline = max(baseline, scope.since)
         elif scope.since:
             baseline = scope.since
-        reported_ledger: set[str] = set(state.get("reported_ledger_ids", []))
-        reported_commits: set[str] = set(state.get("reported_commits", []))
+        reported_ledger = _state_string_set(state, "reported_ledger_ids")
+        reported_commits = _state_string_set(state, "reported_commits")
         ledger_entries = self._collect_ledger_entries(scope, baseline, reported_ledger)
         commits = self._collect_commits(scope, baseline, reported_commits)
         return ChangeSet(ledger_entries=ledger_entries, commits=commits, collected_at=_ensure_utc(now or _now()))
@@ -232,8 +240,8 @@ class ChangeCollector:
         timestamp: datetime | None = None,
     ) -> None:
         state = self._load_state()
-        ledger_ids = set(state.get("reported_ledger_ids", []))
-        commit_ids = set(state.get("reported_commits", []))
+        ledger_ids = _state_string_set(state, "reported_ledger_ids")
+        commit_ids = _state_string_set(state, "reported_commits")
         ledger_ids.update(record.identity for record in change_set.ledger_entries)
         commit_ids.update(record.sha for record in change_set.commits)
         state["reported_ledger_ids"] = sorted(ledger_ids)
@@ -241,10 +249,18 @@ class ChangeCollector:
         moment = _ensure_utc(timestamp or _now())
         state["last_reported_at"] = moment.isoformat()
         state["last_response"] = response
+        module_history = state.get("module_history")
+        if not isinstance(module_history, list):
+            module_history = []
         if scope.modules:
-            state.setdefault("module_history", []).append(sorted(scope.modules))
+            module_history.append(sorted(scope.modules))
+        state["module_history"] = module_history
+        type_history = state.get("type_history")
+        if not isinstance(type_history, list):
+            type_history = []
         if scope.change_types:
-            state.setdefault("type_history", []).append(sorted(scope.change_types))
+            type_history.append(sorted(scope.change_types))
+        state["type_history"] = type_history
         self._save_state(state)
 
     def _collect_ledger_entries(
@@ -359,11 +375,11 @@ class ChangeCollector:
         if not path.exists():
             return {}
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            return payload if isinstance(payload, dict) else {}
         except (OSError, json.JSONDecodeError) as exc:
             LOGGER.debug("Unable to load change narrator state: %s", exc)
             return {}
-
     def _save_state(self, state: Mapping[str, object]) -> None:
         path = self._state_path
         try:
