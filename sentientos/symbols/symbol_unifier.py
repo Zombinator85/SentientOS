@@ -50,7 +50,13 @@ class SymbolUnifier:
     ) -> dict[str, object]:
         lint_terms = self._collect_terms(glossary_lint)
         ledger_terms = self._collect_ledger_terms(ledger_entries)
-        hygiene_terms = set(str(entry.get("term")) for entry in hygiene_report.get("violations", []) if entry.get("term"))
+        violations = hygiene_report.get("violations", [])
+        violation_entries = violations if isinstance(violations, (list, tuple)) else []
+        hygiene_terms = {
+            str(entry.get("term"))
+            for entry in violation_entries
+            if isinstance(entry, Mapping) and entry.get("term")
+        }
         concord_terms = set(str(entry.get("term")) for entry in concord_events if entry.get("term"))
 
         accepted = sorted((ledger_terms["accepted"] | concord_terms) - lint_terms["deprecated"] - hygiene_terms)
