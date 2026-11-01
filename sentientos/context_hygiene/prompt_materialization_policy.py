@@ -617,7 +617,9 @@ def evaluate_prompt_materialization_policy(policy_input: PromptMaterializationPo
     if _unknown_source_kind(parsed.source_kind_summary):
         add("unknown_source_kind", "unknown source kind appears in policy input", "classify_source_kind", "use declared source-kind safety contracts only")
 
-    review_items = tuple(item for item in (*parsed.preserved_caveats, *parsed.warnings) if _review_required(item))
+    review_items = tuple(caveat for caveat in parsed.preserved_caveats if _review_required(caveat)) + tuple(
+        warning for warning in parsed.warnings if _review_required(warning)
+    )
     review_needed = bool(review_items)
     review_accepted = _accepted_review(parsed)
     if review_needed and not parsed.operator_review_present:

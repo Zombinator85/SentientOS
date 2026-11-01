@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, is_dataclass, replace
 import hashlib
 import json
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, TypedDict, cast
 
 from sentientos.context_hygiene.prompt_network_egress_preflight import (
     ProviderNetworkEgressPreflight,
@@ -287,6 +287,29 @@ _MARKER_FIELDS = (
     "does_not_execute_or_route_work",
     "does_not_admit_work",
 )
+
+
+class ProviderNullTransportMarkerValues(TypedDict):
+    provider_null_transport_only: bool
+    null_transport_sent_nothing: bool
+    network_egress_forbidden: bool
+    provider_send_forbidden: bool
+    credentials_forbidden: bool
+    endpoint_forbidden: bool
+    provider_client_forbidden: bool
+    socket_forbidden: bool
+    http_forbidden: bool
+    llm_call_forbidden: bool
+    semantic_generation_forbidden: bool
+    does_not_make_network_calls: bool
+    does_not_send_to_provider: bool
+    does_not_call_llm: bool
+    does_not_retrieve_memory: bool
+    does_not_write_memory: bool
+    does_not_trigger_feedback: bool
+    does_not_commit_retention: bool
+    does_not_execute_or_route_work: bool
+    does_not_admit_work: bool
 _RUNTIME_MARKER_KEYS = (
     "raw_payload",
     "raw_memory_payload",
@@ -771,9 +794,12 @@ def build_provider_null_transport_receipt(
     warnings = tuple(str(item) for source in (dry, preflight, review) for item in (source.get("warnings", ()) or ()))
     if preflight.get("preflight_status") == ProviderNetworkEgressPreflightStatus.NETWORK_EGRESS_PREFLIGHT_REVIEW_REQUIRED:
         warnings = warnings + ("network preflight required Phase 88 review before null transport",)
-    marker_values = {field_name: True for field_name in _MARKER_FIELDS}
+    marker_value_map = {field_name: True for field_name in _MARKER_FIELDS}
     if marker_overrides:
-        marker_values.update({str(key): bool(value) for key, value in marker_overrides.items() if str(key) in marker_values})
+        marker_value_map.update(
+            {str(key): bool(value) for key, value in marker_overrides.items() if str(key) in marker_value_map}
+        )
+    marker_values = cast(ProviderNullTransportMarkerValues, marker_value_map)
     marker_findings = tuple(_finding("null_transport_marker_missing", f"marker {key} must remain true") for key, value in marker_values.items() if not value)
     findings = tuple(findings) + marker_findings
     status = _status_for_findings(findings, warnings, str(null_transport_scope))
@@ -825,6 +851,7 @@ def build_provider_null_transport_receipt(
         rationale=rationale[:1000],
         null_transport_digest="",
         **marker_values,
+        boundary=ProviderNullTransportBoundary(**marker_values),
     )
     digest = compute_provider_null_transport_digest(receipt)
     return replace(receipt, null_transport_id=f"provider-null-transport:{receipt.dry_run_id or 'missing'}:{digest[:16]}", null_transport_digest=digest)
@@ -947,7 +974,7 @@ def provider_null_transport_preserves_network_egress_review(
         and review
         and data.get("network_review_receipt_id") == review.get("review_receipt_id")
         and data.get("network_review_digest") == review.get("review_digest")
-        and provider_network_egress_review_approves_future_null_transport_gate(review_receipt)
+        and provider_network_egress_review_approves_future_null_transport_gate(review)
     )
 
 
