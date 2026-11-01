@@ -7,6 +7,7 @@ import argparse
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import math
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
@@ -15,6 +16,7 @@ from .optional_deps import optional_import
 
 from .metrics import MetricsRegistry
 from .slo import evaluate as evaluate_slos
+from .slo import SLOStatus
 from .storage import get_data_root
 
 
@@ -162,6 +164,16 @@ def _compare(comparison: str, value: float, threshold: float) -> bool:
     return False
 
 
+def _finite_float(value: object, default: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return default
+    try:
+        converted = float(value)
+    except ValueError:
+        return default
+    return converted if math.isfinite(converted) else default
+
+
 def evaluate_alerts(
     status: Mapping[str, object],
     metrics_text: str,
@@ -171,9 +183,15 @@ def evaluate_alerts(
 ) -> list[Alert]:
     rules = list(rules or load_rules())
     metrics = _parse_metrics(metrics_text)
-    modules = status.get("modules", {}) if isinstance(status, Mapping) else {}
+    modules_value = status.get("modules", {})
+    modules: Mapping[str, object] = modules_value if isinstance(modules_value, Mapping) else {}
+    slo_modules = {
+        str(name): module
+        for name, module in modules.items()
+        if isinstance(module, Mapping)
+    }
     registry = metrics_registry or RUNTIME.metrics
-    slo_statuses = evaluate_slos(registry, modules if isinstance(modules, Mapping) else None)
+    slo_statuses = evaluate_slos(registry, slo_modules)
     slo_lookup = {entry.definition.name: entry for entry in slo_statuses}
     alerts: list[Alert] = []
     for rule in rules:
@@ -187,21 +205,22 @@ def _evaluate_rule(
     status: Mapping[str, object],
     modules: Mapping[str, object],
     metrics: Mapping[str, float],
-    slo_lookup: Mapping[str, object],
+    slo_lookup: Mapping[str, SLOStatus],
 ) -> Alert:
     severity = rule.severity
     if rule.type == "metric_threshold":
         metric = str(rule.params.get("metric", ""))
         comparison = str(rule.params.get("comparison", ">"))
-        threshold = float(rule.params.get("threshold", 0.0))
+        threshold = _finite_float(rule.params.get("threshold"), 0.0)
         value = metrics.get(metric, 0.0)
         firing = _compare(comparison, value, threshold)
         message = f"{metric}={value:.2f} {comparison} {threshold}"
         return Alert(rule.name, 1.0 if firing else 0.0, message, severity)
     if rule.type == "oracle_degraded":
-        module = modules.get("oracle", {}) if isinstance(modules, Mapping) else {}
-        status_value = module.get("status") if isinstance(module, Mapping) else None
-        minutes = float(rule.params.get("minutes", 10))
+        module_value = modules.get("oracle", {})
+        module = module_value if isinstance(module_value, Mapping) else {}
+        status_value = module.get("status")
+        minutes = _finite_float(rule.params.get("minutes"), 10.0)
         fired = False
         if status_value == "degraded":
             last = module.get("last_degraded_at")
@@ -220,10 +239,11 @@ def _evaluate_rule(
         module_name = str(rule.params.get("module", ""))
         field = str(rule.params.get("field", ""))
         comparison = str(rule.params.get("comparison", ">"))
-        threshold = float(rule.params.get("threshold", 0.0))
-        module = modules.get(module_name, {}) if isinstance(modules, Mapping) else {}
+        threshold = _finite_float(rule.params.get("threshold"), 0.0)
+        module_value = modules.get(module_name, {})
+        module = module_value if isinstance(module_value, Mapping) else {}
         value = 0.0
-        if isinstance(module, Mapping) and field in module:
+        if field in module:
             try:
                 value = float(module[field])
             except (TypeError, ValueError):
@@ -234,9 +254,10 @@ def _evaluate_rule(
     if rule.type == "module_stale":
         module_name = str(rule.params.get("module", ""))
         field = str(rule.params.get("field", "last_retrain"))
-        max_age_hours = float(rule.params.get("max_age_hours", 24.0))
-        module = modules.get(module_name, {}) if isinstance(modules, Mapping) else {}
-        timestamp = module.get(field) if isinstance(module, Mapping) else None
+        max_age_hours = _finite_float(rule.params.get("max_age_hours"), 24.0)
+        module_value = modules.get(module_name, {})
+        module = module_value if isinstance(module_value, Mapping) else {}
+        timestamp = module.get(field)
         fired = False
         if timestamp:
             try:
