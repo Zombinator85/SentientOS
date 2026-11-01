@@ -101,17 +101,20 @@ class InnerWorldOrchestrator:
         assembled_state.update(state_copy)
         meta_notes = self.meta_monitor.review_cycle(assembled_state)
         if meta_notes:
-            messages = "; ".join(note.get("message", "") for note in meta_notes)
+            messages = "; ".join(str(note.get("message", "")) for note in meta_notes)
             self.identity_manager.log_event("meta_monitor", messages)
 
         plan = state_copy.get("plan", {})
         plan_dict = plan if isinstance(plan, dict) else {}
         ethics_report = self.ethics.evaluate(plan=plan_dict, context=assembled_state)
         log_ethics_report(ethics_report)
-        conflicts = ethics_report.get("conflicts") or []
+        conflicts_value = ethics_report.get("conflicts")
+        conflicts = conflicts_value if isinstance(conflicts_value, list) else []
         if conflicts:
             summary = "; ".join(
-                f"{conflict.get('value')}: {conflict.get('reason')}" for conflict in conflicts
+                f"{conflict.get('value')}: {conflict.get('reason')}"
+                for conflict in conflicts
+                if isinstance(conflict, Mapping)
             )
             self.identity_manager.log_event("ethical_conflict", summary)
 
@@ -122,7 +125,7 @@ class InnerWorldOrchestrator:
         }
 
         meta_notes_copy = [note.copy() for note in meta_notes]
-        report = {
+        report: Dict[str, Any] = {
             "cycle_id": cycle_id,
             "qualia": deepcopy(qualia_snapshot),
             "identity": deepcopy(identity_snapshot),
@@ -199,7 +202,9 @@ class InnerWorldOrchestrator:
 
         return report
 
-    def evaluate_ethics(self, plan, context):
+    def evaluate_ethics(
+        self, plan: Mapping[str, Any], context: Mapping[str, Any]
+    ) -> Dict[str, Any]:
         """Evaluate ethics using the orchestrator's EthicalCore without side effects."""
 
         return self.ethics.evaluate(plan=plan, context=context)
@@ -234,20 +239,20 @@ class InnerWorldOrchestrator:
             "identity_events": self.identity_manager.get_events(),
         }
 
-    def get_history(self):
+    def get_history(self) -> List[dict[str, Any]]:
         return self.history.get_all()
 
-    def get_history_summary(self):
+    def get_history_summary(self) -> Dict[str, object]:
         return self.history.summarize()
 
-    def get_reflection_summary(self):
+    def get_reflection_summary(self) -> Dict[str, Any]:
         history = self.history.get_all()
         return self.reflection_engine.reflect(history)
 
-    def get_narrative_chapters(self):
+    def get_narrative_chapters(self) -> List[Dict[str, Any]]:
         return self.self_narrative.get_chapters()
 
-    def get_identity_summary(self):
+    def get_identity_summary(self) -> Dict[str, Any]:
         return self.self_narrative.summarize_identity()
 
     def _build_config(self) -> Dict[str, Any]:
