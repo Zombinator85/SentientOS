@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 import importlib
 import sys
 import types
@@ -21,6 +21,7 @@ from sentientos.context_hygiene.prompt_internal_candidate import (
     InternalPromptCandidateStatus,
     build_internal_prompt_candidate_input,
     materialize_internal_no_llm_prompt_candidate,
+    validate_internal_prompt_candidate_input,
 )
 from sentientos.context_hygiene.prompt_internal_display import (
     InternalPromptDisplayReceipt,
@@ -38,6 +39,8 @@ from sentientos.context_hygiene.prompt_materialization_policy import (
     PromptMaterializationPolicyStatus,
 )
 from sentientos.context_hygiene.prompt_operator_review import PromptOperatorReviewDecision, build_prompt_operator_review_receipt
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _policy(status=PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED, **overrides):
@@ -160,6 +163,18 @@ def _input(**overrides):
 
 def _candidate(**overrides):
     return materialize_internal_no_llm_prompt_candidate(_input(**overrides))
+
+
+def test_missing_policy_and_audit_receipts_are_reported():
+    candidate_input = asdict(_input())
+    candidate_input["policy_decision"] = None
+    candidate_input["audit_receipt"] = None
+
+    findings = validate_internal_prompt_candidate_input(candidate_input)
+
+    codes = {finding.code for finding in findings}
+    assert "missing_policy_decision" in codes
+    assert "missing_audit_receipt" in codes
 
 
 def _receipt(candidate=None, **kwargs):
