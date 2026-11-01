@@ -31,6 +31,7 @@ from .rootless_experimental_local_model import (
 )
 
 MAX_CALLS = 4
+MAX_CALL_TIMEOUT_SECONDS = 180
 # The existing governed epistemic prompt is slightly over 8 KiB even for the
 # smallest valid projection. Keep a fixed 16 KiB ceiling; the worker remains
 # independently bounded to a 4,096-token context and 128 generated tokens.
@@ -175,6 +176,7 @@ class RootlessExperimentalEpistemicSession:
                     or budget.max_input_chars > MAX_PROMPT_CHARS
                     or budget.max_output_chars > MAX_OUTPUT_CHARS
                     or budget.max_new_tokens > MAX_NEW_TOKENS
+                    or budget.timeout_seconds > MAX_CALL_TIMEOUT_SECONDS
                     or budget.max_calls_per_correlation != 1))
                 or not isinstance(caller, str)
                 or not isinstance(correlation_id, str)
