@@ -66,6 +66,14 @@ def _load_lines(path: Path, *, limit: int) -> list[dict[str, object]]:
     return rows
 
 
+def _bounded_object_list(value: object) -> list[object]:
+    return value[:_MAX_REASON_STACK] if isinstance(value, list) else []
+
+
+def _integer_or_default(value: object, default: int) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+
 def _restriction_classes(observability_rows: list[dict[str, object]]) -> list[str]:
     out: set[str] = set()
     for row in observability_rows:
@@ -112,8 +120,9 @@ def _peer_rollup(ledger: dict[str, object]) -> dict[str, object]:
                 "reconciliation_needed": bool(row.get("reconciliation_needed", False)),
             }
         )
+    peer_count = ledger.get("peer_count")
     return {
-        "peer_count": int(ledger.get("peer_count", len(peers))) if isinstance(ledger.get("peer_count"), int) else len(peers),
+        "peer_count": _integer_or_default(peer_count, len(peers)),
         "state_summary": ledger.get("state_summary") if isinstance(ledger.get("state_summary"), dict) else {},
         "peers": peers,
     }
@@ -229,11 +238,13 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
     if effective_posture == "restricted":
         degraded_modes.append("runtime_restricted")
 
-    trust_summary = trust_ledger.get("state_summary") if isinstance(trust_ledger.get("state_summary"), dict) else {}
+    trust_summary_value = trust_ledger.get("state_summary")
+    trust_summary = trust_summary_value if isinstance(trust_summary_value, dict) else {}
     if isinstance(trust_summary, dict):
         for trust_state in ("watched", "degraded", "quarantined", "incompatible"):
             if isinstance(trust_summary.get(trust_state), int) and int(trust_summary.get(trust_state, 0)) > 0:
                 degraded_modes.append(f"federation_peer_{trust_state}")
+    revoked_epochs = epoch.get("revoked_epochs")
 
     missing_required_artifacts = _missing_required_artifacts(resolved)
     missing_required = bool(missing_required_artifacts)
@@ -285,7 +296,7 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
             "active_epoch_id": epoch.get("active_epoch_id"),
             "compromise_response_mode": compromise_mode,
             "transition_counter": epoch.get("transition_counter"),
-            "revoked_epoch_count": len(epoch.get("revoked_epochs", [])) if isinstance(epoch.get("revoked_epochs"), list) else 0,
+            "revoked_epoch_count": len(revoked_epochs) if isinstance(revoked_epochs, list) else 0,
         },
         "runtime_posture": {
             "governor_mode": rollup.get("mode", "unknown"),
@@ -343,15 +354,17 @@ def write_constitution_artifacts(root: Path | None = None, *, payload: dict[str,
     transitions_path = repo_root / CONSTITUTION_TRANSITIONS_REL
 
     write_json(system_path, resolved_payload)
+    runtime_posture_value = resolved_payload.get("runtime_posture")
+    runtime_posture = runtime_posture_value if isinstance(runtime_posture_value, dict) else {}
     summary = {
         "constitution_version": resolved_payload.get("constitution_version"),
         "constitution_state": resolved_payload.get("constitution_state"),
         "constitutional_digest": resolved_payload.get("constitutional_digest"),
-        "effective_posture": ((resolved_payload.get("runtime_posture") or {}) if isinstance(resolved_payload.get("runtime_posture"), dict) else {}).get("effective_posture"),
-        "governor_mode": ((resolved_payload.get("runtime_posture") or {}) if isinstance(resolved_payload.get("runtime_posture"), dict) else {}).get("governor_mode"),
-        "degraded_modes": list(resolved_payload.get("degraded_modes", []))[:_MAX_REASON_STACK],
-        "missing_required_artifacts": list(resolved_payload.get("missing_required_artifacts", []))[:_MAX_REASON_STACK],
-        "restoration_hints": list(resolved_payload.get("restoration_hints", []))[:_MAX_REASON_STACK],
+        "effective_posture": runtime_posture.get("effective_posture"),
+        "governor_mode": runtime_posture.get("governor_mode"),
+        "degraded_modes": _bounded_object_list(resolved_payload.get("degraded_modes")),
+        "missing_required_artifacts": _bounded_object_list(resolved_payload.get("missing_required_artifacts")),
+        "restoration_hints": _bounded_object_list(resolved_payload.get("restoration_hints")),
         "exit_code": resolved_payload.get("exit_code"),
     }
     write_json(summary_path, summary)
@@ -389,7 +402,7 @@ def write_constitution_artifacts(root: Path | None = None, *, payload: dict[str,
 
 def verify_constitution(root: Path | None = None) -> tuple[dict[str, object], int]:
     payload = compose_system_constitution(root)
-    return payload, int(payload.get("exit_code", 3))
+    return payload, _integer_or_default(payload.get("exit_code"), 3)
 
 
 __all__ = [
