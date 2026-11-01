@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Mapping, MutableMapping, Sequence
+from typing import Callable, Iterable, Mapping, Sequence, TypedDict
 
 from logging_config import get_log_path
 from log_utils import append_json
@@ -16,40 +16,10 @@ RoutineAuthorityImpact = str
 RoutineReversibility = str
 
 
-def _as_mapping(value: object) -> Mapping[str, object]:
-    if isinstance(value, Mapping):
-        return value
-    return {}
-
-
-def _mutable_state_section(value: object) -> MutableMapping[str, object]:
-    return {str(key): item for key, item in _as_mapping(value).items()}
-
-
-def _string_tuple(value: object) -> tuple[str, ...]:
-    if not isinstance(value, (list, tuple)):
-        return ()
-    return tuple(str(item) for item in value if item)
-
-
-def _optional_int(value: object) -> int | None:
-    if not isinstance(value, (int, float, str)):
-        return None
-    try:
-        return int(value)
-    except (ValueError, OverflowError):
-        return None
-
-
-def _int_or_default(value: object, default: int) -> int:
-    result = _optional_int(value)
-    return result if result is not None else default
-
-
-def _time_window(value: object) -> tuple[str, str] | None:
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
-        return None
-    return str(value[0]), str(value[1])
+class RoutineRegistryState(TypedDict):
+    routines: dict[str, dict[str, object]]
+    revoked: dict[str, object]
+    forgotten: dict[str, object]
 
 
 class RoutinePolicyViolation(RuntimeError):
@@ -164,18 +134,22 @@ class RoutineDefinition:
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> "RoutineDefinition":
         approval_payload = _as_mapping(payload.get("approval"))
+        if not approval_payload:
+            raise ValueError("routine approval must be an object")
+        policy_payload = payload.get("policy", {})
+        if not isinstance(policy_payload, Mapping):
+            raise ValueError("routine policy must be an object")
+        time_window = _parse_time_window(payload.get("time_window"))
+        rationale_value = approval_payload.get("rationale")
+        rationale = rationale_value if isinstance(rationale_value, str) else None
         approval = RoutineApproval(
             approval_id=str(approval_payload.get("approval_id", "")),
             approved_by=str(approval_payload.get("approved_by", "")),
             approved_at=str(approval_payload.get("approved_at", "")),
             summary=str(approval_payload.get("summary", "")),
             trigger_summary=str(approval_payload.get("trigger_summary", "")),
-            scope_summary=_string_tuple(approval_payload.get("scope_summary", ())),
-            rationale=(
-                str(approval_payload["rationale"])
-                if approval_payload.get("rationale")
-                else None
-            ),
+            scope_summary=_string_tuple(approval_payload.get("scope_summary", ()), "approval.scope_summary"),
+            rationale=rationale,
         )
         return cls(
             routine_id=str(payload.get("routine_id", "")),
@@ -183,23 +157,62 @@ class RoutineDefinition:
             trigger_description=str(payload.get("trigger_description", "")),
             action_id=str(payload.get("action_id", "")),
             action_description=str(payload.get("action_description", "")),
-            scope=_string_tuple(payload.get("scope", ())),
+            scope=_string_tuple(payload.get("scope", ()), "scope"),
             reversibility=str(payload.get("reversibility", "")),
             authority_impact=str(payload.get("authority_impact", "")),
             expiration=str(payload.get("expiration")) if payload.get("expiration") else None,
-            priority=_optional_int(payload.get("priority")),
+            priority=_optional_int(payload.get("priority"), "priority"),
             precedence_group=str(payload.get("precedence_group")) if payload.get("precedence_group") else None,
-            group_priority=(
-                _optional_int(payload.get("group_priority"))
-            ),
-            precedence_conditions=_string_tuple(payload.get("precedence_conditions", ())),
-            trigger_specificity=_int_or_default(payload.get("trigger_specificity", 0), 0),
-            time_window=_time_window(payload.get("time_window")),
+            group_priority=_optional_int(
+                payload.get("group_priority"), "group_priority"),
+            precedence_conditions=_string_tuple(
+                payload.get("precedence_conditions", ()), "precedence_conditions"),
+            trigger_specificity=_optional_int(
+                payload.get("trigger_specificity", 0), "trigger_specificity") or 0,
+            time_window=time_window,
             approval=approval,
             created_at=str(payload.get("created_at", "")),
             created_by=str(payload.get("created_by", "")),
-            policy=dict(_as_mapping(payload.get("policy"))),
+            policy=dict(policy_payload),
         )
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _string_tuple(value: object, field_name: str) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)) or not all(
+        isinstance(item, str) for item in value
+    ):
+        raise ValueError(f"routine {field_name} must be a list of strings")
+    return tuple(value)
+
+
+def _optional_int(value: object, field_name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"routine {field_name} must be an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"routine {field_name} must be an integer") from exc
+    raise ValueError(f"routine {field_name} must be an integer")
+
+
+def _parse_time_window(value: object) -> tuple[str, str] | None:
+    if value is None:
+        return None
+    values = _string_tuple(value, "time_window")
+    if len(values) != 2:
+        raise ValueError("routine time_window must contain two HH:MM values")
+    if any(_parse_time(value) is None for value in values):
+        raise ValueError("routine time_window values must use HH:MM format")
+    return values[0], values[1]
 
 
 @dataclass(frozen=True)
@@ -406,13 +419,15 @@ class RoutineRegistry:
 
     def list_routines(self) -> tuple[RoutineDefinition, ...]:
         return tuple(
-            RoutineDefinition.from_dict(_as_mapping(payload))
+            RoutineDefinition.from_dict(payload)
             for payload in self._state["routines"].values()
             if isinstance(payload, Mapping)
         )
 
     def get_routine(self, routine_id: str) -> RoutineDefinition | None:
         payload = self._state["routines"].get(routine_id)
+        if payload is None:
+            return None
         if not isinstance(payload, Mapping):
             return None
         return RoutineDefinition.from_dict(payload)
@@ -447,13 +462,22 @@ class RoutineRegistry:
         if tuple(approval.scope_summary) != tuple(spec.scope):
             raise RoutinePolicyViolation("approval scope must match routine definition")
 
-    def _load_state(self) -> MutableMapping[str, MutableMapping[str, object]]:
+    def _load_state(self) -> RoutineRegistryState:
         if not self.store_path.exists():
             return {"routines": {}, "revoked": {}, "forgotten": {}}
-        payload = _as_mapping(json.loads(self.store_path.read_text(encoding="utf-8")))
-        routines = _mutable_state_section(payload.get("routines", {}))
-        revoked = _mutable_state_section(payload.get("revoked", {}))
-        forgotten = _mutable_state_section(payload.get("forgotten", {}))
+        payload = json.loads(self.store_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return {"routines": {}, "revoked": {}, "forgotten": {}}
+        routines_value = payload.get("routines", {})
+        revoked_value = payload.get("revoked", {})
+        forgotten_value = payload.get("forgotten", {})
+        routines: dict[str, dict[str, object]] = {}
+        if isinstance(routines_value, dict):
+            for key, value in routines_value.items():
+                if isinstance(key, str) and isinstance(value, Mapping):
+                    routines[key] = dict(value)
+        revoked = dict(revoked_value) if isinstance(revoked_value, dict) else {}
+        forgotten = dict(forgotten_value) if isinstance(forgotten_value, dict) else {}
         return {"routines": routines, "revoked": revoked, "forgotten": forgotten}
 
     def _save_state(self) -> None:
