@@ -475,15 +475,15 @@ def _evaluate_findings(input_data: InternalModelCallPreflightInput) -> tuple[Int
             findings.append(_finding("upstream_blocked_status", "candidate contains blocked/not-applicable/invalid upstream status"))
         if str(candidate_data.get("candidate_digest", "")) != _candidate_digest(candidate):
             findings.append(_finding("candidate_digest_unstable", "candidate digest is missing or unstable"))
-        if not internal_prompt_candidate_is_operator_visible_only(candidate):
+        if not internal_prompt_candidate_is_operator_visible_only(candidate_data):
             findings.append(_finding("candidate_not_operator_visible_only", "candidate is not internal/operator-visible-only"))
-        if not internal_prompt_candidate_is_no_llm(candidate):
+        if not internal_prompt_candidate_is_no_llm(candidate_data):
             findings.append(_finding("candidate_not_no_llm", "candidate is not marked no-LLM"))
-        if not internal_prompt_candidate_contains_no_raw_payloads(candidate):
+        if not internal_prompt_candidate_contains_no_raw_payloads(candidate_data):
             findings.append(_finding("candidate_raw_payload_detected", "candidate contains raw payload markers"))
-        if not internal_prompt_candidate_has_no_runtime_authority(candidate):
+        if not internal_prompt_candidate_has_no_runtime_authority(candidate_data):
             findings.append(_finding("candidate_runtime_authority_detected", "candidate contains runtime authority markers"))
-        if not internal_prompt_candidate_has_no_tool_or_action_capability(candidate):
+        if not internal_prompt_candidate_has_no_tool_or_action_capability(candidate_data):
             findings.append(_finding("candidate_tool_or_action_capability", "candidate contains tool/action/memory/retention/routing capability"))
         text = str(candidate_data.get("internal_candidate_text", ""))
         lowered_text = text.lower()
@@ -506,21 +506,21 @@ def _evaluate_findings(input_data: InternalModelCallPreflightInput) -> tuple[Int
             findings.append(_finding("display_not_allowed", "display receipt does not allow internal display"))
         if str(display_data.get("display_scope", "")) not in _ALLOWED_DISPLAY_SCOPES:
             findings.append(_finding("display_scope_forbidden", "display scope is not internal operator/audit scope"))
-        if validate_internal_prompt_display_receipt(display_receipt, candidate if candidate_data else None):
+        if validate_internal_prompt_display_receipt(display_data, candidate_data or None):
             findings.append(_finding("display_receipt_invalid", "display receipt validation failed"))
-        if not internal_prompt_candidate_may_be_displayed(display_receipt, candidate if candidate_data else None):
+        if not internal_prompt_candidate_may_be_displayed(display_data, candidate_data or None):
             findings.append(_finding("display_denies_candidate", "display receipt does not preserve an allowed display decision"))
-        if not internal_prompt_display_preserves_candidate_digest(display_receipt, candidate if candidate_data else None):
+        if not internal_prompt_display_preserves_candidate_digest(display_data, candidate_data or None):
             findings.append(_finding("candidate_display_digest_mismatch", "candidate digest mismatches display receipt"))
-        if not internal_prompt_display_has_no_model_egress(display_receipt):
+        if not internal_prompt_display_has_no_model_egress(display_data):
             findings.append(_finding("display_model_egress_detected", "display receipt permits model/provider egress"))
-        if not internal_prompt_display_has_no_runtime_authority(display_receipt):
+        if not internal_prompt_display_has_no_runtime_authority(display_data):
             findings.append(_finding("display_runtime_authority_detected", "display receipt permits runtime authority"))
 
     if not policy_data:
         findings.append(_finding("policy_missing", "Phase 77 policy decision is required"))
     else:
-        if not policy_decision_allows_internal_candidate_no_llm(policy_decision):
+        if not policy_decision_allows_internal_candidate_no_llm(policy_data):
             findings.append(_finding("policy_not_internal_no_llm_allowed", "policy decision does not allow internal no-LLM candidate preflight"))
         if str(policy_data.get("policy_digest", "")) != str(candidate_data.get("policy_digest", policy_data.get("policy_digest", ""))):
             findings.append(_finding("policy_candidate_digest_mismatch", "policy digest does not match candidate linkage"))
@@ -528,7 +528,7 @@ def _evaluate_findings(input_data: InternalModelCallPreflightInput) -> tuple[Int
     if not audit_data:
         findings.append(_finding("audit_receipt_missing", "Phase 74 audit receipt is required"))
     else:
-        if not audit_receipt_allows_shadow_materializer(audit_receipt):
+        if not audit_receipt_allows_shadow_materializer(audit_data):
             findings.append(_finding("audit_shadow_materializer_not_allowed", "audit receipt does not allow shadow materializer precondition"))
         if str(audit_data.get("receipt_digest", "")) != str(candidate_data.get("audit_receipt_digest", audit_data.get("receipt_digest", ""))):
             findings.append(_finding("audit_candidate_digest_mismatch", "audit receipt digest does not match candidate linkage"))
