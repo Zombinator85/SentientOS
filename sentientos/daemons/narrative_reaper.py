@@ -118,7 +118,8 @@ class NarrativeReaper:
             ttl_key = self._resolve_policy_key(metadata, policies, default_policy)
             expires_at = created + timedelta(seconds=policies.get(ttl_key, policies[default_policy]))
             item_id = str(metadata.get("id") or metadata.get("name") or path.stem)
-            epitaph = metadata.get("epitaph")
+            epitaph_value = metadata.get("epitaph")
+            epitaph = epitaph_value if isinstance(epitaph_value, str) else None
 
             if expires_at <= now:
                 expired += 1
