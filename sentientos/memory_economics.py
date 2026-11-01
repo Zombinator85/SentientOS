@@ -196,7 +196,12 @@ _DEMOTION_ORDER = (
 
 
 def classify_memory(entry: Mapping[str, object]) -> MemoryClass:
-    tags = {str(tag).lower() for tag in entry.get("tags", []) if tag}
+    raw_tags = entry.get("tags", [])
+    tags = (
+        {str(tag).lower() for tag in raw_tags if tag}
+        if isinstance(raw_tags, (list, tuple, set, frozenset))
+        else set()
+    )
     category = str(entry.get("category", "")).lower()
     source = str(entry.get("source", "")).lower()
     if tags.intersection({"proof", "attestation", "evidence"}) or "proof" in source:
@@ -216,7 +221,7 @@ def classify_memory(entry: Mapping[str, object]) -> MemoryClass:
 
 
 def select_pressure_tier(snapshot: Mapping[str, object]) -> PressureTier:
-    total_active = int(snapshot.get("total_active_pressure", 0) or 0)
+    total_active = _int_or_default(snapshot.get("total_active_pressure"), default=0)
     overload = bool(snapshot.get("overload"))
     tiers = sorted(PRESSURE_TIERS, key=lambda tier: tier.min_active_pressure, reverse=True)
     for tier in tiers:
@@ -379,7 +384,7 @@ def _plan_moves(
     target_class = _next_class(source_class)
     if target_class is None:
         return []
-    moves = []
+    moves: list[dict[str, object]] = []
     for entry in candidates[:count]:
         moves.append(
             {
@@ -398,7 +403,7 @@ def _plan_evictions(
     *,
     reason: str,
 ) -> list[dict[str, object]]:
-    planned = []
+    planned: list[dict[str, object]] = []
     for cls, entry in candidates[:count]:
         planned.append(
             {
@@ -408,6 +413,15 @@ def _plan_evictions(
             }
         )
     return planned
+
+
+def _int_or_default(value: object, *, default: int) -> int:
+    if not isinstance(value, (int, float, str)):
+        return default
+    try:
+        return int(value)
+    except (OverflowError, ValueError):
+        return default
 
 
 def _next_class(source_class: MemoryClass) -> MemoryClass | None:
