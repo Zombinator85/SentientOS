@@ -5,6 +5,8 @@ from typing import Dict, List
 
 import pytest
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 @pytest.fixture
 def demo_env(tmp_path, monkeypatch):
@@ -68,6 +70,30 @@ def test_demo_simple_success(demo_env):
     if tracker.DATA_FILE.exists():
         experiments = json.loads(tracker.DATA_FILE.read_text(encoding="utf-8"))
         assert all(exp.get("adapter") == "mock" for exp in experiments)
+
+
+def test_demo_record_and_chain_bounds_default_malformed_counts(demo_env) -> None:  # type: ignore[no-untyped-def]
+    gallery, _runner, _tracker, _root = demo_env
+    record = gallery._prepare_record(
+        "malformed-demo",
+        {},
+        {
+            "quorum_k": "invalid",
+            "quorum_n": {"invalid": True},
+            "triggers": [1],
+            "success": "invalid",
+            "adapter": "mock",
+        },
+    )
+    assert record["quorum_k"] == 1
+    assert record["quorum_n"] == 1
+    assert record["triggers"] == 0
+    assert record["success"] == 0
+
+    chain = gallery._build_chain(
+        {"chain_id": "malformed-demo", "start": "step", "steps": {"step": {}}, "max_steps": "invalid"}
+    )
+    assert chain.max_steps == 32
 
 
 def test_demo_chain_branch_paths(demo_env, monkeypatch):

@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, List, Mapping, Optional
 
 import copy
 import json
+import math
 
 import experiment_tracker
 
@@ -23,6 +24,21 @@ from sentientos.experiments.runner import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DEMO_DIR = ROOT_DIR / "demos"
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if math.isfinite(value) else default
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
 
 
 @dataclass(frozen=True)
@@ -124,11 +140,9 @@ def _prepare_record(step_id: str, spec: Mapping[str, object], existing: Optional
     expected = str(spec.get("expected") or (existing or {}).get("expected") or "demo outcome")
 
     requires_consensus = bool(spec.get("requires_consensus") or (existing or {}).get("requires_consensus", False))
-    quorum_k = int(spec.get("quorum_k") or (existing or {}).get("quorum_k", 1) or 1)
-    quorum_k = max(1, quorum_k)
-    quorum_n_default = max(quorum_k, (existing or {}).get("quorum_n", quorum_k))
-    quorum_n = int(spec.get("quorum_n") or quorum_n_default or quorum_k)
-    quorum_n = max(quorum_k, quorum_n)
+    quorum_k = max(1, _coerce_int(spec.get("quorum_k") or (existing or {}).get("quorum_k", 1), default=1))
+    quorum_n_default = max(quorum_k, _coerce_int((existing or {}).get("quorum_n"), default=quorum_k))
+    quorum_n = max(quorum_k, _coerce_int(spec.get("quorum_n") or quorum_n_default, default=quorum_n_default))
 
     record: Dict[str, object] = {
         "id": step_id,
@@ -138,8 +152,8 @@ def _prepare_record(step_id: str, spec: Mapping[str, object], existing: Optional
         "status": str(spec.get("status") or (existing or {}).get("status") or "active"),
         "votes": copy.deepcopy((existing or {}).get("votes", {})),
         "comments": copy.deepcopy((existing or {}).get("comments", [])),
-        "triggers": int((existing or {}).get("triggers", 0)),
-        "success": int((existing or {}).get("success", 0)),
+        "triggers": max(0, _coerce_int((existing or {}).get("triggers", 0), default=0)),
+        "success": max(0, _coerce_int((existing or {}).get("success", 0), default=0)),
         "proposer": (existing or {}).get("proposer", "demo"),
         "proposed_at": (existing or {}).get("proposed_at", now),
         "requires_consensus": requires_consensus,
@@ -217,7 +231,7 @@ def _build_chain(spec: Mapping[str, object]) -> ExperimentChain:
         )
 
     description = str(spec.get("description", f"Demo chain {chain_id}"))
-    max_steps = int(spec.get("max_steps", max(32, len(steps) * 2)))
+    max_steps = max(1, _coerce_int(spec.get("max_steps", max(32, len(steps) * 2)), default=max(32, len(steps) * 2)))
     return ExperimentChain(
         chain_id=chain_id,
         description=description,
