@@ -78,6 +78,17 @@ def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]
         *additional_treatment_fields}
     before_fixed = {key: value for key, value in before.items() if key not in ignored}
     after_fixed = {key: value for key, value in after.items() if key not in ignored}
+    # The v2 citation allowlist is deterministically derived from the delivered
+    # epistemic packet. It changes with the evidence treatment and is checked
+    # against that packet by the scorer, so compare the remaining probe contract.
+    for fixed in (before_fixed, after_fixed):
+        probe = fixed.get("epistemic_revision_probe")
+        if (isinstance(probe, Mapping)
+                and probe.get("response_contract")
+                    == "sentientos.epistemic_revision_answer:v2"):
+            normalized_probe = dict(probe)
+            normalized_probe.pop("allowed_evidence_binding_ids", None)
+            fixed["epistemic_revision_probe"] = normalized_probe
     return _canonical(before_fixed) != _canonical(after_fixed)
 
 
@@ -219,8 +230,12 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         raise ValueError("qualification_prompt_binding_mismatch")
     context = _object(prompt)
     probe = context.get("epistemic_revision_probe")
-    probe_contract = (isinstance(probe, Mapping)
-        and probe.get("response_contract") == "sentientos.epistemic_revision_answer:v1")
+    probe_contract_version = (probe.get("response_contract")
+        if isinstance(probe, Mapping) else None)
+    probe_contract = probe_contract_version in {
+        "sentientos.epistemic_revision_answer:v1",
+        "sentientos.epistemic_revision_answer:v2",
+    }
     unscored_reason_code_status = ("not_scored_probe_vocabulary_not_exposed"
         if probe_contract else
         "not_scored_local_cognition_response_contract_has_no_reason_code")
@@ -323,6 +338,17 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     binding_ids.update(row["binding_id"] for row in expected_packet["removed_evidence_history"])
     available.update(binding_ids)
     available.add(str(expected_packet["packet_id"]))
+    if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
+        if not isinstance(probe, Mapping):
+            raise ValueError("qualification_probe_evidence_allowlist_mismatch")
+        allowed = probe.get("allowed_evidence_binding_ids")
+        expected_allowlist = sorted(binding_ids)
+        if (not isinstance(allowed, list)
+                or any(not isinstance(item, str) or not item for item in allowed)
+                or len(allowed) != len(set(allowed))
+                or allowed != expected_allowlist):
+            raise ValueError("qualification_probe_evidence_allowlist_mismatch")
+        available = set(allowed)
     expected_citations = (set(key.evidence_ids) if probe_contract else {
         str(expected_packet["packet_id"]) if evidence_id in binding_ids else evidence_id
         for evidence_id in key.evidence_ids

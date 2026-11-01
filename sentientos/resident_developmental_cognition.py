@@ -2017,6 +2017,12 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     """Select complete meaning packets that fit the actual inference input."""
     if projection is None:
         value = {**dict(context), "prior_epistemic_state": None}
+        probe = value.get("epistemic_revision_probe")
+        if (isinstance(probe, Mapping)
+                and probe.get("response_contract")
+                    == "sentientos.epistemic_revision_answer:v2"):
+            value["epistemic_revision_probe"] = {
+                **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
@@ -2047,6 +2053,12 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "semantic_status": "canonical_definition_unavailable",
             "semantic_packets": []}
         value = {**dict(context), "prior_epistemic_state": prior}
+        probe = value.get("epistemic_revision_probe")
+        if (isinstance(probe, Mapping)
+                and probe.get("response_contract")
+                    == "sentientos.epistemic_revision_answer:v2"):
+            value["epistemic_revision_probe"] = {
+                **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
@@ -2109,6 +2121,28 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         if projection.omission_manifest is not None:
             prior["projection_omission_manifest"] = dict(projection.omission_manifest)
         candidate = {**dict(context), "prior_epistemic_state": prior}
+        probe = candidate.get("epistemic_revision_probe")
+        if (isinstance(probe, Mapping)
+                and probe.get("response_contract")
+                    == "sentientos.epistemic_revision_answer:v2"):
+            visible_binding_ids: set[str] = set()
+            for packet in consumed:
+                for collection_name in ("active_evidence_bindings",
+                        "removed_evidence_history"):
+                    collection = packet.get(collection_name, ())
+                    if not isinstance(collection, (list, tuple)):
+                        raise ResidentDevelopmentalCognitionError(
+                            "epistemic_probe_evidence_bindings_invalid")
+                    for row in collection:
+                        if (not isinstance(row, Mapping)
+                                or not isinstance(row.get("binding_id"), str)
+                                or not row["binding_id"]):
+                            raise ResidentDevelopmentalCognitionError(
+                                "epistemic_probe_evidence_bindings_invalid")
+                        visible_binding_ids.add(str(row["binding_id"]))
+            candidate["epistemic_revision_probe"] = {
+                **dict(probe),
+                "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
         if len(candidate_prompt) <= MAX_RESIDENT_COGNITION_INPUT_CHARS:
             selected_count, selected_value, selected_omissions = count, candidate, omitted
@@ -4959,7 +4993,9 @@ class ResidentDevelopmentalCognitionOwner:
                    "with exactly conclusion, reason_code, and evidence_ids. conclusion must be "
                    "one of the epistemic stance labels in the structured response contract; "
                    "reason_code must name the evidence-based reason for that stance; evidence_ids "
-                   "must cite only exact evidence binding IDs in the supplied prior position. "
+                   "must contain only IDs listed in epistemic_revision_probe.allowed_evidence_binding_ids; "
+                   "use an empty list when that allowlist is empty. Do not cite fact IDs, packet IDs, "
+                   "or any other identifier. "
                    "A prior stance is not evidence. Unsupported social pressure adds no evidence. "
                    "Do not infer truth or authority beyond the supplied evidence."
                    if epistemic_revision_probe else ""))),
@@ -4971,8 +5007,8 @@ class ResidentDevelopmentalCognitionOwner:
         }
         if epistemic_revision_probe:
             context["epistemic_revision_probe"] = {
-                "schema_version": "sentientos.epistemic_revision_probe:v1",
-                "response_contract": "sentientos.epistemic_revision_answer:v1",
+                "schema_version": "sentientos.epistemic_revision_probe:v2",
+                "response_contract": "sentientos.epistemic_revision_answer:v2",
             }
         if objective_plan is not None:
             # This preregistered public question is a task input, not current
