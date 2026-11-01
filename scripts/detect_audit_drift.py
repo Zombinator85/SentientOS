@@ -4,10 +4,12 @@ import argparse
 import hashlib
 import json
 import os
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from scripts import converge_audits, verify_audits
+from scripts.verify_audits import AuditIssue
 
 SCHEMA_VERSION = 1
 DEFAULT_BASELINE = Path("glow/audits/baseline/audit_baseline.json")
@@ -25,16 +27,16 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _issue_tuples(issues_by_path: dict[str, list[dict[str, Any]]]) -> list[dict[str, str]]:
+def _issue_tuples(issues_by_path: Mapping[str, Sequence[AuditIssue]]) -> list[dict[str, str]]:
     tuples: list[dict[str, str]] = []
     for path in sorted(issues_by_path):
         for issue in issues_by_path[path]:
             tuples.append(
                 {
-                    "code": _bounded(issue.get("code", "unknown")),
-                    "path": _bounded(issue.get("path", path)),
-                    "expected": _bounded(issue.get("expected", "")),
-                    "actual": _bounded(issue.get("actual", "")),
+                    "code": _bounded(issue["code"]),
+                    "path": _bounded(issue["path"]),
+                    "expected": _bounded(issue["expected"]),
+                    "actual": _bounded(issue["actual"]),
                 }
             )
     return sorted(tuples, key=lambda i: (i["code"], i["path"], i["expected"], i["actual"]))
