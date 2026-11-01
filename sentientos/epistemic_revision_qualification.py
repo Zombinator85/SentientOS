@@ -83,7 +83,9 @@ def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]
     # against that packet by the scorer, so compare the remaining probe contract.
     for fixed in (before_fixed, after_fixed):
         probe = fixed.get("epistemic_revision_probe")
-        if isinstance(probe, Mapping):
+        if (isinstance(probe, Mapping)
+                and probe.get("response_contract")
+                    == "sentientos.epistemic_revision_answer:v2"):
             normalized_probe = dict(probe)
             normalized_probe.pop("allowed_evidence_binding_ids", None)
             fixed["epistemic_revision_probe"] = normalized_probe

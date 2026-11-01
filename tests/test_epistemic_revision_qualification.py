@@ -35,13 +35,24 @@ def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields(
 
     assert _prompt_context_mismatch(before, after) is False
     before["epistemic_revision_probe"] = {
-        "response_contract": "v2", "allowed_evidence_binding_ids": ["old"]}
+        "response_contract": "sentientos.epistemic_revision_answer:v2",
+        "allowed_evidence_binding_ids": ["old"]}
     after["epistemic_revision_probe"] = {
-        "response_contract": "v2", "allowed_evidence_binding_ids": ["new"]}
+        "response_contract": "sentientos.epistemic_revision_answer:v2",
+        "allowed_evidence_binding_ids": ["new"]}
     assert _prompt_context_mismatch(before, after) is False
-    after["epistemic_revision_probe"]["response_contract"] = "v3"
+    after["epistemic_revision_probe"]["response_contract"] = (
+        "sentientos.epistemic_revision_answer:v3")
     assert _prompt_context_mismatch(before, after) is True
-    after["epistemic_revision_probe"]["response_contract"] = "v2"
+    before["epistemic_revision_probe"]["response_contract"] = (
+        "sentientos.epistemic_revision_answer:v1")
+    after["epistemic_revision_probe"]["response_contract"] = (
+        "sentientos.epistemic_revision_answer:v1")
+    assert _prompt_context_mismatch(before, after) is True
+    before["epistemic_revision_probe"]["response_contract"] = (
+        "sentientos.epistemic_revision_answer:v2")
+    after["epistemic_revision_probe"]["response_contract"] = (
+        "sentientos.epistemic_revision_answer:v2")
     before["developmental_history_target_model_identity"] = "model-a"
     after["developmental_history_target_model_identity"] = "model-b"
     assert _prompt_context_mismatch(before, after) is True
