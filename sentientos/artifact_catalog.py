@@ -85,7 +85,7 @@ def latest_quarantine_incident(repo_root: Path) -> dict[str, object] | None:
     rows = [row for row in _entries(repo_root) if str(row.get("kind")) == "incident"]
     rows.sort(key=_sort_key)
     for row in reversed(rows):
-        links = row.get("links") if isinstance(row.get("links"), dict) else {}
+        links = _mapping_or_empty(row.get("links"))
         if bool(links.get("quarantine_activated")):
             return row
     return None
@@ -95,8 +95,8 @@ def latest_successful_remediation_run(repo_root: Path, pack_id: str) -> dict[str
     rows = [row for row in _entries(repo_root) if str(row.get("kind")) == "remediation_run"]
     rows.sort(key=_sort_key)
     for row in reversed(rows):
-        links = row.get("links") if isinstance(row.get("links"), dict) else {}
-        summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
+        links = _mapping_or_empty(row.get("links"))
+        summary = _mapping_or_empty(row.get("summary"))
         if str(links.get("pack_id") or "") == pack_id and str(summary.get("status") or "") == "completed":
             return row
     return None
@@ -128,16 +128,17 @@ def rebuild_catalog_from_disk(repo_root: Path, *, root_dirs: list[Path] | None =
             artifact_id=str(row["id"]),
             relative_path=str(row["path"]),
             schema_name=str(row["schema_name"]),
-            schema_version=int(row["schema_version_artifact"]),
-            links=row.get("links") if isinstance(row.get("links"), dict) else {},
-            summary=row.get("summary") if isinstance(row.get("summary"), dict) else {},
-            ts=str(row.get("ts") or _iso_now()),
+            schema_version=_required_int(row.get("schema_version_artifact")),
+            links=_mapping_or_empty(row.get("links")),
+            summary=_mapping_or_empty(row.get("summary")),
+            ts=_optional_str(row.get("ts")) or _iso_now(),
         )
         seen.add(key)
         appended += 1
+    generated_at = _iso_now()
     report = {
         "schema_version": 1,
-        "generated_at": _iso_now(),
+        "generated_at": generated_at,
         "catalog_path": str(CATALOG_PATH),
         "root_dirs": [str(item) for item in directories],
         "include_archives": include_archives,
@@ -145,7 +146,7 @@ def rebuild_catalog_from_disk(repo_root: Path, *, root_dirs: list[Path] | None =
         "discovered_entries": len(discovered),
         "appended_entries": appended,
     }
-    report_path = root / REBUILD_REPORTS_DIR / f"artifact_catalog_rebuild_{_safe_ts(report['generated_at'])}.json"
+    report_path = root / REBUILD_REPORTS_DIR / f"artifact_catalog_rebuild_{_safe_ts(generated_at)}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["report_path"] = str(report_path.relative_to(root))
@@ -235,6 +236,7 @@ def _build_entry_from_payload(repo_root: Path, kind: str, payload: dict[str, obj
     root = repo_root.resolve()
     created_at = _optional_str(payload.get("created_at")) or _optional_str(payload.get("generated_at")) or _iso_now()
     artifact_id = _artifact_id(kind, payload, path)
+    local_state = _mapping_or_empty(payload.get("local_state"))
     links = {
         "incident_id": payload.get("incident_id"),
         "trace_id": payload.get("governance_trace_id") or payload.get("trace_id"),
@@ -254,7 +256,7 @@ def _build_entry_from_payload(repo_root: Path, kind: str, payload: dict[str, obj
         "remote_integrity_status_hash": payload.get("remote_integrity_status_hash"),
         "remote_attestation_tip": payload.get("remote_attestation_snapshot_tip"),
         "remote_operator_tip": payload.get("remote_operator_reports_tip"),
-        "local_attestation_tip": (payload.get("local_state") if isinstance(payload.get("local_state"), dict) else {}).get("attestation_snapshot_tip"),
+        "local_attestation_tip": local_state.get("attestation_snapshot_tip"),
     }
     schema_name = _KIND_TO_SCHEMA.get(kind, kind)
     schema_version = payload.get("schema_version") if isinstance(payload.get("schema_version"), int) else 1
@@ -295,7 +297,7 @@ def _latest_by_link(repo_root: Path, kind: str, link_key: str, link_value: str) 
     rows = [row for row in _entries(repo_root) if str(row.get("kind")) == kind]
     rows.sort(key=_sort_key)
     for row in reversed(rows):
-        links = row.get("links") if isinstance(row.get("links"), dict) else {}
+        links = _mapping_or_empty(row.get("links"))
         if str(links.get(link_key) or "") == link_value:
             return row
     return None
@@ -344,6 +346,20 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
             if isinstance(payload, dict):
                 rows.append(payload)
     return rows
+
+
+def _mapping_or_empty(value: object) -> dict[str, object]:
+    """Return string-keyed JSON object fields without trusting nested values."""
+    if not isinstance(value, dict):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _required_int(value: object) -> int:
+    """Validate an integer catalog field without coercing malformed records."""
+    if type(value) is not int:
+        raise ValueError("catalog_schema_version_must_be_integer")
+    return value
 
 
 def _load_json(path: Path) -> dict[str, object]:

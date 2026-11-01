@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos import artifact_catalog
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.remediation_pack import emit_pack_from_trace
@@ -166,3 +168,53 @@ def test_resolve_entry_path_uses_redirect_mapping(tmp_path: Path) -> None:
     )
     entry = {"path": "glow/forge/orchestrator/ticks/tick_old.json"}
     assert artifact_catalog.resolve_entry_path(tmp_path, entry) == "glow/forge/archive/tick/2026/01/tick_old.json"
+
+
+def test_catalog_queries_ignore_malformed_nested_json_metadata(tmp_path: Path) -> None:
+    catalog_path = tmp_path / "pulse/artifact_catalog.jsonl"
+    catalog_path.parent.mkdir(parents=True)
+    catalog_path.write_text(
+        json.dumps({
+            "kind": "incident",
+            "id": "incident-1",
+            "ts": "2026-01-01T00:00:00Z",
+            "links": ["malformed"],
+        })
+        + "\n"
+        + json.dumps({
+            "kind": "remediation_run",
+            "id": "run-1",
+            "ts": "2026-01-01T00:01:00Z",
+            "links": None,
+            "summary": ["malformed"],
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert artifact_catalog.latest_quarantine_incident(tmp_path) is None
+    assert artifact_catalog.latest_for_incident(
+        tmp_path, "incident-1", kind="incident",
+    ) is None
+    assert artifact_catalog.latest_successful_remediation_run(tmp_path, "pack-1") is None
+
+
+def test_rebuild_rejects_non_integer_catalog_schema_version(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    malformed_entry: dict[str, object] = {
+        "kind": "incident",
+        "id": "incident-1",
+        "path": "glow/forge/incidents/incident-1.json",
+        "schema_name": "incident",
+        "schema_version_artifact": "1",
+    }
+    monkeypatch.setattr(artifact_catalog, "_entries", lambda _root: [])
+    monkeypatch.setattr(
+        artifact_catalog,
+        "_discover_entries",
+        lambda _root, **_kwargs: [malformed_entry],
+    )
+
+    with pytest.raises(ValueError, match="catalog_schema_version_must_be_integer"):
+        artifact_catalog.rebuild_catalog_from_disk(tmp_path)

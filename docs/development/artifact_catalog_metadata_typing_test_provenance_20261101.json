@@ -1,0 +1,112 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_append_and_latest_recent": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_queries_ignore_malformed_nested_json_metadata": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_goal_and_plan_run_links_survive_catalog_normalization": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_linkage_incident_to_pack_to_run": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_quarantine_clear_prefers_catalog": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_rebuild_guard_and_report": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_rebuild_rejects_non_integer_catalog_schema_version": 0,
+    "sentientos/tests/test_artifact_catalog.py::test_resolve_entry_path_uses_redirect_mapping": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 4,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "2492f1253db854a533615aa3f2c7d434410ee3e2",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-artifact-catalog-provenance/pytest_junitxml_14593f33e0914b088399ef1fbd685313.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_catalog_append_and_latest_recent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_linkage_incident_to_pack_to_run",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_catalog_queries_ignore_malformed_nested_json_metadata",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_rebuild_rejects_non_integer_catalog_schema_version",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "6b19f020c4af0e620575ffa7d2e61e84900ad3e88f5ec342eabe83c5daea0c3b",
+  "pytest_args": [
+    "sentientos/tests/test_artifact_catalog.py",
+    "-q",
+    "-k",
+    "catalog_append_and_latest_recent or linkage_incident_to_pack_to_run or catalog_queries_ignore_malformed_nested_json_metadata or rebuild_rejects_non_integer_catalog_schema_version"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "261ab7e8f9504900aecd427bc983af1c",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_append_and_latest_recent",
+    "sentientos/tests/test_artifact_catalog.py::test_goal_and_plan_run_links_survive_catalog_normalization",
+    "sentientos/tests/test_artifact_catalog.py::test_linkage_incident_to_pack_to_run",
+    "sentientos/tests/test_artifact_catalog.py::test_rebuild_guard_and_report",
+    "sentientos/tests/test_artifact_catalog.py::test_quarantine_clear_prefers_catalog",
+    "sentientos/tests/test_artifact_catalog.py::test_resolve_entry_path_uses_redirect_mapping",
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_queries_ignore_malformed_nested_json_metadata",
+    "sentientos/tests/test_artifact_catalog.py::test_rebuild_rejects_non_integer_catalog_schema_version"
+  ],
+  "selection_flags": [
+    "sentientos/tests/test_artifact_catalog.py",
+    "-k"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 4,
+  "tests_executed": 4,
+  "tests_failed": 0,
+  "tests_passed": 4,
+  "tests_selected": 8,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T01:49:21.246998+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
