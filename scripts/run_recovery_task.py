@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
             overall_ok = False
             break
 
-    done_record = {
+    done_record: dict[str, object] = {
         "kind": str(task.get("kind", "unknown")),
         "status": "done",
         "done_at": _iso_now(),
