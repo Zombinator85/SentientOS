@@ -33,7 +33,8 @@ def main() -> int:
     print("allocation_diff:")
     print(f"  Would select: {' '.join(added) if added else 'none'} / drop: {' '.join(removed) if removed else 'none'}")
 
-    reordered = diff.get("reordered") if isinstance(diff.get("reordered"), list) else []
+    raw_reordered = diff.get("reordered")
+    reordered = raw_reordered if isinstance(raw_reordered, list) else []
     if not reordered:
         print("  Reorder: none")
     else:
