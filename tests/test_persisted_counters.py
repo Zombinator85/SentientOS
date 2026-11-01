@@ -5,6 +5,8 @@ import pytest
 from scripts.rotate_pulse_keys import _next_transition_counter
 from sentientos.receipt_chain import _schema_version
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 @pytest.mark.parametrize(("value", "expected"), [(0, 1), ("2", 3)])
 def test_transition_counter_accepts_integer_and_decimal_legacy_values(value, expected):
