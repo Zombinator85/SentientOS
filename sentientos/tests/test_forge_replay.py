@@ -4,14 +4,24 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from scripts import forge_replay
 from sentientos import artifact_catalog
 from sentientos.attestation import write_json
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _seed_repo(root: Path) -> None:
     (root / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (root / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+
+
+def test_replay_numeric_normalizer_defaults_malformed_values() -> None:
+    assert forge_replay._coerce_int("12", default=3) == 12
+    assert forge_replay._coerce_int({"invalid": True}, default=3) == 3
+    assert forge_replay._coerce_int(True, default=3) == 3
 
 
 def test_replay_never_attempts_git_tag_publish(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
