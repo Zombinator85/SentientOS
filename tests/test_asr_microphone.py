@@ -86,3 +86,15 @@ def test_microphone_permission_gating(tmp_path: Path) -> None:
     assert status["state"] == "muted"
     pulse_state = json.loads((tmp_path / "pulse" / "system.json").read_text())
     assert pulse_state["devices"]["microphone"]["state"] == "muted"
+
+
+def test_microphone_recovers_malformed_devices_payload(tmp_path: Path) -> None:
+    pulse_path = tmp_path / "pulse" / "system.json"
+    pulse_path.parent.mkdir(parents=True)
+    pulse_path.write_text('{"devices": "malformed"}', encoding="utf-8")
+    listener = ASRListener(AudioConfig(enable=True), metrics=MetricsRegistry())
+
+    listener.run_microphone(audio_source=[], pulse_path=pulse_path, mode="LOCAL_OWNER")
+
+    pulse_state = json.loads(pulse_path.read_text(encoding="utf-8"))
+    assert pulse_state["devices"]["microphone"]["state"] == "unavailable"

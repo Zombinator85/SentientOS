@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from sentientos.artifact_catalog import CATALOG_PATH, append_catalog_entry
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
@@ -660,7 +660,7 @@ def _compute_allocation_for_snapshot(*, graph: GoalGraph, snapshot: dict[str, ob
         raise ValueError("invalid_snapshot_pressure_level")
     posture_value = snapshot.get("posture", "balanced")
     if posture_value == "stability":
-        posture = "stability"
+        posture: Literal["stability", "balanced", "velocity"] = "stability"
     elif posture_value == "velocity":
         posture = "velocity"
     else:

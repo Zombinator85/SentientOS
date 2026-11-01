@@ -43,3 +43,18 @@ def test_asr_listener_vad_and_budget() -> None:
     counters = snapshot["counters"]
     assert counters["sos_asr_segments_total"] == 1.0
     assert counters["sos_asr_dropped_total"] >= 1.0
+
+
+def test_asr_listener_defaults_invalid_confidence_and_preserves_string_values() -> None:
+    listener = ASRListener(
+        AudioConfig(enable=True, max_minutes_per_hour=1.0),
+        backend_factory=lambda _: CallableASRBackend(
+            "malformed-confidence",
+            lambda _audio, _sample_rate: {"text": "heard", "confidence": "unknown", "language": "en"},
+        ),
+    )
+
+    observation = listener.process_samples([0.2] * 1600, sample_rate=1600)
+
+    assert observation is not None
+    assert observation["confidence"] == 0.0
