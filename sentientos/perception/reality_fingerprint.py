@@ -25,8 +25,10 @@ class RealityFingerprinter:
         return fingerprint
 
     def compare_fingerprints(self, local: Mapping[str, object], peer: Mapping[str, object], margin: float = 0.1) -> dict:
-        local_summary = local.get("summary", {}) if isinstance(local, Mapping) else {}
-        peer_summary = peer.get("summary", {}) if isinstance(peer, Mapping) else {}
+        local_summary_value = local.get("summary", {}) if isinstance(local, Mapping) else {}
+        peer_summary_value = peer.get("summary", {}) if isinstance(peer, Mapping) else {}
+        local_summary = local_summary_value if isinstance(local_summary_value, Mapping) else {}
+        peer_summary = peer_summary_value if isinstance(peer_summary_value, Mapping) else {}
 
         overlap = self._keyword_overlap(local_summary, peer_summary)
         match = local.get("hash") == peer.get("hash")
@@ -68,13 +70,21 @@ class RealityFingerprinter:
         return hashlib.sha256(encoded).hexdigest()
 
     def _keyword_overlap(self, local: Mapping[str, object], peer: Mapping[str, object]) -> float:
-        local_keywords = set(local.get("keywords", [])) if isinstance(local, Mapping) else set()
-        peer_keywords = set(peer.get("keywords", [])) if isinstance(peer, Mapping) else set()
+        local_keywords = self._keyword_values(local.get("keywords"))
+        peer_keywords = self._keyword_values(peer.get("keywords"))
         if not local_keywords and not peer_keywords:
             return 1.0
         shared = local_keywords & peer_keywords
         total = local_keywords | peer_keywords
         return len(shared) / len(total) if total else 1.0
+
+    @staticmethod
+    def _keyword_values(value: object) -> set[str]:
+        if isinstance(value, str):
+            return {value} if value else set()
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return {item for item in value if isinstance(item, str) and item}
+        return set()
 
     def _write_jsonl(self, path: Path, entries: Iterable[Mapping[str, object]]) -> None:
         with path.open("w", encoding="utf-8") as handle:
