@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
+from typing import cast
+from typing import cast
 
 import pytest
 
@@ -23,7 +25,7 @@ from sentientos.orchestrator import (GoalPlanningResult,
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition)
 from sentientos.runtime_governor import RuntimeGovernor
-from sentientos.work_allocator import AllocationDecision
+from sentientos.work_allocator import AllocationDecision, DeferredGoal
 from sentientos.work_plan import (WorkPlanError, load_work_plan,
     load_work_plan_evidence,
     TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
@@ -32,7 +34,8 @@ from sentientos.work_plan import (WorkPlanError, load_work_plan,
 from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
     WorkPlanJournalError)
 from sentientos.risk_budget import RiskBudget
-from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
+from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator
+from sentientosd import RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -43,11 +46,11 @@ def test_plan_goals_rejects_unknown_offset_before_reading_projection_owner(
     class ProjectionOwner:
         calls = 0
 
-        def cognitive_projection(self, **_kwargs):
+        def cognitive_projection(self, **_kwargs: object) -> None:
             self.calls += 1
             raise AssertionError("unknown planning time must be rejected first")
 
-    def forbidden_graph_read(_root):
+    def forbidden_graph_read(_root: Path) -> None:
         raise AssertionError("unknown planning time must be rejected before repository reads")
 
     owner = ProjectionOwner()
@@ -67,7 +70,7 @@ def test_plan_goals_rejects_unrepresentable_projection_time_before_owner_read(
         tzinfo = timezone.utc
 
         @staticmethod
-        def utcoffset():
+        def utcoffset() -> timedelta:
             return timedelta(0)
 
         @staticmethod
@@ -82,7 +85,7 @@ def test_plan_goals_rejects_unrepresentable_projection_time_before_owner_read(
     class ProjectionOwner:
         calls = 0
 
-        def cognitive_projection(self, **_kwargs):
+        def cognitive_projection(self, **_kwargs: object) -> None:
             self.calls += 1
             raise AssertionError("unrepresentable planning time must be rejected first")
 
@@ -198,7 +201,7 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
             "status": "configured", "cognitive_consumption_enabled": True,
             "max_cognitive_projection_count": 1})
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -215,7 +218,9 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
             "limit": 512, "overflowed": True}
     persisted_plan = load_work_plan(tmp_path / feedback["work_plan_path"])
     recovered_evidence = load_work_plan_evidence(tmp_path, persisted_plan)
-    assert recovered_evidence["evidence_binding"][
+    recovered_binding = recovered_evidence["evidence_binding"]
+    assert isinstance(recovered_binding, dict)
+    assert recovered_binding[
         "prior_epistemic_priority_admission"] == {
             "limit": 512, "overflowed": True}
     binding = evidence["evidence_binding"]
@@ -238,8 +243,9 @@ def test_overflowed_goal_history_remains_review_required_in_daemon_plan(
     assert omitted_identity["proposition_id"] == overflowed.proposition_id
     assert omitted_identity["stance"] == "provisionally_contradicted"
     assert omitted_identity["omission_reason"] == "projection_state_bound"
-    assert omitted_identity["state_digest"] == owner.current_state(
-        overflowed.proposition_id).state_digest
+    overflowed_state = owner.current_state(overflowed.proposition_id)
+    assert overflowed_state is not None
+    assert omitted_identity["state_digest"] == overflowed_state.state_digest
     assert evidence["evidence_binding"]["goal_applicability"]["g0512"] == (
         "epistemic_applicability_unresolved")
     assert not list((tmp_path / "glow/forge/work_runs").glob("run_*.json"))
@@ -280,24 +286,26 @@ def test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwri
         budget_summary={"risk_spent": 1, "risk_cap": 1,
             "throughput_spent": 1, "throughput_cap": 1},
     )
-    arguments = {
-        "root": tmp_path, "generated_at": "2026-10-16T09:00:00+00:00",
-        "operating_mode": "normal", "pressure_level": 0,
-        "posture": "balanced", "goal_graph_hash_value": "graph-digest",
-        "allocation": allocation,
-    }
-
-    path = _emit_goal_allocation_artifact(**arguments)
+    path = _emit_goal_allocation_artifact(
+        root=tmp_path, generated_at="2026-10-16T09:00:00+00:00",
+        operating_mode="normal", pressure_level=0, posture="balanced",
+        goal_graph_hash_value="graph-digest", allocation=allocation)
     artifact_path, artifact_digest = path
     artifact = tmp_path / artifact_path
     original = artifact.read_bytes()
 
     assert artifact_digest == "sha256:" + hashlib.sha256(original).hexdigest()
-    assert _emit_goal_allocation_artifact(**arguments) == path
+    assert _emit_goal_allocation_artifact(
+        root=tmp_path, generated_at="2026-10-16T09:00:00+00:00",
+        operating_mode="normal", pressure_level=0, posture="balanced",
+        goal_graph_hash_value="graph-digest", allocation=allocation) == path
     assert artifact.read_bytes() == original
     with pytest.raises(WorkPlanError,
                        match="goal_allocation_artifact_identity_conflict"):
-        _emit_goal_allocation_artifact(**{**arguments, "posture": "velocity"})
+        _emit_goal_allocation_artifact(
+            root=tmp_path, generated_at="2026-10-16T09:00:00+00:00",
+            operating_mode="normal", pressure_level=0, posture="velocity",
+            goal_graph_hash_value="graph-digest", allocation=allocation)
     assert artifact.read_bytes() == original
 
 
@@ -596,7 +604,7 @@ def test_clean_journal_backed_review_cycle_reenables_apply_plan(
     assert recovered_binding["prior_run_journal_digest"] == review_journal.head_digest
     assert recovered_binding["no_replay_goal_outcomes"] == {}
 def test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
@@ -615,7 +623,7 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
 
         def cognitive_projection(self, *, max_states: int,
                                  current_tick: int | None = None,
-                                 prioritized_proposition_ids: tuple[str, ...] = ()):
+                                 prioritized_proposition_ids: tuple[str, ...] = ()) -> None:
             self.calls.append((max_states, current_tick,
                 prioritized_proposition_ids))
             return None
@@ -624,14 +632,14 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
         def __init__(self) -> None:
             self.calls = 0
 
-        def observed_current_model_identity(self):
+        def observed_current_model_identity(self) -> dict[str, str]:
             self.calls += 1
             return {"provider": "fixture", "model": "current"}
 
-        def current_session(self):
+        def current_session(self) -> None:
             raise AssertionError("planning must not acquire a serving session")
 
-        def invoke(self, *_args, **_kwargs):
+        def invoke(self, *_args: object, **_kwargs: object) -> None:
             raise AssertionError("planning must not invoke a model")
 
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
@@ -649,7 +657,7 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
         resident_cognitive_invoker=observer,
     )
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -713,7 +721,7 @@ def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
     monkeypatch.setattr(surfaces, "plan_canonical_goals",
         lambda *, tick_id: result)
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("daemon planning feedback must never execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -750,7 +758,7 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
             kernel=kernel, runtime_state_root=tmp_path / "runtime"),
     )
     selected = tuple(f"selected-{index:02d}" for index in range(35))
-    deferred = tuple(SimpleNamespace(goal_id=f"deferred-{index:02d}", reason="fixture")
+    deferred = tuple(DeferredGoal(goal_id=f"deferred-{index:02d}", reason="fixture")
         for index in range(41))
     allocation = AllocationDecision(
         selected=selected, deferred=deferred, selected_reasons=(),
@@ -791,7 +799,7 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
 
 
 def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
@@ -862,19 +870,19 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         def __init__(self) -> None:
             self.calls = 0
 
-        def observed_current_model_identity(self):
+        def observed_current_model_identity(self) -> dict[str, str]:
             self.calls += 1
             return {"provider": "fixture", "model": "current"}
 
-        def current_session(self):
+        def current_session(self) -> None:
             raise AssertionError("planning must not acquire a serving session")
 
-        def invoke(self, *_args, **_kwargs):
+        def invoke(self, *_args: object, **_kwargs: object) -> None:
             raise AssertionError("planning must not invoke a model")
 
     observer = ServingObserver()
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("canonical planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -1132,19 +1140,19 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
             self.identity_calls = 0
             self.current_identity = model_identity
 
-        def observed_current_model_identity(self):
+        def observed_current_model_identity(self) -> dict[str, str]:
             self.identity_calls += 1
             return self.current_identity
 
-        def current_session(self):
+        def current_session(self) -> None:
             raise AssertionError("planning must not acquire a serving session")
 
-        def invoke(self, *_args, **_kwargs):
+        def invoke(self, *_args: object, **_kwargs: object) -> None:
             raise AssertionError("planning must not invoke a model")
 
     observer = ServingObserver()
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("canonical planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -1165,12 +1173,14 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     binding = evidence["evidence_binding"]
     scope = binding["review_scopes"][proposition.proposition_id]
     assert scope["position_posture"] == "verified_positive_current"
-    assert scope["position_identity"]["state_id"] == supported.successor_state_id
-    assert scope["position_identity"]["state_digest"] == supported.successor_state_digest
+    assert scope["position_identity"]["state_id"] == supported.state_id
+    assert scope["position_identity"]["state_digest"] == supported.state_digest
     assert scope["position_identity"]["update_event_id"] == event.event_id
     assert binding["goal_applicability"]["g_experienced"] is None
-    assert result.allocation.selected_reasons[0]["epistemic_positions"][0][
-        "posture"] == "verified_positive_current"
+    selected_reason = result.allocation.selected_reasons[0]
+    epistemic_positions = cast(list[dict[str, object]],
+        selected_reason["epistemic_positions"])
+    assert epistemic_positions[0]["posture"] == "verified_positive_current"
     assert observer.identity_calls == 1
     assert owner.current_state(proposition.proposition_id) == supported
     assert recovered_owner.current_state(proposition.proposition_id) == supported
@@ -1225,7 +1235,7 @@ def test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery(
         EpistemicStateError, make_epistemic_update_candidate,
     )
     from sentientos.resident_epistemic_state_mutation import (
-        EpistemicMutationError, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        EpistemicMutationError, EpistemicStateMutationReceipt, PRINCIPAL, STATE_UPDATE_EFFECTS,
         ResidentEpistemicStateMutationController,
     )
     from sentientos.runtime_admission import (
@@ -1309,7 +1319,7 @@ def test_receipt_verified_prior_state_changes_daemon_plan_only_after_recovery(
         current_sequence=lambda: 10, receipt_root=receipt_root)
     assert recovered_controller.recovery_status["status"] == "verified"
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("canonical planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -1336,7 +1346,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
         make_evidence_binding,
     )
     from sentientos.resident_epistemic_state_mutation import (
-        EpistemicMutationError, PRINCIPAL, STATE_UPDATE_EFFECTS,
+        EpistemicMutationError, EpistemicStateMutationReceipt, PRINCIPAL, STATE_UPDATE_EFFECTS,
         ResidentEpistemicStateMutationController,
     )
     from sentientos.runtime_admission import (
@@ -1367,21 +1377,21 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
 
     class ServingObserver:
-        def __init__(self):
+        def __init__(self) -> None:
             self.identity = model_identity
 
-        def observed_current_model_identity(self):
+        def observed_current_model_identity(self) -> dict[str, str]:
             return self.identity
 
-        def current_session(self):
+        def current_session(self) -> None:
             raise AssertionError("planning must not acquire a serving session")
 
-        def invoke(self, *_args, **_kwargs):
+        def invoke(self, *_args: object, **_kwargs: object) -> None:
             raise AssertionError("planning must not invoke a model")
 
     real_execute_plan = GoalExecutor.execute_plan
 
-    def forbidden_execute(*_args, **_kwargs):
+    def forbidden_execute(*_args: object, **_kwargs: object) -> None:
         raise AssertionError("canonical planning must not execute goals")
 
     monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
@@ -1402,7 +1412,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
 
     def update(*, stance: str, binding_ids: tuple[str, ...],
             added_binding_ids: tuple[str, ...], tick: int, recorded_at: str,
-            reason: str | None = None):
+            reason: str | None = None) -> EpistemicStateMutationReceipt:
         nonlocal operation_number
         operation_number += 1
         operation_id = f"outcome-planning-update-{operation_number}"
@@ -1430,7 +1440,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
             candidate=candidate, admission=admission, operation_id=operation_id,
             correlation_id=operation_id, tick=tick, recorded_at=recorded_at)
 
-    def recover_and_plan(tick_id: str):
+    def recover_and_plan(tick_id: str) -> GoalPlanningResult:
         nonlocal owner, controller
         owner = PersistentEpistemicStateOwner(
             tmp_path / "epistemic", allowed_namespaces=("embodiment",))
@@ -1562,6 +1572,7 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert positive.work_plan.selected_goals == ("g_outcome",)
     assert positive.target_active_model_identity_digest == identity_digest
     assert positive.target_identity_observed_at == "2026-10-16T09:03:30Z"
+    assert positive.work_plan_evidence_path is not None
     evidence = json.loads((tmp_path / positive.work_plan_evidence_path).read_text(
         encoding="utf-8"))
     reloaded_evidence = load_work_plan_evidence(tmp_path, positive.work_plan)
@@ -1572,7 +1583,10 @@ def test_receipt_verified_outcomes_change_canonical_goal_selection_after_recover
     assert scope["position_posture"] == "verified_positive_current"
     assert scope["position_identity"]["state_id"] == supported.successor_state_id
     assert scope["position_identity"]["state_digest"] == supported.successor_state_digest
-    assert scope["position_identity"]["update_event_id"] == supported.update_event_id
+    current_state = owner.current_state(proposition.proposition_id)
+    assert current_state is not None
+    assert scope["position_identity"]["update_event_id"] == (
+        current_state.last_update_event_id)
     assert scope["position_identity"]["supporting_binding_ids"] == [support.binding_id]
 
     # Execution must reject an envelope that tries to reuse the plan's evidence
