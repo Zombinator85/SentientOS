@@ -1,0 +1,177 @@
+{
+  "files": {
+    "README.md": {
+      "sha256": "7b3ba89faa9c61ac6ac562ed95224e099f5e40e8a41f6cd942acd9e0cee6656a",
+      "size_bytes": 1599
+    },
+    "blocked/control-plane/decisions.jsonl": {
+      "sha256": "fc55d591872dfef99aebda52b4f4b093926df6e2d31d27389c6f063605d5b8b5",
+      "size_bytes": 965
+    },
+    "blocked/governor/pressure.jsonl": {
+      "sha256": "90505de8c93857396f9ade98fa117133d1a03ddac75facfbf2b8c096ff2c8732",
+      "size_bytes": 126
+    },
+    "blocked/inference-attempt.json": {
+      "sha256": "82581b0993ffce91e7fad60a377e45fffa78587f582d0378d94376d6a82fc487",
+      "size_bytes": 291
+    },
+    "blocked/inference-custody/decisions/lmreq-86f63d0869ae052ae0cf628d.json": {
+      "sha256": "87ef5059c146775ddf5445a4db1e6fc3a8f26314ad3c3b53aff42057c5cb9320",
+      "size_bytes": 1017
+    },
+    "blocked/inference-custody/receipts/lmrec-ce346b99a15550ae964cb1b0.json": {
+      "sha256": "8fd0cb81d90f38badc771864667fe6987cd5c7ef956889cb427ea882bd05644c",
+      "size_bytes": 3874
+    },
+    "blocked/inference-custody/requests/lmreq-86f63d0869ae052ae0cf628d.json": {
+      "sha256": "542829298cee1174aac56e28fb12498932ed2003ef4e919818584c954bb49937",
+      "size_bytes": 2584
+    },
+    "blocked/intent.json": {
+      "sha256": "60745cc8ecd6e43660e2fbac52413051d6e7903b37f6c3aa0a3a4ce9eb87ecfd",
+      "size_bytes": 2981
+    },
+    "blocked/rootless-experimental-inference-receipt.json": {
+      "sha256": "6cad68abff95fee78fcbe7167e50c37a4b0f11d774bcf73fcc6b9d3d94289d00",
+      "size_bytes": 7189
+    },
+    "blocked/sentientos-invocation-receipt.json": {
+      "sha256": "4cab036bde974736cb900cbc1033344ec0ea2a934025a2e45b419b926383ffdf",
+      "size_bytes": 3322
+    },
+    "model-artifact-manifest.json": {
+      "sha256": "a2162fea722faf04a42571b2b32ef9a138de2e03c781169e09e583675206e299",
+      "size_bytes": 1756
+    },
+    "model-card/LICENSE": {
+      "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "size_bytes": 11343
+    },
+    "model-card/README.md": {
+      "sha256": "fa1fede7f775a20f111cc098c00900092020572ce78976970a5b0ad9ca211999",
+      "size_bytes": 4856
+    },
+    "observation-summary.json": {
+      "sha256": "cb5705645470d81fdf0d37fb2ad9920dab2f1f9c72835c39d1cc2ddcecdfe98d",
+      "size_bytes": 5284
+    },
+    "runtime/backend-verification-receipt.json": {
+      "sha256": "1fe995ecc573245611f4a560302e9cf128eb3f66def94c28931cf51544e8412f",
+      "size_bytes": 2153
+    },
+    "runtime/import-verification-receipt.json": {
+      "sha256": "22d47c0fdd94b181093d9be129dd75cf1f850cdcb60ae63eae4ef67531a1eda9",
+      "size_bytes": 3153
+    },
+    "runtime/installation-receipt.json": {
+      "sha256": "54b5bc868018a35fd193eaffac436bd8db02a0979bc16f2054c2b1fc75e49288",
+      "size_bytes": 7394
+    },
+    "success/control-plane/decisions.jsonl": {
+      "sha256": "5d741a855aef233da08b5eb881f902bcc20342cedef3190bc29462f9a40b5473",
+      "size_bytes": 1945
+    },
+    "success/federation/federation_probe_schedule.json": {
+      "sha256": "3eecc8da3371aa06bd19ce813b7df7def141f30e6108bb2ba8f76cab1ad2293e",
+      "size_bytes": 241
+    },
+    "success/federation/federation_quorum_policy.json": {
+      "sha256": "e2c97c4b3dcaa5b166af25266cca4592c32a9f903e52b3424b0d73f657d444ea",
+      "size_bytes": 483
+    },
+    "success/federation/governance_digest.json": {
+      "sha256": "0b821c3b3786fd317a886d1e95a26f78ad24313fcdb644a54e11de0364071791",
+      "size_bytes": 1816
+    },
+    "success/federation/trust_ledger_events.jsonl": {
+      "sha256": "7d441873e595e168b4a2b8e2a12d59ac7df3f912beec4779f70dc86d7f94354d",
+      "size_bytes": 194
+    },
+    "success/federation/trust_ledger_state.json": {
+      "sha256": "26f5634f552adb93171e6f4d6e6434c8c75adb5eb19e3f38457334a9ad7afe7c",
+      "size_bytes": 245
+    },
+    "success/governor/decisions.jsonl": {
+      "sha256": "998c0b82b014f2053e5648fb6b6f1016837441643fa41e1fab80d85c6c2c30f9",
+      "size_bytes": 4377
+    },
+    "success/governor/federation_probe_schedule.json": {
+      "sha256": "3eecc8da3371aa06bd19ce813b7df7def141f30e6108bb2ba8f76cab1ad2293e",
+      "size_bytes": 241
+    },
+    "success/governor/federation_quorum_policy.json": {
+      "sha256": "e2c97c4b3dcaa5b166af25266cca4592c32a9f903e52b3424b0d73f657d444ea",
+      "size_bytes": 483
+    },
+    "success/governor/governance_digest.json": {
+      "sha256": "0b821c3b3786fd317a886d1e95a26f78ad24313fcdb644a54e11de0364071791",
+      "size_bytes": 1816
+    },
+    "success/governor/observability.jsonl": {
+      "sha256": "8fc1e705979b30179eb9a74b6d955681850567f38ed3fa2527c668499fbde0f6",
+      "size_bytes": 3317
+    },
+    "success/governor/pressure.jsonl": {
+      "sha256": "58805eca3e4300b0f95e4c871344384f705afa8e739ff79544202407fca4b90a",
+      "size_bytes": 252
+    },
+    "success/governor/rollup.json": {
+      "sha256": "d3088f022bd0d818521405c486ae0bbd7cd522505ba254fcf12a498f1f037c17",
+      "size_bytes": 5305
+    },
+    "success/governor/storm_budget.json": {
+      "sha256": "a1d48ac24de23e7a909cec6d91142fa2ff83cae304b4f1df088a19d7afd8b8eb",
+      "size_bytes": 4000
+    },
+    "success/governor/subject_fairness_rollup.json": {
+      "sha256": "f3ddaf2f149d7ed60b6198444532038d9f94a83bc8e136df8fd5c8e0c72bf33a",
+      "size_bytes": 618
+    },
+    "success/governor/trust_ledger_events.jsonl": {
+      "sha256": "7d441873e595e168b4a2b8e2a12d59ac7df3f912beec4779f70dc86d7f94354d",
+      "size_bytes": 194
+    },
+    "success/governor/trust_ledger_state.json": {
+      "sha256": "26f5634f552adb93171e6f4d6e6434c8c75adb5eb19e3f38457334a9ad7afe7c",
+      "size_bytes": 245
+    },
+    "success/inference-attempt.json": {
+      "sha256": "96b24449fffd9dbc88d55c555da7383004818b1af1e3e0bb2c69376312396e6e",
+      "size_bytes": 291
+    },
+    "success/inference-custody/decisions/lmreq-c61612c5d4e114fdd9ccf0f2.json": {
+      "sha256": "a377672b905ef544cda8ddec6f12877e93e299b41d185790899e4c559d4f03ff",
+      "size_bytes": 2209
+    },
+    "success/inference-custody/receipts/lmrec-aded120ac61ee70ecc472e25.json": {
+      "sha256": "c5ae8e62cc2af4a74dd47346a30f04975dc3607b7239e60359923720025b9502",
+      "size_bytes": 4028
+    },
+    "success/inference-custody/requests/lmreq-c61612c5d4e114fdd9ccf0f2.json": {
+      "sha256": "aff7a2b90c2e3e0fbf8aae70de31ff4cbbe7c19ac4e49263591a7ad6fea3e481",
+      "size_bytes": 2584
+    },
+    "success/intent.json": {
+      "sha256": "41ae03018d8036402bb8f158819e86cfdb640ef98eab906c745c5a6e3f638799",
+      "size_bytes": 2981
+    },
+    "success/pulse-trust-epoch/epoch_state.json": {
+      "sha256": "b93129694a3024b9abfd9f9e85cf7314adcbad5efbc958839cad2bf24897f5a2",
+      "size_bytes": 520
+    },
+    "success/pulse-trust-epoch/transitions.jsonl": {
+      "sha256": "5c393504611fc1ebe4cd3acf3499cc15fc006100338e99af398c30403c7fbc15",
+      "size_bytes": 208
+    },
+    "success/rootless-experimental-inference-receipt.json": {
+      "sha256": "564a431f037dd34f6f89b4adbcf84c4111a1d21b3c62a8f09379a9868d1549ee",
+      "size_bytes": 7388
+    },
+    "success/sentientos-invocation-receipt.json": {
+      "sha256": "a138a13356aa3dc60393dca58748abcc9f7e0a29b1e241ce73c0b37fbc6e24a3",
+      "size_bytes": 3451
+    }
+  },
+  "schema_version": "sentientos.rootless_experimental_evidence_bundle:v1"
+}

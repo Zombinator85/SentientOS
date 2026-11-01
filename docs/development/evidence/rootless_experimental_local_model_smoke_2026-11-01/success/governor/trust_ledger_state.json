@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-11-01T00:42:23.769785+00:00",
+  "peer_count": 0,
+  "peer_states": [],
+  "schema_version": 1,
+  "state_summary": {
+    "degraded": 0,
+    "incompatible": 0,
+    "quarantined": 0,
+    "trusted": 0,
+    "watched": 0
+  }
+}

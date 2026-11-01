@@ -1,0 +1,60 @@
+{
+  "components": {
+    "audit_trust_posture": {
+      "degraded_audit_trust": false,
+      "history_state": "intact_trusted",
+      "reanchor_required": false
+    },
+    "federation_identity_digest": null,
+    "federation_replay_policy": {
+      "policy_version": "federation_replay_v1",
+      "tolerance_seconds": 120,
+      "window_seconds": 1200
+    },
+    "git_sha": "166d1dbb36e56fdc4998993d7152736aadd89437",
+    "governor_posture": {
+      "federated_limit": 20,
+      "federated_window_seconds": 120,
+      "mode": "shadow",
+      "profile": "legacy-governor-mode"
+    },
+    "invariants_identity": "/vow/invariants.yaml",
+    "invariants_sha256": null,
+    "manifest_identity": "/vow/immutable_manifest.json",
+    "manifest_sha256": null,
+    "pulse_protocol_identity": {
+      "default_fields": [
+        "context",
+        "event_origin",
+        "focus",
+        "internal_priority"
+      ],
+      "protocol_fingerprint": "84db9ca54b58c0b1cb02f533fa4af320bbc4a4941eb7b00fe019bd93d05ea0ad",
+      "protocol_version": "2.1.0",
+      "replay_policy_version": "federation_replay_v1",
+      "required_fields": [
+        "event_type",
+        "payload",
+        "source_daemon",
+        "timestamp"
+      ],
+      "required_fields_version": "pulse_required_fields_v1",
+      "schema_family": "pulse_bus_v2",
+      "signing_algorithm": "ed25519"
+    },
+    "pulse_trust_epoch": {
+      "active_epoch_id": "epoch-0001",
+      "compromise_response_mode": false,
+      "revoked_epochs": []
+    },
+    "schema_fingerprints": {
+      "perception_schema": null,
+      "pulse_schema": null,
+      "self_model_schema": null
+    },
+    "schema_version": 1
+  },
+  "digest": "744aef930b20fb7a9d0e605c8eb5670b48fac91a6e281189a6888de67963ddf7",
+  "generated_at": "2026-11-01T00:42:23.789301+00:00",
+  "schema_version": 1
+}

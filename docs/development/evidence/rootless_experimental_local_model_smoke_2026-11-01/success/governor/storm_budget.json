@@ -1,0 +1,145 @@
+{
+  "amendment_counts": {},
+  "contention_allowed": 0,
+  "control_plane_task_counts": {},
+  "counters": {
+    "decision_totals": {
+      "admit": 1
+    },
+    "pressure_bands": {
+      "block": 0,
+      "normal": 1,
+      "warn": 0
+    },
+    "queue_pressure": {
+      "class_summary": {
+        "local_model_inference": {
+          "admitted_occupancy": 1,
+          "blocked_pressure": 0,
+          "defer": 0,
+          "deny": 0,
+          "retries": 0
+        }
+      },
+      "family_summary": {
+        "local_model": {
+          "admitted_occupancy": 1,
+          "blocked_pressure": 0,
+          "defer": 0,
+          "deny": 0
+        }
+      },
+      "summary_limit": 16,
+      "top_subjects": [
+        {
+          "action_class": "local_model_inference",
+          "admitted_occupancy": 1,
+          "blocked_pressure": 0,
+          "defer": 0,
+          "deny": 0,
+          "retries": 0,
+          "subject": "deterministic_rootless_experimental_local_model_controller"
+        }
+      ],
+      "window_seconds": 90
+    },
+    "reason_counts": {
+      "unknown_action_type": 1
+    },
+    "reserved_recovery_slots_used": 0,
+    "subject_fairness": {
+      "denied_while_peers_admitted": [],
+      "noisy_subjects": [],
+      "starved_subjects": []
+    }
+  },
+  "critical_events": 0,
+  "federated_controls": 0,
+  "federation_governance_digest": {
+    "components": {
+      "audit_trust_posture": {
+        "degraded_audit_trust": false,
+        "history_state": "intact_trusted",
+        "reanchor_required": false
+      },
+      "federation_identity_digest": null,
+      "federation_replay_policy": {
+        "policy_version": "federation_replay_v1",
+        "tolerance_seconds": 120,
+        "window_seconds": 1200
+      },
+      "git_sha": "166d1dbb36e56fdc4998993d7152736aadd89437",
+      "governor_posture": {
+        "federated_limit": 20,
+        "federated_window_seconds": 120,
+        "mode": "shadow",
+        "profile": "legacy-governor-mode"
+      },
+      "invariants_identity": "/vow/invariants.yaml",
+      "invariants_sha256": null,
+      "manifest_identity": "/vow/immutable_manifest.json",
+      "manifest_sha256": null,
+      "pulse_protocol_identity": {
+        "default_fields": [
+          "context",
+          "event_origin",
+          "focus",
+          "internal_priority"
+        ],
+        "protocol_fingerprint": "84db9ca54b58c0b1cb02f533fa4af320bbc4a4941eb7b00fe019bd93d05ea0ad",
+        "protocol_version": "2.1.0",
+        "replay_policy_version": "federation_replay_v1",
+        "required_fields": [
+          "event_type",
+          "payload",
+          "source_daemon",
+          "timestamp"
+        ],
+        "required_fields_version": "pulse_required_fields_v1",
+        "schema_family": "pulse_bus_v2",
+        "signing_algorithm": "ed25519"
+      },
+      "pulse_trust_epoch": {
+        "active_epoch_id": "epoch-0001",
+        "compromise_response_mode": false,
+        "revoked_epochs": []
+      },
+      "schema_fingerprints": {
+        "perception_schema": null,
+        "pulse_schema": null,
+        "self_model_schema": null
+      },
+      "schema_version": 1
+    },
+    "digest": "744aef930b20fb7a9d0e605c8eb5670b48fac91a6e281189a6888de67963ddf7"
+  },
+  "federation_probe_schedule": {
+    "blocked_actions": [],
+    "generated_at": "2026-11-01T00:42:23.769590+00:00",
+    "pending_actions": [],
+    "pressure_composite": 0.0233,
+    "probe_slots": 6,
+    "scheduling_window_open": true,
+    "schema_version": 1,
+    "storm_active": false
+  },
+  "limits": {
+    "amendment_limit": 16,
+    "contention_limit": 24,
+    "critical_limit": 50,
+    "federated_limit": 20,
+    "recovery_reserved_slots": 4,
+    "repair_limit": 5,
+    "restart_limit": 3,
+    "starvation_streak_threshold": 5,
+    "storm_federated_limit": 2,
+    "task_limit": 128,
+    "warn_low_priority_limit": 8
+  },
+  "mode": "shadow",
+  "quarantine": {},
+  "repair_counts": {},
+  "restart_counts": {},
+  "schema_version": 1,
+  "updated_at": "2026-11-01T00:42:23.775058+00:00"
+}

@@ -1,0 +1,25 @@
+{
+  "action_kind": "local_model_inference",
+  "actor": "deterministic_rootless_experimental_local_model_controller",
+  "actor_source": "deterministic_rootless_experimental_local_model_controller",
+  "admission_decision_ref": "kernel_decision:rootless-experiment-4e9a160ae1774e2088022be4e8fe763e",
+  "authority_class": "local_model_inference",
+  "correlation_id": "rootless-experiment-4e9a160ae1774e2088022be4e8fe763e",
+  "current_phase": "runtime",
+  "delegate_checks_consulted": [],
+  "delegated_outcomes": {},
+  "event_type": "control_plane_decision",
+  "execution_owner": "deterministic_rootless_experimental_local_model_controller",
+  "federation_context": null,
+  "final_disposition": "defer",
+  "lifecycle_phase": "runtime",
+  "outcome": "defer",
+  "proof_budget_context": null,
+  "protected_mutation_intent": null,
+  "reason_codes": [
+    "runtime_governor_error"
+  ],
+  "requested_phase": "runtime",
+  "target_subsystem": "governed_local_model_invocation",
+  "timestamp": "2026-11-01T00:40:02.692234+00:00"
+}

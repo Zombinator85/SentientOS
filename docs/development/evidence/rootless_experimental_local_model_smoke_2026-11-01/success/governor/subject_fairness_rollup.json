@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-11-01T00:42:23.790243+00:00",
+  "schema_version": 1,
+  "subject_fairness": {
+    "denied_while_peers_admitted": [],
+    "noisy_subjects": [],
+    "per_class": {
+      "local_model_inference": {
+        "subject_count": 1,
+        "subjects": [
+          {
+            "admit": 1,
+            "attempts": 1,
+            "defer": 0,
+            "denied_streak": 0,
+            "deny": 0,
+            "subject": "deterministic_rootless_experimental_local_model_controller"
+          }
+        ]
+      }
+    },
+    "starved_subjects": [],
+    "streak_threshold": 5,
+    "summary_limit": 16
+  }
+}
