@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Iterable
 
 from sentientos.storage import get_data_root
 
 
-def _requirements_components(requirements: Iterable[str]) -> list[dict[str, object]]:
-    components: list[dict[str, object]] = []
+def _requirements_components(requirements: Iterable[str]) -> list[Mapping[str, object]]:
+    components: list[Mapping[str, object]] = []
     for line in requirements:
         line = line.strip()
         if not line or line.startswith("#"):
@@ -25,10 +25,10 @@ def _requirements_components(requirements: Iterable[str]) -> list[dict[str, obje
     return components
 
 
-def _cargo_components(lock_path: Path) -> list[dict[str, object]]:
+def _cargo_components(lock_path: Path) -> list[Mapping[str, object]]:
     if not lock_path.exists():
         return []
-    components: list[dict[str, object]] = []
+    components: list[Mapping[str, object]] = []
     package = None
     for line in lock_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -45,7 +45,7 @@ def _cargo_components(lock_path: Path) -> list[dict[str, object]]:
     return components
 
 
-def _write_bom(name: str, components: list[dict[str, object]]) -> None:
+def _write_bom(name: str, components: Sequence[Mapping[str, object]]) -> None:
     data = {
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
