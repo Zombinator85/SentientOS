@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -26,32 +26,19 @@ from sentientos.local_diagnostic_effect import (  # noqa: E402
 def _load_json(path: str) -> dict[str, object]:
     payload = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("rollback_input_must_be_json_object")
-    result: dict[str, object] = {}
-    for key, value in payload.items():
-        if not isinstance(key, str):
-            raise ValueError("rollback_input_keys_must_be_strings")
-        result[key] = value
+        raise ValueError("local diagnostic rollback input must be a JSON object")
+    result: dict[str, object] = {
+        str(key): value for key, value in payload.items()
+    }
     return result
 
 
-def _record(value: object, field: str) -> dict[str, object]:
-    if not isinstance(value, Mapping):
-        raise ValueError(f"rollback_summary_{field}_must_be_mapping")
-    result: dict[str, object] = {}
-    for key, item in value.items():
-        if not isinstance(key, str):
-            raise ValueError(f"rollback_summary_{field}_keys_must_be_strings")
-        result[key] = item
-    return result
-
-
-def _compact(summary: dict[str, object], *, dry_run: bool) -> dict[str, object]:
-    request = _record(summary["request"], "request")
-    result = _record(summary["result"], "result")
-    receipt = _record(summary["receipt"], "receipt")
-    postcondition = _record(summary["postcondition_check"], "postcondition_check")
-    audit = _record(summary["rollback_audit_receipt"], "rollback_audit_receipt")
+def _compact(summary: dict[str, Any], *, dry_run: bool) -> dict[str, object]:
+    request = summary["request"]
+    result = summary["result"]
+    receipt = summary["receipt"]
+    postcondition = summary["postcondition_check"]
+    audit = summary["rollback_audit_receipt"]
     return {
         "dry_run": dry_run,
         "request_status": request["request_status"],
@@ -88,12 +75,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--created-at", default="1970-01-01T00:00:00+00:00", help="deterministic timestamp for records")
     args = parser.parse_args(argv)
 
-    try:
-        effect_receipt = _load_json(args.effect_receipt)
-        rollback_plan = _load_json(args.rollback_plan)
-    except (OSError, UnicodeError, ValueError) as exc:
-        print(f"rollback input rejected: {exc}", file=sys.stderr)
-        return 2
+    effect_receipt = _load_json(args.effect_receipt)
+    rollback_plan = _load_json(args.rollback_plan)
     request = build_local_diagnostic_exact_rollback_request(
         effect_receipt,
         rollback_plan,
