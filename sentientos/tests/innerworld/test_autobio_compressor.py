@@ -1,4 +1,10 @@
+from types import MappingProxyType
+
+import pytest
+
 from sentientos.innerworld.autobio_compressor import AutobiographicalCompressor
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_autobio_compression_and_fifo():
@@ -42,3 +48,12 @@ def test_autobio_deterministic_ordering():
     )
 
     assert first["dominant_themes"] == second["dominant_themes"]
+
+
+def test_record_copies_read_only_mapping_inputs():
+    compressor = AutobiographicalCompressor()
+    nested = {"items": ["original"]}
+    compressor.record(MappingProxyType({"entry_id": 1, "nested": nested}))
+    nested["items"].append("changed")
+
+    assert compressor.get_entries() == [{"entry_id": 1, "nested": {"items": ["original"]}}]

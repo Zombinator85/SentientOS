@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from copy import deepcopy
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping
 
 
 class AutobiographicalCompressor:
@@ -19,7 +19,7 @@ class AutobiographicalCompressor:
 
     def compress(
         self,
-        chapters: Sequence[Mapping[str, Any]],
+        chapters: List[Mapping[str, Any]],
         reflection_summary: Mapping[str, Any],
         identity_summary: Mapping[str, Any],
     ) -> Dict[str, Any]:
@@ -27,7 +27,7 @@ class AutobiographicalCompressor:
         Create a compressed autobiographical entry from current summaries.
         """
 
-        chapter_snapshot = [deepcopy(dict(chapter)) for chapter in (chapters or [])]
+        chapter_snapshot = [deepcopy(chapter) for chapter in (chapters or [])]
         reflection_snapshot = deepcopy(reflection_summary or {})
         identity_snapshot = deepcopy(identity_summary or {})
 
@@ -43,7 +43,7 @@ class AutobiographicalCompressor:
             "identity_shift": identity_shift,
         }
 
-    def record(self, entry: Mapping[str, Any]) -> None:
+    def record(self, entry: Mapping[str, Any]):
         """Insert into FIFO memory."""
 
         self._entries.append(deepcopy(dict(entry)))
@@ -55,7 +55,7 @@ class AutobiographicalCompressor:
 
         return [deepcopy(entry) for entry in self._entries]
 
-    def _dominant_themes(self, chapters: Sequence[Mapping[str, Any]]) -> Dict[str, str]:
+    def _dominant_themes(self, chapters: List[Mapping[str, Any]]) -> Dict[str, str]:
         qualia_values = [chapter.get("qualia_theme") for chapter in chapters if isinstance(chapter, Mapping)]
         ethical_values = [chapter.get("ethical_theme") for chapter in chapters if isinstance(chapter, Mapping)]
         metacog_values = [chapter.get("metacog_theme") for chapter in chapters if isinstance(chapter, Mapping)]
