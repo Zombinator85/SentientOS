@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -39,10 +40,14 @@ def _counts_by_source_module(proposals: Iterable[Mapping[str, Any]]) -> dict[str
 
 
 def _truthy(value: Any) -> bool:
-    return bool(value) and value not in {"none", "not_asserted", "unknown"}
+    if not value:
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() not in {"none", "not_asserted", "unknown"}
+    return True
 
 
-def _high_risk_counts(pending: list[Mapping[str, Any]]) -> dict[str, int]:
+def _high_risk_counts(pending: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     out = {
         "memory_write_pressure": 0,
         "action_trigger_pressure": 0,
@@ -53,9 +58,11 @@ def _high_risk_counts(pending: list[Mapping[str, Any]]) -> dict[str, int]:
     for row in pending:
         kind = str(row.get("proposal_kind") or "")
         blocked = str(row.get("blocked_effect_type") or "")
-        risk_flags = row.get("risk_flags") if isinstance(row.get("risk_flags"), Mapping) else {}
+        raw_risk_flags = row.get("risk_flags")
+        risk_flags = raw_risk_flags if isinstance(raw_risk_flags, Mapping) else {}
         privacy = str(row.get("privacy_retention_posture") or "")
-        candidate = row.get("candidate_payload_summary") if isinstance(row.get("candidate_payload_summary"), Mapping) else {}
+        raw_candidate = row.get("candidate_payload_summary")
+        candidate = raw_candidate if isinstance(raw_candidate, Mapping) else {}
 
         if kind == "memory_ingress_candidate" or blocked == "memory_write":
             out["memory_write_pressure"] += 1
@@ -86,18 +93,25 @@ def classify_embodied_proposal_review_posture(*, pending_review_count: int, high
     return "pending_low_risk_review"
 
 
-def _recent_refs(proposals: list[Mapping[str, Any]], *, limit: int = 5) -> list[str]:
+def _finite_timestamp(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    timestamp = float(value)
+    return timestamp if math.isfinite(timestamp) else None
+
+
+def _recent_refs(proposals: Sequence[Mapping[str, Any]], *, limit: int = 5) -> list[str]:
     ordered = sorted(
         proposals,
-        key=lambda row: (float(row.get("created_at") or 0.0), str(row.get("proposal_id") or "")),
+        key=lambda row: (_finite_timestamp(row.get("created_at")) or 0.0, str(row.get("proposal_id") or "")),
         reverse=True,
     )
     return [embodied_proposal_ref(row) for row in ordered[: max(1, limit)] if "proposal_id" in row]
 
 
-def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, review_receipts: list[Mapping[str, Any]] | None = None, generated_at: float | None = None) -> dict[str, Any]:
+def summarize_recent_embodied_proposals(proposals: Sequence[Mapping[str, Any]], *, review_receipts: Sequence[Mapping[str, Any]] | None = None, generated_at: float | None = None) -> dict[str, Any]:
     pending = [row for row in proposals if str(row.get("review_status") or "") == "pending_review"]
-    pending_times = [float(row.get("created_at")) for row in pending if isinstance(row.get("created_at"), (int, float))]
+    pending_times = [timestamp for row in pending if (timestamp := _finite_timestamp(row.get("created_at"))) is not None]
     risk = _high_risk_counts(pending)
     posture = classify_embodied_proposal_review_posture(pending_review_count=len(pending), high_risk_counts=risk)
     summary_material = {
