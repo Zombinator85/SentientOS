@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "bug_fix",
+  "repository_sha": "e8af211b761ae76c97ae3b824ad91b4520b20d7a",
+  "test_provenance_path": "docs/development/strategic_adaptation_typing_test_provenance_20261101.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_strategic_adaptation_typing.py::test_load_proposal_preserves_nested_json_record_types",
+      "rationale": "Valid nested JSON fields retain their proposal representation after typed parsing."
+    },
+    {
+      "node_id": "tests/test_strategic_adaptation_typing.py::test_load_proposal_rejects_non_numeric_guardrails",
+      "rationale": "Malformed numeric guardrail input is rejected explicitly rather than silently defaulted."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_strategic_adaptation_typing.py::test_load_proposal_preserves_nested_json_record_types"
+  ]
+}

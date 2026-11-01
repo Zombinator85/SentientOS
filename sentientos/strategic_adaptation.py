@@ -340,8 +340,7 @@ def _attach_signature_hint(root: Path, rel_path: Path, *, kind: str, object_id: 
     payload = _load_json(root / rel_path)
     created_at = _as_str(payload.get("created_at")) or _as_str(payload.get("applied_at")) or _iso_now()
     sig_path = Path("glow/forge/strategic/signatures") / f"sig_{_safe_ts(created_at)}_{kind}_{''.join(ch if ch.isalnum() or ch in {'-', '_'} else '-' for ch in object_id)[:80]}.json"
-    payload.setdefault("strategic_signature", {})
-    marker = payload.get("strategic_signature") if isinstance(payload.get("strategic_signature"), dict) else {}
+    marker = _string_keyed_dict(payload.get("strategic_signature"))
     marker["path"] = str(sig_path)
     marker.setdefault("sig_hash", None)
     payload["strategic_signature"] = marker
@@ -413,7 +412,7 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
     incidents_by_trigger: dict[str, int] = {}
     quarantine_activations = 0
     for row in incidents_rows:
-        triggers = row.get("triggers") if isinstance(row.get("triggers"), list) else []
+        triggers = _object_list(row.get("triggers"))
         for trigger in triggers:
             if isinstance(trigger, str) and trigger:
                 incidents_by_trigger[trigger] = incidents_by_trigger.get(trigger, 0) + 1
@@ -424,7 +423,7 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
     remediation_total = 0
     remediation_success = 0
     for row in ticks_rows:
-        level = int(row.get("integrity_pressure_level", 0))
+        level = _coerce_int(row.get("integrity_pressure_level", 0))
         key = str(level)
         pressure_distribution[key] = pressure_distribution.get(key, 0) + 1
         remediation = str(row.get("remediation_status", ""))
@@ -445,8 +444,12 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
             reason = str(item.blocked_reason).split("|", 1)[0]
             entry = block_reasons.setdefault(reason, {"count": 0, "goal_ids": [], "evidence_paths": []})
             entry["count"] = int(entry["count"]) + 1
-            entry["goal_ids"].append(goal_id)
-            entry["evidence_paths"].extend(item.last_evidence_paths)
+            goal_ids = entry["goal_ids"]
+            evidence = entry["evidence_paths"]
+            if isinstance(goal_ids, list):
+                goal_ids.append(goal_id)
+            if isinstance(evidence, list):
+                evidence.extend(item.last_evidence_paths)
 
     evidence_paths = _collect_evidence_paths(root, incidents_rows, ticks_rows)
     remediation_success_rate = 1.0 if remediation_total == 0 else round(remediation_success / remediation_total, 4)
@@ -483,12 +486,16 @@ def _compute_adjustments(
     del goal_state
     adjustments: list[Adjustment] = []
     effects: list[str] = []
-    pressure_distribution = summary.get("pressure_level_distribution") if isinstance(summary.get("pressure_level_distribution"), dict) else {}
-    frequent_high_pressure = sum(int(v) for k, v in pressure_distribution.items() if str(k).isdigit() and int(k) >= 2 and isinstance(v, int)) >= 2
-    quarantine_activations = int(summary.get("quarantine_activations", 0))
-    remediation_success_rate = float(summary.get("remediation_success_rate", 0.0))
-    top_block_reasons = summary.get("top_block_reasons") if isinstance(summary.get("top_block_reasons"), list) else []
-    evidence_paths = tuple(str(item) for item in list(summary.get("evidence_paths") or [])[:6] if isinstance(item, str))
+    pressure_distribution = _string_keyed_dict(summary.get("pressure_level_distribution"))
+    frequent_high_pressure = sum(
+        value
+        for key, value in pressure_distribution.items()
+        if key.isdigit() and int(key) >= 2 and isinstance(value, int)
+    ) >= 2
+    quarantine_activations = _coerce_int(summary.get("quarantine_activations", 0))
+    remediation_success_rate = _coerce_float(summary.get("remediation_success_rate", 0.0))
+    top_block_reasons = _dict_rows(summary.get("top_block_reasons"))
+    evidence_paths = tuple(str(item) for item in _object_list(summary.get("evidence_paths"))[:6] if isinstance(item, str))
 
     sorted_goals = sorted(graph.goals, key=lambda g: (str(g.goal_id)))
     integrity_goals = [g for g in sorted_goals if ("integrity" in g.tags or "stability" in g.tags)]
@@ -507,20 +514,16 @@ def _compute_adjustments(
             if new_weight != goal.weight:
                 adjustments.append(Adjustment(goal.goal_id, "weight", goal.weight, new_weight, "reduce_feature_churn_under_pressure", evidence_paths))
 
-    if not isinstance(top_block_reasons, list):
-        top_block_reasons = []
     for entry in top_block_reasons:
         if len(adjustments) >= max_goals_changed:
             break
-        if not isinstance(entry, dict):
-            continue
         reason = str(entry.get("reason", ""))
-        count = int(entry.get("count", 0))
+        count = _coerce_int(entry.get("count", 0))
         if count < 2:
             continue
         raw_blocked_goal_ids = entry.get("goal_ids")
-        blocked_goal_ids: list[Any] = raw_blocked_goal_ids if isinstance(raw_blocked_goal_ids, list) else []
-        supporting_paths = tuple(str(path) for path in entry.get("evidence_paths", []) if isinstance(path, str))
+        blocked_goal_ids = _object_list(raw_blocked_goal_ids)
+        supporting_paths = tuple(str(path) for path in _object_list(entry.get("evidence_paths")) if isinstance(path, str))
         for goal in sorted_goals:
             if goal.goal_id not in blocked_goal_ids:
                 continue
@@ -561,8 +564,8 @@ def _compute_adjustments(
     bounded: list[Adjustment] = []
     for item in deduped:
         if item.field == "weight":
-            old = float(item.old)
-            new = float(item.new)
+            old = _coerce_float(item.old)
+            new = _coerce_float(item.new)
             if abs(new - old) > max_weight_delta:
                 new = old + max_weight_delta if new > old else old - max_weight_delta
                 item = Adjustment(item.goal_id, item.field, round(old, 4), round(new, 4), item.reason, item.evidence_paths)
@@ -582,9 +585,9 @@ def _baseline_weight_for_goal(goal: Goal) -> float:
 
 def _apply_adjustment(goal: Goal, adjustment: Adjustment) -> Goal:
     if adjustment.field == "weight":
-        return replace(goal, weight=float(adjustment.new))
+        return replace(goal, weight=_coerce_float(adjustment.new))
     if adjustment.field == "priority":
-        return replace(goal, priority=int(adjustment.new))
+        return replace(goal, priority=_coerce_int(adjustment.new))
     if adjustment.field == "enabled":
         return replace(goal, enabled=bool(adjustment.new))
     return goal
@@ -650,7 +653,7 @@ def _allocator_inputs_snapshot(root: Path) -> dict[str, object]:
 
 
 def _compute_allocation_for_snapshot(*, graph: GoalGraph, snapshot: dict[str, object]) -> AllocationDecision:
-    budget_summary_raw = snapshot.get("risk_budget_summary") if isinstance(snapshot.get("risk_budget_summary"), dict) else {}
+    budget_summary_raw = _string_keyed_dict(snapshot.get("risk_budget_summary"))
     pressure_level = snapshot.get("pressure_level", 0)
     if type(pressure_level) is not int:
         raise ValueError("invalid_snapshot_pressure_level")
@@ -726,9 +729,9 @@ def _allocation_diff(current: AllocationDecision, proposed: AllocationDecision) 
 
 
 def _predicted_effect_from_diff(diff: dict[str, object]) -> str:
-    added = len(diff.get("added_selected") if isinstance(diff.get("added_selected"), list) else [])
-    removed = len(diff.get("removed_selected") if isinstance(diff.get("removed_selected"), list) else [])
-    reordered = len(diff.get("reordered") if isinstance(diff.get("reordered"), list) else [])
+    added = len(_object_list(diff.get("added_selected")))
+    removed = len(_object_list(diff.get("removed_selected")))
+    reordered = len(_object_list(diff.get("reordered")))
     return f"allocation_diff(add={added},remove={removed},reorder={reordered})"
 
 
@@ -836,11 +839,11 @@ def _persist_proposal(root: Path, proposal: GoalGraphAdjustmentProposal) -> str:
 
 def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
     payload = _load_json(path)
-    window_raw = payload.get("window") if isinstance(payload.get("window"), dict) else {}
-    approval_raw = payload.get("approval") if isinstance(payload.get("approval"), dict) else {}
-    guardrails_raw = payload.get("guardrails") if isinstance(payload.get("guardrails"), dict) else {}
-    adjustments_raw = payload.get("adjustments") if isinstance(payload.get("adjustments"), list) else []
-    refusals_raw = payload.get("adjustment_refusals") if isinstance(payload.get("adjustment_refusals"), list) else []
+    window_raw = _string_keyed_dict(payload.get("window"))
+    approval_raw = _string_keyed_dict(payload.get("approval"))
+    guardrails_raw = _string_keyed_dict(payload.get("guardrails"))
+    adjustments_raw = _dict_rows(payload.get("adjustments"))
+    refusals_raw = _dict_rows(payload.get("adjustment_refusals"))
     adjustments = tuple(
         Adjustment(
             goal_id=str(row.get("goal_id", "")),
@@ -848,10 +851,9 @@ def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
             old=row.get("old"),
             new=row.get("new"),
             reason=str(row.get("reason", "")),
-            evidence_paths=tuple(str(item) for item in row.get("evidence_paths", []) if isinstance(item, str)),
+            evidence_paths=tuple(str(item) for item in _object_list(row.get("evidence_paths")) if isinstance(item, str)),
         )
         for row in adjustments_raw
-        if isinstance(row, dict)
     )
     schema_version = payload.get("schema_version", 1)
     if type(schema_version) is not int:
@@ -862,7 +864,7 @@ def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
         created_at=str(payload.get("created_at", _iso_now())),
         base_goal_graph_hash=str(payload.get("base_goal_graph_hash", "")),
         window=AnalysisWindow(name=str(window_raw.get("name", "last_24h")), start=str(window_raw.get("start", "")), end=str(window_raw.get("end", ""))),
-        inputs_summary=payload.get("inputs_summary") if isinstance(payload.get("inputs_summary"), dict) else {},
+        inputs_summary=_string_keyed_dict(payload.get("inputs_summary")),
         adjustments=adjustments,
         adjustment_refusals=tuple(
             {
@@ -871,17 +873,16 @@ def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
                 "reason": str(row.get("reason", "")),
             }
             for row in refusals_raw
-            if isinstance(row, dict)
         ),
-        allocator_inputs_snapshot=payload.get("allocator_inputs_snapshot") if isinstance(payload.get("allocator_inputs_snapshot"), dict) else {},
-        current_allocation_summary=payload.get("current_allocation_summary") if isinstance(payload.get("current_allocation_summary"), dict) else {},
-        proposed_allocation_summary=payload.get("proposed_allocation_summary") if isinstance(payload.get("proposed_allocation_summary"), dict) else {},
-        allocation_diff=payload.get("allocation_diff") if isinstance(payload.get("allocation_diff"), dict) else {},
-        predicted_effects=tuple(str(item) for item in payload.get("predicted_effects", []) if isinstance(item, str)),
+        allocator_inputs_snapshot=_string_keyed_dict(payload.get("allocator_inputs_snapshot")),
+        current_allocation_summary=_string_keyed_dict(payload.get("current_allocation_summary")),
+        proposed_allocation_summary=_string_keyed_dict(payload.get("proposed_allocation_summary")),
+        allocation_diff=_string_keyed_dict(payload.get("allocation_diff")),
+        predicted_effects=tuple(str(item) for item in _object_list(payload.get("predicted_effects")) if isinstance(item, str)),
         guardrails=Guardrails(
-            max_weight_delta_per_proposal=float(guardrails_raw.get("max_weight_delta_per_proposal", 0.2)),
-            max_goals_changed=int(guardrails_raw.get("max_goals_changed", 5)),
-            forbidden_tags=tuple(str(item) for item in guardrails_raw.get("forbidden_tags", []) if isinstance(item, str)),
+            max_weight_delta_per_proposal=_coerce_float(guardrails_raw.get("max_weight_delta_per_proposal", 0.2)),
+            max_goals_changed=_coerce_int(guardrails_raw.get("max_goals_changed", 5)),
+            forbidden_tags=tuple(str(item) for item in _object_list(guardrails_raw.get("forbidden_tags")) if isinstance(item, str)),
         ),
         approval=Approval(
             status=str(approval_raw.get("status", "proposed")),
@@ -954,3 +955,35 @@ def _iso_now() -> str:
 
 def _as_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _string_keyed_dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _object_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _dict_rows(value: object) -> list[dict[str, object]]:
+    return [_string_keyed_dict(row) for row in _object_list(value) if isinstance(row, dict)]
+
+
+def _coerce_int(value: object) -> int:
+    if not isinstance(value, (int, float, str)):
+        raise ValueError("invalid_strategic_integer")
+    try:
+        return int(value)
+    except (ValueError, OverflowError):
+        raise ValueError("invalid_strategic_integer") from None
+
+
+def _coerce_float(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        raise ValueError("invalid_strategic_float")
+    try:
+        return float(value)
+    except (ValueError, OverflowError):
+        raise ValueError("invalid_strategic_float") from None
