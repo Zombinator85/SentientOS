@@ -14,7 +14,7 @@ STATUS_PATH = Path("glow/federation/anchor_witness_status.json")
 
 def maybe_publish_anchor_witness(repo_root: Path) -> tuple[dict[str, object], str | None]:
     if os.getenv("SENTIENTOS_ANCHOR_WITNESS_PUBLISH", "0") != "1":
-        status = {
+        status: dict[str, object] = {
             "witness_status": "disabled",
             "last_witness_published_at": None,
             "last_witness_anchor_id": None,
