@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
 
 @dataclass(frozen=True)
@@ -59,12 +59,37 @@ def _discover_specs(repo_root: Path) -> list[str]:
     return specs
 
 
+def _config_object(value: object, field: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"formal model field {field!r} must be an object")
+    return value
+
+
+def _config_int(value: object, field: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"formal model field {field!r} must be an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"formal model field {field!r} must be an integer") from exc
+    raise ValueError(f"formal model field {field!r} must be an integer")
+
+
+def _config_strings(value: object, field: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"formal model field {field!r} must be a list of strings")
+    return value
+
+
 def _runtime_governor_properties(config: dict[str, object]) -> tuple[list[PropertyResult], int]:
     actions = config["actions"]
     assert isinstance(actions, list)
-    restricted_blocked = set(config["restricted_blocks"])
-    contention_limit = int(config["contention_limit"])
-    reserved_slots = int(config["recovery_reserved_slots"])
+    restricted_blocked = set(_config_strings(config["restricted_blocks"], "restricted_blocks"))
+    contention_limit = _config_int(config["contention_limit"], "contention_limit")
+    reserved_slots = _config_int(config["recovery_reserved_slots"], "recovery_reserved_slots")
 
     states = list(
         product(
@@ -79,7 +104,7 @@ def _runtime_governor_properties(config: dict[str, object]) -> tuple[list[Proper
         action_name = str(action["name"])
         deferrable = bool(action["deferrable"])
         local_safety = bool(action["local_safety"])
-        priority = int(action["priority"])
+        priority = _config_int(action["priority"], "actions[].priority")
 
         reason = "allowed"
         allowed = True
@@ -307,8 +332,9 @@ def _audit_reanchor_properties(config: dict[str, object]) -> tuple[list[Property
 
 
 def _federation_quorum_properties(config: dict[str, object]) -> tuple[list[PropertyResult], int]:
-    high_quorum = int(config["quorum_requirements"]["high"])
-    peers = list(config["peers"])
+    quorum_requirements = _config_object(config["quorum_requirements"], "quorum_requirements")
+    high_quorum = _config_int(quorum_requirements["high"], "quorum_requirements.high")
+    peers = _config_strings(config["peers"], "peers")
     postures = ("nominal", "degraded", "restricted")
     states_explored = 0
 
@@ -408,7 +434,7 @@ def _federation_quorum_properties(config: dict[str, object]) -> tuple[list[Prope
 
 
 def _pulse_epoch_properties(config: dict[str, object]) -> tuple[list[PropertyResult], int]:
-    action_classes = list(config["compromise_restricted_actions"])
+    action_classes = _config_strings(config["compromise_restricted_actions"], "compromise_restricted_actions")
     classifications = ("current_trusted_epoch", "historical_closed_epoch", "revoked_epoch", "unknown_epoch")
     states = list(product((True, False), classifications, action_classes + ["restart_daemon"]))
 
