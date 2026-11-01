@@ -1,9 +1,11 @@
 import inspect
-from typing import Dict, List
+from typing import Dict, List, get_type_hints
 
 import pytest
 
-from sentientos.ethics_core import EthicalCore
+from sentientos.ethics_core import CoreValue, EthicalCore
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_ethical_core_importable():
@@ -19,12 +21,12 @@ def test_ethical_core_methods_exist():
 def test_ethical_core_signatures():
     evaluate_sig = inspect.signature(EthicalCore.evaluate_plan)
     assert list(evaluate_sig.parameters.keys()) == ["self", "plan"]
-    assert evaluate_sig.parameters["plan"].annotation == Dict[str, object]
-    assert evaluate_sig.return_annotation == Dict[str, object]
+    assert get_type_hints(EthicalCore.evaluate_plan)["plan"] == Dict[str, object]
+    assert get_type_hints(EthicalCore.evaluate_plan)["return"] == Dict[str, object]
 
     list_sig = inspect.signature(EthicalCore.list_values)
     assert list(list_sig.parameters.keys()) == ["self"]
-    assert list_sig.return_annotation == List[Dict[str, int]]
+    assert get_type_hints(EthicalCore.list_values)["return"] == List[CoreValue]
 
 
 def test_list_values_returns_copy_with_expected_values():
