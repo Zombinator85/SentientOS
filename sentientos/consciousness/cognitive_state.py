@@ -137,7 +137,7 @@ def _normalize_pressure_snapshot(snapshot: Mapping[str, object] | None) -> dict[
                 "subsystem": str(subsystem),
                 "count": int(count or 0),
             })
-    pressure_by_subsystem.sort(key=lambda entry: entry.get("subsystem", ""))
+    pressure_by_subsystem.sort(key=lambda entry: str(entry.get("subsystem", "")))
 
     overload_domains: list[dict[str, object]] = []
     overload_items = snapshot.get("overload_domains")
@@ -153,7 +153,7 @@ def _normalize_pressure_snapshot(snapshot: Mapping[str, object] | None) -> dict[
                 "subsystem": str(subsystem),
                 "outstanding": int(outstanding or 0),
             })
-    overload_domains.sort(key=lambda entry: entry.get("subsystem", ""))
+    overload_domains.sort(key=lambda entry: str(entry.get("subsystem", "")))
 
     total_active = _coerce_int(snapshot.get("total_active_pressure"), default=0)
     refusal_count = _coerce_int(snapshot.get("refusal_count"), default=0)
@@ -199,7 +199,7 @@ def build_cognitive_state_snapshot(
     history = update_posture_history(posture_history, posture_value, window=window_value)
     transition_data = derive_posture_transition(history)
 
-    posture_duration = int(transition_data.get("posture_duration") or 0)
+    posture_duration = _coerce_int(transition_data.get("posture_duration"), default=0) or 0
     posture_transition = transition_data.get("posture_transition")
     load_narrative = derive_load_narrative(history, transition_data).value
 
