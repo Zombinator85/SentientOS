@@ -5,7 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 from logging_config import get_log_path
 from log_utils import append_json
 from sentientos.pulse import PulseSignal, emit_pulse
@@ -57,12 +57,14 @@ def load_drift_config(path: Path | None = None) -> DriftConfig:
 
 
 def detect_drift(
-    silhouettes: list[Mapping[str, object]] | None = None,
+    silhouettes: Sequence[Mapping[str, object]] | None = None,
     config: DriftConfig | None = None,
 ) -> dict[str, object]:
     config = config or load_drift_config()
     window_days = max(1, config.window_days)
-    source_silhouettes = silhouettes if silhouettes is not None else _load_recent_silhouettes(window_days)
+    source_silhouettes: Sequence[Mapping[str, object]] = (
+        silhouettes if silhouettes is not None else _load_recent_silhouettes(window_days)
+    )
     silhouettes_norm: list[Mapping[str, object]] = list(source_silhouettes)
 
     events: list[dict[str, object]] = []
