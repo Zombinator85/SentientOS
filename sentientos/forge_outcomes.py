@@ -36,10 +36,10 @@ def summarize_report(report_json: dict[str, Any]) -> OutcomeSummary:
     outcome = _as_str(report_json.get("outcome")) or "failed"
     created_at = _as_str(report_json.get("generated_at")) or _iso_now()
 
-    before_ci = report_json.get("ci_baseline_before") if isinstance(report_json.get("ci_baseline_before"), dict) else {}
-    after_ci = report_json.get("ci_baseline_after") if isinstance(report_json.get("ci_baseline_after"), dict) else {}
-    progress_delta = report_json.get("progress_delta") if isinstance(report_json.get("progress_delta"), dict) else {}
-    baseline_progress = report_json.get("baseline_progress") if isinstance(report_json.get("baseline_progress"), list) else []
+    before_ci = _as_dict(report_json.get("ci_baseline_before"))
+    after_ci = _as_dict(report_json.get("ci_baseline_after"))
+    progress_delta = _as_dict(report_json.get("progress_delta"))
+    baseline_progress = _as_list(report_json.get("baseline_progress"))
 
     ci_before_failed = _as_int(before_ci.get("failed_count"))
     ci_after_failed = _as_int(after_ci.get("failed_count"))
@@ -80,7 +80,7 @@ def summarize_report(report_json: dict[str, Any]) -> OutcomeSummary:
     if no_improvement_streak is None:
         no_improvement_streak = _infer_no_improvement_streak(baseline_progress)
 
-    doctrine = report_json.get("stability_doctrine") if isinstance(report_json.get("stability_doctrine"), dict) else {}
+    doctrine = _as_dict(report_json.get("stability_doctrine"))
     audit_status = _as_str(report_json.get("audit_status")) or _as_str(doctrine.get("audit_strict_status"))
     contract_digest = _contract_digest_from_report(report_json)
     alert_counts = _as_dict(contract_digest.get("contract_alert_counts"))
@@ -185,6 +185,10 @@ def _as_float(value: Any) -> float | None:
 
 def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
 
 
 def _as_count(value: Any) -> int:
