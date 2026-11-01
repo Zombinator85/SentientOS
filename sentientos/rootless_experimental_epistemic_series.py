@@ -132,11 +132,22 @@ def _persist_series_failure_record(run_root: Path, *, run_id: str,
         capture_index_digest: str | None, error: Exception) -> None:
     failure_code = getattr(error, "code", None) or type(error).__name__
     if captures_durable:
+        if not isinstance(capture_index_digest, str):
+            raise RootlessExperimentalError(
+                "epistemic_scoring_failure_capture_index_digest_missing")
+        try:
+            verified_capture_index_digest = _read_capture_index_digest(run_root)
+        except RootlessExperimentalError as exc:
+            raise RootlessExperimentalError(
+                "epistemic_scoring_failure_capture_index_invalid") from exc
+        if verified_capture_index_digest != capture_index_digest:
+            raise RootlessExperimentalError(
+                "epistemic_scoring_failure_capture_index_changed")
         failure = {
             "schema_version": "sentientos.rootless_experimental_epistemic_scoring_failure:v1",
             "run_id": run_id,
             "preregistration_digest": preregistration_digest,
-            "capture_index_digest": capture_index_digest,
+            "capture_index_digest": verified_capture_index_digest,
             "captured_observations": MAX_CALLS,
             "failure_type": type(error).__name__,
             "failure_code": failure_code,
