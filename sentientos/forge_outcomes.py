@@ -26,6 +26,7 @@ class OutcomeSummary:
     contract_alert_reason: str | None
     contract_alert_counts: dict[str, int]
     contract_row_summary_counts: dict[str, int]
+    transaction_status: str | None
     created_at: str
 
 
@@ -118,6 +119,7 @@ def summarize_report(report_json: dict[str, Any]) -> OutcomeSummary:
             "indeterminate_rows": _as_count(row_counts.get("indeterminate_rows")),
             "stale_or_missing_rows": _as_count(row_counts.get("stale_or_missing_rows")),
         },
+        transaction_status=_as_str(report_json.get("transaction_status")),
         created_at=created_at,
     )
 

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import ClassVar, Mapping
 
-from .base import AdapterActionResult, AdapterActionSpec, AdapterMetadata, AdapterRollbackResult
+from .base import AdapterActionResult, AdapterActionSpec, AdapterMetadata, AdapterRollbackResult, ExecutionContext
 from .runtime import AdapterExecutionError
 
 
@@ -12,7 +12,7 @@ from .runtime import AdapterExecutionError
 class FilesystemAdapter:
     base_path: Path = Path(".")
 
-    metadata = AdapterMetadata(
+    metadata: ClassVar[AdapterMetadata] = AdapterMetadata(
         adapter_id="filesystem",
         capabilities=("read", "write"),
         scope="explicit resources only (scoped base path)",
@@ -22,7 +22,7 @@ class FilesystemAdapter:
         allow_epr=False,
     )
 
-    action_specs = {
+    action_specs: ClassVar[Mapping[str, AdapterActionSpec]] = {
         "read": AdapterActionSpec(
             action="read",
             capability="read",
@@ -54,7 +54,7 @@ class FilesystemAdapter:
         self,
         action: str,
         params: Mapping[str, object],
-        context,
+        context: ExecutionContext,
     ) -> AdapterActionResult:
         if action == "read":
             return self._read(params)
@@ -62,7 +62,7 @@ class FilesystemAdapter:
             return self._write(params)
         raise AdapterExecutionError(f"unsupported filesystem action: {action}")
 
-    def rollback(self, ref: Mapping[str, object], context) -> AdapterRollbackResult:
+    def rollback(self, ref: Mapping[str, object], context: ExecutionContext) -> AdapterRollbackResult:
         action = str(ref.get("action", ""))
         if action != "write":
             raise AdapterExecutionError("filesystem adapter only supports write rollback")
