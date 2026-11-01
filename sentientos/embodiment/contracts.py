@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 from typing import Mapping, Sequence
 
 from sentientos.memory_economics import MemoryClass
@@ -269,15 +270,20 @@ def validate_payload_fields(payload: Mapping[str, object], definition: SignalDef
             violations.append(f"field_not_allowed:{key}")
     frequency = payload.get("frequency_hz")
     if frequency is not None:
-        try:
-            freq_value = float(frequency)
-        except (TypeError, ValueError):
+        if isinstance(frequency, bool) or not isinstance(frequency, (str, int, float)):
             violations.append("frequency_invalid")
         else:
-            if freq_value < 0:
-                violations.append("frequency_negative")
-            if freq_value > definition.max_frequency_hz:
-                violations.append("frequency_exceeds_max")
+            try:
+                freq_value = float(frequency)
+            except (TypeError, ValueError, OverflowError):
+                violations.append("frequency_invalid")
+            else:
+                if not math.isfinite(freq_value):
+                    violations.append("frequency_invalid")
+                elif freq_value < 0:
+                    violations.append("frequency_negative")
+                elif freq_value > definition.max_frequency_hz:
+                    violations.append("frequency_exceeds_max")
     return violations
 
 
