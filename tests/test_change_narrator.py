@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-from sentientos.change_narrator import ChangeCollector, ChangeNarrator
+from sentientos.change_narrator import ChangeCollector, ChangeNarrator, ScopeFilter
 from sentientos.codex_healer import Anomaly, RecoveryLedger
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _init_repo(path: Path) -> None:
@@ -119,3 +122,23 @@ def test_module_filter_does_not_hide_other_events(tmp_path: Path, monkeypatch: p
     general_reply = narrator.maybe_respond("What changed?", now=datetime(2024, 5, 1, 11, 0, tzinfo=timezone.utc))
     assert general_reply is not None
     assert "heal completed" in general_reply
+
+
+def test_malformed_saved_state_is_repaired_when_reported(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        '{"last_reported_at": [], "reported_ledger_ids": "bad", '
+        '"reported_commits": {"bad": true}, "module_history": "bad", "type_history": null}',
+        encoding="utf-8",
+    )
+    collector = ChangeCollector(repo_path=tmp_path, state_path=state_path)
+    scope = ScopeFilter.from_text("Share Codex changes")
+    change_set = collector.collect(scope)
+
+    collector.mark_reported(change_set, scope=scope, response="No changes.")
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["reported_ledger_ids"] == []
+    assert state["reported_commits"] == []
+    assert state["module_history"] == [["codex"]]
+    assert state["type_history"] == []
