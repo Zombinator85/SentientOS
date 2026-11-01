@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sentientos.signed_rollups import sign_rollups, verify_signed_rollups
+from sentientos.signed_rollups import _signature_payload_from_record, sign_rollups, verify_signed_rollups
 
 
 def _write_rollup(path: Path, *, week: str, count: int) -> str:
@@ -51,3 +51,10 @@ def test_prev_linkage_across_weeks(monkeypatch, tmp_path: Path) -> None:  # type
     ok, error = verify_signed_rollups(tmp_path, last_weeks=8)
     assert ok is True
     assert error is None
+
+
+def test_signature_payload_defaults_malformed_schema_version() -> None:
+    payload = _signature_payload_from_record({"schema_version": [], "rollup_id": "rollup-1"})
+
+    assert payload["schema_version"] == 1
+    assert payload["rollup_id"] == "rollup-1"
