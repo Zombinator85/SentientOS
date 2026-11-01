@@ -250,7 +250,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(result.stderr.rstrip())
             if args.show_diff:
                 diff = payload.get("diff", "")
-                if diff:
+                if isinstance(diff, str) and diff:
                     print("--- diff ---")
                     print(diff.rstrip())
 
