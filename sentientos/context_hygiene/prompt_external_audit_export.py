@@ -436,7 +436,7 @@ def _evidence_summary(packet: ExternalSecurityReviewPacket | Mapping[str, Any] |
         constraint_summary_count=len(tuple(data.get("constraint_summaries", ()) or ())),
         gap_summary_count=len(tuple(data.get("gap_summaries", ()) or ())),
         digest_chain_complete=bool(data.get("digest_chain_complete", False)),
-        packet_ready_for_review=external_security_review_packet_ready_for_review(packet) if data else False,
+        packet_ready_for_review=external_security_review_packet_ready_for_review(data) if data else False,
     )
 
 
@@ -507,34 +507,34 @@ def build_external_audit_export_receipt(
     packet_data = _mapping(external_review_packet)
     packet_digest = str(packet_data.get("external_review_packet_digest", "")) if packet_data else ""
     if packet_data and not packet_digest:
-        packet_digest = compute_external_security_review_packet_digest(external_review_packet)  # deterministic metadata digest only
+        packet_digest = compute_external_security_review_packet_digest(packet_data)  # deterministic metadata digest only
     expected_match = not expected_packet_digest or expected_packet_digest == packet_digest
     accepted_redactions = _dedupe(_tuple_str(accepted_redaction_codes))
     rejected_redactions = _dedupe(_tuple_str(rejected_redaction_codes))
-    evidence_summary = _evidence_summary(external_review_packet)
-    redaction_summary = _redaction_summary(external_review_packet, rejected_redactions)
+    evidence_summary = _evidence_summary(packet_data)
+    redaction_summary = _redaction_summary(packet_data, rejected_redactions)
     findings: list[str] = []
     warnings: list[str] = []
 
     if not packet_data:
         findings.append("packet_missing")
-    elif not external_security_review_packet_ready_for_review(external_review_packet):
+    elif not external_security_review_packet_ready_for_review(packet_data):
         findings.append("packet_not_ready")
-    if packet_data and not external_security_review_packet_is_metadata_only(external_review_packet):
+    if packet_data and not external_security_review_packet_is_metadata_only(packet_data):
         findings.append("packet_not_metadata_only")
-    if packet_data and not external_security_review_packet_preserves_invocation_denial(external_review_packet):
+    if packet_data and not external_security_review_packet_preserves_invocation_denial(packet_data):
         findings.append("invocation_override_detected")
-    if packet_data and not external_security_review_packet_contains_no_prompt_text(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_prompt_text(packet_data):
         findings.append("sensitive_material:prompt_text")
-    if packet_data and not external_security_review_packet_contains_no_secrets(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_secrets(packet_data):
         findings.append("sensitive_material:secrets")
-    if packet_data and not external_security_review_packet_contains_no_endpoints(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_endpoints(packet_data):
         findings.append("sensitive_material:endpoints")
-    if packet_data and not external_security_review_packet_contains_no_clients(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_clients(packet_data):
         findings.append("sensitive_material:clients")
-    if packet_data and not external_security_review_packet_contains_no_network_handles(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_network_handles(packet_data):
         findings.append("runtime_authority:network_handles")
-    if packet_data and not external_security_review_packet_contains_no_runtime_authority(external_review_packet):
+    if packet_data and not external_security_review_packet_contains_no_runtime_authority(packet_data):
         findings.append("runtime_authority:runtime_or_provider_material")
     if expected_packet_digest and not expected_match:
         findings.append("packet_digest_mismatch")
@@ -602,7 +602,7 @@ def build_external_audit_export_receipt(
         metadata_only=not any(field_values.values()) and not override_counts,
         export_io_not_performed=not any(field_values[field_name] for field_name in _IO_FIELDS),
         external_delivery_not_performed=not any(field_values[field_name] for field_name in ("external_delivery_performed", "network_upload_performed", "email_delivery_performed", "webhook_delivery_performed")),
-        invocation_denial_preserved=bool(packet_data and external_security_review_packet_preserves_invocation_denial(external_review_packet) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
+        invocation_denial_preserved=bool(packet_data and external_security_review_packet_preserves_invocation_denial(packet_data) and not field_values["invocation_allowed"] and not field_values["provider_send_allowed"]),
         no_prompt_text=not field_values["prompt_text_included"],
         no_raw_payloads=not field_values["raw_payloads_included"],
         no_secret_material=not field_values["secrets_included"] and not field_values["secret_references_included"],
@@ -613,7 +613,43 @@ def build_external_audit_export_receipt(
         no_provider_params=not field_values["provider_params_included"],
         no_tool_schemas=not field_values["tool_schemas_included"],
         no_hidden_chain_of_thought=not field_values["hidden_chain_of_thought_included"],
-        **field_values,
+        exported_body_included=field_values['exported_body_included'],
+        export_io_performed=field_values['export_io_performed'],
+        external_delivery_performed=field_values['external_delivery_performed'],
+        network_upload_performed=field_values['network_upload_performed'],
+        email_delivery_performed=field_values['email_delivery_performed'],
+        webhook_delivery_performed=field_values['webhook_delivery_performed'],
+        file_write_performed=field_values['file_write_performed'],
+        object_storage_write_performed=field_values['object_storage_write_performed'],
+        packet_body_included=field_values['packet_body_included'],
+        artifact_bodies_included=field_values['artifact_bodies_included'],
+        prompt_text_included=field_values['prompt_text_included'],
+        hidden_chain_of_thought_included=field_values['hidden_chain_of_thought_included'],
+        raw_payloads_included=field_values['raw_payloads_included'],
+        secrets_included=field_values['secrets_included'],
+        secret_references_included=field_values['secret_references_included'],
+        endpoints_included=field_values['endpoints_included'],
+        endpoint_references_included=field_values['endpoint_references_included'],
+        clients_included=field_values['clients_included'],
+        client_references_included=field_values['client_references_included'],
+        network_handles_included=field_values['network_handles_included'],
+        runtime_handles_included=field_values['runtime_handles_included'],
+        provider_params_included=field_values['provider_params_included'],
+        tool_schemas_included=field_values['tool_schemas_included'],
+        invocation_allowed=field_values['invocation_allowed'],
+        provider_send_allowed=field_values['provider_send_allowed'],
+        network_allowed=field_values['network_allowed'],
+        credential_use_allowed=field_values['credential_use_allowed'],
+        endpoint_use_allowed=field_values['endpoint_use_allowed'],
+        client_use_allowed=field_values['client_use_allowed'],
+        provider_sdk_allowed=field_values['provider_sdk_allowed'],
+        semantic_generation_allowed=field_values['semantic_generation_allowed'],
+        tool_calls_allowed=field_values['tool_calls_allowed'],
+        memory_retrieval_allowed=field_values['memory_retrieval_allowed'],
+        memory_write_allowed=field_values['memory_write_allowed'],
+        retention_allowed=field_values['retention_allowed'],
+        action_execution_allowed=field_values['action_execution_allowed'],
+        routing_allowed=field_values['routing_allowed'],
     )
     digest = compute_external_audit_export_receipt_digest(receipt)
     return replace(receipt, export_receipt_id=export_receipt_id or f"external-audit-export-receipt:{digest[-16:]}", export_receipt_digest=digest)
