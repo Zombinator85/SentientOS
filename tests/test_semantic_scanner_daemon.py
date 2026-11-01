@@ -1,6 +1,9 @@
+import pytest
+
 from sentientos.ethics import SemanticScannerDaemon
 
 
+@pytest.mark.no_legacy_skip
 def test_semantic_scanner_flags_repeated_toxic_motifs(tmp_path):
     daemon = SemanticScannerDaemon(
         ["poison", "betrayal"],
