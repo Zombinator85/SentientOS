@@ -95,8 +95,35 @@ def test_operator_view_verifies_chain_and_omits_observation_values(tmp_path, mon
     assert output["latest"]["domain_projection_counts"] == {"model_serving": 1}
     assert output["latest"]["owners"][0]["observation_count"] == 1
     assert output["value_disclosure"] == "observation_values_omitted"
+    assert output["latest_delta_summary"]["owner_changes"][0]["status"] == "stable"
+    assert output["latest_delta_summary"]["causal_inference_performed"] is False
     assert "PRIVATE_OBSERVATION_VALUE" not in json.dumps(output)
     assert access_events == [("causal_introspection", {"history_limit": 1})]
+
+
+def test_operator_view_surfaces_predecessor_change_as_digests_only(tmp_path, monkeypatch):
+    _write_config(tmp_path, monkeypatch)
+    runtime = _capture(tmp_path)
+    provider = runtime.registrations[0].provider
+    provider._observations = (OwnerObservation(
+        "private_fixture_value", "CHANGED_PRIVATE_VALUE", "identity",
+        ("model-serving:fixture",), production_posture="synthetic_test",
+    ),)
+    runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+    result = build_causal_introspection_overview()
+
+    delta = result["latest_delta_summary"]
+    owner, = delta["owner_changes"]
+    observation, = owner["changed_observations"]
+    assert owner["status"] == "changed"
+    assert observation["observation_key"] == "private_fixture_value"
+    assert observation["previous_value_digests"]
+    assert observation["current_value_digests"]
+    assert delta["descriptive_only"] is True
+    assert delta["causal_claim_made"] is False
+    assert "PRIVATE_OBSERVATION_VALUE" not in json.dumps(result)
+    assert "CHANGED_PRIVATE_VALUE" not in json.dumps(result)
 
 
 def test_operator_view_reports_integrity_block_without_snapshot_payload(tmp_path, monkeypatch):

@@ -162,7 +162,8 @@ composition alone is not production evidence.
 `sentientos ois introspection` reads the explicit introspection configuration
 and reconstructs the full immutable snapshot chain before reporting it. The
 read-only view shows configured domains, static coverage, recent generation
-identities, completion findings, conflicts, and bounded owner metadata. It
+identities, completion findings, conflicts, bounded owner metadata, and a
+digest-only summary of changes across the latest verified generation edge. It
 omits observation values and reports whether the configuration enables later
 World-State consumption; that setting does not prove a particular cognition
 cycle consumed a snapshot. Invalid configuration or custody is reported as a
@@ -173,7 +174,8 @@ Use `--history-limit` to retain between 1 and 100 recent generations in the
 display. The complete history is still verified before the truncated view is
 returned. `verified` means the retained custody chain passed the snapshot
 validators; it does not mean the owner reports are true, complete, or
-authoritative.
+authoritative. The latest delta is descriptive; declared evidence changes do
+not establish what caused them.
 
 ## Claims deliberately not made
 
