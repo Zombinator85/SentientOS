@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from sentientos.forge_failures import harvest_failures
+
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_harvest_parses_pytest_failed_lines() -> None:
