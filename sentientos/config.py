@@ -244,7 +244,7 @@ def _env_float(name: str, default: float) -> float:
 
 def _env_optional_int(name: str) -> Optional[int]:
     value = os.environ.get(name)
-    if value in (None, ""):
+    if value is None or value == "":
         return None
     try:
         return int(value)
@@ -255,7 +255,7 @@ def _env_optional_int(name: str) -> Optional[int]:
 
 def _env_optional_float(name: str) -> Optional[float]:
     value = os.environ.get(name)
-    if value in (None, ""):
+    if value is None or value == "":
         return None
     try:
         return float(value)
