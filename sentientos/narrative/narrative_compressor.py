@@ -41,7 +41,8 @@ class NarrativeCompressor:
         for index, entry in enumerate(entries):
             anchor = str(entry.get("id", index))
             text = str(entry.get("text", ""))
-            tags = entry.get("tags") if isinstance(entry.get("tags"), list) else []
+            tags_value = entry.get("tags")
+            tags = tags_value if isinstance(tags_value, list) else []
             normalized = _normalize(text)
 
             if normalized in seen_fragments:
@@ -56,13 +57,13 @@ class NarrativeCompressor:
                     motifs[token] += 1
                     anchors[token].append(anchor)
 
-        motif_report = [
+        motif_report: List[Dict[str, Any]] = [
             {"motif": motif, "anchors": sorted(set(anchor_ids))}
             for motif, count in motifs.items()
             if count >= self.motif_threshold
             for anchor_ids in (anchors[motif],)
         ]
-        motif_report.sort(key=lambda item: item["motif"])
+        motif_report.sort(key=lambda item: str(item["motif"]))
 
         return {
             "canonical_entries": canonical,
