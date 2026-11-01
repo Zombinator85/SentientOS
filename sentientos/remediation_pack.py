@@ -176,6 +176,10 @@ _REASON_STEP_LIBRARY: dict[str, list[dict[str, object]]] = {
 }
 
 
+def _list_items(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
 def emit_pack_from_trace(repo_root: Path, *, trace_payload: dict[str, object], trace_path: str) -> dict[str, object] | None:
     final_decision = str(trace_payload.get("final_decision", ""))
     if final_decision not in {"hold", "block", "diagnostics_only", "quarantine_active"}:
@@ -183,7 +187,7 @@ def emit_pack_from_trace(repo_root: Path, *, trace_payload: dict[str, object], t
     context = str(trace_payload.get("context", ""))
     if context not in {"merge_train", "canary_publish", "forge_run"}:
         return None
-    reason_stack = [str(item) for item in list(trace_payload.get("reason_stack") or []) if isinstance(item, str)]
+    reason_stack = [item for item in _list_items(trace_payload.get("reason_stack")) if isinstance(item, str)]
     primary_reason = str(trace_payload.get("final_reason") or "")
     reasons = [primary_reason] + [item for item in reason_stack if item != primary_reason]
 
@@ -209,7 +213,7 @@ def emit_pack_from_trace(repo_root: Path, *, trace_payload: dict[str, object], t
     pack_id = f"{stamp}_{short_trace}"
 
     evidence_paths = [trace_path]
-    for gate in list(trace_payload.get("gates_evaluated") or []):
+    for gate in _list_items(trace_payload.get("gates_evaluated")):
         if not isinstance(gate, dict):
             continue
         items = gate.get("evidence_paths")
@@ -279,7 +283,7 @@ def enqueue_pack_steps(repo_root: Path, pack: dict[str, object]) -> int:
     open_kinds = {str(item.get("kind")) for item in rows if str(item.get("status", "open")) != "done"}
     pack_id = str(pack.get("pack_id") or "unknown")
     queued = 0
-    for index, step in enumerate(list(pack.get("steps") or [])):
+    for index, step in enumerate(_list_items(pack.get("steps"))):
         if not isinstance(step, dict):
             continue
         destructive = bool(step.get("destructive", True))
@@ -316,7 +320,7 @@ def _append_pack_pulse(repo_root: Path, pack: dict[str, object], pack_path: Path
         "primary_reason": pack.get("primary_reason"),
         "incident_id": pack.get("incident_id"),
         "status": pack.get("status"),
-        "steps_count": len(list(pack.get("steps") or [])),
+        "steps_count": len(_list_items(pack.get("steps"))),
         "pack_path": str(pack_path.relative_to(repo_root)),
     }
     path = repo_root / PACKS_PULSE_PATH
@@ -342,15 +346,21 @@ def find_pack_for_incident_or_trace(
     if entry is None and governance_trace_id:
         entry = latest_for_trace(root, governance_trace_id, kind="remediation_pack")
     if entry is not None:
-        payload = load_catalog_artifact(root, entry) or {}
+        payload_value = load_catalog_artifact(root, entry)
+        payload = payload_value if isinstance(payload_value, dict) else {}
+        links_value = entry.get("links")
+        links = links_value if isinstance(links_value, dict) else {}
+        summary_value = entry.get("summary")
+        entry_summary = summary_value if isinstance(summary_value, dict) else {}
+        steps_value = payload.get("steps")
         return {
             "pack_id": payload.get("pack_id") or entry.get("id"),
             "created_at": payload.get("created_at") or entry.get("ts"),
-            "governance_trace_id": payload.get("governance_trace_id") or (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("trace_id"),
+            "governance_trace_id": payload.get("governance_trace_id") or links.get("trace_id"),
             "primary_reason": payload.get("primary_reason"),
-            "incident_id": payload.get("incident_id") or (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("incident_id"),
-            "status": payload.get("status") or (entry.get("summary") if isinstance(entry.get("summary"), dict) else {}).get("status"),
-            "steps_count": len(list(payload.get("steps") or [])) if isinstance(payload, dict) else None,
+            "incident_id": payload.get("incident_id") or links.get("incident_id"),
+            "status": payload.get("status") or entry_summary.get("status"),
+            "steps_count": len(_list_items(steps_value)),
             "pack_path": entry.get("path"),
         }
     rows = _read_jsonl(root / PACKS_PULSE_PATH)
