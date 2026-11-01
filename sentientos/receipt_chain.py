@@ -114,6 +114,7 @@ def maybe_verify_receipt_chain(repo_root: Path, *, context: str, last: int = 25)
 
 
 def append_receipt(repo_root: Path, payload: dict[str, object]) -> dict[str, object]:
+    schema_version = _schema_version(payload.get("schema_version"))
     receipts_dir = repo_root / RECEIPTS_DIR
     receipts_dir.mkdir(parents=True, exist_ok=True)
     previous_hash = latest_receipt_hash(repo_root)
@@ -142,12 +143,28 @@ def append_receipt(repo_root: Path, payload: dict[str, object]) -> dict[str, obj
         artifact_id=_as_str(payload_with_prev.get("receipt_id")) or safe_id,
         relative_path=str(receipt_path.relative_to(repo_root)),
         schema_name="receipt",
-        schema_version=int(payload_with_prev.get("schema_version") or 1),
+        schema_version=schema_version,
         links={"pr_number": payload_with_prev.get("pr_number"), "head_sha": payload_with_prev.get("head_sha"), "receipt_hash": payload_with_prev.get("receipt_hash")},
         summary={"status": "recorded"},
         ts=_as_str(payload_with_prev.get("created_at")) or _iso_now(),
     )
     return payload_with_prev
+
+
+def _schema_version(value: object) -> int:
+    if value is None:
+        return 1
+    if isinstance(value, bool):
+        raise ValueError("receipt_schema_version_invalid")
+    if isinstance(value, int):
+        version = value
+    elif isinstance(value, str) and value.isdecimal():
+        version = int(value)
+    else:
+        raise ValueError("receipt_schema_version_invalid")
+    if version < 1:
+        raise ValueError("receipt_schema_version_invalid")
+    return version
 
 
 def rebuild_receipts_index(repo_root: Path) -> list[dict[str, object]]:
