@@ -42,6 +42,17 @@ def _resolve_repo_path(repository_root: Path, relative_path: str) -> Path:
     return resolved
 
 
+def _resolve_pilot_path(repository_root: Path, pilot_dir: Path, relative_path: str) -> Path:
+    resolved = _resolve_repo_path(repository_root, relative_path)
+    try:
+        resolved.relative_to(pilot_dir.resolve())
+    except ValueError as exc:
+        raise ResultsIntegrityError(
+            f"Pilot evidence path escapes selected pilot directory: {relative_path}"
+        ) from exc
+    return resolved
+
+
 def _require_digest(actual: str, expected: Any, label: str) -> None:
     if not isinstance(expected, str) or actual != expected:
         raise ResultsIntegrityError(f"Digest mismatch for {label}")
@@ -49,6 +60,7 @@ def _require_digest(actual: str, expected: Any, label: str) -> None:
 
 def _verify_scoring_attempt_history(
     repository_root: Path,
+    pilot_dir: Path,
     summary: dict[str, Any],
     expected_trials: set[str],
     scored_paths: set[str],
@@ -70,7 +82,7 @@ def _verify_scoring_attempt_history(
     if failed_writes != 1 or not isinstance(record_relative_path, str):
         raise ResultsIntegrityError("Scoring failure record count is unsupported")
 
-    record_path = _resolve_repo_path(repository_root, record_relative_path)
+    record_path = _resolve_pilot_path(repository_root, pilot_dir, record_relative_path)
     try:
         failure, _ = _read_json(record_path)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -81,7 +93,10 @@ def _verify_scoring_attempt_history(
             or failure.get("model_observation_affected") is not False
             or failure.get("raw_observation_preserved") is not True):
         raise ResultsIntegrityError("Scoring failure record posture is inconsistent")
-    if failure.get("retry_policy") != "Scoring artifact generation was corrected; model inference was not replayed.":
+    expected_retry_policy = (
+        "Scoring artifact generation was corrected; model inference was not replayed."
+    )
+    if failure.get("retry_policy") != expected_retry_policy:
         raise ResultsIntegrityError("Scoring failure record retry policy is inconsistent")
 
     partial_relative_path = failure.get("partial_artifact_path")
@@ -93,7 +108,7 @@ def _verify_scoring_attempt_history(
             or type(expected_partial_size) is not int
             or expected_partial_size < 0):
         raise ResultsIntegrityError("Partial scoring artifact declaration is invalid")
-    partial_path = _resolve_repo_path(repository_root, partial_relative_path)
+    partial_path = _resolve_pilot_path(repository_root, pilot_dir, partial_relative_path)
     try:
         partial_bytes = partial_path.read_bytes()
     except OSError as exc:
@@ -323,7 +338,7 @@ def verify_native_codex_pilot_results(
         raise ResultsIntegrityError("Summary overall stance-match total is inconsistent")
 
     verified_scoring_failures = _verify_scoring_attempt_history(
-        repository_root, summary, expected_trials,
+        repository_root, pilot_dir, summary, expected_trials,
         {str(row.get("path", "")) for row in score_rows if isinstance(row, dict)},
     )
 
