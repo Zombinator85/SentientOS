@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 
 @dataclass
@@ -75,53 +75,56 @@ def _run_windows(
     cwd: Optional[str],
     env: Optional[Mapping[str, str]],
 ) -> SandboxResult:
-    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+    # CPython exposes this Windows-only flag at runtime, while POSIX stubs do not.
+    creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
     job = None
     try:
         import ctypes
         import ctypes.wintypes
 
-        kernel32 = ctypes.windll.kernel32
+        ctypes_api: Any = ctypes
+        windows_types: Any = ctypes_api.wintypes
+        kernel32 = ctypes_api.windll.kernel32
         job = kernel32.CreateJobObjectW(None, None)
         info_class = 9  # JobObjectExtendedLimitInformation
         class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
             _fields_ = [
-                ("PerProcessUserTimeLimit", ctypes.wintypes.LARGE_INTEGER),
-                ("PerJobUserTimeLimit", ctypes.wintypes.LARGE_INTEGER),
-                ("LimitFlags", ctypes.wintypes.DWORD),
-                ("MinimumWorkingSetSize", ctypes.wintypes.SIZE_T),
-                ("MaximumWorkingSetSize", ctypes.wintypes.SIZE_T),
-                ("ActiveProcessLimit", ctypes.wintypes.DWORD),
-                ("Affinity", ctypes.wintypes.ULONG_PTR),
-                ("PriorityClass", ctypes.wintypes.DWORD),
-                ("SchedulingClass", ctypes.wintypes.DWORD),
+                ("PerProcessUserTimeLimit", windows_types.LARGE_INTEGER),
+                ("PerJobUserTimeLimit", windows_types.LARGE_INTEGER),
+                ("LimitFlags", windows_types.DWORD),
+                ("MinimumWorkingSetSize", windows_types.SIZE_T),
+                ("MaximumWorkingSetSize", windows_types.SIZE_T),
+                ("ActiveProcessLimit", windows_types.DWORD),
+                ("Affinity", windows_types.ULONG_PTR),
+                ("PriorityClass", windows_types.DWORD),
+                ("SchedulingClass", windows_types.DWORD),
             ]
 
         class IO_COUNTERS(ctypes.Structure):
             _fields_ = [
-                ("ReadOperationCount", ctypes.wintypes.ULONG64),
-                ("WriteOperationCount", ctypes.wintypes.ULONG64),
-                ("OtherOperationCount", ctypes.wintypes.ULONG64),
-                ("ReadTransferCount", ctypes.wintypes.ULONG64),
-                ("WriteTransferCount", ctypes.wintypes.ULONG64),
-                ("OtherTransferCount", ctypes.wintypes.ULONG64),
+                ("ReadOperationCount", windows_types.ULONG64),
+                ("WriteOperationCount", windows_types.ULONG64),
+                ("OtherOperationCount", windows_types.ULONG64),
+                ("ReadTransferCount", windows_types.ULONG64),
+                ("WriteTransferCount", windows_types.ULONG64),
+                ("OtherTransferCount", windows_types.ULONG64),
             ]
 
         class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
             _fields_ = [
                 ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
                 ("IoInfo", IO_COUNTERS),
-                ("ProcessMemoryLimit", ctypes.wintypes.SIZE_T),
-                ("JobMemoryLimit", ctypes.wintypes.SIZE_T),
-                ("PeakProcessMemoryUsed", ctypes.wintypes.SIZE_T),
-                ("PeakJobMemoryUsed", ctypes.wintypes.SIZE_T),
+                ("ProcessMemoryLimit", windows_types.SIZE_T),
+                ("JobMemoryLimit", windows_types.SIZE_T),
+                ("PeakProcessMemoryUsed", windows_types.SIZE_T),
+                ("PeakJobMemoryUsed", windows_types.SIZE_T),
             ]
 
         limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
         JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x100
         limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY
-        limits.ProcessMemoryLimit = ctypes.wintypes.SIZE_T(memory_mb * 1024 * 1024)
-        kernel32.SetInformationJobObject(job, info_class, ctypes.byref(limits), ctypes.sizeof(limits))
+        limits.ProcessMemoryLimit = windows_types.SIZE_T(memory_mb * 1024 * 1024)
+        kernel32.SetInformationJobObject(job, info_class, ctypes_api.byref(limits), ctypes_api.sizeof(limits))
     except Exception:
         job = None
 
@@ -135,7 +138,8 @@ def _run_windows(
         creationflags=creationflags,
     )
     if job is not None:
-        ctypes.windll.kernel32.AssignProcessToJobObject(job, proc._handle)  # type: ignore[attr-defined]
+        ctypes_api.windll.kernel32.AssignProcessToJobObject(
+            job, getattr(proc, "_handle"))
     timed_out = False
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
