@@ -19,6 +19,17 @@ from sentientos.remote_bundle import load_bundle, load_manifest, sha256_file, sh
 from sentientos.schema_registry import SchemaName, normalize
 
 
+def _int_or_default(value: object, default: int = 1) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
 def _verify_sig_rows(rows: list[dict[str, object]], *, stream: str) -> dict[str, object]:
     if not rows:
         return {"status": "skipped", "reason": "signature_missing", "checked_n": 0, "last_ok_sig_hash": None}
@@ -27,7 +38,7 @@ def _verify_sig_rows(rows: list[dict[str, object]], *, stream: str) -> dict[str,
     last_ok: str | None = None
     for idx, row in enumerate(rows):
         payload = {
-            "schema_version": int(row.get("schema_version") or 1),
+            "schema_version": _int_or_default(row.get("schema_version")),
             "kind": as_str(row.get("kind")) or "",
             "object_id": as_str(row.get("object_id")) or "",
             "created_at": as_str(row.get("created_at")) or "",
@@ -102,19 +113,21 @@ def run_probe(*, root: Path, bundle_path: Path, last_n: int, write: bool) -> tup
         manifest = load_manifest(loaded.root)
         if not manifest:
             return ({"error": "manifest_missing"}, 3)
-        artifacts = manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
+        artifacts_value = manifest.get("artifacts")
+        artifacts = artifacts_value if isinstance(artifacts_value, dict) else {}
         if "attestation_snapshot.json" not in artifacts or "integrity_status.json" not in artifacts:
             return ({"error": "missing_critical_artifacts"}, 3)
-        tips = manifest.get("signature_stream_tips") if isinstance(manifest.get("signature_stream_tips"), dict) else {}
+        tips_value = manifest.get("signature_stream_tips")
+        tips = tips_value if isinstance(tips_value, dict) else {}
         remote_snapshot_tip = as_str(tips.get("attestation_snapshots"))
 
         bundle_hash_status = {"status": "ok", "reason": "ok"}
         for name, meta in artifacts.items():
             if not isinstance(meta, dict):
                 continue
-            rel = as_str(meta.get("path"))
+            artifact_rel = as_str(meta.get("path"))
             expected = as_str(meta.get("sha256"))
-            if not rel or not expected or sha256_file(loaded.root / rel) != expected:
+            if not artifact_rel or not expected or sha256_file(loaded.root / artifact_rel) != expected:
                 bundle_hash_status = {"status": "fail", "reason": f"artifact_sha256_mismatch:{name}"}
                 break
 
@@ -190,27 +203,29 @@ def run_probe(*, root: Path, bundle_path: Path, last_n: int, write: bool) -> tup
         if write:
             node_id = str(normalized.get("remote_node_id") or "unknown").replace("/", "_")
             ts = str(normalized.get("ts") or "unknown").replace(":", "-").replace(".", "-")
-            rel = Path("glow/forge/remote_probes") / f"probe_{ts}_{node_id}.json"
-            write_json(root / rel, normalized)
+            report_rel = Path("glow/forge/remote_probes") / f"probe_{ts}_{node_id}.json"
+            write_json(root / report_rel, normalized)
             if os.getenv("SENTIENTOS_REMOTE_PROBE_SIGNING", "off") in {"ssh", "hmac-test"}:
-                maybe_sign_operator_report(root, kind="remote_probe_report", report_rel_path=str(rel), report_payload=normalized)
-            append_jsonl(root / "pulse/remote_probes.jsonl", normalized | {"path": str(rel)})
+                maybe_sign_operator_report(root, kind="remote_probe_report", report_rel_path=str(report_rel), report_payload=normalized)
+            append_jsonl(root / "pulse/remote_probes.jsonl", normalized | {"path": str(report_rel)})
             compare = normalized.get("compare_remote_to_local") if isinstance(normalized.get("compare_remote_to_local"), dict) else {}
             reasons = compare.get("divergence_reasons") if isinstance(compare.get("divergence_reasons"), list) else []
+            local_state = normalized.get("local_state")
+            local_state_data = local_state if isinstance(local_state, dict) else {}
             artifact_catalog.append_catalog_entry(
                 root,
                 kind="remote_probe_report",
                 artifact_id=f"{normalized.get('remote_node_id')}:{normalized.get('ts')}",
-                relative_path=str(rel),
+                relative_path=str(report_rel),
                 schema_name=SchemaName.REMOTE_PROBE_REPORT,
-                schema_version=int(normalized.get("schema_version") or 1),
+                schema_version=_int_or_default(normalized.get("schema_version")),
                 links={
                     "remote_node_id": normalized.get("remote_node_id"),
                     "remote_policy_hash": normalized.get("remote_policy_hash"),
                     "remote_integrity_status_hash": normalized.get("remote_integrity_status_hash"),
                     "remote_attestation_tip": normalized.get("remote_attestation_snapshot_tip"),
                     "remote_operator_tip": normalized.get("remote_operator_reports_tip"),
-                    "local_attestation_tip": (normalized.get("local_state") if isinstance(normalized.get("local_state"), dict) else {}).get("attestation_snapshot_tip"),
+                    "local_attestation_tip": local_state_data.get("attestation_snapshot_tip"),
                 },
                 summary={"status": compare.get("status"), "primary_reason": reasons[0] if reasons else "ok"},
                 ts=str(normalized.get("ts") or ""),
