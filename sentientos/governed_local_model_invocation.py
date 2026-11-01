@@ -442,7 +442,15 @@ class GovernedLocalModelInvoker:
                             future = executor.submit(_call_model)
                             try: output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                             except concurrent.futures.TimeoutError as exc:
-                                future.cancel(); raise TimeoutError() from exc
+                                cancel_pending_generation = getattr(
+                                    self.model, "cancel_pending_generation", None)
+                                if callable(cancel_pending_generation):
+                                    try:
+                                        cancel_pending_generation()
+                                    except Exception:
+                                        reasons.append("timeout_worker_cancellation_failed")
+                                future.cancel()
+                                raise TimeoutError() from exc
                         if backend_completion is not None:
                             if (set(backend_completion) != {"schema_version", "backend", "finish_reason",
                                     "completion_tokens", "prompt_tokens", "token_limit_reached"}
