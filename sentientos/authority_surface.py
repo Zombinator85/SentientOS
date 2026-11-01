@@ -152,6 +152,8 @@ def log_authority_surface_diff(
     source_from: str,
     source_to: str,
 ) -> None:
+    diff_changes = diff.get("changes", ())
+    change_count = len(diff_changes) if isinstance(diff_changes, (list, tuple)) else 0
     entry = {
         "event": "authority_surface_diff",
         "authority": "none",
@@ -160,7 +162,7 @@ def log_authority_surface_diff(
         "source_to": source_to,
         "from_hash": diff.get("from_hash"),
         "to_hash": diff.get("to_hash"),
-        "change_count": len(_sequence_items(diff.get("changes", ()))),
+        "change_count": change_count,
         "summary": diff.get("summary"),
         "changes": diff.get("changes"),
     }
@@ -181,7 +183,7 @@ def _snapshot_adapters() -> list[dict[str, object]]:
             "requires_privilege": metadata.requires_privilege,
             "privilege_requirements": privilege_requirements,
         })
-    adapters.sort(key=lambda item: str(item.get("adapter_id", "")))
+    adapters.sort(key=lambda item: str(item["adapter_id"]))
     return adapters
 
 
@@ -205,7 +207,7 @@ def _snapshot_routines() -> list[dict[str, object]]:
     routines: list[dict[str, object]] = []
     for routine in registry.list_routines():
         routines.append(_routine_snapshot(routine, routine_statuses.get(routine.routine_id)))
-    routines.sort(key=lambda item: str(item.get("routine_id", "")))
+    routines.sort(key=lambda item: str(item["routine_id"]))
     return routines
 
 
@@ -213,7 +215,7 @@ def _snapshot_routines_from_registry(registry: RoutineRegistry) -> list[dict[str
     routines: list[dict[str, object]] = []
     for routine in registry.list_routines():
         routines.append(_routine_snapshot(routine, None))
-    routines.sort(key=lambda item: str(item.get("routine_id", "")))
+    routines.sort(key=lambda item: str(item["routine_id"]))
     return routines
 
 
@@ -303,17 +305,18 @@ def _snapshot_semantic_habits() -> list[dict[str, object]]:
         if event == "semantic_class_revoked":
             classes.pop(class_id, None)
             continue
-        routine_ids = _sequence_items(entry.get("routine_ids", ()))
-        routines = [rid for rid in routine_ids if isinstance(rid, str) and rid]
+        routine_ids = _string_values(entry.get("routine_ids", ()))
+        routines = list(routine_ids)
+        scope = _string_values(entry.get("scope", ()))
         classes[class_id] = {
             "class_id": class_id,
             "name": name,
             "member_routines": sorted(routines),
             "semantic_only": True,
-            "scope": sorted(_string_items(entry.get("scope", ()))) ,
+            "scope": sorted(scope),
         }
     snapshot = list(classes.values())
-    snapshot.sort(key=lambda item: str(item.get("class_id", "")))
+    snapshot.sort(key=lambda item: str(item["class_id"]))
     return snapshot
 
 
@@ -332,7 +335,7 @@ def _snapshot_semantic_habits_from_manager(
         }
         for semantic_class in class_manager.list_classes()
     ]
-    snapshot.sort(key=lambda item: str(item.get("class_id", "")))
+    snapshot.sort(key=lambda item: str(item["class_id"]))
     return snapshot
 
 
@@ -355,15 +358,27 @@ def _has_forget_all(entries: Iterable[Mapping[str, object]]) -> bool:
     return any(entry.get("event") == "intentional_forget" and entry.get("target_type") == "all" for entry in entries)
 
 
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _string_values(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
+
+
 def _snapshot_privilege_posture(
     adapters: Sequence[Mapping[str, object]],
     routines: Sequence[Mapping[str, object]],
 ) -> dict[str, object]:
     required_privileges: set[str] = set()
     for adapter in adapters:
-        required_privileges.update(_string_items(adapter.get("privilege_requirements", ())))
+        required_privileges.update(_string_values(
+            adapter.get("privilege_requirements", ())))
     for routine in routines:
-        required_privileges.update(_string_items(routine.get("privilege_requirements", ())))
+        required_privileges.update(_string_values(
+            routine.get("privilege_requirements", ())))
 
     admission_policy = _default_admission_policy()
     identity = compute_system_identity_digest(
@@ -377,7 +392,7 @@ def _snapshot_privilege_posture(
     )
     components = _as_mapping(identity.get("components"))
     governance = _as_mapping(components.get("governance"))
-    privilege_surface = _as_mapping(components.get("privilege_surface"))
+    privilege_surface = components.get("privilege_surface", {})
 
     return {
         "required_privileges": sorted(required_privileges),
@@ -398,30 +413,18 @@ def _snapshot_execution_rules(privilege_posture: Mapping[str, object]) -> dict[s
         closure_limits=execution.get("closure_limits", {}),
         metadata={"policy_source": "authority_surface_snapshot"},
     )
-    components = _as_mapping(identity.get("components"))
-    execution_rules = _as_mapping(components.get("execution"))
+    identity_components = _as_mapping(identity.get("components"))
+    execution_rules = _as_mapping(identity_components.get("execution"))
     epr_rules = _as_mapping(execution_rules.get("epr_rules"))
     return {
-        "enabled_epr_categories": _string_items(epr_rules.get("allowed_authority_impact", ())),
-        "irreversible_blocks": _string_items(epr_rules.get("prohibited_mutations", ())),
+        "enabled_epr_categories": _string_values(
+            epr_rules.get("allowed_authority_impact", ())),
+        "irreversible_blocks": _string_values(
+            epr_rules.get("prohibited_mutations", ())),
         "external_effects_forbidden": bool(epr_rules.get("external_effects_forbidden", False)),
         "approval_rules": epr_rules.get("approval_rules", ()),
         "closure_limits": execution_rules.get("exhaustion_limits", {}),
     }
-
-
-def _as_mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _sequence_items(value: object) -> Sequence[object]:
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return value
-    return ()
-
-
-def _string_items(value: object) -> tuple[str, ...]:
-    return tuple(item for item in _sequence_items(value) if isinstance(item, str))
 
 
 def _default_admission_policy() -> task_admission.AdmissionPolicy:
