@@ -92,6 +92,8 @@ class GUIController:
         provenance = default_provenance_for_constraint(constraint_id)
         assumptions = ("panic_guard_respected", f"safety_mode={self._config.safety}")
         environment = {"panic": bool(self._panic_flag()), **details}
+        raw_pressure_reason = details.get("reason")
+        pressure_reason = raw_pressure_reason if isinstance(raw_pressure_reason, str) else status
         self._audit.log(
             "gui",
             action,
@@ -102,8 +104,8 @@ class GUIController:
             sensor_provenance=provenance,
             assumptions=assumptions,
             environment=environment,
-            pressure_reason=details.get("reason", status),
-            **details,
+            pressure_reason=pressure_reason,
+            details=details,
         )
 
     def status(self) -> Mapping[str, object]:
