@@ -348,6 +348,20 @@ def test_forge_status_required_artifacts_missing_marked_degraded(tmp_path: Path,
     assert payload["artifact_presence"]["optional_publication"]["attestation_snapshot"] == "missing_optional"
 
 
+def test_governor_rollup_outside_node_root_keeps_absolute_provenance(
+    tmp_path: Path, monkeypatch
+) -> None:
+    governor_root = tmp_path.parent / f"{tmp_path.name}-shared-governor"
+    rollup_path = governor_root / "rollup.json"
+    write_json(rollup_path, {"schema_version": 1, "status": "healthy"})
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(governor_root))
+
+    resolved = forge_status._resolve_governor_rollup(tmp_path)
+
+    assert resolved.payload["status"] == "healthy"
+    assert resolved.path == str(rollup_path)
+
+
 def test_forge_status_constitution_required_list_aligns_with_summary(tmp_path: Path, capsys) -> None:
     integrity_payload = _seed_integrity(tmp_path)
     write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
