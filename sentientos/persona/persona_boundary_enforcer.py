@@ -7,6 +7,7 @@ and emits boundary violation notices without enqueuing remediation, votes, or
 retraining jobs.
 """
 
+import math
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
@@ -16,6 +17,16 @@ class PersonaBoundaryViolation:
     persona: str
     category: str
     detail: str
+
+
+def _numeric_value(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        return 0.0
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return result if math.isfinite(result) else 0.0
 
 
 class PersonaBoundaryEnforcer:
@@ -55,7 +66,7 @@ class PersonaBoundaryEnforcer:
         violations: list[PersonaBoundaryViolation] = []
         for entry in audits:
             persona = str(entry.get("persona") or "").strip()
-            decay_score = float(entry.get("decay_score", 0.0))
+            decay_score = _numeric_value(entry.get("decay_score", 0.0))
             if persona and decay_score > 0.6:
                 violations.append(
                     PersonaBoundaryViolation(
@@ -72,7 +83,7 @@ class PersonaBoundaryEnforcer:
             persona = str(entry.get("persona") or "").strip()
             if not persona:
                 continue
-            continuity_gaps = int(entry.get("gaps", 0))
+            continuity_gaps = int(_numeric_value(entry.get("gaps", 0)))
             if continuity_gaps > 0:
                 violations.append(
                     PersonaBoundaryViolation(
