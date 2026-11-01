@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
 DEFAULT_REFERRAL_PATH = Path("council_case_referral.jsonl")
+
+
+def _numeric_value(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        return 0.0
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return result if math.isfinite(result) else 0.0
 
 
 def _load_jsonl(source: str | Path | Sequence[Mapping[str, object]] | None) -> list[dict]:
@@ -28,8 +39,8 @@ def _load_jsonl(source: str | Path | Sequence[Mapping[str, object]] | None) -> l
 
 
 def _witness_factor(entry: Mapping[str, object]) -> float:
-    approvals = float(entry.get("witness_approvals", 0) or 0)
-    rejections = float(entry.get("witness_rejections", 0) or 0)
+    approvals = _numeric_value(entry.get("witness_approvals", 0))
+    rejections = _numeric_value(entry.get("witness_rejections", 0))
     total = approvals + rejections
     if total == 0:
         return 0.5
@@ -39,11 +50,11 @@ def _witness_factor(entry: Mapping[str, object]) -> float:
 def _integration_factor(
     entry: Mapping[str, object], perception_snapshots: Iterable[Mapping[str, object]]
 ) -> float:
-    hits = float(entry.get("integration_memory_hits", 0) or 0)
+    hits = _numeric_value(entry.get("integration_memory_hits", 0))
     claim = str(entry.get("claim", ""))
     for snapshot in perception_snapshots:
         if snapshot.get("claim") == claim:
-            hits += float(snapshot.get("frequency", 0) or 0)
+            hits += _numeric_value(snapshot.get("frequency", 0))
     return min(1.0, hits / 5.0) if hits else 0.0
 
 
