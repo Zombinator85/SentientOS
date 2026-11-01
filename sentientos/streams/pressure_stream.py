@@ -80,6 +80,9 @@ class PressureEventStream(EventStreamAdapter):
         if not isinstance(event_type, str) or not isinstance(timestamp, str):
             return None
         payload = {field: entry.get(field) for field in PRESSURE_PAYLOAD_FIELDS if field in entry}
+        digest = entry.get("digest")
+        if not isinstance(digest, str):
+            digest = None
         envelope = EventEnvelope(
             stream=self.stream,
             schema_version=self.schema_version,
@@ -87,7 +90,7 @@ class PressureEventStream(EventStreamAdapter):
             event_type=event_type,
             timestamp=timestamp,
             payload=payload,
-            digest=entry.get("digest") if isinstance(entry.get("digest"), str) else None,
+            digest=digest,
         )
         return envelope
 

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Iterable, Iterator
+from typing import Callable, Iterable, Iterator, TypeVar
+
+Cursor = TypeVar("Cursor", int, str)
 
 
 @dataclass(frozen=True)
@@ -66,9 +68,9 @@ class EventStreamAdapter:
 def iter_replay(
     entries: Iterable[EventEnvelope],
     *,
-    since_cursor: object | None,
+    since_cursor: Cursor | None,
     limit: int,
-    cursor_key: Callable[[EventEnvelope], object],
+    cursor_key: Callable[[EventEnvelope], Cursor],
 ) -> list[EventEnvelope]:
     if limit <= 0:
         return []
