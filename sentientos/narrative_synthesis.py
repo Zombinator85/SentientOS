@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping
+from typing import Iterable, Mapping, TypedDict
 
 import task_admission
 import task_executor
@@ -28,6 +28,26 @@ NARRATIVE_LOG_PATH = get_log_path(
 )
 
 _DURATION_PATTERN = re.compile(r"(\d+)\s*(minute|minutes|hour|hours|day|days|week|weeks)")
+
+
+class _TaskAccumulator(TypedDict):
+    task_id: str
+    status: object
+    blocked: bool
+    block_type: object
+    block_reason: object
+    adapters: set[str]
+    epr_actions: set[str]
+    log_ids: set[str]
+    reversibility: set[str]
+
+
+class _RoutineAccumulator(TypedDict):
+    routine_id: str
+    executions: int
+    failed: int
+    scope_violations: int
+    log_ids: set[str]
 
 
 def parse_since(raw: str | None, *, now: datetime | None = None) -> datetime | None:
@@ -88,7 +108,7 @@ def build_narrative_summary(
         _build_idle_section(activity),
         _build_boundary_section(activity),
     ]
-    output = {
+    output: dict[str, object] = {
         "view": "narrative_summary",
         "generated_at": current_time.isoformat(),
         "window": {
@@ -97,10 +117,10 @@ def build_narrative_summary(
             "source_to": authority.get("source_to"),
         },
         "sections": sections,
-        "references": _merge_references(section.get("references", {}) for section in sections),
+        "references": _merge_references(_as_mapping(section.get("references")) for section in sections),
     }
     if log_output:
-        log_narrative_generated("narrative_summary", output.get("window"))
+        log_narrative_generated("narrative_summary", _as_mapping(output.get("window")))
     return output
 
 
@@ -116,14 +136,14 @@ def build_system_summary_with_time(*, since: datetime | None = None, now: dateti
         _build_idle_section(activity),
         _build_boundary_section(activity),
     ]
-    output = {
+    output: dict[str, object] = {
         "view": "system_summary",
         "generated_at": current_time.isoformat(),
         "window": {"since": since.isoformat() if since else None},
         "sections": sections,
-        "references": _merge_references(section.get("references", {}) for section in sections),
+        "references": _merge_references(_as_mapping(section.get("references")) for section in sections),
     }
-    log_narrative_generated("system_summary", output.get("window"))
+    log_narrative_generated("system_summary", _as_mapping(output.get("window")))
     return output
 
 
@@ -137,7 +157,7 @@ def build_authority_summary(
     current_time = now or datetime.now(timezone.utc)
     authority = _collect_authority_changes(since=since, source_from=source_from, source_to=source_to)
     section = _build_authority_section(authority, title="Authority Summary")
-    output = {
+    output: dict[str, object] = {
         "view": "authority_summary",
         "generated_at": current_time.isoformat(),
         "window": {
@@ -148,7 +168,7 @@ def build_authority_summary(
         "sections": [section],
         "references": section.get("references", {}),
     }
-    log_narrative_generated("authority_summary", output.get("window"))
+    log_narrative_generated("authority_summary", _as_mapping(output.get("window")))
     return output
 
 
@@ -162,6 +182,34 @@ def log_narrative_generated(view: str, detail: Mapping[str, object] | None = Non
     if detail:
         entry["detail"] = dict(detail)
     append_json(Path(NARRATIVE_LOG_PATH), entry)
+
+
+def _as_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _mapping_rows(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [_as_mapping(item) for item in value if isinstance(item, Mapping)]
+
+
+def _object_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _as_float(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        raise TypeError("narrative_number_required")
+    return float(value)
+
+
+def _as_int(value: object) -> int:
+    if not isinstance(value, (int, float, str)):
+        raise TypeError("narrative_integer_required")
+    return int(value)
 
 
 def _merge_references(reference_sets: Iterable[Mapping[str, object]]) -> dict[str, object]:
@@ -187,17 +235,19 @@ def _collect_authority_changes(
         before, source_from = resolve_snapshot_source(source_from)
         after, source_to = resolve_snapshot_source(source_to)
         diff = diff_authority_surfaces(before, after)
+        snapshot_changes = _mapping_rows(diff.get("changes"))
+        snapshot_summary = _as_mapping(diff.get("summary"))
         return {
             "source_from": source_from,
             "source_to": source_to,
-            "changes": list(diff.get("changes", [])),
-            "summary": dict(diff.get("summary", {})),
-            "diff_hashes": [diff.get("from_hash"), diff.get("to_hash")],
+            "changes": snapshot_changes,
+            "summary": snapshot_summary,
+            "diff_hashes": [item for item in (diff.get("from_hash"), diff.get("to_hash")) if isinstance(item, str)],
             "log_entry_ids": [],
         }
 
     entries = _filter_entries(_read_log(AUTHORITY_DIFF_LOG_PATH), since)
-    changes: list[Mapping[str, object]] = []
+    changes: list[dict[str, object]] = []
     diff_hashes: list[str] = []
     for entry in entries:
         diff_hashes.extend([
@@ -205,8 +255,7 @@ def _collect_authority_changes(
             str(entry.get("to_hash", "")),
         ])
         entry_changes = entry.get("changes")
-        if isinstance(entry_changes, list):
-            changes.extend(entry_changes)
+        changes.extend(_mapping_rows(entry_changes))
     summary = _summarize_change_impact(changes)
     return {
         "source_from": "diff_log",
@@ -274,7 +323,7 @@ def _filter_entries(entries: Iterable[Mapping[str, object]], since: datetime | N
 
 def _parse_timestamp(raw: object) -> datetime | None:
     try:
-        value = float(raw)
+        value = _as_float(raw)
     except (TypeError, ValueError):
         return None
     return datetime.fromtimestamp(value, tz=timezone.utc)
@@ -292,22 +341,22 @@ def _summarize_change_impact(changes: Iterable[Mapping[str, object]]) -> dict[st
 
 
 def _summarize_tasks(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
-    tasks: dict[str, MutableMapping[str, object]] = {}
+    tasks: dict[str, _TaskAccumulator] = {}
     for entry in entries:
         task_id = entry.get("task_id")
         if not isinstance(task_id, str) or not task_id:
             continue
-        state = tasks.setdefault(task_id, {
-            "task_id": task_id,
-            "status": None,
-            "blocked": False,
-            "block_type": None,
-            "block_reason": None,
-            "adapters": set(),
-            "epr_actions": set(),
-            "log_ids": set(),
-            "reversibility": set(),
-        })
+        state = tasks.setdefault(task_id, _TaskAccumulator(
+            task_id=task_id,
+            status=None,
+            blocked=False,
+            block_type=None,
+            block_reason=None,
+            adapters=set(),
+            epr_actions=set(),
+            log_ids=set(),
+            reversibility=set(),
+        ))
         log_id = entry.get("rolling_hash") or entry.get("prev_hash")
         if log_id:
             state["log_ids"].add(str(log_id))
@@ -340,7 +389,7 @@ def _summarize_tasks(entries: Iterable[Mapping[str, object]]) -> dict[str, objec
                 adapter_id = artifacts.get("adapter_id")
                 if adapter_id:
                     state["adapters"].add(str(adapter_id))
-    tasks_list = []
+    tasks_list: list[dict[str, object]] = []
     for task_id, details in tasks.items():
         tasks_list.append({
             "task_id": task_id,
@@ -348,29 +397,29 @@ def _summarize_tasks(entries: Iterable[Mapping[str, object]]) -> dict[str, objec
             "blocked": details.get("blocked"),
             "block_type": details.get("block_type"),
             "block_reason": details.get("block_reason"),
-            "adapters": sorted(details.get("adapters", set())),
-            "epr_actions": sorted(details.get("epr_actions", set())),
-            "log_ids": sorted(details.get("log_ids", set())),
-            "reversibility": sorted(details.get("reversibility", set())),
+            "adapters": sorted(details["adapters"]),
+            "epr_actions": sorted(details["epr_actions"]),
+            "log_ids": sorted(details["log_ids"]),
+            "reversibility": sorted(details["reversibility"]),
         })
-    tasks_list.sort(key=lambda item: item["task_id"])
+    tasks_list.sort(key=lambda item: str(item["task_id"]))
     return {"tasks": tasks_list}
 
 
 def _summarize_routines(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
-    routines: dict[str, MutableMapping[str, object]] = {}
+    routines: dict[str, _RoutineAccumulator] = {}
     conflicts: set[str] = set()
     for entry in entries:
         routine_id = entry.get("routine_id")
         if not isinstance(routine_id, str) or not routine_id:
             continue
-        state = routines.setdefault(routine_id, {
-            "routine_id": routine_id,
-            "executions": 0,
-            "failed": 0,
-            "scope_violations": 0,
-            "log_ids": set(),
-        })
+        state = routines.setdefault(routine_id, _RoutineAccumulator(
+            routine_id=routine_id,
+            executions=0,
+            failed=0,
+            scope_violations=0,
+            log_ids=set(),
+        ))
         log_id = entry.get("rolling_hash") or entry.get("prev_hash")
         if log_id:
             state["log_ids"].add(str(log_id))
@@ -385,17 +434,17 @@ def _summarize_routines(entries: Iterable[Mapping[str, object]]) -> dict[str, ob
             outcome = entry.get("outcome")
             if outcome in {"conflict_paused", "conflict_suppressed"}:
                 conflicts.add(routine_id)
-    routines_list = []
+    routines_list: list[dict[str, object]] = []
     for routine_id, details in routines.items():
         routines_list.append({
             "routine_id": routine_id,
-            "executions": details.get("executions"),
-            "failed": details.get("failed"),
-            "scope_violations": details.get("scope_violations"),
-            "log_ids": sorted(details.get("log_ids", set())),
+            "executions": details["executions"],
+            "failed": details["failed"],
+            "scope_violations": details["scope_violations"],
+            "log_ids": sorted(details["log_ids"]),
             "conflict_paused": routine_id in conflicts,
         })
-    routines_list.sort(key=lambda item: item["routine_id"])
+    routines_list.sort(key=lambda item: str(item["routine_id"]))
     return {"routines": routines_list, "conflicts": sorted(conflicts)}
 
 
@@ -430,15 +479,15 @@ def _category_from_admission_reason(reason: object) -> str:
 
 
 def _build_authority_section(authority: Mapping[str, object], title: str = "Authority Summary") -> dict[str, object]:
-    changes = authority.get("changes", [])
-    summary = authority.get("summary", {}) if isinstance(authority.get("summary"), Mapping) else {}
+    changes = _mapping_rows(authority.get("changes"))
+    summary = _as_mapping(authority.get("summary"))
     counts = _count_change_types(changes)
     lines: list[str] = []
-    if summary.get("total", 0) == 0:
+    if _as_int(summary.get("total", 0)) == 0:
         lines.append("No authority surface changes recorded.")
     else:
-        authority_count = int(summary.get("authority", 0))
-        semantic_only = int(summary.get("semantic_only", 0))
+        authority_count = _as_int(summary.get("authority", 0))
+        semantic_only = _as_int(summary.get("semantic_only", 0))
         if authority_count == 0:
             lines.append(
                 f"{semantic_only} semantic-only change(s) recorded; no authority changes detected."
@@ -461,21 +510,21 @@ def _build_authority_section(authority: Mapping[str, object], title: str = "Auth
 
 
 def _build_activity_section(activity: Mapping[str, object], title: str = "System Summary") -> dict[str, object]:
-    tasks = activity.get("tasks", {}).get("tasks", [])
-    routines = activity.get("routines", {}).get("routines", [])
-    admissions = activity.get("admissions", {}).get("denials", [])
-    forgetting = activity.get("forgetting", {})
+    tasks = _mapping_rows(_as_mapping(activity.get("tasks")).get("tasks"))
+    routines = _mapping_rows(_as_mapping(activity.get("routines")).get("routines"))
+    admissions = _mapping_rows(_as_mapping(activity.get("admissions")).get("denials"))
+    forgetting = _as_mapping(activity.get("forgetting"))
     task_count = len(tasks)
-    routine_execs = sum(int(item.get("executions", 0)) for item in routines)
+    routine_execs = sum(_as_int(item.get("executions", 0)) for item in routines)
     completed = sum(1 for item in tasks if item.get("status") == "completed")
     failed = sum(1 for item in tasks if item.get("status") == "failed")
     blocked = sum(1 for item in tasks if item.get("blocked"))
     running = task_count - completed - failed - blocked
-    routines_failed = sum(int(item.get("failed", 0)) for item in routines)
-    scope_violations = sum(int(item.get("scope_violations", 0)) for item in routines)
-    adapters = sorted({adapter for item in tasks for adapter in item.get("adapters", []) if adapter})
-    epr_actions = sorted({action for item in tasks for action in item.get("epr_actions", []) if action})
-    reversibility = sorted({value for item in tasks for value in item.get("reversibility", []) if value})
+    routines_failed = sum(_as_int(item.get("failed", 0)) for item in routines)
+    scope_violations = sum(_as_int(item.get("scope_violations", 0)) for item in routines)
+    adapters = sorted({str(value) for item in tasks for value in _object_list(item.get("adapters")) if value})
+    epr_actions = sorted({str(value) for item in tasks for value in _object_list(item.get("epr_actions")) if value})
+    reversibility = sorted({str(value) for item in tasks for value in _object_list(item.get("reversibility")) if value})
     lines: list[str] = []
     if task_count == 0 and routine_execs == 0:
         lines.append("No tasks or delegated routines executed in this window.")
@@ -509,10 +558,10 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
             summary += f" ({forgetting['deferrals']} deferred)"
         summary += "."
         lines.append(summary)
-    pressure = activity.get("forgetting_pressure", {})
-    pressure_count = int(pressure.get("count", 0) or 0)
+    pressure = _as_mapping(activity.get("forgetting_pressure"))
+    pressure_count = _as_int(pressure.get("count", 0) or 0)
     if pressure_count:
-        scope = pressure.get("scope", [])
+        scope = [str(value) for value in _object_list(pressure.get("scope"))]
         if scope:
             scope_summary = ", ".join(scope)
             lines.append(
@@ -520,9 +569,9 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
             )
         else:
             lines.append(f"{pressure_count} unresolved forgetting pressure signal(s) remain.")
-    overload_count = int(pressure.get("overload_count", 0) or 0)
+    overload_count = _as_int(pressure.get("overload_count", 0) or 0)
     if overload_count:
-        domains = pressure.get("overload_domains", [])
+        domains = _mapping_rows(pressure.get("overload_domains"))
         lines.append(f"System under sustained tension across {overload_count} domain(s).")
         if domains:
             summary = ", ".join(
@@ -540,10 +589,10 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
         "routine_ids": [item.get("routine_id") for item in routines if item.get("routine_id")],
         "adapter_ids": adapters,
         "epr_action_ids": epr_actions,
-        "task_log_entry_ids": _extract_log_ids(activity.get("task_entries", [])),
-        "routine_log_entry_ids": _extract_log_ids(activity.get("routine_entries", [])),
-        "admission_log_entry_ids": _extract_log_ids(activity.get("admission_entries", [])),
-        "forget_log_entry_ids": _extract_log_ids(activity.get("forgetting_entries", [])),
+        "task_log_entry_ids": _extract_log_ids(_mapping_rows(activity.get("task_entries"))),
+        "routine_log_entry_ids": _extract_log_ids(_mapping_rows(activity.get("routine_entries"))),
+        "admission_log_entry_ids": _extract_log_ids(_mapping_rows(activity.get("admission_entries"))),
+        "forget_log_entry_ids": _extract_log_ids(_mapping_rows(activity.get("forgetting_entries"))),
     }
     return {"title": title, "lines": lines, "references": references}
 
@@ -557,7 +606,7 @@ def _summarize_forgetting(entries: Iterable[Mapping[str, object]]) -> dict[str, 
         if entry.get("event") != "intentional_forget":
             if entry.get("event") == "intentional_forget_refusal":
                 refusals += 1
-                for preview in entry.get("previews", []) or []:
+                for preview in _mapping_rows(entry.get("previews")):
                     if preview.get("decision") == "defer":
                         deferrals += 1
             continue
@@ -577,7 +626,7 @@ def _summarize_forget_pressure(
         target_type = entry.get("target_type") or "unknown"
         counts[str(target_type)] = counts.get(str(target_type), 0) + 1
         total += 1
-    overload_domains = []
+    overload_domains: list[dict[str, object]] = []
     for item in budget_status:
         if item.get("status") != "exceeded":
             continue
@@ -595,9 +644,9 @@ def _summarize_forget_pressure(
 
 
 def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:
-    tasks = activity.get("tasks", {}).get("tasks", [])
-    routines = activity.get("routines", {}).get("routines", [])
-    routine_execs = sum(int(item.get("executions", 0)) for item in routines)
+    tasks = _mapping_rows(_as_mapping(activity.get("tasks")).get("tasks"))
+    routines = _mapping_rows(_as_mapping(activity.get("routines")).get("routines"))
+    routine_execs = sum(_as_int(item.get("executions", 0)) for item in routines)
     if not tasks and routine_execs == 0:
         lines = ["No actions were taken because no tasks or delegated routines were active."]
     else:
@@ -606,20 +655,20 @@ def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:
 
 
 def _build_boundary_section(activity: Mapping[str, object]) -> dict[str, object]:
-    tasks = activity.get("tasks", {}).get("tasks", [])
-    routines = activity.get("routines", {}).get("routines", [])
-    admissions = activity.get("admissions", {}).get("denials", [])
+    tasks = _mapping_rows(_as_mapping(activity.get("tasks")).get("tasks"))
+    routines = _mapping_rows(_as_mapping(activity.get("routines")).get("routines"))
+    admissions = _mapping_rows(_as_mapping(activity.get("admissions")).get("denials"))
     boundary_counts: dict[str, int] = {"missing_approval": 0, "unmet_prerequisites": 0, "scope_violations": 0}
     for task in tasks:
         block_type = task.get("block_type")
-        if block_type in boundary_counts:
+        if isinstance(block_type, str) and block_type in boundary_counts:
             boundary_counts[block_type] += 1
     for routine in routines:
-        scope_violations = int(routine.get("scope_violations", 0) or 0)
+        scope_violations = _as_int(routine.get("scope_violations", 0) or 0)
         boundary_counts["scope_violations"] += scope_violations
     for denial in admissions:
         category = denial.get("category")
-        if category in boundary_counts:
+        if isinstance(category, str) and category in boundary_counts:
             boundary_counts[category] += 1
     total_boundaries = sum(boundary_counts.values())
     lines: list[str] = []
@@ -638,12 +687,12 @@ def _build_boundary_section(activity: Mapping[str, object]) -> dict[str, object]
     references = {
         "blocked_task_ids": [item.get("task_id") for item in tasks if item.get("blocked")],
         "blocked_routine_ids": [
-            item.get("routine_id") for item in routines if int(item.get("scope_violations", 0) or 0) > 0
+            item.get("routine_id") for item in routines if _as_int(item.get("scope_violations", 0) or 0) > 0
         ],
         "blocked_log_entry_ids": [
             log_id
             for item in tasks
-            for log_id in item.get("log_ids", [])
+            for log_id in _object_list(item.get("log_ids"))
             if item.get("blocked")
         ],
     }

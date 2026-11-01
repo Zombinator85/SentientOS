@@ -1,0 +1,358 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_intentional_forgetting.py::test_authority_diff_reports_removal": 0,
+    "tests/test_intentional_forgetting.py::test_boundary_defer_requires_acknowledgment": 0,
+    "tests/test_intentional_forgetting.py::test_boundary_refusal_blocks_execution": 0,
+    "tests/test_intentional_forgetting.py::test_budget_status_persists_across_restart": 0,
+    "tests/test_intentional_forgetting.py::test_cascaded_class_forget_removes_routines": 0,
+    "tests/test_intentional_forgetting.py::test_duplicate_execution_is_noop": 0,
+    "tests/test_intentional_forgetting.py::test_failed_execution_does_not_register_tx": 0,
+    "tests/test_intentional_forgetting.py::test_forget_cor_blocks_resurrection": 0,
+    "tests/test_intentional_forgetting.py::test_forget_habit_prevents_reproposal": 0,
+    "tests/test_intentional_forgetting.py::test_forget_tx_id_is_deterministic": 0,
+    "tests/test_intentional_forgetting.py::test_forget_tx_id_stable_across_serialization": 0,
+    "tests/test_intentional_forgetting.py::test_forgetting_prevents_execution_after_forget": 0,
+    "tests/test_intentional_forgetting.py::test_invariant_verification_blocks_reintroduction": 0,
+    "tests/test_intentional_forgetting.py::test_invariant_verification_is_stable_after_restart": 0,
+    "tests/test_intentional_forgetting.py::test_narrative_mentions_forgetting_without_details": 0,
+    "tests/test_intentional_forgetting.py::test_phase_progression_records_transitions": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_budget_blocks_new_deferrals": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_budget_forecast_surfaces_exceedance": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[malformed]": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[subsystems1]": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_created_on_defer": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_deduplicates_on_reproposal": 0,
+    "tests/test_intentional_forgetting.py::test_pressure_persists_across_restart": 0,
+    "tests/test_intentional_forgetting.py::test_reconciliation_clears_pressure": 0,
+    "tests/test_intentional_forgetting.py::test_reconciliation_frees_budget_capacity": 0,
+    "tests/test_intentional_forgetting.py::test_reconciliation_maintains_pressure": 0,
+    "tests/test_intentional_forgetting.py::test_recovery_reapplies_applying_phase": 0,
+    "tests/test_intentional_forgetting.py::test_replay_after_abort_retries": 0,
+    "tests/test_intentional_forgetting.py::test_rollback_proof_is_deterministic": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_does_not_mutate_state": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_matches_boundary_refusal": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_matches_execution_effect": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_reports_blocked_targets": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_reports_cascade_removals": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_reports_phase_state": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_reports_pressure_state": 0,
+    "tests/test_intentional_forgetting.py::test_simulation_reports_prior_execution": 0,
+    "tests/test_narrative_synthesis_typing.py::test_routine_summary_keeps_execution_and_conflict_counts": 0,
+    "tests/test_narrative_synthesis_typing.py::test_task_summary_keeps_accumulated_events_and_sorted_references": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 40,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "b8fecf45147cc56164ef934912e61b767ffc7455",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-narrative-provenance/pytest_junitxml_cfd4ec3cc6dc4d3b94cc7a105581d438.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_narrative_synthesis_typing.py::test_task_summary_keeps_accumulated_events_and_sorted_references",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_narrative_synthesis_typing.py::test_routine_summary_keeps_execution_and_conflict_counts",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_forget_habit_prevents_reproposal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_forget_cor_blocks_resurrection",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_cascaded_class_forget_removes_routines",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_authority_diff_reports_removal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_forgetting_prevents_execution_after_forget",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_narrative_mentions_forgetting_without_details",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_does_not_mutate_state",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_matches_execution_effect",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_reports_cascade_removals",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_reports_blocked_targets",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_rollback_proof_is_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_forget_tx_id_is_deterministic",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_duplicate_execution_is_noop",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_invariant_verification_blocks_reintroduction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_invariant_verification_is_stable_after_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_phase_progression_records_transitions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_recovery_reapplies_applying_phase",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_replay_after_abort_retries",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_reports_phase_state",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_reports_prior_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_failed_execution_does_not_register_tx",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_forget_tx_id_stable_across_serialization",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_boundary_refusal_blocks_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_boundary_defer_requires_acknowledgment",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_created_on_defer",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_deduplicates_on_reproposal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_persists_across_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_reconciliation_clears_pressure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_reconciliation_maintains_pressure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_reports_pressure_state",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_blocks_new_deferrals",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_forecast_surfaces_exceedance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[malformed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[subsystems1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_reconciliation_frees_budget_capacity",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_budget_status_persists_across_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_matches_boundary_refusal",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "464d8540172dbff99ece4e1e3dd5e24cfce777224bc2257ffb50ac8085cf05f6",
+  "provenance_hash": "9152192cfd389d09028237c7f82546e146f86707ad3b8801ac51a61905bf6b2e",
+  "pytest_args": [
+    "tests/test_narrative_synthesis_typing.py",
+    "tests/test_intentional_forgetting.py",
+    "-q",
+    "-m",
+    "legacy or no_legacy_skip"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "8cff2feca2b8473dafda1e6a4da4a942",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_narrative_synthesis_typing.py::test_task_summary_keeps_accumulated_events_and_sorted_references",
+    "tests/test_narrative_synthesis_typing.py::test_routine_summary_keeps_execution_and_conflict_counts",
+    "tests/test_intentional_forgetting.py::test_forget_habit_prevents_reproposal",
+    "tests/test_intentional_forgetting.py::test_forget_cor_blocks_resurrection",
+    "tests/test_intentional_forgetting.py::test_cascaded_class_forget_removes_routines",
+    "tests/test_intentional_forgetting.py::test_authority_diff_reports_removal",
+    "tests/test_intentional_forgetting.py::test_forgetting_prevents_execution_after_forget",
+    "tests/test_intentional_forgetting.py::test_narrative_mentions_forgetting_without_details",
+    "tests/test_intentional_forgetting.py::test_simulation_does_not_mutate_state",
+    "tests/test_intentional_forgetting.py::test_simulation_matches_execution_effect",
+    "tests/test_intentional_forgetting.py::test_simulation_reports_cascade_removals",
+    "tests/test_intentional_forgetting.py::test_simulation_reports_blocked_targets",
+    "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic",
+    "tests/test_intentional_forgetting.py::test_rollback_proof_is_deterministic",
+    "tests/test_intentional_forgetting.py::test_forget_tx_id_is_deterministic",
+    "tests/test_intentional_forgetting.py::test_duplicate_execution_is_noop",
+    "tests/test_intentional_forgetting.py::test_invariant_verification_blocks_reintroduction",
+    "tests/test_intentional_forgetting.py::test_invariant_verification_is_stable_after_restart",
+    "tests/test_intentional_forgetting.py::test_phase_progression_records_transitions",
+    "tests/test_intentional_forgetting.py::test_recovery_reapplies_applying_phase",
+    "tests/test_intentional_forgetting.py::test_replay_after_abort_retries",
+    "tests/test_intentional_forgetting.py::test_simulation_reports_phase_state",
+    "tests/test_intentional_forgetting.py::test_simulation_reports_prior_execution",
+    "tests/test_intentional_forgetting.py::test_failed_execution_does_not_register_tx",
+    "tests/test_intentional_forgetting.py::test_forget_tx_id_stable_across_serialization",
+    "tests/test_intentional_forgetting.py::test_boundary_refusal_blocks_execution",
+    "tests/test_intentional_forgetting.py::test_boundary_defer_requires_acknowledgment",
+    "tests/test_intentional_forgetting.py::test_pressure_created_on_defer",
+    "tests/test_intentional_forgetting.py::test_pressure_deduplicates_on_reproposal",
+    "tests/test_intentional_forgetting.py::test_pressure_persists_across_restart",
+    "tests/test_intentional_forgetting.py::test_reconciliation_clears_pressure",
+    "tests/test_intentional_forgetting.py::test_reconciliation_maintains_pressure",
+    "tests/test_intentional_forgetting.py::test_simulation_reports_pressure_state",
+    "tests/test_intentional_forgetting.py::test_pressure_budget_blocks_new_deferrals",
+    "tests/test_intentional_forgetting.py::test_pressure_budget_forecast_surfaces_exceedance",
+    "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[malformed]",
+    "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[subsystems1]",
+    "tests/test_intentional_forgetting.py::test_reconciliation_frees_budget_capacity",
+    "tests/test_intentional_forgetting.py::test_budget_status_persists_across_restart",
+    "tests/test_intentional_forgetting.py::test_simulation_matches_boundary_refusal"
+  ],
+  "selection_flags": [
+    "tests/test_narrative_synthesis_typing.py",
+    "tests/test_intentional_forgetting.py",
+    "-m"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 40,
+  "tests_executed": 40,
+  "tests_failed": 0,
+  "tests_passed": 40,
+  "tests_selected": 40,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T02:35:51.428939+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
