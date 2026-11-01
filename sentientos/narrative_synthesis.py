@@ -225,7 +225,7 @@ def _collect_activity(
 ) -> dict[str, object]:
     task_entries = _filter_entries(_read_log(task_executor.LOG_PATH), since)
     routine_entries = _filter_entries(_read_log(ROUTINE_LOG_PATH), since)
-    admission_entries = _filter_entries(_read_log(task_admission.ADMISSION_LOG_PATH), since)
+    admission_entries = _filter_entries(_read_log(task_admission.admission_log_path()), since)
     if forgetting_entries is None:
         forgetting_entries = read_forget_log(FORGET_LOG_PATH)
     forgetting_entries = _filter_entries(forgetting_entries, since)

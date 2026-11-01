@@ -68,9 +68,18 @@ def init_executor_runtime() -> None:
 
 
 def _resolve_admission_log_path() -> Path:
-    if _ADMISSION_LOG_PATH is None:
+    path = _ADMISSION_LOG_PATH
+    if path is None:
         init_executor_runtime()
-    return _ADMISSION_LOG_PATH
+        path = _ADMISSION_LOG_PATH
+    if path is None:
+        raise RuntimeError("task_admission_log_path_unavailable")
+    return path
+
+
+def admission_log_path() -> Path:
+    """Return the initialized admission log path for read-only consumers."""
+    return _resolve_admission_log_path()
 
 
 def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPolicy) -> AdmissionDecision:
