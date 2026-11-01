@@ -133,10 +133,13 @@ def collect_delegated_judgment_evidence(
     executor_terminal_total = len(executor_terminal)
     executor_failed = sum(1 for row in executor_terminal if str(row.get("status") or "") == "failed")
 
-    scoped = scoped_lifecycle or {}
-    slice_health = scoped.get("slice_health") if isinstance(scoped.get("slice_health"), Mapping) else {}
-    slice_stability = scoped.get("slice_stability") if isinstance(scoped.get("slice_stability"), Mapping) else {}
-    retrospective = scoped.get("slice_retrospective_integrity_review") if isinstance(scoped.get("slice_retrospective_integrity_review"), Mapping) else {}
+    scoped: Mapping[str, Any] = scoped_lifecycle if scoped_lifecycle is not None else {}
+    slice_health_data = scoped.get("slice_health")
+    slice_stability_data = scoped.get("slice_stability")
+    retrospective_data = scoped.get("slice_retrospective_integrity_review")
+    slice_health: Mapping[str, Any] = slice_health_data if isinstance(slice_health_data, Mapping) else {}
+    slice_stability: Mapping[str, Any] = slice_stability_data if isinstance(slice_stability_data, Mapping) else {}
+    retrospective: Mapping[str, Any] = retrospective_data if isinstance(retrospective_data, Mapping) else {}
 
     return {
         "contract_status_present": bool(contract_rows),
