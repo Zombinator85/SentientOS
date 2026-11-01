@@ -34,6 +34,14 @@ class CouncilVote:
 
     @classmethod
     def from_dict(cls, payload: Dict[str, object]) -> "CouncilVote":
+        raw_votes = payload.get("votes", {})
+        votes = (
+            {str(agent): str(choice) for agent, choice in raw_votes.items()}
+            if isinstance(raw_votes, dict)
+            else {}
+        )
+        raw_quorum = payload.get("quorum_required", 3)
+        quorum_required = raw_quorum if isinstance(raw_quorum, int) else 3
         return cls(
             proposal_id=str(payload["proposal_id"]),
             proposal_type=str(payload["proposal_type"]),
@@ -41,8 +49,8 @@ class CouncilVote:
             summary=str(payload["summary"]),
             proposed_by=str(payload["proposed_by"]),
             timestamp=str(payload["timestamp"]),
-            votes=dict(payload.get("votes", {})),
-            quorum_required=int(payload.get("quorum_required", 3)),
+            votes=votes,
+            quorum_required=quorum_required,
             status=str(payload.get("status", "pending")),
         )
 
