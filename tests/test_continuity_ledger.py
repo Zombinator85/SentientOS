@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 import pytest
@@ -32,6 +33,17 @@ def test_cross_day_pattern_persistence(tmp_path):
     assert ledger.is_ongoing("alignment_signal") is True
     assert ledger.signal_direction("alignment_signal") == "intensified"
     assert ledger.days_alive("alignment_signal", current_date="2024-01-02") == 1
+
+
+def test_malformed_numeric_signal_is_ignored(tmp_path):
+    path = tmp_path / "continuity.jsonl"
+    path.write_text(
+        json.dumps({"theme": "damaged", "date": "2024-01-01", "signal_strength": {"bad": True}}) + "\n",
+        encoding="utf-8",
+    )
+    ledger = ContinuityLedger(path=path)
+    assert ledger.signal_direction("damaged") == "steady"
+    assert ledger.days_alive("damaged", current_date="2024-01-02") == 0
 
 
 def test_continuity_links_new_day_events(tmp_path):

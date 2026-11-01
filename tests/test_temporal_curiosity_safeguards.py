@@ -57,6 +57,17 @@ def test_curiosity_scheduler_runs_only_when_idle():
     assert scheduler.log
 
 
+def test_curiosity_scheduler_defaults_malformed_numeric_fields():
+    limiter = CuriosityLimiter(now_fn=lambda: 10.0)
+    scheduler = CuriosityScheduler(limiter=limiter)
+    fragments = scheduler.run_idle_cycle(
+        [{"source": "feed", "confidence": "unknown", "emotional_density": {"bad": True}}],
+        idle=True,
+    )
+    assert fragments[0]["confidence"] == 0.5
+    assert "cooldown_started" not in fragments[0]["advisory"]
+
+
 def test_external_witness_gate_read_only():
     gate = ExternalWitnessGate()
     record = gate.ingest(source="web", content={"title": "example"})

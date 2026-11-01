@@ -5,9 +5,25 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import math
 from pathlib import Path
 from statistics import mean, pstdev
 from typing import Iterable, Mapping, MutableSequence, Sequence
+
+
+def _coerce_float(value: object, *, default: float | None) -> float | None:
+    if isinstance(value, bool):
+        numeric = float(value)
+    elif isinstance(value, (int, float)):
+        numeric = float(value)
+    elif isinstance(value, str):
+        try:
+            numeric = float(value)
+        except ValueError:
+            return default
+    else:
+        return default
+    return numeric if math.isfinite(numeric) else default
 
 
 @dataclass
@@ -67,7 +83,7 @@ class CuriosityLimiter:
         if self._count >= self.daily_cap:
             advisories.append("daily_cap_reached")
             return False, tuple(advisories)
-        emotional_density = float(fragment.get("emotional_density", 0.0) or 0.0)
+        emotional_density = _coerce_float(fragment.get("emotional_density"), default=0.0) or 0.0
         adversarial = bool(fragment.get("adversarial"))
         if emotional_density >= 0.6 or adversarial:
             self._cooldown_until = now + self.emotional_cooldown_seconds
@@ -108,7 +124,7 @@ class CuriosityScheduler:
                     ObservationFragment(
                         source=str(task.get("source") or "unknown"),
                         timestamp=datetime.now(timezone.utc).isoformat(),
-                        confidence=float(task.get("confidence", 0.5)),
+                        confidence=_coerce_float(task.get("confidence", 0.5), default=0.5) or 0.0,
                         payload={"skipped": True},
                         advisory=advisories,
                     ).to_dict()
@@ -117,7 +133,7 @@ class CuriosityScheduler:
             fragment = ObservationFragment(
                 source=str(task.get("source") or "unknown"),
                 timestamp=datetime.now(timezone.utc).isoformat(),
-                confidence=float(task.get("confidence", 0.5)),
+                confidence=_coerce_float(task.get("confidence", 0.5), default=0.5) or 0.0,
                 payload={k: v for k, v in task.items() if k != "action"},
                 advisory=advisories,
             )
@@ -207,7 +223,9 @@ class ContinuityLedger:
             if entry.get("theme") != theme:
                 continue
             if "signal_strength" in entry and entry.get("date"):
-                daily[str(entry["date"])].append(float(entry["signal_strength"]))
+                signal_strength = _coerce_float(entry.get("signal_strength"), default=None)
+                if signal_strength is not None:
+                    daily[str(entry["date"])].append(signal_strength)
         return sorted(((date, mean(values)) for date, values in daily.items()), key=lambda item: item[0])
 
     def is_ongoing(self, theme: str) -> bool:
@@ -288,7 +306,7 @@ class SynthesisDaemon:
 
         notes: list[dict[str, object]] = []
         for theme, entries in grouped.items():
-            confidences = [float(entry.get("confidence", 0.0)) for entry in entries]
+            confidences = [_coerce_float(entry.get("confidence", 0.0), default=0.0) or 0.0 for entry in entries]
             volatility = pstdev(confidences) if len(confidences) > 1 else 0.0
             note = {
                 "theme": theme,
