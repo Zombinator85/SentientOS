@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import subprocess
-from typing import Any
+from typing import Any, TypedDict
 
 from sentientos.observatory.contract_status_consumer import (
     missing_contract_status_rows,
@@ -28,18 +28,16 @@ class ForgeGitOps:
 @dataclass(slots=True)
 class TransactionPolicy:
     enabled: bool = True
-    regression_rules: dict[str, dict[str, Any]] = field(
-        default_factory=lambda: {
-            "ci_baseline": {
-                "forbid_pass_to_fail": True,
-                "forbid_failed_count_increase": True,
-                "improvement_min_decrease": 1,
-            },
-            "contract_drift": {
-                "forbid_new_drift": True,
-            },
-            "forbid_no_progress": True,
-        }
+    regression_rules: RegressionRules = field(
+        default_factory=lambda: RegressionRules(
+            ci_baseline=CiRegressionRules(
+                forbid_pass_to_fail=True,
+                forbid_failed_count_increase=True,
+                improvement_min_decrease=1,
+            ),
+            contract_drift=ContractDriftRules(forbid_new_drift=True),
+            forbid_no_progress=True,
+        )
     )
     quarantine_on_failure: bool = True
     quarantine_branch_prefix: str = "quarantine/forge"
@@ -66,6 +64,22 @@ class TransactionResult:
 
 CI_BASELINE_PATH = Path("glow/contracts/ci_baseline.json")
 CONTRACT_STATUS_PATH = Path("glow/contracts/contract_status.json")
+
+
+class CiRegressionRules(TypedDict, total=False):
+    forbid_pass_to_fail: bool
+    forbid_failed_count_increase: bool
+    improvement_min_decrease: int
+
+
+class ContractDriftRules(TypedDict, total=False):
+    forbid_new_drift: bool
+
+
+class RegressionRules(TypedDict):
+    ci_baseline: CiRegressionRules
+    contract_drift: ContractDriftRules
+    forbid_no_progress: bool
 
 
 def capture_snapshot(repo_root: Path, session_root: Path, *, git_ops: ForgeGitOps | None = None) -> TransactionSnapshot:
