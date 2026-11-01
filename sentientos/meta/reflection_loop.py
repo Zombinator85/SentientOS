@@ -40,7 +40,7 @@ class ReflectionLoop:
         corrections = self._correction_patterns(patches)
         coherence = self._behavioural_coherence(moods, conflicts)
 
-        summary = {
+        summary: dict[str, object] = {
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "detected_tensions": tensions,
             "planning_inefficiencies": inefficiencies,
