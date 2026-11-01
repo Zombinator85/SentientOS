@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Iterable, Mapping, Protocol
+from typing import Any, Iterable, Mapping, Protocol, TypeVar
 import re
 
 import sys
@@ -135,23 +135,26 @@ class RecoveryOutcome:
     proof: RecoveryProofArtifact | None
 
 
-class RecoveryLadder(Protocol):
+PlanT = TypeVar("PlanT")
+
+
+class RecoveryLadder(Protocol[PlanT]):
     ladder_id: str
     applicable_error_codes: tuple[str, ...]
 
     def preconditions(self, frame: DiagnosticErrorFrame) -> bool:
         ...
 
-    def simulate(self, frame: DiagnosticErrorFrame) -> RecoveryPlan:
+    def simulate(self, frame: DiagnosticErrorFrame) -> PlanT:
         ...
 
-    def execute(self, plan: RecoveryPlan) -> RecoveryResult:
+    def execute(self, plan: PlanT) -> RecoveryResult:
         ...
 
     def verify(self) -> bool:
         ...
 
-    def summarize(self, plan: RecoveryPlan) -> str:
+    def summarize(self, plan: PlanT) -> str:
         ...
 
 
@@ -162,7 +165,7 @@ class MissingInstallDirectoryRecoveryLadder:
     """
 
     ladder_id = "install-missing-directory-v1"
-    applicable_error_codes = ("MISSING_RESOURCE",)
+    applicable_error_codes: tuple[str, ...] = ("MISSING_RESOURCE",)
 
     def __init__(self) -> None:
         self._last_plan: RecoveryPlan | None = None
@@ -227,7 +230,7 @@ class OptionalModuleIsolationRecoveryLadder:
     """
 
     ladder_id = "CLI_IMPORT_OPTIONAL_MODULE_ISOLATION"
-    applicable_error_codes = ("CLI_IMPORT_MODULE_MISSING",)
+    applicable_error_codes: tuple[str, ...] = ("CLI_IMPORT_MODULE_MISSING",)
     _allowed_phases = {"CLI", "INSTALL", "IMPORT"}
     _protected_capabilities = {"cognition", "integrity", "forgetting", "recovery"}
 
@@ -295,15 +298,17 @@ class OptionalModuleIsolationRecoveryLadder:
         )
 
 
-RecoveryLadderRegistry: Mapping[str, RecoveryLadder] = {
-    "MISSING_RESOURCE": MissingInstallDirectoryRecoveryLadder(),
-    "CLI_IMPORT_MODULE_MISSING": OptionalModuleIsolationRecoveryLadder(),
+missing_resource_ladder: RecoveryLadder[Any] = MissingInstallDirectoryRecoveryLadder()
+optional_module_ladder: RecoveryLadder[Any] = OptionalModuleIsolationRecoveryLadder()
+RecoveryLadderRegistry: Mapping[str, RecoveryLadder[Any]] = {
+    "MISSING_RESOURCE": missing_resource_ladder,
+    "CLI_IMPORT_MODULE_MISSING": optional_module_ladder,
 }
 
 
-def _unique_ladders(registry: Mapping[str, RecoveryLadder]) -> tuple[RecoveryLadder, ...]:
+def _unique_ladders(registry: Mapping[str, RecoveryLadder[Any]]) -> tuple[RecoveryLadder[Any], ...]:
     seen: set[int] = set()
-    ladders: list[RecoveryLadder] = []
+    ladders: list[RecoveryLadder[Any]] = []
     for ladder in registry.values():
         ladder_id = id(ladder)
         if ladder_id in seen:
@@ -314,9 +319,9 @@ def _unique_ladders(registry: Mapping[str, RecoveryLadder]) -> tuple[RecoveryLad
 
 
 def ladder_error_code_map(
-    registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
-) -> dict[str, tuple[RecoveryLadder, ...]]:
-    coverage: dict[str, list[RecoveryLadder]] = {}
+    registry: Mapping[str, RecoveryLadder[Any]] = RecoveryLadderRegistry,
+) -> dict[str, tuple[RecoveryLadder[Any], ...]]:
+    coverage: dict[str, list[RecoveryLadder[Any]]] = {}
     for ladder in _unique_ladders(registry):
         codes = ladder.applicable_error_codes
         for code in codes:
@@ -326,7 +331,7 @@ def ladder_error_code_map(
 
 def validate_recovery_ladders(
     *,
-    registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
+    registry: Mapping[str, RecoveryLadder[Any]] = RecoveryLadderRegistry,
     eligibility_registry: Mapping[str, tuple[RecoveryEligibility, str]] = RECOVERY_ELIGIBILITY_REGISTRY,
     ack_required_allowlist: tuple[str, ...] = ACK_REQUIRED_LADDER_ALLOWLIST,
 ) -> None:
@@ -379,7 +384,7 @@ def validate_recovery_ladders(
 
 
 def validate_ladder_docstrings(
-    ladders: Iterable[RecoveryLadder],
+    ladders: Iterable[RecoveryLadder[Any]],
     *,
     required_sections: tuple[str, ...] = LADDER_DOCSTRING_SECTIONS,
 ) -> tuple[str, ...]:
@@ -460,7 +465,7 @@ def promote_recovered_frame(
 def attempt_recovery(
     frame: DiagnosticErrorFrame,
     *,
-    registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
+    registry: Mapping[str, RecoveryLadder[Any]] = RecoveryLadderRegistry,
 ) -> RecoveryOutcome:
     if _is_recovery_recursion_input(frame):
         _emit_recovery_event(
@@ -558,7 +563,7 @@ def attempt_recovery(
 
 def _emit_recovery_simulation(
     frame: DiagnosticErrorFrame,
-    ladder: RecoveryLadder,
+    ladder: RecoveryLadder[Any],
     plan: RecoveryPlan | OptionalModuleIsolationPlan,
 ) -> None:
     metadata = {

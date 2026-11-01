@@ -590,6 +590,8 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
     alert_counts = {str(k): int(v) for k, v in raw_alert_counts.items() if isinstance(v, int)} if isinstance(raw_alert_counts, dict) else None
     raw_row_counts = row.get("contract_row_summary_counts")
     row_counts = {str(k): int(v) for k, v in raw_row_counts.items() if isinstance(v, int)} if isinstance(raw_row_counts, dict) else None
+    raw_has_drift = row.get("has_drift")
+    has_drift = raw_has_drift if isinstance(raw_has_drift, bool) else None
     return ForgeReceipt(
         request_id=request_id,
         status=status,
@@ -605,7 +607,7 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
         publish_status=_opt("publish_status"),
         publish_pr_url=_opt("publish_pr_url"),
         publish_checks_overall=_opt("publish_checks_overall"),
-        has_drift=(row.get("has_drift") if isinstance(row.get("has_drift"), bool) else None),
+        has_drift=has_drift,
         drift_domains=drift_domains,
         contract_alert_badge=_opt("contract_alert_badge"),
         contract_alert_reason=_opt("contract_alert_reason"),

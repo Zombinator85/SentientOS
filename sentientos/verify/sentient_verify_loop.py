@@ -102,8 +102,9 @@ def execute_experiment_with_adapter(experiment: Dict[str, Any]) -> Dict[str, Any
     context: Dict[str, Any] = dict(measurements)
     context["adapter_name"] = adapter_cls.name
     context["adapter_deterministic"] = bool(adapter_cls.deterministic)
-    with suppress(AttributeError):
-        context.setdefault("adapter_simulation", bool(adapter.simulation_mode))
+    simulation_mode = getattr(adapter, "simulation_mode", None)
+    if simulation_mode is not None:
+        context.setdefault("adapter_simulation", bool(simulation_mode))
     mock_context = experiment.get("mock_context")
     if isinstance(mock_context, dict):
         for key, value in mock_context.items():
