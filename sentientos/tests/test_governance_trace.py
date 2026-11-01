@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_merge_train import ForgeMergeTrain, TrainEntry, TrainState
 from sentientos.forge_model import ForgeSession
+from sentientos.audit_trust_runtime import AuditTrustState
 from sentientos.genesis_forge import (
     AdoptionRite,
     CovenantVow,
@@ -20,7 +23,13 @@ from sentientos.genesis_forge import (
     TrialRun,
 )
 from sentientos.github_merge import MergeResult, RebaseResult
-from sentientos.governance_trace import reset_current_trace, set_current_trace, start_governance_trace
+from sentientos.governance_trace import (
+    _record_list,
+    _string_list,
+    reset_current_trace,
+    set_current_trace,
+    start_governance_trace,
+)
 
 
 class _Ops:
@@ -164,6 +173,24 @@ def test_diagnostics_only_forge_run_includes_trace(tmp_path: Path, monkeypatch) 
 def test_router_clamp_records_clamp_in_current_trace(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sentientos.genesis_forge.enforce_codex_startup", lambda _symbol: None)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "glow/governor"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "glow/control_plane"))
+    monkeypatch.setattr(
+        "sentientos.genesis_forge.evaluate_audit_trust",
+        lambda _repo_root, *, context: AuditTrustState(
+            schema_version=1,
+            evaluated_at="2026-01-01T00:00:00Z",
+            context=context,
+            status="trusted",
+            history_state="anchored",
+            degraded_audit_trust=False,
+            checkpoint_id="checkpoint-test",
+            continuation_descends_from_anchor=True,
+            trust_boundary_explicit=True,
+            trusted_history_head_hash="0" * 64,
+            report_break_count=0,
+        ),
+    )
     monkeypatch.setenv("SENTIENTOS_RISK_BUDGET_ALLOW_OVERRIDE", "1")
     override = tmp_path / "risk_override.json"
     override.write_text(json.dumps({"router_k_max": 1, "router_m_max": 0, "router_allow_escalation": False}), encoding="utf-8")
@@ -191,18 +218,18 @@ def test_router_clamp_records_clamp_in_current_trace(tmp_path: Path, monkeypatch
             adoption_rite=AdoptionRite(live_mount=tmp_path / "live", codex_index=tmp_path / "codex_index.json", review_board=lambda _p, _r: True),
             ledger=RecoveryLedger(tmp_path / "logs/genesis.jsonl"),
         )
-        try:
+        with pytest.raises(ValueError, match="results cannot be empty"):
             genesis.expand(
                 [TelemetryStream(name="n", capability="new_cap", description="d")],
                 [CovenantVow(capability="new_cap", description="d")],
             )
-        except Exception:
-            pass
     finally:
         reset_current_trace(token)
 
     persisted = trace.finalize(final_decision="allow", final_reason="ok", reason_stack=["ok"])
-    payload = json.loads((tmp_path / persisted["trace_path"]).read_text(encoding="utf-8"))
+    trace_path = persisted.get("trace_path")
+    assert isinstance(trace_path, str)
+    payload = json.loads((tmp_path / trace_path).read_text(encoding="utf-8"))
     assert any(item.get("name") == "router_proof_budget" for item in payload["clamps_applied"])
 
 
@@ -255,3 +282,10 @@ def test_governance_trace_records_auto_remediation_outcomes(tmp_path: Path, monk
     assert "auto_remediation_attempted" in payload["reason_stack"]
     assert "auto_remediation_succeeded" in payload["reason_stack"]
     assert any(item.get("reason") == "auto_remediation_recheck" for item in payload["gates_evaluated"])
+
+
+def test_governance_trace_normalizes_malformed_optional_lists() -> None:
+    assert _string_list(["valid", 7, None, "also-valid"]) == ["valid", "also-valid"]
+    assert _string_list({"unexpected": "mapping"}) == []
+    assert _record_list([{"name": "gate"}, None, "invalid"]) == [{"name": "gate"}]
+    assert _record_list("not-a-list") == []

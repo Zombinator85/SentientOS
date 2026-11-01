@@ -802,9 +802,19 @@ class GenesisForge:
             budget_gate = kernel.admit(budget_request)
             budget_payload = budget_gate.delegated_outcomes.get("proof_budget_governor", {})
             governor_decision = BudgetDecision(k_effective=int(budget_payload.get("k_effective", configured_k)), m_effective=int(budget_payload.get("m_effective", configured_m)), allow_escalation=bool(budget_payload.get("allow_escalation", True)), mode=str(budget_payload.get("mode", "normal")), decision_reasons=[str(item) for item in budget_payload.get("decision_reasons", [])])
+            before_k = min(governor_decision.k_effective, env_k)
+            before_m = min(governor_decision.m_effective, env_m)
+            before_escalation = governor_decision.allow_escalation
             router_k = min(governor_decision.k_effective, risk_budget.router_k_max)
             router_m = min(governor_decision.m_effective, risk_budget.router_m_max)
             allow_escalation = governor_decision.allow_escalation and risk_budget.router_allow_escalation
+            if (router_k, router_m, allow_escalation) != (before_k, before_m, before_escalation):
+                record_clamp_for_current(
+                    name="router_proof_budget",
+                    before={"k": before_k, "m": before_m, "allow_escalation": before_escalation},
+                    after={"k": router_k, "m": router_m, "allow_escalation": allow_escalation},
+                    notes="risk_budget_clamp_applied",
+                )
             try:
                 advice_packet = self._advice_source.advice_for_need(need, signal_batch={"batch_id": "proposal-review", "batch_digest": digest_payload({"capability": need.capability, "source": need.source})}, tick_id=attempt_id) if self._advice_source and governor_decision.mode != "diagnostics_only" else None
                 evaluated = self._evaluate_candidate_pipeline(need, anomaly=anomaly, configured_k=configured_k, configured_m=configured_m, router_k=router_k, router_m=router_m, allow_escalation=allow_escalation, governor_decision=governor_decision, risk_budget=risk_budget, advice_packet=advice_packet)
