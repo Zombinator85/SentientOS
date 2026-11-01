@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.anchor_witness import maybe_publish_anchor_witness
 from sentientos.receipt_anchors import create_anchor
 from sentientos.receipt_chain import append_receipt
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _seed_anchor(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
