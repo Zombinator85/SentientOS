@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as _dt
 import time
 from dataclasses import dataclass
-from typing import Mapping, Optional
+from typing import Callable, Mapping, Optional
 
 from sentientos.metrics import MetricsRegistry
 
@@ -26,7 +26,7 @@ class ConversationTriggers:
         config: ConversationConfig,
         *,
         metrics: MetricsRegistry | None = None,
-        clock: callable[[], float] | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._config = config
         self._metrics = metrics or MetricsRegistry()
