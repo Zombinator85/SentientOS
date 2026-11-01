@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.emit_contract_manifest import OPTIONAL_FILES, REQUIRED_FILES, emit_manifest
-from sentientos.doctrine_identity import local_doctrine_identity
+from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -37,3 +41,18 @@ def test_contract_manifest_lists_exclude_ratchet_status() -> None:
     assert "mypy_ratchet_status.json" not in listed
     assert all("ratchet" not in name for name in listed)
     assert all("/" not in name for name in listed)
+
+
+def test_doctrine_identity_ignores_malformed_nested_receipts(tmp_path: Path) -> None:
+    _write_json(tmp_path / "glow/contracts/contract_manifest.json", {"file_sha256": ["invalid"]})
+    _write_json(tmp_path / "glow/contracts/stability_doctrine.json", {"git_sha": "head"})
+    _write_json(
+        tmp_path / "glow/forge/receipts/merge_receipt_1.json",
+        {"doctrine_identity": ["invalid"]},
+    )
+
+    identity = local_doctrine_identity(tmp_path)
+
+    assert identity.head_sha == "head"
+    assert identity.bundle_sha256 == ""
+    assert expected_bundle_sha256_from_receipts(tmp_path) is None
