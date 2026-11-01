@@ -27,6 +27,17 @@ def test_default_registry_builds_deterministically_and_validates() -> None:
     assert first.metadata_only is True
 
 
+def test_causal_introspection_registry_tracks_operator_lineage_view() -> None:
+    record = build_default_capability_registry().by_id()["whole_system_causal_introspection"]
+
+    assert "sentientos/ois.py" in record.source_paths
+    assert "sentientos/cli/ois_cli.py" in record.source_paths
+    assert "tests/test_causal_introspection_ois.py" in record.proof_tests
+    assert "value-free OIS view of verified snapshot lineage and latest predecessor delta" in (
+        record.implemented_surfaces
+    )
+
+
 def test_summary_shape_is_metadata_only_and_digest_changes_on_metadata() -> None:
     registry = build_default_capability_registry()
     summary = summarize_capability_registry(registry)
