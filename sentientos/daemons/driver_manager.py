@@ -653,7 +653,7 @@ class DriverManager:
             if not line:
                 continue
             if not line.startswith("\t"):
-                descriptor = line.split(": ", 1)[1] if ": " in line else line
+                descriptor = line.split(maxsplit=1)[1] if " " in line else line
                 kind = _classify_device_kind(descriptor)
                 if kind is None:
                     current = None
@@ -683,34 +683,34 @@ class DriverManager:
                         module_list.append(driver)
                 elif stripped.startswith("Kernel modules:"):
                     modules_text = stripped.split(":", 1)[1]
-                    modules = [
+                    parsed_modules = [
                         module.strip()
                         for module in modules_text.split(",")
                         if module.strip()
                     ]
                     module_list = cast(list[str], current.setdefault("modules", []))
-                    module_list.extend(modules)
+                    module_list.extend(parsed_modules)
 
         enriched: list[DeviceReport] = []
         for raw in reports:
             kind = str(raw.get("kind", ""))
-            modules = {
+            module_names = {
                 str(module).strip().lower()
                 for module in cast(Iterable[object], raw.get("modules", []))
                 if str(module).strip()
             }
             for module in _candidate_modules_for_kind(kind):
                 if module in modules_loaded:
-                    modules.add(module)
+                    module_names.add(module)
             vendor_lower = str(raw.get("vendor", "")).lower()
             name_lower = str(raw.get("name", "")).lower()
             if vendor_lower == "nvidia" and nvidia_versions:
                 for gpu_name, version in nvidia_versions.items():
                     if gpu_name in name_lower or name_lower in gpu_name:
                         raw["current_driver"] = f"nvidia-driver {version}"
-                        modules.add("nvidia")
+                        module_names.add("nvidia")
                         break
-            raw["modules"] = tuple(sorted(modules))
+            raw["modules"] = tuple(sorted(module_names))
             enriched.append(self._coerce_report(raw))
         return enriched
 
