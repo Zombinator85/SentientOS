@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.no_legacy_skip
+
 from scripts import verify_context_hygiene_prompt_boundaries as guardrails
 from sentientos.context_hygiene.embodiment_context import build_embodiment_context_candidates
 from sentientos.context_hygiene.prompt_external_security_review import (

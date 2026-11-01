@@ -911,7 +911,10 @@ def build_provider_invocation_denial_review_receipt(
     if not _expiration_times_valid(expiration):
         findings = (*findings, _finding("review_time_invalid", "review timestamps must include a known timezone"))
     status = _status(str(decision), findings, expired)
-    warnings = ("invocation_denial_review_is_not_invocation_approval", "provider_invocation_remains_forbidden")
+    warnings: tuple[str, ...] = (
+        "invocation_denial_review_is_not_invocation_approval",
+        "provider_invocation_remains_forbidden",
+    )
     if str(review_scope) in {
         ProviderInvocationDenialReviewScope.FUTURE_EXTERNAL_SECURITY_REVIEW_GATE,
         ProviderInvocationDenialReviewScope.FUTURE_INVOCATION_DENIAL_AUDIT_GATE,
