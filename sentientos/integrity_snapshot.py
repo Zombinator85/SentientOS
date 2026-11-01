@@ -239,7 +239,7 @@ def evaluate_peer_integrity(repo_root: Path) -> dict[str, object]:
         "goal_graph_hash_mismatch": 5,
     }
     reasons = sorted(
-        {reason for row in diverged for reason in row.get("divergence_reasons", []) if isinstance(reason, str)},
+        {reason for row in diverged for reason in _string_values(row.get("divergence_reasons"))},
         key=lambda item: (order.get(item, 100), item),
     )
     overall = "diverged" if diverged else ("ok" if summaries else "unknown")
@@ -291,15 +291,23 @@ def _git_head_sha(repo_root: Path) -> str | None:
 def _match_key(local: Mapping[str, object], peer: Mapping[str, object], key: str) -> bool:
     left_raw = local.get(key)
     right_raw = peer.get(key)
+    left_text: str | None
+    right_text: str | None
     if isinstance(left_raw, dict) and isinstance(right_raw, dict):
-        left = json.dumps(left_raw, sort_keys=True, separators=(",", ":"))
-        right = json.dumps(right_raw, sort_keys=True, separators=(",", ":"))
+        left_text = json.dumps(left_raw, sort_keys=True, separators=(",", ":"))
+        right_text = json.dumps(right_raw, sort_keys=True, separators=(",", ":"))
     else:
-        left = _as_str(left_raw)
-        right = _as_str(right_raw)
-    if not left or not right:
+        left_text = _as_str(left_raw)
+        right_text = _as_str(right_raw)
+    if not left_text or not right_text:
         return True
-    return left == right
+    return left_text == right_text
+
+
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _present(value: object) -> bool:
