@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from scripts.protected_corridor import _global_summary
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def test_global_summary_includes_escalation_posture_views() -> None:
     profiles = [
@@ -85,3 +89,11 @@ def test_global_summary_includes_escalation_posture_views() -> None:
     assert trust_ledger["counts_by_review_contract"]["proof_review_required"] == 1
     assert trust_ledger["counts_by_posture"]["evidence_incomplete"] == 1
     assert trust_ledger["counts_by_evidence_class"]["kernel_admission_issues"] == 1
+
+
+def test_global_summary_tolerates_malformed_profile_summary() -> None:
+    summary = _global_summary([{"profile": "unknown", "summary": None, "checks": []}])
+
+    assert summary["blocking_profiles"] == []
+    assert summary["advisory_profiles"] == []
+    assert summary["debt_profiles"] == []
