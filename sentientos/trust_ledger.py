@@ -283,12 +283,18 @@ class FederationTrustLedger:
 
     def recovery_status(self) -> dict[str, object]:
         with self._lock:
+            findings = self._recovery_status.get("recovery_findings")
+            recovery_findings = (
+                [item for item in findings if isinstance(item, str)]
+                if isinstance(findings, list)
+                else []
+            )
             return {
                 "schema_version": self._schema_version,
                 "recovered_from_state": bool(self._recovery_status.get("recovered_from_state", False)),
                 "recovered_from_events": bool(self._recovery_status.get("recovered_from_events", False)),
                 "recovery_degraded": bool(self._recovery_status.get("recovery_degraded", False)),
-                "recovery_findings": [str(item) for item in self._recovery_status.get("recovery_findings", []) if isinstance(item, str)],
+                "recovery_findings": recovery_findings,
             }
 
     @staticmethod

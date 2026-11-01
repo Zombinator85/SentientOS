@@ -104,6 +104,7 @@ class ArduinoSerialAdapter(Adapter):
         params = dict(measure)
         params.pop("kind", None)
         if self.simulation_mode:
+            value: float | int | dict[str, int | str]
             if kind == "temp_c":
                 value = 22.0 + self._analog_counter * 0.05
             elif kind == "analog":
