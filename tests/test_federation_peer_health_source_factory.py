@@ -81,7 +81,7 @@ def _write_pinned_peer(
     return pin_path, runtime_root, str(catalog["catalog_digest"])
 
 
-def test_operator_pin_composes_exact_catalog_and_durable_peer_owner(tmp_path: Path):
+def test_operator_pin_composes_exact_catalog_and_durable_peer_owner(tmp_path: Path) -> None:
     pin_path, runtime_root, digest = _write_pinned_peer(tmp_path)
 
     sources = load_operator_pinned_peer_health_sources(
@@ -101,7 +101,7 @@ def test_operator_pin_composes_exact_catalog_and_durable_peer_owner(tmp_path: Pa
     assert not source.owner.root.exists()
 
 
-def test_operator_pin_rejects_catalog_digest_drift(tmp_path: Path):
+def test_operator_pin_rejects_catalog_digest_drift(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
     pin = json.loads(pin_path.read_text())
     pin["peers"][0]["catalog_digest"] = "sha256:" + "0" * 64
@@ -113,7 +113,7 @@ def test_operator_pin_rejects_catalog_digest_drift(tmp_path: Path):
             pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one"})
 
 
-def test_operator_pin_rejects_catalog_containing_another_peer(tmp_path: Path):
+def test_operator_pin_rejects_catalog_containing_another_peer(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
     catalog_path = runtime_root / "federation" / "peer_trust_catalogs" / "peer-one.json"
     catalog = json.loads(catalog_path.read_text())
@@ -132,7 +132,7 @@ def test_operator_pin_rejects_catalog_containing_another_peer(tmp_path: Path):
             pin_path, runtime_root=runtime_root, configured_peer_ids={"peer-one", "peer-two"})
 
 
-def test_operator_pin_rejects_unconfigured_peer(tmp_path: Path):
+def test_operator_pin_rejects_unconfigured_peer(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
 
     with pytest.raises(FederationPeerHealthSourceFactoryError, match="peer_health_pin_peer_not_configured"):
@@ -140,7 +140,7 @@ def test_operator_pin_rejects_unconfigured_peer(tmp_path: Path):
             pin_path, runtime_root=runtime_root, configured_peer_ids={"other-peer"})
 
 
-def test_operator_pin_requires_private_file_custody(tmp_path: Path):
+def test_operator_pin_requires_private_file_custody(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
     pin_path.chmod(0o644)
 
@@ -151,7 +151,7 @@ def test_operator_pin_requires_private_file_custody(tmp_path: Path):
 
 def test_operator_pin_fails_closed_without_replay_owner_platform_custody(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
     monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: False)
 
@@ -162,7 +162,7 @@ def test_operator_pin_fails_closed_without_replay_owner_platform_custody(
 
 def test_windows_operator_pin_binds_existing_private_replay_root_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     identity = (0x123456789ABCDEF0, bytes(range(16)))
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path, windows_identity=identity)
     owner_root = runtime_root / "federation" / "peer_health_replay" / "peer-one"
@@ -179,7 +179,7 @@ def test_windows_operator_pin_binds_existing_private_replay_root_identity(
 
 def test_windows_operator_pin_rejects_root_identity_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     pinned = (7, bytes(range(16)))
     replacement = (7, bytes(reversed(range(16))))
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path, windows_identity=pinned)
@@ -196,7 +196,7 @@ def test_windows_operator_pin_rejects_root_identity_replacement(
 
 def test_windows_operator_pin_rejects_legacy_unpinned_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
     monkeypatch.setattr(factory, "_requires_windows_root_identity", lambda: True)
     monkeypatch.setattr(factory, "_supports_replay_owner_custody", lambda: True)
@@ -208,7 +208,7 @@ def test_windows_operator_pin_rejects_legacy_unpinned_root(
     assert not (runtime_root / "federation" / "peer_health_replay" / "peer-one").exists()
 
 
-def test_windows_operator_pin_rejects_malformed_root_identity(tmp_path: Path):
+def test_windows_operator_pin_rejects_malformed_root_identity(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(
         tmp_path, windows_identity=(1, bytes(range(16))))
     pin = json.loads(pin_path.read_text())
@@ -221,13 +221,14 @@ def test_windows_operator_pin_rejects_malformed_root_identity(tmp_path: Path):
         factory._load_pin(pin_path)
 
 
-def test_operator_pin_rejects_invalid_path_argument(tmp_path: Path):
+def test_operator_pin_rejects_invalid_path_argument(tmp_path: Path) -> None:
+    invalid_pin_path = json.loads("42")
     with pytest.raises(FederationPeerHealthSourceFactoryError, match="peer_health_pin_path_invalid"):
         load_operator_pinned_peer_health_sources(
-            42, runtime_root=tmp_path / "runtime", configured_peer_ids={"peer-one"})  # type: ignore[arg-type]
+            invalid_pin_path, runtime_root=tmp_path / "runtime", configured_peer_ids={"peer-one"})
 
 
-def test_operator_pin_rejects_string_configured_peer_collection(tmp_path: Path):
+def test_operator_pin_rejects_string_configured_peer_collection(tmp_path: Path) -> None:
     pin_path, runtime_root, _ = _write_pinned_peer(tmp_path)
 
     with pytest.raises(
@@ -235,4 +236,4 @@ def test_operator_pin_rejects_string_configured_peer_collection(tmp_path: Path):
         match="peer_health_configured_peer_ids_invalid",
     ):
         load_operator_pinned_peer_health_sources(
-            pin_path, runtime_root=runtime_root, configured_peer_ids="peer-one")  # type: ignore[arg-type]
+            pin_path, runtime_root=runtime_root, configured_peer_ids="peer-one")
