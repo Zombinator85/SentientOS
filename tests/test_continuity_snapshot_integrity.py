@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.autonomy.state import (
     ContinuitySnapshot,
@@ -82,3 +83,18 @@ def test_gradient_fields_rejected_before_digest(tmp_path):
 
     with pytest.raises(GradientInvariantViolation):
         manager.load()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("mood", 4),
+        ("readiness", "ready"),
+        ("curiosity_queue", {"goal": "g-1"}),
+        ("curiosity_inflight", [None]),
+        ("last_readiness_ts", 123),
+    ],
+)
+def test_continuity_snapshot_rejects_malformed_field_shapes(field, value):
+    with pytest.raises(SnapshotDivergenceError, match="continuity snapshot"):
+        ContinuitySnapshot.from_mapping({field: value})
