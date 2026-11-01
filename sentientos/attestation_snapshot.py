@@ -89,7 +89,7 @@ def emit_snapshot(repo_root: Path, snapshot: AttestationSnapshot) -> str:
         artifact_id=str(snapshot.ts),
         relative_path=str(rel),
         schema_name="attestation_snapshot",
-        schema_version=int(payload.get("schema_version") or 1),
+        schema_version=snapshot.schema_version,
         links={
             "policy_hash": payload.get("policy_hash"),
             "integrity_status_hash": payload.get("integrity_status_hash"),
@@ -97,7 +97,7 @@ def emit_snapshot(repo_root: Path, snapshot: AttestationSnapshot) -> str:
             "attestation_snapshot_hash": payload.get("integrity_status_hash"),
         },
         summary={"status": "present"},
-        ts=str(snapshot.ts),
+        ts=snapshot.ts,
     )
     return str(rel)
 
@@ -158,7 +158,8 @@ def maybe_sign_snapshot(repo_root: Path, *, snapshot_rel_path: str, snapshot_pay
     signature = _sign(signer, payload_sha)
     envelope = payload | {"sig_payload_sha256": payload_sha, "signature": signature}
     envelope["sig_hash"] = compute_envelope_hash(envelope, hash_field="sig_hash")
-    path = root / SIGNATURE_DIR / f"sig_{safe_ts(payload['created_at'])}_snapshot.json"
+    created_at = as_str(payload.get("created_at")) or ""
+    path = root / SIGNATURE_DIR / f"sig_{safe_ts(created_at)}_snapshot.json"
     write_json(path, envelope)
     append_jsonl(root / SIGNATURE_INDEX_PATH, envelope)
     return envelope
@@ -419,7 +420,8 @@ def latest_snapshot_hashes(repo_root: Path) -> tuple[str | None, str | None]:
         payload = read_json(snapshots[-1])
         snapshot_hash = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()[:16]
     rows = read_jsonl(root / SIGNATURE_INDEX_PATH)
-    sig_hash = as_str(rows[-1].get("sig_hash"))[:16] if rows and as_str(rows[-1].get("sig_hash")) else None
+    latest_sig_hash = as_str(rows[-1].get("sig_hash")) if rows else None
+    sig_hash = latest_sig_hash[:16] if latest_sig_hash else None
     return snapshot_hash, sig_hash
 
 
