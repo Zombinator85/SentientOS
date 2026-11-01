@@ -13,6 +13,7 @@ require_admin_banner()
 require_lumos_approval()
 
 from scripts import apply_audit_repairs, plan_audit_repairs, verify_audits
+from scripts.verify_audits import AuditIssue
 
 DEFAULT_REPORT_PATH = Path("glow/audits/audit_convergence_report.json")
 DEFAULT_ITERATIONS_DIR = Path("glow/audits/convergence")
@@ -24,25 +25,25 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _issue_sort_key(issue: dict[str, Any]) -> tuple[str, str, str, str, str]:
+def _issue_sort_key(issue: AuditIssue) -> tuple[str, str, str, str, str]:
     return (
-        str(issue.get("path", "")),
-        str(issue.get("code", "unknown")),
-        str(issue.get("details", "")),
-        str(issue.get("expected", "")),
-        str(issue.get("actual", "")),
+        issue["path"],
+        issue["code"],
+        issue["details"],
+        issue["expected"],
+        issue["actual"],
     )
 
 
 def _verify_summary(target: Path) -> dict[str, Any]:
     issues_by_path, percent, _ = verify_audits.verify_audits_detailed(directory=target, quarantine=True, repair=False)
-    ordered: list[dict[str, Any]] = []
+    ordered: list[AuditIssue] = []
     for path in sorted(issues_by_path.keys()):
         ordered.extend(sorted(issues_by_path[path], key=_issue_sort_key))
 
     per_code: dict[str, int] = {}
     for issue in ordered:
-        code = str(issue.get("code", "unknown"))
+        code = issue["code"]
         per_code[code] = per_code.get(code, 0) + 1
 
     return {
