@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 
 class CycleReflectionEngine:
@@ -94,7 +94,7 @@ class CycleReflectionEngine:
         for entry in history:
             if not isinstance(entry, dict):
                 continue
-            cursor = deepcopy(entry)
+            cursor: object = deepcopy(entry)
             for key in path:
                 if isinstance(cursor, dict):
                     cursor = cursor.get(key)
@@ -105,7 +105,7 @@ class CycleReflectionEngine:
                 series.append(float(cursor))
         return series
 
-    def _classify_trend(self, values: List[float]) -> str:
+    def _classify_trend(self, values: Sequence[float]) -> str:
         if len(values) < 2:
             return "stable"
         delta = values[-1] - values[0]
@@ -132,18 +132,14 @@ class CycleReflectionEngine:
     def _categorize_conflict_rate(self, rate: float) -> str:
         if rate == 0:
             return "none"
-        if rate >= 0.75:
+        if rate >= 0.5:
             return "high"
-        if rate >= 0.34:
+        if rate >= 0.2:
             return "moderate"
         return "low"
 
-    def _metacog_length(self, entry: dict) -> int:
-        metacog = None
-        if isinstance(entry, dict):
-            metacog = entry.get("metacog")
-            if metacog is None:
-                metacog = entry.get("meta")
-        if isinstance(metacog, list):
-            return len(metacog)
-        return 0
+    def _metacog_length(self, entry: dict) -> float:
+        notes = entry.get("metacog_notes", [])
+        if not isinstance(notes, list):
+            return 0.0
+        return float(len([note for note in notes if note]))
