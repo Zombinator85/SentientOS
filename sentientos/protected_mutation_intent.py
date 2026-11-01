@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, TypedDict
 
 INTENT_SCHEMA_VERSION = 1
+
+
+class _NormalizedIntent(TypedDict):
+    schema_version: int
+    declared: bool
+    domains: list[str]
+    authority_classes: list[str]
+    expect_forward_enforcement: bool
+    invocation_path: str
 
 _CODEXHEALER_DOMAIN = "codexhealer_repair_regenesis_linkage"
 
@@ -52,13 +61,30 @@ def declare_protected_mutation_intent(
     }
 
 
-def _normalize_declared_intent(raw: object) -> dict[str, object] | None:
+def _normalized_string_values(value: object) -> list[str]:
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        return []
+    return sorted({str(item).strip() for item in value if str(item).strip()})
+
+
+def _schema_version(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return INTENT_SCHEMA_VERSION
+
+
+def _normalize_declared_intent(raw: object) -> _NormalizedIntent | None:
     if not isinstance(raw, Mapping) or not bool(raw.get("declared", False)):
         return None
-    domains = sorted({str(item).strip() for item in (raw.get("domains") or []) if str(item).strip()})
-    authority = sorted({str(item).strip() for item in (raw.get("authority_classes") or []) if str(item).strip()})
+    domains = _normalized_string_values(raw.get("domains"))
+    authority = _normalized_string_values(raw.get("authority_classes"))
     return {
-        "schema_version": int(raw.get("schema_version") or INTENT_SCHEMA_VERSION),
+        "schema_version": _schema_version(raw.get("schema_version")),
         "declared": True,
         "domains": domains,
         "authority_classes": authority,
@@ -86,7 +112,7 @@ def evaluate_declared_intent_for_decision(decision_row: Mapping[str, Any]) -> Pr
             return ProtectedIntentEvaluation(
                 status="declared_but_not_applicable",
                 declared=True,
-                declared_domains=tuple(declared_intent["domains"]),  # type: ignore[arg-type]
+                declared_domains=tuple(declared_intent["domains"]),
                 expected_domains=(),
                 expect_forward_enforcement=bool(declared_intent.get("expect_forward_enforcement", True)),
                 authority_match=authority_class in set(declared_intent.get("authority_classes") or []),
