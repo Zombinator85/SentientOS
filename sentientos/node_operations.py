@@ -44,6 +44,12 @@ def _latest_json(root: Path, pattern: str) -> tuple[dict[str, object], str | Non
     return read_json(selected), str(selected.relative_to(root))
 
 
+def _object_mapping(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return {str(key): item for key, item in value.items()}
+    return {}
+
+
 def _bounded_jsonl(root: Path, rel: str, *, limit: int) -> list[dict[str, object]]:
     rows = read_jsonl(root / rel)
     if len(rows) <= limit:
@@ -56,7 +62,7 @@ def _health_from_surfaces(constitution: dict[str, object], status: dict[str, obj
     if constitution_state in HEALTH_STATES:
         if constitution_state == "healthy":
             integrity = str(status.get("integrity_overall") or "missing")
-            runtime_data = ((status.get("health_domain") if isinstance(status.get("health_domain"), dict) else {}).get("runtime_data") or "unknown")
+            runtime_data = _object_mapping(status.get("health_domain")).get("runtime_data") or "unknown"
             if integrity == "ok" and runtime_data == "healthy":
                 return "healthy"
             if integrity in {"warn", "fail"} or runtime_data in {"degraded", "missing_or_degraded"}:
@@ -70,11 +76,12 @@ def _write_operator_rollups(root: Path, *, constitution: dict[str, object], stat
     operator_root.mkdir(parents=True, exist_ok=True)
 
     trust_ledger = read_json(root / "glow/federation/trust_ledger_state.json")
-    peers = trust_ledger.get("peer_states") if isinstance(trust_ledger.get("peer_states"), list) else []
+    peer_states = trust_ledger.get("peer_states")
+    peers = peer_states if isinstance(peer_states, list) else []
     peer_summary = {
         "schema_version": 1,
         "peer_count": len(peers),
-        "state_summary": trust_ledger.get("state_summary") if isinstance(trust_ledger.get("state_summary"), dict) else {},
+        "state_summary": _object_mapping(trust_ledger.get("state_summary")),
         "peers": [
             {
                 "peer_id": row.get("peer_id"),
@@ -100,16 +107,27 @@ def _write_operator_rollups(root: Path, *, constitution: dict[str, object], stat
     restrictions_path = operator_root / "current_restrictions.json"
     write_json(restrictions_path, restrictions)
 
+    constitution_summary = {
+        "state": constitution.get("constitution_state"),
+        "digest": constitution.get("constitutional_digest"),
+        "effective_posture": constitution.get("effective_posture"),
+        "missing_required_artifacts": constitution.get("missing_required_artifacts", []),
+    }
+    sources = {
+        "constitution_summary": "glow/constitution/constitution_summary.json",
+        "forge_status": "glow/forge/operator/status",
+        "governor_rollup": "glow/governor/rollup.json",
+        "audit_trust_state": "glow/runtime/audit_trust_state.json",
+        "pulse_trust_epoch": "glow/pulse_trust/epoch_state.json",
+        "federation_governance_digest": "glow/federation/governance_digest.json",
+        "trust_ledger_state": "glow/federation/trust_ledger_state.json",
+        "node_truth_artifacts": "glow/lab/node_truth_artifacts.json",
+    }
     summary = {
         "schema_version": 1,
         "generated_at": iso_now(),
         "health_state": _health_from_surfaces(constitution, status),
-        "constitution": {
-            "state": constitution.get("constitution_state"),
-            "digest": constitution.get("constitutional_digest"),
-            "effective_posture": constitution.get("effective_posture"),
-            "missing_required_artifacts": constitution.get("missing_required_artifacts", []),
-        },
+        "constitution": constitution_summary,
         "governor": status.get("governor") if isinstance(status.get("governor"), dict) else {},
         "audit_trust": status.get("audit_trust") if isinstance(status.get("audit_trust"), dict) else {},
         "audit_continuation": status.get("audit_continuation") if isinstance(status.get("audit_continuation"), dict) else {},
@@ -124,34 +142,27 @@ def _write_operator_rollups(root: Path, *, constitution: dict[str, object], stat
             "recent_repair_actions": _bounded_jsonl(root, "glow/forge/audit_reports/repair_actions.jsonl", limit=10),
         },
         "restrictions_path": str(restrictions_path.relative_to(root)),
-        "sources": {
-            "constitution_summary": "glow/constitution/constitution_summary.json",
-            "forge_status": "glow/forge/operator/status",
-            "governor_rollup": "glow/governor/rollup.json",
-            "audit_trust_state": "glow/runtime/audit_trust_state.json",
-            "pulse_trust_epoch": "glow/pulse_trust/epoch_state.json",
-            "federation_governance_digest": "glow/federation/governance_digest.json",
-            "trust_ledger_state": "glow/federation/trust_ledger_state.json",
-            "node_truth_artifacts": "glow/lab/node_truth_artifacts.json",
-        },
+        "sources": sources,
     }
     summary_path = operator_root / "operator_summary.json"
     write_json(summary_path, summary)
 
+    degraded_modes = constitution.get("degraded_modes")
+    degraded_mode_text = ", ".join(str(mode) for mode in degraded_modes) if isinstance(degraded_modes, list) else ""
     md_lines = [
         "# SentientOS Operator Summary",
         "",
         f"- generated_at: {summary['generated_at']}",
         f"- health_state: {summary['health_state']}",
-        f"- constitution_state: {summary['constitution']['state']}",
-        f"- constitution_digest: {summary['constitution']['digest']}",
-        f"- effective_posture: {summary['constitution']['effective_posture']}",
-        f"- degraded_modes: {', '.join(constitution.get('degraded_modes', [])) if isinstance(constitution.get('degraded_modes'), list) else ''}",
+        f"- constitution_state: {constitution_summary['state']}",
+        f"- constitution_digest: {constitution_summary['digest']}",
+        f"- effective_posture: {constitution_summary['effective_posture']}",
+        f"- degraded_modes: {degraded_mode_text}",
         f"- restrictions_path: {summary['restrictions_path']}",
         "",
         "## Source Artifacts",
     ]
-    for key, value in sorted(summary["sources"].items()):
+    for key, value in sorted(sources.items()):
         md_lines.append(f"- {key}: `{value}`")
     (operator_root / "operator_summary.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")
 
@@ -251,7 +262,7 @@ def run_bootstrap(root: Path, *, reason: str, seed_minimal: bool, allow_restore:
         "health_state": health_state,
         "constitution_state": constitution.get("constitution_state"),
         "integrity_overall": status.get("integrity_overall"),
-        "runtime_data_state": (status.get("health_domain") if isinstance(status.get("health_domain"), dict) else {}).get("runtime_data"),
+        "runtime_data_state": _object_mapping(status.get("health_domain")).get("runtime_data"),
         "cockpit_paths": cockpit_paths,
         "exit_code": exit_code,
     }
@@ -333,14 +344,14 @@ def build_incident_bundle(root: Path, *, reason: str, window: int) -> dict[str, 
         target.write_bytes(selected.read_bytes())
         copied.append({"path": str(rel), "sha256": _sha256(target), "size": target.stat().st_size})
 
-    for rel, limit in bounded_jsonl:
-        rows = _bounded_jsonl(root, rel, limit=limit)
+    for bounded_rel, limit in bounded_jsonl:
+        rows = _bounded_jsonl(root, bounded_rel, limit=limit)
         if not rows:
             continue
-        target = include_root / rel
+        target = include_root / bounded_rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
-        copied.append({"path": rel, "sha256": _sha256(target), "size": target.stat().st_size, "bounded_rows": len(rows)})
+        copied.append({"path": bounded_rel, "sha256": _sha256(target), "size": target.stat().st_size, "bounded_rows": len(rows)})
 
     manifest = {
         "schema_version": 1,
