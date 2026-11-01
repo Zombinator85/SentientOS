@@ -114,6 +114,15 @@ def test_capture_accept_manual_records_explicit_status(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert payload["manual_issues_accepted"] is True
     assert on_disk["manual_issues_accepted"] is True
+    assert payload["issues_by_code"] == {"schema_violation": 1}
+    assert payload["issue_tuples"] == [
+        {
+            "code": "schema_violation",
+            "path": str(logs / "audit.jsonl"),
+            "expected": "valid JSON object",
+            "actual": '{"oops":',
+        }
+    ]
 
 
 def test_capture_baseline_includes_provenance_metadata(tmp_path: Path) -> None:
