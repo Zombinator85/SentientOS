@@ -104,13 +104,34 @@ class ContinuitySnapshot:
     def from_mapping(cls, payload: Mapping[str, object] | None) -> "ContinuitySnapshot":
         if not payload:
             return cls()
+        mood = payload.get("mood")
+        if mood is not None and not isinstance(mood, str):
+            raise SnapshotDivergenceError("continuity snapshot mood must be a string")
+        readiness = payload.get("readiness")
+        if readiness is not None and not isinstance(readiness, Mapping):
+            raise SnapshotDivergenceError("continuity snapshot readiness must be a mapping")
+        curiosity_queue = _mapping_sequence(payload.get("curiosity_queue"), field_name="curiosity_queue")
+        curiosity_inflight = _mapping_sequence(payload.get("curiosity_inflight"), field_name="curiosity_inflight")
+        last_readiness_ts = payload.get("last_readiness_ts")
+        if last_readiness_ts is not None and not isinstance(last_readiness_ts, str):
+            raise SnapshotDivergenceError("continuity snapshot last_readiness_ts must be a string")
         return cls(
-            mood=payload.get("mood"),
-            readiness=payload.get("readiness"),
-            curiosity_queue=list(payload.get("curiosity_queue", []) or []),
-            curiosity_inflight=list(payload.get("curiosity_inflight", []) or []),
-            last_readiness_ts=payload.get("last_readiness_ts"),
+            mood=mood,
+            readiness=readiness,
+            curiosity_queue=curiosity_queue,
+            curiosity_inflight=curiosity_inflight,
+            last_readiness_ts=last_readiness_ts,
         )
+
+
+def _mapping_sequence(value: object, *, field_name: str) -> list[Mapping[str, object]]:
+    if value is None:
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise SnapshotDivergenceError(f"continuity snapshot {field_name} must be a sequence")
+    if any(not isinstance(item, Mapping) for item in value):
+        raise SnapshotDivergenceError(f"continuity snapshot {field_name} entries must be mappings")
+    return [item for item in value if isinstance(item, Mapping)]
 
 
 class ContinuityStateManager:
@@ -257,7 +278,7 @@ def _canonical_value(value: Any, *, path: tuple[str, ...], allowed_keys: tuple[s
             and (allowed_keys is None or str(key) in allowed_keys)
         )
         return {
-            key: _canonical_value(val, path=(*path, key), allowed_keys=allowed_keys)
+            key: _canonical_value(val, path=(*path, key))
             for key, val in filtered
         }
     if isinstance(value, (list, tuple)):
