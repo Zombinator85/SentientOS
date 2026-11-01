@@ -123,7 +123,7 @@ class ForgetBoundaryContract(Protocol):
 
 @dataclass(frozen=True)
 class ForgetDiff:
-    request: Mapping[str, str]
+    request: Mapping[str, object]
     forget_tx_id: str
     replay_status: str
     phase: str | None
@@ -369,6 +369,7 @@ class IntentionalForgettingService:
             if budget_previews:
                 boundary_previews = list(boundary_previews) + budget_previews
             boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
+            error_reason: str | None
             if boundary_blocked:
                 outcome = _ForgetOutcome()
                 error_reason = "boundary_refusal"
@@ -443,55 +444,69 @@ class IntentionalForgettingService:
                 for item in invariant_violations
             ]
 
-        payload = {
+        request_payload: dict[str, object] = {
+            "target_type": request.target_type,
+            "target_id": request.target_id,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+            "authority": authority,
+            "defer_acknowledged": request.defer_acknowledged,
+        }
+        primary_targets = _sorted_unique(outcome.primary)
+        cascaded_removals = _sorted_unique(outcome.cascaded)
+        removals = _sorted_unique(outcome.removals)
+        authority_deltas = tuple(dict(item) for item in authority_diff.get("changes", ()))
+        blocked_items = tuple(_sorted_blockers(blocked))
+        skipped_items = tuple(_sorted_blockers(outcome.skipped))
+        narrative_hash_items = tuple(_sorted_hashes(narrative_summary_hashes))
+        state_hashes = {"before": pre_state_hash, "after": post_state_hash}
+        invariant_status = "violations" if invariant_violations else "ok"
+        invariant_items = tuple(_sorted_blockers(invariant_violations))
+        boundary_items = tuple(_sorted_boundary_previews(boundary_previews, request.defer_acknowledged))
+        pressure_items = tuple(_sorted_pressure_entries(pressure_state))
+        pressure_budget_items = tuple(_sorted_pressure_budgets(budget_forecast))
+        payload: dict[str, object] = {
             "view": "intentional_forget_diff",
             "schema_version": "forget_diff_v1",
-            "request": {
-                "target_type": request.target_type,
-                "target_id": request.target_id,
-                "forget_scope": request.forget_scope,
-                "proof_level": request.proof_level,
-                "authority": authority,
-                "defer_acknowledged": request.defer_acknowledged,
-            },
+            "request": request_payload,
             "forget_tx_id": forget_tx_id,
             "replay_status": replay_status,
             "phase": phase_state.phase,
             "execution_status": phase_state.execution_status,
-            "primary_targets": _sorted_unique(outcome.primary),
-            "cascaded_removals": _sorted_unique(outcome.cascaded),
-            "removals": _sorted_unique(outcome.removals),
-            "authority_deltas": tuple(authority_diff.get("changes", ())),
-            "blocked": _sorted_blockers(blocked),
-            "skipped": _sorted_blockers(outcome.skipped),
-            "narrative_summary_hashes": _sorted_hashes(narrative_summary_hashes),
-            "state_hashes": {"before": pre_state_hash, "after": post_state_hash},
-            "invariant_status": "violations" if invariant_violations else "ok",
-            "invariant_violations": _sorted_blockers(invariant_violations),
-            "boundary_previews": _sorted_boundary_previews(boundary_previews, request.defer_acknowledged),
-            "pressure": _sorted_pressure_entries(pressure_state),
-            "pressure_budgets": _sorted_pressure_budgets(budget_forecast),
+            "primary_targets": primary_targets,
+            "cascaded_removals": cascaded_removals,
+            "removals": removals,
+            "authority_deltas": authority_deltas,
+            "blocked": blocked_items,
+            "skipped": skipped_items,
+            "narrative_summary_hashes": narrative_hash_items,
+            "state_hashes": state_hashes,
+            "invariant_status": invariant_status,
+            "invariant_violations": invariant_items,
+            "boundary_previews": boundary_items,
+            "pressure": pressure_items,
+            "pressure_budgets": pressure_budget_items,
         }
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
-            request=payload["request"],
+            request=request_payload,
             forget_tx_id=forget_tx_id,
             replay_status=replay_status,
             phase=phase_state.phase,
             execution_status=phase_state.execution_status,
-            primary_targets=tuple(payload["primary_targets"]),
-            cascaded_removals=tuple(payload["cascaded_removals"]),
-            removals=tuple(payload["removals"]),
-            authority_deltas=tuple(payload["authority_deltas"]),
-            blocked=tuple(payload["blocked"]),
-            skipped=tuple(payload["skipped"]),
-            narrative_summary_hashes=tuple(payload["narrative_summary_hashes"]),
-            state_hashes=payload["state_hashes"],
-            invariant_status=payload["invariant_status"],
-            invariant_violations=tuple(payload["invariant_violations"]),
-            boundary_previews=tuple(payload["boundary_previews"]),
-            pressure=tuple(payload["pressure"]),
-            pressure_budgets=tuple(payload["pressure_budgets"]),
+            primary_targets=tuple(primary_targets),
+            cascaded_removals=tuple(cascaded_removals),
+            removals=tuple(removals),
+            authority_deltas=authority_deltas,
+            blocked=blocked_items,
+            skipped=skipped_items,
+            narrative_summary_hashes=narrative_hash_items,
+            state_hashes=state_hashes,
+            invariant_status=invariant_status,
+            invariant_violations=invariant_items,
+            boundary_previews=boundary_items,
+            pressure=pressure_items,
+            pressure_budgets=pressure_budget_items,
             diff_hash=diff_hash,
         )
 
@@ -1284,9 +1299,10 @@ class IntentionalForgettingService:
         entries = read_forget_log(self.log_path)
         status = _pressure_budget_forecast(entries, self.pressure_budgets, previews, defer_acknowledged)
         exceeded = {
-            item["subsystem"]
+            subsystem
             for item in status
             if item.get("status") in {"exceeded", "would_exceed"}
+            and isinstance((subsystem := item.get("subsystem")), str)
         }
         if not exceeded:
             return [], set()
@@ -1350,7 +1366,7 @@ def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, objec
     if not target.exists():
         return []
     try:
-        return read_json(target)
+        return [{str(key): value for key, value in row.items()} for row in read_json(target)]
     except Exception:
         return []
 
@@ -1400,10 +1416,10 @@ def build_forget_pressure_snapshot(
                 key = str(name)
                 subsystem_counts[key] = subsystem_counts.get(key, 0) + 1
 
-    pressure_by_subsystem = [
+    pressure_by_subsystem: list[dict[str, object]] = [
         {"subsystem": subsystem, "count": count} for subsystem, count in subsystem_counts.items()
     ]
-    pressure_by_subsystem.sort(key=lambda item: item.get("subsystem", ""))
+    pressure_by_subsystem.sort(key=lambda item: str(item.get("subsystem", "")))
 
     overload_domains = []
     for item in budget_status:
@@ -1760,7 +1776,7 @@ def _sorted_pressure_entries(items: Iterable[Mapping[str, object]]) -> list[dict
 
 def _sorted_pressure_budgets(items: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
     normalized = [dict(item) for item in items]
-    normalized.sort(key=lambda item: (item.get("subsystem", ""), str(item.get("status", ""))))
+    normalized.sort(key=lambda item: (str(item.get("subsystem", "")), str(item.get("status", ""))))
     return normalized
 
 
@@ -1768,7 +1784,7 @@ def _sorted_boundary_previews(
     previews: Iterable[ForgetBoundaryPreview],
     defer_acknowledged: bool,
 ) -> list[dict[str, object]]:
-    normalized = [
+    normalized: list[dict[str, object]] = [
         {
             "subsystem": preview.subsystem,
             "decision": preview.decision.value,
@@ -1777,7 +1793,7 @@ def _sorted_boundary_previews(
         }
         for preview in previews
     ]
-    normalized.sort(key=lambda item: (item.get("subsystem", ""), item.get("decision", "")))
+    normalized.sort(key=lambda item: (str(item.get("subsystem", "")), str(item.get("decision", ""))))
     return normalized
 
 
@@ -1845,16 +1861,21 @@ def _pressure_budget_status(
     current_index = len(entries_list)
     status: dict[str, dict[str, object]] = {}
     for entry in active_entries:
-        weight = float(entry.get("pressure_weight", 1.0) or 1.0)
+        weight = _as_float(entry.get("pressure_weight", 1.0) or 1.0)
         birth_index = entry.get("pressure_birth_index")
         if birth_index is None:
             birth_index = entry.get("pressure_log_index") or 0
         try:
-            birth_index = int(birth_index)
+            birth_index = _as_int(birth_index)
         except (TypeError, ValueError):
             birth_index = 0
         age = max(0, current_index - birth_index)
-        for subsystem_entry in entry.get("subsystems", []) or []:
+        subsystem_entries = entry.get("subsystems", [])
+        if not isinstance(subsystem_entries, list):
+            raise ValueError("invalid_forget_pressure_subsystems")
+        for subsystem_entry in subsystem_entries:
+            if not isinstance(subsystem_entry, Mapping):
+                raise ValueError("invalid_forget_pressure_subsystem_entry")
             subsystem = str(subsystem_entry.get("subsystem", ""))
             if not subsystem:
                 continue
@@ -1871,19 +1892,19 @@ def _pressure_budget_status(
                 "status": "ok",
                 "exceeded_reasons": [],
             })
-            metrics["outstanding"] = int(metrics["outstanding"]) + 1
-            metrics["total_weight"] = float(metrics["total_weight"]) + weight
-            metrics["oldest_duration"] = max(int(metrics["oldest_duration"]), int(age))
+            metrics["outstanding"] = _as_int(metrics["outstanding"]) + 1
+            metrics["total_weight"] = _as_float(metrics["total_weight"]) + weight
+            metrics["oldest_duration"] = max(_as_int(metrics["oldest_duration"]), age)
     for subsystem, metrics in status.items():
         budget = _pressure_budget_for_subsystem(budgets, subsystem)
         if budget is None:
             continue
         reasons: list[str] = []
-        if budget.max_outstanding is not None and int(metrics["outstanding"]) > budget.max_outstanding:
+        if budget.max_outstanding is not None and _as_int(metrics["outstanding"]) > budget.max_outstanding:
             reasons.append("max_outstanding")
-        if budget.max_duration is not None and int(metrics["oldest_duration"]) > budget.max_duration:
+        if budget.max_duration is not None and _as_int(metrics["oldest_duration"]) > budget.max_duration:
             reasons.append("max_duration")
-        if budget.max_weight is not None and float(metrics["total_weight"]) > budget.max_weight:
+        if budget.max_weight is not None and _as_float(metrics["total_weight"]) > budget.max_weight:
             reasons.append("max_weight")
         if reasons:
             metrics["exceeded"] = True
@@ -1903,7 +1924,11 @@ def _pressure_budget_forecast(
     defer_acknowledged: bool,
 ) -> list[dict[str, object]]:
     entries_list = [dict(entry) for entry in entries]
-    base_status = {item["subsystem"]: dict(item) for item in _pressure_budget_status(entries_list, budgets)}
+    base_status = {
+        subsystem: dict(item)
+        for item in _pressure_budget_status(entries_list, budgets)
+        if isinstance((subsystem := item.get("subsystem")), str)
+    }
     prospective_subsystems = _pressure_subsystems_from_previews(previews, defer_acknowledged)
     if prospective_subsystems:
         synthetic_entry = {
@@ -1915,7 +1940,11 @@ def _pressure_budget_forecast(
             "subsystems": [{"subsystem": name} for name in sorted(prospective_subsystems)],
         }
         entries_list.append(synthetic_entry)
-    forecast = {item["subsystem"]: dict(item) for item in _pressure_budget_status(entries_list, budgets)}
+    forecast = {
+        subsystem: dict(item)
+        for item in _pressure_budget_status(entries_list, budgets)
+        if isinstance((subsystem := item.get("subsystem")), str)
+    }
     combined: list[dict[str, object]] = []
     subsystems = sorted(set(base_status.keys()).union(forecast.keys()))
     for subsystem in subsystems:
@@ -1963,8 +1992,16 @@ def _record_pressure_budget_transitions(
     after_entries: Iterable[Mapping[str, object]],
     budgets: Mapping[str, ForgetPressureBudget],
 ) -> None:
-    before = {item["subsystem"]: dict(item) for item in _pressure_budget_status(before_entries, budgets)}
-    after = {item["subsystem"]: dict(item) for item in _pressure_budget_status(after_entries, budgets)}
+    before = {
+        subsystem: dict(item)
+        for item in _pressure_budget_status(before_entries, budgets)
+        if isinstance((subsystem := item.get("subsystem")), str)
+    }
+    after = {
+        subsystem: dict(item)
+        for item in _pressure_budget_status(after_entries, budgets)
+        if isinstance((subsystem := item.get("subsystem")), str)
+    }
     subsystems = sorted(set(before.keys()).union(after.keys()))
     for subsystem in subsystems:
         before_exceeded = bool(before.get(subsystem, {}).get("exceeded"))
@@ -2023,7 +2060,7 @@ def _build_rollback_proof(
     semantic_domains: Sequence[str],
     post_state_hash: str,
 ) -> dict[str, object]:
-    payload = {
+    payload: dict[str, object] = {
         "view": "intentional_forget_rollback_proof",
         "schema_version": "forget_rollback_proof_v1",
         "forget_tx_id": forget_tx_id,
@@ -2042,6 +2079,18 @@ def _append_rollback_proof(log_path: Path, proof: Mapping[str, object]) -> None:
     entry["event"] = "intentional_forget_rollback_proof"
     entry["timestamp"] = _now()
     append_json(log_path, entry)
+
+
+def _as_int(value: object) -> int:
+    if not isinstance(value, (int, float, str)):
+        raise TypeError("forget_pressure_integer_required")
+    return int(value)
+
+
+def _as_float(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        raise TypeError("forget_pressure_number_required")
+    return float(value)
 
 
 def _find_forget_proof_entry(

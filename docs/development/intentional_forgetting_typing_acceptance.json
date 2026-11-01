@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "bug_fix",
+  "repository_sha": "2c6bec9bad0c9757ba833018cdb743ccab479aee",
+  "test_provenance_path": "docs/development/intentional_forgetting_typing_provenance_20261101.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_narrative_mentions_forgetting_without_details",
+      "rationale": "Narrative lookup uses the supported admission-log path accessor."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic",
+      "rationale": "Forget simulation emits a deterministic typed diff with the existing boolean acknowledgement field."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_blocks_new_deferrals",
+      "rationale": "Pressure budgets continue to block repeated deferrals."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_forecast_surfaces_exceedance",
+      "rationale": "Projected pressure-budget exceedance remains visible."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[malformed]",
+      "rationale": "A non-list subsystem field fails closed."
+    },
+    {
+      "node_id": "tests/test_intentional_forgetting.py::test_pressure_budget_status_rejects_malformed_subsystem_records[subsystems1]",
+      "rationale": "A non-mapping subsystem entry fails closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_intentional_forgetting.py::test_simulation_diff_is_deterministic"
+  ]
+}
