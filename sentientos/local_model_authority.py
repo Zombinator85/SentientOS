@@ -18,6 +18,7 @@ MAX_CANDIDATES = 32
 MAX_METADATA_BYTES = 128 * 1024
 AUTHORITY_SCHEMA_VERSION = "local_model_authority_map.v1"
 ROOTLESS_EXPERIMENTAL_PURPOSE = "rootless_experimental_local_model_probe"
+ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE = "rootless_experimental_epistemic_revision_probe"
 
 
 def _canon(obj: Any) -> bytes:
@@ -138,6 +139,10 @@ class LocalModelAuthorityMap:
             rootless_experimental_match = (record.disposition == "rootless_experimental_candidate"
                 and identity.posture == "rootless_experimental"
                 and purpose == ROOTLESS_EXPERIMENTAL_PURPOSE)
+            rootless_epistemic_match = (
+                record.disposition == "rootless_experimental_epistemic_candidate"
+                and identity.posture == "rootless_experimental"
+                and purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
             if (
                 record.runtime_eligibility_status == "eligible"
                 and (purpose in record.allowed_invocation_purposes or purpose == "local_model_commissioning_smoke")
@@ -149,7 +154,8 @@ class LocalModelAuthorityMap:
                 and record.configuration_digest == identity.configuration_digest
                 and observed_index == identity.candidate_index
                 and observed_path == identity.resolved_artifact_path
-                and (production_match or rootless_experimental_match)
+                and (production_match or rootless_experimental_match
+                    or rootless_epistemic_match)
                 and not identity.fallback
             ):
                 return record
@@ -276,6 +282,40 @@ def build_rootless_experimental_model_authority_map(
             "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records),
             "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
             "provider_network_posture": "blocked", "execution_posture": "rootless_experimental"},
+    )
+
+
+def build_rootless_experimental_epistemic_authority_map(
+    config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None,
+    observed_at: str | None = None,
+) -> LocalModelAuthorityMap:
+    """Build a one-purpose rootless map for bounded epistemic observations.
+
+    This remains a distinct experimental purpose; it does not grant any
+    production serving, commissioning, or ordinary cognition purpose.
+    """
+    production_candidates = build_local_model_authority_map(
+        config, allowed_roots=allowed_roots, observed_at=observed_at)
+    records = tuple(replace(
+        record,
+        allowed_invocation_purposes=(ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,)
+            if record.engine in PRODUCTION_ENGINES and record.runtime_eligibility_status == "eligible"
+            else (),
+        disposition="rootless_experimental_epistemic_candidate",
+        proof_references=(*record.proof_references,
+            "sentientos/local_model_authority.py:rootless-experimental-epistemic"),
+    ) for record in production_candidates.records)
+    semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION,
+        "records": [record.to_dict() for record in records]}
+    map_digest = digest_payload(semantic)
+    return LocalModelAuthorityMap(
+        records=records, map_id="lmam-" + map_digest[:24], map_digest=map_digest,
+        generated_at=production_candidates.generated_at,
+        summary={"eligible_count": sum(r.runtime_eligibility_status == "eligible" for r in records),
+            "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records),
+            "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records),
+            "provider_network_posture": "blocked",
+            "execution_posture": "rootless_experimental_epistemic"},
     )
 
 

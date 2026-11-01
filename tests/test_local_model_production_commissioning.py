@@ -153,6 +153,8 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
             self.stdin=Pipe(); self.stdout=Pipe(["SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps(ready)+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"bounded",
                     "peak_rss_kib":2048,"user_cpu_seconds":0.2,"system_cpu_seconds":0.02})+"\n",
+                "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"chat-bounded",
+                    "peak_rss_kib":3072,"user_cpu_seconds":0.3,"system_cpu_seconds":0.03})+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"shutdown"})+"\n"]); self.stderr=Pipe(); self.closed=False
         def poll(self): return None if not self.closed else 0
         def wait(self, timeout=None): self.closed=True; return 0
@@ -166,6 +168,12 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     assert captured["argv"][0] == str(interpreter.resolve())  # type: ignore[index]
     assert "PYTHONPATH" not in captured["kwargs"]["env"] and "VIRTUAL_ENV" not in captured["kwargs"]["env"]  # type: ignore[index]
     assert worker.generate("hello") == "bounded"
+    assert worker.generate('{"instruction":"Return JSON."}',
+        use_model_chat_template=True,
+        structured_output_schema={"type":"object"}) == "chat-bounded"
+    chat_request = json.loads(writes[1])
+    assert chat_request["generation"]["use_model_chat_template"] is True
+    assert chat_request["generation"]["structured_output_schema"] == {"type":"object"}
     with pytest.raises(ModelLoadError, match="request too large"): worker.generate("x" * MAX_PROTOCOL_BYTES)
     worker.close(); assert json.loads(writes[-1])["type"] == "shutdown" and process.closed
     assert "NO_PROXY" in _environment()

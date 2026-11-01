@@ -85,6 +85,11 @@ engineering workspace. It does not establish a persistent installation,
 production deployment, model identity beyond the recorded artifact/runtime,
 learning, improvement, consciousness, or general capability.
 
+The separate resident-cognition experiment uses the same verified rootless
+runtime with preregistered evidence-correction and unsupported-pressure
+conditions. Its limits, scoring result, and separately sealed evidence are
+documented in the [rootless experimental epistemic series](rootless_experimental_epistemic_series.md).
+
 ## Codex Cloud smoke execution
 
 On 2026-11-01, the path completed one CPU-only Qwen2.5-0.5B-Instruct GGUF
@@ -92,7 +97,7 @@ smoke inference in the managed workspace. The exact prompts, both attempt
 records, runtime receipts, model source/license files, invocation receipts,
 governor records, result receipt, and a per-file SHA-256 custody manifest are
 preserved in
-[`evidence/rootless_experimental_local_model_smoke_2026-11-01/`](evidence/rootless_experimental_local_model_smoke_2026-11-01/).
+[`evidence/rootless_experimental_local_model_smoke_2026-11-01/README.md`](evidence/rootless_experimental_local_model_smoke_2026-11-01/README.md).
 The first attempt deferred before generation because an auxiliary trust-epoch
 path defaulted to read-only `/glow`; that attempt is retained. A scoped routing
 fix then allowed the normal governor to admit a new one-shot intent. The

@@ -159,10 +159,6 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             key: IndependentAnswerKey, case_id: str, evaluator_version: str,
             condition: str) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
     observation = reader.verified_cognition_observation(observation_id)
-    if (not isinstance(observation.get("serving_session_id"), str)
-            or not observation.get("serving_session_id")
-            or not isinstance(observation.get("serving_session_binding"), Mapping)):
-        raise ValueError("qualification_session_bound_observation_required")
     if projection.proposition_ids != (proposition_id,):
         raise ValueError("qualification_proposition_scope_mismatch")
     packets = semantic_packets_for_projection(projection)
@@ -180,6 +176,43 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "generation_config": receipt.generation_config}
     if any(_canonical(observation.get(k)) != _canonical(v) for k, v in bindings.items()):
         raise ValueError("qualification_observation_receipt_mismatch")
+    rootless_binding = (request.get("linkage", {}).get(
+        "rootless_experimental_session")
+        if isinstance(request.get("linkage"), Mapping) else None)
+    serving_bound = (isinstance(observation.get("serving_session_id"), str)
+        and bool(observation.get("serving_session_id"))
+        and isinstance(observation.get("serving_session_binding"), Mapping))
+    rootless_bound = (
+        isinstance(rootless_binding, Mapping)
+        and set(rootless_binding) == {"schema_version", "session_id", "run_id",
+            "preregistration_digest", "model_manifest_digest",
+            "runtime_bundle_digest", "active_model_identity_digest",
+            "purpose", "production_authority",
+            "eligible_as_production_serving_evidence"}
+        and rootless_binding.get("schema_version")
+            == "sentientos.rootless_experimental_cognition_session:v1"
+        and isinstance(rootless_binding.get("session_id"), str)
+        and rootless_binding["session_id"].startswith("rootless-epistemic-session-")
+        and isinstance(rootless_binding.get("run_id"), str)
+        and rootless_binding["run_id"].startswith("rootless-epistemic-run-")
+        and all(isinstance(rootless_binding.get(name), str)
+            and len(rootless_binding[name]) == 64
+            and all(character in "0123456789abcdef" for character in rootless_binding[name])
+            for name in ("preregistration_digest", "model_manifest_digest",
+                "runtime_bundle_digest", "active_model_identity_digest"))
+        and rootless_binding.get("purpose") == "rootless_experimental_epistemic_revision_probe"
+        and rootless_binding.get("production_authority") is False
+        and rootless_binding.get("eligible_as_production_serving_evidence") is False
+        and request.get("purpose") == "rootless_experimental_epistemic_revision_probe"
+        and isinstance(request.get("active_model_identity"), Mapping)
+        and request["active_model_identity"].get("posture") == "rootless_experimental"
+        and request["active_model_identity"].get("fallback") is False
+        and rootless_binding.get("active_model_identity_digest")
+            == digest_payload({"identity": request["active_model_identity"]})
+        and not serving_bound
+        and "resident_cognitive_serving" not in request.get("linkage", {}))
+    if not serving_bound and not rootless_bound:
+        raise ValueError("qualification_session_bound_observation_required")
     if (_digest({"prompt": prompt}) != expected_prompt_digest
             or observation.get("epistemic_prompt_digest") != expected_prompt_digest
             or request.get("prompt_digest") != expected_prompt_digest[7:]):
@@ -209,7 +242,9 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "answer_correct": None, "reason_code_correct": None,
         "reason_code_scoring_status": unscored_reason_code_status,
         "citations_correct": None, "citation_scoring_status": "not_scored_incomplete_observation",
-        "answer_shape_valid": None, "measurement_status": "insufficient"}
+        "answer_shape_valid": None, "measurement_status": "insufficient",
+        "execution_session_kind": ("rootless_experimental" if rootless_bound
+            else "production_resident_serving")}
     result["execution_binding"] = build_execution_binding(
         case_id=case_id, evaluator_version=evaluator_version, condition=condition,
         model_id=request.get("model_id"),

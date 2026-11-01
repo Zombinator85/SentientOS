@@ -1,0 +1,251 @@
+{
+  "admission_decision_ref": "kernel_decision:rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338:correction-after:resident_developmental_cognition:prior-context",
+  "effects": {
+    "action": false,
+    "adoption": false,
+    "local_model_inference": false,
+    "memory": false,
+    "provider_network": false,
+    "repository_mutation": false,
+    "tool": false
+  },
+  "fallback_occurred": false,
+  "generation_config": {
+    "actual_generation_parameters": {
+      "max_new_tokens": 128,
+      "structured_output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "conclusion": {
+            "enum": [
+              "unknown",
+              "suspended",
+              "provisionally_supported",
+              "supported",
+              "contested",
+              "provisionally_contradicted",
+              "contradicted",
+              "superseded"
+            ],
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "reason_code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "conclusion",
+          "reason_code",
+          "evidence_ids"
+        ],
+        "type": "object"
+      },
+      "temperature": 0
+    },
+    "max_calls_per_correlation": 1,
+    "max_input_chars": 16384,
+    "max_new_tokens": 128,
+    "max_output_chars": 1024,
+    "timeout_seconds": 90
+  },
+  "latency_ms": 79,
+  "observed_at": "2026-11-01T20:50:29.584393+00:00",
+  "output_digest": null,
+  "output_size_bytes": 0,
+  "output_truncated": false,
+  "purpose": "rootless_experimental_epistemic_revision_probe",
+  "reason_codes": [
+    "backend_failure:ModelLoadError"
+  ],
+  "receipt_digest": "ba5ad9d8d1fd853c9019bd52fd3a349355c5dc5e90a85f0446beb08a59b606c6",
+  "receipt_id": "lmrec-ba5ad9d8d1fd853c9019bd52",
+  "request": {
+    "active_model_identity": {
+      "artifact_size_bytes": 491400032,
+      "candidate_index": 0,
+      "configuration_digest": "9f8314df43a1c1040965ba383d6dddbce4c494c0854a12643d4581a25b315770",
+      "engine": "llama_cpp",
+      "fallback": false,
+      "model_content_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "posture": "rootless_experimental",
+      "resolved_artifact_path": "/workspace/sentientos-data/rootless-experimental/models/sha256/74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "semantic_artifact_identity": "sha256:74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+      "sidecar_metadata_digest": null
+    },
+    "allowed_effects": {
+      "local_model_inference": true
+    },
+    "authority_map_digest": "61d0ab30f5acea476546da4e1597de0ba0feca5bc1d844ac5db8d744eb5ee71c",
+    "budget": {
+      "max_calls_per_correlation": 1,
+      "max_input_chars": 16384,
+      "max_new_tokens": 128,
+      "max_output_chars": 1024,
+      "timeout_seconds": 90
+    },
+    "caller": "deterministic_resident_developmental_writeback_controller",
+    "correlation_id": "rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338:correction-after:resident_developmental_cognition:prior-context",
+    "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+    "expected_output_format": "json",
+    "forbidden_effects": {
+      "action": false,
+      "adoption": false,
+      "memory": false,
+      "provider_network": false,
+      "repository_mutation": false,
+      "tool": false
+    },
+    "lifecycle_phase": "runtime",
+    "linkage": {
+      "condition_group": "rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338:correction-after:retrieval-comparison",
+      "condition_id": "prior-context",
+      "history_present": false,
+      "rootless_experimental_session": {
+        "active_model_identity_digest": "33871893b9723df1924bb7b51a220bffe2cf7793818d75fe4b4d95f8210965aa",
+        "eligible_as_production_serving_evidence": false,
+        "model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+        "preregistration_digest": "472d302c17fb7970760d020c9cec223c78687c883fab18dacfc4ac3691dedab8",
+        "production_authority": false,
+        "purpose": "rootless_experimental_epistemic_revision_probe",
+        "run_id": "rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338",
+        "runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+        "schema_version": "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": "rootless-epistemic-session-2aec893ba11349638278f71e"
+      }
+    },
+    "model_artifact_digest": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    "model_id": "lma-b8304ed27922e39486b2e67b",
+    "prompt_digest": "4ffc9a6ff064cd18900a7068a4e8264504862b7a3ee3e599cc16a7f2f9f1b12f",
+    "prompt_size": 12836,
+    "purpose": "rootless_experimental_epistemic_revision_probe",
+    "raw_prompt_stored": false,
+    "request_digest": "3cc56a70529cc0dd3865c4e21ed47591edbdcfa38fbc893c0cca6e9c40e2b36b",
+    "request_id": "lmreq-3cc56a70529cc0dd3865c4e2",
+    "structured_output_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "conclusion": {
+          "enum": [
+            "unknown",
+            "suspended",
+            "provisionally_supported",
+            "supported",
+            "contested",
+            "provisionally_contradicted",
+            "contradicted",
+            "superseded"
+          ],
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "reason_code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "conclusion",
+        "reason_code",
+        "evidence_ids"
+      ],
+      "type": "object"
+    },
+    "upstream_evidence": {
+      "current_fact_ids": [
+        "fact-455e952f4c4c4a34",
+        "fact-b02512b29fdba047"
+      ],
+      "current_projection_digest": "sha256:f14ae6f65551ed9eb53169fc927df976104ea6e7499935c38ed3f04e999ebcfa",
+      "current_projection_id": "current-world-state-f14ae6f65551ed9eb53169fc",
+      "developmental_history_selection": {
+        "available_records": [],
+        "omission_reason": null,
+        "omitted_records": [],
+        "omitted_records_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": "completed_tick_recency_suffix:v1",
+        "schema_version": "sentientos.developmental_history_selection:v1",
+        "selected_records": [],
+        "selection_digest": "sha256:cc18faf141355816051f8b68ed646835227fc6f9285adfb1ed72b92a8eb02f12",
+        "task_family_id": null,
+        "treatment": "withheld"
+      },
+      "epistemic_consumed_content_digest": "sha256:b60c5a301a408690866f6cd34a219184b0a24dbf5cd8f1844481d8be4bb2e632",
+      "epistemic_consumed_packet_digests": [
+        "sha256:386a3309aa7a12b303e825702dd2e04606ec7303723e005e2e1c5242dea08cd6"
+      ],
+      "epistemic_consumed_packet_ids": [
+        "epistemic-packet:386a3309aa7a12b303e82570"
+      ],
+      "epistemic_consumed_packets_digest": "sha256:33f0475caa8cc4e28e60b9ddc3ac65b6f04e56203affb8050420229242cb91c5",
+      "epistemic_evidence_set_digests": [
+        "sha256:59f57c3b18535e2be7fd55af18f397f91e7f3e2708bb5a3aa50bc05619dee85c"
+      ],
+      "epistemic_generations": [
+        1
+      ],
+      "epistemic_omitted_packets": [],
+      "epistemic_omitted_packets_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "epistemic_owner_packet_count": 1,
+      "epistemic_projection_context_digest": "sha256:702ab4deee3ea7cac01b6c15b70e8f1f4fe53aa2768a4268db2e9f7c97c2fde7",
+      "epistemic_projection_digest": "sha256:b04d28e1b0e7f2921bb882117de3caa861c4811121e86b12bfa170fbbae3df55",
+      "epistemic_projection_id": "epistemic-projection:b04d28e1b0e7f2921bb88211",
+      "epistemic_projection_schema": "sentientos.epistemic_cognitive_projection:v2",
+      "epistemic_prompt_digest": "sha256:4ffc9a6ff064cd18900a7068a4e8264504862b7a3ee3e599cc16a7f2f9f1b12f",
+      "epistemic_proposition_ids": [
+        "proposition:dfb3618fce0badfa6a7be6f8"
+      ],
+      "epistemic_semantic_status": "all_meanings_delivered",
+      "epistemic_state_digests": [
+        "sha256:6eb0bc9e56e3b9914002661c1e281fde6ac2cd3b1ebcda4dc09a0ca89f86e1a3"
+      ],
+      "epistemic_state_ids": [
+        "epistemic-state:6eb0bc9e56e3b9914002661c"
+      ],
+      "record_digests": [],
+      "record_ids": [],
+      "rootless_epistemic_model_manifest_digest": "5ff6a6cf6b0f3dd9c3db7ce9c9fe5d5b3b7d30e113e7e4c7fb95b51b0702a2b1",
+      "rootless_epistemic_preregistration_digest": "472d302c17fb7970760d020c9cec223c78687c883fab18dacfc4ac3691dedab8",
+      "rootless_epistemic_runtime_bundle_digest": "a7a5a184b441723609f89544264a7f93c4cd5bf43c96d15a8bc5bf30002f9371",
+      "rootless_epistemic_session_id": "rootless-epistemic-session-2aec893ba11349638278f71e",
+      "self_model_claim_digests": [],
+      "self_model_claim_ids": [],
+      "self_model_projection_digest": null,
+      "self_model_projection_id": null,
+      "self_model_projection_present": false,
+      "self_model_reconciliation_digest": null,
+      "self_model_reconciliation_generation": null,
+      "self_model_reconciliation_id": null,
+      "self_model_source_tick": null,
+      "snapshot_digest": "bd8885419706934b6fa10315f92009d99cc2867efd0aa27accce9fee5ce9a720",
+      "snapshot_id": "world-state-bd8885419706934b"
+    }
+  },
+  "resource_allocation_digest": null,
+  "resource_attempt_id": null,
+  "resource_consumption_receipt_digests": [],
+  "schema_version": "sentientos.local_model_invocation_receipt:v2",
+  "status": "backend_failure"
+}

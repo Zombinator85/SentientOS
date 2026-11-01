@@ -49,8 +49,20 @@ try:
   prompt=request["prompt"]; history=request["history"]; generation=request["generation"]
   if not isinstance(prompt,str) or len(prompt)>32768 or not isinstance(history,list): raise RuntimeError("malformed_protocol")
   rendered="\n".join([*(str(x) for x in history),prompt])
-  result=model(rendered,max_tokens=min(int(generation.get("max_new_tokens",8)),512),temperature=float(generation.get("temperature",0)),top_p=float(generation.get("top_p",1)))
-  output=str(result["choices"][0]["text"])
+  max_tokens=min(int(generation.get("max_new_tokens",8)),512)
+  temperature=float(generation.get("temperature",0)); top_p=float(generation.get("top_p",1))
+  if generation.get("use_model_chat_template") is True:
+   context=json.loads(prompt)
+   if not isinstance(context,dict) or not isinstance(context.get("instruction"),str): raise RuntimeError("chat_template_context_invalid")
+   system_instruction=context.pop("instruction")
+   response_format={"type":"json_object"}
+   schema=generation.get("structured_output_schema")
+   if isinstance(schema,dict): response_format["schema"]=schema
+   result=model.create_chat_completion(messages=[{"role":"system","content":system_instruction},{"role":"user","content":json.dumps(context,sort_keys=True,separators=(",",":"))}],max_tokens=max_tokens,temperature=temperature,top_p=top_p,response_format=response_format)
+   output=str(result["choices"][0]["message"]["content"])
+  else:
+   result=model(rendered,max_tokens=max_tokens,temperature=temperature,top_p=top_p)
+   output=str(result["choices"][0]["text"])
   if len(output)>32768: raise RuntimeError("response_too_large")
   emit({"type":"generated","output":output,**resources()})
 except Exception as exc:

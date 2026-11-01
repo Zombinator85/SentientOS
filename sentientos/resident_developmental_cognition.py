@@ -35,7 +35,9 @@ from .developmental_history_intervention_experiment import (
     summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
-from .local_model_authority import digest_payload
+from .local_model_authority import (
+    ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, digest_payload,
+)
 from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
     open_private_directory, publish_immutable_bytes, read_private_file_at,
     replace_private_bytes)
@@ -181,6 +183,29 @@ COGNITION_OBSERVATION_SCHEMA_V7 = "sentientos.resident_cognition_observation:v7"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
+
+
+def _valid_rootless_epistemic_session_binding(value: Any) -> bool:
+    required = {"schema_version", "session_id", "run_id",
+        "preregistration_digest", "model_manifest_digest",
+        "runtime_bundle_digest", "active_model_identity_digest",
+        "purpose", "production_authority",
+        "eligible_as_production_serving_evidence"}
+    digests = ("preregistration_digest", "model_manifest_digest",
+        "runtime_bundle_digest", "active_model_identity_digest")
+    return (isinstance(value, Mapping) and set(value) == required
+        and value.get("schema_version")
+            == "sentientos.rootless_experimental_cognition_session:v1"
+        and isinstance(value.get("session_id"), str)
+        and value["session_id"].startswith("rootless-epistemic-session-")
+        and isinstance(value.get("run_id"), str)
+        and value["run_id"].startswith("rootless-epistemic-run-")
+        and all(isinstance(value.get(key), str) and len(value[key]) == 64
+            and all(char in "0123456789abcdef" for char in value[key])
+            for key in digests)
+        and value.get("purpose") == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+        and value.get("production_authority") is False
+        and value.get("eligible_as_production_serving_evidence") is False)
 CURRENT_PROJECTION_POLICY = "succession_identity_then_resource_and_transition_evidence_then_source_id:v3"
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation "
@@ -2718,6 +2743,45 @@ class ResidentDevelopmentalCognitionOwner:
         # is committed in the same tick. It is never written as a cognition receipt.
         self._pending_cognition_candidates: dict[str, tuple[Any, str, Mapping[str, Any]]] = {}
         self._pending_objective_scores: dict[str, Mapping[str, Any]] = {}
+        self._epistemic_probe_purpose = COGNITION_PURPOSE
+        self._epistemic_probe_session_binding: Mapping[str, Any] | None = None
+
+    def bind_rootless_experimental_epistemic_session(
+            self, binding: Mapping[str, Any]) -> None:
+        """Bind a preregistered, non-serving rootless probe session once.
+
+        The binding enters governed request linkage, never the subject prompt.
+        It cannot enable production serving or ordinary cognition purposes.
+        """
+        value = dict(binding)
+        required = {"schema_version", "session_id", "run_id",
+            "preregistration_digest", "model_manifest_digest",
+            "runtime_bundle_digest", "active_model_identity_digest",
+            "purpose", "production_authority",
+            "eligible_as_production_serving_evidence"}
+        digests = ("preregistration_digest", "model_manifest_digest",
+            "runtime_bundle_digest", "active_model_identity_digest")
+        if (set(value) != required
+                or value.get("schema_version")
+                    != "sentientos.rootless_experimental_cognition_session:v1"
+                or not isinstance(value.get("session_id"), str)
+                or not value["session_id"].startswith("rootless-epistemic-session-")
+                or not isinstance(value.get("run_id"), str)
+                or not value["run_id"].startswith("rootless-epistemic-run-")
+                or any(not isinstance(value.get(key), str)
+                    or len(value[key]) != 64
+                    or any(char not in "0123456789abcdef" for char in value[key])
+                    for key in digests)
+                or value.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                or value.get("production_authority") is not False
+                or value.get("eligible_as_production_serving_evidence") is not False):
+            raise ResidentDevelopmentalCognitionError(
+                "rootless_epistemic_session_binding_invalid")
+        if self._epistemic_probe_session_binding is not None:
+            raise ResidentDevelopmentalCognitionError(
+                "rootless_epistemic_session_already_bound")
+        self._epistemic_probe_purpose = ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+        self._epistemic_probe_session_binding = value
 
     @staticmethod
     def _recovered_record_order(record: Any, *, completed_order: Mapping[str, int],
@@ -3595,6 +3659,51 @@ class ResidentDevelopmentalCognitionOwner:
         session_id = observation.get("serving_session_id")
         session_binding = observation.get("serving_session_binding")
         if session_id is None and session_binding is None:
+            active_identity = observation.get("active_model_identity")
+            identity_mapping = (active_identity if isinstance(active_identity, Mapping)
+                else {})
+            rootless_identity = (bool(identity_mapping)
+                and identity_mapping.get("posture") == "rootless_experimental")
+            if rootless_identity:
+                verifier = getattr(self.invoker,
+                    "verify_persisted_invocation_receipt", None)
+                if not callable(verifier):
+                    raise ResidentDevelopmentalCognitionError(
+                        "rootless_epistemic_receipt_verifier_unavailable")
+                try:
+                    receipt = verifier(
+                        str(observation.get("inference_receipt_id", "")),
+                        str(observation.get("inference_receipt_digest", "")),
+                        expected_request_id=str(observation.get("request_id", "")),
+                        expected_request_digest=str(observation.get("request_digest", "")),
+                        expected_active_model_identity=dict(identity_mapping))
+                except Exception as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "rootless_epistemic_invocation_reconciliation_failed") from exc
+                request = receipt.get("request") if isinstance(receipt, Mapping) else None
+                linkage = request.get("linkage") if isinstance(request, Mapping) else None
+                rootless_session = (linkage.get("rootless_experimental_session")
+                    if isinstance(linkage, Mapping) else None)
+                if (not isinstance(request, Mapping)
+                        or request.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                        or request.get("active_model_identity") != dict(identity_mapping)
+                        or not isinstance(linkage, Mapping)
+                        or "resident_cognitive_serving" in linkage
+                        or not isinstance(rootless_session, Mapping)
+                        or not _valid_rootless_epistemic_session_binding(rootless_session)
+                        or rootless_session.get("active_model_identity_digest")
+                            != digest_payload({"identity": dict(identity_mapping)})
+                        or receipt.get("receipt_id")
+                            != observation.get("inference_receipt_id")
+                        or receipt.get("receipt_digest")
+                            != observation.get("inference_receipt_digest")
+                        or request.get("request_id") != observation.get("request_id")
+                        or request.get("request_digest") != observation.get("request_digest")
+                        or receipt.get("output_digest") != observation.get("output_digest")
+                        or receipt.get("status") != "admitted_completed"):
+                    raise ResidentDevelopmentalCognitionError(
+                        "rootless_epistemic_invocation_binding_mismatch")
+                return cast(Mapping[str, Any], receipt)
             if (observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V7
                     and observation.get("resource_linkage_digest") is not None):
                 raise ResidentDevelopmentalCognitionError(
@@ -3960,7 +4069,20 @@ class ResidentDevelopmentalCognitionOwner:
                 resource_linkage_digest=receipt_payload.get("resource_linkage_digest"),
                 schema_version=receipt_payload["schema_version"],
                 backend_completion=receipt_payload.get("backend_completion"))
-            if (receipt.purpose != "resident_developmental_retrieval_cognition"
+            rootless_request = receipt.request
+            rootless_linkage = rootless_request.get("linkage")
+            rootless_session = (rootless_linkage.get("rootless_experimental_session")
+                if isinstance(rootless_linkage, Mapping) else None)
+            rootless_probe = (receipt.purpose
+                    == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                and isinstance(rootless_request.get("active_model_identity"), Mapping)
+                and rootless_request["active_model_identity"].get("posture")
+                    == "rootless_experimental"
+                and _valid_rootless_epistemic_session_binding(rootless_session)
+                and isinstance(rootless_linkage, Mapping)
+                and "resident_cognitive_serving" not in rootless_linkage)
+            if ((receipt.purpose != "resident_developmental_retrieval_cognition"
+                    and not rootless_probe)
                     or receipt.request.get("expected_output_format") != "json"
                     or receipt.request.get("structured_output_schema")
                         != RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
@@ -4664,6 +4786,12 @@ class ResidentDevelopmentalCognitionOwner:
         if epistemic_revision_probe and (purpose != COGNITION_PURPOSE or protocol is not None
                 or objective_plan is not None):
             raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_scope_invalid")
+        if (epistemic_revision_probe
+                and self._epistemic_probe_purpose
+                    == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                and self._epistemic_probe_session_binding is None):
+            raise ResidentDevelopmentalCognitionError(
+                "rootless_epistemic_session_binding_required")
         if epistemic_revision_probe_prompt_preview and not epistemic_revision_probe:
             raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_scope_invalid")
         invalid_quarantine_custody_context = any(
@@ -4919,19 +5047,35 @@ class ResidentDevelopmentalCognitionOwner:
                     != epistemic_revision_probe_expected_prompt_digest):
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_prompt_digest_mismatch")
+        request_purpose = (self._epistemic_probe_purpose
+            if epistemic_revision_probe else purpose)
+        request_budget = (LocalModelInvocationBudget(
+            max_input_chars=16_384, max_output_chars=1024, max_new_tokens=128,
+            timeout_seconds=90, max_calls_per_correlation=1)
+            if (epistemic_revision_probe and request_purpose
+                == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+            else LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,
+                max_output_chars=4000, max_new_tokens=512,
+                timeout_seconds=30, max_calls_per_correlation=1))
+        request_linkage: dict[str, Any] = {
+            "condition_group": f"{tick_id}:retrieval-comparison",
+            "condition_id": condition_id, "history_present": with_history}
+        if (epistemic_revision_probe and request_purpose
+                == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE):
+            assert self._epistemic_probe_session_binding is not None
+            request_linkage["rootless_experimental_session"] = dict(
+                self._epistemic_probe_session_binding)
         request = self.invoker.build_request(
-            purpose=purpose, prompt=prompt, caller=PRINCIPAL,
+            purpose=request_purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation,
             expected_output_format="json" if qualifies_for_lesson or objective_plan is not None
                 or epistemic_revision_probe else "text",
-            budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
-                                              timeout_seconds=30, max_calls_per_correlation=1),
+            budget=request_budget,
             structured_output_schema=(RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA
                 if epistemic_revision_probe else RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
                 if qualifies_for_lesson else None),
             upstream_evidence=upstream_evidence,
-            linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
-                     "history_present": with_history},
+            linkage=request_linkage,
         )
         request_upstream = getattr(request, "upstream_evidence", None)
         if (not isinstance(request_upstream, Mapping)
@@ -5014,9 +5158,9 @@ class ResidentDevelopmentalCognitionOwner:
                 # optional, scoped lesson packet is malformed or unavailable.
                 lesson_payload = None
         req = dict(receipt.request)
-        request_linkage = req.get("linkage")
-        serving_session = (request_linkage.get("resident_cognitive_serving")
-            if isinstance(request_linkage, Mapping) else None)
+        receipt_linkage = req.get("linkage")
+        serving_session = (receipt_linkage.get("resident_cognitive_serving")
+            if isinstance(receipt_linkage, Mapping) else None)
         serving_session_id = None
         serving_session_binding = None
         serving_session_receipt_id = None

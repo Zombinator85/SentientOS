@@ -6,7 +6,7 @@ This is the post-capture report for the preregistered condition in [the protocol
 
 Each trial used a separate native delegated task with `fork_turns=none` and received only its exact protocol stimulus. The interface exposed a completed task identifier and returned response, but did not expose the resolved model ID, task start/completion timestamps, or an auditable tool-use trace. Model identity and tool non-use therefore remain unverified. No answer key or scoring information was sent to any subject.
 
-The [capture manifest](../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/capture_manifest.json) binds every exact prompt and response digest to its task identifier, capture time, and raw record. Raw UTF-8 responses are retained in the [`observations/`](../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/) directory; scores are separately retained in [`scores/`](../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/scores/). The answer-key file remains outside the repository. Its preregistered digest is recorded in score records and the results summary.
+The [capture manifest](../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/capture_manifest.json) binds every exact prompt and response digest to its task identifier, capture time, and raw record. Raw UTF-8 responses are retained in the `../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/observations/` directory; scores are separately retained in `../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/scores/`. The answer-key file remains outside the repository. Its preregistered digest is recorded in score records and the results summary.
 
 ## Outcomes
 
@@ -23,7 +23,7 @@ The [machine-readable summary](../../artifacts/experiments/native_codex_unverifi
 
 ## Recording failure retained
 
-The first bulk score-writing attempt created an empty score file for trial `native_02` due to a controller-side `NameError`. The raw model response was unaffected. The empty file and failure record are preserved in [`scoring_failures/`](../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/scoring_failures/); corrected scores were written to a separate directory and then copied into the final score set. No prompt was replayed and no response was overwritten.
+The first bulk score-writing attempt created an empty score file for trial `native_02` due to a controller-side `NameError`. The raw model response was unaffected. The empty file and failure record are preserved in `../../artifacts/experiments/native_codex_unverified_pilot_20261031/results/scoring_failures/`; corrected scores were written to a separate directory and then copied into the final score set. No prompt was replayed and no response was overwritten.
 
 ## Validation and publication status
 

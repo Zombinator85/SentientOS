@@ -1,0 +1,120 @@
+{
+  "answer_key_custody": "separate workspace-only 0700 directory; files 0600; not copied into this evidence package",
+  "answer_keys_included": false,
+  "eligible_as_production_serving_evidence": false,
+  "experiment_scope": "rootless CPU inference through SentientOS developmental cognition owner",
+  "production_authority": false,
+  "recorded_at": "2026-11-01T21:10:36.098952+00:00",
+  "runs": [
+    {
+      "capture_count": 0,
+      "capture_index_digest": null,
+      "failure_code": "ResidentDevelopmentalCognitionError",
+      "failure_record_preserved": true,
+      "preregistration_digest": "802bef0884d4d7581d1a61c8ac3aac70d103d950f4d0c28900209f98b234c40e",
+      "published_files": [
+        "preregistration.json",
+        "execution-failure.json",
+        "receipts/lmrec-97d669c6f32a3fc85a11cb5e.json"
+      ],
+      "receipt_count": 1,
+      "run_id": "rootless-epistemic-run-41e1a1136e884a8db22656c5",
+      "run_status": "partial_or_no_capture",
+      "score_record_digest": null
+    },
+    {
+      "capture_count": 1,
+      "capture_index_digest": null,
+      "failure_code": "ResidentDevelopmentalCognitionError",
+      "failure_record_preserved": true,
+      "preregistration_digest": "472d302c17fb7970760d020c9cec223c78687c883fab18dacfc4ac3691dedab8",
+      "published_files": [
+        "preregistration.json",
+        "partial-capture-index.json",
+        "execution-failure.json",
+        "receipts/lmrec-2d473fc19d7842d13103e239.json",
+        "receipts/lmrec-ba5ad9d8d1fd853c9019bd52.json",
+        "captures/devcog-25b656914d4af03d3bc56cdf.json"
+      ],
+      "receipt_count": 2,
+      "run_id": "rootless-epistemic-run-4e38e3e4f2d44e1eac2dd338",
+      "run_status": "partial_or_no_capture",
+      "score_record_digest": null
+    },
+    {
+      "capture_count": 4,
+      "capture_index_digest": "6106fa71a7d408e8036a10184438598bc72bd5ec6046651c8eb018632a281e46",
+      "failure_code": "preregistered_case_commitment_material_not_preserved",
+      "failure_record_preserved": true,
+      "preregistration_digest": "e44f0b43005ae72991d77abbaa468434d8fa6081e1494e8a3fe2671a63244804",
+      "published_files": [
+        "preregistration.json",
+        "capture-index.json",
+        "execution-failure.json",
+        "scoring-unavailable.json",
+        "receipts/lmrec-44f435d75a6596820a6398fb.json",
+        "receipts/lmrec-745a2b405c2229a0cf3f66ae.json",
+        "receipts/lmrec-764892b4338179fe9eb6fb9c.json",
+        "receipts/lmrec-90703d6b4d9a959b6a154841.json",
+        "captures/devcog-234a9f0212f36fb815331ea6.json",
+        "captures/devcog-9c11874cdd52311d7fb747fb.json",
+        "captures/devcog-a363e4a840d1fde712f00525.json",
+        "captures/devcog-bb80c88590e5c051bbb42499.json"
+      ],
+      "receipt_count": 4,
+      "run_id": "rootless-epistemic-run-625a681113fe4b4790b6cb3d",
+      "run_status": "captured_unscored",
+      "score_record_digest": null
+    },
+    {
+      "capture_count": 4,
+      "capture_index_digest": "c021ad295d8d4039d551f38a6ee6385896aa86df9b09b5beedb7ced7a83f5503",
+      "failure_code": "pressure_treatment_binding_invalid",
+      "failure_record_preserved": true,
+      "preregistration_digest": "4468cc44b0bf5ff3cc5efd2b9a63f1540ebe5f5fbe264765be1cfb3670ae5688",
+      "published_files": [
+        "preregistration.json",
+        "capture-index.json",
+        "execution-failure.json",
+        "scoring-failure-review.json",
+        "receipts/lmrec-169826100cd1f66c021eb823.json",
+        "receipts/lmrec-1d3004f73fc4ebd2e8b1f600.json",
+        "receipts/lmrec-75e1249f58bca2bc0ce64deb.json",
+        "receipts/lmrec-8b8836d88b23baf65632da73.json",
+        "captures/devcog-170d13e55e96020855751224.json",
+        "captures/devcog-68c7b3a44d1d9eb0e8c55703.json",
+        "captures/devcog-814006703e9cd752ce4828d6.json",
+        "captures/devcog-b19cb4d347ecdd64cbb65d46.json"
+      ],
+      "receipt_count": 4,
+      "run_id": "rootless-epistemic-run-e051dee3e5c34a598976d90d",
+      "run_status": "captured_unscored",
+      "score_record_digest": null
+    },
+    {
+      "capture_count": 4,
+      "capture_index_digest": "30df1369e26495893db0fa95291b85ddcc6444c528bd76dfd68831c45eb728b6",
+      "failure_code": null,
+      "failure_record_preserved": false,
+      "preregistration_digest": "2730220340345bbedd7e03ebfadeda8e2c95ddebd0829fb40c62a00abc5141eb",
+      "published_files": [
+        "preregistration.json",
+        "capture-index.json",
+        "scores.json",
+        "receipts/lmrec-3ba75c5fce4bf86dfc3bc597.json",
+        "receipts/lmrec-63532d111ef0c222c4473e7d.json",
+        "receipts/lmrec-cb8d81bf4380785ffb0f61a3.json",
+        "receipts/lmrec-f983082a78ca621e96d1a0d8.json",
+        "captures/devcog-3ea490c7472d6b3b7c282364.json",
+        "captures/devcog-4d1bf98a10a6758dc257ea71.json",
+        "captures/devcog-8d1f74144614821ff51d0105.json",
+        "captures/devcog-b7eda5ea50e0a1cfd4773a77.json"
+      ],
+      "receipt_count": 4,
+      "run_id": "rootless-epistemic-run-18ddd200277b4a2c871de05e",
+      "run_status": "series_failed",
+      "score_record_digest": "9052760dee6b5b7d79043fe8619297d221c4d3d1f055cff8c6de12fa6aaa6ac4"
+    }
+  ],
+  "schema_version": "sentientos.rootless_experimental_epistemic_campaign:v1"
+}
