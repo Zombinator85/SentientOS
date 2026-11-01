@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import Deque, List
@@ -22,7 +23,8 @@ class IntegrityDaemon:
         self._invalid_times: Deque[datetime] = deque()
         self._last_restart_request: datetime | None = None
         self._hungry_eyes = hungry_eyes
-        self._hungry_threshold = float(hungry_threshold)
+        threshold = _finite_number(hungry_threshold)
+        self._hungry_threshold = 0.5 if threshold is None else threshold
         self._subscription: pulse_bus.PulseSubscription | None = pulse_bus.subscribe(
             self._handle_event
         )
@@ -74,8 +76,20 @@ class IntegrityDaemon:
             event["proof_report"] = proof_report
         proof_report["hungry_eyes"] = consult
         integrity_valid = bool(proof_report.get("valid", False))
-        risk = consult.get("risk", 1.0)
-        threshold = consult.get("threshold", self._hungry_threshold)
+        raw_threshold = consult.get("threshold", self._hungry_threshold)
+        threshold = _finite_number(raw_threshold)
+        if threshold is None:
+            threshold = self._hungry_threshold
+            risk = threshold
+        else:
+            risk_value = _finite_number(consult.get("risk", 1.0))
+            if risk_value is None:
+                # Malformed advisory scores cannot authorize the guarded path.
+                risk = threshold
+            else:
+                risk = risk_value
+        consult["risk"] = risk
+        consult["threshold"] = threshold
         auto_commit = bool(integrity_valid and risk < threshold)
         proof_report["dual_control"] = {
             "integrity_valid": integrity_valid,
@@ -171,3 +185,12 @@ class IntegrityDaemon:
                 "payload": payload,
             }
         )
+
+
+def _finite_number(value: object) -> float | None:
+    """Return a finite numeric input, rejecting booleans and malformed values."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
