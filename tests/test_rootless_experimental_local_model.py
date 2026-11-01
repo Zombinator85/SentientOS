@@ -227,6 +227,51 @@ def test_rootless_pre_capture_failure_remains_execution_failure(
     assert not (run_root / "scoring-failure-review.json").exists()
 
 
+def test_rootless_partial_capture_failure_binds_durable_index(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "6" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+    partial_index = {
+        "schema_version":
+            "sentientos.rootless_experimental_epistemic_partial_capture_index:v1",
+        "run_id": run_root.name,
+        "preregistration_digest": "c" * 64,
+        "completed_capture_count": 3,
+        "expected_capture_count": 4,
+        "captures": [{"observation_id": "obs-1"}, {"observation_id": "obs-2"},
+            {"observation_id": "obs-3"}],
+        "scoring_started": False,
+        "production_authority": False,
+    }
+    partial_index["partial_capture_index_digest"] = semantic_digest(partial_index)
+    partial_path = "partial-capture-index-03.json"
+    series_module._exclusive_json(run_root / partial_path, partial_index, root=root)
+
+    _persist_series_failure_record(run_root, run_id=run_root.name,
+        preregistration_digest="c" * 64, captures_durable=False,
+        capture_index_digest=None, error=TimeoutError("fourth call timed out"),
+        partial_capture_index_path=partial_path,
+        partial_capture_index_digest=partial_index["partial_capture_index_digest"],
+        partial_capture_count=3)
+
+    failure = json.loads((run_root / "execution-failure.json").read_text(
+        encoding="utf-8"))
+    assert failure["schema_version"] == (
+        "sentientos.rootless_experimental_epistemic_failure:v1")
+    assert failure["partial_capture_index_path"] == partial_path
+    assert failure["partial_capture_index_digest"] == (
+        partial_index["partial_capture_index_digest"])
+    assert failure["captured_observations"] == 3
+    assert failure.get("scoring_started", False) is False
+    assert failure["inference_replayed"] is False
+    assert failure["production_authority"] is False
+    assert not (run_root / "scores.json").exists()
+
+
 def _configure_workspace(monkeypatch, tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()

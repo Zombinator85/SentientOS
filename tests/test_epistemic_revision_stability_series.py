@@ -370,6 +370,45 @@ def test_runner_checks_sealed_prompts_and_scores_four_captured_conditions(
     assert report["real_model_qualification_established"] is False
     assert report["preregistration_timing_verified"] is False
 
+    failed_invoker = PositionReasoningFixtureInvoker()
+    failed_cognition, _ = owner(tmp_path / "runner-partial", invoker=failed_invoker,
+        allowed_source_kinds=("capability_registry", "owner_introspection"),
+        max_selected_facts=16)
+    original_probe = failed_cognition.run_epistemic_revision_probe_once
+    call_count = 0
+
+    def fail_fourth_probe(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 4:
+            raise ResidentDevelopmentalCognitionError("probe_timeout")
+        return original_probe(**kwargs)
+
+    monkeypatch.setattr(failed_cognition,
+        "run_epistemic_revision_probe_once", fail_fourth_probe)
+    partial_conditions: list[str] = []
+    full_capture_callback_called = False
+
+    def mark_full_capture_callback(_captures):
+        nonlocal full_capture_callback_called
+        full_capture_callback_called = True
+
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="probe_timeout"):
+        run_correction_pressure_series_once(cognition=failed_cognition,
+            series=series, original_snapshot=neutral,
+            corrected_snapshot=neutral, pressure_snapshot=pressured,
+            original_projection=original, corrected_projection=corrected,
+            tick_prefix="runner-live-series",
+            after_each_capture=lambda condition, _capture:
+                partial_conditions.append(condition),
+            after_captures_durable=mark_full_capture_callback)
+    assert partial_conditions == ["correction-before", "correction-after",
+        "pressure-before"]
+    assert call_count == 4
+    assert len(failed_invoker.requests) == 3
+    assert full_capture_callback_called is False
+
 
 @pytest.mark.parametrize("transition", ("inference_correction",
     "outdated_evidence:unknown", "outdated_evidence:suspended"))
