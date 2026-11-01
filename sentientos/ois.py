@@ -86,6 +86,7 @@ def build_causal_introspection_overview(*, history_limit: int = 20) -> dict[str,
         COVERAGE_MANIFEST,
         CausalIntrospectionRuntime,
         IntrospectionError,
+        build_snapshot_delta,
         load_config,
     )
 
@@ -147,6 +148,7 @@ def build_causal_introspection_overview(*, history_limit: int = 20) -> dict[str,
 
     try:
         snapshots = CausalIntrospectionRuntime(config, ()).reconstruct()
+        delta = build_snapshot_delta(snapshots) if len(snapshots) > 1 else None
     except IntrospectionError as exc:
         return {
             "view": "causal_introspection",
@@ -186,6 +188,34 @@ def build_causal_introspection_overview(*, history_limit: int = 20) -> dict[str,
     } for snapshot in retained]
 
     latest_summary: dict[str, object] | None = None
+    delta_summary: dict[str, object] | None = None
+    if delta is not None:
+        owner_changes = delta["owner_changes"]
+        delta_summary = {
+            "previous_generation": delta["previous_generation"],
+            "current_generation": delta["current_generation"],
+            "previous_snapshot_digest": delta["previous_snapshot_digest"],
+            "current_snapshot_digest": delta["current_snapshot_digest"],
+            "source_generation_change": delta["source_generation_change"],
+            "owner_changes": [{
+                "owner_id": change["owner_id"],
+                "previous_domain": change["previous_domain"],
+                "current_domain": change["current_domain"],
+                "status": change["status"],
+                "changed_observations": change["changed_observations"],
+                "changed_references": change["changed_references"],
+                "changed_observation_reference_bindings": change[
+                    "changed_observation_reference_bindings"],
+                "changed_semantic_trace_dimensions": [{
+                    "dimension": item["dimension"],
+                    "previous": item["previous"],
+                    "current": item["current"],
+                } for item in change["changed_semantic_trace_dimensions"]],
+            } for change in owner_changes],
+            "descriptive_only": True,
+            "causal_inference_performed": False,
+            "causal_claim_made": False,
+        }
     if latest is not None:
         domain_counts: dict[str, int] = {}
         owners: list[dict[str, object]] = []
@@ -243,6 +273,7 @@ def build_causal_introspection_overview(*, history_limit: int = 20) -> dict[str,
         "omitted_older_generation_count": max(0, len(snapshots) - len(retained)),
         "history": history,
         "latest": latest_summary,
+        "latest_delta_summary": delta_summary,
         "coverage": [dict(row) for row in COVERAGE_MANIFEST],
         "value_disclosure": "observation_values_omitted",
         "read_only": True,
