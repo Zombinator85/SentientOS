@@ -4,6 +4,8 @@ import base64
 import hashlib
 import json
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Mapping, NoReturn, cast
 
 import pytest
 from cryptography.exceptions import InvalidSignature
@@ -16,6 +18,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from sentientos.federation.peer_authentication import (
     PEER_EVENT_SCHEMA,
     FederationPeerEventVerificationError,
+    FederationPeerSignatureVerifier,
+    VerifiedFederationPeerEvent,
     canonical_federation_peer_event_signing_payload,
     federation_peer_event_digest,
     verify_federation_peer_event,
@@ -32,6 +36,7 @@ from sentientos.federation.peer_trust_catalog import (
     catalog_digest_for,
 )
 from sentientos.federation.peer_replay_owner import (
+    FederationPeerReplayAcceptance,
     FederationPeerReplayOwner,
     FederationPeerReplayOwnerError,
 )
@@ -57,22 +62,31 @@ class Ed25519Verifier:
 
 
 class AcceptingVerifier:
-    def verify(self, **_kwargs) -> bool:
+    def verify(
+        self, *, algorithm: str, public_key: str, payload: bytes, signature: str,
+    ) -> bool:
         return True
 
 
 class TruthyVerifier:
-    def verify(self, **_kwargs):
-        return 1
+    def verify(
+        self, *, algorithm: str, public_key: str, payload: bytes, signature: str,
+    ) -> bool:
+        return cast(bool, json.loads("1"))
 
 
 class RejectingVerifier:
-    def verify(self, **_kwargs) -> bool:
+    def verify(
+        self, *, algorithm: str, public_key: str, payload: bytes, signature: str,
+    ) -> bool:
         return False
 
 
 def _make_catalog(*, revoked: str = "active", valid_from: str = "2026-01-01T00:00:00Z",
-                  valid_until: str = "2027-01-01T00:00:00Z"):
+                  valid_until: str = "2027-01-01T00:00:00Z") -> tuple[
+                      Ed25519PrivateKey, str, str, str, bytes,
+                      ReadOnlyFederationPeerTrustCatalog, dict[str, Any],
+                  ]:
     private = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
     public = private.public_key().public_bytes(
         encoding=serialization.Encoding.Raw,
@@ -94,16 +108,17 @@ def _make_catalog(*, revoked: str = "active", valid_from: str = "2026-01-01T00:0
             "revocation_status": revoked,
         }],
     }
-    value = {**body, "catalog_digest": catalog_digest_for(body)}
+    value: dict[str, Any] = {**body, "catalog_digest": catalog_digest_for(body)}
     raw = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     catalog = ReadOnlyFederationPeerTrustCatalog.from_bytes(
         raw, expected_catalog_version=4, expected_catalog_digest=value["catalog_digest"])
     return private, public_text, key_id, value["catalog_digest"], raw, catalog, value
 
 
-def _signed_event(private, key_id: str, *, peer_id: str = "peer-one",
+def _signed_event(private: Ed25519PrivateKey, key_id: str, *, peer_id: str = "peer-one",
                   endpoint: str = ENDPOINT, sequence: int = 1,
-                  issued_at: str = NOW_TEXT, event=None, signature_from=None):
+                  issued_at: str = NOW_TEXT, event: Any = None,
+                  signature_from: Ed25519PrivateKey | None = None) -> tuple[bytes, dict[str, Any]]:
     payload_event = {"kind": "heartbeat", "metrics": {"load": 0.25}} if event is None else event
     digest = federation_peer_event_digest(payload_event)
     signing_payload = canonical_federation_peer_event_signing_payload(
@@ -126,7 +141,14 @@ def _signed_event(private, key_id: str, *, peer_id: str = "peer-one",
     return raw, envelope
 
 
-def _verify(raw, catalog, *, now=NOW, last=0, verifier=None):
+def _verify(
+    raw: bytes,
+    catalog: ReadOnlyFederationPeerTrustCatalog,
+    *,
+    now: datetime = NOW,
+    last: int = 0,
+    verifier: FederationPeerSignatureVerifier | None = None,
+) -> VerifiedFederationPeerEvent:
     return verify_federation_peer_event(
         raw,
         catalog=catalog,
@@ -136,7 +158,7 @@ def _verify(raw, catalog, *, now=NOW, last=0, verifier=None):
     )
 
 
-def test_catalog_is_operator_pinned_lookup_only_and_exact_tuple_bound():
+def test_catalog_is_operator_pinned_lookup_only_and_exact_tuple_bound() -> None:
     _, public, key_id, digest, _, catalog, _ = _make_catalog()
     entry = catalog.lookup(peer_id="peer-one", signing_key_id=key_id, endpoint=ENDPOINT)
     assert entry is not None
@@ -151,7 +173,7 @@ def test_catalog_is_operator_pinned_lookup_only_and_exact_tuple_bound():
         ReadOnlyFederationPeerTrustCatalog(4, digest, {})
 
 
-def test_catalog_load_uses_explicit_file_and_digest_pin(tmp_path):
+def test_catalog_load_uses_explicit_file_and_digest_pin(tmp_path: Path) -> None:
     _, _, _, digest, raw, _, _ = _make_catalog()
     path = tmp_path / "peer-trust.json"
     path.write_bytes(raw)
@@ -160,21 +182,33 @@ def test_catalog_load_uses_explicit_file_and_digest_pin(tmp_path):
     assert catalog.catalog_digest == digest
 
 
-@pytest.mark.parametrize("kwargs,code", [
-    ({"expected_catalog_version": True}, "expected_catalog_version_invalid"),
-    ({"expected_catalog_version": 5}, "catalog_version_mismatch"),
-    ({"expected_catalog_digest": "sha256:" + "0" * 64}, "catalog_digest_mismatch"),
-    ({"expected_catalog_digest": "not-a-digest"}, "expected_catalog_digest_invalid"),
+@pytest.mark.parametrize("override,code", [
+    ("boolean_version", "expected_catalog_version_invalid"),
+    ("wrong_version", "catalog_version_mismatch"),
+    ("wrong_digest", "catalog_digest_mismatch"),
+    ("malformed_digest", "expected_catalog_digest_invalid"),
 ])
-def test_catalog_rejects_version_and_digest_mismatch(kwargs, code):
+def test_catalog_rejects_version_and_digest_mismatch(override: str, code: str) -> None:
     _, _, _, digest, raw, _, _ = _make_catalog()
-    args = {"expected_catalog_version": 4, "expected_catalog_digest": digest}
-    args.update(kwargs)
+    expected_version = 4
+    expected_digest = digest
+    if override == "boolean_version":
+        expected_version = True
+    elif override == "wrong_version":
+        expected_version = 5
+    elif override == "wrong_digest":
+        expected_digest = "sha256:" + "0" * 64
+    else:
+        expected_digest = "not-a-digest"
     with pytest.raises(FederationPeerTrustCatalogError, match=code):
-        ReadOnlyFederationPeerTrustCatalog.from_bytes(raw, **args)
+        ReadOnlyFederationPeerTrustCatalog.from_bytes(
+            raw,
+            expected_catalog_version=expected_version,
+            expected_catalog_digest=expected_digest,
+        )
 
 
-def test_catalog_rejects_duplicate_json_keys_noncanonical_bytes_and_oversize():
+def test_catalog_rejects_duplicate_json_keys_noncanonical_bytes_and_oversize() -> None:
     _, _, _, digest, raw, _, _ = _make_catalog()
     with pytest.raises(FederationPeerTrustCatalogError, match="catalog_json_duplicate_key"):
         ReadOnlyFederationPeerTrustCatalog.from_bytes(
@@ -205,9 +239,9 @@ def test_catalog_rejects_duplicate_json_keys_noncanonical_bytes_and_oversize():
     (lambda row: row.update(signing_key_id="ed25519-sha256:" + "0" * 64),
      "catalog_key_id_mismatch"),
 ])
-def test_catalog_rejects_invalid_trust_fields(change, code):
+def test_catalog_rejects_invalid_trust_fields(change: Callable[[dict[str, Any]], None], code: str) -> None:
     _, _, _, _, _, _, value = _make_catalog()
-    mutated = json.loads(json.dumps(value))
+    mutated: dict[str, Any] = json.loads(json.dumps(value))
     change(mutated["entries"][0])
     body = dict(mutated)
     body.pop("catalog_digest")
@@ -218,7 +252,7 @@ def test_catalog_rejects_invalid_trust_fields(change, code):
             raw, expected_catalog_version=4, expected_catalog_digest=mutated["catalog_digest"])
 
 
-def test_catalog_rejects_duplicate_peer_key_endpoint_tuple():
+def test_catalog_rejects_duplicate_peer_key_endpoint_tuple() -> None:
     _, _, _, _, _, _, value = _make_catalog()
     value["entries"].append(dict(value["entries"][0]))
     body = dict(value)
@@ -230,7 +264,7 @@ def test_catalog_rejects_duplicate_peer_key_endpoint_tuple():
             raw, expected_catalog_version=4, expected_catalog_digest=value["catalog_digest"])
 
 
-def test_signed_event_verifies_and_returns_deeply_immutable_provenance():
+def test_signed_event_verifies_and_returns_deeply_immutable_provenance() -> None:
     private, _, key_id, digest, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id)
     verified = _verify(raw, catalog)
@@ -239,21 +273,21 @@ def test_signed_event_verifies_and_returns_deeply_immutable_provenance():
     assert verified.catalog_digest == digest
     assert verified.event["kind"] == "heartbeat"
     with pytest.raises(TypeError):
-        verified.event["kind"] = "changed"
+        cast(Any, verified.event)["kind"] = "changed"
     with pytest.raises(TypeError):
-        verified.event["metrics"]["load"] = 0.75
+        cast(Any, verified.event)["metrics"]["load"] = 0.75
     assert not hasattr(verified, "accept")
     assert not hasattr(verified, "persist")
 
 
-def test_signed_event_requires_exact_next_replay_sequence():
+def test_signed_event_requires_exact_next_replay_sequence() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id, sequence=3)
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_sequence_not_next"):
         _verify(raw, catalog, last=1)
 
 
-def test_signed_event_rejects_peer_or_endpoint_substitution():
+def test_signed_event_rejects_peer_or_endpoint_substitution() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     for raw, _ in (
         _signed_event(private, key_id, peer_id="peer-two"),
@@ -263,7 +297,7 @@ def test_signed_event_rejects_peer_or_endpoint_substitution():
             _verify(raw, catalog)
 
 
-def test_signed_event_rejects_mutated_event_digest_and_bad_signature():
+def test_signed_event_rejects_mutated_event_digest_and_bad_signature() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, envelope = _signed_event(private, key_id)
     changed = dict(envelope)
@@ -279,7 +313,7 @@ def test_signed_event_rejects_mutated_event_digest_and_bad_signature():
         _verify(raw, catalog, verifier=RejectingVerifier())
 
 
-def test_signed_event_rejects_the_exact_key_expiry_instant():
+def test_signed_event_rejects_the_exact_key_expiry_instant() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     issued_at = "2027-01-01T00:00:00Z"
     raw, _ = _signed_event(private, key_id, issued_at=issued_at)
@@ -288,7 +322,7 @@ def test_signed_event_rejects_the_exact_key_expiry_instant():
         _verify(raw, catalog, now=boundary)
 
 
-def test_signed_event_rejects_revoked_key_and_currently_expired_key():
+def test_signed_event_rejects_revoked_key_and_currently_expired_key() -> None:
     private, _, key_id, _, _, _, _ = _make_catalog()
     revoked = _make_catalog(revoked="revoked")[5]
     raw, _ = _signed_event(private, key_id)
@@ -306,14 +340,14 @@ def test_signed_event_rejects_revoked_key_and_currently_expired_key():
     ("2026-10-23T10:00:00+00:00", NOW, "peer_event_timestamp_invalid"),
     ("2026-10-23T10:00:00.000Z", NOW, "peer_event_timestamp_invalid"),
 ])
-def test_signed_event_enforces_canonical_freshness_window(issued_at, now, code):
+def test_signed_event_enforces_canonical_freshness_window(issued_at: str, now: datetime, code: str) -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id, issued_at=issued_at)
     with pytest.raises(FederationPeerEventVerificationError, match=code):
         _verify(raw, catalog, now=now)
 
 
-def test_signed_event_rejects_noncanonical_duplicate_and_extra_fields():
+def test_signed_event_rejects_noncanonical_duplicate_and_extra_fields() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, envelope = _signed_event(private, key_id)
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_not_canonical"):
@@ -328,7 +362,7 @@ def test_signed_event_rejects_noncanonical_duplicate_and_extra_fields():
         _verify(extra_raw, catalog)
 
 
-def test_signed_event_rejects_bad_sequence_types_and_json_constants():
+def test_signed_event_rejects_bad_sequence_types_and_json_constants() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, envelope = _signed_event(private, key_id)
     bad_sequence = dict(envelope)
@@ -340,7 +374,7 @@ def test_signed_event_rejects_bad_sequence_types_and_json_constants():
         _verify(b'{"x":NaN}', catalog)
 
 
-def test_verifier_requires_real_true_boolean_and_bounded_policy_inputs():
+def test_verifier_requires_real_true_boolean_and_bounded_policy_inputs() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id)
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_signature_invalid"):
@@ -357,13 +391,13 @@ def test_verifier_requires_real_true_boolean_and_bounded_policy_inputs():
             now=datetime(2026, 10, 23), last_accepted_sequence=0)
 
 
-def test_signed_event_size_is_bounded():
+def test_signed_event_size_is_bounded() -> None:
     _, _, _, _, _, catalog, _ = _make_catalog()
     with pytest.raises(FederationPeerEventVerificationError, match="peer_event_size_invalid"):
         _verify(b"x" * 65_537, catalog)
 
 
-def test_cryptography_peer_verifier_authenticates_exact_signed_event():
+def test_cryptography_peer_verifier_authenticates_exact_signed_event() -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id)
     verifier = CryptographyEd25519FederationPeerSignatureVerifier()
@@ -380,7 +414,7 @@ def test_cryptography_peer_verifier_authenticates_exact_signed_event():
         _verify(invalid_signature_raw, catalog, verifier=verifier)
 
 
-def test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend(monkeypatch):
+def test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     private, public_text, _, _, _, _, _ = _make_catalog()
     payload = b"exact signed bytes"
     signature = base64.urlsafe_b64encode(private.sign(payload)).decode("ascii").rstrip("=")
@@ -399,7 +433,7 @@ def test_cryptography_peer_verifier_rejects_malformed_inputs_and_missing_backend
         algorithm="ed25519", public_key=public_text, payload=payload + b"!", signature=signature,
     ) is False
 
-    def unavailable_backend():
+    def unavailable_backend() -> NoReturn:
         raise ImportError("cryptography unavailable")
 
     monkeypatch.setattr(peer_ed25519_module, "_load_cryptography", unavailable_backend)
@@ -416,7 +450,7 @@ from sentientos.federation.peer_replay_owner import (
 )
 
 
-def test_replay_owner_derives_sequence_recovers_and_preserves_outcomes(tmp_path):
+def test_replay_owner_derives_sequence_recovers_and_preserves_outcomes(tmp_path: Path) -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     root = tmp_path / "peer-one"
     owner = FederationPeerReplayOwner(root, peer_id="peer-one")
@@ -458,7 +492,7 @@ def test_replay_owner_derives_sequence_recovers_and_preserves_outcomes(tmp_path)
     assert FederationPeerReplayOwner(root, peer_id="peer-one").last_accepted_sequence == 3
 
 
-def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
+def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path: Path) -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     root = tmp_path / "peer-one"
     owner = FederationPeerReplayOwner(root, peer_id="peer-one")
@@ -490,7 +524,7 @@ def test_replay_owner_rejects_gap_replay_and_tampered_history(tmp_path):
         _ = owner.last_accepted_sequence
 
 
-def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_path, monkeypatch):
+def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     root = tmp_path / "peer-one"
     bounded = FederationPeerReplayOwner(root, peer_id="peer-one", max_history_bytes=140_000)
@@ -524,8 +558,8 @@ def test_replay_owner_bounds_history_and_fails_closed_without_posix_custody(tmp_
 
     unsupported_root = tmp_path / "unsupported"
     unsupported = FederationPeerReplayOwner(unsupported_root, peer_id="peer-one")
-    def unsupported_directory(*_args, **_kwargs):
-        raise peer_replay_owner_module.PrivateFileCustodyError("directory_custody_unsupported")
+    def unsupported_directory(*_args: object, **_kwargs: object) -> NoReturn:
+        raise PrivateFileCustodyError("directory_custody_unsupported")
     monkeypatch.setattr(peer_replay_owner_module, "open_private_directory", unsupported_directory)
     with pytest.raises(FederationPeerReplayOwnerError, match="replay_owner_custody_unavailable"):
         unsupported.accept(first_raw, catalog=catalog, signature_verifier=Ed25519Verifier(), now=NOW)
@@ -551,20 +585,25 @@ from sentientos.private_file_custody import (
 )
 
 
-def _local_semantic_policy(peer_rules):
+def _local_semantic_policy(
+    peer_rules: list[dict[str, Any]],
+) -> tuple[bytes, str, FederationPeerSemanticAcceptancePolicy]:
     body = {
         "schema": "sentientos.federation.peer_semantic_policy:v1",
         "policy_version": 1,
         "peers": peer_rules,
     }
-    value = {**body, "policy_digest": semantic_policy_digest_for(body)}
+    policy_digest = semantic_policy_digest_for(body)
+    value: dict[str, Any] = {**body, "policy_digest": policy_digest}
     raw = (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
     policy = FederationPeerSemanticAcceptancePolicy.from_bytes(
-        raw, expected_policy_version=1, expected_policy_digest=value["policy_digest"])
-    return raw, value["policy_digest"], policy
+        raw, expected_policy_version=1, expected_policy_digest=policy_digest)
+    return raw, policy_digest, policy
 
 
-def _semantic_replay(tmp_path, event):
+def _semantic_replay(
+    tmp_path: Path, event: Mapping[str, Any],
+) -> FederationPeerReplayAcceptance:
     private, _, key_id, _, _, catalog, _ = _make_catalog()
     raw, _ = _signed_event(private, key_id, event=event)
     owner = FederationPeerReplayOwner(tmp_path / "peer-one", peer_id="peer-one")
@@ -573,7 +612,7 @@ def _semantic_replay(tmp_path, event):
     )
 
 
-def test_peer_claim_semantics_require_local_policy_and_only_enable_review(tmp_path):
+def test_peer_claim_semantics_require_local_policy_and_only_enable_review(tmp_path: Path) -> None:
     _, policy_digest, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
@@ -608,7 +647,7 @@ def test_peer_claim_semantics_require_local_policy_and_only_enable_review(tmp_pa
 
 
 @pytest.mark.parametrize("outcome", ["positive", "adverse", "mixed", "inconclusive"])
-def test_peer_trial_outcomes_preserve_positive_and_adverse_labels(tmp_path, outcome):
+def test_peer_trial_outcomes_preserve_positive_and_adverse_labels(tmp_path: Path, outcome: str) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -634,7 +673,7 @@ def test_peer_trial_outcomes_preserve_positive_and_adverse_labels(tmp_path, outc
     assert receipt.execution_permitted is False
 
 
-def test_peer_event_schema_and_peer_must_be_explicitly_permitted(tmp_path):
+def test_peer_event_schema_and_peer_must_be_explicitly_permitted(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([])
     replay = _semantic_replay(tmp_path, {
         "schema": CLAIM_EVIDENCE_SCHEMA,
@@ -666,7 +705,7 @@ def test_peer_event_schema_and_peer_must_be_explicitly_permitted(tmp_path):
         "execute": True,
     },
 ])
-def test_peer_claim_shape_rejects_unresolved_paths_and_extra_authority_fields(tmp_path, event):
+def test_peer_claim_shape_rejects_unresolved_paths_and_extra_authority_fields(tmp_path: Path, event: dict[str, Any]) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
@@ -681,7 +720,7 @@ def test_peer_claim_shape_rejects_unresolved_paths_and_extra_authority_fields(tm
     assert receipt.execution_permitted is False
 
 
-def test_local_semantic_policy_requires_exact_canonical_pinned_bytes():
+def test_local_semantic_policy_requires_exact_canonical_pinned_bytes() -> None:
     raw, digest, _ = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [CLAIM_EVIDENCE_SCHEMA],
@@ -709,7 +748,7 @@ from sentientos.federation.peer_semantic_acceptance import (
 )
 
 
-def test_semantic_review_receipt_bytes_are_canonical_and_recomputed(tmp_path):
+def test_semantic_review_receipt_bytes_are_canonical_and_recomputed(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -741,7 +780,7 @@ def test_semantic_review_receipt_bytes_are_canonical_and_recomputed(tmp_path):
     assert verified.decision_power == "none"
 
 
-def test_semantic_review_receipt_revalidation_binds_replay_and_policy(tmp_path):
+def test_semantic_review_receipt_revalidation_binds_replay_and_policy(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -775,7 +814,7 @@ def test_semantic_review_receipt_revalidation_binds_replay_and_policy(tmp_path):
         )
 
 
-def test_semantic_review_receipt_rejects_modified_digest_and_recomputed_forgery(tmp_path):
+def test_semantic_review_receipt_rejects_modified_digest_and_recomputed_forgery(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -816,7 +855,9 @@ def test_semantic_review_receipt_rejects_modified_digest_and_recomputed_forgery(
         )
 
 
-def _docket_replay(tmp_path, *, experiment_id, outcome, summary=None):
+def _docket_replay(
+    tmp_path: Path, *, experiment_id: str, outcome: str, summary: str | None = None,
+) -> FederationPeerReplayAcceptance:
     value = {
         "schema": TRIAL_OUTCOME_SCHEMA,
         "experiment_id": experiment_id,
@@ -827,7 +868,7 @@ def _docket_replay(tmp_path, *, experiment_id, outcome, summary=None):
     return _semantic_replay(tmp_path, value)
 
 
-def test_semantic_review_docket_round_trips_all_outcomes_immutably(tmp_path):
+def test_semantic_review_docket_round_trips_all_outcomes_immutably(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -863,7 +904,7 @@ def test_semantic_review_docket_round_trips_all_outcomes_immutably(tmp_path):
     }
 
 
-def test_semantic_review_docket_read_revalidates_replay_and_policy(tmp_path):
+def test_semantic_review_docket_read_revalidates_replay_and_policy(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -901,7 +942,7 @@ def test_semantic_review_docket_read_revalidates_replay_and_policy(tmp_path):
         )
 
 
-def test_semantic_review_docket_rejects_tampering_and_unbound_names(tmp_path):
+def test_semantic_review_docket_rejects_tampering_and_unbound_names(tmp_path: Path) -> None:
     _, _, policy = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -933,7 +974,7 @@ def test_semantic_review_docket_rejects_tampering_and_unbound_names(tmp_path):
         docket.read("sha256:" + "0" * 64, replay=replay, policy=policy)
 
 
-def test_semantic_review_docket_bounds_records_and_requires_eligible_events(tmp_path):
+def test_semantic_review_docket_bounds_records_and_requires_eligible_events(tmp_path: Path) -> None:
     policy_for_outcomes = _local_semantic_policy([{
         "peer_id": "peer-one",
         "accepted_event_schemas": [TRIAL_OUTCOME_SCHEMA],
@@ -982,7 +1023,7 @@ def test_semantic_review_docket_bounds_records_and_requires_eligible_events(tmp_
         FederationPeerSemanticReviewDocket(tmp_path / "bad-limit", max_entries=True)
 
 
-def test_private_immutable_publication_enforces_entry_cap_under_lock(tmp_path):
+def test_private_immutable_publication_enforces_entry_cap_under_lock(tmp_path: Path) -> None:
     first = tmp_path / "bounded" / "first.json"
     second = tmp_path / "bounded" / "second.json"
     assert publish_immutable_bytes(
