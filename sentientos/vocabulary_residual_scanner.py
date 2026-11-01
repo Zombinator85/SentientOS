@@ -18,7 +18,7 @@ class VocabularyResidualScanner:
         symbol_snapshots: Sequence[SymbolSnapshot],
     ) -> dict[str, object]:
         deprecated_terms = self._deprecated_terms(glossary_entries, symbol_snapshots)
-        counts = Counter()
+        counts: Counter[str] = Counter()
         for payload in payloads:
             text = str(payload).lower()
             for term in deprecated_terms:
