@@ -28,11 +28,25 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _next_transition_counter(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError("transition_counter_invalid")
+    if isinstance(value, int):
+        counter = value
+    elif isinstance(value, str) and value.isdecimal():
+        counter = int(value)
+    else:
+        raise ValueError("transition_counter_invalid")
+    if counter < 0:
+        raise ValueError("transition_counter_invalid")
+    return counter + 1
+
+
 def rotate(*, dry_run: bool, reason: str, actor: str) -> dict[str, object]:
     manager = get_manager()
     state = manager.load_state()
     current = str(state.get("active_epoch_id") or "epoch-0001")
-    transition_counter = int(state.get("transition_counter", 0)) + 1  # invariant-allow: epoch-transition
+    transition_counter = _next_transition_counter(state.get("transition_counter", 0))  # invariant-allow: epoch-transition
     new_epoch = f"epoch-{transition_counter+1:04d}"
     key_root = Path("/vow/keys") if Path("/vow").exists() else Path("vow/keys")
     priv = key_root / f"ed25519_private_{new_epoch}.key"
