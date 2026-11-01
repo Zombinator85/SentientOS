@@ -18,6 +18,7 @@ from sentientos.ois import (
     build_authority_summary_view,
     build_authority_surface_diff,
     build_authority_surface_snapshot_view,
+    build_causal_introspection_overview,
     build_execution_trace,
     build_explanation,
     build_narrative,
@@ -37,6 +38,13 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("overview", help="Show system state overview.")
+    introspection = subparsers.add_parser(
+        "introspection", help="Show verified owner-introspection coverage and lineage."
+    )
+    introspection.add_argument(
+        "--history-limit", type=int, default=20,
+        help="Maximum number of recent verified generations to include (1-100).",
+    )
     diff = subparsers.add_parser("diff", help="Show authority surface changes.")
     diff.add_argument("--from", dest="source_from", default=None, help="Snapshot source (default: runtime).")
     diff.add_argument("--to", dest="source_to", default=None, help="Snapshot source (default: runtime).")
@@ -87,6 +95,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "overview":
         log_introspection_access("overview")
         output = build_system_overview()
+        print(serialize_output(output))
+        return 0
+
+    if args.command == "introspection":
+        if not 1 <= args.history_limit <= 100:
+            parser.error("--history-limit must be between 1 and 100")
+        log_introspection_access("causal_introspection", detail={"history_limit": args.history_limit})
+        output = build_causal_introspection_overview(history_limit=args.history_limit)
         print(serialize_output(output))
         return 0
 
