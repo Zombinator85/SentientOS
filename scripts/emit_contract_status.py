@@ -4,7 +4,7 @@ import json
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from sentientos.ci_baseline import evaluate_ci_baseline_drift
 from sentientos.federated_enforcement_policy import resolve_policy
@@ -16,6 +16,12 @@ from sentientos.jurisprudence_consumption import build_jurisprudence_consumption
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT = Path("glow/contracts/protected_mutation_proof_status.json")
+
+
+def _as_dict(value: object) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
 
 
 def _iso_now() -> str:
@@ -281,12 +287,12 @@ def _resolve_repo_root(output_path: Path) -> Path:
 
 
 def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[str, Any]:
-    baseline_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=False)
-    forward_payload = verify_kernel_admission_provenance(repo_root=repo_root, mode="forward-enforcement")
-    strict_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=True)
-    baseline_summary = baseline_payload.get("summary") if isinstance(baseline_payload.get("summary"), dict) else {}
-    forward_summary = forward_payload.get("summary") if isinstance(forward_payload.get("summary"), dict) else {}
-    strict_summary = strict_payload.get("summary") if isinstance(strict_payload.get("summary"), dict) else {}
+    baseline_payload = _as_dict(verify_kernel_admission_provenance(repo_root=repo_root, strict=False))
+    forward_payload = _as_dict(verify_kernel_admission_provenance(repo_root=repo_root, mode="forward-enforcement"))
+    strict_payload = _as_dict(verify_kernel_admission_provenance(repo_root=repo_root, strict=True))
+    baseline_summary = _as_dict(baseline_payload.get("summary"))
+    forward_summary = _as_dict(forward_payload.get("summary"))
+    strict_summary = _as_dict(strict_payload.get("summary"))
     report_payload = {
         "schema_version": 1,
         "generated_at": _iso_now(),
@@ -354,10 +360,8 @@ def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[s
         "covered_scope": baseline_summary.get("covered_scope"),
         "mode": baseline_summary.get("mode"),
         "forward_enforcement_mode": forward_summary.get("mode"),
-        "classification_counts": (
-            baseline_summary.get("counts", {}).get("classification", {})
-            if isinstance(baseline_summary.get("counts"), dict)
-            else {}
+        "classification_counts": _as_dict(
+            _as_dict(baseline_summary.get("counts")).get("classification")
         ),
         "forward_enforcement_ok": bool(forward_summary.get("ok", False)),
         "has_current_contract_violations": has_current,
@@ -447,6 +451,7 @@ def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
 
 def _federated_enforcement_status(*, git_sha: str) -> dict[str, Any]:
     policy = resolve_policy().to_dict()
+    postures = _as_dict(policy.get("postures"))
     return {
         "domain_name": "federated_enforcement_calibration",
         "baseline_present": True,
@@ -467,17 +472,18 @@ def _federated_enforcement_status(*, git_sha: str) -> dict[str, Any]:
         "policy_source": policy.get("source"),
         "postures": policy.get("postures"),
         "calibration_summary": {
-            "shadow_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "shadow"]),
-            "advisory_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "advisory"]),
-            "enforce_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "enforce"]),
+            "shadow_subsystems": sorted([key for key, value in postures.items() if value == "shadow"]),
+            "advisory_subsystems": sorted([key for key, value in postures.items() if value == "advisory"]),
+            "enforce_subsystems": sorted([key for key, value in postures.items() if value == "enforce"]),
         },
     }
 
 def _stability_doctrine_status(*, git_sha: str) -> dict[str, Any]:
     doctrine_path = Path("glow/contracts/stability_doctrine.json")
     payload = _read_json(doctrine_path) if doctrine_path.exists() else None
-    toolchain = payload.get("toolchain") if isinstance(payload, dict) and isinstance(payload.get("toolchain"), dict) else {}
-    vow = payload.get("vow_artifacts") if isinstance(payload, dict) and isinstance(payload.get("vow_artifacts"), dict) else {}
+    doctrine = _as_dict(payload)
+    toolchain = _as_dict(doctrine.get("toolchain"))
+    vow = _as_dict(doctrine.get("vow_artifacts"))
     verify_ok = bool(toolchain.get("verify_audits_available", False))
     manifest_ok = bool(vow.get("immutable_manifest_present", False))
     drifted = not (verify_ok and manifest_ok)
@@ -499,8 +505,8 @@ def _stability_doctrine_status(*, git_sha: str) -> dict[str, Any]:
         "fingerprint_changed": None,
         "tuple_diff_detected": None,
         "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_STABILITY_DOCTRINE",
-        "captured_by": payload.get("git_sha") if isinstance(payload, dict) else None,
-        "captured_at": payload.get("generated_at") if isinstance(payload, dict) else None,
+        "captured_by": doctrine.get("git_sha") if doctrine else None,
+        "captured_at": doctrine.get("generated_at") if doctrine else None,
         "tool_version": None,
         "git_sha": git_sha,
         "verify_audits_available": verify_ok,

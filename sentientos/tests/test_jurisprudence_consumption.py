@@ -37,6 +37,26 @@ def test_contract_status_surfaces_jurisprudence_domain(tmp_path: Path, monkeypat
     assert len(domain["emitted_vs_consumed"]) == 3
 
 
+def test_contract_status_treats_malformed_nested_stability_records_as_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    doctrine_path = tmp_path / "glow" / "contracts" / "stability_doctrine.json"
+    doctrine_path.parent.mkdir(parents=True, exist_ok=True)
+    doctrine_path.write_text(
+        '{"toolchain": ["malformed"], "vow_artifacts": null, "git_sha": "abc123"}',
+        encoding="utf-8",
+    )
+
+    payload = emit_contract_status(tmp_path / "glow/contracts/contract_status.json")
+    stability = next(item for item in payload["contracts"] if item["domain_name"] == "stability_doctrine")
+
+    assert stability["drifted"] is True
+    assert stability["verify_audits_available"] is False
+    assert stability["immutable_manifest_present"] is False
+    assert stability["captured_by"] == "abc123"
+
+
 def test_absent_jurisprudence_mapping_does_not_create_false_authority(monkeypatch: object) -> None:
     monkeypatch.setattr(bounded_jurisprudence, "EXPLICIT_AUTHORITY_RULES", ())
 
