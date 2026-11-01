@@ -513,7 +513,8 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     trust_review_contract_counts_by_view: dict[str, dict[str, int]] = {}
     trust_review_contract_any_required_by_view: dict[str, dict[str, bool]] = {}
     for profile in profiles:
-        summary = profile.get("summary") if isinstance(profile, dict) else {}
+        summary_value = profile.get("summary")
+        summary = summary_value if isinstance(summary_value, dict) else {}
         profile_name = str(profile.get("profile"))
         if int(summary.get("blocking_failure_count", 0)) > 0:
             blocking_profiles.append(profile_name)
@@ -671,9 +672,9 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                                 trust_degradation_counts_by_escalation_posture[key] = (
                                     trust_degradation_counts_by_escalation_posture.get(key, 0) + value
                                 )
-                    review_counts = degradation.get("counts_by_review_contract")
-                    if isinstance(review_counts, dict):
-                        for key, value in review_counts.items():
+                    degradation_review_counts = degradation.get("counts_by_review_contract")
+                    if isinstance(degradation_review_counts, dict):
+                        for key, value in degradation_review_counts.items():
                             if isinstance(key, str) and isinstance(value, int):
                                 trust_degradation_counts_by_review_contract[key] = (
                                     trust_degradation_counts_by_review_contract.get(key, 0) + value
