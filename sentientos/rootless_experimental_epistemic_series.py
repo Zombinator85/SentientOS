@@ -129,7 +129,10 @@ def _partial_score_artifact_state(score_path: Path) -> dict[str, Any]:
 
 def _persist_series_failure_record(run_root: Path, *, run_id: str,
         preregistration_digest: str, captures_durable: bool,
-        capture_index_digest: str | None, error: Exception) -> None:
+        capture_index_digest: str | None, error: Exception,
+        partial_capture_index_path: str | None = None,
+        partial_capture_index_digest: str | None = None,
+        partial_capture_count: int = 0) -> None:
     failure_code = getattr(error, "code", None) or type(error).__name__
     if captures_durable:
         if not isinstance(capture_index_digest, str):
@@ -165,9 +168,42 @@ def _persist_series_failure_record(run_root: Path, *, run_id: str,
             "preregistration_digest": preregistration_digest,
             "failure_type": type(error).__name__,
             "failure_code": failure_code,
+            "scoring_started": False,
             "inference_replayed": False,
             "production_authority": False,
         }
+        if partial_capture_index_path is not None:
+            if (not isinstance(partial_capture_index_digest, str)
+                    or partial_capture_count < 1
+                    or partial_capture_count >= MAX_CALLS
+                    or Path(partial_capture_index_path).name
+                        != partial_capture_index_path
+                    or not partial_capture_index_path.startswith(
+                        "partial-capture-index-")):
+                raise RootlessExperimentalError(
+                    "epistemic_partial_capture_index_binding_invalid")
+            partial_path = run_root / partial_capture_index_path
+            partial = _read_json(partial_path)
+            claimed = partial.pop("partial_capture_index_digest", None)
+            if (claimed != partial_capture_index_digest
+                    or semantic_digest(partial) != partial_capture_index_digest
+                    or partial.get("schema_version") !=
+                        "sentientos.rootless_experimental_epistemic_partial_capture_index:v1"
+                    or partial.get("run_id") != run_id
+                    or partial.get("preregistration_digest") != preregistration_digest
+                    or partial.get("completed_capture_count") != partial_capture_count
+                    or partial.get("expected_capture_count") != MAX_CALLS
+                    or not isinstance(partial.get("captures"), list)
+                    or len(partial["captures"]) != partial_capture_count
+                    or partial.get("scoring_started") is not False
+                    or partial.get("production_authority") is not False):
+                raise RootlessExperimentalError(
+                    "epistemic_partial_capture_index_binding_invalid")
+            failure.update({
+                "partial_capture_index_path": partial_capture_index_path,
+                "partial_capture_index_digest": partial_capture_index_digest,
+                "captured_observations": partial_capture_count,
+            })
         failure_name = "execution-failure.json"
     try:
         _exclusive_json(run_root / failure_name, failure, root=EXPERIMENT_ROOT)
@@ -341,6 +377,81 @@ def run_rootless_experimental_correction_pressure_series_once(*,
 
     captures_durable = False
     capture_index_digest: str | None = None
+    partial_rows: list[dict[str, Any]] = []
+    partial_index_path: str | None = None
+    partial_index_digest: str | None = None
+
+    def preserve_each_capture(condition: str, capture: Any) -> None:
+        nonlocal partial_index_path, partial_index_digest
+        prompt_row = next((item for item in prompts
+            if item.get("condition") == condition), None)
+        request = capture.receipt.request
+        if (prompt_row is None or capture.prompt != prompt_row["prompt"]
+                or request.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                or request.get("active_model_identity")
+                    != dict(session.active_model_identity)
+                or not isinstance(request.get("linkage"), Mapping)
+                or request["linkage"].get("rootless_experimental_session") != binding
+                or capture.receipt.output_text is None
+                or any(row["observation_id"] == capture.observation_id
+                    for row in partial_rows)):
+            raise RootlessExperimentalError("epistemic_partial_capture_invalid")
+        prompt_sha = hashlib.sha256(capture.prompt.encode("utf-8")).hexdigest()
+        artifact_relative = f"captures/{len(partial_rows) + 1:02d}-{condition}.json"
+        artifact: dict[str, Any] = {
+            "schema_version": "sentientos.rootless_experimental_epistemic_capture:v1",
+            "run_id": run_identity,
+            "preregistration_digest": body["preregistration_digest"],
+            "condition": condition,
+            "observation_id": capture.observation_id,
+            "observation_digest": capture.observation_digest,
+            "capture_digest": capture.capture_digest,
+            "prompt": capture.prompt,
+            "prompt_sha256": prompt_sha,
+            "request": dict(request),
+            "receipt": capture.receipt.to_dict(include_output=True),
+            "raw_response": capture.receipt.output_text,
+            "raw_response_sha256": hashlib.sha256(
+                capture.receipt.output_text.encode("utf-8")).hexdigest(),
+            "production_authority": False,
+        }
+        artifact["capture_artifact_digest"] = semantic_digest(artifact)
+        _exclusive_json(run_root / artifact_relative, artifact,
+            root=EXPERIMENT_ROOT)
+        row = {
+            "observation_id": capture.observation_id,
+            "observation_digest": capture.observation_digest,
+            "condition": condition,
+            "prompt_sha256": prompt_sha,
+            "request_id": request.get("request_id"),
+            "request_digest": request.get("request_digest"),
+            "receipt_id": capture.receipt.receipt_id,
+            "receipt_digest": capture.receipt.receipt_digest,
+            "output_digest": capture.receipt.output_digest,
+            "raw_response_sha256": artifact["raw_response_sha256"],
+            "active_model_identity": request.get("active_model_identity"),
+            "purpose": request.get("purpose"),
+            "capture_artifact_path": artifact_relative,
+            "capture_artifact_digest": artifact["capture_artifact_digest"],
+            "captured_before_scoring": True,
+        }
+        partial_rows.append(row)
+        index: dict[str, Any] = {
+            "schema_version":
+                "sentientos.rootless_experimental_epistemic_partial_capture_index:v1",
+            "run_id": run_identity,
+            "preregistration_digest": body["preregistration_digest"],
+            "completed_capture_count": len(partial_rows),
+            "expected_capture_count": MAX_CALLS,
+            "captures": list(partial_rows),
+            "scoring_started": False,
+            "production_authority": False,
+        }
+        index["partial_capture_index_digest"] = semantic_digest(index)
+        partial_index_path = f"partial-capture-index-{len(partial_rows):02d}.json"
+        _exclusive_json(run_root / partial_index_path, index,
+            root=EXPERIMENT_ROOT)
+        partial_index_digest = str(index["partial_capture_index_digest"])
 
     def preserve_captures(captures: Any) -> None:
         nonlocal captures_durable, capture_index_digest
@@ -384,7 +495,7 @@ def run_rootless_experimental_correction_pressure_series_once(*,
                     != series.pressure_pair.pressure_statement):
             raise RootlessExperimentalError(
                 "epistemic_case_commitment_verification_failed")
-        rows = []
+        rows: list[dict[str, Any]] = []
         prompts_by_sha: dict[str, list[dict[str, Any]]] = {}
         for item in prompts:
             prompt_sha = hashlib.sha256(item["prompt"].encode("utf-8")).hexdigest()
@@ -416,6 +527,10 @@ def run_rootless_experimental_correction_pressure_series_once(*,
                 "output_digest": capture.receipt.output_digest,
                 "raw_response_sha256": hashlib.sha256(
                     capture.receipt.output_text.encode("utf-8")).hexdigest(),
+                "capture_artifact_path": partial_rows[len(rows)][
+                    "capture_artifact_path"],
+                "capture_artifact_digest": partial_rows[len(rows)][
+                    "capture_artifact_digest"],
                 "active_model_identity": request.get("active_model_identity"),
                 "purpose": request.get("purpose"),
                 "captured_before_scoring": True})
@@ -441,12 +556,16 @@ def run_rootless_experimental_correction_pressure_series_once(*,
             original_projection=original_projection,
             corrected_projection=corrected_projection,
             tick_prefix=run_identity,
+            after_each_capture=preserve_each_capture,
             after_captures_durable=preserve_captures)
     except Exception as exc:
         _persist_series_failure_record(run_root, run_id=run_identity,
             preregistration_digest=body["preregistration_digest"],
             captures_durable=captures_durable,
-            capture_index_digest=capture_index_digest, error=exc)
+            capture_index_digest=capture_index_digest, error=exc,
+            partial_capture_index_path=partial_index_path,
+            partial_capture_index_digest=partial_index_digest,
+            partial_capture_count=len(partial_rows))
         raise
     score: dict[str, Any] = {"schema_version":
         "sentientos.rootless_experimental_epistemic_scores:v1",

@@ -97,6 +97,8 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         original_projection: EpistemicCognitiveProjection,
         corrected_projection: EpistemicCognitiveProjection,
         tick_prefix: str,
+        after_each_capture: Callable[
+            [str, VerifiedEpistemicRevisionProbeCapture], None] | None = None,
         after_captures_durable: Callable[
             [Sequence[VerifiedEpistemicRevisionProbeCapture]], None] | None = None,
         ) -> dict[str, Any]:
@@ -107,6 +109,9 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
     invocation. The owner repeats each digest check immediately before its
     invocation. If any call or capture fails, prior captures remain in owner
     custody and this function does not retry or continue the series.
+    ``after_each_capture`` runs synchronously after each owner-verified capture
+    so callers can persist it before the next inference. The full-series
+    durability callback still runs before scoring.
     """
     if (not isinstance(cognition, ResidentDevelopmentalCognitionOwner)
             or not isinstance(series, EpistemicCorrectionPressureSeries)
@@ -157,8 +162,10 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_observation_unavailable")
         observation_id = result.cognition_observation_ids[0]
-        captures.append(cognition.verified_epistemic_revision_probe_capture(
-            observation_id))
+        capture = cognition.verified_epistemic_revision_probe_capture(observation_id)
+        captures.append(capture)
+        if after_each_capture is not None:
+            after_each_capture(condition, capture)
 
     correction_before, correction_after, pressure_before, pressure_after = captures
     if after_captures_durable is not None:
