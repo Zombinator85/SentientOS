@@ -3,7 +3,7 @@ from __future__ import annotations
 """Advisory pruner for Codex prompt/context payloads."""
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ class CodexContextPruner:
             "prune_order": [block.name for block in ranked_plan.blocks],
         }
 
-    def _totals(self, blocks: Iterable[ContextBlock]) -> dict[str, object]:
+    def _totals(self, blocks: Iterable[ContextBlock]) -> Mapping[str, int]:
         totals: dict[str, int] = {"bytes": 0, "tokens_estimate": 0}
         for block in blocks:
             footprint = block.footprint()
