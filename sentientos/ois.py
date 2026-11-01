@@ -80,6 +80,177 @@ def build_system_overview() -> dict[str, object]:
     }
 
 
+def build_causal_introspection_overview(*, history_limit: int = 20) -> dict[str, object]:
+    """Return a value-free operator summary of verified causal snapshots."""
+    from sentientos.causal_introspection import (
+        COVERAGE_MANIFEST,
+        CausalIntrospectionRuntime,
+        IntrospectionError,
+        load_config,
+    )
+
+    if history_limit < 1 or history_limit > 100:
+        raise ValueError("history_limit_out_of_range")
+
+    try:
+        config = load_config()
+    except IntrospectionError as exc:
+        return {
+            "view": "causal_introspection",
+            "configuration_posture": "blocked",
+            "verification_posture": "unavailable",
+            "error_code": str(exc),
+            "configuration": None,
+            "history": [],
+            "latest": None,
+            "coverage": [dict(row) for row in COVERAGE_MANIFEST],
+            "value_disclosure": "observation_values_omitted",
+            "read_only": True,
+            "authority": False,
+            "current_truth": False,
+        }
+
+    if config is None:
+        return {
+            "view": "causal_introspection",
+            "configuration_posture": "not_configured",
+            "verification_posture": "not_run",
+            "configuration": None,
+            "history": [],
+            "latest": None,
+            "coverage": [dict(row) for row in COVERAGE_MANIFEST],
+            "value_disclosure": "observation_values_omitted",
+            "read_only": True,
+            "authority": False,
+            "current_truth": False,
+        }
+    if not config.enabled:
+        return {
+            "view": "causal_introspection",
+            "configuration_posture": "disabled",
+            "verification_posture": "not_run",
+            "configuration": {
+                "enabled": False,
+                "world_state_consumption_enabled": config.world_state_consumption_enabled,
+                "enabled_domains": list(config.enabled_domains),
+                "required_domains": list(config.required_domains),
+                "max_projections": config.max_projections,
+            },
+            "history": [],
+            "latest": None,
+            "coverage": [dict(row) for row in COVERAGE_MANIFEST],
+            "value_disclosure": "observation_values_omitted",
+            "read_only": True,
+            "authority": False,
+            "current_truth": False,
+        }
+
+    try:
+        snapshots = CausalIntrospectionRuntime(config, ()).reconstruct()
+    except IntrospectionError as exc:
+        return {
+            "view": "causal_introspection",
+            "configuration_posture": "enabled",
+            "verification_posture": "blocked",
+            "error_code": str(exc),
+            "configuration": {
+                "enabled": True,
+                "world_state_consumption_enabled": config.world_state_consumption_enabled,
+                "enabled_domains": list(config.enabled_domains),
+                "required_domains": list(config.required_domains),
+                "max_projections": config.max_projections,
+            },
+            "history": [],
+            "latest": None,
+            "coverage": [dict(row) for row in COVERAGE_MANIFEST],
+            "value_disclosure": "observation_values_omitted",
+            "read_only": True,
+            "authority": False,
+            "current_truth": False,
+        }
+
+    latest = snapshots[-1] if snapshots else None
+    retained = snapshots[-history_limit:]
+    history = [{
+        "generation": snapshot.generation,
+        "snapshot_id": snapshot.snapshot_id,
+        "snapshot_digest": snapshot.snapshot_digest,
+        "predecessor_snapshot_digest": snapshot.predecessor_snapshot_digest,
+        "capture_tick": snapshot.capture_tick,
+        "completion_posture": snapshot.completion_posture,
+        "projection_count": len(snapshot.projections),
+        "finding_count": len(snapshot.capture_findings),
+        "conflict_count": len(snapshot.conflicts),
+        "repository_revision": snapshot.repository_revision,
+        "repository_tree": snapshot.repository_tree,
+    } for snapshot in retained]
+
+    latest_summary: dict[str, object] | None = None
+    if latest is not None:
+        domain_counts: dict[str, int] = {}
+        owners: list[dict[str, object]] = []
+        for projection in latest.projections:
+            domain_counts[projection.domain] = domain_counts.get(projection.domain, 0) + 1
+            owners.append({
+                "owner_id": projection.owner_id,
+                "owner_kind": projection.owner_kind,
+                "domain": projection.domain,
+                "projection_id": projection.projection_id,
+                "projection_digest": projection.projection_digest,
+                "observation_count": len(projection.observations),
+                "observation_classes": sorted({
+                    observation.observation_class for observation in projection.observations
+                }),
+                "semantic_trace_postures": {
+                    dimension: trace.posture
+                    for dimension, trace in sorted(projection.semantic_trace.items())
+                },
+            })
+        latest_summary = {
+            "generation": latest.generation,
+            "snapshot_id": latest.snapshot_id,
+            "snapshot_digest": latest.snapshot_digest,
+            "predecessor_snapshot_digest": latest.predecessor_snapshot_digest,
+            "capture_tick": latest.capture_tick,
+            "completion_posture": latest.completion_posture,
+            "domain_projection_counts": dict(sorted(domain_counts.items())),
+            "owners": owners,
+            "findings": [{
+                "owner_id": finding.owner_id,
+                "domain": finding.domain,
+                "error_code": finding.error_code,
+                "error_class": finding.error_class,
+            } for finding in latest.capture_findings],
+            "conflict_count": len(latest.conflicts),
+            "conflicts": [{
+                "observation_key": conflict.observation_key,
+                "projection_ids": list(conflict.projection_ids),
+            } for conflict in latest.conflicts],
+        }
+
+    return {
+        "view": "causal_introspection",
+        "configuration_posture": "enabled",
+        "verification_posture": "verified" if snapshots else "no_snapshots",
+        "configuration": {
+            "enabled": True,
+            "world_state_consumption_enabled": config.world_state_consumption_enabled,
+            "enabled_domains": list(config.enabled_domains),
+            "required_domains": list(config.required_domains),
+            "max_projections": config.max_projections,
+        },
+        "generation_count": len(snapshots),
+        "omitted_older_generation_count": max(0, len(snapshots) - len(retained)),
+        "history": history,
+        "latest": latest_summary,
+        "coverage": [dict(row) for row in COVERAGE_MANIFEST],
+        "value_disclosure": "observation_values_omitted",
+        "read_only": True,
+        "authority": False,
+        "current_truth": False,
+    }
+
+
 def build_execution_trace(limit: int = 10) -> dict[str, object]:
     task_entries = _read_audit_log(Path(task_executor.LOG_PATH))
     routine_entries = _read_audit_log(Path(ROUTINE_LOG_PATH))
