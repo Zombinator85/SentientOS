@@ -165,6 +165,8 @@ def sign_object(
     goal_graph_hash: str | None = None,
 ) -> StrategicSig:
     signer = _resolve_signer(require_configured=True)
+    if signer is None:
+        raise RuntimeError("strategic_signer_unavailable")
     root = repo_root.resolve()
     ts = created_at or iso_now()
     prev_hash = latest_sig_hash(root)
@@ -203,7 +205,7 @@ def sign_object(
     )
     write_json(root / signature_path, row.to_dict())
     append_jsonl(root / SIGNATURES_INDEX_PATH, row.to_dict())
-    links = {"object_id": object_id, "object_kind": kind, "sig_hash": row.sig_hash}
+    links: dict[str, object] = {"object_id": object_id, "object_kind": kind, "sig_hash": row.sig_hash}
     if goal_graph_hash:
         links["goal_graph_hash"] = goal_graph_hash
     append_catalog_entry(
@@ -264,13 +266,15 @@ def verify_latest(repo_root: Path, *, last: int = 20) -> tuple[bool, str | None]
 
 def maybe_publish_strategic_witness(repo_root: Path, *, allow_git_tag_publish: bool = True) -> tuple[dict[str, object], str | None]:
     if not witness_enabled("SENTIENTOS_STRATEGIC_WITNESS_PUBLISH"):
-        status = {"status": "disabled", "published_at": None, "failure": None, "tag": None}
+        status = _witness_status(status="disabled", published_at=None, failure=None, tag=None)
         write_json(repo_root.resolve() / "glow/federation/strategic_witness_status.json", status)
         return status, None
     root = repo_root.resolve()
     latest = latest_signature(root)
     if latest is None:
-        status = {"status": "failed", "published_at": None, "failure": "strategic_signature_missing", "tag": None}
+        status = _witness_status(
+            status="failed", published_at=None, failure="strategic_signature_missing", tag=None
+        )
         write_json(root / "glow/federation/strategic_witness_status.json", status)
         return _enforce_witness(status)
     short = latest.sig_hash[:16]
@@ -286,7 +290,13 @@ def maybe_publish_strategic_witness(repo_root: Path, *, allow_git_tag_publish: b
         file_row={"tag": tag, "sig_hash": latest.sig_hash, "published_at": iso_now()},
         allow_git_tag_publish=allow_git_tag_publish,
     )
-    status = {"status": witness.status, "published_at": witness.published_at, "failure": witness.failure, "tag": tag, "sig_hash": short}
+    status = _witness_status(
+        status=witness.status,
+        published_at=witness.published_at,
+        failure=witness.failure,
+        tag=tag,
+        sig_hash=short,
+    )
     if status["status"] == "ok":
         append_catalog_entry(
             root,
@@ -310,7 +320,7 @@ def latest_signature(repo_root: Path) -> StrategicSig | None:
     payload = rows[-1]
     sig_hash = as_str(payload.get("sig_hash")) or ""
     return StrategicSig(
-        schema_version=int(payload.get("schema_version") or 1),
+        schema_version=_as_int(payload.get("schema_version"), default=1),
         kind=as_str(payload.get("kind")) or "",
         object_id=as_str(payload.get("object_id")) or "",
         created_at=as_str(payload.get("created_at")) or "",
@@ -337,7 +347,7 @@ def latest_sig_hash_short(repo_root: Path) -> str | None:
 
 def _signature_payload_from_record(payload: dict[str, object]) -> dict[str, object]:
     return {
-        "schema_version": int(payload.get("schema_version") or 1),
+        "schema_version": _as_int(payload.get("schema_version"), default=1),
         "kind": as_str(payload.get("kind")) or "",
         "object_id": as_str(payload.get("object_id")) or "",
         "created_at": as_str(payload.get("created_at")) or "",
@@ -383,4 +393,21 @@ def _safe_id(value: str) -> str:
 
 def _as_str(value: object) -> str | None:
     return as_str(value)
+
+
+def _witness_status(**values: object) -> dict[str, object]:
+    return values
+
+
+def _as_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
 
