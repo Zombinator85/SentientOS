@@ -179,6 +179,34 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     assert "NO_PROXY" in _environment()
 
 
+def test_exact_runtime_worker_timeout_cancellation_terminates_child() -> None:
+    class Process:
+        def __init__(self) -> None:
+            self.killed = False
+            self.waited = False
+
+        def poll(self):
+            return 0 if self.killed else None
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def wait(self, timeout=None) -> int:
+            assert timeout == 5
+            assert self.killed
+            self.waited = True
+            return 0
+
+    process = Process()
+    worker = ExactRuntimeLocalModel.__new__(ExactRuntimeLocalModel)
+    worker._process = process
+
+    worker.cancel_pending_generation()
+
+    assert process.killed is True
+    assert process.waited is True
+
+
 def test_legacy_activation_environment_no_longer_configures_chat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     activation = tmp_path / "invalid.json"; activation.write_text("{}")
     monkeypatch.setenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION", str(activation))

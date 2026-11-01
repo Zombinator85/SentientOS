@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
+from time import monotonic
 
 import pytest
 
@@ -34,6 +36,21 @@ class BackendMetadataModel(FakeModel):
         return self.text, self.completion
 
 
+class CancellableBlockingModel(FakeModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cancelled = Event()
+
+    def generate(self, prompt: str, **kwargs: object) -> str:
+        self.calls += 1
+        if not self.cancelled.wait(timeout=2):
+            raise TimeoutError("test worker was not cancelled")
+        raise RuntimeError("test worker stopped")
+
+    def cancel_pending_generation(self) -> None:
+        self.cancelled.set()
+
+
 def _invoker(tmp_path: Path, text: str = "ok"):
     model_path = tmp_path / "m.gguf"; model_path.write_bytes(b"bytes")
     cfg = ModelConfig(candidates=[ModelCandidate(path=model_path, engine="llama_cpp", name="m")], generation=GenerationConfig(max_new_tokens=8))
@@ -56,6 +73,31 @@ def test_admitted_chat_receipt_is_digest_bound(tmp_path: Path) -> None:
     payload["effects"]["tool"] = True
     ok, reasons = validate_receipt(payload)
     assert not ok
+
+
+def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> None:
+    model_path = tmp_path / "m.gguf"
+    model_path.write_bytes(b"bytes")
+    config = ModelConfig(candidates=[ModelCandidate(
+        path=model_path, engine="llama_cpp", name="m")],
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    model = CancellableBlockingModel()
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"),
+        runtime_root=tmp_path / "runtime")
+    request = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="bounded-timeout",
+        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+
+    started = monotonic()
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "timeout"
+    assert "timeout" in receipt.reason_codes
+    assert model.cancelled.is_set()
+    assert monotonic() - started < 0.5
 
 
 def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_path: Path) -> None:
