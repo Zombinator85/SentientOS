@@ -97,7 +97,7 @@ smoke inference in the managed workspace. The exact prompts, both attempt
 records, runtime receipts, model source/license files, invocation receipts,
 governor records, result receipt, and a per-file SHA-256 custody manifest are
 preserved in
-[`evidence/rootless_experimental_local_model_smoke_2026-11-01/`](evidence/rootless_experimental_local_model_smoke_2026-11-01/).
+[`evidence/rootless_experimental_local_model_smoke_2026-11-01/README.md`](evidence/rootless_experimental_local_model_smoke_2026-11-01/README.md).
 The first attempt deferred before generation because an auxiliary trust-epoch
 path defaulted to read-only `/glow`; that attempt is retained. A scoped routing
 fix then allowed the normal governor to admit a new one-shot intent. The

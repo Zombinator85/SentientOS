@@ -81,7 +81,7 @@ were 52,585 ms, 45,837 ms, 3,125 ms, and 68,583 ms.
 ## Evidence and earlier attempts
 
 The evidence package at
-[`evidence/rootless_experimental_epistemic_campaign_2026-11-01/`](evidence/rootless_experimental_epistemic_campaign_2026-11-01/)
+[the evidence package README](evidence/rootless_experimental_epistemic_campaign_2026-11-01/README.md)
 contains the exact preregistrations, capture indexes, raw owner capture files,
 governed invocation receipts, score record, earlier failed-attempt records,
 and a SHA-256 manifest. It contains no held-out answer-key file. The key remains
