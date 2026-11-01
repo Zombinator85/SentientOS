@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable, Mapping, MutableMapping
+from typing import Any, Iterable, Mapping, MutableMapping, NotRequired, TypedDict
 from datetime import datetime
 
 import control_plane.policy
@@ -29,6 +29,18 @@ from sentientos.narrative_synthesis import (
     build_narrative_summary,
     build_system_summary,
 )
+
+
+class _TaskExecutionRecord(TypedDict):
+    task_id: str
+    timestamp: float
+    adapters: list[dict[str, object]]
+    epr_actions: list[dict[str, object]]
+    authority_boundaries: list[dict[str, object]]
+    failures: list[dict[str, object]]
+    status: NotRequired[object]
+    trigger: NotRequired[dict[str, object]]
+    type: NotRequired[str]
 
 INTROSPECTION_LOG_PATH = get_log_path(
     "introspection_access.jsonl",
@@ -71,7 +83,7 @@ def build_system_overview() -> dict[str, object]:
 def build_execution_trace(limit: int = 10) -> dict[str, object]:
     task_entries = _read_audit_log(Path(task_executor.LOG_PATH))
     routine_entries = _read_audit_log(Path(ROUTINE_LOG_PATH))
-    admission_entries = _read_audit_log(Path(task_admission.ADMISSION_LOG_PATH))
+    admission_entries = _read_audit_log(task_admission.admission_log_path())
     admission_lookup = _index_by_task(admission_entries)
 
     task_executions = _collect_task_executions(task_entries, admission_lookup)
@@ -79,7 +91,7 @@ def build_execution_trace(limit: int = 10) -> dict[str, object]:
 
     combined = sorted(
         [*task_executions, *routine_executions],
-        key=lambda item: float(item.get("timestamp", 0.0)),
+        key=lambda item: _as_float(item.get("timestamp", 0.0)),
         reverse=True,
     )
 
@@ -275,7 +287,9 @@ def _summarize_routines(entries: Iterable[Mapping[str, object]]) -> dict[str, ob
             "scope": list(routine.scope),
         })
 
-    return grouped
+    result: dict[str, object] = {}
+    result.update(grouped)
+    return result
 
 
 def _summarize_semantic_habits(entries: Iterable[Mapping[str, object]]) -> list[str]:
@@ -373,10 +387,10 @@ def _summarize_privilege_posture() -> dict[str, object]:
             "policy_version": admission_policy.policy_version,
         },
     )
-    components = identity.get("components", {})
-    privilege_surface = components.get("privilege_surface", {})
-    governance = components.get("governance", {})
-    execution = components.get("execution", {})
+    components = _string_keyed_mapping(identity.get("components"))
+    privilege_surface = _string_keyed_mapping(components.get("privilege_surface"))
+    governance = _string_keyed_mapping(components.get("governance"))
+    execution = _string_keyed_mapping(components.get("execution"))
     return {
         "policy_source": "default_admission_policy",
         "admission_policy": governance.get("admission", {}),
@@ -400,20 +414,25 @@ def _collect_task_executions(
     entries: Iterable[Mapping[str, object]],
     admission_lookup: Mapping[str, Mapping[str, object]],
 ) -> list[dict[str, object]]:
-    tasks: dict[str, dict[str, object]] = {}
+    tasks: dict[str, _TaskExecutionRecord] = {}
     for entry in entries:
         task_id = entry.get("task_id")
         if not isinstance(task_id, str) or not task_id:
             continue
-        record = tasks.setdefault(task_id, {
-            "task_id": task_id,
-            "timestamp": entry.get("timestamp", 0.0),
-            "adapters": [],
-            "epr_actions": [],
-            "authority_boundaries": [],
-            "failures": [],
-        })
-        record["timestamp"] = max(float(record.get("timestamp", 0.0) or 0.0), float(entry.get("timestamp", 0.0) or 0.0))
+        record = tasks.setdefault(
+            task_id,
+            {
+                "task_id": task_id,
+                "timestamp": _as_float(entry.get("timestamp", 0.0)),
+                "adapters": [],
+                "epr_actions": [],
+                "authority_boundaries": [],
+                "failures": [],
+            },
+        )
+        record["timestamp"] = max(
+            record["timestamp"], _as_float(entry.get("timestamp", 0.0))
+        )
         event = entry.get("event")
         if event == "task_result":
             record["status"] = entry.get("status")
@@ -467,7 +486,7 @@ def _collect_task_executions(
             "policy_version": admission.get("policy_version") if admission else None,
         }
         record["type"] = "task"
-        executions.append(record)
+        executions.append(dict(record))
     return executions
 
 
@@ -505,7 +524,7 @@ def _collect_routine_executions(entries: Iterable[Mapping[str, object]]) -> list
 
 
 def _explain_task(task_id: str) -> dict[str, object]:
-    admissions = _read_audit_log(Path(task_admission.ADMISSION_LOG_PATH))
+    admissions = _read_audit_log(task_admission.admission_log_path())
     executor_entries = _read_audit_log(Path(task_executor.LOG_PATH))
     facts: list[dict[str, object]] = []
 
@@ -706,6 +725,7 @@ def _parse_task(payload: Mapping[str, object]) -> task_executor.Task:
     task_id = str(payload.get("task_id", "task-sim"))
     objective = str(payload.get("objective", "simulation"))
     steps_payload = payload.get("steps", [])
+    privileges_payload = payload.get("required_privileges", ())
     steps: list[task_executor.Step] = []
     if isinstance(steps_payload, list):
         for idx, raw in enumerate(steps_payload):
@@ -727,8 +747,31 @@ def _parse_task(payload: Mapping[str, object]) -> task_executor.Task:
         objective=objective,
         steps=tuple(steps),
         allow_epr=bool(payload.get("allow_epr", False)),
-        required_privileges=tuple(payload.get("required_privileges", ())),
+        required_privileges=(
+            tuple(item for item in privileges_payload if isinstance(item, str))
+            if isinstance(privileges_payload, (list, tuple))
+            else ()
+        ),
     )
+
+
+def _string_keyed_mapping(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _as_float(value: object, *, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
 
 
 def _step_payload(kind: str, payload: object) -> task_executor.StepPayload:
