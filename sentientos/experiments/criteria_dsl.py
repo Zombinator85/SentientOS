@@ -199,7 +199,7 @@ class _Parser:
         if token.kind == "BOOLEAN":
             self._advance()
             return Literal(value=token.value)
-        if token.kind == "IDENT":
+        if token.kind == "IDENT" and isinstance(token.value, str):
             self._advance()
             return Identifier(name=token.value)
         if token.kind == "OP" and token.value == "(":
