@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 import hmac
 import os
@@ -285,7 +285,7 @@ def maybe_publish_rollup_witness(repo_root: Path) -> tuple[dict[str, object], st
         file_row={"tag": tag, "rollup_id": rollup_id, "signature_hash": as_str(payload.get("signature_hash")) or "", "published_at": iso_now()},
         allow_git_tag_publish=True,
     )
-    status = {"status": witness.status, "last_rollup_id": rollup_id, "published_at": witness.published_at, "failure": witness.failure}
+    status: dict[str, object] = {"status": witness.status, "last_rollup_id": rollup_id, "published_at": witness.published_at, "failure": witness.failure}
     if witness.failure and os.getenv("SENTIENTOS_ROLLUP_WITNESS_ENFORCE", "0") == "1":
         return status, witness.failure
     return status, None
@@ -332,7 +332,7 @@ def _sign_rollup(root: Path, rel_path: Path, signer: RollupSigner) -> RollupSign
     )
     obj = envelope.to_dict()
     obj["signature_hash"] = compute_envelope_hash(obj, hash_field="signature_hash")
-    final = RollupSignature(**obj)
+    final = replace(envelope, signature_hash=compute_envelope_hash(obj, hash_field="signature_hash"))
     sig_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(sig_path, final.to_dict())
     append_jsonl(sig_path.parent / "signatures_index.jsonl", final.to_dict())
@@ -340,8 +340,18 @@ def _sign_rollup(root: Path, rel_path: Path, signer: RollupSigner) -> RollupSign
 
 
 def _signature_payload_from_record(payload: dict[str, object]) -> dict[str, object]:
+    schema_version = payload.get("schema_version")
+    if isinstance(schema_version, bool):
+        schema_version = 1
+    elif isinstance(schema_version, str):
+        try:
+            schema_version = int(schema_version)
+        except ValueError:
+            schema_version = 1
+    if not isinstance(schema_version, int):
+        schema_version = 1
     return {
-        "schema_version": int(payload.get("schema_version") or 1),
+        "schema_version": schema_version or 1,
         "rollup_id": as_str(payload.get("rollup_id")) or "",
         "created_at": as_str(payload.get("created_at")) or "",
         "stream_name": as_str(payload.get("stream_name")) or "",
