@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+from sentientos import builtin_local_effect_runner as runner_module
 from sentientos.builtin_local_effect_runner import (
     BLOCKED_ACTIONS,
     REQUIRED_RUNNER_LABELS,
@@ -25,6 +25,23 @@ from sentientos.builtin_local_effect_runner import (
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_runner_json_loader_rejects_non_object_payload(tmp_path: Path) -> None:
+    path = tmp_path / "receipt.json"
+    path.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="runner_json_record_must_be_mapping"):
+        runner_module._load_json(path)
+
+
+def test_runner_record_payload_rejects_unstructured_to_dict_result() -> None:
+    class InvalidRecord:
+        def to_dict(self) -> list[str]:
+            return ["unexpected"]
+
+    with pytest.raises(ValueError, match="runner_record_must_be_mapping"):
+        runner_module._source_payload(InvalidRecord())
 
 
 def test_runner_declaration_supports_exact_bounded_action_kinds() -> None:
@@ -69,7 +86,7 @@ def test_write_action_real_run_writes_artifact_and_receipt(tmp_path: Path) -> No
     assert validate_builtin_runner_execution_receipt(records.execution_receipt).ok
 
 
-def _write_effect(tmp_path: Path):
+def _write_effect(tmp_path: Path) -> tuple[Path, Path]:
     records = run_builtin_local_effect_runner_wing(action_kind="local_diagnostic_artifact_write", output_dir=tmp_path)
     assert records.result and records.result.result_status == "builtin_runner_invocation_performed"
     return tmp_path / "effect_receipt.json", tmp_path / "rollback_plan.json"
@@ -122,12 +139,17 @@ def test_missing_required_labels_and_boundary_contradictions_block(tmp_path: Pat
     declaration = build_builtin_local_effect_runner_declaration()
     req = build_builtin_runner_invocation_request(declaration, action_kind="local_diagnostic_artifact_write", output_dir=tmp_path, required_runner_labels=REQUIRED_RUNNER_LABELS[:-1])
     assert not validate_builtin_runner_invocation_request(req).ok
-    for kwargs, code in [
-        ({"boundary_profile_id": "contradicted"}, "boundary_contradiction"),
-        ({"containment_profile_id": "contradicted"}, "containment_contradiction"),
-        ({"grant_scaffold_id": "contradicted"}, "grant_scaffold_contradiction"),
+    for profile, code in [
+        ("boundary", "boundary_contradiction"),
+        ("containment", "containment_contradiction"),
+        ("grant", "grant_scaffold_contradiction"),
     ]:
-        bad = build_builtin_runner_invocation_request(declaration, action_kind="local_diagnostic_artifact_write", output_dir=tmp_path, **kwargs)
+        if profile == "boundary":
+            bad = build_builtin_runner_invocation_request(declaration, action_kind="local_diagnostic_artifact_write", output_dir=tmp_path, boundary_profile_id="contradicted")
+        elif profile == "containment":
+            bad = build_builtin_runner_invocation_request(declaration, action_kind="local_diagnostic_artifact_write", output_dir=tmp_path, containment_profile_id="contradicted")
+        else:
+            bad = build_builtin_runner_invocation_request(declaration, action_kind="local_diagnostic_artifact_write", output_dir=tmp_path, grant_scaffold_id="contradicted")
         assert code in bad.warning_codes
         assert bad.request_status == "builtin_runner_invocation_contradicted"
 
@@ -152,7 +174,9 @@ def test_missing_required_labels_and_boundary_contradictions_block(tmp_path: Pat
 def test_validation_rejects_forbidden_claims(tmp_path: Path, field: str) -> None:
     records = run_builtin_local_effect_runner_wing(action_kind="local_diagnostic_artifact_write", output_dir=tmp_path)
     assert records.result is not None
-    bad = replace(records.result, **{field: True})
+    payload = records.result.to_dict()
+    payload[field] = True
+    bad = type(records.result)(**payload)
     assert not validate_builtin_runner_invocation_result(bad).ok
 
 
