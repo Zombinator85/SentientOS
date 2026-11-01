@@ -107,7 +107,7 @@ class ReflexPetitioner:
     @staticmethod
     def _is_successful_trial(trial: dict) -> bool:
         status = str(trial.get("status", "")).lower()
-        return status and not ("fail" in status or "error" in status)
+        return bool(status) and not ("fail" in status or "error" in status)
 
     def _route_petition(self, rule_id: str, improvement: int, reasons: list[str]) -> str:
         proposal_id = f"reflex-{rule_id}-{int(self._now().timestamp())}"
