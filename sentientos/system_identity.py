@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, is_dataclass
 import hashlib
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from logging_config import get_log_path
 from log_utils import append_json
@@ -194,8 +194,10 @@ def _build_components(
         "exhaustion_limits": closure_payload,
     }
 
+    raw_allowed_steps = admission_payload.get("allowed_step_kinds", ())
+    allowed_steps = raw_allowed_steps if isinstance(raw_allowed_steps, (list, tuple)) else ()
     privilege_surface = {
-        "allowed_step_kinds": tuple(admission_payload.get("allowed_step_kinds", ())),
+        "allowed_step_kinds": tuple(allowed_steps),
         "control_plane_allowlist": _control_plane_allowlist(control_payload),
     }
 
@@ -218,9 +220,9 @@ def _normalise_admission_policy(policy: Mapping[str, Any] | object) -> dict[str,
     payload["allowed_step_kinds"] = allowed
     return {
         "policy_version": str(payload.get("policy_version", "")),
-        "max_steps": int(payload.get("max_steps", 0) or 0),
-        "max_shell_steps": int(payload.get("max_shell_steps", 0) or 0),
-        "max_python_steps": int(payload.get("max_python_steps", 0) or 0),
+        "max_steps": _integer_field(payload.get("max_steps", 0), "max_steps"),
+        "max_shell_steps": _integer_field(payload.get("max_shell_steps", 0), "max_shell_steps"),
+        "max_python_steps": _integer_field(payload.get("max_python_steps", 0), "max_python_steps"),
         "allow_mesh": bool(payload.get("allow_mesh", False)),
         "allowed_step_kinds": allowed,
         "deny_shell_in_autonomous": bool(payload.get("deny_shell_in_autonomous", False)),
@@ -245,10 +247,10 @@ def _normalise_control_policy(policy: Mapping[str, Any] | object) -> dict[str, o
 def _normalise_closure_limits(limits: Mapping[str, Any] | object) -> dict[str, object]:
     payload = _to_dict(limits)
     return {
-        "max_closure_iterations": int(payload.get("max_closure_iterations", 0) or 0),
-        "max_epr_actions_per_task": int(payload.get("max_epr_actions_per_task", 0) or 0),
-        "max_nested_prerequisite_depth": int(payload.get("max_nested_prerequisite_depth", 0) or 0),
-        "max_unknown_resolution_cycles": int(payload.get("max_unknown_resolution_cycles", 0) or 0),
+        "max_closure_iterations": _integer_field(payload.get("max_closure_iterations", 0), "max_closure_iterations"),
+        "max_epr_actions_per_task": _integer_field(payload.get("max_epr_actions_per_task", 0), "max_epr_actions_per_task"),
+        "max_nested_prerequisite_depth": _integer_field(payload.get("max_nested_prerequisite_depth", 0), "max_nested_prerequisite_depth"),
+        "max_unknown_resolution_cycles": _integer_field(payload.get("max_unknown_resolution_cycles", 0), "max_unknown_resolution_cycles"),
     }
 
 
@@ -330,8 +332,10 @@ def _log_identity_drift(report: IdentityDriftReport, *, severity: str) -> None:
 def _to_dict(value: Mapping[str, Any] | object) -> dict[str, object]:
     if isinstance(value, Mapping):
         return {str(k): value[k] for k in value}
-    if is_dataclass(value):
-        return asdict(value)
+    if isinstance(value, type) and is_dataclass(value):
+        raise TypeError("identity_source_must_be_dataclass_instance")
+    if not isinstance(value, type) and is_dataclass(value):
+        return asdict(cast(Any, value))
     payload: dict[str, object] = {}
     for key in dir(value):
         if key.startswith("_"):
@@ -341,6 +345,17 @@ def _to_dict(value: Mapping[str, Any] | object) -> dict[str, object]:
             continue
         payload[str(key)] = attr
     return payload
+
+
+def _integer_field(value: object, field_name: str) -> int:
+    if value is None or value == "":
+        return 0
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError(f"{field_name}_must_be_integer")
+    try:
+        return int(value)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(f"{field_name}_must_be_integer") from exc
 
 
 __all__ = [

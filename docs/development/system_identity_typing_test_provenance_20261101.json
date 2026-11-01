@@ -1,0 +1,112 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_identity_continuity.py::test_abort_replay_then_resume": 0,
+    "tests/test_identity_continuity.py::test_critical_drift_halts_execution": 0,
+    "tests/test_identity_continuity.py::test_drift_detection_classification": 0,
+    "tests/test_identity_continuity.py::test_exhaustion_replay_equivalence": 0,
+    "tests/test_identity_continuity.py::test_identity_digest_rejects_dataclass_type_instead_of_instance": 0,
+    "tests/test_identity_continuity.py::test_identity_digest_rejects_malformed_numeric_policy_fields": 0,
+    "tests/test_identity_continuity.py::test_identity_digest_stable_through_chained_epr": 0,
+    "tests/test_identity_continuity.py::test_replay_equivalence_for_identical_tasks": 0,
+    "tests/test_identity_continuity.py::test_unknown_resolution_resume_then_exhaust": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 3,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "822e572066ad24fd74040c3b1b533bbbc77de6bd",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-identity-provenance/pytest_junitxml_0ce2bef9031c4c73ad033e3ff1369725.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_identity_continuity.py::test_drift_detection_classification",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_identity_continuity.py::test_identity_digest_rejects_malformed_numeric_policy_fields",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_identity_continuity.py::test_identity_digest_rejects_dataclass_type_instead_of_instance",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "1e4a8d58b69d7daf9a14ec045ee70abe0026b2b4ff2e391bdb79d257e7941f60",
+  "pytest_args": [
+    "tests/test_identity_continuity.py",
+    "-q",
+    "-m",
+    "legacy or no_legacy_skip",
+    "-k",
+    "drift_detection_classification or identity_digest_rejects_malformed_numeric_policy_fields or identity_digest_rejects_dataclass_type_instead_of_instance"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "399eeda5682447ec9e9435e341f0d9bd",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_identity_continuity.py::test_replay_equivalence_for_identical_tasks",
+    "tests/test_identity_continuity.py::test_identity_digest_stable_through_chained_epr",
+    "tests/test_identity_continuity.py::test_exhaustion_replay_equivalence",
+    "tests/test_identity_continuity.py::test_unknown_resolution_resume_then_exhaust",
+    "tests/test_identity_continuity.py::test_abort_replay_then_resume",
+    "tests/test_identity_continuity.py::test_drift_detection_classification",
+    "tests/test_identity_continuity.py::test_identity_digest_rejects_malformed_numeric_policy_fields",
+    "tests/test_identity_continuity.py::test_identity_digest_rejects_dataclass_type_instead_of_instance",
+    "tests/test_identity_continuity.py::test_critical_drift_halts_execution"
+  ],
+  "selection_flags": [
+    "tests/test_identity_continuity.py",
+    "-m",
+    "-k"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 3,
+  "tests_executed": 3,
+  "tests_failed": 0,
+  "tests_passed": 3,
+  "tests_selected": 9,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T02:01:42.538600+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
