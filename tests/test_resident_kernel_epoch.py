@@ -1,6 +1,7 @@
 import pytest
 
 from resident_kernel import (
+    KernelCorruptionError,
     KernelInvariantError,
     KernelMisuseError,
     KernelWriteOutsideEpochError,
@@ -90,3 +91,19 @@ def test_restore_blocked_during_active_epoch() -> None:
     with kernel.begin_epoch("restore"):
         with pytest.raises(KernelMisuseError):
             kernel.restore_checkpoint(checkpoint)
+
+
+def test_corruption_detection_rejects_malformed_checkpoint_metadata() -> None:
+    kernel = ResidentKernel()
+    with kernel.begin_epoch("snapshot"):
+        checkpoint = kernel.create_checkpoint()
+
+    kernel._last_checkpoint = checkpoint.__class__(
+        version=checkpoint.version,
+        governance={key: value for key, value in checkpoint.governance.items() if key != "kernel_epoch"},
+        embodiment=checkpoint.embodiment,
+        digest=checkpoint.digest,
+    )
+
+    with pytest.raises(KernelCorruptionError, match="kernel_epoch is not an integer"):
+        kernel.detect_corruption()
