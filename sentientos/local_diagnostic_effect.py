@@ -14,7 +14,258 @@ import json
 import os
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, NamedTuple, Sequence
+from typing import Any, Mapping, NamedTuple, NotRequired, Required, Sequence, TypedDict
+
+
+class LocalDiagnosticEffectRequestPayload(TypedDict):
+    request_id: Required[str]
+    source_real_effect_admission_bundle_id: Required[str | None]
+    source_real_effect_admission_bundle_digest: Required[str | None]
+    effect_domain: Required[str]
+    output_dir: Required[str]
+    artifact_name: Required[str]
+    artifact_media_type: Required[str]
+    artifact_payload_summary: Required[str]
+    force_overwrite: Required[bool]
+    required_scope_labels: Required[tuple[str, ...]]
+    blocked_actions: Required[tuple[str, ...]]
+    request_status: Required[str]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    local_effect_requested: NotRequired[bool]
+    diagnostic_only: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+    subprocess_performed: NotRequired[bool]
+    shell_performed: NotRequired[bool]
+
+class LocalDiagnosticEffectResultPayload(TypedDict):
+    result_id: Required[str]
+    request_id: Required[str]
+    output_path: Required[str]
+    artifact_digest: Required[str]
+    byte_count: Required[int]
+    effect_status: Required[str]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    real_effect_performed: NotRequired[bool]
+    local_file_write_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    fan_pwm_write_performed: NotRequired[bool]
+    thermal_actuation_performed: NotRequired[bool]
+    power_profile_mutation_performed: NotRequired[bool]
+    process_kill_performed: NotRequired[bool]
+    service_restart_performed: NotRequired[bool]
+    package_install_performed: NotRequired[bool]
+    driver_install_performed: NotRequired[bool]
+    file_cleanup_performed: NotRequired[bool]
+    file_delete_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+
+class LocalDiagnosticEffectReceiptPayload(TypedDict):
+    receipt_id: Required[str]
+    request_id: Required[str]
+    result_id: Required[str]
+    effect_domain: Required[str]
+    output_path: Required[str]
+    artifact_digest: Required[str]
+    byte_count: Required[int]
+    effect_status: Required[str]
+    evidence_summary: Required[tuple[str, ...]]
+    blocked_actions: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    real_effect_receipt_created: NotRequired[bool]
+    real_effect_performed: NotRequired[bool]
+    local_file_write_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    diagnostic_only: NotRequired[bool]
+    fan_pwm_write_performed: NotRequired[bool]
+    thermal_actuation_performed: NotRequired[bool]
+    power_profile_mutation_performed: NotRequired[bool]
+    process_kill_performed: NotRequired[bool]
+    service_restart_performed: NotRequired[bool]
+    package_install_performed: NotRequired[bool]
+    driver_install_performed: NotRequired[bool]
+    file_cleanup_performed: NotRequired[bool]
+    file_delete_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+
+class LocalDiagnosticPostconditionCheckPayload(TypedDict):
+    check_id: Required[str]
+    receipt_id: Required[str]
+    output_path: Required[str]
+    expected_artifact_digest: Required[str]
+    observed_artifact_digest: Required[str]
+    expected_byte_count: Required[int]
+    observed_byte_count: Required[int]
+    postcondition_status: Required[str]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    real_postcondition_check_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+
+class LocalDiagnosticRollbackPlanPayload(TypedDict):
+    plan_id: Required[str]
+    receipt_id: Required[str]
+    output_path: Required[str]
+    rollback_strategy_labels: Required[tuple[str, ...]]
+    rollback_status: Required[str]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    rollback_plan_only: NotRequired[bool]
+    real_rollback_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+
+class LocalDiagnosticRollbackReceiptPayload(TypedDict):
+    receipt_id: Required[str]
+    plan_id: Required[str]
+    output_path: Required[str]
+    rollback_status: Required[str]
+    rollback_reason_codes: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    rollback_receipt_only: NotRequired[bool]
+    real_rollback_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    file_delete_performed: NotRequired[bool]
+
+class LocalDiagnosticProductionAuditReceiptPayload(TypedDict):
+    audit_id: Required[str]
+    effect_receipt_id: Required[str]
+    postcondition_check_id: Required[str]
+    rollback_plan_id: Required[str]
+    rollback_receipt_id: Required[str | None]
+    audit_status: Required[str]
+    evidence_summary: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    production_audit_receipt_created: NotRequired[bool]
+    audit_for_local_diagnostic_effect_only: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+
+class LocalDiagnosticExactRollbackRequestPayload(TypedDict):
+    request_id: Required[str]
+    source_effect_receipt_id: Required[str]
+    source_effect_receipt_digest: Required[str]
+    source_rollback_plan_id: Required[str]
+    source_rollback_plan_digest: Required[str]
+    expected_output_path: Required[str]
+    expected_artifact_digest: Required[str]
+    output_dir_scope: Required[str]
+    allow_missing_artifact: Required[bool]
+    request_status: Required[str]
+    blocked_actions: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    exact_artifact_rollback_requested: NotRequired[bool]
+    general_cleanup_requested: NotRequired[bool]
+    recursive_delete_requested: NotRequired[bool]
+    wildcard_delete_requested: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+    subprocess_performed: NotRequired[bool]
+    shell_performed: NotRequired[bool]
+
+class LocalDiagnosticExactRollbackReceiptPayload(TypedDict):
+    receipt_id: Required[str]
+    request_id: Required[str]
+    result_id: Required[str]
+    source_effect_receipt_id: Required[str]
+    source_rollback_plan_id: Required[str]
+    output_path: Required[str]
+    expected_artifact_digest: Required[str]
+    observed_artifact_digest: Required[str | None]
+    rollback_status: Required[str]
+    evidence_summary: Required[tuple[str, ...]]
+    blocked_actions: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    real_rollback_receipt_created: NotRequired[bool]
+    real_rollback_performed: NotRequired[bool]
+    file_delete_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    exact_artifact_only: NotRequired[bool]
+    general_cleanup_performed: NotRequired[bool]
+    directory_cleanup_performed: NotRequired[bool]
+    recursive_delete_performed: NotRequired[bool]
+    wildcard_delete_performed: NotRequired[bool]
+    unrelated_file_delete_performed: NotRequired[bool]
+    fan_pwm_write_performed: NotRequired[bool]
+    thermal_actuation_performed: NotRequired[bool]
+    power_profile_mutation_performed: NotRequired[bool]
+    process_kill_performed: NotRequired[bool]
+    service_restart_performed: NotRequired[bool]
+    package_install_performed: NotRequired[bool]
+    driver_install_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+
+class LocalDiagnosticRollbackPostconditionCheckPayload(TypedDict):
+    check_id: Required[str]
+    rollback_receipt_id: Required[str]
+    output_path: Required[str]
+    expected_absent: Required[bool]
+    observed_exists: Required[bool]
+    postcondition_status: Required[str]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    real_rollback_postcondition_check_performed: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
+
+class LocalDiagnosticRollbackAuditReceiptPayload(TypedDict):
+    audit_id: Required[str]
+    rollback_receipt_id: Required[str]
+    rollback_postcondition_check_id: Required[str]
+    source_effect_receipt_id: Required[str]
+    audit_status: Required[str]
+    evidence_summary: Required[tuple[str, ...]]
+    warning_codes: Required[tuple[str, ...]]
+    risk_codes: Required[tuple[str, ...]]
+    created_at: Required[str]
+    digest: Required[str]
+    production_rollback_audit_receipt_created: NotRequired[bool]
+    audit_for_exact_local_diagnostic_artifact_only: NotRequired[bool]
+    host_mutation_performed: NotRequired[bool]
+    network_performed: NotRequired[bool]
+    provider_invocation_performed: NotRequired[bool]
+    prompt_assembly_performed: NotRequired[bool]
 
 EFFECT_STATUSES = frozenset({
     "local_diagnostic_effect_requested",
@@ -456,7 +707,7 @@ def build_local_diagnostic_effect_request(
         findings.append("unsupported_effect_domain")
     status = "local_diagnostic_effect_requested" if not findings else "local_diagnostic_effect_blocked"
     warnings.extend(findings)
-    payload = {
+    payload: LocalDiagnosticEffectRequestPayload = {
         "request_id": "",
         "source_real_effect_admission_bundle_id": source_id,
         "source_real_effect_admission_bundle_digest": source_digest,
@@ -505,7 +756,7 @@ def validate_local_diagnostic_effect_request(request: LocalDiagnosticEffectReque
 
 def _blocked_result(request: LocalDiagnosticEffectRequest, status: str, warnings: Sequence[str], created_at: str) -> LocalDiagnosticEffectResult:
     out = str(_output_path(request))
-    payload = {
+    payload: LocalDiagnosticEffectResultPayload = {
         "result_id": "",
         "request_id": request.request_id,
         "output_path": out,
@@ -555,7 +806,7 @@ def perform_local_diagnostic_effect(
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(tmp_path, out_path)
-    payload = {
+    payload: LocalDiagnosticEffectResultPayload = {
         "result_id": "",
         "request_id": request.request_id,
         "output_path": str(out_path),
@@ -577,7 +828,7 @@ def perform_local_diagnostic_effect(
 
 def build_local_diagnostic_effect_receipt(request: LocalDiagnosticEffectRequest, result: LocalDiagnosticEffectResult, *, created_at: str | None = None) -> LocalDiagnosticEffectReceipt:
     success = result.effect_status == "local_diagnostic_effect_performed"
-    payload = {
+    payload: LocalDiagnosticEffectReceiptPayload = {
         "receipt_id": "",
         "request_id": request.request_id,
         "result_id": result.result_id,
@@ -616,7 +867,7 @@ def perform_local_diagnostic_postcondition_check(receipt: LocalDiagnosticEffectR
         except OSError:
             warnings = ("artifact_readback_failed",)
             status = "local_diagnostic_postcondition_failed"
-    payload = {
+    payload: LocalDiagnosticPostconditionCheckPayload = {
         "check_id": "",
         "receipt_id": receipt.receipt_id,
         "output_path": receipt.output_path,
@@ -637,7 +888,7 @@ def perform_local_diagnostic_postcondition_check(receipt: LocalDiagnosticEffectR
 
 def build_local_diagnostic_rollback_plan(receipt: LocalDiagnosticEffectReceipt, *, created_at: str | None = None) -> LocalDiagnosticRollbackPlan:
     warnings = ("exact_artifact_rollback_execution_deferred",)
-    payload = {
+    payload: LocalDiagnosticRollbackPlanPayload = {
         "plan_id": "",
         "receipt_id": receipt.receipt_id,
         "output_path": receipt.output_path,
@@ -654,7 +905,7 @@ def build_local_diagnostic_rollback_plan(receipt: LocalDiagnosticEffectReceipt, 
 
 
 def build_local_diagnostic_rollback_receipt(plan: LocalDiagnosticRollbackPlan, *, created_at: str | None = None) -> LocalDiagnosticRollbackReceipt:
-    payload = {
+    payload: LocalDiagnosticRollbackReceiptPayload = {
         "receipt_id": "",
         "plan_id": plan.plan_id,
         "output_path": plan.output_path,
@@ -679,7 +930,7 @@ def build_local_diagnostic_production_audit_receipt(
     created_at: str | None = None,
 ) -> LocalDiagnosticProductionAuditReceipt:
     ok = receipt.real_effect_receipt_created and postcondition_check.postcondition_status.startswith("local_diagnostic_postcondition_passed")
-    payload = {
+    payload: LocalDiagnosticProductionAuditReceiptPayload = {
         "audit_id": "",
         "effect_receipt_id": receipt.receipt_id,
         "postcondition_check_id": postcondition_check.check_id,
@@ -1174,7 +1425,7 @@ def build_local_diagnostic_exact_rollback_request(
         warnings.append("rollback_plan_output_path_mismatch")
     expected_path = str(receipt.get("output_path", ""))
     expected_digest = str(receipt.get("artifact_digest", ""))
-    payload = {
+    payload: LocalDiagnosticExactRollbackRequestPayload = {
         "request_id": "",
         "source_effect_receipt_id": str(receipt.get("receipt_id", "")),
         "source_effect_receipt_digest": str(receipt.get("digest", "")),
@@ -1316,7 +1567,7 @@ def build_local_diagnostic_exact_rollback_receipt(
     if result.rollback_status in {"local_diagnostic_exact_rollback_blocked", "local_diagnostic_exact_rollback_scope_mismatch", "local_diagnostic_exact_rollback_digest_mismatch"}:
         status = "local_diagnostic_exact_rollback_receipt_blocked"
     evidence = ("exact diagnostic artifact path deleted after receipt, plan, scope, and digest validation",) if success else ("no exact artifact deletion performed",)
-    payload = {
+    payload: LocalDiagnosticExactRollbackReceiptPayload = {
         "receipt_id": "",
         "request_id": request.request_id,
         "result_id": result.result_id,
@@ -1367,7 +1618,7 @@ def perform_local_diagnostic_rollback_postcondition_check(
 ) -> LocalDiagnosticRollbackPostconditionCheck:
     exists = Path(rollback_receipt.output_path).expanduser().exists()
     status = "local_diagnostic_rollback_postcondition_passed" if not exists else "local_diagnostic_rollback_postcondition_failed"
-    payload = {
+    payload: LocalDiagnosticRollbackPostconditionCheckPayload = {
         "check_id": "",
         "rollback_receipt_id": rollback_receipt.receipt_id,
         "output_path": rollback_receipt.output_path,
@@ -1408,7 +1659,7 @@ def build_local_diagnostic_rollback_audit_receipt(
 ) -> LocalDiagnosticRollbackAuditReceipt:
     ok = rollback_receipt.rollback_status == "local_diagnostic_exact_rollback_receipt_recorded" and postcondition_check.postcondition_status == "local_diagnostic_rollback_postcondition_passed"
     status = "local_diagnostic_rollback_audit_recorded" if ok else "local_diagnostic_rollback_audit_recorded_with_warnings"
-    payload = {
+    payload: LocalDiagnosticRollbackAuditReceiptPayload = {
         "audit_id": "",
         "rollback_receipt_id": rollback_receipt.receipt_id,
         "rollback_postcondition_check_id": postcondition_check.check_id,
