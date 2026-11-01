@@ -58,6 +58,20 @@ def test_workspace_mode_requires_workspace_inputs(tmp_path: Path) -> None:
         main(["--mode", "workspace_file_update_only", "--workspace-root", str(tmp_path)])
 
 
+def test_workspace_summary_preserves_negative_authority_flags(tmp_path: Path, capsys) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+
+    assert main(
+        ["--mode", "workspace_file_update_only", "--workspace-root", str(root), "--target", "demo.txt", "--payload", "ok", "--summary"]
+    ) == 0
+
+    summary = __import__("json").loads(capsys.readouterr().out)
+    assert summary["workspace_transaction_orchestrator_only"] is True
+    assert summary["single_target_scope"].startswith("one explicit relative target")
+    assert all(flag is False for flag in summary["negative_authority_flags"].values())
+
+
 def test_workspace_update_only_cli_writes_target(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     root.mkdir()

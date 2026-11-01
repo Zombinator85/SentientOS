@@ -30,6 +30,14 @@ def _int_or_default(value: object, default: int = 1) -> int:
     return default
 
 
+def _comparison_summary(report: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    compare_value = report.get("compare_remote_to_local")
+    compare: dict[str, Any] = compare_value if isinstance(compare_value, dict) else {}
+    reasons_value = compare.get("divergence_reasons")
+    reasons: list[Any] = reasons_value if isinstance(reasons_value, list) else []
+    return compare, reasons
+
+
 def _verify_sig_rows(rows: list[dict[str, object]], *, stream: str) -> dict[str, object]:
     if not rows:
         return {"status": "skipped", "reason": "signature_missing", "checked_n": 0, "last_ok_sig_hash": None}
@@ -208,8 +216,7 @@ def run_probe(*, root: Path, bundle_path: Path, last_n: int, write: bool) -> tup
             if os.getenv("SENTIENTOS_REMOTE_PROBE_SIGNING", "off") in {"ssh", "hmac-test"}:
                 maybe_sign_operator_report(root, kind="remote_probe_report", report_rel_path=str(report_rel), report_payload=normalized)
             append_jsonl(root / "pulse/remote_probes.jsonl", normalized | {"path": str(report_rel)})
-            compare = normalized.get("compare_remote_to_local") if isinstance(normalized.get("compare_remote_to_local"), dict) else {}
-            reasons = compare.get("divergence_reasons") if isinstance(compare.get("divergence_reasons"), list) else []
+            compare, reasons = _comparison_summary(normalized)
             local_state = normalized.get("local_state")
             local_state_data = local_state if isinstance(local_state, dict) else {}
             artifact_catalog.append_catalog_entry(
