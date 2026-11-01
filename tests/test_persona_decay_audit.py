@@ -24,3 +24,15 @@ def test_persona_drift_signals() -> None:
     assert report["drift_score"] >= 0.5
     assert "drift" in report["symptom"]
     assert "prompt" in report["action"] or "alignment" in report["action"]
+
+
+@pytest.mark.no_legacy_skip
+def test_persona_decay_tolerates_non_text_identity_fragments() -> None:
+    report = audit_persona_decay(
+        "Lumos",
+        [{"value": object(), "state": None}],
+        [],
+        {"canon": ["canonical"], "current": {"not": "a sequence"}},
+    )
+    assert report["drift_score"] == 0.4
+    assert report["symptom"] == "canon mismatch drift"
