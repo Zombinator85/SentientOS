@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ require_lumos_approval()
 
 from scripts import verify_audits
 from scripts.provenance_hash_chain import GENESIS_PREV_HASH
+from scripts.verify_audits import AuditIssue
 
 PLAN_PATH = Path("glow/audits/audit_repair_plan.json")
 REPAIR_CHAIN_PATH = Path("glow/audits/repairs/repair_receipts.jsonl")
@@ -69,8 +71,8 @@ def _append_receipt(kind: str, artifact_path: Path, payload: dict[str, Any]) -> 
         handle.write(json.dumps(chained, sort_keys=True) + "\n")
 
 
-def _repair_for_path(path: str, issues: list[dict[str, str]], counter: int) -> dict[str, Any]:
-    codes = sorted({issue.get("code", "unknown") for issue in issues})
+def _repair_for_path(path: str, issues: Sequence[AuditIssue], counter: int) -> dict[str, Any]:
+    codes = sorted({issue["code"] for issue in issues})
     safe = bool(codes) and set(codes).issubset(SAFE_CODES_FOR_REBUILD)
     action = "rebuild_chain" if safe else "manual_required"
     return {
@@ -84,11 +86,11 @@ def _repair_for_path(path: str, issues: list[dict[str, str]], counter: int) -> d
 
 def build_plan(target: Path) -> dict[str, Any]:
     issues_by_path, _, _ = verify_audits.verify_audits_detailed(directory=target, quarantine=True, repair=False)
-    issue_list: list[dict[str, str]] = []
+    issue_list: list[AuditIssue] = []
     for path in sorted(issues_by_path.keys()):
         ordered = sorted(
             issues_by_path[path],
-            key=lambda issue: (issue.get("code", "unknown"), issue.get("details", ""), issue.get("expected", "")),
+            key=lambda issue: (issue["code"], issue["details"], issue["expected"]),
         )
         issue_list.extend(ordered)
 
