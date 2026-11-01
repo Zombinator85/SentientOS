@@ -75,7 +75,9 @@ def maybe_auto_run_pack(
 
     gate_results: list[dict[str, object]] = []
     if status == "completed":
-        gate_results = _reevaluate_gates(root, context=context, reasons=[str(item) for item in list(pack.get("reason_stack") or []) if isinstance(item, str)])
+        reason_stack = pack.get("reason_stack")
+        reasons = [item for item in reason_stack if isinstance(item, str)] if isinstance(reason_stack, list) else []
+        gate_results = _reevaluate_gates(root, context=context, reasons=reasons)
         return AutoRemediationResult(status="succeeded", reason="run_completed", attempted=True, run_id=run_id, pack_id=pack_id, gate_results=gate_results)
     return AutoRemediationResult(status="failed", reason="run_failed", attempted=True, run_id=run_id, pack_id=pack_id)
 
@@ -95,7 +97,10 @@ def should_auto_run_pack(repo_root: Path, *, operating_mode: str, pack: dict[str
         pack_payload, _warnings = normalize(pack_payload, SchemaName.REMEDIATION_PACK)
     except SchemaCompatibilityError:
         return AutoRemediationDecision(status="failed", reason="schema_too_old:remediation_pack")
-    steps = list(pack_payload.get("steps") or [])
+    steps_value = pack_payload.get("steps")
+    if not isinstance(steps_value, list):
+        return AutoRemediationDecision(status="failed", reason="invalid_steps")
+    steps = steps_value
     if not steps:
         return AutoRemediationDecision(status="idle", reason="no_steps")
     for step in steps:
@@ -153,17 +158,17 @@ def _reevaluate_gates(root: Path, *, context: str, reasons: list[str]) -> list[d
 
 def _run_audit_gate(root: Path, *, context: str) -> dict[str, object]:
     check, _enforced, _warned, report = maybe_verify_audit_chain(root, context=context)
-    return {"name": "audit_chain", "result": "pass" if bool(check and check.valid) else "fail", "reason": "auto_remediation_recheck", "evidence_paths": [report] if report else []}
+    return {"name": "audit_chain", "result": "pass" if bool(check and check.ok) else "fail", "reason": "auto_remediation_recheck", "evidence_paths": [report] if report else []}
 
 
 def _run_receipt_gate(root: Path, *, context: str) -> dict[str, object]:
     check, _enforced, _warned = maybe_verify_receipt_chain(root, context=context)
-    return {"name": "receipt_chain", "result": "pass" if bool(check and check.valid) else "fail", "reason": "auto_remediation_recheck"}
+    return {"name": "receipt_chain", "result": "pass" if bool(check and check.ok) else "fail", "reason": "auto_remediation_recheck"}
 
 
 def _run_anchor_gate(root: Path, *, context: str) -> dict[str, object]:
     check, _enforced, _warned = maybe_verify_receipt_anchors(root, context=context)
-    return {"name": "receipt_anchor", "result": "pass" if bool(check and check.valid) else "fail", "reason": "auto_remediation_recheck"}
+    return {"name": "receipt_anchor", "result": "pass" if bool(check and check.ok) else "fail", "reason": "auto_remediation_recheck"}
 
 
 def _run_federation_gate(root: Path, *, context: str) -> dict[str, object]:
