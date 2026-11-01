@@ -35,6 +35,26 @@ def test_requires_receipt_plan_and_scope() -> None:
     assert "effect-receipt" in err
 
 
+def test_rejects_non_object_json_receipt_without_writing_rollback_records(tmp_path: Path) -> None:
+    _receipt, plan, _artifact = _effect(tmp_path)
+    receipt = tmp_path / "effect_receipt.json"
+    receipt.write_text("[]", encoding="utf-8")
+
+    code, out, err = _run([
+        "--effect-receipt", str(receipt),
+        "--rollback-plan", str(plan),
+        "--output-dir-scope", str(tmp_path),
+        "--summary",
+    ])
+
+    assert code == 2
+    assert out == ""
+    assert "rollback_input_must_be_json_object" in err
+    assert not (tmp_path / "rollback_receipt.json").exists()
+    assert not (tmp_path / "rollback_postcondition_check.json").exists()
+    assert not (tmp_path / "rollback_audit.json").exists()
+
+
 def test_dry_run_deletes_nothing_and_summary_is_compact(tmp_path: Path) -> None:
     receipt, plan, artifact = _effect(tmp_path)
     code, out, err = _run(["--effect-receipt", str(receipt), "--rollback-plan", str(plan), "--output-dir-scope", str(tmp_path), "--dry-run", "--summary"])
