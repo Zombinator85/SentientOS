@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 import importlib
 import re
 import sys
@@ -258,6 +258,35 @@ def test_valid_candidate_display_policy_and_audit_yield_ready_for_review():
     assert isinstance(preflight, InternalModelCallPreflight)
     assert preflight.preflight_status == READY
     assert internal_model_call_preflight_allows_review_gate(preflight)
+
+
+def test_preflight_evidence_validation_matches_dataclass_and_mapping_inputs():
+    candidate = _candidate()
+    display = _display(candidate)
+    policy = _policy()
+    audit = _audit()
+    dataclass_input = build_internal_model_call_preflight_input(
+        candidate,
+        display,
+        policy,
+        audit,
+        feature_flag_state={"model_call_preflight": True},
+    )
+    mapping_input = {
+        "candidate": asdict(candidate),
+        "display_receipt": asdict(display),
+        "policy_decision": policy,
+        "audit_receipt": audit,
+        "feature_flag_state": {"model_call_preflight": True},
+    }
+
+    dataclass_result = evaluate_internal_model_call_preflight(dataclass_input)
+    mapping_result = evaluate_internal_model_call_preflight(mapping_input)
+
+    assert mapping_result.preflight_status == dataclass_result.preflight_status == READY
+    assert {finding.code for finding in mapping_result.findings} == {
+        finding.code for finding in dataclass_result.findings
+    }
 
 
 def test_ready_with_warnings_candidate_with_accepted_review_yields_ready_with_warnings():
