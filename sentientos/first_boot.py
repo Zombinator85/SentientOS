@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Sequence
+from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Sequence, TypedDict
 
 import yaml
 
@@ -48,6 +48,12 @@ class WizardDecisions:
             self.approve = self.bless
         # Clear legacy terminology to discourage downstream use.
         self.bless = None
+
+
+class FederationPayload(TypedDict):
+    peer_name: str
+    addresses: list[str]
+    connectivity: dict[str, bool]
 
 
 def _utcnow() -> datetime:
@@ -196,10 +202,10 @@ class FirstBootWizard:
         summary["panels"] = [
             {"title": panel.title, "buttons": list(panel.buttons)} for panel in self._panels
         ]
-        summary_payload = {
+        summary_payload: dict[str, object] = {
             "codex_mode": codex_payload.get("mode"),
             "driver_installs": len([result for result in driver_results if result.get("status") == "success" or result.get("requires_veil")]),
-            "federation_peers": len(federation_payload.get("addresses", [])),
+            "federation_peers": len(federation_payload["addresses"]),
             "autonomy_enabled": codex_payload.get("autonomy_enabled"),
         }
         self._record_step("summary", summary_payload)
@@ -299,13 +305,14 @@ class FirstBootWizard:
                 buttons=("Save Codex Settings", "Enable continuous self-improvement"),
             )
         )
-        mode = str(
-            (decisions.codex_mode or config.get("codex_mode", "observe")).strip().lower()
-        )
+        raw_mode = decisions.codex_mode or config.get("codex_mode", "observe")
+        mode = str(raw_mode).strip().lower()
         if mode not in {"observe", "repair", "full", "expand"}:
             raise ValueError("codex_mode must be one of: observe, repair, full, expand")
-        interval = int(decisions.codex_interval or config.get("codex_interval", 3600))
-        max_iterations = int(decisions.codex_max_iterations or config.get("codex_max_iterations", 1))
+        raw_interval = decisions.codex_interval or config.get("codex_interval", 3600)
+        raw_max_iterations = decisions.codex_max_iterations or config.get("codex_max_iterations", 1)
+        interval = _config_int(raw_interval, "codex_interval")
+        max_iterations = _config_int(raw_max_iterations, "codex_max_iterations")
         autonomy = self._resolve_autonomy(decisions, config)
         config["codex_mode"] = mode
         config["codex_interval"] = interval
@@ -326,7 +333,7 @@ class FirstBootWizard:
         self,
         decisions: WizardDecisions,
         config: MutableMapping[str, object],
-    ) -> dict[str, object]:
+    ) -> FederationPayload:
         self._panels.append(
             FirstBootPanel(
                 title="Federation Setup",
@@ -334,9 +341,8 @@ class FirstBootWizard:
                 buttons=("Save Federation Settings",),
             )
         )
-        peer_name = str(
-            (decisions.federation_peer_name or config.get("federation_peer_name", "")).strip()
-        )
+        raw_peer_name = decisions.federation_peer_name or config.get("federation_peer_name", "")
+        peer_name = str(raw_peer_name).strip()
         addresses: Sequence[str] | None = decisions.federation_addresses
         if addresses is None:
             existing = config.get("federation_peers") or config.get("federation_addresses")
@@ -354,7 +360,7 @@ class FirstBootWizard:
                 connectivity[address] = bool(self._connectivity_tester(peer_name, address))
             except Exception:  # pragma: no cover - connectivity failure recorded as False
                 connectivity[address] = False
-        payload = {
+        payload: FederationPayload = {
             "peer_name": peer_name,
             "addresses": normalized_addresses,
             "connectivity": connectivity,
@@ -399,7 +405,7 @@ class FirstBootWizard:
         priority: str = "info",
     ) -> None:
         timestamp = self._clock().isoformat()
-        normalized_payload = {
+        normalized_payload: dict[str, object] = {
             key: (list(value) if isinstance(value, tuple) else value)
             for key, value in payload.items()
         }
@@ -412,7 +418,7 @@ class FirstBootWizard:
             }
             self._ledger_writer(self._ledger_path, ledger_entry)
         if pulse:
-            event = {
+            event: dict[str, object] = {
                 "timestamp": timestamp,
                 "source_daemon": self._pulse_source,
                 "event_type": event_type,
@@ -429,3 +435,15 @@ class FirstBootWizard:
             ledger=False,
         )
         return True
+
+
+def _config_int(value: object, key: str) -> int:
+    """Parse YAML scalar integers without assuming the decoded value's type."""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (OverflowError, ValueError) as exc:
+            raise ValueError(f"{key} must be an integer") from exc
+    raise ValueError(f"{key} must be an integer")

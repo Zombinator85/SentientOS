@@ -1,0 +1,113 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_first_boot.py::test_shell_integration_invokes_wizard": 0,
+    "tests/test_first_boot.py::test_wizard_configures_codex_and_federation": 0,
+    "tests/test_first_boot.py::test_wizard_rejects_non_finite_yaml_integer_fields": 0,
+    "tests/test_first_boot.py::test_wizard_reports_invalid_yaml_integer_fields_as_value_errors": 0,
+    "tests/test_first_boot.py::test_wizard_requires_approval": 0,
+    "tests/test_first_boot.py::test_wizard_skip_when_completed": 0,
+    "tests/test_first_boot.py::test_wizard_validates_decoded_yaml_scalars_before_using_them": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 4,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "129a72fa74caa0d843775c8dbeac066ea2926a86",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-mypy-bootstrap-finaltests/pytest_junitxml_af3498d4df9b406292cb79ac170b0db4.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_configures_codex_and_federation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_validates_decoded_yaml_scalars_before_using_them",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_reports_invalid_yaml_integer_fields_as_value_errors",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_rejects_non_finite_yaml_integer_fields",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "c99b8a1fc473f00077a97463e80df8f9742315f59f197745a6761ab5549f6928",
+  "pytest_args": [
+    "tests/test_first_boot.py",
+    "-q",
+    "-m",
+    "legacy or no_legacy_skip",
+    "-k",
+    "wizard_configures_codex_and_federation or validates_decoded_yaml_scalars or reports_invalid_yaml_integer_fields or rejects_non_finite_yaml_integer_fields"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "a9d851f3ba174188a0246b2843fbc52e",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_first_boot.py::test_wizard_requires_approval",
+    "tests/test_first_boot.py::test_wizard_configures_codex_and_federation",
+    "tests/test_first_boot.py::test_wizard_validates_decoded_yaml_scalars_before_using_them",
+    "tests/test_first_boot.py::test_wizard_reports_invalid_yaml_integer_fields_as_value_errors",
+    "tests/test_first_boot.py::test_wizard_rejects_non_finite_yaml_integer_fields",
+    "tests/test_first_boot.py::test_wizard_skip_when_completed",
+    "tests/test_first_boot.py::test_shell_integration_invokes_wizard"
+  ],
+  "selection_flags": [
+    "tests/test_first_boot.py",
+    "-m",
+    "-k"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 4,
+  "tests_executed": 4,
+  "tests_failed": 0,
+  "tests_passed": 4,
+  "tests_selected": 7,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T01:27:11.608092+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

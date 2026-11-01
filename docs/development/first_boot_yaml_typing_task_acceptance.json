@@ -1,0 +1,28 @@
+{
+  "repository_sha": "129a72fa74caa0d843775c8dbeac066ea2926a86",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_configures_codex_and_federation",
+      "rationale": "Existing configured flow still persists Codex settings and federation peer state."
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_validates_decoded_yaml_scalars_before_using_them",
+      "rationale": "Decoded YAML values are normalized at the configuration boundary without unsafe object assumptions."
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_reports_invalid_yaml_integer_fields_as_value_errors",
+      "rationale": "Invalid YAML scalar types produce a deliberate validation error instead of an incidental TypeError."
+    },
+    {
+      "node_id": "tests/test_first_boot.py::test_wizard_rejects_non_finite_yaml_integer_fields",
+      "rationale": "Non-finite YAML floating-point values are rejected as invalid integer settings."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_first_boot.py::test_wizard_configures_codex_and_federation",
+    "tests/test_first_boot.py::test_wizard_validates_decoded_yaml_scalars_before_using_them"
+  ],
+  "task_classification": "bug_fix",
+  "test_provenance_path": "docs/development/first_boot_yaml_typing_test_provenance_20261101.json"
+}
