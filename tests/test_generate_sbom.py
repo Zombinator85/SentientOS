@@ -12,7 +12,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 def test_sbom_component_sources_serialize_to_cyclonedx(tmp_path: Path, monkeypatch) -> None:
     lock_path = tmp_path / "Cargo.lock"
-    lock_path.write_text('[[package]]\\nname = "sentientos-core"\\nversion = "1.2.3"\\n', encoding="utf-8")
+    lock_path.write_text('[[package]]\nname = "sentientos-core"\nversion = "1.2.3"\n', encoding="utf-8")
     monkeypatch.setattr(generate_sbom, "get_data_root", lambda: tmp_path)
 
     python_components = generate_sbom._requirements_components(["numpy==2.1", "# ignored", "orjson"])
