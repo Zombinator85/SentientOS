@@ -46,6 +46,19 @@ def _evidence(dimensions: dict[str, dict[str, object]], key: str) -> dict[str, o
     return evidence if isinstance(evidence, dict) else {}
 
 
+def _count_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
 def classify_contradictions(
     *,
     scenario: str,
@@ -130,7 +143,7 @@ def classify_contradictions(
                 "reason": "replay contradicted runtime evidence",
             }
         )
-    elif int(replay_evidence.get("missing_but_expected") or 0) > 0:
+    elif _count_value(replay_evidence.get("missing_but_expected")) > 0:
         records.append(
             {
                 "dimension": "replay_posture",
