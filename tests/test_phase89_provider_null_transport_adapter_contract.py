@@ -32,6 +32,7 @@ from sentientos.context_hygiene.prompt_provider_null_transport import (
     ProviderNullTransportMode,
     ProviderNullTransportScope,
     ProviderNullTransportStatus,
+    _MARKER_FIELDS,
     build_provider_null_transport_receipt,
     compute_provider_null_transport_digest,
     explain_provider_null_transport_findings,
@@ -58,6 +59,19 @@ REVIEW_MISSING = ProviderNullTransportStatus.NULL_TRANSPORT_REVIEW_MISSING
 REVIEW_NOT_SATISFIED = ProviderNullTransportStatus.NULL_TRANSPORT_REVIEW_NOT_SATISFIED
 DRY_NOT_READY = ProviderNullTransportStatus.NULL_TRANSPORT_DRY_RUN_NOT_READY
 PREFLIGHT_NOT_READY = ProviderNullTransportStatus.NULL_TRANSPORT_PREFLIGHT_NOT_READY
+
+
+def test_marker_override_is_preserved_in_receipt_and_boundary() -> None:
+    receipt = build_provider_null_transport_receipt(
+        None,
+        None,
+        None,
+        marker_overrides={"provider_null_transport_only": False},
+    )
+
+    assert tuple(receipt.boundary.__dataclass_fields__) == _MARKER_FIELDS
+    assert receipt.provider_null_transport_only is False
+    assert receipt.boundary.provider_null_transport_only is False
 INVALID = ProviderNullTransportStatus.NULL_TRANSPORT_INVALID_INPUT
 NETWORK = ProviderNullTransportStatus.NULL_TRANSPORT_NETWORK_FORBIDDEN
 CREDS = ProviderNullTransportStatus.NULL_TRANSPORT_CREDENTIALS_DETECTED
