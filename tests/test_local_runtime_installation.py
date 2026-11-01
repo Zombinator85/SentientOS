@@ -8,8 +8,8 @@ import io
 import zipfile
 import pytest
 from sentientos.local_runtime_installation import (InstallationError, EXPECTED, authorization_for,
-    base_interpreter_identity, build_offline_pip_argv, install, receipt_semantic_digest, validate_plan,
-    verify_existing)
+    base_interpreter_identity, build_offline_pip_argv, compose_installation_plan, install,
+    receipt_semantic_digest, validate_plan, verify_existing)
 from sentientos.local_runtime_dependencies import semantic_digest
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -63,6 +63,38 @@ def test_plan_authorization_and_receipt_digests_are_deterministic(tmp_path):
     assert receipt_semantic_digest(receipt)==receipt_semantic_digest({**receipt,"installed_at":"two"})
     broken=dict(value); broken["runtime_id"]="wrong"
     with pytest.raises(InstallationError): validate_plan(broken)
+
+
+def test_installation_composer_orders_dependency_wheels_by_package_not_catalog_order(tmp_path):
+    dependency_order = ("diskcache", "Jinja2", "MarkupSafe", "numpy", "typing_extensions")
+    entries=[]; paths=[]
+    for index,name in enumerate(dependency_order):
+        normalized=name.lower().replace("_", "-")
+        version=next(version for package,version in EXPECTED[:5] if package==normalized)
+        path=tmp_path/f"{normalized}.whl"
+        entries.append({"artifact_id":normalized,"package_name":name,"package_version":version,
+            "artifact_filename":path.name,"artifact_sha256":f"{index:064x}","artifact_size_bytes":index+1})
+        paths.append(path)
+    runtime_plan={"provisioning_plan_digest":"runtime-plan","runtime_catalog_digest":"runtime-catalog",
+        "runtime_id":"cpu-runtime","engine":"llama_cpp","backend_family":"cpu","backend_variant":"cpu",
+        "package_name":"llama-cpp-python","package_version":"0.3.35"}
+    runtime_custody={"receipt":{"receipt_semantic_digest":"runtime-receipt"},
+        "entry":{"package_name":"llama-cpp-python","package_version":"0.3.35",
+            "artifact_filename":"runtime.whl","artifact_sha256":"f"*64,"artifact_size_bytes":6},
+        "wheel_path":tmp_path/"runtime.whl"}
+    dependency_plan={"dependency_plan_digest":"dependency-plan","dependency_catalog_digest":"dependency-catalog",
+        "bundle_digest":"bundle","environment_profile_digest":"environment"}
+    dependency_custody={"receipt":{"receipt_semantic_digest":"dependency-receipt"},"entries":entries,"wheel_paths":paths}
+
+    installation=compose_installation_plan(runtime_plan,runtime_custody,dependency_plan,dependency_custody,
+        {"python_implementation":"cpython","python_major":3,"python_minor":12,"python_abi":"cp312",
+         "os_family":"linux","architecture":"x86_64","libc_family":"glibc","libc_version":"2.41"},
+        tmp_path/"install")
+
+    assert [(artifact["package"].lower().replace("_", "-"),artifact["version"])
+        for artifact in installation["artifacts"][:-1]] == list(EXPECTED[:5])
+    assert [Path(artifact["verified_source_path"]).name for artifact in installation["artifacts"][:-1]] == [
+        "typing-extensions.whl","numpy.whl","diskcache.whl","jinja2.whl","markupsafe.whl"]
 
 def test_dry_run_creates_nothing_and_missing_authorization_blocks(tmp_path):
     value,paths=plan(tmp_path); observed=value["environment"]

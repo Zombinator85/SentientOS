@@ -69,18 +69,27 @@ def compose_installation_plan(runtime_plan: Mapping[str, Any], runtime_custody: 
     try:
         rr = runtime_custody["receipt"]; re = runtime_custody["entry"]
         dr = dependency_custody["receipt"]; entries = dependency_custody["entries"]
-        if len(entries) != 5 or [(_canon(e["package_name"]), e["package_version"]) for e in entries] != list(EXPECTED[:5]):
+        dependency_paths = [Path(p).expanduser().absolute() for p in dependency_custody["wheel_paths"]]
+        if len(entries) != 5 or len(dependency_paths) != 5:
+            raise InstallationError("invalid_installation_plan")
+        by_package: dict[str, tuple[Mapping[str, Any], Path]] = {}
+        for entry, path in zip(entries, dependency_paths):
+            package = _canon(entry["package_name"])
+            if package in by_package or (package, entry["package_version"]) not in EXPECTED[:5]:
+                raise InstallationError("invalid_installation_plan")
+            by_package[package] = (entry, path)
+        if set(by_package) != {package for package, _ in EXPECTED[:5]}:
             raise InstallationError("invalid_installation_plan")
         if (_canon(re["package_name"]), re["package_version"]) != EXPECTED[5]:
             raise InstallationError("invalid_installation_plan")
         identity = dict(interpreter_identity or base_interpreter_identity())
-        dependency_paths = [Path(p).expanduser().absolute() for p in dependency_custody["wheel_paths"]]
         runtime_path = Path(runtime_custody["wheel_path"]).expanduser().absolute()
+        ordered_dependencies = [by_package[package] for package, _ in EXPECTED[:5]]
         artifacts = [{"artifact_id": e["artifact_id"], "package": e["package_name"],
             "version": e["package_version"], "filename": e["artifact_filename"],
             "sha256": e["artifact_sha256"], "size": e["artifact_size_bytes"],
             "source_content_address": f"sha256:{e['artifact_sha256']}",
-            "verified_source_path": str(p)} for e, p in zip(entries, dependency_paths)]
+            "verified_source_path": str(p)} for e, p in ordered_dependencies]
         artifacts.append({"artifact_id": runtime_plan["runtime_id"], "package": re["package_name"],
             "version": re["package_version"], "filename": re["artifact_filename"],
             "sha256": re["artifact_sha256"], "size": re["artifact_size_bytes"],
