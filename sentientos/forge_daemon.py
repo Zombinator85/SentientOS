@@ -218,6 +218,12 @@ class ForgeDaemon:
             error = "\n".join(report.failure_reasons) if report.failure_reasons else None
             publish_remote = report.publish_remote if isinstance(report.publish_remote, dict) else {}
             contract_semantics = _contract_semantics_from_report(report)
+            has_drift = _boolean_value(contract_semantics.get("has_drift"))
+            drift_domains = _string_values(contract_semantics.get("drift_domains"))
+            contract_alert_counts = _integer_counts(contract_semantics.get("contract_alert_counts"))
+            contract_row_summary_counts = _integer_counts(
+                contract_semantics.get("contract_row_summary_counts")
+            )
             self.queue.mark_finished(
                 request.request_id,
                 status=status,
@@ -232,12 +238,12 @@ class ForgeDaemon:
                 publish_status=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
                 publish_pr_url=str(publish_remote.get("pr_url")) if isinstance(publish_remote.get("pr_url"), str) else None,
                 publish_checks_overall=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
-                has_drift=(contract_semantics.get("has_drift") if isinstance(contract_semantics.get("has_drift"), bool) else None),
-                drift_domains=contract_semantics.get("drift_domains") if isinstance(contract_semantics.get("drift_domains"), list) else None,
+                has_drift=has_drift,
+                drift_domains=drift_domains,
                 contract_alert_badge=(str(contract_semantics.get("contract_alert_badge")) if isinstance(contract_semantics.get("contract_alert_badge"), str) else None),
                 contract_alert_reason=(str(contract_semantics.get("contract_alert_reason")) if isinstance(contract_semantics.get("contract_alert_reason"), str) else None),
-                contract_alert_counts=contract_semantics.get("contract_alert_counts") if isinstance(contract_semantics.get("contract_alert_counts"), dict) else None,
-                contract_row_summary_counts=contract_semantics.get("contract_row_summary_counts") if isinstance(contract_semantics.get("contract_row_summary_counts"), dict) else None,
+                contract_alert_counts=contract_alert_counts,
+                contract_row_summary_counts=contract_row_summary_counts,
             )
             self._emit_forge_event(status=status, request=request, report_path=report_path, error=error, provenance_run_id=report.provenance_run_id, provenance_path=report.provenance_path)
             remote_gate_failed = isinstance(report.publish_remote, dict) and str(report.publish_remote.get("checks_overall")) in {"failure", "pending"}
@@ -472,6 +478,26 @@ def _contract_semantics_from_report(report: ForgeReport) -> dict[str, object]:
     if isinstance(preflight_digest, dict):
         return preflight_digest
     return {}
+
+
+def _string_values(value: object) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    return [item for item in value if isinstance(item, str)]
+
+
+def _boolean_value(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
+def _integer_counts(value: object) -> dict[str, int] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        key: count
+        for key, count in value.items()
+        if isinstance(key, str) and isinstance(count, int) and not isinstance(count, bool)
+    }
 
 
 def _load_policy(path: Path) -> dict[str, object]:
