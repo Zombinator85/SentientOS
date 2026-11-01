@@ -24,6 +24,15 @@ class GovernanceOutcome:
     signals: tuple[str, ...]
 
 
+def _integer_value(value: object) -> int:
+    if not isinstance(value, (int, float, str)):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 class GovernanceReducer:
     """Aggregate governance signals without altering source material."""
 
@@ -110,7 +119,7 @@ class GovernanceReducer:
         dissent_patterns: Counter[tuple[str, int]] = Counter()
         for entry in sanction_reports:
             agent = str(entry.get("agent") or "")
-            dissent = int(entry.get("dissent", entry.get("dissent_count", 0)) or 0)
+            dissent = _integer_value(entry.get("dissent", entry.get("dissent_count", 0)))
             if agent:
                 dissent_patterns[(agent, dissent)] += 1
         return any(count > 1 for count in dissent_patterns.values())
