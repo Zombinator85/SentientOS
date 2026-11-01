@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from sentientos.ethics.covenant_digest_daemon import CovenantDigestDaemon
 
 
+@pytest.mark.no_legacy_skip
 def test_covenant_digest_captures_ethics_events(tmp_path: Path):
     workspace = tmp_path / "ethics"
     daemon = CovenantDigestDaemon(workspace)
