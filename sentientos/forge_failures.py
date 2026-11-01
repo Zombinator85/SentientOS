@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import re
+from typing import TypedDict
 
 MAX_EXCERPT_CHARS = 8000
 
@@ -31,6 +32,15 @@ class HarvestResult:
     total_failed: int
     clusters: list[FailureCluster]
     raw_excerpt_truncated: str
+
+
+class FailureRecord(TypedDict):
+    nodeid: str
+    file: str
+    line: int | None
+    test_name: str
+    error_type: str
+    message: str
 
 
 def harvest_failures(stdout: str, stderr: str = "") -> HarvestResult:
@@ -69,8 +79,8 @@ def harvest_failures(stdout: str, stderr: str = "") -> HarvestResult:
     )
 
 
-def _parse_pytest_blocks(lines: list[str]) -> list[dict[str, object]]:
-    records: list[dict[str, object]] = []
+def _parse_pytest_blocks(lines: list[str]) -> list[FailureRecord]:
+    records: list[FailureRecord] = []
     i = 0
     while i < len(lines):
         line = lines[i].strip()
@@ -125,8 +135,8 @@ def _parse_pytest_blocks(lines: list[str]) -> list[dict[str, object]]:
     return records
 
 
-def _parse_run_tests_blocks(lines: list[str]) -> list[dict[str, object]]:
-    records: list[dict[str, object]] = []
+def _parse_run_tests_blocks(lines: list[str]) -> list[FailureRecord]:
+    records: list[FailureRecord] = []
     pat = re.compile(r"E\s+(?P<etype>[A-Za-z_][A-Za-z0-9_]*):\s*(?P<message>.+)")
     for i, line in enumerate(lines):
         line_s = line.strip()
