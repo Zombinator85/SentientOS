@@ -154,11 +154,18 @@ def should_force_quarantine(level: int) -> bool:
 
 def load_pressure_state(repo_root: Path) -> IntegrityPressureState:
     payload = _load_json(repo_root.resolve() / PRESSURE_STATE_PATH)
-    fields = {k: v for k, v in payload.items() if k in IntegrityPressureState.__dataclass_fields__}
-    try:
-        return IntegrityPressureState(**fields)
-    except TypeError:
-        return IntegrityPressureState()
+    schema_version = payload.get("schema_version", 1)
+    level = payload.get("level", 0)
+    strategic_posture = payload.get("strategic_posture", "balanced")
+    last_pressure_change_at = payload.get("last_pressure_change_at")
+    posture_last_changed_at = payload.get("posture_last_changed_at")
+    return IntegrityPressureState(
+        schema_version=schema_version if isinstance(schema_version, int) and not isinstance(schema_version, bool) else 1,
+        level=level if isinstance(level, int) and not isinstance(level, bool) else 0,
+        strategic_posture=strategic_posture if isinstance(strategic_posture, str) else "balanced",
+        last_pressure_change_at=last_pressure_change_at if isinstance(last_pressure_change_at, str) else None,
+        posture_last_changed_at=posture_last_changed_at if isinstance(posture_last_changed_at, str) else None,
+    )
 
 
 def save_pressure_state(repo_root: Path, state: IntegrityPressureState) -> None:
