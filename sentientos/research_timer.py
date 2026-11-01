@@ -214,8 +214,12 @@ class HistoryCollector:
 
     # Internal helpers -----------------------------------------------------
 
-    def _default_git_runner(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(*args, **kwargs, check=True, cwd=self._repo_path, text=True)
+    def _default_git_runner(
+        self, args: Sequence[str], *, capture_output: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            args, capture_output=capture_output, check=True, cwd=self._repo_path, text=True
+        )
 
     def _collect_commits(self, since: datetime, until: datetime) -> Iterable[CommitRecord]:
         cmd = ["git", "log", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s", "--date=iso"]
@@ -471,8 +475,21 @@ class CommitPublisher:
         commit_hash = result.stdout.strip()
         return CommitResult(commit_hash=commit_hash, message=message, report_path=report_path)
 
-    def _default_runner(self, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(*args, **kwargs, check=True, cwd=self._repo_path, text=True)
+    def _default_runner(
+        self,
+        args: Sequence[str],
+        *,
+        env: Mapping[str, str] | None = None,
+        capture_output: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            args,
+            env=env,
+            capture_output=capture_output,
+            check=True,
+            cwd=self._repo_path,
+            text=True,
+        )
 
 
 # ---------------------------------------------------------------------------

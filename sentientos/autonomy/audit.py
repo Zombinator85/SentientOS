@@ -218,10 +218,14 @@ class AutonomyActionLogger:
             f"autonomy-{status}", overlay={"friction": 1.0 if status == "blocked" else 0.25}
         )
         ac.require_affective_context({"affective_context": resolved})
-        uncertainty = resolved.get("bounds", {}).get("max", 1.0)
+        bounds = resolved.get("bounds")
+        uncertainty = bounds.get("max", 1.0) if isinstance(bounds, Mapping) else 1.0
+        raw_uncertainty = resolved.get("uncertainty", 0.25)
         try:
-            uncertainty_value = min(1.0, max(0.0, float(resolved.get("uncertainty", 0.25))))
-        except Exception:
+            if not isinstance(raw_uncertainty, (int, float, str)) or isinstance(raw_uncertainty, bool):
+                raise TypeError("uncertainty_not_numeric")
+            uncertainty_value = min(1.0, max(0.0, float(raw_uncertainty)))
+        except (TypeError, ValueError):
             uncertainty_value = 0.25
         return resolved, uncertainty_value
 
@@ -291,7 +295,7 @@ class AutonomyActionLogger:
         self, details: Mapping[str, object], authority_metadata: Mapping[str, object] | None
     ) -> Mapping[str, object]:
         forbidden_keys = {key for key in details if "permission" in key or "role" in key}
-        guard = {
+        guard: dict[str, object] = {
             "status": "isolated" if not forbidden_keys else "blocked",
             "forbidden_keys": sorted(forbidden_keys),
         }
