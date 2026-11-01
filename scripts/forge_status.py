@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import os
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 import sys
@@ -20,10 +21,26 @@ from sentientos.consistency_checks import compare_tick_vs_replay
 from sentientos.operator_report_attestation import maybe_sign_operator_report, operator_signing_status, verify_recent_operator_reports
 from sentientos.schema_registry import SchemaName, normalize
 from sentientos.system_constitution import CONSTITUTION_SUMMARY_REL
-try:
-    from scripts.cli_common import resolve_repo_root
-except ModuleNotFoundError:  # script execution fallback
-    from cli_common import resolve_repo_root
+from scripts.cli_common import resolve_repo_root as _resolve_repo_root
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _to_int(value: object, *, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
 
 
 @dataclass(frozen=True)
@@ -93,9 +110,14 @@ def _resolve_governor_rollup(root: Path) -> ResolvedArtifact:
     gov_root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "glow/governor"))
     if not gov_root.is_absolute():
         gov_root = root / gov_root
-    payload = read_json(gov_root / "rollup.json")
+    rollup_path = gov_root / "rollup.json"
+    payload = read_json(rollup_path)
     if payload:
-        return ResolvedArtifact(payload=payload, path=str((gov_root / "rollup.json").relative_to(root)), resolution="disk")
+        try:
+            relative_path = str(rollup_path.relative_to(root))
+        except ValueError:
+            relative_path = str(rollup_path)
+        return ResolvedArtifact(payload=payload, path=relative_path, resolution="disk")
     return ResolvedArtifact(payload={}, path=None, resolution="disk")
 
 
@@ -176,7 +198,7 @@ def _overall(status_value: object) -> str:
 
 
 def _audit_continuation_view(audit_payload: dict[str, object]) -> dict[str, object]:
-    recovery = audit_payload.get("recovery_state") if isinstance(audit_payload.get("recovery_state"), dict) else {}
+    recovery = _as_mapping(audit_payload.get("recovery_state"))
     history_state = str(recovery.get("history_state") or "unknown")
     continuation_descends = recovery.get("continuation_descends_from_anchor")
     if continuation_descends is None:
@@ -250,7 +272,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
         "integrity_status_hash": status_hash or snapshot.payload.get("integrity_status_hash"),
         "integrity_overall": _overall(integrity.payload.get("status") or "ok"),
         "primary_reason": integrity.payload.get("primary_reason") or "unknown",
-        "reason_stack": [str(item) for item in reason_stack[:10]],
+        "reason_stack": [str(item) for item in reason_stack[:10]] if isinstance(reason_stack, list) else [],
         "mutation_allowed": bool(integrity.payload.get("mutation_allowed")),
         "publish_allowed": bool(integrity.payload.get("publish_allowed")),
         "automerge_allowed": bool(integrity.payload.get("automerge_allowed")),
@@ -312,7 +334,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
                 if (
                     (audit_trust.payload.get("status") == "broken")
                     or bool(
-                        ((audit_trust.payload.get("recovery_state") or {}) if isinstance(audit_trust.payload.get("recovery_state"), dict) else {}).get("degraded_audit_trust", False)
+                        _as_mapping(audit_trust.payload.get("recovery_state")).get("degraded_audit_trust", False)
                     )
                 )
                 else "healthy"
@@ -326,9 +348,9 @@ def build_status_payload(root: Path) -> dict[str, object]:
 
 
 def _exit_code(payload: dict[str, object]) -> int:
-    provenance = payload.get("provenance") if isinstance(payload.get("provenance"), dict) else {}
-    has_integrity = bool((provenance.get("integrity_status") if isinstance(provenance.get("integrity_status"), dict) else {}).get("path"))
-    has_snapshot = bool((provenance.get("attestation_snapshot") if isinstance(provenance.get("attestation_snapshot"), dict) else {}).get("path"))
+    provenance = _as_mapping(payload.get("provenance"))
+    has_integrity = bool(_as_mapping(provenance.get("integrity_status")).get("path"))
+    has_snapshot = bool(_as_mapping(provenance.get("attestation_snapshot")).get("path"))
     if not has_integrity and not has_snapshot:
         return 3
     sigs = payload.get("verify_summaries")
@@ -356,7 +378,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("choose --latest or --json")
         return 2
 
-    root = resolve_repo_root(args.repo_root)
+    root = _resolve_repo_root(args.repo_root)
     payload = build_status_payload(root)
     payload["exit_code"] = _exit_code(payload)
 
@@ -368,7 +390,9 @@ def main(argv: list[str] | None = None) -> int:
         if signature:
             payload["operator_signature_hash"] = signature.get("sig_hash")
             verify_result = verify_recent_operator_reports(root, last=1)
-            payload["operator_report_signing"]["verify_status"] = verify_result.status
+            signing_payload = payload.get("operator_report_signing")
+            if isinstance(signing_payload, dict):
+                signing_payload["verify_status"] = verify_result.status
             write_json(root / out_rel, payload)
         artifact_catalog.append_catalog_entry(
             root,
@@ -376,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
             artifact_id=str(payload.get("ts") or out_rel.name),
             relative_path=str(out_rel),
             schema_name=SchemaName.FORGE_STATUS_REPORT,
-            schema_version=int(payload.get("schema_version") or 1),
+            schema_version=_to_int(payload.get("schema_version"), default=1),
             links={
                 "policy_hash": payload.get("policy_hash"),
                 "integrity_status_hash": payload.get("integrity_status_hash"),
@@ -391,9 +415,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(canonical_json_bytes(payload).decode("utf-8"), end="")
     else:
-        artifact_presence = payload.get("artifact_presence") if isinstance(payload.get("artifact_presence"), dict) else {}
-        required = artifact_presence.get("required") if isinstance(artifact_presence.get("required"), dict) else {}
-        optional = artifact_presence.get("optional_publication") if isinstance(artifact_presence.get("optional_publication"), dict) else {}
+        artifact_presence = _as_mapping(payload.get("artifact_presence"))
+        required = _as_mapping(artifact_presence.get("required"))
+        optional = _as_mapping(artifact_presence.get("optional_publication"))
         required_missing = sorted(str(k) for k, v in required.items() if v != "present")
         optional_missing = sorted(str(k) for k, v in optional.items() if v != "present")
         print(
@@ -410,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
             "tick_replay_consistency="
             f"{payload.get('tick_replay_consistency')} reason={payload.get('tick_replay_consistency_reason')}"
         )
-    return int(payload["exit_code"])
+    return _to_int(payload.get("exit_code"), default=2)
 
 
 if __name__ == "__main__":
