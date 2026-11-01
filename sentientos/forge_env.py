@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
-    import tomli as tomllib
+
 from sentientos.forge_env_cache import resolve_cached_env
+from sentientos.toml_compat import tomllib
 
 
 @dataclass(slots=True)
