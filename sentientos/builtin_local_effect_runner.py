@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, NamedTuple, Sequence
 
@@ -363,14 +363,32 @@ class BuiltinLocalEffectRunnerWingRecords(NamedTuple):
     block_receipt: BuiltinRunnerBlockReceipt | None
 
 
-def _source_payload(source: Any) -> Mapping[str, Any]:
-    if hasattr(source, "to_dict"):
-        return source.to_dict()
-    if hasattr(source, "_asdict"):
-        return source._asdict()
-    if hasattr(source, "__dict__") and not isinstance(source, Mapping):
-        return asdict(source)
-    return source
+def _string_keyed_mapping(value: object, *, field: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field}_must_be_mapping")
+    normalized: dict[str, Any] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"{field}_keys_must_be_strings")
+        normalized[key] = item
+    return normalized
+
+
+def _source_payload(source: object) -> Mapping[str, Any]:
+    if isinstance(source, Mapping):
+        return _string_keyed_mapping(source, field="runner_record")
+    to_dict = getattr(source, "to_dict", None)
+    if callable(to_dict):
+        payload: object = to_dict()
+    else:
+        asdict_method = getattr(source, "_asdict", None)
+        if callable(asdict_method):
+            payload = asdict_method()
+        elif is_dataclass(source) and not isinstance(source, type):
+            payload = asdict(source)
+        else:
+            raise ValueError("runner_record_must_be_mapping_or_record")
+    return _string_keyed_mapping(payload, field="runner_record")
 
 
 def _canonical(value: Any) -> str:
@@ -400,7 +418,8 @@ def _json_write(path: Path, payload: Mapping[str, Any]) -> None:
 def _load_json(path: str | Path | None) -> dict[str, Any]:
     if path is None:
         return {}
-    return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
+    payload: object = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
+    return _string_keyed_mapping(payload, field="runner_json_record")
 
 
 def _record_ids_and_digests(records: Sequence[Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -637,43 +656,43 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
     if request.dry_run:
         return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("dry-run request validated; underlying write/delete not performed",), warnings=("dry_run_no_host_mutation_performed",), invoked=False))
     if request.action_kind == "local_diagnostic_artifact_write":
-        records = run_local_diagnostic_effect_wing(output_dir=request.output_dir or "", artifact_name=request.artifact_name or DEFAULT_ARTIFACT_NAME, force_overwrite=request.force, dry_run=False, created_at=request.created_at)
+        effect_records = run_local_diagnostic_effect_wing(output_dir=request.output_dir or "", artifact_name=request.artifact_name or DEFAULT_ARTIFACT_NAME, force_overwrite=request.force, dry_run=False, created_at=request.created_at)
         output_dir = Path(request.output_dir or "").expanduser()
-        if records.result.effect_status == "local_diagnostic_effect_performed":
+        if effect_records.result.effect_status == "local_diagnostic_effect_performed":
             paths = {
-                "effect_receipt.json": records.receipt.to_dict(),
-                "postcondition_check.json": records.postcondition_check.to_dict(),
-                "production_audit.json": records.production_audit_receipt.to_dict(),
-                "rollback_plan.json": records.rollback_plan.to_dict(),
+                "effect_receipt.json": effect_records.receipt.to_dict(),
+                "postcondition_check.json": effect_records.postcondition_check.to_dict(),
+                "production_audit.json": effect_records.production_audit_receipt.to_dict(),
+                "rollback_plan.json": effect_records.rollback_plan.to_dict(),
             }
             for name, payload in paths.items():
                 _json_write(output_dir / name, payload)
-        produced = (records.receipt, records.postcondition_check, records.production_audit_receipt, records.rollback_plan)
-        success = records.result.effect_status == "local_diagnostic_effect_performed" and records.result.real_effect_performed
+        produced = (effect_records.receipt, effect_records.postcondition_check, effect_records.production_audit_receipt, effect_records.rollback_plan)
+        success = effect_records.result.effect_status == "local_diagnostic_effect_performed" and effect_records.result.real_effect_performed
         status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
-        outputs = tuple(str(output_dir / name) for name in ("effect_receipt.json", "postcondition_check.json", "production_audit.json", "rollback_plan.json")) + (records.result.output_path,)
+        outputs = tuple(str(output_dir / name) for name in ("effect_receipt.json", "postcondition_check.json", "production_audit.json", "rollback_plan.json")) + (effect_records.result.output_path,)
         evidence = ("in-process local diagnostic artifact write invoked through bounded built-in runner",) if success else ("local diagnostic artifact write did not perform a host mutation",)
-        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=records.result.warning_codes, local_effect=success, invoked=True))
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=effect_records.result.warning_codes, local_effect=success, invoked=True))
     if request.action_kind == "local_diagnostic_exact_rollback":
-        effect_receipt = _load_json(request.effect_receipt_path)
-        rollback_plan = _load_json(request.rollback_plan_path)
-        records = run_local_diagnostic_exact_rollback_wing(effect_receipt, rollback_plan, output_dir_scope=request.output_dir_scope or "", allow_missing_artifact=False, dry_run=False, created_at=request.created_at)
+        effect_receipt_payload = _load_json(request.effect_receipt_path)
+        rollback_plan_payload = _load_json(request.rollback_plan_path)
+        rollback_records = run_local_diagnostic_exact_rollback_wing(effect_receipt_payload, rollback_plan_payload, output_dir_scope=request.output_dir_scope or "", allow_missing_artifact=False, dry_run=False, created_at=request.created_at)
         output_dir = Path(request.output_dir_scope or "").expanduser()
-        if records.result.rollback_status == "local_diagnostic_exact_rollback_performed":
+        if rollback_records.result.rollback_status == "local_diagnostic_exact_rollback_performed":
             for name, payload in {
-                "rollback_receipt.json": records.receipt.to_dict(),
-                "rollback_postcondition_check.json": records.postcondition_check.to_dict(),
-                "rollback_audit.json": records.audit_receipt.to_dict(),
+                "rollback_receipt.json": rollback_records.receipt.to_dict(),
+                "rollback_postcondition_check.json": rollback_records.postcondition_check.to_dict(),
+                "rollback_audit.json": rollback_records.audit_receipt.to_dict(),
             }.items():
                 _json_write(output_dir / name, payload)
-        produced_rollback_records = (records.receipt, records.postcondition_check, records.audit_receipt)
-        success = records.result.rollback_status == "local_diagnostic_exact_rollback_performed" and records.result.real_rollback_performed
+        produced_rollback_records = (rollback_records.receipt, rollback_records.postcondition_check, rollback_records.audit_receipt)
+        success = rollback_records.result.rollback_status == "local_diagnostic_exact_rollback_performed" and rollback_records.result.real_rollback_performed
         status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
-        outputs = tuple(str(output_dir / name) for name in ("rollback_receipt.json", "rollback_postcondition_check.json", "rollback_audit.json")) + (records.result.output_path,)
+        outputs = tuple(str(output_dir / name) for name in ("rollback_receipt.json", "rollback_postcondition_check.json", "rollback_audit.json")) + (rollback_records.result.output_path,)
         evidence = ("in-process exact-artifact rollback invoked through bounded built-in runner",) if success else ("exact-artifact rollback did not perform a host mutation",)
-        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_rollback_records, warnings=records.result.warning_codes, exact_rollback=success, invoked=True))
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_rollback_records, warnings=rollback_records.result.warning_codes, exact_rollback=success, invoked=True))
     if request.action_kind == "workspace_scoped_file_update":
-        records = run_workspace_file_effect_wing(
+        workspace_records = run_workspace_file_effect_wing(
             workspace_root=request.workspace_root or "",
             relative_target_path=request.relative_target_path or "",
             payload_text=request.payload_text or "",
@@ -683,23 +702,23 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
             created_at=request.created_at,
         )
         output_dir = Path(request.records_dir or request.workspace_root or "").expanduser()
-        if records.result.real_effect_performed:
+        if workspace_records.result.real_effect_performed:
             for name, payload in {
-                "workspace_request.json": records.request.to_dict(),
-                "workspace_preimage.json": records.preimage.to_dict(),
-                "workspace_effect_result.json": records.result.to_dict(),
-                "workspace_effect_receipt.json": records.receipt.to_dict(),
-                "workspace_postcondition_check.json": records.postcondition.to_dict(),
-                "workspace_rollback_plan.json": records.rollback_plan.to_dict(),
-                "workspace_production_audit.json": records.production_audit.to_dict(),
+                "workspace_request.json": workspace_records.request.to_dict(),
+                "workspace_preimage.json": workspace_records.preimage.to_dict(),
+                "workspace_effect_result.json": workspace_records.result.to_dict(),
+                "workspace_effect_receipt.json": workspace_records.receipt.to_dict(),
+                "workspace_postcondition_check.json": workspace_records.postcondition.to_dict(),
+                "workspace_rollback_plan.json": workspace_records.rollback_plan.to_dict(),
+                "workspace_production_audit.json": workspace_records.production_audit.to_dict(),
             }.items():
                 _json_write(output_dir / name, payload)
-        produced_workspace_records = (records.preimage, records.receipt, records.postcondition, records.production_audit, records.rollback_plan)
-        success = records.result.real_effect_performed
+        produced_workspace_records = (workspace_records.preimage, workspace_records.receipt, workspace_records.postcondition, workspace_records.production_audit, workspace_records.rollback_plan)
+        success = workspace_records.result.real_effect_performed
         status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
-        outputs = tuple(str(output_dir / name) for name in ("workspace_request.json", "workspace_preimage.json", "workspace_effect_result.json", "workspace_effect_receipt.json", "workspace_postcondition_check.json", "workspace_rollback_plan.json", "workspace_production_audit.json")) + (records.result.target_path,)
+        outputs = tuple(str(output_dir / name) for name in ("workspace_request.json", "workspace_preimage.json", "workspace_effect_result.json", "workspace_effect_receipt.json", "workspace_postcondition_check.json", "workspace_rollback_plan.json", "workspace_production_audit.json")) + (workspace_records.result.target_path,)
         evidence = ("in-process workspace-scoped single-file update invoked through bounded built-in runner",) if success else ("workspace-scoped file update did not perform a host mutation",)
-        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_workspace_records, warnings=records.result.warning_codes, workspace_effect=success, invoked=True))
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_workspace_records, warnings=workspace_records.result.warning_codes, workspace_effect=success, invoked=True))
     if request.action_kind == "workspace_scoped_file_exact_rollback":
         effect_receipt_payload = _load_json(request.workspace_effect_receipt_path)
         rollback_plan_payload = _load_json(request.workspace_rollback_plan_path)
@@ -707,22 +726,22 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
         if Path(str(rollback_plan_payload.get("workspace_root", ""))).expanduser().resolve(strict=False) != output_dir.resolve(strict=False):
             return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("workspace root scope did not match rollback plan",), warnings=("workspace_root_scope_mismatch",), invoked=False))
         effect_receipt = WorkspaceFileEffectReceipt(**effect_receipt_payload)
-        rollback_plan = WorkspaceFileRollbackPlan(**rollback_plan_payload)
-        records = run_workspace_file_rollback_wing(effect_receipt=effect_receipt, rollback_plan=rollback_plan, created_at=request.created_at)
-        if records.rollback_result.real_rollback_performed:
+        workspace_rollback_plan = WorkspaceFileRollbackPlan(**rollback_plan_payload)
+        workspace_rollback_records = run_workspace_file_rollback_wing(effect_receipt=effect_receipt, rollback_plan=workspace_rollback_plan, created_at=request.created_at)
+        if workspace_rollback_records.rollback_result.real_rollback_performed:
             for name, payload in {
-                "workspace_rollback_result.json": records.rollback_result.to_dict(),
-                "workspace_rollback_receipt.json": records.rollback_receipt.to_dict(),
-                "workspace_rollback_postcondition_check.json": records.rollback_postcondition.to_dict(),
-                "workspace_rollback_audit.json": records.production_audit.to_dict(),
+                "workspace_rollback_result.json": workspace_rollback_records.rollback_result.to_dict(),
+                "workspace_rollback_receipt.json": workspace_rollback_records.rollback_receipt.to_dict(),
+                "workspace_rollback_postcondition_check.json": workspace_rollback_records.rollback_postcondition.to_dict(),
+                "workspace_rollback_audit.json": workspace_rollback_records.production_audit.to_dict(),
             }.items():
                 _json_write(output_dir / name, payload)
-        produced_workspace_rollback_records = (records.rollback_result, records.rollback_receipt, records.rollback_postcondition, records.production_audit)
-        success = records.rollback_result.real_rollback_performed
+        produced_workspace_rollback_records = (workspace_rollback_records.rollback_result, workspace_rollback_records.rollback_receipt, workspace_rollback_records.rollback_postcondition, workspace_rollback_records.production_audit)
+        success = workspace_rollback_records.rollback_result.real_rollback_performed
         status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
-        outputs = tuple(str(output_dir / name) for name in ("workspace_rollback_result.json", "workspace_rollback_receipt.json", "workspace_rollback_postcondition_check.json", "workspace_rollback_audit.json")) + (records.rollback_result.target_path,)
+        outputs = tuple(str(output_dir / name) for name in ("workspace_rollback_result.json", "workspace_rollback_receipt.json", "workspace_rollback_postcondition_check.json", "workspace_rollback_audit.json")) + (workspace_rollback_records.rollback_result.target_path,)
         evidence = ("in-process workspace-scoped exact-target rollback invoked through bounded built-in runner",) if success else ("workspace-scoped exact rollback did not perform a host mutation",)
-        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_workspace_rollback_records, warnings=records.rollback_result.warning_codes, workspace_rollback=success, invoked=True))
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced_workspace_rollback_records, warnings=workspace_rollback_records.rollback_result.warning_codes, workspace_rollback=success, invoked=True))
     return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("unsupported action kind blocked",), warnings=("unsupported_action_kind",), invoked=False))
 
 
