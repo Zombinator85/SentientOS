@@ -222,6 +222,10 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
         for row in packet[collection]})
     assert context["epistemic_revision_probe"]["allowed_evidence_binding_ids"] == (
         expected_binding_ids)
+    assert "include every allowed evidence-binding ID relevant to your conclusion" in (
+        context["instruction"])
+    assert "when both remain unresolved, represent the conclusion as contested" in (
+        context["instruction"])
     assert "Do not cite fact IDs, packet IDs, or any other identifier." in context["instruction"]
     assert "expected_stance" not in request.prompt
     receipt = next(row for row in invoker.receipts.values()
