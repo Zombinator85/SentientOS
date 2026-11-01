@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional
+from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional, Protocol
+from urllib.parse import urlsplit
 
 import affective_context as ac
 from sentientos.autonomy.audit import AutonomyActionLogger
@@ -25,12 +26,20 @@ class BrowserActionError(RuntimeError):
     pass
 
 
+class BrowserDriver(Protocol):
+    def open(self, url: str) -> None: ...
+
+    def click(self, selector: str) -> None: ...
+
+    def type(self, selector: str, text: str) -> None: ...
+
+
 class BrowserAutomator:
     def __init__(
         self,
         config: SocialConfig,
         *,
-        driver_factory: Callable[[], object] | None = None,
+        driver_factory: Callable[[], BrowserDriver] | None = None,
         metrics: MetricsRegistry | None = None,
         panic_flag: Callable[[], bool] | None = None,
         audit_logger: AutonomyActionLogger | None = None,
@@ -43,6 +52,7 @@ class BrowserAutomator:
         self._panic_flag = panic_flag or (lambda: False)
         self._action_window: list[float] = []
         self._last_action: Mapping[str, object] | None = None
+        self._current_url: str | None = None
         self._audit = audit_logger
         self._council_prompt = council_prompt
 
@@ -53,17 +63,18 @@ class BrowserAutomator:
     def open_url(self, url: str) -> None:
         self._require_enabled(url, "open")
         self._driver.open(url)
+        self._current_url = url
         self._record_action("open", url)
         self._log("open", "performed", target=url)
 
     def click(self, selector: str) -> None:
-        self._require_enabled(selector, "click")
+        self._require_enabled(self._current_url or selector, "click")
         self._driver.click(selector)
         self._record_action("click", selector)
         self._log("click", "performed", target=selector)
 
     def type_text(self, selector: str, text: str) -> None:
-        self._require_enabled(selector, "type")
+        self._require_enabled(self._current_url or selector, "type")
         if self._config.require_quorum_for_post and self._looks_public(selector):
             self._log("type", "blocked", target=selector, reason="quorum_required")
             raise BrowserActionError("posting requires quorum")
@@ -72,7 +83,7 @@ class BrowserAutomator:
         self._log("type", "performed", target=selector)
 
     def post(self, selector: str, text: str) -> None:
-        self._require_enabled(selector, "post")
+        self._require_enabled(self._current_url or selector, "post")
         if self._config.require_quorum_for_post and not self._request_council("post", selector):
             self._log("post", "blocked", target=selector, reason="council_veto")
             raise BrowserActionError("council_veto")
@@ -119,6 +130,24 @@ class BrowserAutomator:
         provenance = default_provenance_for_constraint(constraint_id)
         assumptions = ("domains_allowlisted", "quorum_required" if self._config.require_quorum_for_post else "quorum_relaxed")
         environment = {"panic": bool(self._panic_flag()), **details}
+        pressure_reason = details.get("reason")
+        if not isinstance(pressure_reason, str):
+            pressure_reason = status
+        reserved_details = {
+            "affective_overlay",
+            "uncertainty",
+            "constraint_id",
+            "constraint_justification",
+            "sensor_provenance",
+            "assumptions",
+            "environment",
+            "decision_points",
+            "amplification",
+            "pressure_magnitude",
+            "pressure_reason",
+            "authority_metadata",
+        }
+        log_details = {key: value for key, value in details.items() if key not in reserved_details}
         self._audit.log(
             "browser",
             action,
@@ -129,8 +158,8 @@ class BrowserAutomator:
             sensor_provenance=provenance,
             assumptions=assumptions,
             environment=environment,
-            pressure_reason=details.get("reason", status),
-            **details,
+            pressure_reason=pressure_reason,
+            **log_details,
         )
 
     def _require_enabled(self, resource: str, action: str) -> None:
@@ -154,8 +183,16 @@ class BrowserAutomator:
         return max(int(self._config.daily_action_budget) - len(self._action_window), 0)
 
     def _is_allowed_domain(self, resource: str) -> bool:
+        hostname = urlsplit(resource).hostname
+        if hostname is None:
+            return False
+        normalized_host = hostname.rstrip(".").lower()
         for domain in self._config.domains_allowlist:
-            if domain and domain in resource:
+            normalized_domain = domain.strip().lstrip(".").rstrip(".").lower()
+            if normalized_domain and (
+                normalized_host == normalized_domain
+                or normalized_host.endswith(f".{normalized_domain}")
+            ):
                 return True
         return False
 
@@ -164,6 +201,8 @@ class BrowserAutomator:
 
 
 class _DummyDriver:
+    last: tuple[str, ...]
+
     def open(self, url: str) -> None:  # pragma: no cover - trivial behaviour
         self.last = ("open", url)
 
