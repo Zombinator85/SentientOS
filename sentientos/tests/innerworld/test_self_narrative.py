@@ -159,3 +159,21 @@ def test_chapter_isolation_from_mutation():
 
     refreshed = engine.get_chapters()
     assert refreshed[0]["qualia_theme"] == "stable"
+
+
+def test_identity_summary_ignores_malformed_stored_themes():
+    engine = SelfNarrativeEngine()
+    engine._chapters.append(
+        {
+            "qualia_theme": None,
+            "ethical_theme": object(),
+            "metacog_theme": [],
+            "key_insights": [],
+        }
+    )
+
+    assert engine.summarize_identity()["core_themes"] == {
+        "qualia": "stable",
+        "ethics": "low",
+        "metacognition": "low",
+    }
