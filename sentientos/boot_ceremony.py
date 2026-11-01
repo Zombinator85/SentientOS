@@ -9,7 +9,9 @@ from typing import Callable, Iterable, Protocol
 from sentientos.integrity import covenant_autoalign
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 
-from .codex import CodexHealer, GenesisForge, IntegrityDaemon
+from .codex import IntegrityDaemon
+from .codex_healer import runtime_monitor
+from .genesis_forge import runtime_expand
 from privilege_lint.reporting import NarratorLink, create_default_router
 from .event_stream import record as record_event
 from .storage import ensure_mounts
@@ -111,7 +113,7 @@ class CeremonialScript:
                 f"{step.announcement} failed: {exc}. CodexHealer dispatched to intervene."
             )
             try:
-                CodexHealer.monitor()
+                runtime_monitor()
             except Exception as healer_exc:  # pragma: no cover - defensive logging
                 self._announcer.lament(f"CodexHealer intervention failed: {healer_exc}")
             raise BootCeremonyError(step.announcement) from exc
@@ -130,11 +132,11 @@ class CeremonialScript:
 
     @staticmethod
     def _wake_healer() -> None:
-        CodexHealer.monitor()
+        runtime_monitor()
 
     @staticmethod
     def _prime_forge() -> None:
-        GenesisForge.expand()
+        runtime_expand()
 
     def _announce_privilege_status(self) -> None:
         try:
