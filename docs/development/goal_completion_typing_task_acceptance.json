@@ -1,0 +1,44 @@
+{
+  "repository_sha": "a70a591501a027da69820d3bfd4aecb8f48545db",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_checks_done_and_unknown",
+      "rationale": "Existing work-run and registry checks remain functional after the protocol typing correction."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_missing_artifacts_stable_reasons",
+      "rationale": "Missing evidence continues to produce stable failure reasons."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_non_run_completion_proof_binds_exact_artifact_bytes",
+      "rationale": "Completion evidence remains bound to exact persisted artifact bytes."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_done_check_without_readable_evidence_fails_closed",
+      "rationale": "Unavailable evidence still fails closed."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_federation_check_treats_malformed_summary_as_missing_metadata",
+      "rationale": "Malformed federation summary JSON is handled as absent metadata instead of raising."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata",
+      "rationale": "Malformed work-run summary JSON is handled as absent metadata instead of raising."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_registry.py::test_registry_lookup_and_unknown",
+      "rationale": "The registry preserves expected protocol lookup and unknown-check behavior."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_registry.py::test_schema_normalize_reason_stable",
+      "rationale": "Schema normalization keeps stable check reason output."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "sentientos/tests/test_goal_completion_checks.py::test_federation_check_treats_malformed_summary_as_missing_metadata",
+    "sentientos/tests/test_goal_completion_checks.py::test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata"
+  ],
+  "task_classification": "bug_fix",
+  "test_provenance_path": "docs/development/goal_completion_typing_test_provenance_20261101.json"
+}
