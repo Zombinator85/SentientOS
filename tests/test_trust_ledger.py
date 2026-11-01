@@ -202,3 +202,14 @@ def test_probe_schedule_prioritization_ordering(monkeypatch, tmp_path) -> None:
     assert ordered.index("digest-high") < ordered.index("watch-high-div")
     assert ordered.index("watch-high-div") < ordered.index("alpha")
     assert ordered.index("alpha") < ordered.index("beta")
+
+
+
+def test_recovery_status_handles_malformed_findings_state(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    reset_trust_ledger()
+    ledger = get_trust_ledger()
+    ledger._recovery_status["recovery_findings"] = {"unexpected": "mapping"}
+
+    assert ledger.recovery_status()["recovery_findings"] == []
