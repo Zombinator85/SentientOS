@@ -161,7 +161,7 @@ def load_catalog_artifact(repo_root: Path, entry: dict[str, object]) -> dict[str
     if not payload:
         return None
     schema_name = _optional_str(entry.get("schema_name"))
-    if schema_name in _KIND_TO_SCHEMA.values():
+    if schema_name is not None and schema_name in _KIND_TO_SCHEMA.values():
         try:
             payload, _warnings = normalize(payload, schema_name)
         except SchemaCompatibilityError:

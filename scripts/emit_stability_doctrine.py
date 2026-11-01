@@ -84,8 +84,13 @@ def _runtime_feedback_status() -> dict[str, Any]:
         payload = json.loads(rollup_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         payload = {}
-    reason_counts = payload.get("reason_counts") if isinstance(payload, dict) and isinstance(payload.get("reason_counts"), dict) else {}
-    degraded_count = int(reason_counts.get("runtime_feedback_degraded_maintenance", 0) or 0)
+    reason_counts_value = payload.get("reason_counts") if isinstance(payload, dict) else None
+    reason_counts = reason_counts_value if isinstance(reason_counts_value, dict) else {}
+    raw_degraded_count = reason_counts.get("runtime_feedback_degraded_maintenance", 0)
+    try:
+        degraded_count = int(raw_degraded_count or 0)
+    except (TypeError, ValueError):
+        degraded_count = 0
     return {
         "governor_rollup_path": str(rollup_path),
         "governor_rollup_present": True,

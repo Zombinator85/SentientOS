@@ -43,8 +43,14 @@ def detect_drift(*, baseline_path: Path, output_path: Path) -> dict[str, Any]:
         if isinstance(payload, dict)
     }
 
-    added_event_types = sorted([{"stream": s, "event_type": e} for (s, e) in (set(current_events) - set(baseline_events))])
-    removed_event_types = sorted([{"stream": s, "event_type": e} for (s, e) in (set(baseline_events) - set(current_events))])
+    added_event_types = sorted(
+        ({"stream": s, "event_type": e} for (s, e) in (set(current_events) - set(baseline_events))),
+        key=lambda item: (item["stream"], item["event_type"]),
+    )
+    removed_event_types = sorted(
+        ({"stream": s, "event_type": e} for (s, e) in (set(baseline_events) - set(current_events))),
+        key=lambda item: (item["stream"], item["event_type"]),
+    )
 
     added_fields: list[dict[str, str]] = []
     removed_fields: list[dict[str, str]] = []
