@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Mapping, MutableMapping, Protocol, Sequence
+from typing import Any, ClassVar, Literal, Mapping, MutableMapping, Protocol, Sequence
 
 
 ExternalEffects = Literal["yes", "no"]
@@ -84,6 +84,16 @@ class ExternalAdapter(Protocol):
         ...
 
 
+class ExternalAdapterFactory(Protocol):
+    """Class-level registration contract for adapters constructed by the runtime."""
+
+    metadata: ClassVar[AdapterMetadata]
+    action_specs: ClassVar[Mapping[str, AdapterActionSpec]]
+
+    def __call__(self, **kwargs: Any) -> ExternalAdapter:
+        ...
+
+
 __all__ = [
     "AdapterActionResult",
     "AdapterActionSpec",
@@ -92,6 +102,7 @@ __all__ = [
     "AuthorityImpact",
     "ExecutionContext",
     "ExternalAdapter",
+    "ExternalAdapterFactory",
     "ExternalEffects",
     "Reversibility",
 ]

@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from sentientos.cathedral import Amendment, AmendmentSentinel
 from sentientos.council.governance_council import GovernanceCouncil
@@ -58,7 +59,9 @@ def test_amendment_sentinel_delays_without_lineage(tmp_path):
     assert not intercept.lineage_recorded
     assert "missing lineage justification" in intercept.reasons
     held_log = (tmp_path / "held.jsonl").read_text(encoding="utf-8")
-    assert "A-2" in held_log
+    held_record = json.loads(held_log)
+    assert held_record["amendment_id"] == "A-2"
+    assert held_record["vote"]["status"] == "approved"
 
 
 def test_amendment_sentinel_requires_quorum_and_lineage(tmp_path):
