@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from sentientos.feedback import FeedbackAttributor
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_feedback_attributor_links_regressions(tmp_path: Path):
@@ -30,3 +34,21 @@ def test_feedback_attributor_links_regressions(tmp_path: Path):
     assert stored.exists()
     content = stored.read_text(encoding="utf-8")
     assert "logs://regressions/3301" in content
+
+def test_feedback_attributor_handles_malformed_optional_values(tmp_path: Path) -> None:
+    attributor = FeedbackAttributor(tmp_path / "feedback")
+
+    [attributed] = attributor.attribute_feedback(
+        [
+            {
+                "contributing_factors": 42,
+                "links": {"invalid": "mapping"},
+                "confidence_score": object(),
+            }
+        ]
+    )
+
+    assert attributed["contributing_factors"] == []
+    assert attributed["links"] == []
+    assert attributed["confidence_score"] == 0.5
+\n

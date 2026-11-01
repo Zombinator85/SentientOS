@@ -26,12 +26,10 @@ class FeedbackAttributor:
         patch = entry.get("responsible_patch") or entry.get("patch") or "unspecified"
         reflex = entry.get("trigger_reflex") or entry.get("reflex") or "undetermined"
         factors = entry.get("contributing_factors") or entry.get("factors") or []
-        if isinstance(factors, (str, bytes)):
-            factors = [str(factors)]
+        factors = self._sequence_values(factors)
         links = entry.get("links") or entry.get("log_links") or []
-        if isinstance(links, (str, bytes)):
-            links = [str(links)]
-        confidence = float(entry.get("confidence_score", 0.5))
+        links = self._sequence_values(links)
+        confidence = self._confidence(entry.get("confidence_score", 0.5))
 
         attributed_entry = {
             "source_type": entry.get("type", "feedback"),
@@ -44,6 +42,27 @@ class FeedbackAttributor:
             "links": list(links),
         }
         return attributed_entry
+
+    @staticmethod
+    def _sequence_values(value: object) -> list[object]:
+        if isinstance(value, (str, bytes)):
+            return [str(value)]
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return []
+
+    @staticmethod
+    def _confidence(value: object) -> float:
+        if isinstance(value, bool):
+            return 0.5
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return 0.5
+        return 0.5
 
     def _append_jsonl(self, row: Mapping[str, object]) -> None:
         with self.output_path.open("a", encoding="utf-8") as handle:
