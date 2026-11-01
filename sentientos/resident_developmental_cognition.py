@@ -38,6 +38,7 @@ from .developmental_history_intervention_experiment import (
 from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, digest_payload,
 )
+from .rootless_experimental_epistemic_session import MAX_CALL_TIMEOUT_SECONDS
 from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
     open_private_directory, publish_immutable_bytes, read_private_file_at,
     replace_private_bytes)
@@ -5087,7 +5088,8 @@ class ResidentDevelopmentalCognitionOwner:
             if epistemic_revision_probe else purpose)
         request_budget = (LocalModelInvocationBudget(
             max_input_chars=16_384, max_output_chars=1024, max_new_tokens=128,
-            timeout_seconds=90, max_calls_per_correlation=1)
+            timeout_seconds=MAX_CALL_TIMEOUT_SECONDS,
+            max_calls_per_correlation=1)
             if (epistemic_revision_probe and request_purpose
                 == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
             else LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS,

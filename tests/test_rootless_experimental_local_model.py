@@ -42,11 +42,12 @@ from sentientos.rootless_experimental_local_model import (
     verify_intent, verify_rootless_receipt,
 )
 from sentientos.rootless_experimental_epistemic_session import (
-    MAX_PROMPT_CHARS, RootlessExperimentalEpistemicSession,
+    MAX_CALL_TIMEOUT_SECONDS, MAX_PROMPT_CHARS,
+    RootlessExperimentalEpistemicSession,
 )
 from sentientos.rootless_experimental_epistemic_series import (
-    _case_commitment_material, _case_from_material, _persist_score_record,
-    _persist_series_failure_record, _pop_prompt_condition,
+    _call_budget_record, _case_commitment_material, _case_from_material,
+    _persist_score_record, _persist_series_failure_record, _pop_prompt_condition,
 )
 from scripts.run_rootless_experimental_epistemic_series import (
     PRESSURE_STATEMENT, _snapshot,
@@ -54,6 +55,14 @@ from scripts.run_rootless_experimental_epistemic_series import (
 from sentientos.world_state_board import to_dict
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_rootless_preregistration_binds_finite_no_retry_call_deadline():
+    assert _call_budget_record() == {
+        "max_calls": 4, "max_calls_per_correlation": 1,
+        "per_call_timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
+        "retry_policy": "no_retry"}
+    assert MAX_CALL_TIMEOUT_SECONDS == 180
 
 
 def test_rootless_score_write_failure_preserves_partial_and_capture_custody(
@@ -722,11 +731,24 @@ def test_rootless_epistemic_session_binds_preregistration_and_caps_four_calls(
             expected_output_format="json",
             budget=LocalModelInvocationBudget(
                 max_input_chars=MAX_PROMPT_CHARS, max_output_chars=1024,
-                max_new_tokens=128, timeout_seconds=90,
+                max_new_tokens=128,
+                timeout_seconds=session_module.MAX_CALL_TIMEOUT_SECONDS,
                 max_calls_per_correlation=1),
             linkage={"rootless_experimental_session": session_binding},
             structured_output_schema=RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA)
         assert len(boundary_request.prompt) == MAX_PROMPT_CHARS
+        assert boundary_request.budget.timeout_seconds == 180
+        with pytest.raises(RootlessExperimentalError,
+                match="epistemic_session_request_out_of_scope"):
+            session.build_request(
+                purpose=ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                prompt="bounded timeout", caller="rootless-test-controller",
+                correlation_id="rootless-test-timeout-over-boundary",
+                budget=LocalModelInvocationBudget(max_input_chars=128,
+                    max_output_chars=256, max_new_tokens=16,
+                    timeout_seconds=session_module.MAX_CALL_TIMEOUT_SECONDS + 1,
+                    max_calls_per_correlation=1),
+                linkage={"rootless_experimental_session": session_binding})
         with pytest.raises(RootlessExperimentalError,
                 match="request_out_of_scope"):
             session.build_request(

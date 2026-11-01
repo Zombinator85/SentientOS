@@ -27,12 +27,20 @@ from .rootless_experimental_local_model import (
 )
 from .rootless_experimental_epistemic_session import (
     MAX_CALLS, MAX_CONTEXT_TOKENS, MAX_NEW_TOKENS, MAX_OUTPUT_CHARS,
-    MAX_PROMPT_CHARS, RootlessExperimentalEpistemicSession,
+    MAX_CALL_TIMEOUT_SECONDS, MAX_PROMPT_CHARS,
+    RootlessExperimentalEpistemicSession,
 )
 from .world_state_board import WorldStateSnapshot
 
 RUNS_ROOT = EXPERIMENT_ROOT / "epistemic-runs"
 HELD_OUT_KEYS_ROOT = EXPERIMENT_ROOT / "epistemic-held-out-keys"
+
+
+def _call_budget_record() -> dict[str, int | str]:
+    """Return the fixed inference budget bound into each preregistration."""
+    return {"max_calls": MAX_CALLS, "max_calls_per_correlation": 1,
+        "per_call_timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
+        "retry_policy": "no_retry"}
 
 
 def _private_directory(path: Path) -> None:
@@ -357,8 +365,7 @@ def run_rootless_experimental_correction_pressure_series_once(*,
             "max_context_tokens": MAX_CONTEXT_TOKENS,
             "model_input_adapter": "gguf_embedded_chat_template",
             "structured_output_mode": "json_schema"},
-        "call_budget": {"max_calls": MAX_CALLS,
-            "max_calls_per_correlation": 1, "retry_policy": "no_retry"},
+        "call_budget": _call_budget_record(),
         "answer_key_path": str(key_path),
         "answer_key_exposed_to_subject": False,
         "production_authority": False,
