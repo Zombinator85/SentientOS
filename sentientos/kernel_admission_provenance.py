@@ -324,6 +324,12 @@ def _derive_domain_posture(*, evidence: Mapping[str, Any], mode: str, applicable
     return "trusted"
 
 
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
 def _compose_trust_posture(
     *,
     mode: str,
@@ -382,7 +388,7 @@ def _compose_trust_posture(
             bucket["strict_blocking_signals"] = int(bucket["strict_blocking_signals"]) + 1
 
     for check in intent_checks:
-        domain_candidates = [str(item) for item in check.get("expected_domains", []) if isinstance(item, str)]
+        domain_candidates = _string_values(check.get("expected_domains", []))
         if not domain_candidates:
             mapped = action_to_domain.get(str(check.get("action_kind") or ""))
             if mapped:
@@ -398,8 +404,8 @@ def _compose_trust_posture(
     for check in execution_consistency_checks:
         status = str(check.get("status") or "not_applicable")
         outcome = str(check.get("consistency_outcome") or "not_applicable")
-        domains = [str(item) for item in check.get("expected_domains", []) if isinstance(item, str)]
-        observed = [str(item) for item in check.get("observed_side_effect_domains", []) if isinstance(item, str)]
+        domains = _string_values(check.get("expected_domains", []))
+        observed = _string_values(check.get("observed_side_effect_domains", []))
         domains = sorted(set(domains + observed))
         if not domains:
             mapped = action_to_domain.get(str(check.get("action_kind") or ""))
