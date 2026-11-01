@@ -9,14 +9,16 @@ import stat
 import subprocess
 import sys
 from types import SimpleNamespace
+from typing import NoReturn, Sequence
 
 import pytest
 import sentientos.goal_executor as goal_executor
+from sentientos.cathedral_forge import CathedralForge
 
 from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_plan import (Task, WorkPlan, persist_work_plan_evidence,
-    load_work_run, persist_work_run, work_plan_id_from_evidence)
+    load_work_run, persist_work_run, work_plan_id_from_evidence, WorkPlanError)
 from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
     WorkPlanJournalError)
 
@@ -87,17 +89,24 @@ def _single_task_plan(task: Task) -> WorkPlan:
     return WorkPlan(1, "p1", "2026-01-01T00:00:00Z", "manual", ("g1",), (task,))
 
 
+def _record_success(
+    calls: list[str], task: Task, artifacts: tuple[str, ...] = (),
+) -> tuple[str, str | None, tuple[str, ...]]:
+    calls.append(task.task_id)
+    return "success", None, artifacts
+
+
 def test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = _single_task_plan(Task(1, "t1", "g1", "forge_propose", (), None,
         0, 0, {}, (), False))
     calls: list[str] = []
     executor = GoalExecutor(repo_root=tmp_path)
     monkeypatch.setattr(executor, "_execute_task",
-        lambda task: calls.append(task.task_id) or ("success", None, ()))
+        lambda task: _record_success(calls, task))
 
-    with pytest.raises(goal_executor.WorkPlanError,
+    with pytest.raises(WorkPlanError,
                        match="work_run_lookup_plan_time_mismatch"):
         executor.execute_plan(plan, replace(_state(tmp_path),
             created_at="2026-01-02T00:00:00Z"))
@@ -163,7 +172,7 @@ def test_executor_stops_before_task_effect_when_journal_directory_sync_fails(
 
 
 def test_execute_rejects_changed_canonical_evidence_before_task_effect(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created_at = "2026-01-01T00:00:00Z"
     evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a"}
@@ -183,8 +192,8 @@ def test_execute_rejects_changed_canonical_evidence_before_task_effect(
     calls: list[str] = []
     executor = GoalExecutor(repo_root=tmp_path)
     monkeypatch.setattr(executor, "_execute_task",
-        lambda task: calls.append(task.task_id) or ("success", None, ()))
-    with pytest.raises(goal_executor.WorkPlanError,
+        lambda task: _record_success(calls, task))
+    with pytest.raises(WorkPlanError,
                        match="work_plan_evidence_noncanonical"):
         executor.execute_plan(plan, _state(tmp_path),
             expected_evidence_digest=evidence_digest)
@@ -194,7 +203,7 @@ def test_execute_rejects_changed_canonical_evidence_before_task_effect(
 
 
 def test_execute_requires_digest_for_persisted_plan_evidence_before_task_effect(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created_at = "2026-01-01T00:00:00Z"
     evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a"}
@@ -211,8 +220,8 @@ def test_execute_requires_digest_for_persisted_plan_evidence_before_task_effect(
     calls: list[str] = []
     executor = GoalExecutor(repo_root=tmp_path)
     monkeypatch.setattr(executor, "_execute_task",
-        lambda task: calls.append(task.task_id) or ("success", None, ()))
-    with pytest.raises(goal_executor.WorkPlanError,
+        lambda task: _record_success(calls, task))
+    with pytest.raises(WorkPlanError,
                        match="work_plan_evidence_digest_required"):
         executor.execute_plan(plan, _state(tmp_path))
 
@@ -250,7 +259,7 @@ def test_execute_requires_digest_when_external_binding_sidecar_exists(
         return "success", None, ()
 
     monkeypatch.setattr(executor, "_execute_task", record_task)
-    with pytest.raises(goal_executor.WorkPlanError,
+    with pytest.raises(WorkPlanError,
                        match="work_plan_evidence_digest_required"):
         executor.execute_plan(plan, _state(tmp_path))
 
@@ -261,7 +270,7 @@ def test_execute_requires_digest_when_external_binding_sidecar_exists(
 
 
 def test_execution_run_persists_exact_verified_plan_evidence_digest(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created_at = "2026-01-01T00:00:00Z"
     evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a",
@@ -274,7 +283,7 @@ def test_execution_run_persists_exact_verified_plan_evidence_digest(
     calls: list[str] = []
     executor = GoalExecutor(repo_root=tmp_path)
     monkeypatch.setattr(executor, "_execute_task",
-        lambda task: calls.append(task.task_id) or ("success", None, ()))
+        lambda task: _record_success(calls, task))
 
     run = executor.execute_plan(plan, _state(tmp_path),
         expected_evidence_digest=evidence_digest)
@@ -294,14 +303,18 @@ def test_execution_run_persists_exact_verified_plan_evidence_digest(
     persisted["evidence_digest"] = "f" * 64
     run_path.write_text(json.dumps(persisted, indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
-    with pytest.raises(goal_executor.WorkPlanError,
+    with pytest.raises(WorkPlanError,
             match="work_run_evidence_binding_mismatch"):
         load_work_run(tmp_path, plan, created_at=created_at)
 
 
-def test_plan_command_rejects_shell_payload_without_launching(tmp_path: Path, monkeypatch) -> None:
-    calls = []
-    monkeypatch.setattr(goal_executor.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+def test_plan_command_rejects_shell_payload_without_launching(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def record_command(*args: object, **kwargs: object) -> None:
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(subprocess, "run", record_command)
     task = Task(1, "t1", "g1", "diagnostic", ("python -m scripts.contract_drift; touch pwned",), None, 0, 0, {}, (), False)
 
     run = GoalExecutor(repo_root=tmp_path).execute_plan(_single_task_plan(task), _state(tmp_path))
@@ -312,31 +325,34 @@ def test_plan_command_rejects_shell_payload_without_launching(tmp_path: Path, mo
     assert not (tmp_path / "pwned").exists()
 
 
-def test_allowlisted_plan_command_uses_argv_without_shell(tmp_path: Path, monkeypatch) -> None:
-    calls = []
+def test_allowlisted_plan_command_uses_argv_without_shell(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
         calls.append((args, kwargs))
         return SimpleNamespace(returncode=0)
 
-    monkeypatch.setattr(goal_executor.subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "run", fake_run)
     task = Task(1, "t1", "g1", "diagnostic", ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
 
     run = GoalExecutor(repo_root=tmp_path).execute_plan(_single_task_plan(task), _state(tmp_path))
 
     assert run.task_runs[0].status == "success"
     assert len(calls) == 1
-    assert calls[0][0] == ([goal_executor.sys.executable, "-m", "scripts.contract_drift"],)
+    assert calls[0][0] == ([sys.executable, "-m", "scripts.contract_drift"],)
     assert calls[0][1]["shell"] is False
     assert calls[0][1]["cwd"] == tmp_path.resolve()
     assert calls[0][1]["timeout"] == goal_executor.PLAN_COMMAND_TIMEOUT_SECONDS
 
 
-def test_terminal_task_replay_reuses_original_run_artifact(tmp_path: Path, monkeypatch) -> None:
-    calls = []
-    monkeypatch.setattr(goal_executor, "_run_commands",
-        lambda *_args, **_kwargs: (calls.append("run") or "success", None,
-            ("glow/contracts/contract_status.json",)))
+def test_terminal_task_replay_reuses_original_run_artifact(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def record_run(*_args: object, **_kwargs: object) -> tuple[str, None, tuple[str, ...]]:
+        calls.append("run")
+        return "success", None, ("glow/contracts/contract_status.json",)
+
+    monkeypatch.setattr(goal_executor, "_run_commands", record_run)
     task = Task(1, "t1", "g1", "diagnostic",
         ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
     plan = _single_task_plan(task)
@@ -352,14 +368,20 @@ def test_terminal_task_replay_reuses_original_run_artifact(tmp_path: Path, monke
     assert len((tmp_path / "pulse/work_runs.jsonl").read_text().splitlines()) == 1
 
 
-def test_allowlisted_plan_command_timeout_is_a_failed_task(tmp_path: Path, monkeypatch) -> None:
-    calls = []
+def test_allowlisted_plan_command_timeout_is_a_failed_task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
-    def timeout(*args, **kwargs):
+    def timeout(*args: object, **kwargs: object) -> NoReturn:
         calls.append((args, kwargs))
-        raise goal_executor.subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+        command = args[0]
+        if not isinstance(command, (str, bytes, Sequence)):
+            raise AssertionError("subprocess command was not a command sequence")
+        timeout_value = kwargs["timeout"]
+        if not isinstance(timeout_value, (int, float)):
+            raise AssertionError("subprocess timeout was not numeric")
+        raise subprocess.TimeoutExpired(command, timeout_value)
 
-    monkeypatch.setattr(goal_executor.subprocess, "run", timeout)
+    monkeypatch.setattr(subprocess, "run", timeout)
     task = Task(1, "t1", "g1", "diagnostic", ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
 
     run = GoalExecutor(repo_root=tmp_path).execute_plan(
@@ -371,11 +393,13 @@ def test_allowlisted_plan_command_timeout_is_a_failed_task(tmp_path: Path, monke
     assert run.task_runs[0].artifacts == ()
 
 
-def test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise(tmp_path: Path, monkeypatch) -> None:
-    def forbidden(*args, **kwargs):
+def test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> NoReturn:
         raise AssertionError("forge apply must be blocked before execution")
 
-    monkeypatch.setattr(goal_executor.CathedralForge, "run", forbidden)
+    monkeypatch.setattr(CathedralForge, "run", forbidden)
     forged_task = Task(1, "t1", "g1", "forge_apply", (), None, 0, 0, {}, (), False)
 
     run = GoalExecutor(repo_root=tmp_path).execute_plan(
@@ -400,13 +424,16 @@ def test_unimplemented_plan_tasks_do_not_claim_success(tmp_path: Path) -> None:
 
 
 def test_completed_task_is_not_reexecuted_when_same_plan_is_recovered(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = []
+    calls: list[str] = []
     task = Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False)
     plan = WorkPlan(1, "recover-completed", "2026-01-01T00:00:00Z", "manual", ("g1",), (task,))
-    monkeypatch.setattr(GoalExecutor, "_execute_task", lambda self, row: (
-        calls.append(row.task_id) or ("success", None, ("glow/forge/plan.json",))))
+    def record_completed(self: GoalExecutor, row: Task) -> tuple[str, None, tuple[str, ...]]:
+        calls.append(row.task_id)
+        return "success", None, ("glow/forge/plan.json",)
+
+    monkeypatch.setattr(GoalExecutor, "_execute_task", record_completed)
 
     first = GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path))
     path = persist_work_run(tmp_path, first)
@@ -456,9 +483,9 @@ print(json.dumps({"run": run.to_dict(), "path": path}, sort_keys=True))
 
 
 def test_interrupted_task_stays_unknown_while_independent_task_continues(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = []
+    calls: list[str] = []
     tasks = (
         Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
         Task(1, "g1:apply", "g1", "forge_apply", (), None, 1, 1,
@@ -469,7 +496,7 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
     plan = WorkPlan(1, "recover-interrupted", "2026-01-01T00:00:00Z",
         "manual", ("g1", "g2"), tasks)
 
-    def interrupted(self, task):
+    def interrupted(self: GoalExecutor, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
         calls.append(task.task_id)
         if task.task_id == "g1:propose":
             raise SystemExit("simulated process interruption after task start")
@@ -490,9 +517,9 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
 
 
 def test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    checks = []
+    checks: list[str] = []
     tasks = (
         Task(1, "g1:diagnostic", "g1", "diagnostic",
             ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False),
@@ -502,7 +529,7 @@ def test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_depend
     plan = WorkPlan(1, "retry-safe-check", "2026-01-01T00:00:00Z",
         "manual", ("g1",), tasks)
 
-    def interrupted_twice(self, task):
+    def interrupted_twice(self: GoalExecutor, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
         checks.append(task.task_id)
         if task.task_id == "g1:diagnostic" and checks.count("g1:diagnostic") <= 2:
             raise SystemExit("simulated interruption during allowlisted check")
@@ -526,9 +553,9 @@ def test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_depend
 
 
 def test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(goal_executor.CathedralForge, "run",
+    monkeypatch.setattr(CathedralForge, "run",
         lambda *args, **kwargs: SimpleNamespace(
             outcome="partial_success", generated_at="2026-01-01T00:00:01Z"))
     monkeypatch.setattr(goal_executor, "_run_commands",
@@ -581,7 +608,7 @@ def test_same_plan_id_changed_definition_gets_distinct_execution_journal(
 
 
 def test_failed_dependency_blocks_dependent_but_not_other_goals(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tasks = (
         Task(1, "g1:verify", "g1", "verify", ("python -m scripts.run_tests -q",),
@@ -594,9 +621,9 @@ def test_failed_dependency_blocks_dependent_but_not_other_goals(
     )
     plan = WorkPlan(1, "dependency-failure", "2026-01-01T00:00:00Z",
         "manual", ("g1", "g2"), tasks)
-    calls = []
+    calls: list[str] = []
 
-    def execute(self, task):
+    def execute(self: GoalExecutor, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
         calls.append(task.task_id)
         if task.task_id == "g1:verify":
             return "failed", "fixture_validation_failed", ()
