@@ -4,8 +4,12 @@ from dataclasses import asdict
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos import forge_env
 from sentientos.forge_env_cache import ForgeEnvCacheEntry, ForgeEnvKey, prune_cache, resolve_cached_env
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_bootstrap_env_reuses_cache_across_sessions(tmp_path: Path, monkeypatch) -> None:
@@ -151,3 +155,24 @@ def test_prune_cache_removes_old_entries(tmp_path: Path, monkeypatch) -> None:
     assert "old" in removed
     assert "old" in removed_paths
     assert "keep" not in removed
+
+
+def test_prune_cache_orders_invalid_timestamps_as_oldest(tmp_path: Path, monkeypatch) -> None:
+    cache_root = tmp_path / ".forge" / "env_cache"
+    invalid = cache_root / "invalid"
+    recent = cache_root / "recent"
+    invalid.mkdir(parents=True)
+    recent.mkdir(parents=True)
+
+    key = ForgeEnvKey("/py", "3.11", "abc", "base")
+    entries = (
+        ForgeEnvCacheEntry(key, str(invalid / "venv"), "now", "invalid", "ok", True),
+        ForgeEnvCacheEntry(key, str(recent / "venv"), "now", "2099-01-01T00:00:00Z", "ok", True),
+    )
+    for directory, entry in zip((invalid, recent), entries):
+        (directory / "meta.json").write_text(json.dumps(asdict(entry)), encoding="utf-8")
+
+    removed: list[str] = []
+    monkeypatch.setattr("sentientos.forge_env_cache._safe_rmtree", lambda path: removed.append(path.name))
+
+    assert prune_cache(tmp_path, max_entries=1, max_age_days=14) == ["invalid"]
