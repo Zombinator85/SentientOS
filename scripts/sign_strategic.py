@@ -33,7 +33,8 @@ def main() -> int:
     for kind, pattern in (("proposal", "glow/forge/strategic/proposals/proposal_*.json"), ("change", "glow/forge/strategic/changes/change_*.json")):
         for path in sorted(root.glob(pattern), key=lambda item: item.name):
             payload = _read_json(path)
-            marker = payload.get("strategic_signature") if isinstance(payload.get("strategic_signature"), dict) else {}
+            marker_value = payload.get("strategic_signature")
+            marker = marker_value if isinstance(marker_value, dict) else {}
             if isinstance(marker.get("path"), str):
                 continue
             object_id = str(payload.get("proposal_id") if kind == "proposal" else payload.get("change_id") or path.stem)
