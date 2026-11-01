@@ -159,7 +159,7 @@ class BrowserAutomator:
             assumptions=assumptions,
             environment=environment,
             pressure_reason=pressure_reason,
-            **log_details,
+            detail_fields=log_details,
         )
 
     def _require_enabled(self, resource: str, action: str) -> None:

@@ -382,16 +382,60 @@ class OracleRelay:
 # Optional Playwright automation
 
 
+class _PlaywrightLocator(Protocol):
+    def click(self) -> None: ...
+
+    def fill(self, value: str) -> None: ...
+
+    def press(self, key: str) -> None: ...
+
+    def inner_text(self) -> str: ...
+
+
+class _PlaywrightPage(Protocol):
+    def goto(self, url: str, *, wait_until: str) -> None: ...
+
+    def wait_for_timeout(self, timeout: int) -> None: ...
+
+    def wait_for_selector(self, selector: str, *, timeout: float | None = None) -> _PlaywrightLocator: ...
+
+
+class _PlaywrightContext(Protocol):
+    def close(self) -> None: ...
+
+    def add_cookies(self, cookies: Sequence[Mapping[str, Any]]) -> None: ...
+
+    def cookies(self) -> Sequence[Mapping[str, Any]]: ...
+
+    def new_page(self) -> _PlaywrightPage: ...
+
+
+class _PlaywrightBrowser(Protocol):
+    def close(self) -> None: ...
+
+    def new_context(self) -> _PlaywrightContext: ...
+
+
+class _PlaywrightBrowserType(Protocol):
+    def launch(self, *, headless: bool) -> _PlaywrightBrowser: ...
+
+
+class _PlaywrightAPI(Protocol):
+    chromium: _PlaywrightBrowserType
+
+    def stop(self) -> None: ...
+
+
 class _PlaywrightSession(AbstractContextManager["_PlaywrightSession"], BrowserSession):
     """Best-effort Playwright session used when Playwright is installed."""
 
     def __init__(self, workspace: Workspace, *, headless: bool = True) -> None:
         self._workspace = workspace
         self._headless = headless
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
+        self._playwright: _PlaywrightAPI | None = None
+        self._browser: _PlaywrightBrowser | None = None
+        self._context: _PlaywrightContext | None = None
+        self._page: _PlaywrightPage | None = None
 
     def __enter__(self) -> "_PlaywrightSession":
         if optional_import("playwright", feature="oracle_playwright") is None:
