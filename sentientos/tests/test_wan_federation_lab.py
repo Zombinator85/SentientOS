@@ -13,6 +13,7 @@ from sentientos.ops import main as ops_main
 from sentientos.lab.wan_federation import HostSpec
 from sentientos.lab.wan_federation import SSHTransport
 from sentientos.lab.wan_federation import classify_remote_preflight
+from sentientos.lab.wan_federation import classify_wan_failure_surface
 from sentientos.lab.wan_federation import remote_preflight_observatory_report
 
 
@@ -245,6 +246,19 @@ def test_classify_remote_preflight_transport_auth_failure() -> None:
     )
     assert status == "transport_auth_failure"
     assert "transport_auth_failure" in labels
+
+
+def test_classify_wan_failure_surface_ignores_malformed_nested_records() -> None:
+    assert classify_wan_failure_surface(
+        payload={
+            "preflight_rows": ["malformed", {"classification": "provisioning_failure"}],
+            "truth_oracle": ["malformed"],
+            "oracle": {"passed": True},
+        }
+    ) == "remote_environment_drift_or_provisioning_failure"
+    assert classify_wan_failure_surface(
+        payload={"preflight_rows": [None], "truth_oracle": None, "oracle": []}
+    ) == "scenario_or_runtime_regression"
 
 
 def test_remote_preflight_observatory_rollup(tmp_path: Path) -> None:
