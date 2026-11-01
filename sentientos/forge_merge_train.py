@@ -11,9 +11,9 @@ from typing import Iterator, Mapping, Protocol
 from sentientos.authority_of_judgment_schema import build_authority_of_judgment
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
-from sentientos.receipt_anchors import maybe_create_anchor_on_merge, maybe_verify_receipt_anchors
-from sentientos.receipt_chain import append_receipt, maybe_verify_receipt_chain
-from sentientos.audit_chain_gate import maybe_verify_audit_chain
+from sentientos.receipt_anchors import AnchorVerification, maybe_create_anchor_on_merge, maybe_verify_receipt_anchors
+from sentientos.receipt_chain import ReceiptChainVerification, append_receipt, maybe_verify_receipt_chain
+from sentientos.audit_chain_gate import AuditChainVerification, maybe_verify_audit_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
@@ -26,7 +26,8 @@ from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.governance_trace import start_governance_trace
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
-from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
+from sentientos.github_artifacts import ContractBundle, download_contract_bundle, find_contract_artifact_for_sha
+from sentientos.doctrine_identity import DoctrineIdentity
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
 from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase
@@ -143,10 +144,7 @@ class ForgeMergeTrain:
         policy = TrainPolicy()
         payload = _load_json(self.policy_path)
         if payload:
-            try:
-                policy = TrainPolicy(**{k: v for k, v in payload.items() if k in TrainPolicy.__dataclass_fields__})
-            except TypeError:
-                policy = TrainPolicy()
+            policy = _train_policy_from_payload(payload)
         posture = resolve_posture()
         env_enabled = os.getenv("SENTIENTOS_FORGE_TRAIN_ENABLED")
         if env_enabled is not None:
@@ -198,8 +196,8 @@ class ForgeMergeTrain:
         run_id = _as_str(payload.get("provenance_run_id")) or ""
         report_path = _as_str(payload.get("report_path"))
         report_payload = _load_json(self.repo_root / report_path) if report_path else {}
-        publish_remote = report_payload.get("publish_remote") if isinstance(report_payload.get("publish_remote"), dict) else {}
-        doctrine_identity = publish_remote.get("doctrine_identity") if isinstance(publish_remote.get("doctrine_identity"), dict) else {}
+        publish_remote = _as_dict(report_payload.get("publish_remote"))
+        doctrine_identity = _as_dict(publish_remote.get("doctrine_identity"))
         pr_number = _as_int(publish_remote.get("pr_number"))
         if pr_number is None:
             pr_number = _parse_pr_number(pr_url)
@@ -458,8 +456,9 @@ class ForgeMergeTrain:
         payload = _load_json(path)
         if not payload:
             payload = emit_forge_progress_contract(self.repo_root).to_dict()
-        rows = payload.get("last_runs") if isinstance(payload.get("last_runs"), list) else []
-        for row in reversed(rows):
+        last_runs_value = payload.get("last_runs")
+        last_runs = last_runs_value if isinstance(last_runs_value, list) else []
+        for row in reversed(last_runs):
             if not isinstance(row, dict):
                 continue
             if str(row.get("run_id", "")) != run_id:
@@ -804,8 +803,8 @@ class ForgeMergeTrain:
 
     def _audit_integrity_gate(self, entry: TrainEntry) -> dict[str, object] | None:
         gate_context = self._doctrine_context(entry)
-        doctrine = gate_context.get("doctrine") if isinstance(gate_context.get("doctrine"), dict) else {}
-        contract_status = gate_context.get("contract_status") if isinstance(gate_context.get("contract_status"), dict) else {}
+        doctrine = _as_dict(gate_context.get("doctrine"))
+        contract_status = _as_dict(gate_context.get("contract_status"))
         body_scale_failures = _audit_integrity_failures(doctrine)
         body_scale_failures.extend(_contract_doctrine_failures(contract_status))
         corridor_signal = _corridor_protected_mutation_signal(gate_context)
@@ -824,7 +823,7 @@ class ForgeMergeTrain:
         entry.mergeability_authority = dict(authority)
         entry.doctrine_source = str(gate_context.get("source") or "local")
         entry.doctrine_gate_reason = reason
-        doctrine_identity = gate_context.get("doctrine_identity") if isinstance(gate_context.get("doctrine_identity"), dict) else {}
+        doctrine_identity = _as_dict(gate_context.get("doctrine_identity"))
         entry.doctrine_bundle_sha256 = _as_str(doctrine_identity.get("bundle_sha256")) or ""
         entry.doctrine_selected_via = _as_str(doctrine_identity.get("selected_via")) or ""
         entry.doctrine_mirror_used = bool(doctrine_identity.get("mirror_used", False))
@@ -1066,15 +1065,21 @@ class ForgeMergeTrain:
         target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return str(target.relative_to(self.repo_root))
 
-    def _run_receipt_chain_gate(self, pressure_level: int):
+    def _run_receipt_chain_gate(
+        self, pressure_level: int,
+    ) -> tuple[ReceiptChainVerification | None, bool, bool]:
         with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "SENTIENTOS_RECEIPT_CHAIN_WARN", pressure_level=pressure_level, gate_name="receipt_chain", high_severity=True)):
             return maybe_verify_receipt_chain(self.repo_root, context="merge_train")
 
-    def _run_audit_chain_gate(self, pressure_level: int):
+    def _run_audit_chain_gate(
+        self, pressure_level: int,
+    ) -> tuple[AuditChainVerification | None, bool, bool, str | None]:
         with _gate_env(*_gate_mode("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "SENTIENTOS_AUDIT_CHAIN_WARN", pressure_level=pressure_level, gate_name="audit_chain", high_severity=True)):
             return maybe_verify_audit_chain(self.repo_root, context="merge_train")
 
-    def _run_receipt_anchor_gate(self, pressure_level: int):
+    def _run_receipt_anchor_gate(
+        self, pressure_level: int,
+    ) -> tuple[AnchorVerification | None, bool, bool]:
         with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_ANCHOR_ENFORCE", "SENTIENTOS_RECEIPT_ANCHOR_WARN", pressure_level=pressure_level, gate_name="receipt_anchor", high_severity=True)):
             return maybe_verify_receipt_anchors(self.repo_root, context="merge_train")
 
@@ -1121,8 +1126,13 @@ class ForgeMergeTrain:
         successes = [receipt for receipt in receipts if receipt.status in {"success", "failed"}]
         hour_floor = now - timedelta(hours=1)
         day_floor = now - timedelta(days=1)
-        runs_hour = sum(1 for item in successes if _parse_iso(item.finished_at) and _parse_iso(item.finished_at) >= hour_floor)
-        runs_day = sum(1 for item in successes if _parse_iso(item.finished_at) and _parse_iso(item.finished_at) >= day_floor)
+        def finished_within(item: object, floor: datetime) -> bool:
+            finished_at = getattr(item, "finished_at", None)
+            parsed = _parse_iso(finished_at if isinstance(finished_at, str) else None)
+            return parsed is not None and parsed >= floor
+
+        runs_hour = sum(1 for item in successes if finished_within(item, hour_floor))
+        runs_day = sum(1 for item in successes if finished_within(item, day_floor))
         return runs_hour < max_runs_hour and runs_day < max_runs_day
 
     def _emit_event(self, event: str, payload: dict[str, object], *, level: str = "info") -> None:
@@ -1193,6 +1203,47 @@ def _gate_mode(enforce_env: str, warn_env: str, *, pressure_level: int, gate_nam
     return (enforce_env, "1" if enforce else "0"), (warn_env, "1" if warn else "0")
 
 
+def _train_policy_from_payload(payload: Mapping[str, object]) -> TrainPolicy:
+    defaults = TrainPolicy()
+    enabled = payload.get("enabled", defaults.enabled)
+    base_branch = payload.get("base_branch", defaults.base_branch)
+    max_active_prs = payload.get("max_active_prs", defaults.max_active_prs)
+    max_rebase_attempts = payload.get(
+        "max_rebase_attempts", defaults.max_rebase_attempts)
+    max_check_retries = payload.get(
+        "max_check_retries", defaults.max_check_retries)
+    merge_strategy = payload.get("merge_strategy", defaults.merge_strategy)
+    cooldown_minutes = payload.get(
+        "cooldown_minutes_on_failure", defaults.cooldown_minutes_on_failure)
+    require_clean_transaction = payload.get(
+        "require_clean_transaction", defaults.require_clean_transaction)
+    if (
+        not isinstance(enabled, bool)
+        or not isinstance(base_branch, str)
+        or not isinstance(max_active_prs, int) or isinstance(max_active_prs, bool)
+        or not isinstance(max_rebase_attempts, int) or isinstance(max_rebase_attempts, bool)
+        or not isinstance(max_check_retries, int) or isinstance(max_check_retries, bool)
+        or not isinstance(merge_strategy, str)
+        or not isinstance(cooldown_minutes, int) or isinstance(cooldown_minutes, bool)
+        or not isinstance(require_clean_transaction, bool)
+    ):
+        return defaults
+    return TrainPolicy(
+        enabled=enabled,
+        base_branch=base_branch,
+        max_active_prs=max_active_prs,
+        max_rebase_attempts=max_rebase_attempts,
+        max_check_retries=max_check_retries,
+        merge_strategy=merge_strategy,
+        cooldown_minutes_on_failure=cooldown_minutes,
+        require_clean_transaction=require_clean_transaction,
+    )
+
+
+def _as_dict(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
 def _load_json(path: Path) -> dict[str, object]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1255,10 +1306,9 @@ def _audit_integrity_failures(doctrine: dict[str, object]) -> list[str]:
 
 
 def _contract_doctrine_failures(status: dict[str, object]) -> list[str]:
-    rows = status.get("contracts") if isinstance(status.get("contracts"), list) else []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
+    contracts_value = status.get("contracts")
+    contracts = contracts_value if isinstance(contracts_value, list) else []
+    for row in (_as_dict(item) for item in contracts):
         if row.get("domain_name") != "stability_doctrine":
             continue
         drifted = row.get("drifted")
@@ -1268,25 +1318,19 @@ def _contract_doctrine_failures(status: dict[str, object]) -> list[str]:
 
 
 def _corridor_protected_mutation_signal(gate_context: dict[str, object]) -> dict[str, object]:
-    corridor_report = (
-        gate_context.get("protected_corridor_report")
-        if isinstance(gate_context.get("protected_corridor_report"), dict)
-        else {}
-    )
-    corridor_relevance = (
-        corridor_report.get("corridor_relevance")
-        if isinstance(corridor_report.get("corridor_relevance"), dict)
-        else {}
-    )
+    corridor_report = _as_dict(gate_context.get("protected_corridor_report"))
+    corridor_relevance = _as_dict(corridor_report.get("corridor_relevance"))
     status = str(corridor_relevance.get("protected_mutation_proof_status") or "unknown")
     intersects = bool(corridor_relevance.get("intersects_corridor", False))
-    trust_ledger = (
-        (corridor_report.get("global_summary") if isinstance(corridor_report.get("global_summary"), dict) else {}).get("trust_degradation_ledger")
-        if isinstance(corridor_report.get("global_summary"), dict)
-        else {}
+    global_summary = _as_dict(corridor_report.get("global_summary"))
+    trust_ledger = _as_dict(global_summary.get("trust_degradation_ledger"))
+    counts = _as_dict(trust_ledger.get("counts_by_escalation_posture"))
+    strict_count_value = counts.get("strict_block", 0)
+    strict_count = (
+        strict_count_value
+        if isinstance(strict_count_value, int) and not isinstance(strict_count_value, bool)
+        else 0
     )
-    counts = trust_ledger.get("counts_by_escalation_posture") if isinstance(trust_ledger, dict) else {}
-    strict_count = int(counts.get("strict_block", 0)) if isinstance(counts, dict) and isinstance(counts.get("strict_block"), int) else 0
     strict_failure_authoritative = intersects and status == "strict_violation_present"
     return {
         "present": bool(corridor_report),
