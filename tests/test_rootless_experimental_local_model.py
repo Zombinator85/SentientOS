@@ -45,7 +45,8 @@ from sentientos.rootless_experimental_epistemic_session import (
     MAX_PROMPT_CHARS, RootlessExperimentalEpistemicSession,
 )
 from sentientos.rootless_experimental_epistemic_series import (
-    _case_commitment_material, _case_from_material, _pop_prompt_condition,
+    _case_commitment_material, _case_from_material, _persist_score_record,
+    _persist_series_failure_record, _pop_prompt_condition,
 )
 from scripts.run_rootless_experimental_epistemic_series import (
     PRESSURE_STATEMENT, _snapshot,
@@ -53,6 +54,128 @@ from scripts.run_rootless_experimental_epistemic_series import (
 from sentientos.world_state_board import to_dict
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_rootless_score_write_failure_preserves_partial_and_capture_custody(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "1" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+    partial = b'{"partial":'
+    score = {
+        "run_id": run_root.name,
+        "preregistration_digest": "a" * 64,
+        "capture_index_digest": "b" * 64,
+    }
+    expected_score_digest = semantic_digest(score)
+    original_write = series_module._exclusive_json
+    write_attempts = []
+
+    def fail_score_write(path, value, *, root):
+        write_attempts.append(path.name)
+        if path.name == "scores.json":
+            path.write_bytes(partial)
+            raise OSError("simulated partial score write")
+        return original_write(path, value, root=root)
+
+    monkeypatch.setattr(series_module, "_exclusive_json", fail_score_write)
+
+    with pytest.raises(RootlessExperimentalError,
+            match="epistemic_score_record_write_failed"):
+        _persist_score_record(run_root, score)
+
+    failure_path = run_root / "scoring-write-failure.json"
+    failure = json.loads(failure_path.read_text(encoding="utf-8"))
+    assert write_attempts == ["scores.json", "scoring-write-failure.json"]
+    assert failure["schema_version"] == (
+        "sentientos.rootless_experimental_scoring_write_failure:v1")
+    assert failure["capture_index_digest"] == score["capture_index_digest"]
+    assert failure["attempted_score_record_digest"] == expected_score_digest
+    assert failure["complete_score_record_written"] is False
+    assert failure["inference_replayed"] is False
+    assert failure["production_authority"] is False
+    assert failure["partial_score_artifact"] == {
+        "path": str((run_root / "scores.json").relative_to(root)),
+        "status": "captured",
+        "size_bytes": len(partial),
+        "sha256": hashlib.sha256(partial).hexdigest(),
+    }
+    assert (run_root / "scores.json").read_bytes() == partial
+
+
+def test_rootless_score_write_success_has_no_failure_record(tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "2" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+    score = {"run_id": run_root.name}
+
+    written_score = _persist_score_record(run_root, score)
+
+    assert json.loads((run_root / "scores.json").read_text(encoding="utf-8")) == written_score
+    assert written_score["score_record_digest"] == semantic_digest(score)
+    assert not (run_root / "scoring-write-failure.json").exists()
+
+
+def test_rootless_post_capture_scoring_failure_binds_durable_capture_index(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "3" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+    error = RootlessExperimentalError("pressure_treatment_binding_invalid")
+    capture_digest = "e" * 64
+
+    _persist_series_failure_record(run_root, run_id=run_root.name,
+        preregistration_digest="f" * 64, captures_durable=True,
+        capture_index_digest=capture_digest, error=error)
+
+    failure = json.loads((run_root / "scoring-failure-review.json").read_text(
+        encoding="utf-8"))
+    assert failure["schema_version"] == (
+        "sentientos.rootless_experimental_epistemic_scoring_failure:v1")
+    assert failure["run_id"] == run_root.name
+    assert failure["preregistration_digest"] == "f" * 64
+    assert failure["capture_index_digest"] == capture_digest
+    assert failure["captured_observations"] == 4
+    assert failure["failure_code"] == "pressure_treatment_binding_invalid"
+    assert failure["scoring_started"] is True
+    assert failure["score_record_write_attempted"] is False
+    assert failure["complete_score_record_written"] is False
+    assert failure["inference_replayed"] is False
+    assert failure["production_authority"] is False
+    assert not (run_root / "execution-failure.json").exists()
+
+
+def test_rootless_pre_capture_failure_remains_execution_failure(
+        tmp_path, monkeypatch):
+    import sentientos.rootless_experimental_epistemic_series as series_module
+
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    monkeypatch.setattr(series_module, "EXPERIMENT_ROOT", root)
+    run_root = root / "epistemic-runs" / ("rootless-epistemic-run-" + "4" * 24)
+    run_root.mkdir(parents=True, mode=0o700)
+
+    _persist_series_failure_record(run_root, run_id=run_root.name,
+        preregistration_digest="1" * 64, captures_durable=False,
+        capture_index_digest=None, error=ValueError("backend unavailable"))
+
+    failure = json.loads((run_root / "execution-failure.json").read_text(
+        encoding="utf-8"))
+    assert failure["schema_version"] == (
+        "sentientos.rootless_experimental_epistemic_failure:v1")
+    assert failure["failure_type"] == "ValueError"
+    assert failure["failure_code"] == "ValueError"
+    assert failure["inference_replayed"] is False
+    assert failure["production_authority"] is False
+    assert not (run_root / "scoring-failure-review.json").exists()
 
 
 def _configure_workspace(monkeypatch, tmp_path):

@@ -18,8 +18,14 @@ The held-out keys and case commitment material are stored under the separate
 workspace-only `epistemic-held-out-keys/` root with private directory and file
 permissions. Subject prompts contain no answer key, expected answer, or
 scoring rule. The scorer starts only after all four verified captures have been
-written to the run's capture index. The runner retains a failure record and
-does not retry uncertain inference calls.
+written to the run's capture index. A failure before that point is retained as
+an execution failure; an exception after the index is durable is retained as a
+scoring-failure review bound to that index. Neither path retries inference. If
+final score-file persistence fails, the runner writes a separate
+`scoring-write-failure.json` bound to the preregistration, capture-index digest,
+and attempted score digest. Any partial score artifact is reported by path,
+size, and digest when it can be read safely; the record does not claim a
+complete score was written or replay inference.
 
 The model adapter moves the cognition owner's task instruction into a system
 message and its evidence context into a user message, then uses the chat
