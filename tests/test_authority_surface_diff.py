@@ -171,3 +171,34 @@ def test_deterministic_ordering_of_diff_output() -> None:
         ),
     )
     assert changes == sorted_changes
+
+
+def test_semantic_snapshot_ignores_malformed_non_sequence_scope_fields(monkeypatch) -> None:
+    from sentientos import authority_surface
+
+    monkeypatch.setattr(
+        authority_surface,
+        "_read_log",
+        lambda _path: [
+            {
+                "event": "semantic_class_created",
+                "class_id": "class-malformed",
+                "name": "Malformed",
+                "routine_ids": {"unexpected": "mapping"},
+                "scope": 42,
+            }
+        ],
+    )
+    monkeypatch.setattr(authority_surface, "read_forget_log", lambda _path: [])
+
+    snapshot = authority_surface._snapshot_semantic_habits()
+
+    assert snapshot == [
+        {
+            "class_id": "class-malformed",
+            "name": "Malformed",
+            "member_routines": [],
+            "semantic_only": True,
+            "scope": [],
+        }
+    ]
