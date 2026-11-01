@@ -599,7 +599,7 @@ def select_provider_transport_adapter(
         findings.append(_finding("client_detected", "null transport receipt recorded provider-client usage"))
     if null and null_status == ProviderNullTransportStatus.NULL_TRANSPORT_RUNTIME_AUTHORITY_DETECTED:
         findings.append(_finding("runtime_authority_detected", "null transport receipt recorded runtime authority"))
-    if null_status in _READY_NULL_STATUSES:
+    if null_status in _READY_NULL_STATUSES and null_transport_receipt is not None:
         if null and not provider_null_transport_sent_nothing(null_transport_receipt):
             findings.append(_finding("send_attempt_detected", "null transport receipt must prove zero sends and zero bytes"))
         if null and not provider_null_transport_has_no_network(null_transport_receipt):
@@ -780,6 +780,7 @@ def provider_transport_registry_is_null_only(manifest: ProviderTransportRegistry
         and data.get("runtime_authority_adapters_registered") is False
         and data.get("null_transport_only") is True
         and all(data.get(field_name) is True for field_name in _REGISTRY_MARKER_FIELDS)
+        and manifest is not None
         and str(data.get("registry_digest", "")) == compute_provider_transport_registry_digest(manifest)
     )
 
