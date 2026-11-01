@@ -48,7 +48,8 @@ def expected_bundle_sha256_from_receipts(repo_root: Path) -> str | None:
     receipts = sorted((repo_root / "glow/forge/receipts").glob("merge_receipt_*.json"), key=lambda item: item.name)
     for path in reversed(receipts):
         payload = _load_json(path)
-        doctrine = payload.get("doctrine_identity") if isinstance(payload.get("doctrine_identity"), dict) else {}
+        doctrine_value = payload.get("doctrine_identity")
+        doctrine = doctrine_value if isinstance(doctrine_value, dict) else {}
         value = _as_str(doctrine.get("bundle_sha256"))
         if value:
             return value
@@ -74,9 +75,11 @@ def verify_doctrine_identity(repo_root: Path) -> tuple[bool, dict[str, object]]:
 
 
 def _compute_bundle_sha(manifest: dict[str, object]) -> str:
-    hashes = manifest.get("file_sha256") if isinstance(manifest.get("file_sha256"), dict) else {}
+    hashes_value = manifest.get("file_sha256")
+    hashes = hashes_value if isinstance(hashes_value, dict) else {}
     canonical = "".join(
-        f"{key}\n{value}\n" for key, value in sorted((k, v) for k, v in hashes.items() if isinstance(k, str) and isinstance(v, str))
+        f"{key}\n{value}\n"
+        for key, value in sorted((k, v) for k, v in hashes.items() if isinstance(k, str) and isinstance(v, str))
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest() if canonical else ""
 
