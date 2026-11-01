@@ -423,8 +423,11 @@ class IntentionalForgettingService:
             forgetting_entries=forgetting_entries,
         )
         narrative_hash = _hash_payload(narrative_summary)
-        narrative_summary_hashes = [
-            {"view": narrative_summary.get("view", "narrative_summary"), "hash": narrative_hash}
+        narrative_view = narrative_summary.get("view", "narrative_summary")
+        if not isinstance(narrative_view, str):
+            narrative_view = "narrative_summary"
+        narrative_summary_hashes: list[dict[str, str]] = [
+            {"view": narrative_view, "hash": narrative_hash}
         ]
         narrative_summary_hashes.append({"view": "forget_tx_id", "hash": _hash_reference(forget_tx_id)})
 
@@ -455,7 +458,12 @@ class IntentionalForgettingService:
         primary_targets = _sorted_unique(outcome.primary)
         cascaded_removals = _sorted_unique(outcome.cascaded)
         removals = _sorted_unique(outcome.removals)
-        authority_deltas = tuple(dict(item) for item in authority_diff.get("changes", ()))
+        authority_changes = authority_diff.get("changes", ())
+        authority_deltas = (
+            tuple(dict(item) for item in authority_changes if isinstance(item, Mapping))
+            if isinstance(authority_changes, (list, tuple))
+            else ()
+        )
         blocked_items = tuple(_sorted_blockers(blocked))
         skipped_items = tuple(_sorted_blockers(outcome.skipped))
         narrative_hash_items = tuple(_sorted_hashes(narrative_summary_hashes))
@@ -617,9 +625,9 @@ class IntentionalForgettingService:
                 forgotten_by=authority,
                 reason="intentional_forget",
             )
-            for key in sorted(removed):
-                outcome.cascaded.append(f"cognitive:{key}")
-                outcome.removals.append(f"cognitive:{key}")
+            for preference_id in sorted(removed):
+                outcome.cascaded.append(f"cognitive:{preference_id}")
+                outcome.removals.append(f"cognitive:{preference_id}")
             return
         target = f"cognitive:{target_id}"
         if target_id in self.cognitive_surface.list_forgotten_preferences():
@@ -722,9 +730,9 @@ class IntentionalForgettingService:
                 forgotten_by=authority,
                 reason="intentional_forget_all",
             )
-            for key in sorted(removed):
-                outcome.cascaded.append(f"cognitive:{key}")
-                outcome.removals.append(f"cognitive:{key}")
+            for preference_id in sorted(removed):
+                outcome.cascaded.append(f"cognitive:{preference_id}")
+                outcome.removals.append(f"cognitive:{preference_id}")
         if cascade and self.class_manager is not None:
             for semantic_class in sorted(self.class_manager.list_classes(), key=lambda item: item.name):
                 for routine_id in sorted(semantic_class.routine_ids):
