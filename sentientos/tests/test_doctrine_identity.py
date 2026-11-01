@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.doctrine_identity import verify_doctrine_identity
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_verify_doctrine_identity_enforce_fails_on_mismatch(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
