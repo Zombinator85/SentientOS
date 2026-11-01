@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-try:
-    import tomllib  # py>=3.11
-except ModuleNotFoundError:
-    import tomli as tomllib  # py<3.11
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 __all__ = ["tomllib"]
