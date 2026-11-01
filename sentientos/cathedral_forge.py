@@ -43,6 +43,7 @@ from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.forge_transaction import (
     ForgeGitOps,
+    TransactionSnapshot,
     TransactionPolicy,
     build_contract_status_digest,
     capture_snapshot,
@@ -224,16 +225,16 @@ class CathedralForge:
         if pressure_changed:
             record_forge_event({"event": "integrity_pressure_level_changed", "level": "warning" if pressure_snapshot.level > 0 else "info", "context": "forge_run", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at})
             enqueue_mode_escalation_tasks(self.repo_root, mode=throughput.mode, reason="pressure_level_changed", incident_id=quarantine_state.last_incident_id)
-        before_snapshot = None
-        after_snapshot = None
+        transaction_snapshot_before: TransactionSnapshot | None = None
+        transaction_snapshot_after: TransactionSnapshot | None = None
         run_started_at = generated_at
         provenance = ForgeProvenance(self.repo_root, run_id=str(uuid.uuid4()))
         self._active_provenance = provenance
 
         try:
             if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
-                before_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
-                ci_baseline_before = dict(before_snapshot.ci_baseline)
+                transaction_snapshot_before = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
+                ci_baseline_before = dict(transaction_snapshot_before.ci_baseline)
                 provenance.add_step(
                     provenance.make_step(
                         step_id="snapshot_before",
@@ -342,7 +343,7 @@ class CathedralForge:
                     docket_path=None,
                     transaction_status="aborted",
                     contract_status_digest_preflight=preflight_contract_digest,
-                    transaction_snapshot_before=snapshot_to_report_dict(before_snapshot),
+                    transaction_snapshot_before=snapshot_to_report_dict(transaction_snapshot_before),
                     transaction_snapshot_after=None,
                 )
                 run_trace.record_gate(name="mode_mutation_gate", mode="enforce", result="diagnostics_only", reason="mode_throttle_mutation")
@@ -353,7 +354,7 @@ class CathedralForge:
                     suggested_actions=["review risk budget and operating mode before re-running forge"],
                 )
                 report.governance_trace_id = str(persisted.get("trace_id"))
-                report.governance_trace_summary = persisted.get("trace_summary") if isinstance(persisted.get("trace_summary"), dict) else None
+                report.governance_trace_summary = _object_dict(persisted.get("trace_summary"))
                 _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
                 self._active_provenance = None
                 return report
@@ -402,8 +403,8 @@ class CathedralForge:
                     failure_reasons.append("tests_failed")
 
             if goal_spec.goal_id == "repo_green_storm":
-                after_snapshot = emit_ci_baseline(output_path=Path(session.root_path) / CI_BASELINE_PATH, run_command=True)
-                ci_baseline_after = _dataclass_to_dict(after_snapshot)
+                after_ci_baseline = emit_ci_baseline(output_path=Path(session.root_path) / CI_BASELINE_PATH, run_command=True)
+                ci_baseline_after = _dataclass_to_dict(after_ci_baseline)
                 artifacts_written.append(str(CI_BASELINE_PATH))
                 before_raw = (ci_baseline_before or {}).get("failed_count", test_failures_before or 0)
                 after_raw = (ci_baseline_after or {}).get("failed_count", test_failures_after or 0)
@@ -424,8 +425,8 @@ class CathedralForge:
                     failure_reasons.append("repo_green_storm_not_green")
 
             if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
-                after_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
-                ci_baseline_after = dict(after_snapshot.ci_baseline)
+                transaction_snapshot_after = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
+                ci_baseline_after = dict(transaction_snapshot_after.ci_baseline)
                 provenance.add_step(
                     provenance.make_step(
                         step_id="snapshot_after",
@@ -442,9 +443,11 @@ class CathedralForge:
                         notes="transaction after snapshot",
                     )
                 )
+                if transaction_snapshot_before is None:
+                    raise RuntimeError("transaction_before_snapshot_missing")
                 regressed, regression_reasons, improved, improvement_summary = compare_snapshots(
-                    before_snapshot,
-                    after_snapshot,
+                    transaction_snapshot_before,
+                    transaction_snapshot_after,
                     policy=transaction_policy,
                 )
                 transaction_improvement_summary = improvement_summary
@@ -565,8 +568,8 @@ class CathedralForge:
                 ci_baseline_before=ci_baseline_before,
                 ci_baseline_after=ci_baseline_after,
                 contract_status_digest_preflight=preflight_contract_digest,
-                transaction_snapshot_before=snapshot_to_report_dict(before_snapshot),
-                transaction_snapshot_after=snapshot_to_report_dict(after_snapshot),
+                transaction_snapshot_before=snapshot_to_report_dict(transaction_snapshot_before),
+                transaction_snapshot_after=snapshot_to_report_dict(transaction_snapshot_after),
                 progress_delta=progress_delta,
                 transaction_status=transaction_status,
                 regression_reasons=regression_reasons or None,
@@ -587,7 +590,7 @@ class CathedralForge:
                     reason_stack=(failure_reasons[:6] if failure_reasons else ["forge_run_completed"]),
                 )
                 report.governance_trace_id = str(persisted.get("trace_id"))
-                report.governance_trace_summary = persisted.get("trace_summary") if isinstance(persisted.get("trace_summary"), dict) else None
+                report.governance_trace_summary = _object_dict(persisted.get("trace_summary"))
             run_finished_at = _iso_now()
             header = provenance.build_header(
                 started_at=run_started_at,
@@ -603,8 +606,8 @@ class CathedralForge:
             provenance_path, _bundle, _chain = provenance.finalize(
                 header=header,
                 env_cache_key=session.env_cache_key,
-                before_snapshot=before_snapshot,
-                after_snapshot=after_snapshot,
+                before_snapshot=transaction_snapshot_before,
+                after_snapshot=transaction_snapshot_after,
                 artifacts=[*artifacts_written, str(self._report_path(generated_at))],
             )
             report.provenance_run_id = provenance.run_id
@@ -1986,6 +1989,12 @@ def _dataclass_to_dict(value: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise TypeError("Expected dataclass object to serialize to dict")
     return payload
+
+
+def _object_dict(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    return {str(key): item for key, item in value.items()}
 
 
 def _budget_payload(config: BudgetConfig, iterations_used: int, total_files_changed: int) -> dict[str, int]:

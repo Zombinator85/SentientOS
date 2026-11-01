@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from sentientos.cathedral_forge import CathedralForge
+from sentientos.ci_baseline import CiBaselineSnapshot
 from sentientos.forge_env import ForgeEnv
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_model import CommandResult, CommandSpec
@@ -507,16 +508,19 @@ def test_repo_green_storm_report_progress_delta(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
 
     # avoid running full test suite in ci baseline emitter
-    monkeypatch.setattr("sentientos.cathedral_forge.emit_ci_baseline", lambda **kwargs: type("S", (), {
-        "schema_version": 1,
-        "generated_at": "2025-01-01T00:00:00Z",
-        "git_sha": "abc",
-        "runner": "scripts.run_tests",
-        "passed": False,
-        "failed_count": 10 if kwargs.get("run_command", False) else 7,
-        "top_clusters": [],
-        "last_green_sha": None,
-    })())
+    monkeypatch.setattr(
+        "sentientos.cathedral_forge.emit_ci_baseline",
+        lambda **kwargs: CiBaselineSnapshot(
+            schema_version=1,
+            generated_at="2025-01-01T00:00:00Z",
+            git_sha="abc",
+            runner="scripts.run_tests",
+            passed=False,
+            failed_count=10 if kwargs.get("run_command", False) else 7,
+            top_clusters=[],
+            last_green_sha=None,
+        ),
+    )
 
     report = forge.run("repo_green_storm")
 
