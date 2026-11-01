@@ -40,8 +40,6 @@ from sentientos.context_hygiene.prompt_materialization_policy import (
 )
 from sentientos.context_hygiene.prompt_operator_review import PromptOperatorReviewDecision, build_prompt_operator_review_receipt
 
-pytestmark = pytest.mark.no_legacy_skip
-
 
 def _policy(status=PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED, **overrides):
     data = {
@@ -165,6 +163,7 @@ def _candidate(**overrides):
     return materialize_internal_no_llm_prompt_candidate(_input(**overrides))
 
 
+@pytest.mark.no_legacy_skip
 def test_missing_policy_and_audit_receipts_are_reported():
     candidate_input = asdict(_input())
     candidate_input["policy_decision"] = None
