@@ -249,13 +249,18 @@ class ProvisionalAssertionLedger:
         queue.setdefault("provisional_assertions", []).extend(due_entries)
 
     def annotate_pressure_log(self, pressure_log: MutableMapping[str, object], *, context: str) -> None:
-        pressure_log.setdefault("epistemic_annotations", []).append(
-            {
-                "context": context,
-                "assertions_considered": [self._link_view(a).assertion_id for a in self._assertions.values()],
-                "schema_version": PROVISIONAL_ASSERTION_SCHEMA_VERSION,
-            }
-        )
+        annotations = pressure_log.get("epistemic_annotations")
+        if annotations is None:
+            annotations = []
+            pressure_log["epistemic_annotations"] = annotations
+        if not isinstance(annotations, list):
+            raise TypeError("epistemic_annotations must be a list")
+        annotation: dict[str, object] = {
+            "context": context,
+            "assertions_considered": [self._link_view(a).assertion_id for a in self._assertions.values()],
+            "schema_version": PROVISIONAL_ASSERTION_SCHEMA_VERSION,
+        }
+        annotations.append(annotation)
 
     def generate_inquiry_prompts(
         self,
@@ -303,15 +308,21 @@ class ProvisionalAssertionLedger:
         backlog.setdefault("inquiry_prompts", []).extend(prompts)
 
     def annotate_tooling_status(self, status: MutableMapping[str, object]) -> None:
-        status.setdefault("provisional_assertions", {})["active"] = [
+        assertions_status = status.get("provisional_assertions")
+        if assertions_status is None:
+            assertions_status = {}
+            status["provisional_assertions"] = assertions_status
+        if not isinstance(assertions_status, MutableMapping):
+            raise TypeError("provisional_assertions status must be a mutable mapping")
+        assertions_status["active"] = [
             assertion.to_payload()
             for assertion in self._assertions.values()
             if assertion.revision_state == "ACTIVE"
         ]
-        status["provisional_assertions"]["inquiries"] = [p.to_payload() for p in self.generate_inquiry_prompts()]
+        assertions_status["inquiries"] = [p.to_payload() for p in self.generate_inquiry_prompts()]
         linked = [self._link_view(a) for a in self._assertions.values()]
         narrative = NarrativeSynopsisGenerator().build(linked)
-        status["provisional_assertions"]["narrative_synopsis"] = {
+        assertions_status["narrative_synopsis"] = {
             "synopsis_text": narrative.synopsis_text,
             "outline": narrative.outline,
         }
@@ -407,7 +418,7 @@ class NarrativeSynopsisGenerator:
         recent_revisions: list[dict[str, object]] = []
         questions: list[str] = []
         for assertion in ordered:
-            payload = {
+            payload: dict[str, object] = {
                 "claim_text": assertion.claim_text,
                 "confidence": assertion.confidence_band,
                 "state": assertion.revision_state,
