@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 10131)
-Total output lines: 888
-
 from __future__ import annotations
 
 import json
@@ -377,7 +374,199 @@ def test_runtime_feedback_degradation_bridges_into_merge_train_gating(tmp_path: 
         def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
             self.returncode = returncode
             self.stdout = stdout
-            self.stderr = s…2131 tokens truncated…patch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+            self.stderr = stderr
+
+    def fake_run(command, check=False, capture_output=False, text=False):  # type: ignore[no-untyped-def]
+        _ = check, capture_output, text
+        cmd = tuple(command)
+        if cmd[:3] == ("python", "-m", "sentientos.verify_audits") and "--strict" in cmd:
+            strict_payload = {"baseline_status": "ok", "runtime_status": "ok", "baseline_path": "a", "runtime_path": "b"}
+            return Done(0, stdout=json.dumps(strict_payload) + "\n")
+        if cmd[:2] == ("make", "mypy-forge"):
+            return Done(0, stdout="ok")
+        if cmd[:2] == ("make", "forge-ci"):
+            return Done(0, stdout="ok")
+        if cmd[:3] == ("git", "rev-parse", "--verify"):
+            return Done(0, stdout="abc123\n")
+        return Done(0)
+
+    monkeypatch.setattr("scripts.emit_stability_doctrine.subprocess.run", fake_run)
+
+    (tmp_path / "glow/governor/rollup.json").write_text(
+        json.dumps({"reason_counts": {"runtime_feedback_degraded_maintenance": 1}}) + "\n",
+        encoding="utf-8",
+    )
+    emit_stability_doctrine()
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    held = train.tick()
+
+    assert held["status"] == "held"
+    assert held["reason"] == "audit_integrity_failed"
+
+    (tmp_path / "glow/governor/rollup.json").write_text(
+        json.dumps({"reason_counts": {"runtime_feedback_degraded_maintenance": 0}}) + "\n",
+        encoding="utf-8",
+    )
+    emit_stability_doctrine()
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    mergeable = train.tick()
+
+    assert mergeable["status"] == "mergeable"
+
+
+def test_merge_train_holds_when_remote_doctrine_red(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={
+                "stability_doctrine.json": {"baseline_integrity_ok": False, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False},
+                "contract_status.json": {"contracts": [{"domain_name": "stability_doctrine", "drifted": True}]},
+            },
+            source="remote",
+            errors=[],
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_failed"
+
+
+def test_merge_train_remote_green_is_mergeable(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={
+                "stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False},
+                "contract_status.json": {"contracts": [{"domain_name": "stability_doctrine", "drifted": False}]},
+            },
+            source="remote",
+            errors=[],
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "mergeable"
+
+
+def test_merge_train_remote_missing_falls_back_local(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr("sentientos.forge_merge_train.find_contract_artifact_for_sha", lambda pr_number, sha: None)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+    state = train.load_state()
+
+    assert result["status"] == "mergeable"
+    assert state.entries[0].doctrine_gate_reason == "remote_missing_fallback"
+
+
+def test_merge_train_remote_required_blocks_when_missing(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_REQUIRE_REMOTE_DOCTRINE", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr("sentientos.forge_merge_train.find_contract_artifact_for_sha", lambda pr_number, sha: None)
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_missing"
+
+
+def test_merge_train_blocks_on_remote_metadata_mismatch(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z", selected_via="api:run-artifacts"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={
+                "stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False},
+                "contract_status.json": {"contracts": [{"domain_name": "stability_doctrine", "drifted": False}]},
+            },
+            source="remote",
+            errors=["metadata_mismatch:sha"],
+            metadata={"sha": "different"},
+            metadata_ok=False,
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_metadata_mismatch"
+
+
+def test_merge_train_blocks_on_remote_corrupt_bundle(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z", selected_via="api:run-artifacts"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={"stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}},
+            source="remote",
+            errors=["bundle_missing_required:contract_status.json"],
+            metadata={"sha": "abc"},
+            metadata_ok=True,
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_corrupt_bundle"
+
+
+def test_merge_train_blocks_on_remote_manifest_missing(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
     train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
     monkeypatch.setattr(
         "sentientos.forge_merge_train.find_contract_artifact_for_sha",
