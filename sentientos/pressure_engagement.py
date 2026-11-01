@@ -288,7 +288,17 @@ class ConstraintEngagementEngine:
         normalized_context = self._normalize_affective_context(affective_context)
         self._require_registered(constraint_id)
         ac.require_affective_context({"affective_context": normalized_context})
-        vector = normalized_context.get("vector", {}) if isinstance(normalized_context, Mapping) else {}
+        raw_vector = normalized_context.get("vector", {})
+        if not isinstance(raw_vector, Mapping):
+            raise ValueError("affective context vector must be a mapping")
+        vector: dict[str, float] = {}
+        for key, value in raw_vector.items():
+            if not isinstance(key, str):
+                raise ValueError("affective context vector keys must be strings")
+            try:
+                vector[key] = float(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("affective context vector values must be numeric") from exc
         resolved_provenance = require_sensor_provenance(provenance)
         resolved_classification = classify_pressure(resolved_provenance, classification=classification)
         bandpass_notes, adjusted_magnitude = self._apply_bandpass(
@@ -352,15 +362,34 @@ class ConstraintEngagementEngine:
         signals = list(self._extract_policy_signals(event, actions))
         engagements: List[ConstraintEngagementRecord] = []
         for signal in signals:
+            constraint_id = signal.get("constraint_id")
+            if not isinstance(constraint_id, str):
+                raise ValueError("pressure signal constraint_id must be a string")
+            magnitude_value = signal.get("magnitude", 1.0)
+            if isinstance(magnitude_value, bool) or not isinstance(magnitude_value, (int, float)):
+                raise ValueError("pressure signal magnitude must be numeric")
+            reason = signal.get("reason", "constraint blocked")
+            if not isinstance(reason, str):
+                raise ValueError("pressure signal reason must be a string")
+            blocked = signal.get("blocked", True)
+            if not isinstance(blocked, bool):
+                raise ValueError("pressure signal blocked flag must be boolean")
+            provenance_value = signal.get("provenance")
+            if not provenance_value:
+                provenance_value = default_provenance_for_constraint(constraint_id)
+            elif not isinstance(provenance_value, (Mapping, SensorProvenance)):
+                raise ValueError("pressure signal provenance must be a mapping or SensorProvenance")
+            classification = signal.get("classification")
+            if classification is not None and not isinstance(classification, str):
+                raise ValueError("pressure signal classification must be a string")
             _, engagement = self.record_signal(
-                signal["constraint_id"],
-                signal.get("magnitude", 1.0),
-                reason=signal.get("reason", "constraint blocked"),
+                constraint_id,
+                float(magnitude_value),
+                reason=reason,
                 affective_context=normalized_overlay,
-                blocked=signal.get("blocked", True),
-                provenance=signal.get("provenance")
-                or default_provenance_for_constraint(signal["constraint_id"]),
-                classification=signal.get("classification"),
+                blocked=blocked,
+                provenance=provenance_value,
+                classification=classification,
             )
             if engagement is not None:
                 engagements.append(engagement)
@@ -378,14 +407,13 @@ class ConstraintEngagementEngine:
     ) -> ConstraintEngagementRecord:
         if decision not in {"reaffirm", "modify", "sunset", "defer"}:
             raise ValueError("decision must be reaffirm|modify|sunset|defer")
-        if decision == "defer" and defer_seconds is None:
-            raise ValueError("defer requires an expiry")
-
         state = self.pressure_state(constraint_id)
         now = time.time()
         defer_until = None
         if decision == "defer":
-            defer_until = now + float(defer_seconds)
+            if defer_seconds is None:
+                raise ValueError("defer requires an expiry")
+            defer_until = now + defer_seconds
         record = self._create_engagement_record(
             constraint_id=constraint_id,
             decision=decision,
@@ -551,7 +579,13 @@ class ConstraintEngagementEngine:
         adjusted_magnitude = magnitude * bounded_gain
         expected_variance = float(provenance.expected_noise_profile.get("variance", 0.0))
         if adjusted_magnitude > 0 and expected_variance and adjusted_magnitude > expected_variance * 4:
-            notes.setdefault("variance_flags", []).append("high_variance")
+            variance_flags = notes.get("variance_flags")
+            if variance_flags is None:
+                variance_flags = []
+                notes["variance_flags"] = variance_flags
+            if not isinstance(variance_flags, list):
+                raise ValueError("calibration variance_flags must be a list")
+            variance_flags.append("high_variance")
         return notes, adjusted_magnitude
 
     def _detect_meta_pressure(self, state: ConstraintPressureState, signal: PressureSignal) -> None:
@@ -756,15 +790,19 @@ class ConstraintEngagementEngine:
             state.modeling_debt_flags.add("explanation_repeat_without_new_structure")
             state.meta_pressure_flags.add("meta_pressure_modeling_debt_repeat")
         elif state.last_explanation_signature:
-            if len(graph_payload["nodes"]) > state.last_explanation_node_count:
+            if len(state.causal_graph.nodes) > state.last_explanation_node_count:
                 state.modeling_debt_flags.add("explanation_growth_without_resolution")
                 state.meta_pressure_flags.add("meta_pressure_explanation_growth")
-        if any(node["label"].endswith("[deprecated]") for node in graph_payload["nodes"] if node["kind"] == "assumption"):
+        if any(
+            node.label.endswith("[deprecated]")
+            for node in state.causal_graph.nodes.values()
+            if node.kind == "assumption"
+        ):
             state.modeling_debt_flags.add("deprecated_assumptions_in_causal_chain")
         explanation["modeling_debt_flags"] = sorted(state.modeling_debt_flags)
         explanation["explanation_signature"] = signature
         state.last_explanation_signature = signature
-        state.last_explanation_node_count = len(graph_payload["nodes"])
+        state.last_explanation_node_count = len(state.causal_graph.nodes)
         return explanation
 
     def _explanation_signature(self, payload: Mapping[str, object]) -> str:
