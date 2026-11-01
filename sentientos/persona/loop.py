@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Mapping, Optional
 
 from .logger import get_persona_logger
 from .state import PersonaState, decay_energy, update_from_pulse
@@ -157,7 +157,8 @@ class PersonaLoop:
             urgent = False
             for event in world_events:
                 world_kind = str(event.get("world_kind") or "")
-                data = event.get("data") if isinstance(event.get("data"), dict) else {}
+                raw_data = event.get("data")
+                data = raw_data if isinstance(raw_data, Mapping) else {}
                 if world_kind == "message":
                     descriptors.append("a new message")
                 elif world_kind == "calendar":
@@ -185,12 +186,12 @@ class PersonaLoop:
             e for e in events if e.get("kind") == "experiment_result" and not e.get("success")
         ]
         if experiment_failures:
-            description = next(
+            failure_description = next(
                 (str(e.get("description")) for e in experiment_failures if e.get("description")),
                 None,
             )
-            if description:
-                return f"I noticed a failed experiment ({description}); staying attentive."
+            if failure_description:
+                return f"I noticed a failed experiment ({failure_description}); staying attentive."
             return "I noticed a failed experiment and I’m staying attentive."
 
         runtime_errors = [
@@ -213,9 +214,9 @@ class PersonaLoop:
             count = len(experiment_successes)
             if count > 1:
                 return "Several experiments completed smoothly; optimism is steady."
-            description = experiment_successes[0].get("description")
-            if description:
-                return f"An experiment succeeded ({description}); momentum feels good."
+            success_description = experiment_successes[0].get("description")
+            if isinstance(success_description, str) and success_description:
+                return f"An experiment succeeded ({success_description}); momentum feels good."
             return "An experiment succeeded; momentum feels good."
 
         return "I’m tracking the day’s signals and keeping the sanctuary steady."
