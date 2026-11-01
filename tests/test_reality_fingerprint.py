@@ -1,8 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 from sentientos.perception.reality_fingerprint import RealityFingerprinter
 
 
+@pytest.mark.no_legacy_skip
 def test_reality_fingerprint_and_divergence(tmp_path: Path) -> None:
     fingerprinter = RealityFingerprinter(tmp_path)
     perceptions = [
@@ -25,3 +28,16 @@ def test_reality_fingerprint_and_divergence(tmp_path: Path) -> None:
 
     identical = fingerprinter.compare_fingerprints(fingerprint, fingerprint, margin=0.2)
     assert identical["triggered"] is False
+
+
+@pytest.mark.no_legacy_skip
+def test_reality_fingerprint_ignores_malformed_keyword_shapes(tmp_path: Path) -> None:
+    fingerprinter = RealityFingerprinter(tmp_path)
+    result = fingerprinter.compare_fingerprints(
+        {"summary": {"keywords": {"not": ["a sequence"]}}, "hash": "same"},
+        {"summary": {"keywords": {"nested": []}}, "hash": "same"},
+    )
+
+    assert result["overlap"] == 1.0
+    assert result["divergence_score"] == 0.0
+    assert result["triggered"] is False
