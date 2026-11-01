@@ -1,6 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from sentientos.meta.reflection_loop import ReflectionLoop
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_reflection_loop_generates_summary_and_replan(tmp_path: Path):
