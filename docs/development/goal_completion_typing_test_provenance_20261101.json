@@ -1,0 +1,131 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_goal_completion_checks.py::test_checks_done_and_unknown": 0,
+    "sentientos/tests/test_goal_completion_checks.py::test_done_check_without_readable_evidence_fails_closed": 0,
+    "sentientos/tests/test_goal_completion_checks.py::test_federation_check_treats_malformed_summary_as_missing_metadata": 0,
+    "sentientos/tests/test_goal_completion_checks.py::test_missing_artifacts_stable_reasons": 0,
+    "sentientos/tests/test_goal_completion_checks.py::test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata": 0,
+    "sentientos/tests/test_goal_completion_checks.py::test_non_run_completion_proof_binds_exact_artifact_bytes": 0,
+    "sentientos/tests/test_goal_completion_registry.py::test_registry_lookup_and_unknown": 0,
+    "sentientos/tests/test_goal_completion_registry.py::test_schema_normalize_reason_stable": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 8,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "a70a591501a027da69820d3bfd4aecb8f48545db",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-goal-completion-final-provenance/pytest_junitxml_2cf5d86b5724482685714b29475c5d9e.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_checks_done_and_unknown",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_missing_artifacts_stable_reasons",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_non_run_completion_proof_binds_exact_artifact_bytes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_done_check_without_readable_evidence_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_federation_check_treats_malformed_summary_as_missing_metadata",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_checks.py::test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_registry.py::test_registry_lookup_and_unknown",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_completion_registry.py::test_schema_normalize_reason_stable",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "6ae0838fde46da05d835888fe0d75cbcd0a5357aa2c8d0f1e0532765bb0c25fa",
+  "pytest_args": [
+    "sentientos/tests/test_goal_completion_checks.py",
+    "sentientos/tests/test_goal_completion_registry.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-rootless-venv/bin/python",
+  "repo_root": "/workspace/SentientOS-rootless-experimental",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "d14db86b45e148c3905fda3e2f914f60",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_goal_completion_checks.py::test_checks_done_and_unknown",
+    "sentientos/tests/test_goal_completion_checks.py::test_missing_artifacts_stable_reasons",
+    "sentientos/tests/test_goal_completion_checks.py::test_non_run_completion_proof_binds_exact_artifact_bytes",
+    "sentientos/tests/test_goal_completion_checks.py::test_done_check_without_readable_evidence_fails_closed",
+    "sentientos/tests/test_goal_completion_checks.py::test_federation_check_treats_malformed_summary_as_missing_metadata",
+    "sentientos/tests/test_goal_completion_checks.py::test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata",
+    "sentientos/tests/test_goal_completion_registry.py::test_registry_lookup_and_unknown",
+    "sentientos/tests/test_goal_completion_registry.py::test_schema_normalize_reason_stable"
+  ],
+  "selection_flags": [
+    "sentientos/tests/test_goal_completion_checks.py",
+    "sentientos/tests/test_goal_completion_registry.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 8,
+  "tests_executed": 8,
+  "tests_failed": 0,
+  "tests_passed": 8,
+  "tests_selected": 8,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-11-01T01:39:56.144654+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

@@ -69,3 +69,54 @@ def test_done_check_without_readable_evidence_fails_closed(tmp_path: Path) -> No
     assert result.done is False
     assert result.status == "blocked"
     assert "completion_evidence_binding_missing" in result.reason_stack
+
+
+def test_federation_check_treats_malformed_summary_as_missing_metadata(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    row: dict[str, object] = {"summary": ["not", "a", "mapping"]}
+    monkeypatch.setattr(
+        CompletionContext,
+        "latest",
+        lambda _self, kind: row if kind == "federation_snapshot" else None,
+    )
+    monkeypatch.setattr(
+        CompletionContext,
+        "load_normalized",
+        lambda _self, _entry, *, fallback_schema=None: (None, ()),
+    )
+    ctx = CompletionContext(tmp_path, "g1", "normal", 0, "balanced", False, {})
+
+    result = eval_check("check_federation_ok", ctx)
+
+    assert result.done is False
+    assert result.status == "blocked"
+    assert "verify_failed" in result.reason_stack
+
+
+def test_mypy_forge_check_treats_malformed_run_summary_as_missing_metadata(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    verify_row: dict[str, object] = {"summary": {}}
+    run_row: dict[str, object] = {"summary": ["not", "a", "mapping"]}
+    monkeypatch.setattr(
+        CompletionContext,
+        "latest",
+        lambda _self, kind: verify_row if kind == "verify_result" else None,
+    )
+    monkeypatch.setattr(
+        CompletionContext,
+        "latest_for_goal",
+        lambda _self, kind: run_row if kind == "work_run" else None,
+    )
+    monkeypatch.setattr(
+        "sentientos.goal_completion.artifact_catalog.load_catalog_artifact",
+        lambda _root, _entry: {},
+    )
+    ctx = CompletionContext(tmp_path, "g1", "normal", 0, "balanced", False, {})
+
+    result = eval_check("check_mypy_forge_ok", ctx)
+
+    assert result.done is False
+    assert result.status == "unknown"
+    assert "verify_failed" in result.reason_stack

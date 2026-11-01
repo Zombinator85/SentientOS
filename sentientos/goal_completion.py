@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Protocol
+from typing import Mapping, Protocol
 
 from sentientos import artifact_catalog
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
@@ -87,8 +87,11 @@ class CompletionContext:
 
 
 class CompletionCheck(Protocol):
-    name: str
-    required_kinds: tuple[str, ...]
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def required_kinds(self) -> tuple[str, ...]: ...
 
     def eval(self, ctx: CompletionContext) -> CompletionResult: ...
 
@@ -157,7 +160,8 @@ class _FederationCheck:
         if row is None:
             return _result(ctx.goal_id, self.name, now, False, 0.0, "unknown", (), (), ("artifact_missing",))
         payload, reasons = ctx.load_normalized(row, fallback_schema=SchemaName.INTEGRITY_SNAPSHOT)
-        status = str((payload or {}).get("status") or (row.get("summary") if isinstance(row.get("summary"), dict) else {}).get("status") or "unknown")
+        summary = _mapping_or_empty(row.get("summary"))
+        status = str((payload or {}).get("status") or summary.get("status") or "unknown")
         allow_div = os.getenv("SENTIENTOS_FEDERATION_ALLOW_DIVERGENCE", "0") == "1"
         done = status == "ok" or allow_div
         reason_stack = list(reasons)
@@ -177,7 +181,9 @@ class _WitnessesCheck:
         now = _iso_now()
         if row is None:
             return _result(ctx.goal_id, self.name, now, False, 0.0, "unknown", (), (), ("artifact_missing",))
-        payload = artifact_catalog.load_catalog_artifact(ctx.repo_root, row) or {}
+        payload = _mapping_or_empty(
+            artifact_catalog.load_catalog_artifact(ctx.repo_root, row)
+        )
         witness_status = str(payload.get("witness_status") or "unknown")
         rollup_status = str(payload.get("rollup_witness_status") or witness_status)
         anchor_ok = witness_status in {"ok", "disabled"}
@@ -203,7 +209,7 @@ class _MypyForgeCheck:
         if not done:
             run = ctx.latest_for_goal("work_run")
             if run is not None:
-                summary = run.get("summary") if isinstance(run.get("summary"), dict) else {}
+                summary = _mapping_or_empty(run.get("summary"))
                 done = bool(summary.get("included_mypy_forge", False)) and str(summary.get("status") or "") == "ok"
         return _result(ctx.goal_id, self.name, now, done, 1.0 if done else 0.3, "ok" if done else "unknown", _evidence(row), (), (() if done else ("verify_failed",)))
 
@@ -215,6 +221,11 @@ _REGISTRY: dict[str, CompletionCheck] = {
     "check_witnesses_ok": _WitnessesCheck(),
     "check_mypy_forge_ok": _MypyForgeCheck(),
 }
+
+
+def _mapping_or_empty(value: object) -> Mapping[str, object]:
+    """Treat malformed persisted JSON summaries as absent metadata."""
+    return value if isinstance(value, Mapping) else {}
 
 
 def get_check(name: str) -> CompletionCheck | None:
