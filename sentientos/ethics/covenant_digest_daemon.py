@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Sequence
 
 
 class CovenantDigestDaemon:
@@ -77,7 +77,7 @@ class CovenantDigestDaemon:
         lines.append(f"Changed terms: {', '.join(terms) if terms else 'none'}")
         return "\n".join(lines).strip() + "\n"
 
-    def _render_section(self, entries: list[Mapping[str, object]]) -> list[str]:
+    def _render_section(self, entries: Sequence[Mapping[str, object]]) -> list[str]:
         if not entries:
             return ["- None recorded"]
         rendered: list[str] = []
