@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from sentientos.forge_outcomes import summarize_report
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def test_summarize_report_tolerates_missing_fields() -> None:
     summary = summarize_report({"goal_id": "repo_green_storm", "outcome": "failed"})
@@ -67,3 +71,21 @@ def test_summarize_report_reads_enriched_contract_digest() -> None:
     assert summary.contract_alert_reason == "rows_not_current"
     assert summary.contract_alert_counts["freshness_issue"] == 1
     assert summary.contract_row_summary_counts["stale_or_missing_rows"] == 1
+
+
+def test_summarize_report_ignores_malformed_optional_containers() -> None:
+    summary = summarize_report(
+        {
+            "ci_baseline_before": None,
+            "ci_baseline_after": [],
+            "progress_delta": "invalid",
+            "baseline_progress": None,
+            "stability_doctrine": ["invalid"],
+        }
+    )
+
+    assert summary.ci_before_failed_count is None
+    assert summary.ci_after_failed_count is None
+    assert summary.progress_delta_percent is None
+    assert summary.no_improvement_streak == 0
+    assert summary.audit_status is None
