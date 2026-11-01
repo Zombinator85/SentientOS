@@ -1,0 +1,24 @@
+{
+  "repository_sha": "0b915dd5e9c5e6808b3981e3e901ce23768751fb",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_behavior_unchanged_without_pressure_snapshot",
+      "rationale": "The kernel keeps its existing proposal behavior for well-formed persisted state."
+    },
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_reflects_overload_bias",
+      "rationale": "The pressure snapshot continues to affect only the documented reflection trigger."
+    },
+    {
+      "node_id": "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_uses_safe_defaults_for_malformed_persisted_scalars",
+      "rationale": "Malformed persisted context and numeric values use bounded defaults instead of raising incidental exceptions."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_behavior_unchanged_without_pressure_snapshot",
+    "sentientos/tests/test_consciousness_pressure_context.py::test_kernel_uses_safe_defaults_for_malformed_persisted_scalars"
+  ],
+  "task_classification": "bug_fix",
+  "test_provenance_path": "docs/development/sentience_kernel_typing_test_provenance_20261101.json"
+}

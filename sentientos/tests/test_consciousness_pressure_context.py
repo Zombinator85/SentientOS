@@ -95,6 +95,25 @@ def test_kernel_reflects_overload_bias() -> None:
     assert trigger == "reflection_overload"
 
 
+def test_kernel_uses_safe_defaults_for_malformed_persisted_scalars() -> None:
+    kernel = SentienceKernel()
+    state = {
+        "last_focus": "active-task",
+        "goal_context": ["not", "a", "mapping"],
+        "novelty_score": "not-a-number",
+        "confidence": {"unexpected": "object"},
+    }
+
+    should_generate, trigger = kernel._should_generate_goal(state)
+    goal = kernel._build_goal(state, trigger)
+
+    assert should_generate is True
+    assert trigger == "curiosity"
+    assert goal["context"]["confidence"] == 0.5
+    assert goal["context"]["novelty_score"] == 0.0
+    assert goal["priority"] == 0.6
+
+
 def test_overload_reflected_in_narrative_summary() -> None:
     activity = {
         "tasks": {"tasks": []},

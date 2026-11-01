@@ -12,6 +12,7 @@ The kernel keeps goals minimal, auditable, and covenant-aligned, exposing a
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Mapping, Optional
@@ -56,13 +57,10 @@ class GoalSelectionKernel:
         pressure_snapshot: Mapping[str, object] | None = None,
     ) -> tuple[bool, str]:
         idle = state.get("last_focus") in (None, "")
-        goal_context = state.get("goal_context") if isinstance(state.get("goal_context"), dict) else {}
+        goal_context = _mapping_or_empty(state.get("goal_context"))
         system_load = goal_context.get("system_load", 0.2)
-        try:
-            low_load = float(system_load) < 0.5
-        except (TypeError, ValueError):
-            low_load = True
-        novelty_score = float(state.get("novelty_score", 0.0) or 0.0)
+        low_load = _safe_float(system_load, 0.2) < 0.5
+        novelty_score = _safe_float(state.get("novelty_score", 0.0), 0.0)
         curiosity_trigger = novelty_score < 0.6
 
         if self._recent_failures >= 3:
@@ -92,8 +90,8 @@ class GoalSelectionKernel:
 
     def _build_goal(self, state: Mapping[str, object], trigger: str) -> GoalDict:
         mood = str(state.get("mood", "neutral"))
-        confidence = float(state.get("confidence", 0.5) or 0.5)
-        novelty_score = float(state.get("novelty_score", 0.0) or 0.0)
+        confidence = _safe_float(state.get("confidence", 0.5), 0.5)
+        novelty_score = _safe_float(state.get("novelty_score", 0.0), 0.0)
         baseline = 0.35 if trigger == "idle" else 0.45
         novelty_boost = (0.6 - novelty_score) * 0.25
         confidence_boost = (confidence - 0.5) * 0.4
@@ -178,13 +176,13 @@ class GoalSelectionKernel:
                 goal=None,
                 result=trigger,
                 attention_hint=attention_hint,
-                novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
+                novelty_score=_safe_float(glow_state.get("novelty_score", 0.0), 0.0),
             )
             return report
 
         goal = self._build_goal(glow_state, trigger)
         if pressure_snapshot:
-            goal_context = goal.get("context", {}) if isinstance(goal.get("context"), dict) else {}
+            goal_context = _mapping_or_empty(goal.get("context"))
             goal_context.update({
                 "pressure_total": pressure_snapshot.get("total_active_pressure", 0),
                 "pressure_overload": bool(pressure_snapshot.get("overload")),
@@ -197,7 +195,7 @@ class GoalSelectionKernel:
                 goal=None,
                 result="misaligned",
                 attention_hint=attention_hint,
-                novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
+                novelty_score=_safe_float(glow_state.get("novelty_score", 0.0), 0.0),
             )
             report["reason"] = "misaligned"
             return report
@@ -213,7 +211,7 @@ class GoalSelectionKernel:
             self._recent_failures += 1
             logger.exception("Failed to emit sentience kernel goal event")
 
-        novelty_score = float(glow_state.get("novelty_score", 0.0) or 0.0)
+        novelty_score = _safe_float(glow_state.get("novelty_score", 0.0), 0.0)
         novelty_score = max(0.0, novelty_score + (0.05 if emitted else -0.02))
         self._update_self_model(
             goal=goal if emitted else None,
@@ -224,9 +222,9 @@ class GoalSelectionKernel:
 
         self.proposals.append(
             KernelProposal(
-                goal=goal["description"],
+                goal=_required_string(goal.get("description"), "goal_description"),
                 rationale="autonomous_generation",
-                confidence=float(goal.get("priority", 0.0)),
+                confidence=_safe_float(goal.get("priority", 0.0), 0.0),
             )
         )
 
@@ -248,3 +246,25 @@ def run_cycle() -> Dict[str, object]:
 
 
 __all__ = ["GoalSelectionKernel", "KernelProposal", "SentienceKernel", "run_cycle"]
+
+
+def _mapping_or_empty(value: object) -> Dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _safe_float(value: object, default: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return default
+    try:
+        parsed = float(value)
+    except (OverflowError, ValueError):
+        return default
+    return parsed if math.isfinite(parsed) else default
+
+
+def _required_string(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name}_must_be_string")
+    return value
