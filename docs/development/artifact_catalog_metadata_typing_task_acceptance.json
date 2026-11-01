@@ -1,0 +1,28 @@
+{
+  "repository_sha": "2492f1253db854a533615aa3f2c7d434410ee3e2",
+  "required_nodes": [
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_catalog_append_and_latest_recent",
+      "rationale": "Normal catalog append, latest, and recent lookups remain unchanged."
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_linkage_incident_to_pack_to_run",
+      "rationale": "Incident, remediation-pack, and remediation-run linkage remains intact."
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_catalog_queries_ignore_malformed_nested_json_metadata",
+      "rationale": "Malformed nested links and summary values are treated as absent metadata during catalog queries."
+    },
+    {
+      "node_id": "sentientos/tests/test_artifact_catalog.py::test_rebuild_rejects_non_integer_catalog_schema_version",
+      "rationale": "Catalog rebuild rejects a non-integer schema version explicitly instead of coercing untrusted persisted data."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_append_and_latest_recent",
+    "sentientos/tests/test_artifact_catalog.py::test_catalog_queries_ignore_malformed_nested_json_metadata"
+  ],
+  "task_classification": "bug_fix",
+  "test_provenance_path": "docs/development/artifact_catalog_metadata_typing_test_provenance_20261101.json"
+}
