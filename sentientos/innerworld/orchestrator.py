@@ -125,7 +125,7 @@ class InnerWorldOrchestrator:
         }
 
         meta_notes_copy = [note.copy() for note in meta_notes]
-        report: Dict[str, Any] = {
+        report = {
             "cycle_id": cycle_id,
             "qualia": deepcopy(qualia_snapshot),
             "identity": deepcopy(identity_snapshot),
@@ -143,22 +143,24 @@ class InnerWorldOrchestrator:
             reflection_summary = self.reflection_engine.reflect(self.history.get_all())
             report["innerworld_reflection"] = deepcopy(reflection_summary)
 
-            ethical_summary = report.get("ethics")
-            simulation_summary = report.get("simulation")
-            report["cognitive_report"] = self.cognitive_reporter.generate(
+            simulation_value = state_copy.get("simulation")
+            simulation_summary = dict(simulation_value) if isinstance(simulation_value, dict) else None
+            ethical_summary: Dict[str, Any] = dict(ethics_report)
+            cognitive_report = self.cognitive_reporter.generate(
                 history_summary=history_summary,
                 reflection_summary=reflection_summary,
                 latest_cycle=report,
                 ethical_report=ethical_summary,
                 simulation_report=simulation_summary,
             )
+            report["cognitive_report"] = cognitive_report
 
-            self.self_narrative.update_chapter(report["cognitive_report"])
+            self.self_narrative.update_chapter(cognitive_report)
 
             spotlight = self.workspace.compute_spotlight(
-                qualia=report.get("qualia", {}),
-                meta_notes=report.get("meta", []),
-                ethics=report.get("ethics"),
+                qualia=qualia_snapshot,
+                meta_notes=[dict(note) for note in meta_notes_copy],
+                ethics=ethical_summary,
                 reflection=reflection_summary,
                 identity_summary=self.get_identity_summary(),
             )
@@ -166,18 +168,18 @@ class InnerWorldOrchestrator:
             dialogue_lines = self.dialogue.generate(
                 spotlight=spotlight,
                 reflection=reflection_summary,
-                cognitive_report=report["cognitive_report"],
+                cognitive_report=cognitive_report,
             )
 
             self.value_drift.record_cycle(
-                ethics=report.get("ethics", {}),
+                ethics=ethical_summary,
                 identity_summary=self.get_identity_summary(),
             )
 
             drift = self.value_drift.detect_drift()
 
             compressed_entry = self.autobio.compress(
-                chapters=self.self_narrative.get_chapters(),
+                chapters=[dict(chapter) for chapter in self.self_narrative.get_chapters()],
                 reflection_summary=reflection_summary,
                 identity_summary=self.get_identity_summary(),
             )
@@ -202,9 +204,7 @@ class InnerWorldOrchestrator:
 
         return report
 
-    def evaluate_ethics(
-        self, plan: Mapping[str, Any], context: Mapping[str, Any]
-    ) -> Dict[str, Any]:
+    def evaluate_ethics(self, plan, context):
         """Evaluate ethics using the orchestrator's EthicalCore without side effects."""
 
         return self.ethics.evaluate(plan=plan, context=context)
@@ -239,20 +239,20 @@ class InnerWorldOrchestrator:
             "identity_events": self.identity_manager.get_events(),
         }
 
-    def get_history(self) -> List[dict[str, Any]]:
+    def get_history(self):
         return self.history.get_all()
 
-    def get_history_summary(self) -> Dict[str, object]:
+    def get_history_summary(self):
         return self.history.summarize()
 
-    def get_reflection_summary(self) -> Dict[str, Any]:
+    def get_reflection_summary(self):
         history = self.history.get_all()
         return self.reflection_engine.reflect(history)
 
-    def get_narrative_chapters(self) -> List[Dict[str, Any]]:
+    def get_narrative_chapters(self):
         return self.self_narrative.get_chapters()
 
-    def get_identity_summary(self) -> Dict[str, Any]:
+    def get_identity_summary(self):
         return self.self_narrative.summarize_identity()
 
     def _build_config(self) -> Dict[str, Any]:
