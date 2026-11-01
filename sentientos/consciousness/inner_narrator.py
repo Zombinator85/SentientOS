@@ -195,7 +195,8 @@ def generate_reflection(
         f"Internal interpretation steady; mood {mood}.",
     ]
     if pressure_snapshot:
-        domains = pressure_snapshot.get("pressure_by_subsystem", [])
+        raw_domains = pressure_snapshot.get("pressure_by_subsystem")
+        domains = raw_domains if isinstance(raw_domains, list) else []
         domain_names = [
             str(item.get("subsystem"))
             for item in domains

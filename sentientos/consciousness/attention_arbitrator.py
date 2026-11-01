@@ -137,9 +137,12 @@ class AttentionArbitrator:
     def _score(self, event: PulseEvent) -> Tuple[int, float, int, int, int, float]:
         priority_score = PRIORITY_ORDER.get(event.priority, PRIORITY_ORDER["normal"])
         internal = event.internal_priority
-        internal_score = INTERNAL_PRIORITY_ORDER.get(internal, 0.0)
-        if isinstance(internal, (int, float)):
+        if isinstance(internal, str):
+            internal_score = INTERNAL_PRIORITY_ORDER.get(internal, 0.0)
+        elif isinstance(internal, (int, float)):
             internal_score = float(internal)
+        else:
+            internal_score = 0.0
 
         origin_score = ORIGIN_ORDER.get(event.event_origin, len(ORIGIN_ORDER))
         focus_bias = 0 if self.last_focus and event.focus == self.last_focus.focus else 1
@@ -208,8 +211,10 @@ class AttentionArbitratorDaemon:
             pressure_total = pressure_snapshot.get("total_active_pressure")
             overload = pressure_snapshot.get("overload")
             cognitive_posture = derive_cognitive_posture(pressure_snapshot).value
-        if isinstance(context, Mapping) and context.get("cognitive_posture"):
-            cognitive_posture = context.get("cognitive_posture")
+        if isinstance(context, Mapping):
+            posture_value = context.get("cognitive_posture")
+            if isinstance(posture_value, str) and posture_value:
+                cognitive_posture = posture_value
         logger.debug(
             "Attention arbitrator scaffold cycle executed",
             extra={

@@ -15,6 +15,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, Dict, List, Mapping, Optional
 
 from sentientos.daemons import pulse_bus
@@ -40,12 +41,12 @@ class KernelProposal:
 class GoalSelectionKernel:
     """Bounded goal proposal and selection with integrity guardrails."""
 
-    def __init__(self, *, emitter: PulseEmitter | None = None, self_path: Optional[str] = None) -> None:
+    def __init__(self, *, emitter: PulseEmitter | None = None, self_path: str | Path | None = None) -> None:
         self.proposals: List[KernelProposal] = []
         self._last_cycle: datetime | None = None
         self._recent_failures: int = 0
         self._emitter: PulseEmitter = emitter or pulse_bus.publish
-        self._self_path = self_path
+        self._self_path = Path(self_path) if self_path is not None else None
 
     def _clamp_priority(self, value: float) -> float:
         return max(0.0, min(1.0, value))

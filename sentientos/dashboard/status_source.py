@@ -6,7 +6,7 @@ import json
 import platform
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, cast
 
 if TYPE_CHECKING:
     import experiment_tracker as experiment_tracker_module
@@ -550,11 +550,10 @@ def make_status_source(
 def make_log_stream_source(
     log_buffer: LogBuffer,
     *sources: Callable[[], Iterable[str]],
-) -> Callable[[], Iterable[str]]:
+) -> Callable[[], Sequence[str]]:
     """Create a polling function that forwards events into ``log_buffer``."""
 
-    def _poll() -> Iterable[str]:
-        collected: List[str] = []
+    def _poll() -> List[str]:
         for source in sources:
             try:
                 produced = source()
@@ -562,10 +561,8 @@ def make_log_stream_source(
                 continue
             for line in produced:
                 text = str(line)
-                collected.append(text)
                 log_buffer.add(text)
-        collected.extend(log_buffer.consume_pending())
-        return collected
+        return log_buffer.consume_pending()
 
     setattr(_poll, "_log_buffer", log_buffer)
     return _poll
