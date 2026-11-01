@@ -291,7 +291,8 @@ def _gate_receipt_chain(root: Path, checked_at: str) -> IntegrityGateResult:
         return IntegrityGateResult("receipt_chain", "skipped", "receipt_chain_disabled", [], checked_at)
     if check.ok:
         return IntegrityGateResult("receipt_chain", "ok", "ok", [], checked_at)
-    return IntegrityGateResult("receipt_chain", "fail" if enforce else "warn", check.reason or "receipt_chain_failed", [], checked_at)
+    reason = check.break_info.reason if check.break_info is not None else check.status
+    return IntegrityGateResult("receipt_chain", "fail" if enforce else "warn", reason, [], checked_at)
 
 
 def _gate_receipt_anchor(root: Path, checked_at: str) -> IntegrityGateResult:
@@ -300,7 +301,8 @@ def _gate_receipt_anchor(root: Path, checked_at: str) -> IntegrityGateResult:
         return IntegrityGateResult("receipt_anchors", "skipped", "receipt_anchors_disabled", [], checked_at)
     if check.ok:
         return IntegrityGateResult("receipt_anchors", "ok", "ok", [], checked_at)
-    return IntegrityGateResult("receipt_anchors", "fail" if enforce else "warn", check.reason or "anchor_verify_failed", [], checked_at)
+    reason = check.failure_reason or check.status
+    return IntegrityGateResult("receipt_anchors", "fail" if enforce else "warn", reason, [], checked_at)
 
 
 def _gate_audit_chain(root: Path, checked_at: str) -> IntegrityGateResult:
@@ -309,7 +311,8 @@ def _gate_audit_chain(root: Path, checked_at: str) -> IntegrityGateResult:
         return IntegrityGateResult("audit_chain", "skipped", "audit_chain_disabled", [report] if report else [], checked_at)
     if check.ok:
         return IntegrityGateResult("audit_chain", "ok", "ok", [report] if report else [], checked_at)
-    return IntegrityGateResult("audit_chain", "fail" if enforce else "warn", check.reason or "audit_chain_failed", [report] if report else [], checked_at)
+    reason = f"audit_chain_{check.status}"
+    return IntegrityGateResult("audit_chain", "fail" if enforce else "warn", reason, [report] if report else [], checked_at)
 
 
 def _gate_snapshot_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:
