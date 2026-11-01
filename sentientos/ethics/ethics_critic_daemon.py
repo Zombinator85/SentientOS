@@ -9,6 +9,14 @@ def _tokenize(text: str) -> list[str]:
     return [token for token in text.lower().replace("/", " ").split() if token]
 
 
+def _score_value(value: object, fallback: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return fallback
+    if isinstance(value, (int, float)):
+        return float(value)
+    return fallback
+
+
 class EthicsCriticDaemon:
     """Score proposals against a harm-adjacent doctrine gradient."""
 
@@ -75,14 +83,14 @@ class EthicsCriticDaemon:
         for name, plan in alternate_strategies.items():
             score = self._score_text(plan)
             scores.append({"strategy": name, "score": score, "plan": plan})
-        scores.sort(key=lambda item: item["score"])
+        scores.sort(key=lambda item: _score_value(item.get("score"), float("inf")))
         return scores
 
     def _pick_lowest_risk(self, projected_score: float, alternatives_report: list[dict[str, object]]) -> str:
         if not alternatives_report:
             return "current_patch" if projected_score <= 0 else "needs_revision"
         safest = alternatives_report[0]
-        safest_score = float(safest.get("score", projected_score))
+        safest_score = _score_value(safest.get("score"), projected_score)
         if projected_score <= safest_score:
             return "current_patch"
         return str(safest.get("strategy", "current_patch"))
