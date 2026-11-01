@@ -452,10 +452,10 @@ def validate_internal_prompt_candidate_input(candidate_input: InternalPromptCand
     audit_data = _mapping(audit)
     if not policy_data:
         findings.append(_finding("missing_policy_decision", "Phase 77 policy decision is required"))
-    elif policy_decision_requires_operator_review(policy):
+    elif policy_decision_requires_operator_review(policy_data):
         if not _review_satisfies_internal(policy, review):
             findings.append(_finding("operator_review_required", "matching accepted unexpired Phase 78 operator review is required", "review"))
-    elif not policy_decision_allows_internal_candidate_no_llm(policy):
+    elif not policy_decision_allows_internal_candidate_no_llm(policy_data):
         findings.append(_finding("policy_denied", "Phase 77 policy does not allow internal no-LLM candidate ring"))
     if audit_data:
         if not _audit_allows_internal_shadow_materializer(audit):
