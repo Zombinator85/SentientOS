@@ -123,6 +123,7 @@ class AutonomyActionLogger:
         pressure_magnitude: float = 1.0,
         pressure_reason: Optional[str] = None,
         authority_metadata: Mapping[str, object] | None = None,
+        detail_fields: Mapping[str, object] | None = None,
         **details: object,
     ) -> None:
         overlay, uncertainty_value = self._normalize_affective_context(affective_overlay, status=status)
@@ -140,7 +141,9 @@ class AutonomyActionLogger:
             environment=environment or {},
             amplification=amplification or {},
         )
-        authority_guard = self._authority_guard(details, authority_metadata)
+        detail_payload = dict(detail_fields or {})
+        detail_payload.update(details)
+        authority_guard = self._authority_guard(detail_payload, authority_metadata)
         entry = AutonomyAction(
             module=module,
             action=action,
@@ -154,7 +157,7 @@ class AutonomyActionLogger:
             assumptions=tuple(assumptions or ()),
             environment=dict(environment or {}),
             authority_guard=authority_guard,
-            details=dict(details),
+            details=detail_payload,
         )
         record = entry.to_json()
         with self._lock:
