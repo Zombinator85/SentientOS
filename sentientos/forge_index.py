@@ -180,7 +180,16 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         progress_contract = emit_forge_progress_contract(root).to_dict()
     governance_rows, _governance_corrupt = _read_jsonl(root / "pulse/governance_traces.jsonl")
     last_trace_entry = catalog_latest(root, "trace")
-    last_trace = {"trace_id": (last_trace_entry.get("id") if last_trace_entry else None), "trace_path": (last_trace_entry.get("path") if last_trace_entry else None), "final_decision": ((last_trace_entry.get("summary") if isinstance(last_trace_entry.get("summary"), dict) else {}).get("final_decision") if last_trace_entry else None), "final_reason": ((last_trace_entry.get("summary") if isinstance(last_trace_entry.get("summary"), dict) else {}).get("final_reason") if last_trace_entry else None)} if last_trace_entry else (governance_rows[-1] if governance_rows else {})
+    if last_trace_entry is not None:
+        trace_summary = _object_mapping(last_trace_entry.get("summary"))
+        last_trace: dict[str, object] = {
+            "trace_id": last_trace_entry.get("id"),
+            "trace_path": last_trace_entry.get("path"),
+            "final_decision": trace_summary.get("final_decision"),
+            "final_reason": trace_summary.get("final_reason"),
+        }
+    else:
+        last_trace = governance_rows[-1] if governance_rows else {}
     remediation_rows, _remediation_corrupt = _read_jsonl(root / "pulse/remediation_packs.jsonl")
     auto_attempt_rows, _auto_attempt_corrupt = _read_jsonl(root / "pulse/auto_remediation_attempts.jsonl")
     last_auto_attempt = auto_attempt_rows[-1] if auto_attempt_rows else {}
@@ -209,11 +218,20 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         if latest_at is not None and datetime.now(timezone.utc) - latest_at < timedelta(minutes=cooldown_minutes):
             auto_status = "cooldown" if auto_status not in {"succeeded", "failed", "unverified"} else auto_status
     last_remediation_entry = catalog_latest(root, "remediation_pack")
-    last_remediation = {"pack_id": (last_remediation_entry.get("id") if last_remediation_entry else None), "status": ((last_remediation_entry.get("summary") if isinstance(last_remediation_entry.get("summary"), dict) else {}).get("status") if last_remediation_entry else None), "governance_trace_id": ((last_remediation_entry.get("links") if isinstance(last_remediation_entry.get("links"), dict) else {}).get("trace_id") if last_remediation_entry else None)} if last_remediation_entry else (remediation_rows[-1] if remediation_rows else {})
+    if last_remediation_entry is not None:
+        remediation_summary = _object_mapping(last_remediation_entry.get("summary"))
+        remediation_links = _object_mapping(last_remediation_entry.get("links"))
+        last_remediation: dict[str, object] = {
+            "pack_id": last_remediation_entry.get("id"),
+            "status": remediation_summary.get("status"),
+            "governance_trace_id": remediation_links.get("trace_id"),
+        }
+    else:
+        last_remediation = remediation_rows[-1] if remediation_rows else {}
     last_run_entry = catalog_latest(root, "remediation_run")
     last_remediation_run_summary = None
     if last_run_entry is not None:
-        links = last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}
+        links = _object_mapping(last_run_entry.get("links"))
         pack_id = _optional_str(links.get("pack_id"))
         verified_run = latest_run_for_pack(root, pack_id=pack_id) if pack_id else None
         run_summary: dict[str, object]
@@ -263,7 +281,15 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     orchestrator_rows, _orchestrator_corrupt = _read_jsonl(root / "pulse/orchestrator_ticks.jsonl")
     _ = _orchestrator_corrupt
     last_orchestrator_entry = catalog_latest(root, "orchestrator_tick")
-    last_orchestrator = {"generated_at": (last_orchestrator_entry.get("ts") if last_orchestrator_entry else None), "status": ((last_orchestrator_entry.get("summary") if isinstance(last_orchestrator_entry.get("summary"), dict) else {}).get("status") if last_orchestrator_entry else None), "tick_report_path": (last_orchestrator_entry.get("path") if last_orchestrator_entry else None)} if last_orchestrator_entry else (orchestrator_rows[-1] if orchestrator_rows else {})
+    if last_orchestrator_entry is not None:
+        orchestrator_summary = _object_mapping(last_orchestrator_entry.get("summary"))
+        last_orchestrator: dict[str, object] = {
+            "generated_at": last_orchestrator_entry.get("ts"),
+            "status": orchestrator_summary.get("status"),
+            "tick_report_path": last_orchestrator_entry.get("path"),
+        }
+    else:
+        last_orchestrator = orchestrator_rows[-1] if orchestrator_rows else {}
 
     retention_state = load_retention_state(root)
     rollup_sig_hashes = latest_rollup_signature_hashes(root)
@@ -281,9 +307,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         if row.status == "completed":
             completed_goal_ids.append(goal_id)
     last_completion_entry = catalog_latest(root, "completion_check")
-    last_completion_summary = last_completion_entry.get("summary") if isinstance((last_completion_entry or {}).get("summary"), dict) else {}
+    last_completion_summary = _object_mapping(last_completion_entry.get("summary")) if last_completion_entry is not None else {}
     latest_replay_entry = catalog_latest(root, "operator_replay")
-    latest_replay_report = load_catalog_artifact(root, latest_replay_entry) if latest_replay_entry else {}
+    latest_replay_report = _object_mapping(load_catalog_artifact(root, latest_replay_entry)) if latest_replay_entry else {}
     latest_integrity_entry = catalog_latest(root, "integrity_status")
     latest_integrity = load_catalog_artifact(root, latest_integrity_entry) if latest_integrity_entry else {}
     consistency_status = "unknown"
@@ -449,7 +475,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_executed_goal_ids": _latest_executed_goal_ids(root),
         "goal_state_summary": goal_state_summary,
         "last_completion_check_at": _optional_str((last_completion_entry or {}).get("ts")) if last_completion_entry else None,
-        "last_completion_check_goal_id": _optional_str((last_completion_entry.get("links") if isinstance(last_completion_entry.get("links"), dict) else {}).get("goal_id")) if last_completion_entry else None,
+        "last_completion_check_goal_id": _optional_str(_object_mapping(last_completion_entry.get("links")).get("goal_id")) if last_completion_entry else None,
         "last_completion_check_status": _optional_str(last_completion_summary.get("status")) if isinstance(last_completion_summary, dict) else "unknown",
         "goal_completion_summary": goal_state_summary,
         "last_completed_goal_ids": completed_goal_ids[:10],
@@ -611,6 +637,10 @@ def _progress_trend(root: Path, reports: list[Path], *, limit: int) -> list[dict
             }
         )
     return rows[-limit:]
+
+
+def _object_mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
 
 
 def _load_json(path: Path) -> dict[str, object]:
