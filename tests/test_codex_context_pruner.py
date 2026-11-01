@@ -1,4 +1,8 @@
+import pytest
+
 from sentientos.codex import CodexContextPruner, ContextBlock
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_codex_context_pruner_ranks_blocks():
