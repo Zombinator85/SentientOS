@@ -6,9 +6,11 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from scripts import provenance_hash_chain
+    from scripts import provenance_hash_chain as _package_provenance_hash_chain
 except ModuleNotFoundError:  # pragma: no cover
-    import provenance_hash_chain
+    import provenance_hash_chain as _direct_provenance_hash_chain
+else:
+    _direct_provenance_hash_chain = _package_provenance_hash_chain
 
 GENESIS_PREV_STATE_HASH = "GENESIS"
 
@@ -21,7 +23,7 @@ def _compute_snapshot_hash(payload: dict[str, Any], prev_state_hash: str | None)
     digest = hashlib.sha256()
     digest.update(prev_marker.encode("utf-8"))
     digest.update(b"\n")
-    digest.update(provenance_hash_chain.canonical_json_bytes(material))
+    digest.update(_direct_provenance_hash_chain.canonical_json_bytes(material))
     return digest.hexdigest()
 
 
@@ -56,7 +58,7 @@ def verify_pressure_state_chain(
             continue
 
         hash_algo = payload.get("hash_algo")
-        if hash_algo != provenance_hash_chain.HASH_ALGO:
+        if hash_algo != _direct_provenance_hash_chain.HASH_ALGO:
             issues.append(f"{snapshot_path.name}: hash_algo mismatch ({hash_algo!r})")
 
         declared_prev = payload.get("prev_state_hash")
