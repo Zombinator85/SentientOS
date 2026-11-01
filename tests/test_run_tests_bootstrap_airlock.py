@@ -127,6 +127,63 @@ def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp
     assert payload["run_intent"] == "targeted"
 
 
+def test_readonly_python_install_target_recovers_through_disposable_venv(monkeypatch, tmp_path):
+    recovered: list[tuple[list[str], dict[str, str]]] = []
+    monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        run_tests,
+        "get_editable_install_status",
+        lambda _root: EditableInstallStatus(False, "distribution-not-found"),
+    )
+    monkeypatch.setattr(run_tests, "_imports_ok", lambda: (True, None))
+    monkeypatch.setattr(run_tests, "_prepare_bootstrap_temp_dir", lambda _root, _env: None)
+    monkeypatch.setattr(run_tests, "_current_python_install_target_writable", lambda: False)
+    monkeypatch.setattr(
+        run_tests,
+        "_bootstrap_missing_editable",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("read-only target must use venv")),
+    )
+
+    def fake_disposable_venv(args: list[str], env: dict[str, str]) -> int:
+        recovered.append((args, env))
+        return 23
+
+    monkeypatch.setattr(run_tests, "_run_in_disposable_test_venv", fake_disposable_venv)
+
+    result = run_tests.main(["-q", "tests/test_focused.py"])
+
+    assert result == 23
+    assert len(recovered) == 1
+    args, env = recovered[0]
+    assert args == ["-q", "tests/test_focused.py"]
+    assert run_tests.DISPOSABLE_BOOTSTRAP_ENV not in env
+
+
+def test_readonly_target_does_not_recover_when_bootstrap_already_used(monkeypatch, tmp_path):
+    calls: list[list[str]] = []
+    monkeypatch.setenv(run_tests.DISPOSABLE_BOOTSTRAP_ENV, "readonly-install-target")
+    monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        run_tests,
+        "get_editable_install_status",
+        lambda _root: EditableInstallStatus(False, "distribution-not-found"),
+    )
+    monkeypatch.setattr(run_tests, "_imports_ok", lambda: (True, None))
+    monkeypatch.setattr(run_tests, "_prepare_bootstrap_temp_dir", lambda _root, _env: None)
+    monkeypatch.setattr(run_tests, "_current_python_install_target_writable", lambda: False)
+    monkeypatch.setattr(run_tests, "_run_in_disposable_test_venv", lambda *_args: calls.append(list(_args[0])) or 1)
+    monkeypatch.setattr(run_tests, "_bootstrap_missing_editable", lambda *_args, **_kwargs: run_tests.BootstrapResult(
+        ok=False, install_performed=True, install_mode=None,
+        attempted_modes=(run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL,),
+        failure_reason="minimal-test-airlock-install-failed",
+    ))
+    monkeypatch.setattr(run_tests, "_write_provenance", lambda **_kwargs: None)
+    monkeypatch.setattr(run_tests, "_emit_run_context", lambda *_args, **_kwargs: None)
+
+    assert run_tests.main(["-q", "tests/test_focused.py"]) == 1
+    assert calls == []
+
+
 def test_workspace_temp_is_selected_when_system_temp_is_low(monkeypatch, tmp_path):
     monkeypatch.setattr(run_tests.tempfile, "gettempdir", lambda: "/system-temp")
     monkeypatch.setattr(

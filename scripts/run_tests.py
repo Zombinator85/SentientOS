@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from importlib import metadata
 import json
 import os
+import site
 import shutil
 import subprocess
 import sys
+import sysconfig
 from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
@@ -47,6 +50,7 @@ TEST_INFRA_IMPORTS = (
 CANONICAL_REQUIREMENTS_PATH = "requirements-codex.txt"
 MIN_BOOTSTRAP_TEMP_FREE_BYTES = 512 * 1024 * 1024
 WORKSPACE_TEMP_DIR = ".codex-tmp"
+DISPOSABLE_BOOTSTRAP_ENV = "SENTIENTOS_TEST_DISPOSABLE_BOOTSTRAP"
 FULL_INSTALL_ENV = "SENTIENTOS_TEST_DEPENDENCY_MODE"
 INSTALL_MODE_FULL = "full"
 INSTALL_MODE_TEST_AIRLOCK_MINIMAL = "test_airlock_minimal"
@@ -185,6 +189,81 @@ def _install_minimal_test_airlock_deps(*, env: dict[str, str] | None = None) -> 
     return _run_pip_install(
         ["--only-binary=:all:", "-r", CANONICAL_REQUIREMENTS_PATH], env=env
     )
+
+
+def _install_target_writable(path: str | Path) -> bool:
+    """Return whether pip can create packages at this path or an absent ancestor."""
+    candidate = Path(path)
+    while not candidate.exists() and candidate != candidate.parent:
+        candidate = candidate.parent
+    return candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK)
+
+
+def _current_python_install_target_writable() -> bool:
+    """Check the actual global and user-site targets pip can use for this interpreter."""
+    if _install_target_writable(sysconfig.get_path("purelib")):
+        return True
+    return bool(site.ENABLE_USER_SITE and _install_target_writable(site.getusersitepackages()))
+
+
+def _installed_build_backend_satisfies_project() -> bool:
+    """Avoid isolated build downloads only when the installed backend meets pyproject."""
+    try:
+        from packaging.version import InvalidVersion, Version
+    except ImportError:
+        return False
+    try:
+        return Version(metadata.version("setuptools")) >= Version("78.1.1")
+    except (InvalidVersion, metadata.PackageNotFoundError):
+        return False
+
+
+def _run_in_disposable_test_venv(pytest_args: list[str], env: dict[str, str]) -> int:
+    """Bootstrap and run the canonical test harness in a private temporary venv."""
+    temp_root = Path(env.get("TMPDIR") or tempfile.gettempdir())
+    try:
+        with tempfile.TemporaryDirectory(prefix="sentientos-test-venv-", dir=temp_root) as raw_root:
+            venv_root = Path(raw_root) / "venv"
+            created = subprocess.run(
+                [sys.executable, "-m", "venv", "--system-site-packages", str(venv_root)],
+                cwd=REPO_ROOT,
+                env=env,
+                check=False,
+            )
+            if created.returncode != 0:
+                print("run_tests disposable bootstrap failed: could not create a temporary virtual environment.")
+                return 1
+            python = venv_root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+            build_isolation_args = (
+                ["--no-build-isolation"] if _installed_build_backend_satisfies_project()
+                else []
+            )
+            commands: tuple[list[str], ...]
+            if env.get(FULL_INSTALL_ENV) == INSTALL_MODE_FULL:
+                commands = ([str(python), "-m", "pip", "install", *build_isolation_args, "-e", ".[full]"],)
+            else:
+                commands = (
+                    [str(python), "-m", "pip", "install", *build_isolation_args, "--no-deps", "-e", "."],
+                    [str(python), "-m", "pip", "install", "--only-binary=:all:", "-r", CANONICAL_REQUIREMENTS_PATH],
+                )
+            for command in commands:
+                installed = subprocess.run(command, cwd=REPO_ROOT, env=env, check=False)
+                if installed.returncode != 0:
+                    print("run_tests disposable bootstrap failed: canonical minimal test dependencies were unavailable.")
+                    return 1
+            child_env = env.copy()
+            child_env[DISPOSABLE_BOOTSTRAP_ENV] = "readonly-install-target"
+            print("run_tests: recovered read-only Python install target in a disposable virtual environment.")
+            completed = subprocess.run(
+                [str(python), "-m", "scripts.run_tests", *pytest_args],
+                cwd=REPO_ROOT,
+                env=child_env,
+                check=False,
+            )
+            return completed.returncode
+    except OSError as exc:
+        print(f"run_tests disposable bootstrap failed: {type(exc).__name__}.")
+        return 1
 
 
 def _prepare_bootstrap_temp_dir(repo_root: Path, env: dict[str, str]) -> str | None:
@@ -666,6 +745,9 @@ def _write_provenance(
 
 
 def main(argv: list[str] | None = None) -> int:
+    recovered_bootstrap = (
+        os.environ.pop(DISPOSABLE_BOOTSTRAP_ENV, None) == "readonly-install-target"
+    )
     parser = argparse.ArgumentParser(
         description=(
             "Install SentientOS test dependencies (if needed) and run pytest. "
@@ -677,7 +759,8 @@ def main(argv: list[str] | None = None) -> int:
         nargs="*",
         help="Arguments forwarded to pytest.",
     )
-    args, passthrough_pytest_args = parser.parse_known_args(argv)
+    original_args = list(sys.argv[1:] if argv is None else argv)
+    args, passthrough_pytest_args = parser.parse_known_args(original_args)
 
     pytest_args = list(args.pytest_args) + list(passthrough_pytest_args)
     if pytest_args and pytest_args[0] == "--":
@@ -695,14 +778,22 @@ def main(argv: list[str] | None = None) -> int:
     execution_mode, non_execution_flags = _execution_mode(pytest_args)
     if allow_nonexecution:
         run_intent = "exceptional"
-    install_performed = False
-    install_mode: str | None = None
-    install_fallback_reason: str | None = None
-    install_attempted_modes: tuple[str, ...] = ()
+    install_performed = recovered_bootstrap
+    install_mode: str | None = (
+        INSTALL_MODE_FULL if env.get(FULL_INSTALL_ENV) == INSTALL_MODE_FULL
+        else INSTALL_MODE_TEST_AIRLOCK_MINIMAL
+    ) if recovered_bootstrap else None
+    install_fallback_reason: str | None = (
+        "readonly-install-target-disposable-venv" if recovered_bootstrap else None
+    )
+    install_attempted_modes: tuple[str, ...] = (install_mode,) if install_mode else ()
     editable_status = get_editable_install_status(REPO_ROOT)
     imports_before_install_ok, _ = _imports_ok()
     if not editable_status.ok or not imports_before_install_ok:
         temp_error = _prepare_bootstrap_temp_dir(REPO_ROOT, env)
+        if (not temp_error and not recovered_bootstrap
+                and not _current_python_install_target_writable()):
+            return _run_in_disposable_test_venv(original_args, env)
         bootstrap_result = (
             BootstrapResult(
                 ok=False,
