@@ -8,7 +8,7 @@ predictable.
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping, MutableSequence, Sequence
+from typing import Mapping, MutableSequence, Sequence
 
 
 # Small, explicit denylist of gradient-bearing concepts that must not cross
@@ -75,7 +75,7 @@ def enforce_no_gradient_fields(payload: object, *, context: str) -> None:
         raise GradientInvariantViolation(context, paths=found)
 
 
-__all__: Iterable[str] = [
+__all__: list[str] = [
     "GradientInvariantViolation",
     "GRADIENT_FIELD_DENYLIST",
     "enforce_no_gradient_fields",
