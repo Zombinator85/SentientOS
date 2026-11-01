@@ -37,6 +37,21 @@ def _normalize_posture(value: str | CognitivePosture | None) -> str | None:
     return None
 
 
+def _integer_value(value: object) -> int:
+    """Return supported integer input, treating malformed values as zero."""
+
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
 def update_posture_history(
     history: Iterable[str] | None,
     posture: str | CognitivePosture | None,
@@ -107,7 +122,7 @@ def derive_load_narrative(
     current_posture = transition_data.get("current_posture")
     if isinstance(current_posture, CognitivePosture):
         current_posture = current_posture.value
-    duration = int(transition_data.get("posture_duration") or 0)
+    duration = _integer_value(transition_data.get("posture_duration"))
     transition = transition_data.get("posture_transition")
     if not isinstance(current_posture, str) or not current_posture:
         return LoadNarrative.STABLE_OPERATION
@@ -137,7 +152,7 @@ def derive_cognitive_posture(pressure_snapshot: Mapping[str, object]) -> Cogniti
     """
 
     overload = bool(pressure_snapshot.get("overload"))
-    total_pressure = int(pressure_snapshot.get("total_active_pressure", 0) or 0)
+    total_pressure = _integer_value(pressure_snapshot.get("total_active_pressure", 0))
     if overload:
         return CognitivePosture.OVERLOADED
     if total_pressure > 0:
