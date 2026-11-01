@@ -235,8 +235,9 @@ class ReflexGuard:
 
     def _suppress_rule(self, snapshot: ReflexRuleSnapshot, reasons: list[str]) -> dict:
         blacklist = self._load_blacklist()
+        suppressed_at = self._now().isoformat()
         entry = {
-            "suppressed_at": self._now().isoformat(),
+            "suppressed_at": suppressed_at,
             "reasons": reasons,
             "firing_count": snapshot.firing_count,
             "failure_count": snapshot.failure_count,
@@ -244,6 +245,6 @@ class ReflexGuard:
         blacklist[snapshot.rule_id] = entry
         self._save_blacklist(blacklist)
         if self.state_index is not None:
-            self.state_index.mark_suppressed(snapshot.rule_id, reasons, entry["suppressed_at"])
+            self.state_index.mark_suppressed(snapshot.rule_id, reasons, suppressed_at)
         # Return suppression info including rule_id
         return {"rule_id": snapshot.rule_id, **entry}

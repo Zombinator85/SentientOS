@@ -7,6 +7,19 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 
+def _count_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
 @dataclass
 class ReflexState:
     rule_id: str
@@ -45,7 +58,7 @@ class ReflexStateIndex:
             rule_id = str(entry.get("rule_id"))
             if not rule_id:
                 continue
-            firing_count = int(entry.get("firing_count", 0))
+            firing_count = _count_value(entry.get("firing_count", 0))
             activity_rate = firing_count / window
             state = self._state.setdefault(rule_id, ReflexState(rule_id=rule_id))
             state.activity_rate = activity_rate
