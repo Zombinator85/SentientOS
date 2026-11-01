@@ -3,9 +3,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.remote_probe import run_probe
+from scripts.remote_probe import _int_or_default, run_probe
 from sentientos.attestation import append_jsonl
 from sentientos.forge_index import rebuild_index
+
+
+def test_remote_probe_schema_version_normalization_rejects_non_integer_objects() -> None:
+    assert _int_or_default(3) == 3
+    assert _int_or_default("2") == 2
+    assert _int_or_default({"version": 3}) == 1
+    assert _int_or_default(True) == 1
 
 
 def _seed_local(tmp_path: Path, *, policy_hash: str = "policy-aaa") -> None:
