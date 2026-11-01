@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 import sys
 import types
@@ -36,9 +36,11 @@ from sentientos.context_hygiene.prompt_synthetic_materializer import (
     synthetic_prompt_candidate_has_no_runtime_authority,
     synthetic_prompt_candidate_is_fixture_only,
     synthetic_prompt_candidate_preserves_boundaries,
+    validate_synthetic_prompt_materialization_input,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _audit(**overrides):
@@ -206,6 +208,18 @@ def test_rejected_expired_or_digest_mismatch_review_blocks(review):
 def test_audit_receipt_that_disallows_shadow_materializer_blocks():
     audit = _audit(audit_status="audit_blocked")
     assert _candidate(audit_receipt=audit).status == SyntheticPromptMaterializationStatus.SYNTHETIC_PROMPT_BLOCKED
+
+
+def test_missing_policy_and_audit_receipts_are_reported_without_helper_calls():
+    materializer_input = asdict(_input())
+    materializer_input["policy_decision"] = None
+    materializer_input["audit_receipt"] = None
+
+    findings = validate_synthetic_prompt_materialization_input(materializer_input)
+
+    codes = {finding.code for finding in findings}
+    assert "missing_policy_decision" in codes
+    assert "missing_audit_receipt" in codes
 
 
 def test_synthetic_fixture_only_false_blocks():
