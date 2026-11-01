@@ -48,7 +48,7 @@ def validate_planned_claim_against_stance(*, planned_claim: Mapping[str, Any], p
     active_claim = next((c for c in reversed(claims) if str(c.get("claim_id") or "") == active_claim_id), claims[-1] if claims else {})
     new_ids = sorted(set(planned_claim.get("evidence_ids") or []) - set(active_claim.get("evidence_ids") or []))
     transition_allowed, transition_reason = validate_stance_transition(transition_type=transition_type, new_evidence_ids=new_ids, contradictory=False, rationale=rationale, has_new_source_quality_finding=has_new_source_quality_finding)
-    contradiction = detect_no_new_evidence_reversal(previous_claim=active_claim, new_claim=dict(planned_claim), transition_type=transition_type, new_evidence_ids=new_ids, has_new_source_quality_finding=has_new_source_quality_finding) if active_claim else None
+    contradiction = detect_no_new_evidence_reversal(previous_claim=dict(active_claim), new_claim=dict(planned_claim), transition_type=transition_type, new_evidence_ids=new_ids, has_new_source_quality_finding=has_new_source_quality_finding) if active_claim else None
     if not new_ids and set(active_claim.get("evidence_ids") or []) - set(planned_claim.get("evidence_ids") or []):
         contradiction = contradiction or {"contradiction_type": "unsupported_dilution", "severity": "blocking", "adjudication": "block_revision"}
     if str(planned_claim.get("quote_hash") or "") == "mismatch":
