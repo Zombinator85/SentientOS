@@ -10,6 +10,9 @@ def setup_env(tmp_path, monkeypatch, headless=True):
         monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     else:
         monkeypatch.delenv("SENTIENTOS_HEADLESS", raising=False)
+    import sentientos.privilege as privilege
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
     import trust_engine as te
     import plugin_framework as pf
     from resident_kernel import ResidentKernel
@@ -33,6 +36,32 @@ def test_wave_hand_real(tmp_path, monkeypatch):
     with kernel.begin_epoch("test"):
         result = pf.run_plugin("wave_hand", {"speed": 1}, kernel=kernel)
     assert result["gesture"] == "wave" and not result.get("simulated")
+
+
+def test_plugin_event_and_context_views_remain_read_only(tmp_path, monkeypatch):
+    pf, _te, kernel = setup_env(tmp_path, monkeypatch)
+
+    class ReadOnlyProbe(pf.BasePlugin):
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = []
+
+        def simulate(self, event, context=None):
+            assert event["value"] == "original"
+            with pytest.raises(TypeError):
+                event["value"] = "changed"
+            assert context is not None
+            with pytest.raises(TypeError):
+                context.governance["system_phase"] = "changed"
+            return {"read_only": True}
+
+    pf.register_plugin("read_only_probe", ReadOnlyProbe())
+    pf.PLUGINS_INFO["read_only_probe"] = "test"
+    with kernel.begin_epoch("test"):
+        result = pf.run_plugin(
+            "read_only_probe", {"value": "original"}, kernel=kernel
+        )
+    assert result["read_only"] is True
 
 
 def test_enable_disable_reload(tmp_path, monkeypatch):
