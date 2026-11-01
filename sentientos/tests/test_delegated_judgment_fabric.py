@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
 from sentientos.scoped_lifecycle_diagnostic import build_scoped_lifecycle_diagnostic
 from sentientos.scoped_mutation_lifecycle import SCOPED_ACTION_IDS
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -125,6 +129,25 @@ def test_collect_evidence_reads_existing_repo_artifacts(tmp_path: Path) -> None:
     assert evidence["admission_denied_ratio"] == 0.75
     assert evidence["executor_failure_ratio"] == 0.5
     assert evidence["slice_review_classification"] == "failure_heavy"
+
+
+@pytest.mark.parametrize(
+    "scoped_lifecycle",
+    [
+        None,
+        {"slice_health": None, "slice_stability": "invalid", "slice_retrospective_integrity_review": []},
+    ],
+)
+def test_collect_evidence_uses_defaults_for_missing_or_malformed_scoped_records(
+    tmp_path: Path,
+    scoped_lifecycle: dict[str, object] | None,
+) -> None:
+    evidence = collect_delegated_judgment_evidence(tmp_path, scoped_lifecycle=scoped_lifecycle)
+
+    assert evidence["slice_health_status"] == "unknown"
+    assert evidence["slice_stability_classification"] == "insufficient_history"
+    assert evidence["slice_review_classification"] == "insufficient_history"
+    assert evidence["records_considered"] == 0
 
 
 def test_scoped_lifecycle_consumer_surfaces_delegated_judgment(monkeypatch, tmp_path: Path) -> None:
