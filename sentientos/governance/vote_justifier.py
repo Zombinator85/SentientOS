@@ -23,7 +23,7 @@ class VoteJustifier:
         precedent_refs: Iterable[str],
         metadata: Mapping[str, object] | None = None,
     ) -> dict:
-        entry = {
+        entry: dict[str, object] = {
             "vote_id": vote_id,
             "agent": agent,
             "vote": vote,
