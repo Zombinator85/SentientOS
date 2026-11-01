@@ -168,7 +168,11 @@ class ASRListener:
         finally:
             self._semaphore.release()
         transcript = str(result.get("text", "")).strip()
-        confidence = float(result.get("confidence", 0.0))
+        raw_confidence = result.get("confidence", 0.0)
+        try:
+            confidence = float(raw_confidence) if isinstance(raw_confidence, (int, float, str)) and not isinstance(raw_confidence, bool) else 0.0
+        except ValueError:
+            confidence = 0.0
         language = result.get("language")
         if not transcript:
             return None
@@ -457,8 +461,10 @@ class _MicrophoneRunner:
         state.setdefault("context", {})
         state.setdefault("events", [])
         state.setdefault("warnings", [])
-        devices = state.setdefault("devices", {})
+        raw_devices = state.get("devices")
+        devices = raw_devices if isinstance(raw_devices, dict) else {}
         devices["microphone"] = status
+        state["devices"] = devices
         self._pulse_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._pulse_path.with_suffix(".tmp")
         try:

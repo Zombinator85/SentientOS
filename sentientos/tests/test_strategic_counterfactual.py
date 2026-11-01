@@ -65,6 +65,14 @@ def test_counterfactual_diff_reports_add_remove_reorder() -> None:
     assert any(isinstance(item, dict) and item.get("goal_id") == "g1" for item in reordered)
 
 
+def test_unknown_posture_uses_balanced_risk_budget() -> None:
+    graph = _graph()
+    balanced = _compute_allocation_for_snapshot(graph=graph, snapshot=_snapshot())
+    unknown_snapshot = {**_snapshot(), "posture": "unrecognized"}
+
+    assert _compute_allocation_for_snapshot(graph=graph, snapshot=unknown_snapshot) == balanced
+
+
 def test_apply_adjustments_refuses_missing_dependencies_deterministically() -> None:
     base = GoalGraph(
         schema_version=1,
