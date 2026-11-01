@@ -61,7 +61,7 @@ class PressureQueueEvent:
     actor: str | None = None
 
     def to_payload(self) -> dict[str, object]:
-        payload = {
+        payload: dict[str, object] = {
             "event": self.event,
             "digest": self.digest,
             "signal_type": self.signal_type,
@@ -122,18 +122,20 @@ def enqueue_pressure_signal(
     if _digest_seen(digest, read_pressure_queue(path)):
         return None
     created_at = _coerce_datetime(now).isoformat()
+    signal_type = _coerce_string(signal.get("signal_type"))
+    severity = _coerce_string(signal.get("severity"))
     next_review_due_at = _compute_next_review_due_at(
         created_at,
-        signal_type=str(signal.get("signal_type", "")),
-        severity=str(signal.get("severity", "")),
+        signal_type=signal_type,
+        severity=severity,
     )
     event = PressureQueueEvent(
         event="pressure_enqueue",
         digest=digest,
-        signal_type=str(signal.get("signal_type", "")),
-        as_of_date=signal.get("as_of_date") if isinstance(signal.get("as_of_date"), str) else None,
-        window_days=int(signal.get("window_days", 0) or 0),
-        severity=str(signal.get("severity", "")),
+        signal_type=signal_type,
+        as_of_date=_optional_string(signal.get("as_of_date")),
+        window_days=_coerce_int(signal.get("window_days", 0)),
+        severity=severity,
         counts=_coerce_counts(signal.get("counts")),
         source=str(signal.get("source", "")),
         enqueued_at=created_at,
@@ -165,22 +167,24 @@ def acknowledge_pressure_signal(
         raise ValueError("pressure signal digest not found")
     if state["status"] not in {"open", "acknowledged"}:
         raise ValueError("pressure signal is not active")
-    review_count = int(state.get("review_count", 0)) + 1
-    persistence_count = _next_persistence_count(state, severity=state["severity"])
+    signal_type = _coerce_string(state.get("signal_type"))
+    severity = _coerce_string(state.get("severity"))
+    review_count = _coerce_int(state.get("review_count")) + 1
+    persistence_count = _next_persistence_count(state, severity=severity)
     next_review_due_at = _compute_next_review_due_at(
         reviewed_at,
-        signal_type=state["signal_type"],
-        severity=state["severity"],
+        signal_type=signal_type,
+        severity=severity,
     )
     event = PressureQueueEvent(
         event="pressure_acknowledged",
         digest=digest,
-        signal_type=state["signal_type"],
-        as_of_date=state.get("as_of_date"),
-        window_days=int(state.get("window_days", 0) or 0),
-        severity=state["severity"],
+        signal_type=signal_type,
+        as_of_date=_optional_string(state.get("as_of_date")),
+        window_days=_coerce_int(state.get("window_days")),
+        severity=severity,
         counts=_coerce_counts(state.get("counts")),
-        source=state.get("source", ""),
+        source=_coerce_string(state.get("source")),
         enqueued_at=reviewed_at,
         last_reviewed_at=reviewed_at,
         next_review_due_at=next_review_due_at,
@@ -230,9 +234,11 @@ def revalidate_pressure_signal(
     if state["status"] not in {"open", "acknowledged"}:
         raise ValueError("pressure signal is not active")
     reviewed_at = _coerce_datetime(as_of_time).isoformat()
-    review_count = int(state.get("review_count", 0)) + 1
-    persistence_count = _next_persistence_count(state, severity=state["severity"])
-    severity_before = state["severity"]
+    current_severity = _coerce_string(state.get("severity"))
+    signal_type = _coerce_string(state.get("signal_type"))
+    review_count = _coerce_int(state.get("review_count")) + 1
+    persistence_count = _next_persistence_count(state, severity=current_severity)
+    severity_before = current_severity
     severity_after = severity_before
     if persistence_count >= PRESSURE_PERSISTENCE_ESCALATION_REVIEWS:
         severity_after = _escalate_severity(severity_before)
@@ -240,18 +246,18 @@ def revalidate_pressure_signal(
             persistence_count = 0
     next_review_due_at = _compute_next_review_due_at(
         reviewed_at,
-        signal_type=state["signal_type"],
+        signal_type=signal_type,
         severity=severity_after,
     )
     event = PressureQueueEvent(
         event="pressure_revalidated",
         digest=digest,
-        signal_type=state["signal_type"],
-        as_of_date=state.get("as_of_date"),
-        window_days=int(state.get("window_days", 0) or 0),
+        signal_type=signal_type,
+        as_of_date=_optional_string(state.get("as_of_date")),
+        window_days=_coerce_int(state.get("window_days")),
         severity=severity_after,
         counts=_coerce_counts(state.get("counts")),
-        source=state.get("source", ""),
+        source=_coerce_string(state.get("source")),
         enqueued_at=reviewed_at,
         last_reviewed_at=reviewed_at,
         next_review_due_at=next_review_due_at,
@@ -314,6 +320,23 @@ def _digest_seen(digest: str, entries: Iterable[Mapping[str, object]]) -> bool:
     )
 
 
+def _coerce_int(value: object, default: int = 0) -> int:
+    if not isinstance(value, (int, float, str, bytes, bytearray)):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
+def _coerce_string(value: object, default: str = "") -> str:
+    return value if isinstance(value, str) else default
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
 def _coerce_counts(counts: object) -> dict[str, int]:
     if not isinstance(counts, Mapping):
         return {}
@@ -323,7 +346,7 @@ def _coerce_counts(counts: object) -> dict[str, int]:
             continue
         try:
             coerced[key] = int(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             coerced[key] = 0
     return coerced
 
@@ -373,7 +396,7 @@ def _escalate_severity(severity: str) -> str:
 
 def _next_persistence_count(state: Mapping[str, object], *, severity: str) -> int:
     previous = state.get("severity")
-    count = int(state.get("persistence_count", 0) or 0)
+    count = _coerce_int(state.get("persistence_count"))
     if previous != severity:
         return 0
     return count + 1
@@ -410,12 +433,12 @@ def _close_pressure_signal(
     event = PressureQueueEvent(
         event="pressure_closed" if status == "closed" else "pressure_expired",
         digest=digest,
-        signal_type=state["signal_type"],
-        as_of_date=state.get("as_of_date"),
-        window_days=int(state.get("window_days", 0) or 0),
-        severity=state["severity"],
+        signal_type=_coerce_string(state.get("signal_type")),
+        as_of_date=_optional_string(state.get("as_of_date")),
+        window_days=_coerce_int(state.get("window_days")),
+        severity=_coerce_string(state.get("severity")),
         counts=_coerce_counts(state.get("counts")),
-        source=state.get("source", ""),
+        source=_coerce_string(state.get("source")),
         enqueued_at=closed_at_value,
         status=status,
         closure_reason=reason,
@@ -471,7 +494,7 @@ def _build_signal_states(
                 "digest": digest,
                 "signal_type": signal_type,
                 "as_of_date": entry.get("as_of_date"),
-                "window_days": int(entry.get("window_days", 0) or 0),
+                "window_days": _coerce_int(entry.get("window_days")),
                 "severity": severity,
                 "counts": _coerce_counts(entry.get("counts")),
                 "source": str(entry.get("source", "")),
@@ -481,8 +504,8 @@ def _build_signal_states(
                 "status": entry.get("status") or "open",
                 "closure_reason": entry.get("closure_reason"),
                 "closure_note": entry.get("closure_note"),
-                "review_count": int(entry.get("review_count", 0) or 0),
-                "persistence_count": int(entry.get("persistence_count", 0) or 0),
+                "review_count": _coerce_int(entry.get("review_count")),
+                "persistence_count": _coerce_int(entry.get("persistence_count")),
             }
             continue
         state = states.get(digest)
@@ -494,15 +517,13 @@ def _build_signal_states(
                 state["last_reviewed_at"] = reviewed_at
                 state["next_review_due_at"] = _compute_next_review_due_at(
                     reviewed_at,
-                    signal_type=state["signal_type"],
-                    severity=str(entry.get("severity", state["severity"])),
+                    signal_type=_coerce_string(state.get("signal_type")),
+                    severity=_coerce_string(entry.get("severity", state.get("severity"))),
                 )
             state["status"] = "acknowledged"
             state["severity"] = str(entry.get("severity", state["severity"]))
-            state["review_count"] = int(entry.get("review_count", state.get("review_count", 0)) or 0)
-            state["persistence_count"] = int(
-                entry.get("persistence_count", state.get("persistence_count", 0)) or 0
-            )
+            state["review_count"] = _coerce_int(entry.get("review_count", state.get("review_count", 0)))
+            state["persistence_count"] = _coerce_int(entry.get("persistence_count", state.get("persistence_count", 0)))
             continue
         if event in {"pressure_closed", "pressure_expired"}:
             state["status"] = "closed" if event == "pressure_closed" else "expired"
