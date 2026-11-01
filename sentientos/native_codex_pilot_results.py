@@ -47,15 +47,73 @@ def _require_digest(actual: str, expected: Any, label: str) -> None:
         raise ResultsIntegrityError(f"Digest mismatch for {label}")
 
 
+def _verify_scoring_attempt_history(
+    repository_root: Path,
+    summary: dict[str, Any],
+    expected_trials: set[str],
+    scored_paths: set[str],
+) -> int:
+    history = summary.get("scoring_attempt_history")
+    if not isinstance(history, dict):
+        raise ResultsIntegrityError("Summary scoring_attempt_history must be an object")
+    failed_writes = history.get("failed_controller_artifact_writes")
+    observations_affected = history.get("model_observations_affected")
+    if type(failed_writes) is not int or failed_writes < 0:
+        raise ResultsIntegrityError("Scoring failure count is invalid")
+    if type(observations_affected) is not int or observations_affected != 0:
+        raise ResultsIntegrityError("Scoring failure history reports affected observations")
+    record_relative_path = history.get("failure_record_path")
+    if failed_writes == 0:
+        if record_relative_path is not None:
+            raise ResultsIntegrityError("Unexpected scoring failure record path")
+        return 0
+    if failed_writes != 1 or not isinstance(record_relative_path, str):
+        raise ResultsIntegrityError("Scoring failure record count is unsupported")
+
+    record_path = _resolve_repo_path(repository_root, record_relative_path)
+    try:
+        failure, _ = _read_json(record_path)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ResultsIntegrityError("Scoring failure record is unavailable or invalid") from exc
+    if (failure.get("schema_version") != "sentientos.native_codex_scoring_attempt_failure:v1"
+            or failure.get("failure_class") != "controller_scoring_artifact_write_error"
+            or failure.get("trial_id") not in expected_trials
+            or failure.get("model_observation_affected") is not False
+            or failure.get("raw_observation_preserved") is not True):
+        raise ResultsIntegrityError("Scoring failure record posture is inconsistent")
+    if failure.get("retry_policy") != "Scoring artifact generation was corrected; model inference was not replayed.":
+        raise ResultsIntegrityError("Scoring failure record retry policy is inconsistent")
+
+    partial_relative_path = failure.get("partial_artifact_path")
+    expected_partial_digest = failure.get("partial_artifact_sha256")
+    expected_partial_size = failure.get("partial_artifact_size")
+    if (not isinstance(partial_relative_path, str)
+            or partial_relative_path in scored_paths
+            or not isinstance(expected_partial_digest, str)
+            or type(expected_partial_size) is not int
+            or expected_partial_size < 0):
+        raise ResultsIntegrityError("Partial scoring artifact declaration is invalid")
+    partial_path = _resolve_repo_path(repository_root, partial_relative_path)
+    try:
+        partial_bytes = partial_path.read_bytes()
+    except OSError as exc:
+        raise ResultsIntegrityError("Partial scoring artifact is unavailable") from exc
+    if (len(partial_bytes) != expected_partial_size
+            or _digest(partial_bytes) != expected_partial_digest):
+        raise ResultsIntegrityError("Partial scoring artifact digest or size mismatch")
+    return failed_writes
+
+
 def verify_native_codex_pilot_results(
     repository_root: Path,
     pilot_relative_path: Path = DEFAULT_PILOT_PATH,
 ) -> dict[str, Any]:
     """Verify internal capture/score consistency without opening the held-out key.
 
-    The function verifies recorded hashes and that each score's observed stance
-    matches the stance parsed from its captured response. It does not validate
-    expected stances against the held-out key or verify the subject model.
+    The function verifies recorded hashes, score/response agreement, and the
+    separately retained controller scoring-failure record and partial artifact.
+    It does not validate expected stances against the held-out key or verify
+    the subject model.
     """
     repository_root = repository_root.resolve()
     pilot_dir = _resolve_repo_path(repository_root, str(pilot_relative_path))
@@ -264,6 +322,11 @@ def verify_native_codex_pilot_results(
     if summary.get("overall_stance_matches") != stance_matches:
         raise ResultsIntegrityError("Summary overall stance-match total is inconsistent")
 
+    verified_scoring_failures = _verify_scoring_attempt_history(
+        repository_root, summary, expected_trials,
+        {str(row.get("path", "")) for row in score_rows if isinstance(row, dict)},
+    )
+
     return {
         "status": "internally_consistent",
         "pilot_id": manifest.get("pilot_id"),
@@ -281,6 +344,8 @@ def verify_native_codex_pilot_results(
         ),
         "key_accessed": False,
         "key_based_accuracy_independently_verified": False,
+        "scoring_attempt_history_verified": True,
+        "failed_controller_artifact_writes_verified": verified_scoring_failures,
     }
 
 
