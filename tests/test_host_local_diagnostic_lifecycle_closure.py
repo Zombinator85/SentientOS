@@ -367,7 +367,9 @@ def test_descriptor_relative_reconciliation_removes_only_identity_bound_candidat
 def test_reconciliation_rejects_reserved_directory_mode_change_before_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); target=out/".hldlc-reserved"; target.mkdir(); sentinel=out/"sentinel"; sentinel.write_bytes(b"keep"); before=sentinel.stat()
     def hook(event:str,path:Path)->None:
-        if event=="staging_reconciliation_before_remove_candidate" and path.name==target.name: target.chmod(0o700)
+        if event=="staging_reconciliation_before_remove_candidate" and path.name==target.name:
+            current_mode=stat.S_IMODE(target.stat().st_mode)
+            target.chmod(current_mode ^ stat.S_IXUSR)
     monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
     assert "staging_reconciliation_candidate_metadata_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings)
     assert target.is_dir() and sentinel.read_bytes()==b"keep" and (sentinel.stat().st_dev,sentinel.stat().st_ino)==(before.st_dev,before.st_ino) and not (out/"latest.json").exists()
