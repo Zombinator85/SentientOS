@@ -6,6 +6,12 @@ from pathlib import Path
 from sentientos.strategic_adaptation import create_adjustment_proposal
 
 
+def _string_items(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create deterministic strategic adaptation proposal")
     parser.add_argument("--repo-root", default=".")
@@ -22,8 +28,8 @@ def main() -> int:
             print(f"{item.goal_id}: {item.field} {item.old} -> {item.new} ({item.reason})")
 
     diff = proposal.allocation_diff
-    added = [f"+{item}" for item in list(diff.get("added_selected") or []) if isinstance(item, str)]
-    removed = [f"-{item}" for item in list(diff.get("removed_selected") or []) if isinstance(item, str)]
+    added = [f"+{item}" for item in _string_items(diff.get("added_selected"))]
+    removed = [f"-{item}" for item in _string_items(diff.get("removed_selected"))]
     print("allocation_diff:")
     print(f"  Would select: {' '.join(added) if added else 'none'} / drop: {' '.join(removed) if removed else 'none'}")
 
@@ -34,9 +40,17 @@ def main() -> int:
         for entry in reordered[:5]:
             if not isinstance(entry, dict):
                 continue
-            goal_id = str(entry.get("goal_id", ""))
-            old_index = int(entry.get("old_index", 0))
-            new_index = int(entry.get("new_index", 0))
+            goal_id = entry.get("goal_id")
+            old_index = entry.get("old_index")
+            new_index = entry.get("new_index")
+            if (
+                not isinstance(goal_id, str)
+                or not isinstance(old_index, int)
+                or isinstance(old_index, bool)
+                or not isinstance(new_index, int)
+                or isinstance(new_index, bool)
+            ):
+                continue
             print(f"  Reorder: {goal_id} {old_index}→{new_index}")
 
     budget_delta = diff.get("budget_delta") if isinstance(diff.get("budget_delta"), dict) else {}
