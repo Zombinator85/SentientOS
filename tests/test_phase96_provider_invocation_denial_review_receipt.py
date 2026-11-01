@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.no_legacy_skip
+
 from scripts import verify_context_hygiene_prompt_boundaries as guardrails
 from sentientos.context_hygiene.prompt_provider_client_custody import (
     build_provider_client_custody_manifest,
@@ -156,6 +158,7 @@ def test_future_external_security_review_gate_yields_accepted_with_conditions():
     assert receipt.review_status == ProviderInvocationDenialReviewStatus.INVOCATION_DENIAL_REVIEW_ACCEPTED_WITH_CONDITIONS
     assert provider_invocation_denial_review_approves_future_external_security_review_gate(receipt)
     assert not provider_invocation_denial_review_approves_future_denial_audit_gate(receipt)
+    assert "future_metadata_gate_only" in receipt.warnings
 
 
 def test_future_invocation_denial_audit_gate_yields_accepted_with_conditions():
