@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.governance.council_bias_analyzer import CouncilBiasAnalyzer
 
 
+@pytest.mark.no_legacy_skip
 def test_bias_detection_reports(tmp_path: Path) -> None:
     vote_path = tmp_path / "vote_ledger.jsonl"
     verdicts_path = tmp_path / "verdicts.jsonl"

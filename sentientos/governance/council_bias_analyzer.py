@@ -5,7 +5,20 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple, TypedDict
+
+
+class CouncilDriftEvent(TypedDict):
+    pair: List[str]
+    divergence: float
+    reason: str
+
+
+class CouncilBiasReport(TypedDict):
+    alignment_divergence: Dict[str, float]
+    symbolic_polarization: Dict[str, float]
+    role_favoritism: Dict[str, float]
+    drift_events: List[CouncilDriftEvent]
 
 
 @dataclass
@@ -14,7 +27,7 @@ class DriftEvent:
     divergence: float
     reason: str
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> CouncilDriftEvent:
         return {"pair": list(self.pair), "divergence": self.divergence, "reason": self.reason}
 
 
@@ -113,7 +126,7 @@ class CouncilBiasAnalyzer:
                 )
         return events
 
-    def analyze(self) -> Dict[str, object]:
+    def analyze(self) -> CouncilBiasReport:
         votes = load_jsonl(self.vote_ledger_path)
         verdicts = load_jsonl(self.verdicts_path)
 
