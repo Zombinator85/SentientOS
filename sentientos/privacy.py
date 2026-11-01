@@ -110,7 +110,7 @@ class PrivacyManager:
     def hash_text(self, text: str) -> str:
         if not self._hash_enabled:
             return text
-        tokens = []
+        tokens: list[str] = []
         for pattern in _compile_patterns(self._config.redactions):
             tokens.extend(match.group(0) for match in pattern.finditer(text))
         unique_tokens = {token for token in tokens if token}

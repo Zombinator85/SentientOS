@@ -21,7 +21,7 @@ def resolve_seed(config: Optional[RuntimeConfig] = None, override: Optional[int]
     if override is not None:
         return int(override)
     env_value = os.environ.get("SENTIENTOS_SEED")
-    if env_value not in (None, ""):
+    if env_value is not None and env_value != "":
         try:
             return int(env_value)
         except ValueError:

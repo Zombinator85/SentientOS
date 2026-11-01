@@ -68,3 +68,9 @@ def test_reflex_petitioner_generates_petition_and_reinstates(tmp_path: Path) -> 
     assert len(petitions) == 1
     logged = json.loads(petitions[0])
     assert logged["council_status"] == "approved"
+
+
+def test_empty_trial_status_is_a_boolean_failure() -> None:
+    result = ReflexPetitioner._is_successful_trial({"status": ""})
+    assert result is False
+    assert isinstance(result, bool)
