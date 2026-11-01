@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -51,7 +52,7 @@ class Anomaly:
     details: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
-        payload = {
+        payload: dict[str, object] = {
             "kind": self.kind,
             "subject": self.subject,
             "details": copy.deepcopy(self.details),
@@ -113,8 +114,13 @@ class RecoveryLedger:
             entry["action"] = action.to_dict()
         if details:
             entry["details"] = copy.deepcopy(details)
-            proof_summary = self._extract_proof_summary(details.get("proof_report"))
-            canonical_admission = self._extract_canonical_admission_linkage(details.get("kernel_admission"))
+            proof_report = details.get("proof_report")
+            if isinstance(proof_report, Mapping):
+                proof_summary = self._extract_proof_summary(proof_report)
+            canonical_admission: dict[str, str] | None = None
+            kernel_admission = details.get("kernel_admission")
+            if isinstance(kernel_admission, Mapping):
+                canonical_admission = self._extract_canonical_admission_linkage(kernel_admission)
             if canonical_admission is not None:
                 entry["canonical_admission"] = canonical_admission
         if proof_summary:
@@ -403,7 +409,16 @@ class ReviewBoard:
 
     def evaluate(self, action: RepairAction, anomaly: Anomaly) -> ReviewDecision:
         metadata = action.metadata
-        trust = float(metadata.get("trust", 0.0))
+        raw_trust = metadata.get("trust", 0.0)
+        if isinstance(raw_trust, bool) or not isinstance(raw_trust, (str, int, float)):
+            trust = math.nan
+        else:
+            try:
+                trust = float(raw_trust)
+            except (TypeError, ValueError, OverflowError):
+                trust = math.nan
+        if not math.isfinite(trust):
+            return ReviewDecision(False, True, "invalid_trust")
         if trust < self._trust_threshold:
             return ReviewDecision(False, True, "insufficient_trust")
         if not self._gatekeeper.accept(action):
