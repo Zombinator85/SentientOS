@@ -41,6 +41,8 @@ def build_jurisprudence_consumption_summary(*, consumer_surface: str) -> dict[st
         decision_class = str(row["decision_class"])
         rule = explicit.get(decision_class)
         has_rule = isinstance(rule, dict)
+        authoritative_surface = str(rule.get("authoritative_surface")) if isinstance(rule, dict) else None
+        reconciliation_rule = str(rule.get("reconciliation_rule")) if isinstance(rule, dict) else None
         if not has_rule:
             mapping_gaps += 1
         emitted_vs_consumed.append(
@@ -52,8 +54,8 @@ def build_jurisprudence_consumption_summary(*, consumer_surface: str) -> dict[st
                 "mapped_in_jurisprudence": has_rule,
                 "consumer_surface": consumer_surface,
                 "consumption_state": "explicit_rule_consumed" if has_rule else "unresolved_no_explicit_rule",
-                "authoritative_surface": str(rule.get("authoritative_surface")) if has_rule else None,
-                "reconciliation_rule": str(rule.get("reconciliation_rule")) if has_rule else None,
+                "authoritative_surface": authoritative_surface,
+                "reconciliation_rule": reconciliation_rule,
             }
         )
 
