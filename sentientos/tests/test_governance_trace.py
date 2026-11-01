@@ -23,7 +23,13 @@ from sentientos.genesis_forge import (
     TrialRun,
 )
 from sentientos.github_merge import MergeResult, RebaseResult
-from sentientos.governance_trace import reset_current_trace, set_current_trace, start_governance_trace
+from sentientos.governance_trace import (
+    _record_list,
+    _string_list,
+    reset_current_trace,
+    set_current_trace,
+    start_governance_trace,
+)
 
 
 class _Ops:
@@ -276,3 +282,10 @@ def test_governance_trace_records_auto_remediation_outcomes(tmp_path: Path, monk
     assert "auto_remediation_attempted" in payload["reason_stack"]
     assert "auto_remediation_succeeded" in payload["reason_stack"]
     assert any(item.get("reason") == "auto_remediation_recheck" for item in payload["gates_evaluated"])
+
+
+def test_governance_trace_normalizes_malformed_optional_lists() -> None:
+    assert _string_list(["valid", 7, None, "also-valid"]) == ["valid", "also-valid"]
+    assert _string_list({"unexpected": "mapping"}) == []
+    assert _record_list([{"name": "gate"}, None, "invalid"]) == [{"name": "gate"}]
+    assert _record_list("not-a-list") == []
