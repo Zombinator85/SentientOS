@@ -113,7 +113,11 @@ the target host.
   fabricate visemes. Godot now opens/closes the procedural mouth from the
   actual utterance/interruption boundary event and reports that rendering as
   self-report; it does not synthesize word-shaped visemes. Windows/WSL speaker
-  routing and target timing remain unmeasured.
+  routing and target timing remain unmeasured. The reverse mTLS command now
+  carries the closed word-timing event to the Windows state-file queue; the
+  localhost certificate-backed test verifies timing metadata reaches that
+  renderer input. Godot can animate generic speech activity from those timing
+  events, but does not map word offsets to phonemes or authored visemes.
 - `python -m scripts.gaming_companion_acceptance --manifest <deployment.json>
   --results-dir <private-results-directory>` runs the local fixture suite and
   read-only deployment doctor, retaining restricted logs, JUnit summary, and
@@ -250,9 +254,11 @@ is implemented and tested.
   desktop capture, or actual game perception by a local model. No ambient
   screen, microphone, or provider capture should be enabled.
 - **Speech:** production chat has a separately admitted local TTS path and
-  software-level interruption handling, but actual playback, Windows/WSL
-  routing, word/phoneme timing, and timing-aligned visemes have not been
-  exercised on the target host.
+  software-level interruption handling. Word timing now crosses the tested
+  localhost mTLS reverse route to the Godot state input, where the procedural
+  mouth animates from utterance and interruption boundaries. Actual playback,
+  Windows/WSL routing, target timing, and authored-body viseme animation remain
+  untested.
 - **Authored-body adoption:** authoring, structural inspection, operator
   adoption, compare-and-swap lineage, rollback, and an experimental Godot
   candidate adapter exist. The demo's active body remains procedural; it has
@@ -363,9 +369,9 @@ an authority-backed receipt verifier, manifest binding, content hash, and
 allowed artifact root all agree. Wire its descriptor to Godot import/rollback
 and preserve the adoption lineage. The loader is implemented and fixture
 tested; no operator-adopted GLORP artifact has been loaded.
-5. Connect backend word timing to authored mouth/viseme animation without
-pretending word offsets are phoneme labels; verify actual local audio latency
-and immediate renderer interruption on target.
+5. Connect existing timing events to an explicitly adopted body's authored
+mouth rig while keeping word offsets distinct from phoneme labels. Verify
+actual local audio latency and immediate renderer interruption on target.
 6. Extend the local acceptance command into the supervised cross-platform
 commissioning workflow after protected Windows/WSL custody and OS service
 interfaces are available. Current local command invokes the existing software

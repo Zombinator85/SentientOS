@@ -239,6 +239,33 @@ class BridgeChatAvatarOutputEmitter:
         return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
                 "renderer_effect_proven": False}
 
+    def emit_phrase(self, phrase: str, *, authorization: Any = None,
+                    metadata: Mapping[str, Any] | None = None,
+                    started_at: float | None = None, speaking: bool | None = None,
+                    muted: bool = False) -> dict[str, object]:
+        """Carry local TTS timing boundaries to the edge without phoneme claims."""
+        del started_at, speaking, muted
+        require_authorization_for_request_types(authorization,
+            allowed_request_types=("avatar_emission",))
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        output_digest, turn_id = metadata.get("output_digest"), metadata.get("turn_id")
+        timing = metadata.get("speech_timing")
+        if (not isinstance(phrase, str) or not isinstance(output_digest, str)
+                or not isinstance(turn_id, str) or not isinstance(timing, Mapping)):
+            raise CompanionBridgeError("avatar_command_chat_output_binding_invalid")
+        payload: dict[str, object] = {
+            "output_mode": "chat_response_visual_only", "phrase": phrase[:2048],
+            "expression": "rest", "motion": "nod", "mood": "calm",
+            "intensity": 0.25, "output_digest": output_digest,
+            "turn_id": turn_id, "speech_timing": dict(timing),
+        }
+        workload_mode = metadata.get("workload_mode")
+        if workload_mode in {"normal", "gaming"}:
+            payload["workload_mode"] = workload_mode
+        acknowledgment = self._sender.send_command(payload, authorization)
+        return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
+                "renderer_effect_proven": False}
+
     def emit_idle(self, *, authorization: Any = None,
                   metadata: Mapping[str, Any] | None = None) -> dict[str, object]:
         metadata = metadata if isinstance(metadata, Mapping) else {}
@@ -316,6 +343,13 @@ class WindowsGodotAvatarStateQueue:
         workload = payload.get("workload_mode")
         if workload in {"normal", "gaming"}:
             metadata["workload_mode"] = workload
+        speech_timing = payload.get("speech_timing")
+        if speech_timing is not None:
+            if (not isinstance(speech_timing, Mapping)
+                    or speech_timing.get("session_id") != message.session_id
+                    or speech_timing.get("turn_id") != turn_id):
+                return False
+            metadata["speech_timing"] = dict(speech_timing)
         state = {
             "mood": mood, "intensity": intensity_value,
             "expression": expression, "motion": motion,

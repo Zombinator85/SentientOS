@@ -98,25 +98,51 @@ def test_admitted_chat_output_crosses_mutual_tls_into_edge_dispatcher(tmp_path):
         source_id="sentientos-core", session_id="session-1",
         generation_id="core-generation-1", source_key=source_key,
         admission_receipt_builder=lambda _authorization: receipt)
-    delivered = []
+    state_queue = WindowsGodotAvatarStateQueue(
+        state_emitter=AvatarStateEmitter(tmp_path / "avatar_state.json"))
     dispatcher = WindowsEdgeAvatarCommandDispatchOwner(runtime=runtime,
         receipt_verifier=lambda receipt_id, digest, _message:
             (receipt_id, digest) == (receipt["receipt_id"], receipt["semantic_digest"]),
-        renderer_sink=lambda payload, _message: delivered.append(dict(payload)) is None)
+        renderer_sink=state_queue.enqueue)
     try:
         emitter = BridgeChatAvatarOutputEmitter(sender)
-        result = emitter.emit_display_text("Hello over mTLS",
+        result = emitter.emit_phrase("Hello over mTLS",
             authorization=_authorization(),
-            metadata={"turn_id": "turn-2", "output_digest": "c" * 64})
+            metadata={"session_id": "session-1", "turn_id": "turn-2",
+                "output_digest": "c" * 64, "speech_timing": {
+                    "schema": "sentientos.local_speech_timing:v1",
+                    "event": "word_started", "session_id": "session-1",
+                    "turn_id": "turn-2", "timing_quality": "backend_word_start",
+                    "word_index": 1, "char_start": 0, "char_length": 5}})
         message = runtime.receive(timeout=1.0)
         assert result["status"] == "sent"
         assert message.kind == "avatar_command"
         assert dispatcher.dispatch_one(message) is True
-        assert delivered[0]["phrase"] == "Hello over mTLS"
+        import json
+        state = json.loads((tmp_path / "avatar_state.json").read_text(encoding="utf-8"))
+        assert state["current_phrase"] == "Hello over mTLS"
+        assert state["metadata"]["speech_timing"]["event"] == "word_started"
+        assert state["metadata"]["speech_timing"]["char_start"] == 0
         assert dispatcher.status().renderer_effect_proven is False
     finally:
         sender.close()
         runtime.close()
+
+
+def test_speech_timing_on_reverse_route_is_closed_and_bound_to_command_session_turn():
+    key = b"k" * 32
+    payload = {"output_mode": "chat_response_visual_only", "phrase": "hello",
+        "expression": "rest", "motion": "nod", "mood": "calm",
+        "intensity": 0.25, "output_digest": "a" * 64, "turn_id": "turn-1",
+        "speech_timing": {"schema": "sentientos.local_speech_timing:v1",
+            "event": "speech_started", "session_id": "other-session",
+            "turn_id": "turn-1", "timing_quality": "controller_boundary"}}
+    with pytest.raises(CompanionBridgeError,
+                       match="avatar_command_speech_timing_binding_invalid"):
+        encode_message(kind="avatar_command", source_id="sentientos-core",
+            session_id="session-1", generation_id="core-generation-1", sequence=1,
+            payload=payload, key=key,
+            admission={"receipt_id": "admission-1", "semantic_digest": "b" * 64})
 
 
 def verified_command(*, kind: str = "avatar_command"):
