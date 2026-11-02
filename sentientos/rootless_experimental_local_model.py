@@ -27,6 +27,7 @@ from .local_runtime_provisioning import semantic_digest
 WORKSPACE_ROOT = Path("/workspace")
 EXPERIMENT_ROOT = WORKSPACE_ROOT / "sentientos-data" / "rootless-experimental"
 MODEL_MANIFEST_SCHEMA = "sentientos.rootless_experimental_model_artifact:v1"
+MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE = "sentientos.rootless_experimental_model_artifact:v2"
 INTENT_SCHEMA = "sentientos.rootless_experimental_inference_intent:v1"
 RECEIPT_SCHEMA = "sentientos.rootless_experimental_inference_receipt:v1"
 PRINCIPAL = "deterministic_rootless_experimental_local_model_controller"
@@ -38,6 +39,7 @@ MAX_MODEL_BYTES = 8 * 1024 * 1024 * 1024
 MAX_RECORD_BYTES = 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
+HF_REPO_ID_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 
 
 class RootlessExperimentalError(ValueError):
@@ -148,7 +150,12 @@ def verify_model_manifest(manifest: Mapping[str, Any], *, root: Path) -> dict[st
         "license_id", "license_url", "license_file_path", "license_file_sha256", "artifact_sha256",
         "artifact_size_bytes", "retrieved_at", "retrieval_final_host", "huggingface_lfs_oid", "manifest_digest",
     }
-    if set(value) != required or value.get("schema_version") != MODEL_MANIFEST_SCHEMA:
+    schema = value.get("schema_version")
+    if schema == MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE:
+        required.update({"license_repo_id", "license_revision"})
+    elif schema != MODEL_MANIFEST_SCHEMA:
+        raise RootlessExperimentalError("model_manifest_schema_invalid")
+    if set(value) != required:
         raise RootlessExperimentalError("model_manifest_schema_invalid")
     if (not isinstance(value.get("model_id"), str) or not value["model_id"].strip()
             or not isinstance(value.get("repo_id"), str) or "/" not in value["repo_id"]
@@ -165,7 +172,15 @@ def verify_model_manifest(manifest: Mapping[str, Any], *, root: Path) -> dict[st
     revision = str(value["repo_revision"])
     filename = str(value["filename"])
     expected_source = f"https://huggingface.co/{repo}/resolve/{revision}/{filename}"
-    expected_license = f"https://huggingface.co/{repo}/blob/{revision}/LICENSE"
+    license_repo = (str(value["license_repo_id"])
+        if schema == MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE else repo)
+    license_revision = (str(value["license_revision"])
+        if schema == MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE else revision)
+    if (not HF_REPO_ID_RE.fullmatch(license_repo)
+            or not REVISION_RE.fullmatch(license_revision)):
+        raise RootlessExperimentalError("model_manifest_license_source_invalid")
+    expected_license = (
+        f"https://huggingface.co/{license_repo}/blob/{license_revision}/LICENSE")
     if value.get("source_url") != expected_source or value.get("license_url") != expected_license:
         raise RootlessExperimentalError("model_manifest_source_binding_invalid")
     expected_card = f"https://huggingface.co/{repo}/resolve/{revision}/README.md"
@@ -197,6 +212,9 @@ def verify_model_manifest(manifest: Mapping[str, Any], *, root: Path) -> dict[st
     card_text = card_bytes.decode("utf-8", "replace").lower()
     if (value["license_id"] == "apache-2.0"
             and ("apache license" not in license_text.lower() or "version 2.0" not in license_text.lower())):
+        raise RootlessExperimentalError("model_license_text_mismatch")
+    if (value["license_id"] == "mit"
+            and "permission is hereby granted, free of charge" not in license_text.lower()):
         raise RootlessExperimentalError("model_license_text_mismatch")
     if f"license: {value['license_id']}" not in card_text:
         raise RootlessExperimentalError("model_card_license_mismatch")
