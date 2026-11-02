@@ -1,6 +1,7 @@
 """Bounded ingress for Godot's non-authoritative renderer self-reports."""
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -55,6 +56,13 @@ def renderer_report_observation(report: Mapping[str, Any]) -> EmbodimentObservat
             or not isinstance(bounded["source_digest"], str)
             or not _SHA256.fullmatch(bounded["source_digest"])):
         raise RendererReportIngressError("renderer_report_identity_invalid")
+    source_payload = dict(bounded)
+    claimed_source_digest = source_payload.pop("source_digest")
+    expected_source_digest = "sha256:" + hashlib.sha256(json.dumps(
+        source_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        allow_nan=False).encode("utf-8")).hexdigest()
+    if claimed_source_digest != expected_source_digest:
+        raise RendererReportIngressError("renderer_report_source_digest_mismatch")
     try:
         timestamp = datetime.fromisoformat(bounded["reported_at"].replace("Z", "+00:00"))
     except ValueError as exc:

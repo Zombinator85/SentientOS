@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 
 import pytest
 
@@ -14,7 +16,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 def _report() -> dict[str, object]:
-    return {
+    report: dict[str, object] = {
         "schema_version": "sentientos.avatar_renderer_report:v1",
         "evidence_class": "avatar_renderer_reported_state",
         "source_id": "godot-procedural-demo",
@@ -46,8 +48,20 @@ def _report() -> dict[str, object]:
         "body_generation": "godot-procedural-demo-unadopted",
         "effect_proven": False,
         "independent_observation": False,
-        "source_digest": "sha256:" + "b" * 64,
+        "source_digest": "",
     }
+    digest_payload = {key: value for key, value in report.items() if key != "source_digest"}
+    report["source_digest"] = "sha256:" + hashlib.sha256(json.dumps(
+        digest_payload, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    return report
+
+
+def _refresh_digest(report: dict[str, object]) -> None:
+    payload = {key: value for key, value in report.items() if key != "source_digest"}
+    report["source_digest"] = "sha256:" + hashlib.sha256(json.dumps(
+        payload, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
 
 
 def test_renderer_report_projects_through_existing_owner_without_authority():
@@ -78,6 +92,7 @@ def test_renderer_report_rejects_authority_masquerade_and_invalid_identity(field
 def test_renderer_report_rejects_incomplete_correlation_and_open_fields():
     incomplete = _report()
     incomplete["turn_id"] = None
+    _refresh_digest(incomplete)
     extra = _report()
     extra["approval_grant"] = "must_not_cross_renderer_boundary"
 
@@ -87,10 +102,19 @@ def test_renderer_report_rejects_incomplete_correlation_and_open_fields():
         renderer_report_observation(extra)
 
 
+def test_renderer_report_rejects_mismatched_self_report_digest():
+    report = _report()
+    report["source_digest"] = "sha256:" + "c" * 64
+
+    with pytest.raises(RendererReportIngressError, match="source_digest_mismatch"):
+        renderer_report_observation(report)
+
+
 def test_renderer_report_digest_changes_when_report_changes():
     first = renderer_report_observation(_report())
     changed = copy.deepcopy(_report())
     changed["renderer_state"]["motion"]["active_motion"] = "idle"  # type: ignore[index]
+    _refresh_digest(changed)
     second = renderer_report_observation(changed)
 
     assert first.source_digest != second.source_digest

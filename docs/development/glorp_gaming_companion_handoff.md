@@ -146,14 +146,17 @@ a deterministic fixture. The independently preserved rootless model smoke is
 real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
 
-The chat test proves the local software path from fixture-backed conversation
-to authorized commanded avatar state, mode update, receiver normalization, and
-durable conversation reload. Separately, the headless Godot test proves that
-the actual procedural scene applies a wave and smile, reports post-apply state,
-and that Python passes this report through the embodiment owner without
-upgrading it to effect proof or independent observation. These two test paths
-are not yet connected to each other by a running bridge. No independent
-physical consequence is proved.
+The test node
+`tests/test_gaming_companion_vertical_godot.py::test_fixture_chat_reaches_real_godot_and_returns_unverified_renderer_evidence`
+joins the fixture-backed persistent chat, per-session `AVATAR_EMISSION`, state
+file, Python receiver normalization, and actual headless Godot scene. It passes
+the receiver's normalized JSON as a test-only command-line argument, captures
+the renderer's session/turn/output digest lineage, projects the report through
+the embodiment evidence owner, then restarts chat and verifies transcript
+recovery. It does not exercise a running network bridge. The separate headless
+probe still checks a wave and smile transform directly. Both routes retain
+renderer self-report as an unverified caller assertion. No independent physical
+consequence is proved.
 
 ## GLORP acceptance sequence
 
