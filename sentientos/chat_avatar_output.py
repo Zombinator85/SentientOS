@@ -47,6 +47,8 @@ class ChatAvatarOutputController:
         self._lock = threading.RLock()
         self._grants: dict[str, _SessionGrant] = {}
         self._pending_clears: dict[str, _SessionGrant | None] = {}
+        self._last_responses: dict[str, tuple[str, str, str]] = {}
+        self._workload_modes: dict[str, str] = {}
 
     @staticmethod
     def _validate_session_id(session_id: str) -> None:
@@ -63,6 +65,8 @@ class ChatAvatarOutputController:
                 if grant is not None:
                     self._grants.pop(session_id, None)
                     grant.timer.cancel()
+                self._last_responses.pop(session_id, None)
+                self._workload_modes.pop(session_id, None)
                 if grant is None and self._grants:
                     return {"configured": True, "enabled": False, "scope": self.SCOPE,
                             "state_cleared": False, "reason": "another_avatar_session_is_active"}
@@ -128,6 +132,8 @@ class ChatAvatarOutputController:
             timer.daemon = True
             grant = _SessionGrant(grant_digest, session_id, "operator", expires_at, timer)
             self._grants[session_id] = grant
+            self._last_responses.pop(session_id, None)
+            self._workload_modes.pop(session_id, None)
             timer.start()
             return {"configured": True, "enabled": True, "scope": self.SCOPE,
                     "expires_in_seconds": self.GRANT_SECONDS}
@@ -152,6 +158,8 @@ class ChatAvatarOutputController:
         if (not isinstance(output_digest, str)
                 or re.fullmatch(r"[0-9a-f]{64}", output_digest) is None):
             raise ValueError("avatar_output_digest_invalid")
+        effective_workload_mode = (workload_mode if isinstance(workload_mode, str)
+            and workload_mode in {"normal", "gaming"} else None)
         with self._lock:
             grant = self._grants.get(session_id)
             if grant is None:
@@ -160,16 +168,22 @@ class ChatAvatarOutputController:
                 cleared = self._retire_grant(session_id, grant,
                     approval_method="session_grant_expiry")
                 return {"status": "grant_expired", "state_cleared": cleared}
-            context_hash = _digest({"grant_digest": grant.grant_digest,
-                "session_id": session_id, "turn_id": turn_id, "scope": self.SCOPE})
+            context = {"grant_digest": grant.grant_digest,
+                "session_id": session_id, "turn_id": turn_id, "scope": self.SCOPE}
+            if effective_workload_mode is not None:
+                context["workload_mode"] = effective_workload_mode
+            context_hash = _digest(context)
+            admission_metadata = {"approved_by": grant.approved_by,
+                "approval_method": "session_grant", "approval_scope": self.SCOPE,
+                "approval_grant_digest": grant.grant_digest,
+                "session_id": session_id, "source_turn_id": turn_id}
+            if effective_workload_mode is not None:
+                admission_metadata["workload_mode"] = effective_workload_mode
             admission = self._admit(
                 request_type=RequestType.AVATAR_EMISSION,
                 requester_id="bridge", intent_hash=output_digest,
                 context_hash=context_hash, policy_version="v1-static",
-                metadata={"approved_by": grant.approved_by,
-                    "approval_method": "session_grant", "approval_scope": self.SCOPE,
-                    "approval_grant_digest": grant.grant_digest,
-                    "session_id": session_id, "source_turn_id": turn_id},
+                metadata=admission_metadata,
             )
             if admission.decision is not Decision.ALLOW:
                 return {"status": "admission_denied", "reason": admission.reason.value}
@@ -187,10 +201,64 @@ class ChatAvatarOutputController:
             }
             # This is a renderer hint only. Accept the closed effective-mode
             # vocabulary; never persist arbitrary workload metadata.
-            if isinstance(workload_mode, str) and workload_mode in {"normal", "gaming"}:
-                metadata["workload_mode"] = workload_mode
+            if effective_workload_mode is not None:
+                metadata["workload_mode"] = effective_workload_mode
             self._emitter.emit_display_text(visible, authorization=record, metadata=metadata)
+            self._last_responses[session_id] = (visible, turn_id, output_digest)
+            if effective_workload_mode is not None:
+                self._workload_modes[session_id] = effective_workload_mode
+            else:
+                self._workload_modes.pop(session_id, None)
         return {"status": "emitted", "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS}
+
+    def set_workload_mode(self, session_id: str, workload_mode: str) -> dict[str, Any]:
+        """Update the opted-in renderer from the current effective local workload mode."""
+        self._validate_session_id(session_id)
+        if not isinstance(workload_mode, str) or workload_mode not in {"normal", "gaming"}:
+            raise ValueError("avatar_output_workload_mode_invalid")
+        with self._lock:
+            grant = self._grants.get(session_id)
+            if grant is None:
+                return {"status": "disabled"}
+            if grant.expires_at <= self._clock():
+                cleared = self._retire_grant(session_id, grant,
+                    approval_method="session_grant_expiry")
+                return {"status": "grant_expired", "state_cleared": cleared}
+            if self._workload_modes.get(session_id) == workload_mode:
+                return {"status": "unchanged", "workload_mode": workload_mode}
+            intent_hash = _digest({"operation": "sync_renderer_workload_mode",
+                "session_id": session_id, "workload_mode": workload_mode})
+            context_hash = _digest({"grant_digest": grant.grant_digest,
+                "session_id": session_id, "scope": self.SCOPE,
+                "workload_mode": workload_mode})
+            admission = self._admit(request_type=RequestType.AVATAR_EMISSION,
+                requester_id="bridge", intent_hash=intent_hash,
+                context_hash=context_hash, policy_version="v1-static",
+                metadata={"approved_by": grant.approved_by,
+                    "approval_method": "session_grant_workload_sync",
+                    "approval_scope": self.SCOPE,
+                    "approval_grant_digest": grant.grant_digest,
+                    "session_id": session_id, "workload_mode": workload_mode})
+            if admission.decision is not Decision.ALLOW:
+                return {"status": "admission_denied", "reason": admission.reason.value}
+            record = admission.record
+            if (record.request_type is not RequestType.AVATAR_EMISSION
+                    or record.intent_hash != intent_hash or record.context_hash != context_hash):
+                raise RuntimeError("avatar_output_workload_binding_invalid")
+            metadata: dict[str, Any] = {"source": "governed_chat_workload_status",
+                "session_id": session_id, "workload_mode": workload_mode,
+                "approval_grant_digest": grant.grant_digest,
+                "approval_method": "session_grant_workload_sync",
+                "output_mode": self.SCOPE}
+            previous = self._last_responses.get(session_id)
+            if previous is None:
+                self._emitter.emit_idle(authorization=record, metadata=metadata)
+            else:
+                phrase, turn_id, output_digest = previous
+                metadata.update({"turn_id": turn_id, "output_digest": output_digest})
+                self._emitter.emit_display_text(phrase, authorization=record, metadata=metadata)
+            self._workload_modes[session_id] = workload_mode
+            return {"status": "updated", "workload_mode": workload_mode}
 
     def close(self) -> None:
         """Revoke ephemeral grants and clear visible phrases on shutdown."""
@@ -225,6 +293,8 @@ class ChatAvatarOutputController:
                 # the display fails. Retain a pending clear so no new session can
                 # inherit stale output without another admitted clear operation.
                 self._grants.pop(session_id, None)
+                self._last_responses.pop(session_id, None)
+                self._workload_modes.pop(session_id, None)
                 grant.timer.cancel()
                 self._pending_clears[session_id] = grant
                 LOGGER.exception("Avatar phrase clear failed at grant expiry for session %s",
@@ -236,10 +306,14 @@ class ChatAvatarOutputController:
             cleared = self._clear_state(session_id, grant, approval_method=approval_method)
         except Exception:
             self._grants.pop(session_id, None)
+            self._last_responses.pop(session_id, None)
+            self._workload_modes.pop(session_id, None)
             grant.timer.cancel()
             self._pending_clears[session_id] = grant
             raise
         self._grants.pop(session_id, None)
+        self._last_responses.pop(session_id, None)
+        self._workload_modes.pop(session_id, None)
         grant.timer.cancel()
         if not cleared:
             self._pending_clears[session_id] = grant

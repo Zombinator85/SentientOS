@@ -74,6 +74,9 @@ gaming mode. This is a best-effort reduction in companion rendering work; it
 does not control game scheduling, model CPU/GPU threads, or overall system
 resource allocation. The workload signal still identifies only a configured
 foreground executable match, not game content or performance.
+While the local visual companion grant is active, the chat service checks the
+effective workload mode once per second and updates this renderer hint on a mode
+change. Revoking the grant, its expiry, or chat shutdown stops the watcher.
 
 ## Optional local spoken replies
 

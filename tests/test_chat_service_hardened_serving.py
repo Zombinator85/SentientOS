@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import json
+import time
 
 import pytest
 
@@ -243,6 +244,72 @@ def test_verified_gaming_workload_mode_reaches_enabled_avatar_state(tmp_path):
         assert state["metadata"]["workload_mode"] == "gaming"
     finally:
         avatar_output.close()
+
+
+def test_enabled_avatar_tracks_live_workload_changes_without_another_chat_turn(tmp_path):
+    def approve(**kwargs):
+        record = AuthorizationRecord.create(request_type=kwargs["request_type"],
+            requester_id=kwargs["requester_id"], intent_hash=kwargs["intent_hash"],
+            context_hash=kwargs["context_hash"], policy_version=kwargs["policy_version"],
+            decision=Decision.ALLOW, reason=ReasonCode.OK, metadata=kwargs["metadata"])
+        return AdmissionResponse(Decision.ALLOW, ReasonCode.OK, record)
+
+    target = tmp_path / "avatar_state.json"
+    avatar_output = ChatAvatarOutputController(SpeechEmitter(AvatarStateEmitter(target)),
+        admission_provider=approve)
+    inference = Inference()
+    app = service(tmp_path, inference, avatar_output)
+    session_id = app.create_session()
+    try:
+        assert app.set_avatar_output_enabled(session_id, True)["enabled"] is True
+        response = app.chat("hello", session_id=session_id)
+        assert response.response == "answer"
+
+        for mode in ("gaming", "normal"):
+            inference.workload_mode = mode
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                state = json.loads(target.read_text(encoding="utf-8"))
+                if state.get("metadata", {}).get("workload_mode") == mode:
+                    break
+                time.sleep(0.05)
+            else:
+                pytest.fail(f"avatar workload mode did not update to {mode}")
+            assert state["current_phrase"] == "answer"
+
+        assert app.set_avatar_output_enabled(session_id, False)["enabled"] is False
+        assert not app._avatar_workload_sync
+    finally:
+        app.close_outputs()
+
+
+def test_chat_reply_cannot_restore_stale_workload_mode_after_foreground_change(tmp_path):
+    def approve(**kwargs):
+        record = AuthorizationRecord.create(request_type=kwargs["request_type"],
+            requester_id=kwargs["requester_id"], intent_hash=kwargs["intent_hash"],
+            context_hash=kwargs["context_hash"], policy_version=kwargs["policy_version"],
+            decision=Decision.ALLOW, reason=ReasonCode.OK, metadata=kwargs["metadata"])
+        return AdmissionResponse(Decision.ALLOW, ReasonCode.OK, record)
+
+    class ForegroundChangesDuringGeneration(Inference):
+        def generate(self, **kwargs):
+            receipt = super().generate(**kwargs)
+            self.workload_mode = "gaming"
+            return receipt
+
+    target = tmp_path / "avatar_state.json"
+    avatar_output = ChatAvatarOutputController(SpeechEmitter(AvatarStateEmitter(target)),
+        admission_provider=approve)
+    inference = ForegroundChangesDuringGeneration()
+    app = service(tmp_path, inference, avatar_output)
+    session_id = app.create_session()
+    try:
+        assert app.set_avatar_output_enabled(session_id, True)["enabled"] is True
+        assert app.chat("hello", session_id=session_id).response == "answer"
+        state = json.loads(target.read_text(encoding="utf-8"))
+        assert state["metadata"]["workload_mode"] == "gaming"
+    finally:
+        app.close_outputs()
 
 
 def test_chat_speech_output_is_published_only_through_configured_controller(tmp_path):

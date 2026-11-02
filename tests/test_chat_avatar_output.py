@@ -119,6 +119,46 @@ def test_chat_avatar_output_rechecks_admission_for_each_turn(tmp_path) -> None:
     output.close()
 
 
+def test_workload_mode_update_is_admitted_and_preserves_current_caption(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub()
+    output = _controller(target, admission)
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    digest = digest_payload({"text": "answer"})
+    assert output.publish_response(session_id="session-1", turn_id="turn-1",
+        text="answer", output_digest=digest, workload_mode="normal")["status"] == "emitted"
+
+    assert output.set_workload_mode("session-1", "gaming") == {
+        "status": "updated", "workload_mode": "gaming"}
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["current_phrase"] == "answer"
+    assert payload["metadata"]["workload_mode"] == "gaming"
+    assert payload["metadata"]["output_digest"] == digest
+    assert output.set_workload_mode("session-1", "gaming")["status"] == "unchanged"
+    assert len(admission.calls) == 3
+    assert admission.calls[2]["metadata"]["approval_method"] == "session_grant_workload_sync"
+    assert admission.calls[1]["metadata"]["workload_mode"] == "normal"
+    with pytest.raises(ValueError, match="avatar_output_workload_mode_invalid"):
+        output.set_workload_mode("session-1", "automatic")
+    output.close()
+
+
+def test_denied_workload_mode_update_leaves_avatar_state_unchanged(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    output = _controller(target, _AdmissionStub((Decision.ALLOW, Decision.ALLOW, Decision.DENY)))
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    digest = digest_payload({"text": "answer"})
+    assert output.publish_response(session_id="session-1", turn_id="turn-1",
+        text="answer", output_digest=digest, workload_mode="normal")["status"] == "emitted"
+
+    result = output.set_workload_mode("session-1", "gaming")
+    assert result["status"] == "admission_denied"
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["current_phrase"] == "answer"
+    assert payload["metadata"]["workload_mode"] == "normal"
+    output.close()
+
+
 def test_denied_clear_keeps_display_channel_reserved_until_it_is_cleared(tmp_path) -> None:
     target = tmp_path / "avatar_state.json"
     admission = _AdmissionStub((Decision.ALLOW, Decision.ALLOW, Decision.DENY,
