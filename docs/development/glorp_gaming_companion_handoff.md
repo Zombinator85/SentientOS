@@ -192,11 +192,13 @@ is implemented and tested.
   admitted chat response; `MutualTLSAvatarCommandSender` signs and transmits
   each command once using the protected edge mTLS client. On Windows,
   `WindowsEdgeAvatarCommandDispatchOwner` requires an external receipt
-  verifier before submitting a command to an injected renderer queue. Their
-  closed-envelope and dispatch path have focused fixture tests. The current
-  fixture uses a test transport; a real Windows mTLS listener, authority-log
-  resolver, and Godot command queue are not yet composed, and dispatch still
-  does not establish that a frame rendered.
+  verifier before submitting a command to `WindowsGodotAvatarStateQueue`,
+  which writes the visual-only state format consumed by the existing Godot
+  forwarder. A real certificate-backed localhost mTLS test exercises
+  chat-command encode/send/receive/receipt-check/state-file delivery. A real
+  Windows listener, authority-log resolver, paired runtime launcher, and
+  renderer observation are not yet composed; state-file delivery does not
+  establish that a frame rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process

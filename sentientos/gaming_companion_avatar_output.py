@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import threading
 import hashlib
+import math
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
 from sentientos.control_api import require_authorization_for_request_types
+from avatar_state import AvatarStateEmitter
 from .gaming_companion_bridge import encode_message
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage
 from .gaming_companion_tls_transport import CompanionBridgeMutualTLSClient
@@ -252,6 +255,83 @@ class BridgeChatAvatarOutputEmitter:
                 "renderer_effect_proven": False}
 
 
+class WindowsGodotAvatarStateQueue:
+    """Map an admitted visual-only command to the local Godot state file.
+
+    The normal avatar-state forwarder can carry this state to the same-host
+    Godot renderer. State-file acceptance is not proof of a displayed frame.
+    """
+
+    def __init__(self, *, state_emitter: AvatarStateEmitter) -> None:
+        if not isinstance(state_emitter, AvatarStateEmitter):
+            raise CompanionBridgeError("avatar_command_state_emitter_required")
+        self._emitter = state_emitter
+        self._lock = threading.Lock()
+        self._accepted = 0
+
+    @property
+    def accepted_count(self) -> int:
+        with self._lock:
+            return self._accepted
+
+    def enqueue(self, payload: Mapping[str, object],
+                message: VerifiedBridgeMessage) -> bool:
+        if (type(message) is not VerifiedBridgeMessage
+                or not isinstance(payload, Mapping)
+                or payload.get("output_mode") != "chat_response_visual_only"):
+            return False
+        phrase = payload.get("phrase")
+        expression, motion, mood = (payload.get(name) for name in
+                                    ("expression", "motion", "mood"))
+        intensity = payload.get("intensity")
+        output_digest = payload.get("output_digest")
+        turn_id = payload.get("turn_id")
+        if isinstance(intensity, bool) or not isinstance(intensity, (int, float)):
+            return False
+        try:
+            intensity_value = float(intensity)
+            valid_intensity = math.isfinite(intensity_value) and 0 <= intensity_value <= 1
+        except (OverflowError, TypeError, ValueError):
+            valid_intensity = False
+        if (not isinstance(phrase, str) or len(phrase) > 2048
+                or any(not isinstance(value, str) or len(value) > 128
+                       for value in (expression, motion, mood))
+                or not valid_intensity
+                or not isinstance(output_digest, str)
+                or len(output_digest) != 64
+                or any(char not in "0123456789abcdef" for char in output_digest)
+                or (turn_id is not None and (not isinstance(turn_id, str) or len(turn_id) > 128))):
+            return False
+        metadata: dict[str, object] = {
+            "source": "authenticated_sentientos_core_chat_command",
+            "output_digest": output_digest,
+            "transport_message_id": message.message_id,
+            "transport_source_id": message.source_id,
+            "transport_generation_id": message.generation_id,
+            "transport_sequence": message.sequence,
+            "renderer_effect_proven": False,
+        }
+        if turn_id:
+            metadata["turn_id"] = turn_id
+        workload = payload.get("workload_mode")
+        if workload in {"normal", "gaming"}:
+            metadata["workload_mode"] = workload
+        state = {
+            "mood": mood, "intensity": intensity_value,
+            "expression": expression, "motion": motion,
+            "current_phrase": phrase, "phrase_started_at": None,
+            "is_speaking": False, "speaking": False, "muted": False,
+            "viseme_timeline": [], "viseme_events": [],
+            "metadata": metadata, "timestamp": time.time(),
+        }
+        try:
+            self._emitter.emit(state)
+        except (OSError, TypeError, ValueError):
+            return False
+        with self._lock:
+            self._accepted += 1
+        return True
+
 __all__ = ["AvatarCommandDispatchStatus", "WindowsEdgeAvatarCommandDispatchOwner",
-           "BridgeChatAvatarOutputEmitter",
+           "BridgeChatAvatarOutputEmitter", "WindowsGodotAvatarStateQueue",
            "MutualTLSAvatarCommandSender"]

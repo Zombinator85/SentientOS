@@ -6,9 +6,10 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 
+from avatar_state import AvatarStateEmitter
 from sentientos.gaming_companion_avatar_output import (
     BridgeChatAvatarOutputEmitter, WindowsEdgeAvatarCommandDispatchOwner,
-    MutualTLSAvatarCommandSender,
+    MutualTLSAvatarCommandSender, WindowsGodotAvatarStateQueue,
 )
 from sentientos.gaming_companion_bridge import (
     CompanionBridgeError, CompanionBridgeReceiver, VerifiedBridgeMessage,
@@ -165,6 +166,27 @@ def test_dispatch_rejects_unverified_receipts_and_sink_denial_without_retry():
     assert owner.dispatch_one(message) is False
     assert owner.status().last_failure == "avatar_command_renderer_queue_rejected"
     assert owner.status().accepted == 0
+
+
+def test_verified_command_updates_real_local_avatar_state_file_not_effect_claim(tmp_path):
+    message, admission = verified_command()
+    target = tmp_path / "avatar_state.json"
+    state_queue = WindowsGodotAvatarStateQueue(
+        state_emitter=AvatarStateEmitter(target))
+    owner = WindowsEdgeAvatarCommandDispatchOwner(runtime=_Runtime(),
+        receipt_verifier=lambda receipt_id, semantic, _message:
+            (receipt_id, semantic) == (admission["receipt_id"],
+                                       admission["semantic_digest"]),
+        renderer_sink=state_queue.enqueue)
+    assert owner.dispatch_one(message) is True
+    import json
+    state = json.loads(target.read_text(encoding="utf-8"))
+    assert state["current_phrase"] == "Hello"
+    assert state["is_speaking"] is False
+    assert state["viseme_timeline"] == []
+    assert state["metadata"]["transport_message_id"] == message.message_id
+    assert state["metadata"]["renderer_effect_proven"] is False
+    assert state_queue.accepted_count == 1
 
 
 def test_dispatch_rejects_non_command_message():
