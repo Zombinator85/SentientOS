@@ -141,12 +141,16 @@ selects normal mode. The digest avoids sending the raw basename, but it is not
 anonymization: a receiver can test candidate basenames against it. Treat this
 field as pseudonymous metadata.
 
+`WindowsForegroundObservationPump` can run fresh samples at a bounded interval
+and reports attempt, acknowledgment, and transport-failure state without
+exposing keys. After a failed or indeterminate send it does not replay that
+frame; the next interval takes and sends a new observation. A stopped pump is
+one-shot and must receive a newly issued source generation before replacement.
 This wiring is tested with a deterministic Windows-observation fixture sent over
 actual authenticated local TCP and fed into the production serving controller's
 automatic-mode decision. It does not establish Windows API execution in this
-Linux workspace, a scheduler that continuously runs `publish_once`, target
-Windows-to-WSL reachability, or live GLORP responsiveness. The ordinary
-`sentientos-chat` CLI does not provision bridge keys or start this observer; an
-authorized deployment composition must supply the runtime and publisher
-components. The observer sees only which allowlisted executable is foreground,
-not game content or measured gameplay impact.
+Linux workspace, target Windows-to-WSL reachability, or live GLORP responsiveness.
+The ordinary `sentientos-chat` CLI does not provision bridge keys or start the
+pump; an authorized deployment composition must supply the runtime and
+publisher components. The observer sees only which allowlisted executable is
+foreground, not game content or measured gameplay impact.

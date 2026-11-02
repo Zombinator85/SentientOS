@@ -5,6 +5,7 @@ import hashlib
 import math
 import re
 import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
@@ -16,6 +17,7 @@ from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage
 from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
+    CompanionBridgeTransportError,
 )
 
 _SCHEMA = "sentientos.foreground_game_observation:v1"
@@ -76,6 +78,126 @@ class WindowsForegroundBridgePublisher:
                 sequence=sequence, payload=payload, key=self._source_key,
                 created_at=observation.observed_at)
             return self._client.send(encoded)
+
+
+@dataclass(frozen=True, slots=True)
+class ForegroundPublisherStatus:
+    running: bool
+    attempts: int
+    acknowledgments: int
+    failures: int
+    last_attempt_at: str | None
+    last_acknowledged_at: str | None
+    last_message_id: str | None
+    last_failure_code: str | None
+    last_failure_delivery_state: str | None
+    last_failure_at: str | None
+    last_delivery_state: str | None
+
+
+class WindowsForegroundObservationPump:
+    """Supervise bounded periodic samples without replaying uncertain sends."""
+
+    _JOIN_TIMEOUT_SECONDS = 35.0
+
+    def __init__(self, *, publisher: WindowsForegroundBridgePublisher,
+                 process_names: tuple[str, ...] | list[str], interval_seconds: float = 1.0) -> None:
+        if type(publisher) is not WindowsForegroundBridgePublisher:
+            raise CompanionBridgeError("foreground_bridge_publisher_required")
+        if (isinstance(interval_seconds, bool)
+                or not isinstance(interval_seconds, (int, float))
+                or not math.isfinite(float(interval_seconds))
+                or not 0.1 <= interval_seconds <= 60.0):
+            raise CompanionBridgeError("foreground_publisher_interval_invalid")
+        self._publisher = publisher
+        self._process_names = normalize_game_process_names(process_names)
+        self._interval = float(interval_seconds)
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._started_once = False
+        self._attempts = 0
+        self._acknowledgments = 0
+        self._failures = 0
+        self._last_attempt_at: str | None = None
+        self._last_acknowledged_at: str | None = None
+        self._last_message_id: str | None = None
+        self._last_failure_code: str | None = None
+        self._last_failure_delivery_state: str | None = None
+        self._last_failure_at: str | None = None
+        self._last_delivery_state: str | None = None
+
+    def start(self) -> None:
+        """Start immediate sampling followed by fixed-interval fresh samples."""
+        with self._lock:
+            if self._started_once:
+                raise CompanionBridgeError("foreground_publisher_generation_rotation_required")
+            self._started_once = True
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._run,
+                name="sentientos-foreground-observer", daemon=True)
+            self._thread.start()
+
+    def close(self) -> None:
+        """Stop sampling and wait for any bounded in-flight loopback request."""
+        with self._lock:
+            thread = self._thread
+            self._stop.set()
+        if thread is None:
+            return
+        if thread is not threading.current_thread():
+            thread.join(timeout=self._JOIN_TIMEOUT_SECONDS)
+        if thread.is_alive():
+            raise CompanionBridgeError("foreground_publisher_shutdown_timeout")
+        with self._lock:
+            self._thread = None
+
+    def status(self) -> ForegroundPublisherStatus:
+        with self._lock:
+            running = self._thread is not None and self._thread.is_alive() and not self._stop.is_set()
+            return ForegroundPublisherStatus(running, self._attempts, self._acknowledgments,
+                self._failures, self._last_attempt_at, self._last_acknowledged_at,
+                self._last_message_id, self._last_failure_code,
+                self._last_failure_delivery_state, self._last_failure_at,
+                self._last_delivery_state)
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            attempted_at = datetime.now(timezone.utc).isoformat()
+            with self._lock:
+                self._attempts += 1
+                self._last_attempt_at = attempted_at
+            try:
+                acknowledgment = self._publisher.publish_once(self._process_names)
+            except CompanionBridgeTransportError as exc:
+                with self._lock:
+                    self._failures += 1
+                    self._last_failure_code = exc.code
+                    self._last_failure_delivery_state = exc.delivery_state
+                    self._last_failure_at = attempted_at
+                    self._last_delivery_state = exc.delivery_state
+            except CompanionBridgeError as exc:
+                code = str(exc.args[0]) if exc.args else "foreground_publication_failed"
+                with self._lock:
+                    self._failures += 1
+                    self._last_failure_code = code[:128]
+                    self._last_failure_delivery_state = "unknown"
+                    self._last_failure_at = attempted_at
+                    self._last_delivery_state = "unknown"
+            except Exception:
+                with self._lock:
+                    self._failures += 1
+                    self._last_failure_code = "foreground_publication_failed"
+                    self._last_failure_delivery_state = "unknown"
+                    self._last_failure_at = attempted_at
+                    self._last_delivery_state = "unknown"
+            else:
+                with self._lock:
+                    self._acknowledgments += 1
+                    self._last_acknowledged_at = acknowledgment.created_at
+                    self._last_message_id = acknowledgment.payload.get("message_id")
+                    self._last_delivery_state = "accepted"
+            self._stop.wait(self._interval)
 
 
 class BridgeForegroundGameDetector:
