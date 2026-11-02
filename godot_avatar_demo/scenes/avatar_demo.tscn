@@ -1,19 +1,48 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/avatar_driver.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/blendshape_driver.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/motion_driver.gd" id="3"]
 
-[sub_resource type="BoxMesh" id="1"]
+[sub_resource type="StandardMaterial3D" id="BodyMaterial"]
+albedo_color = Color(0.11, 0.57, 0.65, 1)
+metallic = 0.18
+roughness = 0.32
 
-[sub_resource type="Animation" id="2"]
-length = 1.2
+[sub_resource type="StandardMaterial3D" id="FaceMaterial"]
+albedo_color = Color(0.94, 0.82, 0.66, 1)
+roughness = 0.5
 
-[sub_resource type="Animation" id="3"]
-length = 1.2
+[sub_resource type="StandardMaterial3D" id="EyeMaterial"]
+albedo_color = Color(0.035, 0.075, 0.095, 1)
+roughness = 0.22
 
-[sub_resource type="Animation" id="4"]
-length = 1.2
+[sub_resource type="StandardMaterial3D" id="AccentMaterial"]
+albedo_color = Color(0.96, 0.48, 0.27, 1)
+metallic = 0.12
+roughness = 0.35
+
+[sub_resource type="CapsuleMesh" id="BodyMesh"]
+radius = 0.36
+height = 0.92
+material = SubResource("BodyMaterial")
+
+[sub_resource type="SphereMesh" id="FaceMesh"]
+radius = 0.47
+height = 0.94
+material = SubResource("FaceMaterial")
+
+[sub_resource type="SphereMesh" id="EyeMesh"]
+radius = 0.07
+height = 0.14
+material = SubResource("EyeMaterial")
+
+[sub_resource type="Environment" id="Environment"]
+background_mode = 1
+background_color = Color(0.035, 0.065, 0.09, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.46, 0.57, 0.66, 1)
+ambient_light_energy = 0.6
 
 [node name="AvatarDemo" type="Node3D"]
 script = ExtResource("1")
@@ -22,33 +51,102 @@ blendshape_driver_path = NodePath("BlendshapeDriver")
 motion_driver_path = NodePath("MotionDriver")
 status_label_path = NodePath("UI/StatusLabel")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.990268, 0.139173, 0, -0.139173, 0.990268, 0, 1.45, 5.6)
+current = true
+projection = 1
+size = 3.25
+
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 3, 0)
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 3, 2)
 shadow_enabled = true
+light_energy = 1.2
+
+[node name="FillLight" type="OmniLight3D" parent="."]
+position = Vector3(-2, 2, 2)
+light_color = Color(0.49, 0.76, 1, 1)
+light_energy = 0.45
+omni_range = 6.0
 
 [node name="Avatar" type="Node3D" parent="."]
 
-[node name="Mesh" type="MeshInstance3D" parent="Avatar"]
-mesh = SubResource("1")
+[node name="BodyMesh" type="MeshInstance3D" parent="Avatar"]
+position = Vector3(0, 0.66, 0)
+mesh = SubResource("BodyMesh")
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Avatar"]
-anims/idle = SubResource("2")
-anims/wave = SubResource("3")
-anims/nod = SubResource("4")
+[node name="LeftArm" type="MeshInstance3D" parent="Avatar"]
+position = Vector3(-0.48, 0.79, 0)
+rotation = Vector3(0, 0, -0.24)
+scale = Vector3(0.72, 0.78, 0.72)
+mesh = SubResource("BodyMesh")
+
+[node name="RightArm" type="MeshInstance3D" parent="Avatar"]
+position = Vector3(0.48, 0.79, 0)
+rotation = Vector3(0, 0, 0.24)
+scale = Vector3(0.72, 0.78, 0.72)
+mesh = SubResource("BodyMesh")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="Avatar"]
+position = Vector3(-0.18, 0.12, 0)
+scale = Vector3(0.65, 0.55, 0.7)
+mesh = SubResource("BodyMesh")
+
+[node name="RightLeg" type="MeshInstance3D" parent="Avatar"]
+position = Vector3(0.18, 0.12, 0)
+scale = Vector3(0.65, 0.55, 0.7)
+mesh = SubResource("BodyMesh")
+
+[node name="HeadPivot" type="Node3D" parent="Avatar"]
+position = Vector3(0, 1.49, 0)
+
+[node name="Head" type="MeshInstance3D" parent="Avatar/HeadPivot"]
+mesh = SubResource("FaceMesh")
+
+[node name="EyeLeft" type="MeshInstance3D" parent="Avatar/HeadPivot"]
+position = Vector3(-0.16, 0.035, 0.405)
+scale = Vector3(1, 1.1, 0.55)
+mesh = SubResource("EyeMesh")
+
+[node name="EyeRight" type="MeshInstance3D" parent="Avatar/HeadPivot"]
+position = Vector3(0.16, 0.035, 0.405)
+scale = Vector3(1, 1.1, 0.55)
+mesh = SubResource("EyeMesh")
+
+[node name="Mouth" type="MeshInstance3D" parent="Avatar/HeadPivot"]
+position = Vector3(0, -0.17, 0.444)
+scale = Vector3(0.19, 0.045, 0.045)
+mesh = SubResource("FaceMesh")
+surface_material_override/0 = SubResource("EyeMaterial")
+
+[node name="Antenna" type="MeshInstance3D" parent="Avatar/HeadPivot"]
+position = Vector3(0, 0.55, 0)
+scale = Vector3(0.12, 0.12, 0.12)
+mesh = SubResource("FaceMesh")
+surface_material_override/0 = SubResource("AccentMaterial")
 
 [node name="BlendshapeDriver" type="Node" parent="."]
 script = ExtResource("2")
-mesh_path = NodePath("../Avatar/Mesh")
+mesh_path = NodePath("../Avatar/HeadPivot/Head")
+mouth_node_path = NodePath("../Avatar/HeadPivot/Mouth")
+eye_left_path = NodePath("../Avatar/HeadPivot/EyeLeft")
+eye_right_path = NodePath("../Avatar/HeadPivot/EyeRight")
 
 [node name="MotionDriver" type="Node" parent="."]
 script = ExtResource("3")
-animation_player_path = NodePath("../Avatar/AnimationPlayer")
-supported_motions = PackedStringArray("idle", "wave", "nod")
+head_pivot_path = NodePath("../Avatar/HeadPivot")
+left_arm_path = NodePath("../Avatar/LeftArm")
+body_path = NodePath("../Avatar/BodyMesh")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="StatusLabel" type="Label" parent="UI"]
+offset_left = 14.0
+offset_top = 12.0
+offset_right = 450.0
+offset_bottom = 42.0
+theme_override_colors/font_color = Color(0.81, 0.93, 0.95, 1)
+theme_override_font_sizes/font_size = 15
 text = "Waiting for avatar_state.json"
-vertical_alignment = 1
-size_flags_horizontal = 3
-size_flags_vertical = 3
