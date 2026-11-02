@@ -1,8 +1,9 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/avatar_driver.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/blendshape_driver.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/motion_driver.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/candidate_body_adapter.gd" id="4"]
 
 [sub_resource type="StandardMaterial3D" id="BodyMaterial"]
 albedo_color = Color(0.11, 0.57, 0.65, 1)
@@ -50,6 +51,7 @@ listen_port = 18188
 blendshape_driver_path = NodePath("BlendshapeDriver")
 motion_driver_path = NodePath("MotionDriver")
 status_label_path = NodePath("UI/StatusLabel")
+candidate_body_adapter_path = NodePath("CandidateBodyAdapter")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment")
@@ -139,6 +141,10 @@ script = ExtResource("3")
 head_pivot_path = NodePath("../Avatar/HeadPivot")
 left_arm_path = NodePath("../Avatar/LeftArm")
 body_path = NodePath("../Avatar/BodyMesh")
+
+[node name="CandidateBodyAdapter" type="Node3D" parent="."]
+position = Vector3(1.7, 0, 0)
+script = ExtResource("4")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
