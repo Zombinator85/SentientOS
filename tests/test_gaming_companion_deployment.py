@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -71,15 +72,18 @@ def test_manifest_requires_absolute_posix_paths_without_nul_bytes():
 
 
 def test_local_doctor_is_read_only_and_does_not_claim_external_readiness(tmp_path):
-    manifest = _manifest(repository_root=str(tmp_path), state_root=str(tmp_path / "state"))
+    repo = Path(__file__).resolve().parents[1]
+    manifest = _manifest(repository_root=str(repo), state_root=str(tmp_path / "state"))
 
     result = inspect_local(manifest)
 
     assert result["status"] == "blocked"
-    assert result["facts"]["bridge_listener"] == "not_implemented"
+    assert result["facts"]["bridge_runtime_source_in_checkout"] is True
+    assert result["facts"]["bridge_listener"] == "not_observed_from_this_environment"
+    assert "authenticated_bridge_listener_unobserved" in result["warning_codes"]
     assert result["facts"]["foreground_observer"] == "not_observed_from_this_environment"
     assert result["facts"]["godot_renderer"] == "not_observed_from_this_environment"
-    assert result["facts"]["state_root_separate_from_checkout"] is False
+    assert result["facts"]["state_root_separate_from_checkout"] is True
     assert result["host_mutation_performed"] is False
     assert not (tmp_path / "state").exists()
 

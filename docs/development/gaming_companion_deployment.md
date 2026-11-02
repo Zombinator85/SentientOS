@@ -27,18 +27,21 @@ python -m scripts.gaming_companion_deployment_cli doctor --manifest <deployment.
 `validate` checks a closed schema and opt-in defaults. `doctor` performs
 read-only local checks for WSL2, repository and interpreter paths, an existing
 Linux-native state directory outside the source checkout, and the installed
-chat entrypoint. It explicitly
-reports that Windows components and the authenticated bridge were not observed
-from the WSL process. The doctor never creates missing paths. Its output is
-readiness evidence, not installation, runtime, model, or consent authority.
+chat entrypoint. It reports bridge runtime source presence separately from a
+live bridge listener: source code in the checkout does not prove a configured
+or running listener. It explicitly reports that Windows components and a live
+authenticated bridge were not observed from the WSL process. The doctor never
+creates missing paths. Its output is readiness evidence, not installation,
+runtime, model, or consent authority.
 
 `blocked` means a required local precondition is missing. `ready_with_warnings`
 means the local checks passed but a configured external component or optional
 capability remains unobserved. `ready` requires all required observations.
 Neither `ready` status creates permission for chat, avatar, screen capture, or
-speech effects. The current bridge library is a protocol codec without a
-listener, so this checkout cannot report a deployable Windows/WSL session as
-ready.
+speech effects. The repository includes a bounded authenticated loopback
+listener and client, but this read-only doctor does not start or observe a live
+listener. The transport does not provide Windows-to-WSL routing, so this
+checkout cannot report a deployable split-host session as ready.
 
 ## Manifest example
 
