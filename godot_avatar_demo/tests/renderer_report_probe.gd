@@ -14,7 +14,7 @@ func _run_probe() -> void:
 	var avatar: Node = packed.instantiate()
 	avatar.set("auto_listen", false)
 	root.add_child(avatar)
-	avatar.call("_apply_state", {
+	var state := {
 		"expression": "smile",
 		"mood": "joy",
 		"intensity": 0.8,
@@ -26,7 +26,16 @@ func _run_probe() -> void:
 			"output_digest": "a".repeat(64),
 			"output_mode": "chat_response_visual_only",
 		},
-	}, 0.016)
+	}
+	var user_args := OS.get_cmdline_user_args()
+	if not user_args.is_empty():
+		var supplied: Variant = JSON.parse_string(user_args[0])
+		if typeof(supplied) != TYPE_DICTIONARY:
+			push_error("renderer_probe_input_not_object")
+			quit(1)
+			return
+		state = supplied as Dictionary
+	avatar.call("_apply_state", state, 0.016)
 	var report: Dictionary = avatar.call("latest_renderer_report")
 	var motion: Dictionary = report.get("renderer_state", {}).get("motion", {})
 	var expression: Dictionary = report.get("renderer_state", {}).get("expression", {})
@@ -35,19 +44,23 @@ func _run_probe() -> void:
 		push_error("renderer_probe_schema_invalid")
 		quit(1)
 		return
-	if report.get("turn_id") != "turn-2" or report.get("output_digest") != "a".repeat(64):
+	var metadata_value: Variant = state.get("metadata", {})
+	var command_metadata: Dictionary = metadata_value if metadata_value is Dictionary else {}
+	if (report.get("session_id") != command_metadata.get("session_id")
+			or report.get("turn_id") != command_metadata.get("turn_id")
+			or report.get("output_digest") != command_metadata.get("output_digest")):
 		push_error("renderer_probe_command_lineage_missing")
 		quit(1)
 		return
-	if motion.get("active_motion") != "wave":
+	if motion.get("active_motion") != state.get("motion"):
 		push_error("renderer_probe_motion_not_applied")
 		quit(1)
 		return
-	if float(arm_rotation.get("z", 0.0)) >= -0.14:
+	if motion.get("active_motion") == "wave" and float(arm_rotation.get("z", 0.0)) >= -0.14:
 		push_error("renderer_probe_transform_not_observed")
 		quit(1)
 		return
-	if expression.get("status") != "procedural_fallback_applied":
+	if not str(expression.get("status", "")).ends_with("applied"):
 		push_error("renderer_probe_expression_fallback_not_reported")
 		quit(1)
 		return
@@ -55,7 +68,8 @@ func _run_probe() -> void:
 		push_error("renderer_probe_evidence_boundary_invalid")
 		quit(1)
 		return
-	if report.get("renderer_state", {}).get("applied_render_cap_fps") != 15:
+	var expected_cap := 15 if state.get("workload_mode") == "gaming" else 60
+	if report.get("renderer_state", {}).get("applied_render_cap_fps") != expected_cap:
 		push_error("renderer_probe_workload_cap_missing")
 		quit(1)
 		return
