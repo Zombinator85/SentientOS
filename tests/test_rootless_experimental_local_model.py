@@ -35,7 +35,8 @@ from sentientos.epistemic_revision_stability_series import (
     EpistemicCorrectionPressureSeries,
 )
 from sentientos.rootless_experimental_local_model import (
-    EXPERIMENT_ROOT, MODEL_MANIFEST_SCHEMA, RootlessExperimentalError,
+    EXPERIMENT_ROOT, MODEL_MANIFEST_SCHEMA, MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE,
+    RootlessExperimentalError,
     _rootless_governance_custody,
     execute_intent, prepare_intent, validate_experiment_root, verify_model_manifest,
     verify_runtime_bundle,
@@ -410,6 +411,32 @@ def test_artifact_manifest_verifies_license_source_size_and_sha(tmp_path, monkey
     artifact = Path(manifest["artifact_path"])
     artifact.write_bytes(b"tampered")
     with pytest.raises(RootlessExperimentalError, match="integrity_mismatch"):
+        verify_model_manifest(manifest, root=root)
+
+
+def test_artifact_manifest_pins_separate_upstream_license_source(tmp_path, monkeypatch):
+    _, root = _configure_workspace(monkeypatch, tmp_path)
+    manifest = _manifest(root)
+    upstream_repo = "upstream-org/upstream-model"
+    upstream_revision = "c" * 40
+    manifest["schema_version"] = MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE
+    manifest["license_repo_id"] = upstream_repo
+    manifest["license_revision"] = upstream_revision
+    manifest["license_url"] = (
+        f"https://huggingface.co/{upstream_repo}/blob/{upstream_revision}/LICENSE")
+    manifest["manifest_digest"] = semantic_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_digest"})
+
+    verified = verify_model_manifest(manifest, root=root)
+
+    assert verified["license_repo_id"] == upstream_repo
+    assert verified["license_revision"] == upstream_revision
+    assert verified["verified_artifact_sha256"] == manifest["artifact_sha256"]
+
+    manifest["license_revision"] = "d" * 40
+    manifest["manifest_digest"] = semantic_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_digest"})
+    with pytest.raises(RootlessExperimentalError, match="source_binding_invalid"):
         verify_model_manifest(manifest, root=root)
 
 
