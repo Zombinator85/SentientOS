@@ -42,6 +42,14 @@ three verified runtime receipts. Preparing an intent verifies all receipt
 digests, the worker interpreter, the source/license bindings, and model bytes;
 it does not load the model or infer.
 
+Artifact manifests using schema v1 bind the GGUF, model card, and license to one
+pinned Hugging Face repository revision. Schema v2 supports quantized artifacts
+whose repository carries the model card while the upstream model repository
+carries the license: it binds `license_repo_id` and `license_revision` separately
+and still verifies the exact license URL, file digest, declared Apache-2.0 or MIT
+license, and artifact/card digests. The license source is provenance only; it
+does not add network access or production authority to the rootless runner.
+
 ```console
 python scripts/run_rootless_experimental_local_model.py prepare \
   --model-manifest /workspace/sentientos-data/rootless-experimental/model-artifact-manifest.json \
