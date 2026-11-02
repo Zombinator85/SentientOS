@@ -154,3 +154,23 @@ The ordinary `sentientos-chat` CLI does not provision bridge keys or start the
 pump; an authorized deployment composition must supply the runtime and
 publisher components. The observer sees only which allowlisted executable is
 foreground, not game content or measured gameplay impact.
+
+## Per-turn inference limits
+
+When the effective workload is `gaming`, the production serving policy also
+places a digest-bound ceiling of two backend threads on that chat invocation.
+The exact-runtime llama.cpp worker lowers both decode and batch threads to the
+minimum of that ceiling and the commissioned profile, then restores the
+commissioned values after the turn, including when generation raises an error.
+Normal-mode calls have no per-turn override. The worker rejects this override
+for non-chat inference purposes and fails closed if the runtime cannot apply or
+restore the thread limit. The configured ceiling is recorded in the governed
+invocation receipt; the effective value may be lower when the commissioned
+profile uses fewer threads.
+
+This limits llama.cpp CPU inference parallelism for one request. It does not
+change GPU offload layers, GPU memory use, operating-system scheduling, host
+priority, power settings, or other processes. It does not guarantee smooth
+gameplay; target-host measurements are still required to tune the ceiling. The
+limit applies only to the exact llama.cpp runtime worker and is bounded by the
+existing commissioned profile.

@@ -45,7 +45,15 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 96
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v1"}
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v1",
+        "max_backend_threads": 2}
+
+
+def test_normal_chat_does_not_receive_a_backend_thread_override() -> None:
+    _, lineage = GamingWorkloadPolicy.apply_to_chat_invocation(
+        "normal", LocalModelInvocationBudget(), {})
+
+    assert "max_backend_threads" not in lineage
 
 
 def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:

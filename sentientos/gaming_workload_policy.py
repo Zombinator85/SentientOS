@@ -25,6 +25,7 @@ class GamingWorkloadPolicy:
     GAMING_MAX_OUTPUT_CHARS = 1200
     GAMING_MAX_NEW_TOKENS = 96
     GAMING_TIMEOUT_SECONDS = 12.0
+    GAMING_MAX_BACKEND_THREADS = 2
 
     @staticmethod
     def validate_mode(mode: str) -> WorkloadMode:
@@ -58,6 +59,7 @@ class GamingWorkloadPolicy:
         }
         if mode == "gaming":
             lineage["workload_response_style"] = cls.GAMING_CHAT_STYLE_ID
+            lineage["max_backend_threads"] = cls.GAMING_MAX_BACKEND_THREADS
         return cls.constrain_budget(mode, requested), lineage
 
     @classmethod

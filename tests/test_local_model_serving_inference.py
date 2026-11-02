@@ -51,6 +51,8 @@ class Kernel:
 
 
 class Model:
+    supports_per_invocation_thread_limit = True
+
     def __init__(self, identity, on_generate=None):
         self.active_identity, self.calls, self.closed, self.on_generate = identity, 0, False, on_generate
         self.prompts = []
@@ -132,6 +134,9 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
         "gaming_chat_style_v1" if style_expected else None)
+    assert receipt.request["linkage"].get("max_backend_threads") == (2 if style_expected else None)
+    assert receipt.generation_config["actual_generation_parameters"].get(
+        "max_backend_threads") == (2 if style_expected else None)
 
 
 def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt_lineage(
@@ -177,6 +182,9 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         assert "The user is in a gaming workload." in model.prompts[0]
         linkage = receipt.request["linkage"]
         assert linkage["workload_mode"] == "gaming"
+        assert linkage["max_backend_threads"] == 2
+        assert receipt.generation_config["actual_generation_parameters"][
+            "max_backend_threads"] == 2
         evidence = linkage["workload_evidence"]
         assert evidence["mode_source"] == "foreground_allowlist_match"
         assert evidence["transport_provenance"]["source_id"] == source_id
