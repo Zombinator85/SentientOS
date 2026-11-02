@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import ctypes
 import fnmatch
+import importlib
+import math
 import os
 import platform
 import shutil
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -372,6 +375,144 @@ def collect_accelerator_observation(
                    source="read_only:/sys/class/drm", values=values, findings=findings,
                    warnings=tuple(finding.code for finding in findings),
                    risks=("hardware_identity_is_not_runtime_availability",) if devices else ())
+
+
+def collect_nvidia_gpu_observation(
+    *,
+    nvml_provider: Any = None,
+    observed_at: str | None = None,
+    monotonic: Callable[[], float] = time.perf_counter,
+) -> HostCollectorResult:
+    """Collect read-only NVIDIA device telemetry through optional NVML.
+
+    NVML supplies device-wide samples here. This collector does not infer
+    per-process attribution, select a GPU for inference, or control the device.
+    Missing API calls remain unavailable in the returned measurement fields.
+    """
+    started = monotonic()
+    if nvml_provider is None:
+        try:
+            nvml_provider = importlib.import_module("pynvml")
+        except (ImportError, ModuleNotFoundError):
+            return _result(
+                "nvidia_gpu", "unavailable", observed_at=observed_at,
+                source="optional_python:nvidia-ml-py/NVML",
+                findings=(_finding("nvml_dependency_unavailable", "info"),),
+                warnings=("sensor_unavailable:nvidia_gpu",),
+                privacy_notes=("No network, device control, or per-process inspection is performed.",),
+            )
+
+    initialized = False
+    devices: list[dict[str, Any]] = []
+    findings: list[HostCollectorFinding] = []
+    try:
+        nvml_provider.nvmlInit()
+        initialized = True
+        count = nvml_provider.nvmlDeviceGetCount()
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError("nvml_device_count_invalid")
+        for index in range(count):
+            device_findings: list[str] = []
+            try:
+                handle = nvml_provider.nvmlDeviceGetHandleByIndex(index)
+            except Exception:
+                findings.append(_finding("nvml_device_handle_unavailable", "warning", str(index)))
+                continue
+
+            try:
+                raw_name = nvml_provider.nvmlDeviceGetName(handle)
+                name = raw_name.decode("utf-8", "replace") if isinstance(raw_name, bytes) else str(raw_name)
+            except Exception:
+                name = None
+                device_findings.append("name")
+
+            metrics: dict[str, Any] = {}
+            try:
+                utilization = nvml_provider.nvmlDeviceGetUtilizationRates(handle)
+                for field in ("gpu", "memory"):
+                    value = getattr(utilization, field)
+                    if (isinstance(value, bool) or not isinstance(value, (int, float))
+                            or not math.isfinite(float(value)) or not 0 <= float(value) <= 100):
+                        raise ValueError("nvml_utilization_invalid")
+                    metrics[field + "_utilization_percent"] = float(value)
+            except Exception:
+                metrics["gpu_utilization_percent"] = None
+                metrics["memory_utilization_percent"] = None
+                device_findings.append("utilization")
+
+            try:
+                memory = nvml_provider.nvmlDeviceGetMemoryInfo(handle)
+                total, used, free = (int(memory.total), int(memory.used), int(memory.free))
+                if total <= 0 or min(used, free) < 0 or used + free > total:
+                    raise ValueError("nvml_memory_values_invalid")
+                metrics.update({
+                    "vram_total_bytes": total,
+                    "vram_used_bytes": used,
+                    "vram_free_bytes": free,
+                    "vram_utilization_percent": round(100.0 * used / total, 6),
+                })
+            except Exception:
+                metrics.update({"vram_total_bytes": None, "vram_used_bytes": None,
+                                "vram_free_bytes": None, "vram_utilization_percent": None})
+                device_findings.append("memory")
+
+            try:
+                temperature = float(nvml_provider.nvmlDeviceGetTemperature(
+                    handle, nvml_provider.NVML_TEMPERATURE_GPU))
+                if not math.isfinite(temperature) or not 0 <= temperature <= 150:
+                    raise ValueError("nvml_temperature_invalid")
+                metrics["temperature_c"] = temperature
+            except Exception:
+                metrics["temperature_c"] = None
+                device_findings.append("temperature")
+
+            try:
+                power_watts = float(nvml_provider.nvmlDeviceGetPowerUsage(handle)) / 1000.0
+                if not math.isfinite(power_watts) or power_watts < 0:
+                    raise ValueError("nvml_power_invalid")
+                metrics["power_watts"] = power_watts
+            except Exception:
+                metrics["power_watts"] = None
+                device_findings.append("power")
+
+            devices.append({"index": index, "name": name, **metrics,
+                            "unavailable_measurements": device_findings})
+            findings.extend(_finding("nvml_measurement_unavailable", "info", f"device:{index}:{field}")
+                            for field in device_findings)
+    except Exception:
+        findings.append(_finding("nvml_observation_failed", "warning"))
+    finally:
+        if initialized:
+            try:
+                nvml_provider.nvmlShutdown()
+            except Exception:
+                findings.append(_finding("nvml_shutdown_failed", "warning"))
+
+    elapsed_value = monotonic() - started
+    elapsed_valid = math.isfinite(elapsed_value) and elapsed_value >= 0
+    elapsed: float | None = float(elapsed_value) if elapsed_valid else None
+    if not elapsed_valid:
+        findings.append(_finding("collector_overhead_unavailable", "warning"))
+    values = {"devices": devices, "device_count": len(devices),
+              "collector_overhead_seconds": elapsed, "sample_scope": "device_wide",
+              "per_process_attribution_available": False}
+    has_measurement = any(
+        any(value is not None for key, value in device.items()
+            if key not in {"index", "name", "unavailable_measurements"})
+        for device in devices)
+    if has_measurement:
+        status = "partial" if findings else "available"
+    elif devices:
+        status = "partial"
+    else:
+        status = "unavailable"
+    warnings = tuple(sorted({finding.code for finding in findings if finding.severity == "warning"}))
+    return _result(
+        "nvidia_gpu", status, observed_at=observed_at,
+        source="optional_python:nvidia-ml-py/NVML",
+        values=values, findings=findings, warnings=warnings,
+        privacy_notes=("Samples are device-wide and are not attributed to a process.",),
+    )
 
 
 def collect_process_observation(

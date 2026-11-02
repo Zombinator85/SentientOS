@@ -1,0 +1,55 @@
+{
+  "files": [
+    {
+      "path": "run/intent.json",
+      "sha256": "c78cb4d444ff163b566a964f06335bce21b3eb2080731389a1f707c2362ce86a",
+      "size_bytes": 2981
+    },
+    {
+      "path": "run/inference-attempt.json",
+      "sha256": "43fce608e316bb51f0ceee839b3bb4bb7d1729321455d76fd614b8f1b55e4710",
+      "size_bytes": 291
+    },
+    {
+      "path": "run/rootless-experimental-inference-receipt.json",
+      "sha256": "543ebbc31307f32c678d5ea36f4cd4e6c8ab86f41bf6fc6b52f8f52680fcee51",
+      "size_bytes": 7409
+    },
+    {
+      "path": "run/sentientos-invocation-receipt.json",
+      "sha256": "e25e691bd56396c18443edc76da38744bf0e1f43184250f3ea210d19bce7967f",
+      "size_bytes": 3483
+    },
+    {
+      "path": "run/control-plane-decisions.jsonl",
+      "sha256": "71cdd478a11000cada41c4ee3c44b8342c013b9d0b543cb1d351aaab6787ca14",
+      "size_bytes": 1945
+    },
+    {
+      "path": "run/governor-decisions.jsonl",
+      "sha256": "e30a55320a4c3eeff4f62bd02fc0f64f66fae53f1341ed7a466d2d5775c2c8db",
+      "size_bytes": 4377
+    },
+    {
+      "path": "runtime/installation-receipt.json",
+      "sha256": "54b5bc868018a35fd193eaffac436bd8db02a0979bc16f2054c2b1fc75e49288",
+      "size_bytes": 7394
+    },
+    {
+      "path": "runtime/import-verification-receipt.json",
+      "sha256": "22d47c0fdd94b181093d9be129dd75cf1f850cdcb60ae63eae4ef67531a1eda9",
+      "size_bytes": 3153
+    },
+    {
+      "path": "runtime/backend-verification-receipt.json",
+      "sha256": "1fe995ecc573245611f4a560302e9cf128eb3f66def94c28931cf51544e8412f",
+      "size_bytes": 2153
+    },
+    {
+      "path": "model-artifact-manifest.json",
+      "sha256": "a2162fea722faf04a42571b2b32ef9a138de2e03c781169e09e583675206e299",
+      "size_bytes": 1756
+    }
+  ],
+  "schema_version": "sentientos.pre_glorp_model_baseline_custody:v1"
+}

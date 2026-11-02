@@ -13,6 +13,7 @@ from sentientos.host_collectors import (
     collect_disk_observation,
     collect_fan_pwm_observation,
     collect_memory_observation,
+    collect_nvidia_gpu_observation,
     collect_network_interface_observation,
     collect_platform_observation,
     collect_thermal_sensor_observation,
@@ -138,6 +139,86 @@ def test_accelerator_negative_evidence_and_multiple_device_ambiguity() -> None:
     assert failed.status == "unavailable" and "observed" not in failed.values
     assert [device["vendor"] for device in multiple.values["devices"]] == ["nvidia", "amd"]
     assert not ({"vendor", "family", "vram_bytes"} & multiple.values.keys())
+
+
+class NvmlFixture:
+    NVML_TEMPERATURE_GPU = 0
+
+    def __init__(self, *, missing_temperature=False, invalid_utilization=False):
+        self.calls = []
+        self.missing_temperature = missing_temperature
+        self.invalid_utilization = invalid_utilization
+
+    def nvmlInit(self): self.calls.append("init")
+    def nvmlShutdown(self): self.calls.append("shutdown")
+    def nvmlDeviceGetCount(self): return 1
+    def nvmlDeviceGetHandleByIndex(self, index): return f"device-{index}"
+    def nvmlDeviceGetName(self, _handle): return b"NVIDIA Test GPU"
+    def nvmlDeviceGetUtilizationRates(self, _handle):
+        return SimpleNamespace(gpu=101 if self.invalid_utilization else 64, memory=50)
+    def nvmlDeviceGetMemoryInfo(self, _handle):
+        return SimpleNamespace(total=1000, used=400, free=600)
+    def nvmlDeviceGetTemperature(self, _handle, _sensor):
+        if self.missing_temperature:
+            raise RuntimeError("fixture temperature unavailable")
+        return 72
+    def nvmlDeviceGetPowerUsage(self, _handle): return 125000
+
+
+def test_nvml_collector_reports_device_wide_measurements_and_closes_provider():
+    provider = NvmlFixture()
+    timings = iter((10.0, 10.025))
+
+    result = collect_nvidia_gpu_observation(
+        nvml_provider=provider, observed_at=STAMP, monotonic=lambda: next(timings))
+
+    assert result.status == "available"
+    assert result.values["sample_scope"] == "device_wide"
+    assert result.values["per_process_attribution_available"] is False
+    assert result.values["collector_overhead_seconds"] == pytest.approx(0.025)
+    device = result.values["devices"][0]
+    assert device["name"] == "NVIDIA Test GPU"
+    assert device["gpu_utilization_percent"] == 64.0
+    assert device["vram_utilization_percent"] == 40.0
+    assert device["temperature_c"] == 72.0
+    assert device["power_watts"] == 125.0
+    assert provider.calls == ["init", "shutdown"]
+    assert result.host_mutation_performed is False
+    assert validate_host_collector_result(result).ok
+
+
+def test_nvml_collector_keeps_missing_or_malformed_measurements_unavailable():
+    missing = collect_nvidia_gpu_observation(
+        nvml_provider=NvmlFixture(missing_temperature=True), observed_at=STAMP)
+    malformed = collect_nvidia_gpu_observation(
+        nvml_provider=NvmlFixture(invalid_utilization=True), observed_at=STAMP)
+
+    assert missing.status == "partial"
+    assert missing.values["devices"][0]["temperature_c"] is None
+    assert "temperature" in missing.values["devices"][0]["unavailable_measurements"]
+    assert malformed.status == "partial"
+    assert malformed.values["devices"][0]["gpu_utilization_percent"] is None
+    assert malformed.values["devices"][0]["vram_used_bytes"] == 400
+    assert validate_host_collector_result(missing).ok
+    assert validate_host_collector_result(malformed).ok
+
+
+def test_nvml_absence_and_initialization_failure_remain_unavailable(monkeypatch):
+    import sentientos.host_collectors as collectors
+
+    monkeypatch.setattr(collectors.importlib, "import_module",
+        lambda _name: (_ for _ in ()).throw(ImportError("not installed")))
+    absent = collect_nvidia_gpu_observation(observed_at=STAMP)
+
+    class FailedProvider(NvmlFixture):
+        def nvmlInit(self): raise RuntimeError("fixture init failure")
+
+    failed = collect_nvidia_gpu_observation(nvml_provider=FailedProvider(), observed_at=STAMP)
+    assert absent.status == failed.status == "unavailable"
+    assert any(f.code == "nvml_dependency_unavailable" for f in absent.findings)
+    assert any(f.code == "nvml_observation_failed" for f in failed.findings)
+    assert validate_host_collector_result(absent).ok
+    assert validate_host_collector_result(failed).ok
 
 
 def test_network_collector_reads_interfaces_without_connectivity_check() -> None:
