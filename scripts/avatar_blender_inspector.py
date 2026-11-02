@@ -18,7 +18,7 @@ def main() -> None:
         raise ValueError("asset_format_unsupported")
     objects={}; armatures={}; bones={}; shape_keys={}; materials={}
     for material in bpy.data.materials:
-        settings={"base_color":list(material.diffuse_color),"metallic":None,"roughness":None}
+        settings: dict[str, object]={"base_color":list(material.diffuse_color),"metallic":None,"roughness":None}
         if material.use_nodes and material.node_tree:
             shader=next((node for node in material.node_tree.nodes if node.type=="BSDF_PRINCIPLED"),None)
             if shader:
