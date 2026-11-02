@@ -4,11 +4,34 @@ from __future__ import annotations
 import hashlib, json, sys
 
 SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature"}
+MAX_PRIMITIVE_MESH_VERTICES=4096
+MAX_PLAN_GEOMETRY_VERTICES=65536
 
 def _digest(value): return "sha256:"+hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
+def _primitive_vertex_count(arguments):
+    primitive=arguments.get("primitive","cube")
+    if primitive in {"cube","plane"}: return 8 if primitive=="cube" else 4
+    vertices=arguments.get("vertices",32)
+    if type(vertices) is not int or not 3<=vertices<=256: raise ValueError("geometry_bound_exceeded")
+    if primitive=="uv_sphere": return vertices*(max(4,vertices//2)-1)+2
+    if primitive=="cylinder": return vertices*2
+    if primitive=="cone": return vertices+1
+    raise ValueError("primitive_kind_unsupported")
+def validate_geometry_bounds(plan):
+    total=0
+    for operation in plan.get("operations",[]):
+        if operation.get("kind")!="create_primitive_mesh": continue
+        arguments=operation.get("arguments",{})
+        if not isinstance(arguments,dict): raise ValueError("authoring_operation_arguments_invalid")
+        estimate=_primitive_vertex_count(arguments)
+        if estimate>MAX_PRIMITIVE_MESH_VERTICES: raise ValueError("primitive_geometry_bound_exceeded")
+        total+=estimate
+        if total>MAX_PLAN_GEOMETRY_VERTICES: raise ValueError("plan_geometry_budget_exceeded")
+    return total
 def translate(plan):
     allowed=SUPPORTED_OPERATIONS
     if plan.get("schema_version")!="sentientos.avatar_authoring_plan:v1" or any(op.get("kind") not in allowed for op in plan.get("operations",[])): raise ValueError("invalid_plan")
+    validate_geometry_bounds(plan)
     return tuple((op["operation_id"],op["kind"],op["target"],dict(op["arguments"])) for op in plan["operations"])
 def main(argv):
     plan_path,output_path,claimed=argv[-3:]; plan=json.load(open(plan_path,encoding="utf-8")); embedded=plan.pop("plan_digest",None)
@@ -21,6 +44,7 @@ def main(argv):
         if kind=="create_primitive_mesh":
             primitive=args.get("primitive","cube")
             vertices=args.get("vertices",32)
+            _primitive_vertex_count(args)
             if primitive=="cube": bpy.ops.mesh.primitive_cube_add()
             elif primitive=="uv_sphere": bpy.ops.mesh.primitive_uv_sphere_add(segments=vertices,ring_count=max(4,vertices//2))
             elif primitive=="cylinder": bpy.ops.mesh.primitive_cylinder_add(vertices=vertices)

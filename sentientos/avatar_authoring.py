@@ -34,6 +34,8 @@ SUPPORTED_FORMATS = frozenset({"blend", "glb", "gltf"})
 MAX_OPERATIONS = 64
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
 MAX_INVENTORY = 128
+MAX_PRIMITIVE_MESH_VERTICES = 4096
+MAX_PLAN_GEOMETRY_VERTICES = 65536
 FALSE_AUTHORITY = {"decision_authority": False, "admission_authority": False,
                    "execution_authority": False, "adoption_authority": False,
                    "renderer_authority": False, "observation_authority": False}
@@ -91,6 +93,24 @@ def _vector(value: Any) -> list[float]:
     return [float(x) for x in value]
 
 
+def primitive_mesh_vertex_count(arguments: Mapping[str, Any]) -> int:
+    """Estimate Blender's bounded primitive topology from its creation inputs."""
+    primitive = arguments.get("primitive", "cube")
+    if primitive in {"cube", "plane"}:
+        return 8 if primitive == "cube" else 4
+    vertices = arguments.get("vertices", 32)
+    if type(vertices) is not int or not 3 <= vertices <= 256:
+        raise AvatarAuthoringError("geometry_bound_exceeded")
+    if primitive == "uv_sphere":
+        ring_count = max(4, vertices // 2)
+        return vertices * (ring_count - 1) + 2
+    if primitive == "cylinder":
+        return vertices * 2
+    if primitive == "cone":
+        return vertices + 1
+    raise AvatarAuthoringError("primitive_kind_unsupported")
+
+
 def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
     required = {"schema_version", "plan_id", "installation_body_id", "body_id", "predecessor_generation",
                 "predecessor_artifact_digest", "predecessor_manifest_digest", "operations", "proposed_by"}
@@ -104,6 +124,7 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(operations, list) or not operations or len(operations) > MAX_OPERATIONS:
         raise AvatarAuthoringError("authoring_plan_operation_count_invalid")
     seen: set[str] = set()
+    total_geometry_vertices = 0
     for operation in operations:
         if not isinstance(operation, dict) or set(operation) != {"operation_id", "kind", "target", "arguments", "preconditions", "postcondition"}:
             raise AvatarAuthoringError("authoring_operation_shape_invalid")
@@ -124,6 +145,12 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
                 raise AvatarAuthoringError("geometry_bound_exceeded")
             if "vertices" in args and primitive not in {"uv_sphere", "cylinder", "cone"}:
                 raise AvatarAuthoringError("primitive_vertex_parameter_unsupported")
+            estimated_vertices = primitive_mesh_vertex_count(args)
+            if estimated_vertices > MAX_PRIMITIVE_MESH_VERTICES:
+                raise AvatarAuthoringError("primitive_geometry_bound_exceeded")
+            total_geometry_vertices += estimated_vertices
+            if total_geometry_vertices > MAX_PLAN_GEOMETRY_VERTICES:
+                raise AvatarAuthoringError("plan_geometry_budget_exceeded")
         if any(key.lower() in {"python", "script", "shell", "command", "addon", "url", "path"} for key in args):
             raise AvatarAuthoringError("authoring_operation_code_or_path_forbidden")
         for key, item in args.items():
@@ -188,7 +215,7 @@ def _fixture_structure(path: Path) -> dict[str, Any]:
 def _apply_operation(model: dict[str, Any], operation: Mapping[str, Any]) -> None:
     kind, target, args = operation["kind"], operation["target"], operation["arguments"]
     objects, rigs = model["objects"], model["armatures"]
-    if kind == "create_primitive_mesh": objects[target] = {"type": "MESH", "primitive": args.get("primitive", "cube"), "vertices": args.get("vertices", 8), "transform": {"location": [0.,0.,0.], "rotation": [0.,0.,0.], "scale": [1.,1.,1.]}, "materials": [], "parent": None, "armature": None}
+    if kind == "create_primitive_mesh": objects[target] = {"type": "MESH", "primitive": args.get("primitive", "cube"), "vertices": primitive_mesh_vertex_count(args), "transform": {"location": [0.,0.,0.], "rotation": [0.,0.,0.], "scale": [1.,1.,1.]}, "materials": [], "parent": None, "armature": None}
     elif kind == "duplicate_object": objects[target] = json.loads(canonical_bytes(objects[args["source"]]))
     elif kind == "rename_object": objects[args["new_name"]] = objects.pop(target)
     elif kind == "set_transform": objects[target]["transform"] = {k: args.get(k, objects[target]["transform"][k]) for k in ("location","rotation","scale")}
@@ -237,7 +264,11 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
     for op in plan["operations"]:
         kind, target, args = op["kind"], op["target"], op["arguments"]
         satisfied = False
-        if kind == "create_primitive_mesh": satisfied = target in after["objects"] and after["objects"][target]["type"] == "MESH"
+        if kind == "create_primitive_mesh":
+            obj = after["objects"].get(target, {})
+            observed_vertices = obj.get("vertex_count", obj.get("vertices"))
+            satisfied = (obj.get("type") == "MESH" and type(observed_vertices) is int
+                and observed_vertices == primitive_mesh_vertex_count(args))
         elif kind == "duplicate_object": satisfied = target in after["objects"]
         elif kind == "rename_object": satisfied = args["new_name"] in after["objects"] and target not in after["objects"]
         elif kind == "set_transform": satisfied = target in after["objects"] and all(after["objects"][target]["transform"].get(k) == v for k,v in args.items() if k in {"location","rotation","scale"})

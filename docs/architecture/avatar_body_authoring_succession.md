@@ -42,6 +42,9 @@ process starts. This adapter currently accepts native `.blend` predecessors;
 the broader `.glb` and `.gltf` manifest support does not imply that this driver
 can import those formats. It rejects them before creating a workcell. Backend
 identity records `configured_candidate_tool`, not production evidence.
+Primitive creation is bounded by both an estimated 4,096 vertices per mesh and
+65,536 total estimated vertices per plan; the independent inspector records the
+actual vertex count and the structural comparison checks it against the request.
 `scripts/avatar_blender_driver.py` is static repository code; callers supply JSON
 only. There is no PATH discovery, generated Python, `exec`, addon installation,
 or network fetch. Readiness is read-only and reports `blender_backend_unavailable`
