@@ -9,7 +9,7 @@ import json
 import threading
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Mapping, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol, cast
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -127,6 +127,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     retain: bool = False
     request_id: str | None = None
+    observe_screen: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -166,7 +167,8 @@ class PersistentConversationService:
                  memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None,
                  avatar_output: ChatAvatarOutput | None = None,
-                 speech_output: ChatSpeechOutput | None = None) -> None:
+                 speech_output: ChatSpeechOutput | None = None,
+                 screen_observer: Callable[[], Mapping[str, object] | None] | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
         self._avatar_workload_sync_lock = threading.Lock()
@@ -174,6 +176,7 @@ class PersistentConversationService:
         self._avatar_workload_sync: dict[str, tuple[threading.Event, threading.Thread]] = {}
         self._avatar_workload_modes_observed: dict[str, str] = {}
         self._speech_output = speech_output
+        self._screen_observer = screen_observer
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -474,31 +477,58 @@ class PersistentConversationService:
         )
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
-             request_id: str | None = None) -> ChatResponse:
+             request_id: str | None = None, observe_screen: bool = False) -> ChatResponse:
         if session_id is None:
             return self._chat_unlocked(message, session_id=None, retain=retain,
-                request_id=request_id)
+                request_id=request_id, observe_screen=observe_screen)
         try:
             with self.sessions.serialize_chat_requests(session_id):
                 return self._chat_unlocked(message, session_id=session_id,
-                    retain=retain, request_id=request_id)
+                    retain=retain, request_id=request_id, observe_screen=observe_screen)
         except ConversationChatLockTimeout as exc:
             raise ChatRequestStateError("chat_session_request_lock_timeout") from exc
 
     def _chat_unlocked(self, message: str, *, session_id: str | None = None,
-                       retain: bool = False, request_id: str | None = None) -> ChatResponse:
+                       retain: bool = False, request_id: str | None = None,
+                       observe_screen: bool = False) -> ChatResponse:
+        if type(observe_screen) is not bool:
+            raise ChatRequestStateError("screen_observation_request_invalid")
+        request_options_digest = (hashlib.sha256(json.dumps(
+            {"observe_screen": True}, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest() if observe_screen else None)
         if request_id is not None:
             if session_id is None:
                 raise ChatRequestStateError("idempotent_request_requires_existing_session")
             try:
                 existing = self.sessions.find_user_request(session_id,
-                    request_id=request_id, text=message, retain=retain)
+                    request_id=request_id, text=message, retain=retain,
+                    request_options_digest=request_options_digest)
             except FileNotFoundError:
                 raise
             except ValueError as exc:
                 raise ChatRequestStateError(str(exc)) from exc
             if existing is not None:
                 return self._recover_idempotent_response(session_id, existing)
+        screen_observation: Mapping[str, object] | None = None
+        if observe_screen:
+            if self._screen_observer is None:
+                raise RuntimeError("screen_observation_not_configured")
+            screen_observation = self._screen_observer()
+            if not isinstance(screen_observation, Mapping):
+                raise RuntimeError("screen_observation_unavailable")
+            screen_text = screen_observation.get("text")
+            capture_digest = screen_observation.get("capture_digest")
+            captured_at = screen_observation.get("captured_at")
+            if (screen_observation.get("modality") != "screen"
+                    or screen_observation.get("raw_frame_retained") is not False
+                    or not isinstance(screen_text, str) or not screen_text.strip()
+                    or len(screen_text) > 1200
+                    or not isinstance(captured_at, str) or len(captured_at) > 64
+                    or screen_observation.get("capture_scope")
+                        != "allowlisted_foreground_game_client_area"
+                    or not isinstance(capture_digest, str) or len(capture_digest) != 64
+                    or any(character not in "0123456789abcdef" for character in capture_digest)):
+                raise RuntimeError("screen_observation_contract_invalid")
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
         if request_id is None:
@@ -507,7 +537,8 @@ class PersistentConversationService:
         else:
             try:
                 user_turn, created = self.sessions.append_user_request(session["session_id"],
-                    request_id=request_id, text=message, retain=retain)
+                    request_id=request_id, text=message, retain=retain,
+                    request_options_digest=request_options_digest)
             except ValueError as exc:
                 raise ChatRequestStateError(str(exc)) from exc
             if not created:
@@ -614,7 +645,8 @@ class PersistentConversationService:
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
-            verified_prior_runtime_lineage=predecessor_runtime_lineage)
+            verified_prior_runtime_lineage=predecessor_runtime_lineage,
+            screen_observation=screen_observation)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
@@ -626,6 +658,20 @@ class PersistentConversationService:
         if predecessor_invocation_reference is not None:
             linkage["verified_predecessor_invocation"] = dict(
                 predecessor_invocation_reference)
+        if screen_observation is not None:
+            screen_provenance: dict[str, object] = {
+                "capture_digest": screen_observation["capture_digest"],
+                "text_digest": hashlib.sha256(str(screen_observation["text"]).encode("utf-8")).hexdigest(),
+                "capture_scope": "allowlisted_foreground_game_client_area",
+                "captured_at": screen_observation["captured_at"],
+                "raw_frame_retained": False,
+            }
+            for key in ("process_name_digest", "consent_id_digest"):
+                value = screen_observation.get(key)
+                if (isinstance(value, str) and len(value) == 64
+                        and all(character in "0123456789abcdef" for character in value)):
+                    screen_provenance[key] = value
+            linkage["screen_observation_provenance"] = screen_provenance
         client_request_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
             if isinstance(user_turn.get("linkage"), Mapping) else None)
         if isinstance(client_request_digest, str):
@@ -742,6 +788,10 @@ class PersistentConversationService:
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"],
+                     "screen_observation_provenance": (
+                         dict(linkage["screen_observation_provenance"])
+                         if isinstance(linkage.get("screen_observation_provenance"), Mapping)
+                         else None),
                      "memory_retrieval_posture": memory["retrieval_posture"],
                      "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
                      "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
@@ -825,6 +875,10 @@ class PersistentConversationService:
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,
+                                     "screen_observation_provenance": (
+                                         dict(linkage["screen_observation_provenance"])
+                                         if isinstance(linkage.get("screen_observation_provenance"), Mapping)
+                                         else None),
                                      "selected_turn_count": len(history.turns), "selected_memory_count": len(memory["memories"])},
                             retention=retention_result)
 
@@ -858,12 +912,15 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               resource_provisioning_id: str | None = None,
                               runtime_handoff_id: str | None = None,
                               avatar_state_path: Path | None = None,
-                              local_speech_output: bool = False) -> None:
+                              local_speech_output: bool = False,
+                              screen_observer: Callable[[], Mapping[str, object] | None] | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if (foreground_game_detector is not None
             and type(foreground_game_detector) is not BridgeForegroundGameDetector):
         raise TypeError("exact_bridge_foreground_game_detector_required")
+    if screen_observer is not None and not callable(screen_observer):
+        raise TypeError("callable_screen_observer_required")
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
         raise TypeError("exact_production_chat_resource_context_owner_required")
     if resource_context_owner is not None and not resource_context_owner.has_single_process_custody:
@@ -927,7 +984,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(conversation_root.path),
             memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output,
-            speech_output=speech_output)
+            speech_output=speech_output, screen_observer=screen_observer)
     except Exception:
         try:
             if serving is not None:
@@ -1013,7 +1070,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             raise HTTPException(status_code=409, detail=summary)
     try:
         return _get_conversation_service().chat(message, session_id=request.session_id,
-            retain=request.retain, request_id=request.request_id)
+            retain=request.retain, request_id=request.request_id,
+            observe_screen=request.observe_screen)
     except ChatRequestStateError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except FileNotFoundError as exc:
@@ -1130,7 +1188,7 @@ async def create_session() -> dict[str, str]:
 @APP.get("/sessions")
 async def list_sessions() -> list[dict[str, Any]]:
     try:
-        return cast(list[dict[str, Any]], _get_conversation_service().sessions.list_recent())
+        return _get_conversation_service().sessions.list_recent()
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=503,
             detail="conversation_session_listing_unavailable_or_degraded") from exc
@@ -1177,6 +1235,8 @@ async def root_page() -> HTMLResponse:
                 #workload-status { margin-left: 0.5rem; color: #aaa; }
                 #avatar-output-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
                 #avatar-output-status { margin-left: 0.5rem; color: #aaa; }
+                #screen-observation-controls { margin: 0.75rem 0; }
+                #screen-observation-status { display: block; color: #aaa; }
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
                 .response { margin-top: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px; }
@@ -1214,6 +1274,11 @@ async def root_page() -> HTMLResponse:
                     <span id="speech-output-status" role="status">Off; local system voice only, no cloud TTS.</span>
                 </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
+                <section id="screen-observation-controls" aria-label="Screen observation">
+                    <label for="observe-screen"><input id="observe-screen" type="checkbox" />
+                        Include the current consented game screen in this message</label>
+                    <span id="screen-observation-status" role="status">OCR stays local and is not saved. Requires a configured consented screen source.</span>
+                </section>
                 <button id="send">Send</button>
                 <div id="response" class="response" hidden>
                     <strong>Response:</strong>
@@ -1248,6 +1313,7 @@ async def root_page() -> HTMLResponse:
                     const responseEl = document.getElementById('response');
                     const responseTextEl = document.getElementById('response-text');
                     const message = messageEl.value.trim();
+                    const observeScreen = document.getElementById('observe-screen').checked;
                     if (!message) {
                         alert('Please enter a message before sending.');
                         return;
@@ -1266,7 +1332,8 @@ async def root_page() -> HTMLResponse:
                         'SHA-256', new TextEncoder().encode(message));
                     const messageDigest = Array.from(new Uint8Array(messageDigestBytes))
                         .map(value => value.toString(16).padStart(2, '0')).join('');
-                    const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest;
+                    const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest
+                        + ':' + (observeScreen ? 'screen' : 'text');
                     let pending = null;
                     try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null'); }
                     catch (_) { pending = null; }
@@ -1276,7 +1343,8 @@ async def root_page() -> HTMLResponse:
                     const res = await fetch('/chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message, session_id: sessionId, request_id: requestId }),
+                        body: JSON.stringify({ message, session_id: sessionId, request_id: requestId,
+                            observe_screen: observeScreen }),
                     });
                     if (!res.ok) {
                         const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
