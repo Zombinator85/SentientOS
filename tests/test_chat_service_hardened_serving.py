@@ -148,6 +148,10 @@ def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
             assert 'id="game-process-names"' in page.text
             assert "async function refreshWorkloadStatus()" in page.text
             assert "setInterval(refreshWorkloadStatus, 5000)" in page.text
+            assert "sentientos_workload_preference_v1" in page.text
+            assert "function readWorkloadPreference()" in page.text
+            assert "function saveWorkloadPreference(mode, gameProcessNames)" in page.text
+            assert "preference.mode === control.value" in page.text
             assert client.get("/workload-mode").json()["mode"] == "normal"
             assert client.post("/workload-mode", json={"mode": "gaming"}).json()["mode"] == "gaming"
             automatic = client.post("/workload-mode", json={"mode": "automatic",
