@@ -50,6 +50,7 @@ OP_ARGUMENTS: dict[str, frozenset[str]] = {
     "parent_object": frozenset({"armature", "bone"}),
     "bind_armature": frozenset({"armature"}),
     "create_shape_key": frozenset({"shape_key", "vertex_offsets"}),
+    "create_bone_animation": frozenset({"animation", "armature", "bone", "fps", "keyframes"}),
     "register_channel": frozenset({"channel", "channel_kind", "control"}),
     "set_label": frozenset({"label", "value"}),
 }
@@ -57,6 +58,7 @@ BLENDER_SUPPORTED_OPERATIONS = frozenset({
     "create_primitive_mesh", "create_armature", "create_bone", "set_transform",
     "bind_armature", "create_material", "assign_material",
     "create_shape_key",
+    "create_bone_animation",
 })
 BLENDER_SUPPORTED_FORMATS = frozenset({"blend", "glb"})
 
@@ -182,6 +184,32 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
                     if (any(abs(component) > 0.25 for component in vector)
                             or not any(component != 0.0 for component in vector)):
                         raise AvatarAuthoringError("shape_key_vertex_offset_bound_exceeded")
+        if kind == "create_bone_animation":
+            if set(args) != {"animation", "armature", "bone", "fps", "keyframes"}:
+                raise AvatarAuthoringError("bone_animation_arguments_invalid")
+            for name_key in ("animation", "armature", "bone"):
+                _name(args[name_key])
+                if any(character in args[name_key] for character in ('"', "[", "]")):
+                    raise AvatarAuthoringError("bone_animation_name_invalid")
+            fps = args["fps"]
+            keyframes = args["keyframes"]
+            if type(fps) is not int or not 1 <= fps <= 60:
+                raise AvatarAuthoringError("bone_animation_fps_invalid")
+            if not isinstance(keyframes, list) or not 2 <= len(keyframes) <= 32:
+                raise AvatarAuthoringError("bone_animation_keyframes_invalid")
+            previous_frame = -1
+            for keyframe in keyframes:
+                if (not isinstance(keyframe, dict) or set(keyframe) != {"frame", "rotation_degrees"}
+                        or type(keyframe["frame"]) is not int
+                        or not 0 <= keyframe["frame"] <= 600
+                        or keyframe["frame"] <= previous_frame):
+                    raise AvatarAuthoringError("bone_animation_keyframes_invalid")
+                previous_frame = keyframe["frame"]
+                rotation = _vector(keyframe["rotation_degrees"])
+                if any(abs(component) > 180.0 for component in rotation):
+                    raise AvatarAuthoringError("bone_animation_rotation_bound_exceeded")
+            if previous_frame / fps > 10.0:
+                raise AvatarAuthoringError("bone_animation_duration_bound_exceeded")
         if kind == "create_primitive_mesh":
             primitive = args.get("primitive", "cube")
             if primitive not in {"cube", "uv_sphere", "cylinder", "cone", "plane"}:
@@ -283,6 +311,12 @@ def _apply_operation(model: dict[str, Any], operation: Mapping[str, Any]) -> Non
     elif kind == "parent_object": objects[target]["parent"] = {"armature": args["armature"], "bone": args.get("bone")}
     elif kind == "bind_armature": objects[target]["armature"] = args["armature"]
     elif kind == "create_shape_key": model["shape_keys"].setdefault(target, []).append(args["shape_key"])
+    elif kind == "create_bone_animation":
+        model["channels"][args["animation"]] = {
+            "kind": "motion", "control": f"{args['armature']}/{args['bone']}",
+            "animation_clip": args["animation"], "frame_count": args["keyframes"][-1]["frame"] + 1,
+            "keyframe_count": len(args["keyframes"]), "fps": args["fps"],
+        }
     elif kind == "register_channel": model["channels"][args["channel"]] = {"kind": args["channel_kind"], "control": args["control"]}
     elif kind == "set_label": model["labels"][args["label"]] = args["value"]
 
@@ -360,6 +394,11 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
                 evidence = after.get("shape_key_geometry", {}).get(target, {}).get(args["shape_key"], {})
                 satisfied = satisfied and evidence.get("changed_vertex_count") == len(args["vertex_offsets"])
                 satisfied = satisfied and evidence.get("maximum_vertex_delta", 0.0) > 0.0
+        elif kind == "create_bone_animation":
+            clip = after["channels"].get(args["animation"], {})
+            satisfied = (clip.get("animation_clip") == args["animation"]
+                         and clip.get("control") == f"{args['armature']}/{args['bone']}"
+                         and clip.get("keyframe_count", 0) >= len(args["keyframes"]))
         elif kind == "register_channel": satisfied = after["channels"].get(args["channel"]) == {"kind": args["channel_kind"], "control": args["control"]}
         elif kind == "set_label": satisfied = after["labels"].get(args["label"]) == args["value"]
         results.append({"operation_id": op["operation_id"], "classification": "satisfied" if satisfied else "unsatisfied"})

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import hashlib, json, math, sys
 
-SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature","create_material","assign_material","create_shape_key"}
+SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature","create_material","assign_material","create_shape_key","create_bone_animation"}
 MAX_PRIMITIVE_MESH_VERTICES=4096
 MAX_PLAN_GEOMETRY_VERTICES=65536
 
@@ -68,12 +68,43 @@ def validate_shape_key_bounds(plan):
                            or abs(float(value))>0.25 for value in vector)
                     or not any(float(value)!=0.0 for value in vector)):
                 raise ValueError("shape_key_vertex_offset_bound_exceeded")
+def validate_bone_animation_bounds(plan):
+    for operation in plan.get("operations",[]):
+        if operation.get("kind")!="create_bone_animation": continue
+        arguments=operation.get("arguments",{})
+        if (not isinstance(arguments,dict)
+                or set(arguments)!={"animation","armature","bone","fps","keyframes"}
+                or any(not isinstance(arguments[key],str) or not arguments[key] or len(arguments[key])>128
+                       or any(c in arguments[key] for c in ("/","\\","\x00",'"',"[","]"))
+                       for key in ("animation","armature","bone"))):
+            raise ValueError("bone_animation_arguments_invalid")
+        fps=arguments["fps"]
+        keyframes=arguments["keyframes"]
+        if type(fps) is not int or not 1<=fps<=60:
+            raise ValueError("bone_animation_fps_invalid")
+        if not isinstance(keyframes,list) or not 2<=len(keyframes)<=32:
+            raise ValueError("bone_animation_keyframes_invalid")
+        previous=-1
+        for keyframe in keyframes:
+            if (not isinstance(keyframe,dict) or set(keyframe)!={"frame","rotation_degrees"}
+                    or type(keyframe["frame"]) is not int or not 0<=keyframe["frame"]<=600
+                    or keyframe["frame"]<=previous):
+                raise ValueError("bone_animation_keyframes_invalid")
+            previous=keyframe["frame"]
+            rotation=keyframe["rotation_degrees"]
+            if (not isinstance(rotation,list) or len(rotation)!=3
+                    or any(type(value) not in (int,float) or not math.isfinite(float(value))
+                           or abs(float(value))>180.0 for value in rotation)):
+                raise ValueError("bone_animation_rotation_bound_exceeded")
+        if previous/fps>10.0:
+            raise ValueError("bone_animation_duration_bound_exceeded")
 def translate(plan):
     allowed=SUPPORTED_OPERATIONS
     if plan.get("schema_version")!="sentientos.avatar_authoring_plan:v1" or any(op.get("kind") not in allowed for op in plan.get("operations",[])): raise ValueError("invalid_plan")
     validate_geometry_bounds(plan)
     validate_material_bounds(plan)
     validate_shape_key_bounds(plan)
+    validate_bone_animation_bounds(plan)
     if any(not isinstance(op.get("arguments"),dict) for op in plan.get("operations",[])):
         raise ValueError("authoring_operation_arguments_invalid")
     return tuple((op["operation_id"],op["kind"],op["target"],dict(op["arguments"])) for op in plan["operations"])
@@ -172,6 +203,34 @@ def main(argv):
                 index=item["vertex_index"]
                 if index>=len(shape.data): raise ValueError("shape_key_vertex_index_out_of_range")
                 shape.data[index].co += Vector(item["offset"])
+        elif kind=="create_bone_animation":
+            armature=bpy.data.objects.get(args["armature"])
+            if armature is None or armature.type!="ARMATURE":
+                raise ValueError("animation_target_not_armature")
+            if armature.data.bones.get(args["bone"]) is None:
+                raise ValueError("animation_target_bone_missing")
+            if (armature.animation_data is not None
+                    and (armature.animation_data.action is not None or armature.animation_data.nla_tracks)):
+                raise ValueError("animation_target_has_existing_clips")
+            if bpy.data.actions.get(args["animation"]) is not None:
+                raise ValueError("animation_clip_already_exists")
+            action=bpy.data.actions.new(name=args["animation"])
+            armature.animation_data_create()
+            armature.animation_data.action=action
+            pose_bone=armature.pose.bones.get(args["bone"])
+            if pose_bone is None: raise ValueError("animation_target_pose_bone_missing")
+            pose_bone.rotation_mode="XYZ"
+            data_path=f'pose.bones["{args["bone"]}"].rotation_euler'
+            for axis in range(3):
+                curve=action.fcurves.new(data_path=data_path,index=axis,action_group=args["bone"])
+                curve.keyframe_points.add(len(args["keyframes"]))
+                for point,keyframe in zip(curve.keyframe_points,args["keyframes"]):
+                    point.co=(keyframe["frame"],math.radians(float(keyframe["rotation_degrees"][axis])))
+                    point.interpolation="BEZIER"
+                curve.update()
+            bpy.context.scene.render.fps=args["fps"]
+            bpy.context.scene.frame_start=args["keyframes"][0]["frame"]
+            bpy.context.scene.frame_end=args["keyframes"][-1]["frame"]
         else: raise ValueError("operation_not_yet_supported_by_blender_driver:"+kind)
         results.append({"operation_id":op_id,"status":"applied"})
     if output_path.lower().endswith(".blend"):
@@ -181,7 +240,8 @@ def main(argv):
         # do not author those channels. This also preserves source vertex counts
         # across GLB round-trip inspection instead of counting split loop vertices.
         bpy.ops.export_scene.gltf(filepath=output_path, export_format="GLB", export_apply=True,
-                                  export_normals=False, export_texcoords=False)
+                                  export_normals=False, export_texcoords=False,
+                                  export_animations=True, export_animation_mode="ACTIONS")
     else:
         raise ValueError("output_format_unsupported")
     print("SENTIENTOS_AVATAR_RESULT="+json.dumps({"status":"completed","operations":results},sort_keys=True))

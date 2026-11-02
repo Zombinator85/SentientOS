@@ -213,6 +213,52 @@ def test_shape_key_geometry_offsets_are_bounded_and_unique(tmp_path):
         with pytest.raises(AvatarAuthoringError,match=error): validate_plan(invalid)
 
 
+def test_bone_animation_contract_bounds_clip_and_keyframes(tmp_path):
+    source=artifact(tmp_path/"animation.glb")
+    checked=plan(manifest(source))
+    valid_arguments={"animation":"wave","armature":"Rig","bone":"hand","fps":30,
+        "keyframes":[{"frame":0,"rotation_degrees":[0.0,0.0,0.0]},
+                      {"frame":30,"rotation_degrees":[0.0,0.0,45.0]}]}
+    checked["operations"].append(operation("wave-clip","create_bone_animation","Rig",
+        valid_arguments,{"animation":"wave"}))
+    assert validate_plan(checked)["plan_digest"].startswith("sha256:")
+    invalid_cases=(
+        ({**valid_arguments,"fps":0},"bone_animation_fps_invalid"),
+        ({**valid_arguments,"keyframes":[{"frame":0,"rotation_degrees":[0,0,0]},
+            {"frame":0,"rotation_degrees":[0,0,45]}]},"bone_animation_keyframes_invalid"),
+        ({**valid_arguments,"keyframes":[{"frame":0,"rotation_degrees":[0,0,0]},
+            {"frame":30,"rotation_degrees":[0,0,181]}]},"bone_animation_rotation_bound_exceeded"),
+        ({**valid_arguments,"keyframes":[{"frame":0,"rotation_degrees":[0,0,0]},
+            {"frame":600,"rotation_degrees":[0,0,45]}]},"bone_animation_duration_bound_exceeded"),
+    )
+    for arguments,error in invalid_cases:
+        invalid=plan(manifest(source))
+        invalid["operations"].append(operation("wave-clip","create_bone_animation","Rig",arguments,
+            {"animation":"wave"}))
+        with pytest.raises(AvatarAuthoringError,match=error): validate_plan(invalid)
+
+
+def test_blender_driver_independently_rejects_unbounded_bone_animation():
+    from scripts.avatar_blender_driver import translate
+
+    arguments={"animation":"wave","armature":"Rig","bone":"hand","fps":30,
+        "keyframes":[{"frame":0,"rotation_degrees":[0,0,0]},
+                      {"frame":30,"rotation_degrees":[0,0,45]}]}
+    value={"schema_version":"sentientos.avatar_authoring_plan:v1","operations":[
+        {"operation_id":"wave","kind":"create_bone_animation","target":"Rig",
+         "arguments":arguments}]}
+    assert len(translate(value))==1
+    for invalid_arguments,error in (
+        ({**arguments,"fps":61},"bone_animation_fps_invalid"),
+        ({**arguments,"keyframes":[{"frame":0,"rotation_degrees":[0,0,0]},
+            {"frame":30,"rotation_degrees":[0,0,181]}]},"bone_animation_rotation_bound_exceeded"),
+    ):
+        invalid={"schema_version":"sentientos.avatar_authoring_plan:v1","operations":[
+            {"operation_id":"wave","kind":"create_bone_animation","target":"Rig",
+             "arguments":invalid_arguments}]}
+        with pytest.raises(ValueError,match=error): translate(invalid)
+
+
 @pytest.mark.parametrize("arguments,error",[
     ({"base_color":[0.1,0.2,0.3],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
     ({"base_color":[0.1,0.2,0.3,float("nan")],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
@@ -278,6 +324,14 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
                 {"vertex_index":268,"offset":[0.0,0.0,0.04]},
                 {"vertex_index":269,"offset":[0.0,0.0,0.08]},
                 {"vertex_index":270,"offset":[0.0,0.0,0.04]}]}, {"shape_key":"smile"}),
+            operation("wave","create_bone_animation","SentientRig",{
+                "animation":"wave","armature":"SentientRig","bone":"upper","fps":30,
+                "keyframes":[
+                    {"frame":0,"rotation_degrees":[0.0,0.0,0.0]},
+                    {"frame":8,"rotation_degrees":[0.0,0.0,55.0]},
+                    {"frame":16,"rotation_degrees":[0.0,0.0,-55.0]},
+                    {"frame":24,"rotation_degrees":[0.0,0.0,0.0]},
+                ]}, {"animation":"wave"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -295,7 +349,7 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
         inspector=inspector,work_id="smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated"
-    assert result["comparison"]["counts"]["satisfied"]==8
+    assert result["comparison"]["counts"]["satisfied"]==9
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
@@ -312,6 +366,10 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
     shape_geometry=result["successor_inspection"]["shape_key_geometry"]["CompanionHead"]["smile"]
     assert shape_geometry["changed_vertex_count"]==6
     assert shape_geometry["maximum_vertex_delta"]==pytest.approx(0.08,abs=1e-4)
+    wave_clip=result["successor_inspection"]["channels"]["wave"]
+    assert wave_clip["animation_clip"]=="wave"
+    assert wave_clip["control"]=="SentientRig/upper"
+    assert wave_clip["keyframe_count"]>=12
 
 def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
     executable=shutil.which("blender")
@@ -352,6 +410,14 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
                 {"vertex_index":268,"offset":[0.0,0.0,0.04]},
                 {"vertex_index":269,"offset":[0.0,0.0,0.08]},
                 {"vertex_index":270,"offset":[0.0,0.0,0.04]}]}, {"shape_key":"smile"}),
+            operation("wave-clip","create_bone_animation","SentientRig",{
+                "animation":"wave","armature":"SentientRig","bone":"upper","fps":30,
+                "keyframes":[
+                    {"frame":0,"rotation_degrees":[0.0,0.0,0.0]},
+                    {"frame":8,"rotation_degrees":[0.0,0.0,55.0]},
+                    {"frame":16,"rotation_degrees":[0.0,0.0,-55.0]},
+                    {"frame":24,"rotation_degrees":[0.0,0.0,0.0]},
+                ]}, {"animation":"wave"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -369,7 +435,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         inspector=inspector,work_id="glb-smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated", result["comparison"]
-    assert result["comparison"]["counts"]["satisfied"]==8
+    assert result["comparison"]["counts"]["satisfied"]==9
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
@@ -386,6 +452,10 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
     shape_geometry=result["successor_inspection"]["shape_key_geometry"]["CompanionHead"]["smile"]
     assert shape_geometry["changed_vertex_count"]==6
     assert shape_geometry["maximum_vertex_delta"]==pytest.approx(0.08,abs=1e-4)
+    wave_clip=result["successor_inspection"]["channels"]["wave"]
+    assert wave_clip["animation_clip"]=="wave"
+    assert wave_clip["control"]=="SentientRig/upper"
+    assert wave_clip["keyframe_count"]>=12
 
     godot=shutil.which("godot")
     if godot is None:
@@ -416,6 +486,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert loaded.returncode==0, loaded.stdout+loaded.stderr
         assert "sentientos_candidate_renderer_probe_passed" in loaded.stdout, loaded.stdout+loaded.stderr
+        assert "sentientos_authored_motion_clip_playing name=wave" in loaded.stdout
         report_line=next(line for line in loaded.stdout.splitlines()
             if line.startswith("sentientos_candidate_renderer_report_json:"))
         report=json.loads(report_line.split(":",1)[1])
@@ -423,6 +494,8 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         assert candidate_state["identity"]["artifact_sha256"]==candidate_evidence["artifact_sha256"]
         assert candidate_state["identity"]["adopted"] is False
         assert candidate_state["motion"]["status"]=="applied"
+        assert candidate_state["motion"]["motion_source"]=="authored_gltf_animation"
+        assert candidate_state["motion"]["animation_clip"]=="wave"
         assert candidate_state["expression"]["status"]=="blend_shape_applied"
         assert candidate_state["expression"]["shape"]=="smile"
         assert candidate_state["expression"]["weight"]==pytest.approx(0.8,abs=1e-6)

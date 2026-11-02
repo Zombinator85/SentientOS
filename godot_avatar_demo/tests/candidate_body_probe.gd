@@ -9,6 +9,7 @@ func _initialize() -> void:
 	var demo := (demo_value as PackedScene).instantiate()
 	demo.set("auto_listen", false)
 	root.add_child(demo)
+	await process_frame
 	var candidate_value: Variant = load("res://candidate.glb")
 	if not candidate_value is PackedScene:
 		_fail("candidate_probe_glb_not_packed_scene")
@@ -85,8 +86,30 @@ func _initialize() -> void:
 	if motion.get("status") != "applied" or motion.get("bone") != "upper":
 		_fail("candidate_probe_motion_mapping_not_applied")
 		return
-	if motion.get("bone_pose_rotation", {}).get("z", 0.0) == 0.0:
-		_fail("candidate_probe_bone_pose_not_changed")
+	if motion.get("motion_source") != "authored_gltf_animation":
+		_fail("candidate_probe_authored_motion_clip_not_used")
+		return
+	if motion.get("animation_clip") != "wave":
+		_fail("candidate_probe_authored_motion_clip_mismatch")
+		return
+	var animation_players := adapter.find_children("*", "AnimationPlayer", true, false)
+	if animation_players.size() != 1:
+		_fail("candidate_probe_animation_player_missing_or_ambiguous")
+		return
+	var animation_player := animation_players[0] as AnimationPlayer
+	if not animation_player.is_playing() or animation_player.current_animation != "wave":
+		_fail("candidate_probe_authored_motion_clip_not_playing")
+		return
+	var idle_motion: Dictionary = adapter.apply_motion("idle")
+	if idle_motion.get("status") != "applied" or idle_motion.get("motion_source") != "rest_pose":
+		_fail("candidate_probe_idle_motion_not_applied")
+		return
+	if animation_player.is_playing():
+		_fail("candidate_probe_authored_motion_clip_did_not_stop_for_idle")
+		return
+	var resumed_motion: Dictionary = adapter.apply_motion("wave")
+	if resumed_motion.get("status") != "applied" or not animation_player.is_playing():
+		_fail("candidate_probe_authored_motion_clip_did_not_resume")
 		return
 	if candidate_state.get("expression", {}).get("status") != "blend_shape_applied":
 		_fail("candidate_probe_authored_expression_not_applied")
@@ -106,6 +129,7 @@ func _initialize() -> void:
 	print("sentientos_candidate_renderer_report_json:" + JSON.stringify(candidate_report))
 	print("SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d" % [meshes.size(), skeletons.size()])
 	print("sentientos_candidate_renderer_probe_passed")
+	print("sentientos_authored_motion_clip_playing name=wave")
 	quit(0)
 
 
