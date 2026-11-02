@@ -27,6 +27,15 @@ def _production_chain(root: Path) -> dict[str, object]:
     return reconstruct_chain(**{name: json.loads((root / f"{name}.json").read_text()) for name in EVIDENCE_NAMES})
 
 
+def _resource_profile(path: Path | None) -> dict[str, object] | None:
+    if path is None:
+        return None
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("resource_profile_json_object_required")
+    return value
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -60,6 +69,8 @@ def main() -> int:
         production_command.add_argument("--correlation-id", required=True)
         production_command.add_argument("--max-new-tokens", type=int, default=8,
             help="operator-approved commissioning and invocation ceiling (1..512; default 8)")
+        production_command.add_argument("--resource-profile", type=Path,
+            help="optional versioned llama.cpp load-time resource profile JSON")
     command.add_argument("--approval-json", type=Path, required=True)
     status = sub.add_parser("status")
     status.add_argument("--activation-path", type=Path, required=True)
@@ -91,12 +102,14 @@ def main() -> int:
             if args.command == "intent":
                 result = dict(prepare_commissioning_intent(
                     chain, installation_handle=handle, correlation_id=args.correlation_id,
-                    max_new_tokens=args.max_new_tokens))
+                    max_new_tokens=args.max_new_tokens,
+                    resource_profile=_resource_profile(args.resource_profile)))
             else:
                 result = commission_production(chain, installation_handle=handle,
                     approval_evidence=json.loads(args.approval_json.read_text()),
                     control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id,
-                    max_new_tokens=args.max_new_tokens)
+                    max_new_tokens=args.max_new_tokens,
+                    resource_profile=_resource_profile(args.resource_profile))
         else:
             model, _ = load_activation(args.activation_path)
             try:

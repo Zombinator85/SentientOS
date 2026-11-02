@@ -18,6 +18,11 @@ from .governed_local_model_invocation import (
     validate_receipt,
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
+from .local_model_resource_profile import (
+    LocalModelResourceProfileError,
+    llama_cpp_resource_profile_digest,
+    validate_llama_cpp_resource_profile,
+)
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
 from .foreground_game_detection import ForegroundGameDetector, normalize_game_process_names
@@ -148,9 +153,26 @@ class ProductionServingInferenceController:
     def _authority(session: ServingSession) -> LocalModelAuthorityMap:
         binding = session.binding
         load = binding["load_configuration"]
+        candidate_options: dict[str, Any] = {"gpu_layers": int(load["n_gpu_layers"])}
+        profile = load.get("resource_profile")
+        if profile is not None:
+            try:
+                profile = validate_llama_cpp_resource_profile(profile)
+            except LocalModelResourceProfileError as exc:
+                raise ProductionServingInferenceError("serving_resource_profile_invalid") from exc
+            profile_digest = llama_cpp_resource_profile_digest(profile)
+            if (load.get("resource_profile_digest") != profile_digest
+                    or profile["n_ctx"] != int(load["n_ctx"])
+                    or profile["n_gpu_layers"] != int(load["n_gpu_layers"])
+                    or ("n_threads" in load and load["n_threads"] != profile["n_threads"])):
+                raise ProductionServingInferenceError("serving_resource_profile_mismatch")
+            candidate_options["resource_profile_digest"] = profile_digest
+            for name in ("n_threads", "n_threads_batch", "n_batch", "n_ubatch"):
+                if profile[name]:
+                    candidate_options[name] = profile[name]
         config = ModelConfig(
             [ModelCandidate(Path(str(binding["artifact_path"])), "llama_cpp", str(binding["model_id"]),
-                            {"gpu_layers": int(load["n_gpu_layers"])})],
+                            candidate_options)],
             default_engine="llama_cpp",
             max_context_tokens=int(load["n_ctx"]),
             generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1),

@@ -123,6 +123,48 @@ python scripts/local_model_commissioning.py commission --evidence-root /custody/
 The approval evidence must independently bind the emitted intent, including its smoke
 contract. The command does not issue approval or bypass control-plane admission.
 
+### Operator-approved llama.cpp resource profile
+
+Production commissioning may optionally bind an explicit, versioned llama.cpp
+load-time resource profile. The profile is validated, included in the commissioning
+intent and approval binding, passed to the exact runtime constructor, and reconstructed
+by the serving authority check. A changed profile therefore requires a newly prepared
+intent and corresponding approval. The profile does not grant authority or change an
+already running model automatically.
+
+The profile supports context size, GPU layer count, generation and batch thread counts,
+and batch/microbatch sizes. These are constructor-time settings: applying a different
+profile requires a separately approved commissioning and model reload. There is no
+per-turn thread adjustment or automatic gaming detector behavior in this interface.
+CPU routes must use zero GPU layers. Omit the option to preserve the existing default
+load behavior.
+
+For example, save this exact JSON as `/custody/cpu-gaming-v1.json`:
+
+```json
+{
+  "schema_version": "sentientos.llama_cpp_resource_profile:v1",
+  "profile_id": "cpu-gaming-v1",
+  "n_ctx": 512,
+  "n_gpu_layers": 0,
+  "n_threads": 4,
+  "n_threads_batch": 2,
+  "n_batch": 128,
+  "n_ubatch": 64
+}
+```
+
+Pass the same profile file to both stages so the prepared intent and the later
+commissioning request agree:
+
+```console
+python scripts/local_model_commissioning.py intent --evidence-root /custody/evidence --installation-identity <identity> --correlation-id <unique-id> --resource-profile /custody/cpu-gaming-v1.json
+python scripts/local_model_commissioning.py commission --evidence-root /custody/evidence --installation-identity <identity> --correlation-id <same-id> --approval-json /custody/approval.json --resource-profile /custody/cpu-gaming-v1.json
+```
+
+The commissioning command validates the supplied profile against the approved intent;
+it cannot silently substitute resource settings after approval.
+
 `doctor --state-root ...` without `--require-load-verification` verifies only the
 legacy metadata bundle. Its `calibration_readiness` remains
 `awaiting_process_real_identity_verification`, and its live-calibration booleans

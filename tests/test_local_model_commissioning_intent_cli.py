@@ -30,6 +30,7 @@ from sentientos.local_model_production_commissioning_authority import (
     build_intent,
 )
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 from sentientos.capability_registry import build_default_capability_registry
 
 
@@ -114,6 +115,31 @@ def test_cli_intent_can_bind_an_explicit_bounded_generation_ceiling(
     assert emitted["smoke_contract"]["max_new_tokens"] == 32
 
 
+def test_cli_intent_binds_a_versioned_resource_profile(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        tmp_path: Path) -> None:
+    chain, handle, proof = _evidence(); _authority_stubs(monkeypatch, proof)
+    monkeypatch.setattr(cli, "_production_chain", lambda root: chain)
+    monkeypatch.setattr("scripts.local_model_commissioning.InstallationStateRegistry.system",
+        lambda: SimpleNamespace(open=lambda identity: handle))
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["local_model_commissioning.py", "intent",
+        "--evidence-root", "/evidence", "--installation-identity", "machine-one",
+        "--correlation-id", "commissioning-one", "--resource-profile", str(profile_path)])
+
+    assert cli.main() == 0
+
+    emitted = json.loads(capsys.readouterr().out)
+    expected = dict(build_intent(chain, handle, correlation_id="commissioning-one",
+        resource_profile=profile))
+    assert emitted == expected
+    assert emitted["load_configuration"]["resource_profile"] == profile
+
+
 def test_cli_commission_reuses_the_approved_generation_ceiling(
         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
         tmp_path: Path) -> None:
@@ -128,11 +154,18 @@ def test_cli_commission_reuses_the_approved_generation_ceiling(
     monkeypatch.setattr(cli, "commission_production", commission_stub)
     monkeypatch.setattr(cli, "get_control_plane_kernel", lambda: object())
     approval = tmp_path / "approval.json"; approval.write_text("{}")
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["local_model_commissioning.py", "commission", "--evidence-root", "/evidence",
         "--installation-identity", "machine-one", "--correlation-id", "commissioning-one",
-        "--approval-json", str(approval), "--max-new-tokens", "32"])
+        "--approval-json", str(approval), "--max-new-tokens", "32",
+        "--resource-profile", str(profile_path)])
     assert cli.main() == 0
     assert observed["max_new_tokens"] == 32
+    assert observed["resource_profile"] == profile
     assert json.loads(capsys.readouterr().out)["status"] == "stubbed-test-only"
 
 

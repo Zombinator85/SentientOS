@@ -11,6 +11,12 @@ from typing import Any, Mapping, Sequence, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .local_model import ActiveModelIdentity, ModelLoadError
+from .local_model_resource_profile import (
+    LocalModelResourceProfileError,
+    llama_cpp_constructor_options,
+    llama_cpp_resource_profile_digest,
+    validate_llama_cpp_resource_profile,
+)
 
 MAX_PROTOCOL_BYTES = 65536
 
@@ -54,6 +60,7 @@ def emit(v):
 try:
  from llama_cpp import Llama
  path=sys.argv[1]; expected=sys.argv[2]; layers=int(sys.argv[3]); nctx=int(sys.argv[4]); nthreads=int(sys.argv[5]); posture=sys.argv[6]
+ profile=json.loads(sys.argv[7]) if len(sys.argv)>7 and sys.argv[7] else None
  if posture not in {"production","rootless_experimental"}: raise RuntimeError("invalid_identity_posture")
  if not 0 <= nthreads <= 256: raise RuntimeError("invalid_thread_limit")
  h=hashlib.sha256(); size=0
@@ -63,7 +70,16 @@ try:
    if not b: break
    h.update(b); size+=len(b)
  if h.hexdigest()!=expected: raise RuntimeError("artifact_identity_mismatch")
- model=Llama(model_path=path,n_ctx=nctx,n_gpu_layers=layers,verbose=False,**({"n_threads":nthreads} if nthreads else {}))
+ options={"n_ctx":nctx,"n_gpu_layers":layers}
+ if profile is not None:
+  if (not isinstance(profile,dict) or set(profile)!={"schema_version","profile_id","n_ctx","n_gpu_layers","n_threads","n_threads_batch","n_batch","n_ubatch"}
+      or profile.get("schema_version")!="sentientos.llama_cpp_resource_profile:v1"
+      or profile.get("n_ctx")!=nctx or profile.get("n_gpu_layers")!=layers): raise RuntimeError("resource_profile_invalid")
+  options.update({k:profile[k] for k in ("n_batch","n_ubatch")})
+  if profile["n_threads"]: options["n_threads"]=profile["n_threads"]
+  if profile["n_threads_batch"]: options["n_threads_batch"]=profile["n_threads_batch"]
+ elif nthreads: options["n_threads"]=nthreads
+ model=Llama(model_path=path,verbose=False,**options)
  emit({"type":"ready","interpreter_path":os.path.realpath(sys.executable),"artifact_sha256":h.hexdigest(),"artifact_size_bytes":size,"engine":"llama_cpp","posture":posture,**resources()})
  for line in sys.stdin:
   if len(line.encode())>65536: raise RuntimeError("request_too_large")
@@ -118,7 +134,24 @@ class ExactRuntimeLocalModel:
         if not 1 <= max_new_tokens <= 512:
             raise ModelLoadError("invalid model generation limit")
         candidate_options = {"gpu_layers": int(load["n_gpu_layers"])}
-        if n_threads:
+        profile = load.get("resource_profile")
+        profile_json = ""
+        if profile is not None:
+            try:
+                profile = validate_llama_cpp_resource_profile(profile)
+            except LocalModelResourceProfileError as exc:
+                raise ModelLoadError(str(exc)) from exc
+            if (profile["n_ctx"] != int(load["n_ctx"])
+                    or profile["n_gpu_layers"] != int(load["n_gpu_layers"])
+                    or ("n_threads" in load and load["n_threads"] != profile["n_threads"])
+                    or load.get("resource_profile_digest") != llama_cpp_resource_profile_digest(profile)):
+                raise ModelLoadError("resource profile does not match the approved load configuration")
+            candidate_options["resource_profile_digest"] = load["resource_profile_digest"]
+            for name in ("n_threads", "n_threads_batch", "n_batch", "n_ubatch"):
+                if profile[name]:
+                    candidate_options[name] = profile[name]
+            profile_json = json.dumps(profile, sort_keys=True, separators=(",", ":"))
+        if n_threads and profile is None:
             candidate_options["n_threads"] = n_threads
         self.config = ModelConfig(
             [ModelCandidate(Path(str(chain["artifact_path"])), "llama_cpp", str(chain["model_id"]),
@@ -130,7 +163,7 @@ class ExactRuntimeLocalModel:
         self._process = subprocess.Popen(
             [str(interpreter), "-I", "-u", "-c", _WORKER, str(chain["artifact_path"]),
              str(chain["artifact_sha256"]), str(load["n_gpu_layers"]), str(load["n_ctx"]),
-             str(n_threads), identity_posture],
+             str(n_threads), identity_posture, profile_json],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             bufsize=1, env=_environment(), cwd=str(Path(str(chain["artifact_path"])).parent),
         )

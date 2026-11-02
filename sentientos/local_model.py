@@ -338,6 +338,9 @@ class _LlamaCppBackend(_ModelBackend):
         runtime_options: dict[str, Any] = {}
         if candidate.options.get("n_threads") is not None:
             runtime_options["n_threads"] = int(candidate.options["n_threads"])
+        for option in ("n_threads_batch", "n_batch", "n_ubatch"):
+            if candidate.options.get(option) is not None:
+                runtime_options[option] = int(candidate.options[option])
         self._llama = Llama(
             model_path=str(model_path),
             n_ctx=max_context_tokens,

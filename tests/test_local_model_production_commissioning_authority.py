@@ -4,10 +4,11 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 from types import SimpleNamespace
 from sentientos.local_model_production_commissioning_authority import (APPROVAL_SCHEMA, EFFECTS, INTENT_SCHEMA, CommissioningAuthorityError, build_intent, child_smoke_correlation, verify_external_approval)
+from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 from sentientos.local_runtime_provisioning import semantic_digest
 
 def _handle(tmp_path): return SimpleNamespace(identity=SimpleNamespace(value="machine-one"), root=tmp_path)
-def _intent(monkeypatch,tmp_path,*,max_new_tokens=8):
+def _intent(monkeypatch,tmp_path,*,max_new_tokens=8,resource_profile=None):
  proof={"installation_identity":"machine-one","custody_identity":"catalog:machine-one","authoritative_catalog_semantic_digest":"d"*64,"proof_semantic_digest":"e"*64,"deployment_receipt_id":"deployment-one","deployment_receipt_semantic_digest":"f"*64}
  plan={"acquisition_plan_digest":"a"*64,"installation_identity":"machine-one","catalog_custody_identity":"catalog:machine-one","local_model_catalog_digest":"d"*64,"authoritative_catalog_proof_digest":"e"*64,"deployment_receipt_id":"deployment-one","deployment_receipt_semantic_digest":"f"*64}
  receipt={"schema_version":"sentientos.local_model_artifact_acquisition_receipt:v2","receipt_semantic_digest":"b"*64}
@@ -15,7 +16,7 @@ def _intent(monkeypatch,tmp_path,*,max_new_tokens=8):
  monkeypatch.setattr("sentientos.local_model_production_commissioning_authority.current_proof",lambda handle,plan:proof)
  monkeypatch.setattr("sentientos.local_model_production_commissioning_authority.commissioning_custody",lambda handle:{"commissioning_output_custody_identity":"installation-local-model-commissioning:machine-one","commissioning_domain":"local-model/commissioning","receipt_directory":"local-model/commissioning/receipts","smoke_directory":"local-model/commissioning/smoke"})
  monkeypatch.setattr("sentientos.local_model_artifact_acquisition.verify_acquisition_receipt",lambda receipt,plan:True)
- return build_intent(chain,_handle(tmp_path),correlation_id="commissioning-parent-one",max_new_tokens=max_new_tokens)
+ return build_intent(chain,_handle(tmp_path),correlation_id="commissioning-parent-one",max_new_tokens=max_new_tokens,resource_profile=resource_profile)
 def _approval(intent,synthetic=False):
  now=datetime(2026,9,8,tzinfo=timezone.utc); keys=("target_principal","target_capability","effects","correlation_id","intent_id","intent_semantic_digest","installation_identity","catalog_custody_identity","authoritative_catalog_proof_digest","deployment_receipt_id","deployment_receipt_semantic_digest","hardened_acquisition_receipt_identity","hardened_acquisition_receipt_digest","model_id","artifact_id","route_id","runtime_id","artifact_sha256","artifact_size_bytes","compatibility_probe_contract","load_configuration","smoke_contract","commissioning_output_custody_identity")
  value={"schema_version":APPROVAL_SCHEMA,"approval_evidence_id":"operator-event-123","operator_identity":"operator-alice","approval_status":"approved","evidence_source":"external-console","evidence_provenance":"signed-event-ledger",**{k:intent[k] for k in keys},"not_before":(now-timedelta(minutes=1)).isoformat(),"expires_at":(now+timedelta(minutes=1)).isoformat(),"approval_timestamp":now.isoformat(),"synthetic_test_evidence":synthetic}; value["approval_semantic_digest"]=semantic_digest(value); return value,now
@@ -30,6 +31,23 @@ def test_generation_ceiling_is_bounded_and_bound_into_the_approved_intent(monkey
  assert _approval(larger)[0]["smoke_contract"]==larger["smoke_contract"]
  with pytest.raises(CommissioningAuthorityError,match="generation_ceiling_invalid"):
   _intent(monkeypatch,tmp_path,max_new_tokens=513)
+
+def test_explicit_resource_profile_is_bound_into_commissioning_intent_and_approval(monkeypatch,tmp_path):
+ profile={"schema_version":LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,"profile_id":"cpu-gaming-v1",
+          "n_ctx":512,"n_gpu_layers":0,"n_threads":4,"n_threads_batch":2,
+          "n_batch":128,"n_ubatch":64}
+ intent=_intent(monkeypatch,tmp_path,resource_profile=profile)
+ assert intent["load_configuration"]["resource_profile"]==profile
+ assert intent["load_configuration"]["resource_profile_digest"]
+ assert _approval(intent)[0]["load_configuration"]==intent["load_configuration"]
+ assert intent["intent_semantic_digest"]!=_intent(monkeypatch,tmp_path)["intent_semantic_digest"]
+
+def test_cpu_commissioning_rejects_gpu_offload_profile(monkeypatch,tmp_path):
+ profile={"schema_version":LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,"profile_id":"gpu-profile-v1",
+          "n_ctx":512,"n_gpu_layers":1,"n_threads":4,"n_threads_batch":2,
+          "n_batch":128,"n_ubatch":64}
+ with pytest.raises(CommissioningAuthorityError,match="cpu_route_offload_invalid"):
+  _intent(monkeypatch,tmp_path,resource_profile=profile)
 @pytest.mark.parametrize("field", ("not_before", "expires_at", "approval_timestamp"))
 def test_external_commissioning_approval_rejects_unknown_timestamp_offsets(monkeypatch,tmp_path,field):
  intent=_intent(monkeypatch,tmp_path); approval,now=_approval(intent)

@@ -10,6 +10,7 @@ import sys
 import pytest
 
 from sentientos.local_model_runtime_worker import _WORKER, _valid_runtime_resource_seconds
+from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -25,8 +26,10 @@ def test_exact_runtime_worker_reports_bounded_invocation_resources(tmp_path: Pat
     fake_runtime = tmp_path / "fake-runtime"
     fake_runtime.mkdir()
     (fake_runtime / "llama_cpp.py").write_text(
+        "import json, os\n"
         "class Llama:\n"
-        "    def __init__(self, **kwargs): pass\n"
+        "    def __init__(self, **kwargs):\n"
+        "        open(os.environ['SENTIENTOS_PROFILE_CAPTURE'], 'w').write(json.dumps(kwargs))\n"
         "    def __call__(self, prompt, **kwargs):\n"
         "        return {'choices': [{'text': 'fixture response'}]}\n",
         encoding="utf-8")
@@ -38,11 +41,18 @@ def test_exact_runtime_worker_reports_bounded_invocation_resources(tmp_path: Pat
     }
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(fake_runtime)
+    captured_options = tmp_path / "llama-options.json"
+    environment["SENTIENTOS_PROFILE_CAPTURE"] = str(captured_options)
+    profile = {
+        "schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 64, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64,
+    }
 
     result = subprocess.run(
         [sys.executable, "-c", _WORKER, str(artifact),
          hashlib.sha256(artifact.read_bytes()).hexdigest(), "0", "64", "2",
-         "rootless_experimental"],
+         "rootless_experimental", json.dumps(profile)],
         input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
@@ -59,6 +69,11 @@ def test_exact_runtime_worker_reports_bounded_invocation_resources(tmp_path: Pat
     generated = records[1]
     assert generated["type"] == "generated"
     assert generated["output"] == "fixture response"
+    assert json.loads(captured_options.read_text(encoding="utf-8")) == {
+        "n_ctx": 64, "n_gpu_layers": 0, "n_batch": 128, "n_ubatch": 64,
+        "n_threads": 4, "n_threads_batch": 2,
+        "model_path": str(artifact), "verbose": False,
+    }
     metrics = generated["invocation_resources"]
     assert metrics["schema_version"] == (
         "sentientos.llama_cpp_invocation_resource_observation:v1")
