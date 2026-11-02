@@ -24,8 +24,13 @@ class Inference:
         self.calls = []; self.statuses = iter(statuses or ["admitted_completed"] * 10)
         self.receipts = {}
         self.workload_mode = "normal"
-    def set_workload_mode(self, mode): self.workload_mode = mode; return mode
+        self.game_process_names = ()
+    def set_workload_mode(self, mode, game_process_names=()):
+        self.workload_mode = mode; self.game_process_names = tuple(game_process_names); return mode
     def current_workload_mode(self): return self.workload_mode
+    def current_workload_state(self):
+        return {"mode": self.workload_mode, "effective_mode": self.workload_mode,
+            "observation_status": "not_requested"}
     def current_conversation_model_identity(self): return dict(self.identity)
     def generate(self, **kwargs):
         self.calls.append(kwargs); status = next(self.statuses)
@@ -140,12 +145,16 @@ def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
             page = client.get("/")
             assert page.status_code == 200
             assert 'id="workload-mode"' in page.text
-            assert client.get("/workload-mode").json() == {"mode": "normal"}
-            assert client.post("/workload-mode", json={"mode": "gaming"}).json() == {
-                "mode": "gaming"}
-            response = client.post("/workload-mode", json={"mode": "automatic"})
+            assert 'id="game-process-names"' in page.text
+            assert client.get("/workload-mode").json()["mode"] == "normal"
+            assert client.post("/workload-mode", json={"mode": "gaming"}).json()["mode"] == "gaming"
+            automatic = client.post("/workload-mode", json={"mode": "automatic",
+                "game_process_names": ["ExampleGame.exe"]})
+            response = client.post("/workload-mode", json={"mode": "other"})
+        assert automatic.status_code == 200
+        assert inference.game_process_names == ("ExampleGame.exe",)
         assert response.status_code == 400
-        assert inference.workload_mode == "gaming"
+        assert inference.workload_mode == "automatic"
     finally:
         chat_service._CONVERSATION_SERVICE = None
 

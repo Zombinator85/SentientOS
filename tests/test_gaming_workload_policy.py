@@ -34,7 +34,7 @@ def test_gaming_mode_does_not_expand_an_already_tighter_budget() -> None:
 
 def test_unknown_workload_mode_is_rejected() -> None:
     with pytest.raises(ValueError, match="unsupported_workload_mode"):
-        GamingWorkloadPolicy.validate_mode("automatic")
+        GamingWorkloadPolicy.validate_mode("other")
 
 
 def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
@@ -44,4 +44,5 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
         "gaming", requested, {"serving_session_id": "session-1"})
 
     assert budget.max_new_tokens == 96
-    assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming"}
+    assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
+        "workload_evidence": {}}

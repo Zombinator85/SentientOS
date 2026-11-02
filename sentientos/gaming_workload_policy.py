@@ -6,8 +6,9 @@ from typing import Any, Literal, Mapping
 
 from .governed_local_model_invocation import LocalModelInvocationBudget
 
-WorkloadMode = Literal["normal", "gaming"]
-SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming"})
+WorkloadMode = Literal["normal", "gaming", "automatic"]
+EffectiveWorkloadMode = Literal["normal", "gaming"]
+SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 
 
 class GamingWorkloadPolicy:
@@ -38,11 +39,13 @@ class GamingWorkloadPolicy:
         )
 
     @classmethod
-    def apply_to_chat_invocation(cls, mode: WorkloadMode,
+    def apply_to_chat_invocation(cls, mode: EffectiveWorkloadMode,
                                  requested: LocalModelInvocationBudget,
-                                 serving_lineage: Mapping[str, Any]
+                                 serving_lineage: Mapping[str, Any],
+                                 workload_evidence: Mapping[str, Any] | None = None,
                                  ) -> tuple[LocalModelInvocationBudget, dict[str, Any]]:
         """Return the bounded budget and digest-bound lineage for one call."""
         return cls.constrain_budget(mode, requested), {
             **dict(serving_lineage), "workload_mode": mode,
+            "workload_evidence": dict(workload_evidence or {}),
         }
