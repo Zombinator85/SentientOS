@@ -9,11 +9,25 @@ compatible with the memory manager.
 from __future__ import annotations
 
 import hashlib
+import json
+import math
+import re
 import time
 from dataclasses import dataclass
-from typing import Callable, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from sentientos.metrics import MetricsRegistry
+
+_SAFE_FAILURE_CODE = re.compile(r"^[a-z0-9_]{1,128}$")
+_UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
+
+
+def _failure_code(exc: BaseException, fallback: str) -> str:
+    if isinstance(exc, ScreenCaptureError):
+        candidate = str(exc)
+        if _SAFE_FAILURE_CODE.fullmatch(candidate):
+            return candidate
+    return fallback
 
 
 @dataclass
@@ -35,32 +49,81 @@ class ScreenOCR:
         self,
         config: ScreenConfig,
         *,
-        capture_fn: Callable[[], Mapping[str, str]] | None = None,
-        ocr_fn: Callable[[Mapping[str, str]], str] | None = None,
+        capture_fn: Callable[[], Mapping[str, Any]] | None = None,
+        ocr_fn: Callable[[Mapping[str, Any]], str] | None = None,
         metrics: MetricsRegistry | None = None,
     ) -> None:
         self._config = config
-        self._capture_fn = capture_fn or (lambda: {"data": ""})
-        self._ocr_fn = ocr_fn or (lambda payload: str(payload.get("data", "")))
+        self._capture_fn = capture_fn
+        self._ocr_fn = ocr_fn
         self._metrics = metrics or MetricsRegistry()
         self._last_hash: str | None = None
+        self._last_text_digest: str | None = None
+        self._last_attempt_monotonic: float | None = None
         self._chars_window: list[tuple[float, int]] = []
-        self._last_text: str | None = None
+        self._last_failure_code: str | None = None
 
     def snapshot(self) -> Optional[Mapping[str, object]]:
         if not self._config.enable:
             return None
+        if self._capture_fn is None or self._ocr_fn is None:
+            self._last_failure_code = "screen_backend_unconfigured"
+            self._metrics.increment("sos_screen_backend_unavailable_total")
+            return None
+        now_monotonic = time.monotonic()
+        try:
+            interval = float(self._config.interval_s)
+        except (TypeError, ValueError):
+            interval = 2.0
+        if not math.isfinite(interval) or interval < 0:
+            interval = 2.0
+        if (self._last_attempt_monotonic is not None
+                and now_monotonic - self._last_attempt_monotonic < interval):
+            self._metrics.increment("sos_screen_capture_rate_limited_total")
+            return None
+        self._last_attempt_monotonic = now_monotonic
         try:
             payload = self._capture_fn()
-        except Exception as exc:  # pragma: no cover - defensive
-            raise ScreenCaptureError(str(exc)) from exc
-        raw_bytes = str(payload).encode("utf-8")
+        except Exception as exc:  # defensive platform and capture provider boundary
+            self._last_failure_code = _failure_code(exc, "screen_capture_failed")
+            raise ScreenCaptureError(self._last_failure_code) from exc
+        if not isinstance(payload, Mapping):
+            self._last_failure_code = "screen_capture_payload_invalid"
+            raise ScreenCaptureError(self._last_failure_code)
+        rgb = payload.get("rgb")
+        if rgb is not None:
+            width, height = payload.get("width"), payload.get("height")
+            if (not isinstance(rgb, bytes) or type(width) is not int or type(height) is not int
+                    or width < 1 or height < 1 or width > 2560 or height > 1440
+                    or width * height > 4_194_304
+                    or len(rgb) != width * height * 3 or len(rgb) > 12_582_912):
+                self._last_failure_code = "screen_capture_payload_size_invalid"
+                raise ScreenCaptureError(self._last_failure_code)
+            raw_bytes = f"{width}x{height}:".encode("ascii") + rgb
+        else:
+            try:
+                raw_bytes = json.dumps(dict(payload), sort_keys=True, ensure_ascii=False,
+                                       separators=(",", ":")).encode("utf-8")
+            except (TypeError, ValueError) as exc:
+                self._last_failure_code = "screen_capture_payload_invalid"
+                raise ScreenCaptureError(self._last_failure_code) from exc
+            if len(raw_bytes) > 4_194_304:
+                self._last_failure_code = "screen_capture_payload_size_invalid"
+                raise ScreenCaptureError(self._last_failure_code)
         digest = hashlib.sha256(raw_bytes).hexdigest()
         if digest == self._last_hash:
             return None
         self._last_hash = digest
-        text = self._ocr_fn(payload)
-        text = (text or "").strip()
+        try:
+            text = self._ocr_fn(payload)
+        except Exception as exc:
+            self._last_failure_code = _failure_code(exc, "screen_ocr_failed")
+            raise ScreenCaptureError(self._last_failure_code) from exc
+        if not isinstance(text, str):
+            self._last_failure_code = "screen_ocr_output_invalid"
+            raise ScreenCaptureError(self._last_failure_code)
+        text_truncated = len(text) > 1200
+        text = text[:1200].strip()
         if not text:
             return None
         now = time.time()
@@ -71,14 +134,33 @@ class ScreenOCR:
         if char_total > limit:
             self._metrics.increment("sos_screen_ocr_throttled_total")
             return None
-        observation = {
+        self._last_failure_code = None
+        self._last_text_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        capture_digest = payload.get("capture_digest")
+        if not isinstance(capture_digest, str) or not re.fullmatch(r"[a-f0-9]{64}", capture_digest):
+            capture_digest = digest
+        captured_at = payload.get("captured_at", now)
+        if (isinstance(captured_at, bool)
+                or (isinstance(captured_at, str) and not _UTC_TIMESTAMP.fullmatch(captured_at))
+                or (not isinstance(captured_at, (str, int, float)))
+                or (isinstance(captured_at, (int, float)) and not math.isfinite(float(captured_at)))):
+            captured_at = now
+        backend = self._config.ocr_backend[:64] if isinstance(self._config.ocr_backend, str) else "unknown"
+        observation: dict[str, Any] = {
             "modality": "screen",
             "text": text,
-            "window_title": payload.get("title"),
-            "captured_at": now,
-            "backend": self._config.ocr_backend,
+            "captured_at": captured_at,
+            "backend": backend,
+            "capture_digest": capture_digest,
+            "raw_frame_retained": False,
+            "text_truncated": text_truncated,
         }
-        self._last_text = text
+        if payload.get("capture_scope") == "allowlisted_foreground_game_client_area":
+            observation["capture_scope"] = payload["capture_scope"]
+        for key in ("process_name_digest", "consent_id_digest"):
+            value = payload.get(key)
+            if isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value):
+                observation[key] = value
         self._metrics.increment("sos_screen_captures_total")
         self._metrics.increment("sos_screen_ocr_chars_total", len(text))
         return observation
@@ -89,9 +171,13 @@ class ScreenOCR:
 
     def status(self) -> Mapping[str, object]:
         return {
-            "status": "healthy" if self._config.enable else "disabled",
+            "status": ("disabled" if not self._config.enable else
+                       "unconfigured" if self._capture_fn is None or self._ocr_fn is None else
+                       "degraded" if self._last_failure_code else "healthy"),
             "ocr_backend": self._config.ocr_backend,
-            "last_text_preview": (self._last_text or "")[:64],
+            "last_text_digest": self._last_text_digest,
+            "last_failure_code": self._last_failure_code,
+            "raw_frame_retained": False,
         }
 
 
