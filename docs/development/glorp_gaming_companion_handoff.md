@@ -107,7 +107,12 @@ run as one deployment procedure.
   proposal-only reports. It does not control inference. Gaming mode shortens
   direct chat requests but does not reduce llama.cpp thread counts, unload the
   model, pause optional background inference, reserve GPU capacity, or ensure
-  better game frame times. No GLORP CPU/GPU/VRAM, temperature, power, or frame
+  better game frame times.
+  In the inspected rootless runtime, llama-cpp-python 0.3.35 exposes no
+  `Llama.set_n_threads` or `set_n_threads_batch` API, and the exact runtime
+  worker fixes `n_threads` at startup. There is no per-turn thread-control
+  message in its current protocol; a dynamic thread change needs a separately
+  governed runtime/worker change or reload, not just a workload-mode label. No GLORP CPU/GPU/VRAM, temperature, power, or frame
   time measurements are present.
 - `sentientos.gaming_companion_deployment` and its CLI provide a closed split-host
   manifest and read-only WSL2 deployment doctor. The doctor reports absent
