@@ -572,6 +572,71 @@ def load_pointer(path: Path) -> dict[str, Any]:
     value["pointer_digest"]=claimed; return value
 
 
+def load_adopted_body(*, pointer_path: Path, manifest: AvatarBodyManifest,
+                      allowed_artifact_root: Path,
+                      adoption_receipt_verifier: Any) -> dict[str, Any]:
+    """Resolve an adopted renderer body after independently verifying its custody.
+
+    The pointer's self-digest and artifact hash establish integrity only. They
+    do not establish who approved adoption, so a caller must supply an
+    authority-backed receipt verifier. The loader never adopts, copies, or
+    launches an artifact; it returns a bounded descriptor for a renderer that
+    already has its own admission to consume it.
+    """
+    if not isinstance(manifest, AvatarBodyManifest):
+        raise AvatarAuthoringError("adopted_body_manifest_required")
+    try:
+        manifest.validate()
+    except (TypeError, ValueError) as exc:
+        raise AvatarAuthoringError("adopted_body_manifest_invalid") from exc
+    if manifest.asset_format not in SUPPORTED_FORMATS:
+        raise AvatarAuthoringError("adopted_body_asset_format_unsupported")
+    if not callable(adoption_receipt_verifier):
+        raise AvatarAuthoringError("adoption_receipt_verifier_required")
+    pointer = load_pointer(pointer_path)
+    if (pointer.get("body_generation") != manifest.body_generation
+            or pointer.get("manifest_digest") != manifest.semantic_digest
+            or pointer.get("artifact_sha256") != manifest.source_artifact_digest
+            or pointer.get("rig_semantic_digest") != manifest.rig_semantic_digest):
+        raise AvatarAuthoringError("adopted_body_pointer_manifest_mismatch")
+    artifact = Path(pointer.get("artifact_path", ""))
+    root = Path(allowed_artifact_root)
+    if artifact.is_symlink() or root.is_symlink() or not root.is_dir():
+        raise AvatarAuthoringError("adopted_body_artifact_custody_invalid")
+    try:
+        resolved_root = root.resolve(strict=True)
+        resolved_artifact = artifact.resolve(strict=True)
+        resolved_artifact.relative_to(resolved_root)
+    except (OSError, ValueError) as exc:
+        raise AvatarAuthoringError("adopted_body_artifact_outside_custody") from exc
+    if artifact.is_symlink() or not resolved_artifact.is_file():
+        raise AvatarAuthoringError("adopted_body_artifact_not_regular")
+    identity = file_identity(resolved_artifact)
+    if (identity["sha256"] != pointer.get("artifact_sha256")
+            or identity["byte_size"] != pointer.get("byte_size")):
+        raise AvatarAuthoringError("adopted_body_artifact_digest_mismatch")
+    try:
+        verified = adoption_receipt_verifier(pointer)
+    except Exception as exc:
+        raise AvatarAuthoringError("adoption_receipt_verification_failed") from exc
+    if verified is not True:
+        raise AvatarAuthoringError("adoption_receipt_unverified")
+    return {
+        "schema_version": "sentientos.adopted_renderer_body:v1",
+        "artifact_path": str(resolved_artifact),
+        "artifact_sha256": identity["sha256"],
+        "byte_size": identity["byte_size"],
+        "asset_format": manifest.asset_format,
+        "body_generation": manifest.body_generation,
+        "manifest_digest": manifest.semantic_digest,
+        "rig_semantic_digest": manifest.rig_semantic_digest,
+        "pointer_digest": pointer["pointer_digest"],
+        "adoption_receipt_digest": pointer["adoption_receipt_digest"],
+        "adoption_receipt_verified": True,
+        "authority_effects_performed": False,
+    }
+
+
 def genesis_adopt(*, pointer_path: Path, installation_id: str, body_id: str, artifact: Path, manifest: AvatarBodyManifest, approval: str) -> dict[str, Any]:
     if pointer_path.exists(): raise AvatarAuthoringError("genesis_requires_absent_pointer")
     if not approval: raise AvatarAuthoringError("adoption_approval_missing")

@@ -187,7 +187,16 @@ is implemented and tested.
   high-water marks are process-local, so every restart needs newly issued source
   generations; uncertain deliveries are not replayed. Both in-process listener
   supervision and a separately tested local child-process supervisor are
-  available, but no paired Windows/WSL role launcher composes them yet.
+  available, but no paired Windows/WSL role launcher composes them yet. The
+  `BridgeChatAvatarOutputEmitter` now creates visual-only commands from an
+  admitted chat response; `MutualTLSAvatarCommandSender` signs and transmits
+  each command once using the protected edge mTLS client. On Windows,
+  `WindowsEdgeAvatarCommandDispatchOwner` requires an external receipt
+  verifier before submitting a command to an injected renderer queue. Their
+  closed-envelope and dispatch path have focused fixture tests. The current
+  fixture uses a test transport; a real Windows mTLS listener, authority-log
+  resolver, and Godot command queue are not yet composed, and dispatch still
+  does not establish that a frame rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process
@@ -337,13 +346,21 @@ manifest's protected references, construct the observed core and edge
 components, and supply authority-backed launch and health callbacks to the new
 process supervisor. Do not create keys, generations, certificates, firewall
 rules, or OS persistence.
-2. Execute the Godot report return route on Windows/WSL through the loopback
+2. Compose the existing reverse-route producer and dispatcher with a real
+Windows mTLS listener, an authority-backed receipt resolver, and a bounded
+Godot command queue. Run failure injection for queue rejection, transport
+uncertainty, restart, and generation rotation without replaying uncertain
+messages.
+3. Execute the Godot report return route on Windows/WSL through the loopback
 edge relay, protected mTLS bridge, and durable World-State capture. The
 software-only relay integration test passes; target transport and attribution
 remain unverified. Keep authenticated relay identity separate from renderer
 self-report and independent physical observation.
-4. Load the already adopted authored body in the Godot runtime through its
-verified manifest and adoption chain; exercise rollback and report lineage.
+4. Use `load_adopted_body` to resolve the current adopted artifact only after
+an authority-backed receipt verifier, manifest binding, content hash, and
+allowed artifact root all agree. Wire its descriptor to Godot import/rollback
+and preserve the adoption lineage. The loader is implemented and fixture
+tested; no operator-adopted GLORP artifact has been loaded.
 5. Connect backend word timing to authored mouth/viseme animation without
 pretending word offsets are phoneme labels; verify actual local audio latency
 and immediate renderer interruption on target.

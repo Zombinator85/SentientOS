@@ -33,6 +33,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_tls_transport.py",
     "tests/test_gaming_companion_supervisor.py",
     "tests/test_gaming_companion_process_supervisor.py",
+    "tests/test_gaming_companion_avatar_output.py",
     "tests/test_foreground_game_bridge.py",
     "tests/test_windows_game_performance.py",
     "tests/test_game_performance_bridge.py",

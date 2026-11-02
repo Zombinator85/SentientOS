@@ -1,0 +1,257 @@
+"""Authenticated WSL-core to Windows-edge avatar command delivery.
+
+This owner is the reverse half of the companion bridge. TLS and the bridge
+receiver authenticate transport identity and replay state; a separate
+authority callback must verify the command's admission receipt before the
+renderer sink can accept it. Sink acceptance is not evidence that a frame was
+rendered or independently observed.
+"""
+from __future__ import annotations
+
+import threading
+import hashlib
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping, Protocol
+from uuid import uuid4
+
+from sentientos.control_api import require_authorization_for_request_types
+from .gaming_companion_bridge import encode_message
+from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage
+from .gaming_companion_tls_transport import CompanionBridgeMutualTLSClient
+
+
+class AvatarCommandRuntime(Protocol):
+    def receive(self, timeout: float | None = None) -> VerifiedBridgeMessage: ...
+
+
+ReceiptVerifier = Callable[[str, str, VerifiedBridgeMessage], bool]
+RendererCommandSink = Callable[[Mapping[str, object], VerifiedBridgeMessage], bool]
+AdmissionReceiptBuilder = Callable[[Any], Mapping[str, str]]
+
+
+class MutualTLSAvatarCommandSender:
+    """Send admitted chat output from WSL core to a Windows-edge mTLS peer.
+
+    The authority receipt is resolved by an injected owner; this class does
+    not turn a local authorization log into an independently verifiable
+    receipt. Each call creates one envelope and never retries it.
+    """
+
+    def __init__(self, *, client: CompanionBridgeMutualTLSClient,
+                 source_id: str, session_id: str, generation_id: str,
+                 source_key: bytes,
+                 admission_receipt_builder: AdmissionReceiptBuilder) -> None:
+        if not isinstance(client, CompanionBridgeMutualTLSClient):
+            raise CompanionBridgeError("avatar_command_mtls_client_required")
+        if not isinstance(source_key, bytes) or len(source_key) < 32:
+            raise CompanionBridgeError("bridge_key_too_short")
+        if not callable(admission_receipt_builder):
+            raise CompanionBridgeError("avatar_command_receipt_builder_required")
+        self._client = client
+        self._source_id, self._session_id = source_id, session_id
+        self._generation_id = generation_id
+        self._source_key = bytearray(source_key)
+        self._receipt = admission_receipt_builder
+        self._sequence = 0
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def send_command(self, payload: Mapping[str, object], authorization: Any) -> VerifiedBridgeMessage:
+        require_authorization_for_request_types(authorization,
+            allowed_request_types=("avatar_emission",))
+        receipt = self._receipt(authorization)
+        if not isinstance(receipt, Mapping):
+            raise CompanionBridgeError("avatar_command_admission_receipt_invalid")
+        with self._lock:
+            if self._closed:
+                raise CompanionBridgeError("avatar_command_sender_closed")
+            sequence = self._sequence + 1
+            encoded = encode_message(kind="avatar_command", source_id=self._source_id,
+                session_id=self._session_id, generation_id=self._generation_id,
+                sequence=sequence, payload=payload, key=bytes(self._source_key),
+                admission=receipt)
+            # Do not advance on local encoding failure. Once send begins, keep
+            # the sequence consumed even if delivery becomes indeterminate.
+            self._sequence = sequence
+            return self._client.send(encoded)
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            self._source_key[:] = b"\x00" * len(self._source_key)
+
+
+@dataclass(frozen=True, slots=True)
+class AvatarCommandDispatchStatus:
+    state: str
+    received: int
+    accepted: int
+    rejected: int
+    last_message_id: str | None
+    last_failure: str | None
+    renderer_effect_proven: bool = False
+
+
+class WindowsEdgeAvatarCommandDispatchOwner:
+    """Deliver verified core commands to an edge renderer queue at most once."""
+
+    def __init__(self, *, runtime: AvatarCommandRuntime,
+                 receipt_verifier: ReceiptVerifier,
+                 renderer_sink: RendererCommandSink,
+                 poll_interval_seconds: float = 0.05) -> None:
+        if not callable(getattr(runtime, "receive", None)):
+            raise CompanionBridgeError("avatar_command_runtime_required")
+        if not callable(receipt_verifier) or not callable(renderer_sink):
+            raise CompanionBridgeError("avatar_command_authority_callbacks_required")
+        if (isinstance(poll_interval_seconds, bool)
+                or not isinstance(poll_interval_seconds, (int, float))
+                or not 0.01 <= poll_interval_seconds <= 1.0):
+            raise CompanionBridgeError("avatar_command_poll_interval_invalid")
+        self._runtime = runtime
+        self._verify = receipt_verifier
+        self._sink = renderer_sink
+        self._poll = float(poll_interval_seconds)
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._worker: threading.Thread | None = None
+        self._started = False
+        self._state = "stopped"
+        self._received = 0
+        self._accepted = 0
+        self._rejected = 0
+        self._last_message_id: str | None = None
+        self._last_failure: str | None = None
+
+    def start(self) -> AvatarCommandDispatchStatus:
+        with self._lock:
+            if self._started:
+                raise CompanionBridgeError("avatar_command_dispatch_already_started")
+            self._started = True
+            self._state = "running"
+            self._worker = threading.Thread(target=self._run,
+                name="sentientos-windows-edge-avatar-command-dispatch", daemon=True)
+            self._worker.start()
+        return self.status()
+
+    def status(self) -> AvatarCommandDispatchStatus:
+        with self._lock:
+            return AvatarCommandDispatchStatus(self._state, self._received,
+                self._accepted, self._rejected, self._last_message_id,
+                self._last_failure)
+
+    def close(self) -> None:
+        self._stop.set()
+        with self._lock:
+            worker = self._worker
+            if self._state != "failed":
+                self._state = "stopping" if worker is not None else "stopped"
+        if worker is not None and worker is not threading.current_thread():
+            worker.join(timeout=max(1.0, self._poll * 10))
+        with self._lock:
+            if worker is not None and worker.is_alive():
+                self._state = "failed"
+                self._last_failure = "avatar_command_dispatch_shutdown_timeout"
+            elif self._state != "failed":
+                self._state = "stopped"
+            self._worker = None
+
+    def dispatch_one(self, message: VerifiedBridgeMessage) -> bool:
+        """Validate and deliver one authenticated command without retrying it."""
+        if not isinstance(message, VerifiedBridgeMessage):
+            raise CompanionBridgeError("avatar_command_verified_message_required")
+        with self._lock:
+            self._received += 1
+            self._last_message_id = message.message_id
+        try:
+            if message.kind != "avatar_command" or not isinstance(message.admission, Mapping):
+                raise CompanionBridgeError("avatar_command_message_required")
+            receipt_id = message.admission.get("receipt_id")
+            semantic_digest = message.admission.get("semantic_digest")
+            if (not isinstance(receipt_id, str) or not isinstance(semantic_digest, str)
+                    or self._verify(receipt_id, semantic_digest, message) is not True):
+                raise CompanionBridgeError("avatar_command_admission_unverified")
+            if self._sink(message.payload, message) is not True:
+                raise CompanionBridgeError("avatar_command_renderer_queue_rejected")
+        except Exception as exc:
+            reason = str(exc.args[0]) if exc.args else type(exc).__name__
+            with self._lock:
+                self._rejected += 1
+                self._last_failure = reason[:128]
+            return False
+        with self._lock:
+            self._accepted += 1
+            self._last_failure = None
+        return True
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                message = self._runtime.receive(timeout=self._poll)
+            except CompanionBridgeError as exc:
+                if exc.args and exc.args[0] == "bridge_receive_timeout":
+                    continue
+                with self._lock:
+                    self._state = "failed"
+                    self._last_failure = (str(exc.args[0]) if exc.args else type(exc).__name__)[:128]
+                return
+            except Exception as exc:
+                with self._lock:
+                    self._state = "failed"
+                    self._last_failure = type(exc).__name__
+                return
+            self.dispatch_one(message)
+
+
+class BridgeChatAvatarOutputEmitter:
+    """SpeechEmitter-compatible visual-only output over the reverse bridge."""
+
+    def __init__(self, sender: MutualTLSAvatarCommandSender) -> None:
+        if not isinstance(sender, MutualTLSAvatarCommandSender):
+            raise CompanionBridgeError("avatar_command_sender_required")
+        self._sender = sender
+
+    def emit_display_text(self, phrase: str, *, authorization: Any = None,
+                          metadata: Mapping[str, Any] | None = None) -> dict[str, object]:
+        require_authorization_for_request_types(authorization,
+            allowed_request_types=("avatar_emission",))
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        output_digest = metadata.get("output_digest")
+        turn_id = metadata.get("turn_id")
+        if not isinstance(phrase, str) or not isinstance(output_digest, str):
+            raise CompanionBridgeError("avatar_command_chat_output_binding_invalid")
+        if turn_id is not None and not isinstance(turn_id, str):
+            raise CompanionBridgeError("avatar_command_chat_output_binding_invalid")
+        payload: dict[str, object] = {
+            "output_mode": "chat_response_visual_only",
+            "phrase": phrase[:2048], "expression": "rest", "motion": "nod",
+            "mood": "calm", "intensity": 0.25,
+            "output_digest": output_digest,
+        }
+        if turn_id:
+            payload["turn_id"] = turn_id
+        workload_mode = metadata.get("workload_mode")
+        if workload_mode in {"normal", "gaming"}:
+            payload["workload_mode"] = workload_mode
+        acknowledgment = self._sender.send_command(payload, authorization)
+        return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
+                "renderer_effect_proven": False}
+
+    def emit_idle(self, *, authorization: Any = None,
+                  metadata: Mapping[str, Any] | None = None) -> dict[str, object]:
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        turn_id = metadata.get("turn_id")
+        payload: dict[str, object] = {
+            "output_mode": "chat_response_visual_only", "phrase": "",
+            "expression": "rest", "motion": "idle", "mood": "calm",
+            "intensity": 0.0,
+            "output_digest": hashlib.sha256(b"sentientos-avatar-idle-v1").hexdigest(),
+            "turn_id": turn_id if isinstance(turn_id, str) and turn_id else "clear-" + uuid4().hex,
+        }
+        acknowledgment = self._sender.send_command(payload, authorization)
+        return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
+                "renderer_effect_proven": False}
+
+
+__all__ = ["AvatarCommandDispatchStatus", "WindowsEdgeAvatarCommandDispatchOwner",
+           "BridgeChatAvatarOutputEmitter",
+           "MutualTLSAvatarCommandSender"]

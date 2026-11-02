@@ -16,7 +16,7 @@ from sentientos.avatar_authoring import (
     AvatarAuthoringError, BackendIdentity, BLENDER_SUPPORTED_FORMATS, BLENDER_SUPPORTED_OPERATIONS,
     SyntheticArtifactInspector, SyntheticAuthoringBackend,
     adopt, adoption_observation, blender_readiness, build_admission, digest,
-    compare_structure, genesis_adopt, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
+    compare_structure, genesis_adopt, lineage, load_adopted_body, load_pointer, renderer_handoff, rollback, run_workcell,
     BlenderArtifactInspector, BlenderBackend,
     primitive_mesh_vertex_count, successor_manifest, validate_plan,
 )
@@ -82,6 +82,48 @@ def test_end_to_end_author_adopt_world_state_self_model_and_rollback(tmp_path):
     reverted=rollback(pointer_path=pointer_path,lineage_path=tmp_path/"lineage.jsonl",adopted=adopted,predecessor_manifest=old,approval="operator:test-rollback")
     assert reverted["pointer"]["body_generation"]==1
     events=lineage(tmp_path/"lineage.jsonl"); assert [e["event"] for e in events]==["adoption","rollback"] and events[-1]["historical_generation_preserved"]
+
+
+def test_adopted_body_loader_binds_pointer_manifest_artifact_and_verified_receipt(tmp_path):
+    source=artifact(tmp_path/"body.glb"); body_manifest=manifest(source)
+    pointer_path=tmp_path/"current.json"
+    pointer=genesis_adopt(pointer_path=pointer_path,installation_id="installation-a",
+        body_id="body-a",artifact=source,manifest=body_manifest,approval="operator:genesis")
+    loaded=load_adopted_body(pointer_path=pointer_path,manifest=body_manifest,
+        allowed_artifact_root=tmp_path,
+        adoption_receipt_verifier=lambda candidate: candidate["pointer_digest"] == pointer["pointer_digest"])
+    assert loaded["schema_version"] == "sentientos.adopted_renderer_body:v1"
+    assert loaded["artifact_path"] == str(source.resolve())
+    assert loaded["adoption_receipt_verified"] is True
+    assert loaded["authority_effects_performed"] is False
+
+
+def test_adopted_body_loader_rejects_unverified_receipt_and_artifact_outside_custody(tmp_path):
+    source=artifact(tmp_path/"body.glb"); body_manifest=manifest(source)
+    pointer_path=tmp_path/"current.json"
+    genesis_adopt(pointer_path=pointer_path,installation_id="installation-a",
+        body_id="body-a",artifact=source,manifest=body_manifest,approval="operator:genesis")
+    with pytest.raises(AvatarAuthoringError,match="adoption_receipt_unverified"):
+        load_adopted_body(pointer_path=pointer_path,manifest=body_manifest,
+            allowed_artifact_root=tmp_path,adoption_receipt_verifier=lambda _pointer: False)
+    with pytest.raises(AvatarAuthoringError,match="adopted_body_asset_format_unsupported"):
+        load_adopted_body(pointer_path=pointer_path,
+            manifest=replace(body_manifest, asset_format="exe"),
+            allowed_artifact_root=tmp_path,
+            adoption_receipt_verifier=lambda _pointer: True)
+    elsewhere=tmp_path.parent/"outside-body.glb"
+    shutil.copyfile(source, elsewhere)
+    try:
+        pointer=json.loads(pointer_path.read_text())
+        pointer.pop("pointer_digest")
+        pointer["artifact_path"]=str(elsewhere.resolve())
+        pointer["pointer_digest"]=digest(pointer)
+        pointer_path.write_text(json.dumps(pointer))
+        with pytest.raises(AvatarAuthoringError,match="adopted_body_artifact_outside_custody"):
+            load_adopted_body(pointer_path=pointer_path,manifest=body_manifest,
+                allowed_artifact_root=tmp_path,adoption_receipt_verifier=lambda _pointer: True)
+    finally:
+        elsewhere.unlink(missing_ok=True)
 
 
 @pytest.mark.parametrize("mutation,error",[
