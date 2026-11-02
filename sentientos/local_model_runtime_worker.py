@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import threading
@@ -13,7 +14,18 @@ from .local_model import ActiveModelIdentity, ModelLoadError
 
 MAX_PROTOCOL_BYTES = 65536
 
+
+def _valid_runtime_resource_seconds(value: object) -> bool:
+    if value is None:
+        return True
+    try:
+        return (not isinstance(value, bool) and isinstance(value, (int, float))
+                and math.isfinite(float(value)) and 0 <= float(value) <= 3600)
+    except (OverflowError, TypeError, ValueError):
+        return False
+
 _WORKER = r'''import hashlib,json,os,sys
+import time
 PREFIX="SENTIENTOS_LOCAL_MODEL_WORKER="
 try:
  import resource
@@ -23,6 +35,18 @@ def resources():
  if resource is None: return {"peak_rss_kib":None,"user_cpu_seconds":None,"system_cpu_seconds":None}
  usage=resource.getrusage(resource.RUSAGE_SELF)
  return {"peak_rss_kib":int(usage.ru_maxrss),"user_cpu_seconds":usage.ru_utime,"system_cpu_seconds":usage.ru_stime}
+def generation_resources(before,started):
+ after=resources()
+ def delta(key):
+  old=before.get(key); new=after.get(key)
+  if isinstance(old,(int,float)) and isinstance(new,(int,float)): return max(0.0,float(new)-float(old))
+  return None
+ rss=after.get("peak_rss_kib")
+ if isinstance(rss,int): rss_bytes=rss if sys.platform=="darwin" else rss*1024 if sys.platform.startswith("linux") else None
+ else: rss_bytes=None
+ return {"schema_version":"sentientos.llama_cpp_invocation_resource_observation:v1",
+  "user_cpu_seconds":delta("user_cpu_seconds"),"system_cpu_seconds":delta("system_cpu_seconds"),
+  "wall_seconds":max(0.0,time.monotonic()-started),"process_peak_rss_bytes":rss_bytes}
 def emit(v):
  data=json.dumps(v,sort_keys=True,separators=(",",":"))
  if len(data.encode())>65536: raise RuntimeError("response_too_large")
@@ -48,6 +72,7 @@ try:
   if set(request)!={"type","prompt","history","generation"} or request["type"]!="generate": raise RuntimeError("malformed_protocol")
   prompt=request["prompt"]; history=request["history"]; generation=request["generation"]
   if not isinstance(prompt,str) or len(prompt)>32768 or not isinstance(history,list): raise RuntimeError("malformed_protocol")
+  resource_before=resources(); generation_started=time.monotonic()
   rendered="\n".join([*(str(x) for x in history),prompt])
   max_tokens=min(int(generation.get("max_new_tokens",8)),512)
   temperature=float(generation.get("temperature",0)); top_p=float(generation.get("top_p",1))
@@ -64,7 +89,8 @@ try:
    result=model(rendered,max_tokens=max_tokens,temperature=temperature,top_p=top_p)
    output=str(result["choices"][0]["text"])
   if len(output)>32768: raise RuntimeError("response_too_large")
-  emit({"type":"generated","output":output,**resources()})
+  emit({"type":"generated","output":output,**resources(),
+   "invocation_resources":generation_resources(resource_before,generation_started)})
 except Exception as exc:
  emit({"type":"error","error_type":type(exc).__name__,"diagnostic":str(exc)[:512]})
  sys.exit(70)
@@ -146,6 +172,10 @@ class ExactRuntimeLocalModel:
         return cast(dict[str, Any], value)
 
     def generate(self, prompt: str, history: Sequence[str] | None = None, **generation: Any) -> str:
+        return self.generate_with_metadata(prompt, history, **generation)[0]
+
+    def generate_with_metadata(self, prompt: str, history: Sequence[str] | None = None,
+                               **generation: Any) -> tuple[str, dict[str, Any]]:
         if self._process.poll() is not None:
             raise ModelLoadError("exact runtime worker exited; explicit reload required")
         request = {"type": "generate", "prompt": prompt, "history": list(history or ()), "generation": generation}
@@ -156,13 +186,45 @@ class ExactRuntimeLocalModel:
             assert self._process.stdin is not None
             self._process.stdin.write(data + "\n"); self._process.stdin.flush()
             response = self._read()
-        if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds", "system_cpu_seconds"}
+        if (set(response) != {"type", "output", "peak_rss_kib", "user_cpu_seconds",
+                              "system_cpu_seconds", "invocation_resources"}
                 or response["type"] != "generated" or not isinstance(response["output"], str)):
             raise ModelLoadError("exact runtime worker malformed response")
+        resources = response["invocation_resources"]
+        if not isinstance(resources, Mapping) or set(resources) != {
+                "schema_version", "user_cpu_seconds", "system_cpu_seconds", "wall_seconds",
+                "process_peak_rss_bytes"} or resources.get("schema_version") != (
+                    "sentientos.llama_cpp_invocation_resource_observation:v1"):
+            raise ModelLoadError("exact runtime worker resource observation malformed")
+        for key in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
+            value = resources.get(key)
+            if not _valid_runtime_resource_seconds(value):
+                raise ModelLoadError("exact runtime worker resource observation malformed")
+        rss_bytes = resources.get("process_peak_rss_bytes")
+        if rss_bytes is not None and (type(rss_bytes) is not int or not 0 <= rss_bytes <= 1_099_511_627_776):
+            raise ModelLoadError("exact runtime worker resource observation malformed")
         self.peak_rss_kib = response["peak_rss_kib"]
         self.user_cpu_seconds = response["user_cpu_seconds"]
         self.system_cpu_seconds = response["system_cpu_seconds"]
-        return response["output"]
+        completion = {
+            "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+            "backend": "llama_cpp",
+            "finish_reason": "unknown",
+            "completion_tokens": None,
+            "prompt_tokens": None,
+            "token_limit_reached": None,
+            "invocation_resources": dict(resources),
+        }
+        return response["output"], completion
+
+    def generate_governed_with_metadata(self, prompt: str, **generation: Any
+            ) -> tuple[str, dict[str, Any]]:
+        """Return output plus the exact worker's bounded per-invocation measurements."""
+        return self.generate_with_metadata(prompt, (), **generation)
+
+    def generate_governed(self, prompt: str, **generation: Any) -> str:
+        """Compatibility path for callers that do not consume backend metadata."""
+        return self.generate_governed_with_metadata(prompt, **generation)[0]
 
     def describe(self) -> str:
         return "llama_cpp exact-runtime worker (" + str(self.active_identity.resolved_artifact_path) + ")"

@@ -152,9 +152,15 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
                      "user_cpu_seconds":0.1, "system_cpu_seconds":0.01}
             self.stdin=Pipe(); self.stdout=Pipe(["SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps(ready)+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"bounded",
-                    "peak_rss_kib":2048,"user_cpu_seconds":0.2,"system_cpu_seconds":0.02})+"\n",
+                    "peak_rss_kib":2048,"user_cpu_seconds":0.2,"system_cpu_seconds":0.02,
+                    "invocation_resources":{"schema_version":"sentientos.llama_cpp_invocation_resource_observation:v1",
+                        "user_cpu_seconds":0.08,"system_cpu_seconds":0.01,"wall_seconds":0.2,
+                        "process_peak_rss_bytes":2097152}})+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"generated","output":"chat-bounded",
-                    "peak_rss_kib":3072,"user_cpu_seconds":0.3,"system_cpu_seconds":0.03})+"\n",
+                    "peak_rss_kib":3072,"user_cpu_seconds":0.3,"system_cpu_seconds":0.03,
+                    "invocation_resources":{"schema_version":"sentientos.llama_cpp_invocation_resource_observation:v1",
+                        "user_cpu_seconds":0.09,"system_cpu_seconds":0.01,"wall_seconds":0.3,
+                        "process_peak_rss_bytes":3145728}})+"\n",
                 "SENTIENTOS_LOCAL_MODEL_WORKER="+json.dumps({"type":"shutdown"})+"\n"]); self.stderr=Pipe(); self.closed=False
         def poll(self): return None if not self.closed else 0
         def wait(self, timeout=None): self.closed=True; return 0
@@ -167,7 +173,11 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     worker = ExactRuntimeLocalModel(chain, route_load_configuration(chain))
     assert captured["argv"][0] == str(interpreter.resolve())  # type: ignore[index]
     assert "PYTHONPATH" not in captured["kwargs"]["env"] and "VIRTUAL_ENV" not in captured["kwargs"]["env"]  # type: ignore[index]
-    assert worker.generate("hello") == "bounded"
+    output, completion = worker.generate_governed_with_metadata("hello")
+    assert output == "bounded"
+    assert completion["schema_version"] == "sentientos.llama_cpp_completion_observation:v2"
+    assert completion["invocation_resources"]["user_cpu_seconds"] == 0.08
+    assert completion["invocation_resources"]["process_peak_rss_bytes"] == 2097152
     assert worker.generate('{"instruction":"Return JSON."}',
         use_model_chat_template=True,
         structured_output_schema={"type":"object"}) == "chat-bounded"

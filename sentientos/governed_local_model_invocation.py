@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json, os, time, concurrent.futures
+import json, math, os, time, concurrent.futures
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -32,9 +32,59 @@ SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "gen
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
-LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v1"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1 = "sentientos.llama_cpp_completion_observation:v1"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v2"
+LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA = (
+    "sentientos.llama_cpp_invocation_resource_observation:v1")
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
+
+
+def validate_llama_completion_observation(value: object) -> bool:
+    """Validate bounded backend facts and optional exact-worker resource measurements."""
+    if not isinstance(value, Mapping):
+        return False
+    common = {"schema_version", "backend", "finish_reason", "completion_tokens",
+              "prompt_tokens", "token_limit_reached"}
+    schema = value.get("schema_version")
+    if schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA_V1:
+        if set(value) != common:
+            return False
+    elif schema == LLAMA_COMPLETION_OBSERVATION_SCHEMA:
+        if set(value) != common | {"invocation_resources"}:
+            return False
+        metrics = value.get("invocation_resources")
+        if (not isinstance(metrics, Mapping)
+                or set(metrics) != {"schema_version", "user_cpu_seconds",
+                    "system_cpu_seconds", "wall_seconds", "process_peak_rss_bytes"}
+                or metrics.get("schema_version") != LLAMA_INVOCATION_RESOURCE_OBSERVATION_SCHEMA):
+            return False
+        for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
+            metric = metrics.get(name)
+            if metric is not None:
+                try:
+                    valid_metric = (not isinstance(metric, bool)
+                        and isinstance(metric, (int, float))
+                        and math.isfinite(float(metric)) and 0 <= float(metric) <= 3600)
+                except (OverflowError, TypeError, ValueError):
+                    valid_metric = False
+                if not valid_metric:
+                    return False
+        rss = metrics.get("process_peak_rss_bytes")
+        if rss is not None and (type(rss) is not int or not 0 <= rss <= 1_099_511_627_776):
+            return False
+    else:
+        return False
+    if (value.get("backend") != "llama_cpp"
+            or value.get("finish_reason") not in {"stop", "length", "unknown"}
+            or any(value.get(name) is not None and (type(value.get(name)) is not int
+                or not 0 <= value[name] <= 131072)
+                for name in ("completion_tokens", "prompt_tokens"))
+            or value.get("token_limit_reached") is not (
+                True if value.get("finish_reason") == "length" else
+                False if value.get("finish_reason") == "stop" else None)):
+        return False
+    return True
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",
     "required": ["conclusion", "lesson_candidate"],
@@ -211,20 +261,10 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         if schema == INVOCATION_RECEIPT_SCHEMA_V3:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
-            if (not isinstance(completion, Mapping)
-                    or set(completion) != {"schema_version", "backend", "finish_reason",
-                        "completion_tokens", "prompt_tokens", "token_limit_reached"}
-                    or completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
-                    or completion.get("backend") != "llama_cpp"
-                    or completion.get("finish_reason") not in {"stop", "length", "unknown"}
-                    or any(completion.get(name) is not None and (type(completion.get(name)) is not int
-                        or not 0 <= completion[name] <= 131072)
-                        for name in ("completion_tokens", "prompt_tokens"))
-                    or completion.get("token_limit_reached") is not (
-                        True if completion.get("finish_reason") == "length" else
-                        False if completion.get("finish_reason") == "stop" else None)):
+            if not validate_llama_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
-            elif (completion.get("finish_reason") == "length"
+            elif (isinstance(completion, Mapping)
+                    and completion.get("finish_reason") == "length"
                     and payload.get("output_truncated") is not True):
                 reasons.append("backend_completion_truncation_mismatch")
         observed_at = payload.get("observed_at")
@@ -452,18 +492,7 @@ class GovernedLocalModelInvoker:
                                 future.cancel()
                                 raise TimeoutError() from exc
                         if backend_completion is not None:
-                            if (set(backend_completion) != {"schema_version", "backend", "finish_reason",
-                                    "completion_tokens", "prompt_tokens", "token_limit_reached"}
-                                    or backend_completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
-                                    or backend_completion.get("backend") != "llama_cpp"
-                                    or backend_completion.get("finish_reason") not in {"stop", "length", "unknown"}
-                                    or any(backend_completion.get(name) is not None
-                                        and (type(backend_completion.get(name)) is not int
-                                            or not 0 <= backend_completion[name] <= 131072)
-                                        for name in ("completion_tokens", "prompt_tokens"))
-                                    or backend_completion.get("token_limit_reached") is not (
-                                        True if backend_completion.get("finish_reason") == "length" else
-                                        False if backend_completion.get("finish_reason") == "stop" else None)):
+                            if not validate_llama_completion_observation(backend_completion):
                                 raise ValueError("backend_completion_observation_invalid")
                             if backend_completion.get("token_limit_reached") is True:
                                 truncated = True

@@ -13,6 +13,7 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
+    validate_llama_completion_observation,
     RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
     RESIDENT_EPISTEMIC_REVISION_OUTPUT_SCHEMA,
 )
@@ -127,6 +128,77 @@ def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_
     valid, reasons = validate_receipt(payload)
     assert not valid
     assert "receipt_digest_mismatch" in reasons
+
+
+def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: Path) -> None:
+    model_path = tmp_path / "m.gguf"
+    model_path.write_bytes(b"bytes")
+    config = ModelConfig(candidates=[ModelCandidate(
+        path=model_path, engine="llama_cpp", name="m")],
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    completion = {
+        "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+        "backend": "llama_cpp",
+        "finish_reason": "unknown",
+        "completion_tokens": None,
+        "prompt_tokens": None,
+        "token_limit_reached": None,
+        "invocation_resources": {
+            "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+            "user_cpu_seconds": 0.14,
+            "system_cpu_seconds": 0.02,
+            "wall_seconds": 0.18,
+            "process_peak_rss_bytes": 7_340_032,
+        },
+    }
+    model = BackendMetadataModel("answer", completion)
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"), runtime_root=tmp_path / "runtime")
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="worker-resource-observation")
+
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "admitted_completed"
+    payload = receipt.to_dict()
+    assert payload["backend_completion"] == completion
+    valid, reasons = validate_receipt(payload)
+    assert valid, reasons
+    payload["backend_completion"]["invocation_resources"]["user_cpu_seconds"] = -1
+    valid, reasons = validate_receipt(payload)
+    assert not valid
+    assert "receipt_digest_mismatch" in reasons
+
+
+@pytest.mark.parametrize("field,value", [
+    ("user_cpu_seconds", -0.01),
+    ("system_cpu_seconds", float("inf")),
+    ("user_cpu_seconds", 10 ** 1000),
+    ("wall_seconds", True),
+    ("process_peak_rss_bytes", -1),
+    ("process_peak_rss_bytes", 1_099_511_627_777),
+])
+def test_worker_resource_observation_rejects_invalid_measurements(field: str, value: object) -> None:
+    completion = {
+        "schema_version": "sentientos.llama_cpp_completion_observation:v2",
+        "backend": "llama_cpp",
+        "finish_reason": "unknown",
+        "completion_tokens": None,
+        "prompt_tokens": None,
+        "token_limit_reached": None,
+        "invocation_resources": {
+            "schema_version": "sentientos.llama_cpp_invocation_resource_observation:v1",
+            "user_cpu_seconds": 0.1,
+            "system_cpu_seconds": 0.01,
+            "wall_seconds": 0.11,
+            "process_peak_rss_bytes": 8_388_608,
+        },
+    }
+    completion["invocation_resources"][field] = value
+
+    assert not validate_llama_completion_observation(completion)
 
 
 def test_denied_duplicate_does_not_call_backend_twice(tmp_path: Path) -> None:
