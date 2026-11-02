@@ -18,6 +18,6 @@ The runtime was the verified `llama-cpp-python` CPU backend in rootless experime
 
 ## Evidence boundary
 
-Exact prompts, raw responses, preregistration, invocation receipts, capture indexes, score record, and local runtime measurements remain in workspace custody. They are not included in this public note. The held-out answer key is separately custodied and is not included in the repository. The original workspace package is at `/workspace/sentientos-data/rootless-experimental/epistemic-runs/rootless-epistemic-run-c883ddf9947a4fde890d5a59`; it remains distinct from the public summary.
+Exact prompts, raw responses, preregistration, invocation receipts, capture indexes, score record, and local runtime measurements remain in workspace custody. They are not included in this public note. The held-out answer key is separately custodied and is not included in the repository. The run-level package remains in local workspace custody for this task, outside the repository.
 
 This small four-call result does not establish generalization, model qualification, cognitive improvement, production readiness, Astra identity, native-subagent identity, or a causal effect of pressure.
