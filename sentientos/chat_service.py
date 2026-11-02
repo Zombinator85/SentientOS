@@ -6,6 +6,7 @@ import ipaddress
 import logging
 import hashlib
 import json
+import threading
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Mapping, Protocol, cast
@@ -68,6 +69,7 @@ class ChatAvatarOutput(Protocol):
     def state(self, session_id: str) -> dict[str, Any]: ...
     def publish_response(self, *, session_id: str, turn_id: str, text: str,
                          output_digest: str, workload_mode: str | None = None) -> Mapping[str, Any]: ...
+    def set_workload_mode(self, session_id: str, workload_mode: str) -> Mapping[str, Any]: ...
     def close(self) -> None: ...
 
 
@@ -160,6 +162,10 @@ class PersistentConversationService:
                  speech_output: ChatSpeechOutput | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
+        self._avatar_workload_sync_lock = threading.Lock()
+        self._avatar_workload_mode_apply_lock = threading.Lock()
+        self._avatar_workload_sync: dict[str, tuple[threading.Event, threading.Thread]] = {}
+        self._avatar_workload_modes_observed: dict[str, str] = {}
         self._speech_output = speech_output
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
@@ -204,7 +210,77 @@ class PersistentConversationService:
         if self._avatar_output is None:
             raise RuntimeError("chat_avatar_output_not_configured")
         self.sessions.load(session_id)
-        return self._avatar_output.set_enabled(session_id, enabled)
+        result = self._avatar_output.set_enabled(session_id, enabled)
+        if result.get("enabled") is True:
+            self._sync_avatar_workload_mode(session_id)
+            self._start_avatar_workload_sync(session_id)
+        else:
+            self._stop_avatar_workload_sync(session_id)
+        return result
+
+    def _sync_avatar_workload_mode(self, session_id: str) -> None:
+        output = self._avatar_output
+        setter = getattr(output, "set_workload_mode", None)
+        if not callable(setter):
+            return
+        with self._avatar_workload_mode_apply_lock:
+            try:
+                state = self.current_workload_state()
+                mode = state.get("effective_mode")
+                if isinstance(mode, str) and mode in {"normal", "gaming"}:
+                    with self._avatar_workload_sync_lock:
+                        if self._avatar_workload_modes_observed.get(session_id) == mode:
+                            return
+                    result = setter(session_id, mode)
+                    with self._avatar_workload_sync_lock:
+                        self._avatar_workload_modes_observed[session_id] = mode
+                    if result.get("status") == "admission_denied":
+                        LOGGER.warning("Avatar workload update was denied by admission")
+            except Exception as exc:
+                LOGGER.warning("Avatar workload synchronization failed: %s", type(exc).__name__)
+
+    def _start_avatar_workload_sync(self, session_id: str) -> None:
+        if not callable(getattr(self._avatar_output, "set_workload_mode", None)):
+            return
+        with self._avatar_workload_sync_lock:
+            current = self._avatar_workload_sync.get(session_id)
+            if current is not None and current[1].is_alive():
+                return
+            stop_event = threading.Event()
+            thread = threading.Thread(target=self._avatar_workload_sync_loop,
+                args=(session_id, stop_event), name="chat-avatar-workload-sync", daemon=True)
+            self._avatar_workload_sync[session_id] = (stop_event, thread)
+            thread.start()
+
+    def _stop_avatar_workload_sync(self, session_id: str) -> None:
+        with self._avatar_workload_sync_lock:
+            current = self._avatar_workload_sync.pop(session_id, None)
+            self._avatar_workload_modes_observed.pop(session_id, None)
+        if current is None:
+            return
+        stop_event, thread = current
+        stop_event.set()
+        if thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2)
+
+    def _avatar_workload_sync_loop(self, session_id: str, stop_event: threading.Event) -> None:
+        try:
+            while not stop_event.is_set():
+                try:
+                    state = self.avatar_output_state(session_id)
+                    if state.get("enabled") is not True:
+                        return
+                    self._sync_avatar_workload_mode(session_id)
+                except Exception as exc:
+                    LOGGER.warning("Avatar workload synchronization failed: %s", type(exc).__name__)
+                if stop_event.wait(1.0):
+                    return
+        finally:
+            with self._avatar_workload_sync_lock:
+                current = self._avatar_workload_sync.get(session_id)
+                if current is not None and current[0] is stop_event:
+                    self._avatar_workload_sync.pop(session_id, None)
+                    self._avatar_workload_modes_observed.pop(session_id, None)
 
     def speech_output_state(self, session_id: str | None) -> dict[str, Any]:
         if self._speech_output is None:
@@ -220,6 +296,10 @@ class PersistentConversationService:
         return self._speech_output.set_enabled(session_id, enabled)
 
     def close_avatar_output(self) -> None:
+        with self._avatar_workload_sync_lock:
+            sessions = tuple(self._avatar_workload_sync)
+        for session_id in sessions:
+            self._stop_avatar_workload_sync(session_id)
         if self._avatar_output is not None:
             self._avatar_output.close()
 
@@ -669,7 +749,11 @@ class PersistentConversationService:
                 }
                 if workload_mode is not None:
                     avatar_publication["workload_mode"] = workload_mode
-                self._avatar_output.publish_response(**avatar_publication)
+                publication = self._avatar_output.publish_response(**avatar_publication)
+                if publication.get("status") == "emitted":
+                    with self._avatar_workload_sync_lock:
+                        self._avatar_workload_modes_observed.pop(session["session_id"], None)
+                    self._sync_avatar_workload_mode(session["session_id"])
             except Exception as exc:
                 LOGGER.warning("Avatar response publication failed: %s", type(exc).__name__)
         if self._speech_output is not None:
@@ -1101,6 +1185,7 @@ async def root_page() -> HTMLResponse:
                     <input id="avatar-output-enabled" type="checkbox" disabled />
                     <span id="avatar-output-status" role="status">Visual text and a nod only; no audio.</span>
                     <p>Approval is limited to this conversation and expires after four hours or when the chat service stops.</p>
+                    <p>When enabled, gaming mode caps only the companion renderer at 15 FPS; it does not change game scheduling.</p>
                 </section>
                 <section id="speech-output-controls" aria-label="Local speech output">
                     <label for="speech-output-enabled">Speak replies with local voice</label>

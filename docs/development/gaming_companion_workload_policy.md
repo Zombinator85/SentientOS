@@ -29,6 +29,11 @@ While `automatic` is selected, the page refreshes the foreground match status
 every five seconds so the displayed state follows changes in the active window.
 The model still uses the same read-only foreground check for each new chat turn;
 the page poll is display feedback, not a separate source of inference authority.
+When the operator has enabled the local visual companion for a conversation, a
+server-side read-only watcher checks the effective workload mode once per second
+and updates the renderer hint only when the mode changes. The watcher stops when
+the avatar grant is revoked, expires, or the chat service shuts down. It does not
+start model inference.
 
 Use `GET /workload-mode` to inspect the configured and effective mode. Use
 `POST /workload-mode` with `{"mode":"gaming"}` or `{"mode":"normal"}` to
