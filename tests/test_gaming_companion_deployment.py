@@ -82,6 +82,7 @@ def _reverse_mutual_tls_manifest(**updates):
             "wsl_core_client_certificate_reference": "wsl:/etc/sentientos/bridge/core-client.pem",
             "wsl_core_client_private_key_reference": "wsl:/etc/sentientos/bridge/core-client.key",
             "expected_wsl_core_certificate_sha256": "b" * 64,
+            "expected_windows_edge_server_certificate_sha256": "c" * 64,
             "source_key_custody_reference": "credential-store:sentientos/wsl-core-avatar-source",
             "source_generation_custody_reference": "operator-ledger:wsl-core-avatar-generation",
             "acknowledgment_generation_custody_reference": "operator-ledger:windows-edge-avatar-generation",
@@ -196,6 +197,9 @@ def test_reverse_avatar_v3_manifest_requires_independent_windows_mtls_custody():
     (lambda value: value["reverse_avatar_tls"].update(source_key_custody_reference=
         value["bridge_tls"]["source_key_custody_reference"]),
      "manifest_reverse_avatar_tls_source_key_reuse_forbidden"),
+    (lambda value: value["reverse_avatar_tls"].update(
+        expected_windows_edge_server_certificate_sha256="not-a-pin"),
+     "manifest_reverse_avatar_tls_server_pin_invalid"),
     (lambda value: value.update(reverse_firewall_rule_reference=None),
      "manifest_reverse_firewall_reference_required"),
 ])

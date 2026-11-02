@@ -168,8 +168,11 @@ Manifest v3 retains the v2 Windows-edge→WSL-core telemetry listener and adds a
 separate `reverse_avatar_tls` contract for WSL-core→Windows-edge avatar commands.
 The reverse object names the Windows private bind address and port, edge server
 certificate/key references, WSL core client certificate/key references, CA
-reference, pinned WSL core certificate digest, a distinct source-key custody
-reference, and independent source/acknowledgment generation custody references.
+reference, pinned WSL core certificate digest, pinned Windows edge server
+certificate digest, a distinct source-key custody reference, and independent
+source/acknowledgment generation custody references. The WSL sender checks the
+Windows certificate pin after TLS authentication and before sending application
+bytes; a pin mismatch is recorded as `not_sent`.
 It also requires a separate operator-managed reverse firewall-rule reference.
 The validator rejects public or loopback binds and rejects reuse of the
 forward-direction HMAC source key. Neither firewall rule is created or checked
@@ -190,6 +193,16 @@ or install an OS service. The local test verifies its reference binding and
 fail-closed receipt ordering; the certificate-backed localhost test separately
 verifies the transport and state-file route. Neither test binds GLORP's private
 address or establishes Windows readiness.
+
+The WSL-core counterpart is
+`sentientos.gaming_companion_core_runtime.build_wsl_core_avatar_output_session`.
+It resolves the same authority-issued generation pair, requires a distinct
+source key reference, builds a hostname-validated client context through the
+platform adapter, pins the Windows server certificate, validates the
+acknowledgment generation, and returns a session-scoped admitted chat emitter.
+Its factory fixture confirms exact reference routing and receipt checks before
+key reads; the localhost mTLS test covers transport behavior separately. It
+does not start a persistent core process or contact a target listener.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied

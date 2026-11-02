@@ -58,6 +58,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert report["fixture_tests"]["skipped"] == 2
     assert report["real_software_scenarios"]["blender_authored_glb_candidate"]["status"] == "not_run"
     assert report["real_software_scenarios"]["reverse_avatar_edge_composition"]["target_listener_started"] is False
+    assert report["real_software_scenarios"]["reverse_avatar_core_output_composition"]["target_listener_contacted"] is False
     assert len(report["fixture_tests"]["log_sha256"]) == 64
     assert report["target_host_validation"]["status"] == "not_run"
     assert report["authority_effects_performed"] is False

@@ -430,6 +430,7 @@ class CompanionBridgeMutualTLSClient(CompanionBridgeLoopbackClient):
     def __init__(self, *, address: str, port: int, server_hostname: str,
                  tls_context: ssl.SSLContext,
                  acknowledgment_receiver: CompanionBridgeReceiver,
+                 expected_server_certificate_sha256: str | None = None,
                  timeout_seconds: float = 2.0) -> None:
         self._address, self._family = _validate_private_address(address)
         if type(port) is not int or not 1 <= port <= 65535:
@@ -440,6 +441,10 @@ class CompanionBridgeMutualTLSClient(CompanionBridgeLoopbackClient):
             raise CompanionBridgeError("bridge_client_mutual_tls_required")
         if not isinstance(acknowledgment_receiver, CompanionBridgeReceiver):
             raise CompanionBridgeError("bridge_acknowledgment_receiver_required")
+        if (expected_server_certificate_sha256 is not None
+                and (not isinstance(expected_server_certificate_sha256, str)
+                     or _DIGEST.fullmatch(expected_server_certificate_sha256) is None)):
+            raise CompanionBridgeError("bridge_tls_server_certificate_pin_invalid")
         if (isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float))
                 or timeout_seconds <= 0 or timeout_seconds > 30):
             raise CompanionBridgeError("bridge_socket_timeout_invalid")
@@ -449,6 +454,7 @@ class CompanionBridgeMutualTLSClient(CompanionBridgeLoopbackClient):
         self._server_hostname = server_hostname
         self._context = tls_context
         self._ack_receiver = acknowledgment_receiver
+        self._expected_server_certificate_sha256 = expected_server_certificate_sha256
         self._timeout = float(timeout_seconds)
 
     def send(self, encoded: bytes) -> VerifiedBridgeMessage:
@@ -464,6 +470,14 @@ class CompanionBridgeMutualTLSClient(CompanionBridgeLoopbackClient):
                 raw.close()
             raise CompanionBridgeTransportError("bridge_tls_connection_unavailable",
                 delivery_state="not_sent") from exc
+        if self._expected_server_certificate_sha256 is not None:
+            peer_certificate = connection.getpeercert(binary_form=True)
+            observed_pin = hashlib.sha256(peer_certificate).hexdigest() if peer_certificate else ""
+            if not hmac.compare_digest(observed_pin,
+                    self._expected_server_certificate_sha256):
+                connection.close()
+                raise CompanionBridgeTransportError(
+                    "bridge_tls_server_certificate_pin_mismatch", delivery_state="not_sent")
         try:
             with connection:
                 try:

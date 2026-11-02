@@ -201,11 +201,15 @@ is implemented and tested.
   forwarder. The v3 deployment schema and
   `build_windows_edge_avatar_runtime` now compose the reverse mTLS listener,
   separately verified generation pair, external command-receipt verifier, and
-  Godot state sink behind one bounded owner. Its reference-binding factory test
-  and the certificate-backed localhost route test pass. There is still no
-  Windows authority-log adapter, executable paired role launcher, GLORP
-  listener, or renderer observation; state-file delivery does not establish
-  that a frame rendered.
+  Godot state sink behind one bounded owner. The WSL counterpart,
+  `build_wsl_core_avatar_output_session`, resolves the same generation custody,
+  uses distinct source/acknowledgment keys, and pins the Windows edge server
+  certificate before sending application bytes. Its session factory resolves
+  custody by exact reference and validates receipt ordering. Both role factories
+  and the certificate-backed localhost route are fixture-tested. There is still
+  no executable paired role launcher, platform custody adapter, GLORP listener,
+  or renderer observation; state-file delivery does not establish that a frame
+  rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process
@@ -357,10 +361,10 @@ not a complete Windows-edge/WSL-core deployment.
 1. Implement executable Windows-edge and WSL-core role entrypoints that resolve
    the manifest's protected references, construct the full role components,
    and supply authority-backed launch and health callbacks to the process
-   supervisor. The reverse-avatar edge composition factory exists; the forward
-   telemetry/cognition core composition and platform custody adapters remain
-   unfinished. Do not create keys, generations, certificates, firewall rules,
-   or OS persistence.
+   supervisor. Reverse-avatar edge and WSL output-session factories now exist;
+   the forward telemetry/cognition core composition, platform custody adapters,
+   and paired executable launchers remain unfinished. Do not create keys,
+   generations, certificates, firewall rules, or OS persistence.
 2. Exercise the reverse-route edge owner with target-side authority and a real
    Windows mTLS listener. The local factory composes the validated v3 manifest,
    externally resolved key/TLS/generation custody, receipt verifier, and bounded

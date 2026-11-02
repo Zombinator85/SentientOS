@@ -35,6 +35,7 @@ _REVERSE_TLS_FIELDS = frozenset({
     "ca_bundle_reference", "windows_edge_certificate_reference",
     "windows_edge_private_key_reference", "wsl_core_client_certificate_reference",
     "wsl_core_client_private_key_reference", "expected_wsl_core_certificate_sha256",
+    "expected_windows_edge_server_certificate_sha256",
     "source_key_custody_reference", "source_generation_custody_reference",
     "acknowledgment_generation_custody_reference",
 })
@@ -144,6 +145,9 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
         if re.fullmatch(r"[0-9a-f]{64}",
                 str(reverse.get("expected_wsl_core_certificate_sha256", ""))) is None:
             raise GamingCompanionDeploymentError("manifest_reverse_avatar_tls_peer_pin_invalid")
+        if re.fullmatch(r"[0-9a-f]{64}",
+                str(reverse.get("expected_windows_edge_server_certificate_sha256", ""))) is None:
+            raise GamingCompanionDeploymentError("manifest_reverse_avatar_tls_server_pin_invalid")
     for field in ("start_on_login", "automatic_capture", "automatic_speech"):
         if type(result[field]) is not bool:
             raise GamingCompanionDeploymentError("manifest_boolean_invalid:" + field)

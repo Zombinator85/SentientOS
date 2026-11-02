@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import hashlib
 import json
 import os
 import socket
@@ -32,6 +33,7 @@ from sentientos.gaming_companion_tls_transport import (
     BridgeGenerationPair,
     CompanionBridgeMutualTLSClient,
     CompanionBridgeMutualTLSRuntime,
+    CompanionBridgeTransportError,
     read_posix_bridge_source_key,
     verify_generation_rotation,
     verify_generation_pair_rotation,
@@ -90,6 +92,9 @@ def _certificate_bundle(root: Path):
 
 def test_mutual_tls_protects_authenticated_bounded_bridge_delivery(tmp_path: Path):
     server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate((tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(
+        server_certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
     source_key, ack_key = b"s" * 32, b"k" * 32
     receiver = CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
         expected_generations={"windows-edge": "edge-generation-1"})
@@ -104,7 +109,8 @@ def test_mutual_tls_protects_authenticated_bounded_bridge_delivery(tmp_path: Pat
         expected_generations={"wsl-core": "core-generation-1"})
     client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
         server_hostname="127.0.0.1", tls_context=client_context,
-        acknowledgment_receiver=ack_receiver)
+        acknowledgment_receiver=ack_receiver,
+        expected_server_certificate_sha256=server_pin)
     now = datetime.now(timezone.utc).isoformat()
     encoded = encode_message(kind="observation", source_id="windows-edge",
         session_id="session-1", generation_id="edge-generation-1", sequence=1,
@@ -116,6 +122,39 @@ def test_mutual_tls_protects_authenticated_bounded_bridge_delivery(tmp_path: Pat
         assert received.payload["frame_time_p95_ms"] == 16.7
         assert received.signed_envelope == encoded
         assert runtime.status().accepted_messages == 1
+    finally:
+        runtime.close()
+
+
+def test_mutual_tls_server_certificate_pin_rejects_before_sending(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate((tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(
+        server_certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
+    wrong_pin = "f" * 64 if server_pin != "f" * 64 else "e" * 64
+    source_key, acknowledgment_key = b"p" * 32, b"q" * 32
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core", acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": acknowledgment_key},
+            expected_generations={"wsl-core": "core-generation-1"}),
+        expected_server_certificate_sha256=wrong_pin)
+    encoded = encode_message(kind="observation", source_id="windows-edge",
+        session_id="session-pin", generation_id="edge-generation-1", sequence=1,
+        payload={"frame_time_p95_ms": 16.7}, key=source_key)
+    try:
+        with pytest.raises(CompanionBridgeTransportError,
+                           match="bridge_tls_server_certificate_pin_mismatch") as caught:
+            client.send(encoded)
+        assert caught.value.delivery_state == "not_sent"
+        assert runtime.status().accepted_messages == 0
     finally:
         runtime.close()
 
