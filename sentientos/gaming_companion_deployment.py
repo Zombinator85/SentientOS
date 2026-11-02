@@ -105,6 +105,7 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
     repo = Path(cfg["repository_root"])
     python = Path(cfg["python_executable"])
     state = Path(cfg["state_root"])
+    bridge_runtime_source = repo / "sentientos" / "gaming_companion_bridge_runtime.py"
     try:
         resolved_repo = repo.resolve(strict=False)
         resolved_state = state.resolve(strict=False)
@@ -119,7 +120,8 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
         "state_root_separate_from_checkout": state_separate_from_repo,
         "state_root_exists": state.is_dir() and not state.is_symlink(),
         "chat_entrypoint": shutil.which("sentientos-chat") is not None,
-        "bridge_listener": "not_implemented",
+        "bridge_runtime_source_in_checkout": bridge_runtime_source.is_file(),
+        "bridge_listener": "not_observed_from_this_environment",
         "windows_observer": "not_observed_from_this_environment",
         "godot_renderer": "not_observed_from_this_environment",
         "speech_output": "not_observed_from_this_environment",
@@ -140,7 +142,9 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
             reasons.append(key + "_not_ready")
     warnings: list[str] = []
     if facts["bridge_listener"] != "ready":
-        warnings.append("authenticated_bridge_listener_unavailable")
+        warnings.append("authenticated_bridge_listener_unobserved")
+    if facts["bridge_runtime_source_in_checkout"] is not True:
+        warnings.append("authenticated_bridge_runtime_source_unavailable")
     for component in cfg["enabled_windows_components"]:
         facts[component] = "not_observed_from_this_environment"
         warnings.append(component + "_readiness_unverified")
