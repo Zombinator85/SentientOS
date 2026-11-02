@@ -4,6 +4,15 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
+**Campaign continuation update (2026-11-02; worktree parent
+`c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
+host-pressure deferral, a Windows performance observer, durable renderer-report
+capture, mTLS transport primitives, and an in-process generation-aware bridge
+supervisor. This continuation also adds governed speech timing/interruption
+events, a loopback renderer-report edge relay, and one-command local fixture
+acceptance. Focused local tests pass; hosted Required / Quality Gate has not run
+for this increment. The hardware and cross-platform claims below remain open.
+
 This note records what the current source and tests establish. The hardware and
 cross-platform claims remain open until the WSL2/Windows system is exercised on
 the target host.
@@ -48,6 +57,72 @@ the target host.
   `docs/development/evidence/pre_glorp_model_baseline_2026-11-02/`.
   That run is rootless experimental evidence, not production commissioning or a
   gaming-performance trial.
+- The host-resource coordinator now forwards each validated proposal-only
+  evaluation to the runtime governor. Background local inference defers when
+  fresh telemetry reports CPU, memory, GPU, or thermal pressure, or when
+  required CPU/RAM evidence is incomplete. Foreground chat remains eligible;
+  a deferred request does not reserve its correlation ID and can be admitted
+  after a later low-pressure observation. Receipts carry evaluation, epoch,
+  snapshot, and report references. Fixture tests cover the path; no GLORP
+  measurement is claimed.
+- `WindowsGamePerformanceObserver` parses bounded PresentMon CSV and optional
+  selected-process CPU/RSS readings. It reports p50/p95/p99 frame times,
+  hitches over 50 ms, source digests, and explicit unsupported/unavailable
+  states. CSV reads have a 4 MiB bound; the psutil CPU sample uses a short
+  finite measurement interval instead of psutil's documented meaningless first
+  nonblocking zero. Offline fixtures cover parsing, bounded input, provider
+  digest validation, and Linux unsupported reporting. Signed reports now travel
+  through the authenticated bridge; the core verifies expected source,
+  generation, freshness, strict shape, and provenance before using the sample
+  as supplemental background-inference pressure evidence. A p95 of at least
+  50 ms or any >50 ms hitch defers background work while fresh; this signal
+  never substitutes for required core CPU/RAM evidence. HMAC and mTLS fixtures
+  cover the path; no Windows API or GLORP gameplay measurement is claimed.
+- The mTLS runtime now has a bounded in-process `CompanionBridgeSupervisor`.
+  Recovery requires independent source and acknowledgment generation records,
+  externally verified receipts for both chains, and a runtime whose configured
+  identities match that pair. Failure injection covers rotation, binding
+  mismatch, exhausted restart budget, close-during-recovery, and detector
+  reconnection. This does not issue
+  credentials, establish firewall rules, install startup persistence, or
+  supervise Windows and WSL as operating-system services.
+- `GamingCompanionProcessSupervisor` now manages one explicitly authorized
+  foreground edge/core child process. It validates a bounded no-shell command,
+  strips inherited credential-bearing environment variables, binds launch
+  approval to the exact command digest and generation pair, probes readiness,
+  performs graceful shutdown, and restarts only with verified rotated source
+  and acknowledgment generations. A real child-process fixture covers startup,
+  crash recovery, denied-launch no-spawn behavior, and shutdown. It installs no
+  service or login persistence and does not resolve either platform's key store.
+- Verified incoming renderer reports can be saved as content-addressed,
+  permission-restricted evidence with their exact signed envelope and lineage.
+  World-State revalidation preserves the boundary that this is renderer
+  self-report, not independent observation or proof of physical effect. Godot
+  still has no mTLS sender. A headless Godot integration test now sends its
+  report over loopback UDP through the edge relay and mTLS into durable capture.
+  The relay cannot independently establish which local process emitted its UDP
+  datagram, and no Windows-to-WSL run is claimed.
+- Local speech now records active and last-played turn identities, cancels the
+  active turn when revoked, and best-effort stops/discards same-conversation
+  speech when a new user turn begins. Focused controller and chat-service tests
+  cover the interruption path. pyttsx3 word-start events now publish turn-bound
+  character offsets and elapsed time through the governed avatar state channel;
+  utterance boundaries and interruption are recorded separately. A bounded
+  asynchronous event queue keeps avatar-state writes off the audio callback;
+  dropped timing events are counted. The system does not infer phonemes or
+  fabricate visemes. Godot now opens/closes the procedural mouth from the
+  actual utterance/interruption boundary event and reports that rendering as
+  self-report; it does not synthesize word-shaped visemes. Windows/WSL speaker
+  routing and target timing remain unmeasured. The reverse mTLS command now
+  carries the closed word-timing event to the Windows state-file queue; the
+  localhost certificate-backed test verifies timing metadata reaches that
+  renderer input. Godot can animate generic speech activity from those timing
+  events, but does not map word offsets to phonemes or authored visemes.
+- `python -m scripts.gaming_companion_acceptance --manifest <deployment.json>
+  --results-dir <private-results-directory>` runs the local fixture suite and
+  read-only deployment doctor, retaining restricted logs, JUnit summary, and
+  digests. Its result marks target-host validation as not run and never claims
+  production commissioning.
 
 ## Exact verified entrypoints
 
@@ -70,19 +145,36 @@ does not itself enable the per-session grant. `--local-speech-output` is a
 separate opt-in and is omitted above. The supervised process holds an
 installation-scoped lock and exits if the supplied records do not verify.
 
+After the WSL checkout, interpreter, and operator-issued records exist, run
+the local acceptance/doctor commands from that checkout:
+
+```text
+python -m scripts.gaming_companion_deployment_cli validate --manifest <deployment.json>
+python -m scripts.gaming_companion_deployment_cli doctor --manifest <deployment.json>
+python -m scripts.gaming_companion_acceptance --manifest <deployment.json> --results-dir <new-private-results-directory>
+```
+
 The documented local avatar launcher is:
 
 ```text
 python -m sentientos.cli.avatar_demo_cli \
   --state-file <same-private-avatar-state-path> \
-  --godot-bin <installed-godot-executable>
+  --godot-bin <installed-godot-executable> \
+  --renderer-report-relay-port <operator-configured-loopback-port>
 ```
+
+Omit `--renderer-report-relay-port` when no edge relay is running. The Godot
+sender has no remote host option and only targets `127.0.0.1`; failed or
+unavailable report delivery does not retry or change the renderer's output.
 
 Both entrypoints expose `--help`. The avatar launcher starts the forwarder and
 Godot child when the supplied executable/project exist; interrupting the
 launcher stops its forwarder and terminates the child. A separately verified
 chat startup, avatar-session opt-in, and chat shutdown sequence has not yet been
-run as one deployment procedure.
+run as one deployment procedure. There is not yet a Windows-edge command that
+loads DPAPI and generation custody, starts the observer/renderer relay, and
+supervises it as an OS process; no such command is listed as runnable until it
+is implemented and tested.
 
 ## What remains unfinished
 
@@ -97,19 +189,47 @@ run as one deployment procedure.
   Windows-to-WSL reachability. Source-key custody, durable generation rotation,
   and startup generation issuance remain external. Queue state and sequence
   high-water marks are process-local, so every restart needs newly issued source
-  generations; uncertain deliveries are not replayed.
+  generations; uncertain deliveries are not replayed. Both in-process listener
+  supervision and a separately tested local child-process supervisor are
+  available, but no paired Windows/WSL role launcher composes them yet. The
+  `BridgeChatAvatarOutputEmitter` now creates visual-only commands from an
+  admitted chat response; `MutualTLSAvatarCommandSender` signs and transmits
+  each command once using the protected edge mTLS client. On Windows,
+  `WindowsEdgeAvatarCommandDispatchOwner` requires an external receipt
+  verifier before submitting a command to `WindowsGodotAvatarStateQueue`,
+  which writes the visual-only state format consumed by the existing Godot
+  forwarder. The v3 deployment schema and
+  `build_windows_edge_avatar_runtime` now compose the reverse mTLS listener,
+  separately verified generation pair, external command-receipt verifier, and
+  Godot state sink behind one bounded owner. The WSL counterpart,
+  `build_wsl_core_avatar_output_session`, resolves the same generation custody,
+  uses distinct source/acknowledgment keys, and pins the Windows edge server
+  certificate before sending application bytes. The combined
+  `build_wsl_core_gaming_companion_runtime` also composes the verified forward
+  Windows-observation listener with the existing workload detector. Production
+  chat can own the output session, preserve chat-session authorization, clear
+  renderer state, and close the sender in order. Its factories resolve custody
+  by exact reference and validate receipt ordering. The role factories and
+  certificate-backed localhost route are fixture-tested. There is still
+  no executable paired role launcher, platform custody adapter, GLORP listener,
+  or renderer observation; state-file delivery does not establish that a frame
+  rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
-  bridge from this cloud Linux environment. It does not supervise or start
-  processes. There is still no coordinated startup, health check, reconnect, or
-  shutdown for a split deployment. The Windows readiness and scheduled-task
+  bridge from this cloud Linux environment. Bounded local child-process
+  supervision is tested, but there is still no coordinated cross-platform
+  startup/shutdown, executable Windows-edge/WSL-core role entrypoints, OS
+  service registration, production custody-reference adapters, firewall setup,
+  or target-host recovery validation. The Windows readiness and scheduled-task
   machinery remains specific to maintenance.
 - **Resource feedback:** the governor in `host_resource_governor.py` remains
   proposal-only. The exact llama.cpp worker now applies the gaming request's
   two-thread ceiling to decode and batch work, clamped to the commissioned
   profile and restored after each call. This request-local limit does not unload
-  the model, pause optional background inference, reserve GPU capacity, change
-  host scheduling, or ensure better game frame times. No GLORP CPU/GPU/VRAM,
+  the model, preempt an already-running decode, reserve GPU capacity, change
+  host scheduling, or ensure better game frame times. New background inference
+  admissions now defer until a fresh host observation is available and defer
+  again under reported pressure. No GLORP CPU/GPU/VRAM,
   temperature, power, or frame-time measurements are present.
 - `sentientos.gaming_companion_deployment` and its CLI provide a closed split-host
   manifest and read-only WSL2 deployment doctor. The doctor reports absent
@@ -117,17 +237,24 @@ run as one deployment procedure.
   components, or claim that the deployment is ready.
 - **GPU telemetry:** the NVML collector has fixture coverage only in this cloud
   run. NVML is not installed here, and no GLORP device sample exists.
-  Per-process GPU utilization and game frame-time collection remain
-  unimplemented.
+  Per-process GPU utilization remains unimplemented. Game frame-time collection
+  has an offline-tested Windows adapter, authenticated bridge publisher/core
+  detector, and supplemental pressure-policy input. Real Windows counters,
+  PresentMon capture, and gameplay effects remain unmeasured on GLORP.
 - **Renderer feedback:** Godot now produces a bounded in-memory
-  `sentientos.avatar_renderer_report:v1` after applying a state. It includes
+  `sentientos.avatar_renderer_report:v2` after applying a state. Ingress
+  continues to accept archived v1 reports and validates the v2 speech activity
+  subrecord without accepting phoneme claims. It includes
   session/turn/output lineage when available, the commanded state, post-apply
   animation and transform values, expression result, FPS cap, timing, and a
   source digest. A Python ingress validates its closed shape and projects it
   through the existing embodiment evidence owner as an explicitly unverified
   renderer self-report. An actual headless Godot scene probe exercises this
-  path. The report is not yet transported to chat, durably captured, or an
-  independent observation; its source digest is still a renderer claim. The
+  path. The Python ingress can durably capture reports through an optional
+  loopback-only Windows edge relay that signs the unchanged report and sends it
+  over mTLS. The headless Godot→relay→mTLS→store fixture passes. This remains
+  renderer self-report: the source digest is a renderer claim, and loopback UDP
+  does not authenticate the Godot process. The
   procedural demo is not the inspected Blender-authored candidate and is not an
   adopted body.
 - **Perception and situated behavior:** the bounded, opt-in Windows game capture
@@ -137,9 +264,24 @@ run as one deployment procedure.
   This is same-host software integration, not Windows-to-WSL transport, a live
   desktop capture, or actual game perception by a local model. No ambient
   screen, microphone, or provider capture should be enabled.
-- **Speech:** production chat has a separately admitted local TTS path, but
-  actual playback, Windows/WSL routing, interruption, and timing-aligned
-  visemes have not been exercised on the target host.
+- **Speech:** production chat has a separately admitted local TTS path and
+  software-level interruption handling. Word timing now crosses the tested
+  localhost mTLS reverse route to the Godot state input, where the procedural
+  mouth animates from utterance and interruption boundaries. Actual playback,
+  Windows/WSL routing, and target timing remain untested. The unadopted authored
+  candidate probe now applies a separately mapped generic speech-activity
+  blend shape and verifies interruption closes it; word-start offsets are not
+  treated as phonemes or visemes, and this is not evidence of an adopted body.
+- **Authored-body adoption:** authoring, structural inspection, operator
+  adoption, compare-and-swap lineage, rollback, and an experimental Godot
+  candidate adapter exist. A Blender/Godot fixture now exercises the full
+  loader-descriptor → operational-body activation → lineage report → rollback
+  path. Its receipt verifier and approval are test fixtures, and the renderer
+  report remains a self-report. The demo has not loaded the adopted GLORP
+  artifact with its production manifest and renderer handoff. Target
+  prerequisites include an operator-adopted artifact,
+  its current pointer/manifest/receipt chain, the required Blender/Godot import
+  support, and a target renderer process that can load the exact asset digest.
 - **Local model:** the rootless smoke proves that one small CPU model can run in
   this cloud environment under the experimental owner. It does not establish a
   commissioned GLORP model, the suitability of Hermes 4 14B, CUDA availability,
@@ -150,11 +292,22 @@ run as one deployment procedure.
 The focused test node
 `tests/test_chat_service_hardened_serving.py::test_gaming_companion_vertical_fixture_survives_forwarding_and_restart`
 passed with the related avatar receiver, foreground detection, and serving
-budget tests, the new bridge protocol tests, and NVML collector tests (68 tests in the latest focused
-run). Its inference implementation is
+budget tests, the new bridge protocol tests, and NVML collector tests. Its
+inference implementation is
 a deterministic fixture. The independently preserved rootless model smoke is
 real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
+
+The one-command local acceptance workflow most recently passed 224 tests with
+zero failures/errors and 23 repository-marked skips. It includes a real
+Blender-authored GLB loaded through the receipt-verifying Python fixture loader,
+activated in headless Godot, reported with adoption lineage, and rolled back to
+the procedural body. The approval and receipt verifier are test fixtures, so
+this does not claim production adoption. The suite also covers role runner
+lifecycle/authority checks, mTLS Windows-performance transport fixtures, and
+the vertical chat/avatar restart scenario. The local deployment doctor
+correctly reported WSL2, host configuration, and target checks as unobserved;
+this was software validation, not production commissioning.
 
 The test node
 `tests/test_gaming_companion_vertical_godot.py::test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data`
@@ -170,9 +323,9 @@ headless probe checks an authored wave clip and expression behavior.
 
 This scenario does not establish real Windows capture, Windows-to-WSL
 connectivity, production model execution, game performance, or hardware
-telemetry. HMAC authenticates the loopback message but does not encrypt it; the
-bridge must not be moved off loopback for cross-host use without a separately
-designed protected transport.
+telemetry. The loopback bridge authenticates but does not encrypt. Cross-host
+deployment uses the separate TLS 1.2+ mTLS transport, which has local
+certificate-fixture coverage but no Windows/WSL reachability result.
 
 ## GLORP acceptance sequence
 
@@ -203,23 +356,84 @@ the unresolved split-network step prevents calling it a complete deployment:
    VRAM, temperature, and power where available. No pass threshold or expected
    performance improvement has been established.
 
-## Next engineering increments
+## Remaining software engineering increments
 
-1. Establish independently configured source-key custody and restart generation
-   rotation, then coordinate the existing bounded listener/client lifecycle
-   across Windows and WSL. Validate target-host routing without changing the
-   loopback-only listener or exposing it to a LAN.
-2. Compose the existing Windows foreground publisher, authenticated bridge, and
-   production chat detector under an authorized split-host launcher. Verify
-   stale, invalid, or missing observations retain the conservative gaming
-   budget.
-3. Connect renderer reports through the bridge and durable World-State capture;
-   preserve their self-reported status until an independent observer exists.
-4. Compose startup, health, reconnect, and shutdown around the read-only
-   deployment doctor without creating installation identity or grants.
-5. Extend the governed request-budget policy using measured CPU/GPU/VRAM and
-   game frame-time inputs, preserving the current request-local llama.cpp thread
-   ceiling. HostResourceGovernor remains proposal-only; no game frame-time
-   improvement has been measured.
-6. Run preregistered GLORP comparisons only after the target host is provisioned;
-   report fixtures, rootless CPU inference, and GLORP observations separately.
+The cloud checkpoint has completed bounded background-inference deferral and
+recovery from validated host CPU/RAM/GPU/thermal evidence, with receipt-linked
+resource measurements. It also adds protected mTLS transport primitives,
+source-key readers, verified generation rotation, in-process listener and
+authority-gated child-process supervisors, a fixture-tested Windows
+performance adapter with pressure-policy input, durable renderer self-report
+capture, and turn-scoped speech interruption. These are component increments,
+not a complete Windows-edge/WSL-core deployment.
+
+1. Install platform providers for the paired `sentientos-gaming-companion-role`
+   executable. The executable validates manifest v3, selects only the matching
+   Windows-edge or WSL-core runtime owner, monitors listener health, and closes
+   cleanly; the existing edge and bidirectional WSL factories are the provider
+   composition points. No authorized Windows/WSL platform provider is available
+   in this cloud workspace, so DPAPI/credential-store and authority receipt
+   integration remain target work. The foreground launcher and its lifecycle
+   fixtures are implemented. Do not create keys, generations, certificates,
+   firewall rules, or OS persistence.
+2. Exercise the reverse-route edge owner with target-side authority and a real
+   Windows mTLS listener. The local factory composes the validated v3 manifest,
+   externally resolved key/TLS/generation custody, receipt verifier, and bounded
+   Godot state queue. Run failure injection for queue rejection, transport
+   uncertainty, restart, and generation rotation without replaying uncertain
+   messages.
+3. Execute the Godot report return route on Windows/WSL through the loopback
+edge relay, protected mTLS bridge, and durable World-State capture. The
+software-only relay integration test passes; target transport and attribution
+remain unverified. Keep authenticated relay identity separate from renderer
+self-report and independent physical observation.
+4. Use `load_adopted_body` to resolve the current adopted artifact only after
+   an authority-backed receipt verifier, manifest binding, content hash, and
+   allowed artifact root all agree. Its descriptor is wired to Godot activation
+   and rollback, with generation, manifest, pointer, and receipt lineage in the
+   renderer self-report. The end-to-end GLB scenario uses fixture custody and
+   approval only; no operator-adopted GLORP artifact has been loaded.
+5. Connect existing timing events to an explicitly adopted body's authored
+   mouth rig using its explicit generic speech-activity mapping while keeping
+   word offsets distinct from phoneme labels. The unadopted candidate now has
+   a fixture-tested path. Verify actual local audio latency and immediate
+   renderer interruption on target after adoption.
+6. Extend the local acceptance command into the supervised cross-platform
+commissioning workflow after protected Windows/WSL custody and OS service
+interfaces are available. Current local command invokes the existing software
+owners, includes failure-injection fixtures, and records its outputs, but does
+not create target services or authority.
+7. Run preregistered GLORP comparisons only after target prerequisites below
+are satisfied; report fixtures, rootless CPU inference, and GLORP observations
+as separate evidence classes.
+
+## Target-host-only acceptance and prerequisites
+
+These checks are deferred for lack of GLORP access, not treated as a blocker for
+the software campaign:
+
+1. Windows API foreground PID/basename consistency and PresentMon process
+   attribution. Requires Windows 11, an explicitly allowlisted running game,
+   PresentMon, and a controlled foreground/non-game transition scenario.
+2. Windows per-process CPU/RSS sampling and optional GPU attribution. Requires
+   the selected process, Windows resource APIs or psutil, and a supported GPU
+   telemetry provider; absent fields must remain unavailable.
+3. WSL2-to-Windows protected bridge route and firewall validation. Requires the
+   provisioned WSL distribution, chosen private address mode, operator-approved
+   firewall rule, CA/certificates, pinned peer identity, source key in each
+   custodian, and externally issued source/acknowledgment generation receipts.
+4. Supervised startup, shutdown, reconnection, and generation rotation across
+   both processes. Requires authorized credential/generation factories, the
+   real WSL core and Windows edge launchers, injected process/service failures,
+   and confirmation that uncertain messages are not replayed.
+5. Renderer report return and artifact loading. Requires the adopted body
+   artifact, current pointer/manifest/adoption chain, configured Godot import
+   support, the Windows renderer/relay, and a report-to-WSL transport run.
+6. Audio playback and synchronization. Requires a local output device and
+   actual backend, measured start/word/finish timing, cancellation while playing,
+   and a renderer that consumes those timing events for visemes.
+7. Gaming acceptance. Requires preregistered game-only, unrestricted inference,
+   and governed-inference sessions with frame-time p50/p95/p99, hitches,
+   inference latency/tokens per second, CPU/RAM/GPU/VRAM, temperature, and
+   power readings where the providers support them. No improvement threshold
+   has been established.

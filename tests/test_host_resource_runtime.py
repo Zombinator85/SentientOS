@@ -5,8 +5,10 @@ import time
 from pathlib import Path
 
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import HostObservationBudget, HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan, default_collector_specs, persist_evidence_bundle, redact_value, validate_evaluation, world_state_records
+from sentientos.runtime_governor import RuntimeGovernor
 
 
 def _result(cid: str, status: str = "available", **values):
@@ -85,3 +87,123 @@ def test_evaluation_snapshot_policy_world_state_and_artifact_custody(tmp_path):
     records = world_state_records(e)
     assert {r["subject_id"] for r in records} >= {"host_resource_observation_epoch", "host_resource_pressure", "host_resource_policy"}
     assert all(r["effect_claimed"] is False and r["effect_proven"] is False for r in records)
+
+
+def test_host_pressure_defers_background_inference_and_recovers_without_reserving_admission(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor, phase=LifecyclePhase.MAINTENANCE, decisions_path=tmp_path / "kernel.jsonl")
+    no_evidence_background = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance",
+        target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "retry-after-missing-evidence"},
+    )
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    no_evidence = kernel.admit(no_evidence_background)
+    assert no_evidence.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_resource_telemetry_incomplete" in no_evidence.reason_codes
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+
+    def collectors(cpu_percent: float):
+        return build_observation_plan(specs=[
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1, lambda observed_at=None: _result("cpu", utilization_percent=cpu_percent)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2, lambda observed_at=None: _result("memory", used_percent=50.0)),
+            HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3, lambda observed_at=None: _result("disk", used_percent=20.0, free_bytes=1000)),
+        ])
+
+    pressured = HostResourceRuntimeCoordinator(kernel=kernel, runtime_state_root=tmp_path / "pressure", plan=collectors(95.0)).run_cycle(correlation_id="pressure")
+    assert pressured is not None and validate_evaluation(pressured).ok
+    assert kernel.observe_host_resource_evaluation(pressured)
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    background = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance",
+        target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "retry-after-pressure"},
+    )
+    deferred = kernel.admit(background)
+    assert deferred.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_background_inference_under_host_pressure" in deferred.reason_codes
+
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    nominal = HostResourceRuntimeCoordinator(kernel=kernel, runtime_state_root=tmp_path / "nominal", plan=collectors(20.0)).run_cycle(correlation_id="nominal")
+    assert nominal is not None and kernel.observe_host_resource_evaluation(nominal)
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    recovered = kernel.admit(background)
+    assert recovered.outcome == AdmissionOutcome.ALLOW
+    runtime_decision = recovered.delegated_outcomes["runtime_governor"]
+    assert runtime_decision["evidence_refs"]["host_resource_evidence"]["evaluation_id"] == nominal.evaluation_id
+    assert kernel.admit(no_evidence_background).outcome == AdmissionOutcome.ALLOW
+
+    foreground = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="user",
+        target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "local_user_chat", "correlation_id": "foreground-pressure"},
+    )
+    # Foreground chat is not mislabeled as background work when the collector
+    # reports pressure; its independent invocation limits still apply.
+    assert kernel.observe_host_resource_evaluation(pressured)
+    assert kernel.admit(foreground).outcome == AdmissionOutcome.ALLOW
+
+
+def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl",
+    )
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                                     lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                                     lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                                     lambda observed_at=None: _result("disk", used_percent=30.0, free_bytes=1000)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 4,
+                                     lambda observed_at=None: _result(
+                                         "nvidia_gpu", device_count=1,
+                                         devices=[{"index": 0, "gpu_utilization_percent": 95.0,
+                                                   "vram_utilization_percent": 92.0}]))
+    ])
+
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan,
+    ).run_cycle(correlation_id="gpu-pressure")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 95.0
+    assert evaluation.snapshot.vram_utilization_percent == 92.0
+    assert "gpu_pressure" in evaluation.pressure_report.pressure_labels
+    assert kernel.observe_host_resource_evaluation(evaluation)
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    request = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance",
+        target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "gpu-pressure-inference"},
+    )
+    decision = kernel.admit(request)
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_background_inference_under_host_pressure" in decision.reason_codes
+    resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
+    assert resource_evidence["gpu_utilization_percent"] == 95.0
+    assert resource_evidence["vram_utilization_percent"] == 92.0

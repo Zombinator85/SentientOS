@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import pytest
 
 from avatar_state import AvatarStateEmitter
@@ -208,3 +209,36 @@ def test_avatar_authorization_accepts_lowercase_contract_name() -> None:
     )
     assert require_authorization_for_request_types(
         authorization, allowed_request_types=("avatar_emission",)) is authorization
+
+
+def test_speech_timing_updates_only_the_current_granted_turn(tmp_path) -> None:
+    target = tmp_path / "avatar_state.json"
+    admission = _AdmissionStub()
+    output = _controller(target, admission)
+    assert output.set_enabled("session-1", True)["enabled"] is True
+    output.publish_response(session_id="session-1", turn_id="turn-1", text="Hello friend",
+        output_digest=digest_payload({"text": "Hello friend"}))
+
+    started = output.publish_speech_timing({"session_id": "session-1", "turn_id": "turn-1",
+        "event": "speech_started", "started_at": time.time(),
+        "elapsed_seconds": 0.0})
+    word = output.publish_speech_timing({"session_id": "session-1", "turn_id": "turn-1",
+        "event": "word_started", "word_index": 1, "char_start": 0,
+        "char_length": 5, "elapsed_seconds": 0.12})
+    assert started == {"status": "emitted", "speaking": True}
+    assert word["status"] == "emitted"
+    state = json.loads(target.read_text(encoding="utf-8"))
+    timing = state["metadata"]["speech_timing"]
+    assert timing["event"] == "word_started"
+    assert timing["timing_quality"] == "backend_word_start"
+    assert (timing["word_index"], timing["char_start"], timing["char_length"]) == (1, 0, 5)
+    assert state["speaking"] is True
+    assert output.publish_speech_timing({"session_id": "session-1", "turn_id": "stale",
+        "event": "speech_finished"}) == {"status": "stale_or_ungranted"}
+
+    finished = output.publish_speech_timing({"session_id": "session-1", "turn_id": "turn-1",
+        "event": "speech_interrupted", "elapsed_seconds": 0.2})
+    assert finished == {"status": "emitted", "speaking": False}
+    state = json.loads(target.read_text(encoding="utf-8"))
+    assert state["speaking"] is False
+    assert state["metadata"]["speech_timing"]["event"] == "speech_interrupted"

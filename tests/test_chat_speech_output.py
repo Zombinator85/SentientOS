@@ -57,6 +57,18 @@ class FakePlayer:
         self.release.set()
 
 
+class TimedFakePlayer(FakePlayer):
+    def speak_with_timing(self, text, event_sink, *, monotonic_clock=time.monotonic):
+        self.started.set()
+        event_sink({"event": "word_started", "word_index": 1, "char_start": 0,
+                    "char_length": 5, "elapsed_seconds": 0.04,
+                    "timing_quality": "backend_word_start"})
+        if self.hold:
+            self.release.wait(timeout=1)
+        self.spoken.append(text)
+        return True
+
+
 def _enabled(controller: ChatSpeechOutputController, session: str = "session-1") -> None:
     assert controller.set_enabled(session, True)["enabled"] is True
 
@@ -139,6 +151,30 @@ def test_speech_grant_is_session_scoped_revocable_and_expires() -> None:
         output.close()
 
 
+def test_interrupt_stops_active_voice_and_preserves_turn_scoped_truthful_status() -> None:
+    player = FakePlayer(hold=True)
+    output = ChatSpeechOutputController(player=player)
+    try:
+        _enabled(output)
+        assert output.publish_response(session_id="session-1", turn_id="turn-speaking",
+            text="still speaking", output_digest="9" * 64)["status"] == "queued"
+        assert player.started.wait(timeout=1)
+        interrupted = output.interrupt("session-1")
+        assert interrupted == {"status": "interrupted"}
+        assert player.stop_calls == 1
+        deadline = time.monotonic() + 1
+        while output.state("session-1")["active_turn_id"] is not None and time.monotonic() < deadline:
+            time.sleep(0.005)
+        assert output.state("session-1")["playback_status"] == "interrupted"
+        assert output.state("session-1")["last_played_turn_id"] is None
+        # Playback state from one conversation is never exposed to another.
+        assert output.state("session-2")["last_played_turn_id"] is None
+        assert output.interrupt("session-1") == {"status": "idle"}
+    finally:
+        player.release.set()
+        output.close()
+
+
 def test_speech_is_bounded_and_does_not_build_a_backlog() -> None:
     player = FakePlayer(hold=True)
     output = ChatSpeechOutputController(player=player)
@@ -162,3 +198,50 @@ def test_speech_is_bounded_and_does_not_build_a_backlog() -> None:
         output.close()
     assert player.spoken[0] == "x" * MAX_SPOKEN_CHARS
     assert "pending" not in player.spoken
+
+
+def test_speech_emits_controller_boundaries_and_backend_word_timing() -> None:
+    player = TimedFakePlayer()
+    events: list[dict[str, Any]] = []
+    output = ChatSpeechOutputController(player=player, timing_event_sink=events.append)
+    try:
+        _enabled(output)
+        output.publish_response(session_id="session-1", turn_id="turn-timed",
+            text="hello world", output_digest="a" * 64)
+        assert player.started.wait(timeout=1)
+        _await_status(output, "played")
+        deadline = time.monotonic() + 1
+        while len(events) < 3 and time.monotonic() < deadline:
+            time.sleep(0.005)
+        assert [event["event"] for event in events] == [
+            "speech_started", "word_started", "speech_finished"]
+        word_event = events[1]
+        assert word_event["turn_id"] == "turn-timed"
+        assert word_event["session_id"] == "session-1"
+        assert word_event["char_start"] == 0
+        assert word_event["timing_quality"] == "backend_word_start"
+    finally:
+        output.close()
+
+
+def test_slow_avatar_timing_sink_does_not_block_local_audio_playback() -> None:
+    entered_sink = threading.Event()
+    release_sink = threading.Event()
+    player = TimedFakePlayer()
+
+    def slow_sink(event: dict[str, Any]) -> None:
+        if event["event"] == "speech_started":
+            entered_sink.set()
+            release_sink.wait(timeout=2)
+
+    output = ChatSpeechOutputController(player=player, timing_event_sink=slow_sink)
+    try:
+        _enabled(output)
+        output.publish_response(session_id="session-1", turn_id="turn-fast",
+            text="hello", output_digest="b" * 64)
+        assert entered_sink.wait(timeout=1)
+        _await_status(output, "played")
+        assert player.spoken == ["hello"]
+    finally:
+        release_sink.set()
+        output.close()

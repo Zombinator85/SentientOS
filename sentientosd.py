@@ -90,6 +90,7 @@ from sentientos.private_file_custody import (
     replace_private_bytes_with_status,
 )
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
+from sentientos.avatar_renderer_report_ingress import RendererReportEvidenceStore
 from sentientos.embodiment_proposal_review import load_selected_review_world_state_records
 from sentientos.embodiment_fulfillment import (load_selected_fulfillment_world_state_records,
     verify_embodied_fulfillment_receipt)
@@ -1691,6 +1692,23 @@ class RuntimeMaintenanceSurfaces:
                     (str(item["source_id"]), record_digest(item)) for item in embodiment_records)
             except Exception as exc:
                 embodiment_observation_input_error = type(exc).__name__
+        renderer_report_root = os.environ.get("SENTIENTOS_RENDERER_REPORT_EVIDENCE_ROOT", "").strip()
+        if renderer_report_root:
+            try:
+                renderer_records = RendererReportEvidenceStore(
+                    renderer_report_root, create=False).world_state_records()
+                records.extend(renderer_records)
+                self._feedback.setdefault("surfaces", {})["renderer_report_evidence"] = {
+                    "status": "available" if renderer_records else "empty_or_unavailable",
+                    "record_count": len(renderer_records),
+                    "renderer_state_independently_observed": False,
+                    "evidence_root_configured": True,
+                }
+            except Exception as exc:
+                self._feedback.setdefault("surfaces", {})["renderer_report_evidence"] = {
+                    "status": "degraded", "reason_code": type(exc).__name__,
+                    "renderer_state_independently_observed": False,
+                }
         if self._embodied_proposal_review_log_path is not None:
             try:
                 review_records = load_selected_review_world_state_records(

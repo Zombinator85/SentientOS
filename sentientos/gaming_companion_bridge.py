@@ -15,14 +15,15 @@ import re
 import socket
 import struct
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
 SCHEMA_VERSION = "sentientos.gaming_companion_bridge_envelope:v1"
 MESSAGE_KINDS = frozenset({"observation", "avatar_command", "acknowledgment", "renderer_report", "consequence"})
 AVATAR_COMMAND_FIELDS = frozenset({"output_mode", "phrase", "expression", "motion", "mood",
-                                   "intensity", "workload_mode", "output_digest", "turn_id"})
+                                   "intensity", "workload_mode", "output_digest", "turn_id",
+                                   "speech_timing"})
 MAX_ENVELOPE_BYTES = 16 * 1024
 MAX_PAYLOAD_BYTES = 12 * 1024
 MAX_CLOCK_SKEW_SECONDS = 30.0
@@ -92,7 +93,8 @@ def _key_bytes(key: bytes) -> bytes:
     return key
 
 
-def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[str, str] | None) -> None:
+def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[str, str] | None,
+                      session_id: str | None = None) -> None:
     if not isinstance(kind, str) or kind not in MESSAGE_KINDS:
         raise CompanionBridgeError("bridge_message_kind_unsupported")
     if not isinstance(payload, Mapping):
@@ -129,6 +131,49 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
         if workload_mode is not None and (
                 not isinstance(workload_mode, str) or workload_mode not in {"normal", "gaming"}):
             raise CompanionBridgeError("avatar_command_field_invalid:workload_mode")
+        speech_timing = payload.get("speech_timing")
+        if speech_timing is not None:
+            if not isinstance(speech_timing, Mapping):
+                raise CompanionBridgeError("avatar_command_speech_timing_invalid")
+            timing_fields = {"schema", "event", "session_id", "turn_id", "timing_quality"}
+            event = speech_timing.get("event")
+            if event not in {"speech_started", "word_started", "speech_finished",
+                             "speech_interrupted", "speech_failed"}:
+                raise CompanionBridgeError("avatar_command_speech_timing_invalid")
+            if event == "word_started":
+                timing_fields |= {"word_index", "char_start", "char_length"}
+            timing_fields |= {name for name in ("elapsed_seconds", "started_at")
+                              if name in speech_timing}
+            if set(speech_timing) != timing_fields:
+                raise CompanionBridgeError("avatar_command_speech_timing_invalid")
+            if (speech_timing.get("schema") != "sentientos.local_speech_timing:v1"
+                    or speech_timing.get("timing_quality") != (
+                        "backend_word_start" if event == "word_started"
+                        else "controller_boundary")):
+                raise CompanionBridgeError("avatar_command_speech_timing_invalid")
+            for field in ("session_id", "turn_id"):
+                _identifier(speech_timing.get(field), "avatar_command_speech_timing_" + field)
+            if (session_id is not None and speech_timing.get("session_id") != session_id
+                    or speech_timing.get("turn_id") != payload.get("turn_id")):
+                raise CompanionBridgeError("avatar_command_speech_timing_binding_invalid")
+            for field, maximum in (("elapsed_seconds", 3600.0),
+                                   ("started_at", float("inf"))):
+                if field in speech_timing:
+                    value = speech_timing[field]
+                    try:
+                        valid = (not isinstance(value, bool)
+                            and isinstance(value, (int, float))
+                            and math.isfinite(float(value))
+                            and 0 <= float(value) <= maximum
+                            and (field != "started_at" or float(value) > 0))
+                    except (OverflowError, TypeError, ValueError):
+                        valid = False
+                    if not valid:
+                        raise CompanionBridgeError("avatar_command_speech_timing_invalid")
+            if event == "word_started":
+                for field in ("word_index", "char_start", "char_length"):
+                    if type(speech_timing.get(field)) is not int or speech_timing[field] < 0:
+                        raise CompanionBridgeError("avatar_command_speech_timing_invalid")
         output_digest = payload.get("output_digest")
         if output_digest is not None and (
                 not isinstance(output_digest, str) or _SHA256.fullmatch(output_digest) is None):
@@ -161,7 +206,7 @@ def encode_message(*, kind: str, source_id: str, session_id: str,
     if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1:
         raise CompanionBridgeError("bridge_sequence_invalid")
     stamp, _ = _timestamp(created_at or datetime.now(timezone.utc).isoformat())
-    _validate_message(kind, payload, admission)
+    _validate_message(kind, payload, admission, session_id=session_id)
     payload_bytes = _canonical(payload)
     if len(payload_bytes) > MAX_PAYLOAD_BYTES:
         raise CompanionBridgeError("bridge_payload_size_exceeded")
@@ -196,6 +241,7 @@ class VerifiedBridgeMessage:
     created_at: str
     payload: Mapping[str, Any]
     admission: Mapping[str, str] | None
+    signed_envelope: bytes = field(default=b"", repr=False, compare=False)
 
 
 class CompanionBridgeReceiver:
@@ -225,6 +271,11 @@ class CompanionBridgeReceiver:
         self._clock = clock or (lambda: datetime.now(timezone.utc).timestamp())
         self._high_water: dict[tuple[str, str, str], int] = {}
         self._sequence_lock = threading.Lock()
+
+    @property
+    def expected_generations(self) -> Mapping[str, str]:
+        """Expose configured source generation identities without source keys."""
+        return dict(self._generations)
 
     def accept(self, encoded: bytes) -> VerifiedBridgeMessage:
         if not isinstance(encoded, bytes) or not encoded or len(encoded) > MAX_ENVELOPE_BYTES:
@@ -281,7 +332,7 @@ class CompanionBridgeReceiver:
         if admission is not None and not isinstance(admission, dict):
             raise CompanionBridgeError("bridge_admission_invalid")
         kind = envelope["kind"]
-        _validate_message(kind, payload, admission)
+        _validate_message(kind, payload, admission, session_id=session_id)
         cursor = (source_id, session_id, generation_id)
         with self._sequence_lock:
             if sequence <= self._high_water.get(cursor, 0):
@@ -289,4 +340,5 @@ class CompanionBridgeReceiver:
             self._high_water[cursor] = sequence
         message_id = hashlib.sha256(_canonical(body)).hexdigest()
         return VerifiedBridgeMessage(message_id, kind, source_id, session_id,
-            generation_id, sequence, stamp, dict(payload), dict(admission) if admission else None)
+            generation_id, sequence, stamp, dict(payload), dict(admission) if admission else None,
+            encoded)

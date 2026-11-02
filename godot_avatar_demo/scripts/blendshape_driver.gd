@@ -32,6 +32,7 @@ var _mouth_rest := Vector3.ONE
 var _eye_left_rest := Vector3.ONE
 var _eye_right_rest := Vector3.ONE
 var _last_apply_report := {"status": "not_applied"}
+var _last_speech_report := {"status": "idle", "mouth_weight": 0.0}
 
 
 func _ready() -> void:
@@ -80,6 +81,32 @@ func apply_expression(expression: String, mood: String, intensity: float) -> Dic
 
 func latest_apply_report() -> Dictionary:
 	return _last_apply_report.duplicate(true)
+
+
+func set_speech_activity(active: bool, timing_event: String) -> Dictionary:
+	"""Show utterance activity without inventing phoneme or viseme labels."""
+	var mesh := _resolve_mesh()
+	if mesh == null or mouth_shape.is_empty():
+		_last_speech_report = {"status": "unavailable", "reason": "mouth_target_unavailable",
+			"timing_event": timing_event, "phoneme_claimed": false}
+		return _last_speech_report.duplicate(true)
+	if _viseme_tween:
+		_viseme_tween.kill()
+	_reset_viseme(mesh)
+	if active:
+		_set_blend_shape_by_name(mesh, mouth_shape, 0.38)
+		_last_speech_report = {"status": "speaking", "mouth_shape": mouth_shape,
+			"mouth_weight": 0.38, "timing_event": timing_event,
+			"timing_source": "governed_local_tts", "phoneme_claimed": false}
+	else:
+		_last_speech_report = {"status": "idle", "mouth_shape": mouth_shape,
+			"mouth_weight": 0.0, "timing_event": timing_event,
+			"timing_source": "governed_local_tts", "phoneme_claimed": false}
+	return _last_speech_report.duplicate(true)
+
+
+func latest_speech_report() -> Dictionary:
+	return _last_speech_report.duplicate(true)
 
 
 func _vector3_payload(value: Vector3) -> Dictionary:

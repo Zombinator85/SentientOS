@@ -1,0 +1,375 @@
+from __future__ import annotations
+
+import ipaddress
+import hashlib
+import json
+import os
+import socket
+import ssl
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver, encode_message
+from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner, RendererReportEvidenceStore
+from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
+from sentientos.foreground_game_bridge import (
+    BridgeForegroundGameDetector,
+    WindowsForegroundBridgePublisher,
+)
+from sentientos.game_performance_bridge import (
+    GamePerformanceBridgeDetector,
+    WindowsGamePerformanceBridgePublisher,
+)
+from sentientos.foreground_game_detection import ForegroundGameDetector
+from sentientos.gaming_companion_tls_transport import (
+    BridgeGenerationCustodyRecord,
+    BridgeGenerationPair,
+    CompanionBridgeMutualTLSClient,
+    CompanionBridgeMutualTLSRuntime,
+    CompanionBridgeTransportError,
+    read_posix_bridge_source_key,
+    verify_generation_rotation,
+    verify_generation_pair_rotation,
+)
+from sentientos.windows_game_performance import WindowsGamePerformanceObserver
+
+pytestmark = pytest.mark.no_legacy_skip
+
+from tests.test_avatar_renderer_report_ingress import _refresh_digest, _report
+
+
+def _certificate_bundle(root: Path):
+    now = datetime.now(timezone.utc)
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "SentientOS test CA")])
+    ca_cert = (x509.CertificateBuilder().subject_name(ca_name).issuer_name(ca_name)
+        .public_key(ca_key.public_key()).serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(ca_key, hashes.SHA256()))
+    ca_path = root / "ca.pem"
+    ca_path.write_bytes(ca_cert.public_bytes(serialization.Encoding.PEM))
+
+    def leaf(name: str, usage: x509.ObjectIdentifier, san: x509.GeneralName | None = None):
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
+        builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(ca_name)
+            .public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=1)).not_valid_after(now + timedelta(days=1))
+            .add_extension(x509.ExtendedKeyUsage([usage]), critical=False))
+        if san is not None:
+            builder = builder.add_extension(x509.SubjectAlternativeName([san]), critical=False)
+        cert = builder.sign(ca_key, hashes.SHA256())
+        cert_path, key_path = root / f"{name}.pem", root / f"{name}.key"
+        cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+        key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()))
+        return cert_path, key_path
+
+    server_cert, server_key = leaf("server", ExtendedKeyUsageOID.SERVER_AUTH,
+        x509.IPAddress(ipaddress.ip_address("127.0.0.1")))
+    client_cert, client_key = leaf("client", ExtendedKeyUsageOID.CLIENT_AUTH)
+    server = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server.minimum_version = ssl.TLSVersion.TLSv1_2
+    server.verify_mode = ssl.CERT_REQUIRED
+    server.load_verify_locations(cafile=str(ca_path))
+    server.load_cert_chain(str(server_cert), str(server_key))
+    client = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=str(ca_path))
+    client.minimum_version = ssl.TLSVersion.TLSv1_2
+    client.load_cert_chain(str(client_cert), str(client_key))
+    client_certificate = x509.load_pem_x509_certificate(client_cert.read_bytes())
+    from cryptography.hazmat.primitives.serialization import Encoding
+    return server, client, __import__("hashlib").sha256(
+        client_certificate.public_bytes(Encoding.DER)).hexdigest()
+
+
+def test_mutual_tls_protects_authenticated_bounded_bridge_delivery(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate((tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(
+        server_certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
+    source_key, ack_key = b"s" * 32, b"k" * 32
+    receiver = CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+        expected_generations={"windows-edge": "edge-generation-1"})
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=receiver,
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=ack_key)
+    port = runtime.start()
+    ack_receiver = CompanionBridgeReceiver(source_keys={"wsl-core": ack_key},
+        expected_generations={"wsl-core": "core-generation-1"})
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=ack_receiver,
+        expected_server_certificate_sha256=server_pin)
+    now = datetime.now(timezone.utc).isoformat()
+    encoded = encode_message(kind="observation", source_id="windows-edge",
+        session_id="session-1", generation_id="edge-generation-1", sequence=1,
+        payload={"frame_time_p95_ms": 16.7}, key=source_key, created_at=now)
+    try:
+        acknowledgment = client.send(encoded)
+        received = runtime.receive(timeout=1.0)
+        assert acknowledgment.payload["disposition"] == "accepted"
+        assert received.payload["frame_time_p95_ms"] == 16.7
+        assert received.signed_envelope == encoded
+        assert runtime.status().accepted_messages == 1
+    finally:
+        runtime.close()
+
+
+def test_mutual_tls_server_certificate_pin_rejects_before_sending(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    server_certificate = x509.load_pem_x509_certificate((tmp_path / "server.pem").read_bytes())
+    server_pin = hashlib.sha256(
+        server_certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
+    wrong_pin = "f" * 64 if server_pin != "f" * 64 else "e" * 64
+    source_key, acknowledgment_key = b"p" * 32, b"q" * 32
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core", acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"wsl-core": acknowledgment_key},
+            expected_generations={"wsl-core": "core-generation-1"}),
+        expected_server_certificate_sha256=wrong_pin)
+    encoded = encode_message(kind="observation", source_id="windows-edge",
+        session_id="session-pin", generation_id="edge-generation-1", sequence=1,
+        payload={"frame_time_p95_ms": 16.7}, key=source_key)
+    try:
+        with pytest.raises(CompanionBridgeTransportError,
+                           match="bridge_tls_server_certificate_pin_mismatch") as caught:
+            client.send(encoded)
+        assert caught.value.delivery_state == "not_sent"
+        assert runtime.status().accepted_messages == 0
+    finally:
+        runtime.close()
+
+
+def test_renderer_self_report_relay_crosses_mtls_and_keeps_relay_identity_separate(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    source_key, acknowledgment_key = b"renderer-relay-key-32-bytes-long!!", b"renderer-ack-key-32-bytes-long!!!"
+    receiver = CompanionBridgeReceiver(source_keys={"windows-renderer-relay": source_key},
+        expected_generations={"windows-renderer-relay": "edge-generation-1"})
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=receiver, acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=acknowledgment_key)
+    store = RendererReportEvidenceStore(tmp_path / "captures")
+    owner = RendererReportCaptureOwner(runtime=runtime, store=store)
+    owner.start()
+    port = runtime.status().port
+    assert port is not None
+    ack_receiver = CompanionBridgeReceiver(source_keys={"sentientos-core": acknowledgment_key},
+        expected_generations={"sentientos-core": "core-generation-1"})
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=ack_receiver)
+    relay = WindowsRendererReportRelay(client=client, source_id="windows-renderer-relay",
+        session_id="relay-session", generation_id="edge-generation-1",
+        source_key=source_key, renderer_generation_id="godot-demo-12345")
+    relay_port = relay.start()
+    report = _report()
+    report["reported_at"] = datetime.now(timezone.utc).isoformat()
+    _refresh_digest(report)
+    sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sender.sendto(json.dumps(report, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False).encode("utf-8"), ("127.0.0.1", relay_port))
+        deadline = time.monotonic() + 2
+        while (relay.status().forwarded == 0 or owner.status()["captured"] == 0) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert relay.status().forwarded == 1
+        assert owner.status()["captured"] == 1
+        record = store.world_state_records()[0]
+        assert record["payload"]["transport_authentication_principal"] == "windows-renderer-relay"
+        assert record["payload"]["renderer_source_independently_authenticated"] is False
+        assert record["payload"]["renderer_state_independently_observed"] is False
+        assert record["payload"]["transport_provenance"]["report_source_id"] == "godot-procedural-demo"
+    finally:
+        sender.close()
+        relay.close()
+        owner.close()
+
+
+def test_windows_foreground_publisher_and_core_detector_compose_over_mutual_tls(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    source_key, ack_key = b"e" * 32, b"c" * 32
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-generation-1", acknowledgment_key=ack_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-generation-1"}))
+    publisher = WindowsForegroundBridgePublisher(
+        detector=ForegroundGameDetector(system_provider=lambda: "Windows",
+            process_name_provider=lambda: "game.exe"),
+        client=client, source_id="windows-edge", session_id="session-1",
+        generation_id="edge-generation-1", source_key=source_key)
+    core_detector = BridgeForegroundGameDetector(runtime=runtime,
+        source_id="windows-edge", generation_id="edge-generation-1")
+    try:
+        acknowledgment = publisher.publish_once(["game.exe"])
+        observation = core_detector.observe(["game.exe"])
+        assert observation.status == "available" and observation.game_foreground is True
+        assert observation.transport_provenance is not None
+        assert observation.transport_provenance["message_id"] == acknowledgment.payload["message_id"]
+        assert runtime.status().accepted_messages == 1
+    finally:
+        core_detector.close()
+
+
+def test_windows_game_performance_sample_crosses_mtls_and_retains_measured_lineage(tmp_path: Path):
+    server_context, client_context, peer_digest = _certificate_bundle(tmp_path)
+    source_key, ack_key = b"windows-performance-source-key-32-bytes", b"performance-ack-key-32-bytes-long"
+    runtime = CompanionBridgeMutualTLSRuntime(bind_address="127.0.0.1",
+        tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+        receiver=CompanionBridgeReceiver(source_keys={"windows-edge": source_key},
+            expected_generations={"windows-edge": "edge-generation-1"}),
+        acknowledgment_source_id="wsl-core",
+        acknowledgment_generation_id="core-generation-1", acknowledgment_key=ack_key)
+    port = runtime.start()
+    client = CompanionBridgeMutualTLSClient(address="127.0.0.1", port=port,
+        server_hostname="127.0.0.1", tls_context=client_context,
+        acknowledgment_receiver=CompanionBridgeReceiver(source_keys={"wsl-core": ack_key},
+            expected_generations={"wsl-core": "core-generation-1"}))
+    observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
+        process_provider=lambda _pid: {"cpu_percent": 33.0, "rss_bytes": 131072},
+        frame_provider=lambda _pid: ((16.7, 52.0), "f" * 64))
+    publisher = WindowsGamePerformanceBridgePublisher(observer=observer, client=client,
+        source_id="windows-edge", session_id="game-session", generation_id="edge-generation-1",
+        source_key=source_key, process_id=456)
+    detector = GamePerformanceBridgeDetector(receiver=runtime, source_id="windows-edge",
+        generation_provider=lambda: "edge-generation-1")
+    try:
+        acknowledgment = publisher.publish_once()
+        observation = detector.receive_once(timeout=1.0)
+        assert acknowledgment.payload["disposition"] == "accepted"
+        assert observation.frame_time_p95_ms == 52.0
+        assert observation.hitch_count_over_50ms == 1
+        assert observation.process_cpu_percent == 33.0
+        assert observation.process_rss_bytes == 131072
+        assert observation.generation_id == "edge-generation-1"
+        assert len(observation.payload_digest) == 64
+        assert runtime.status().accepted_messages == 1
+    finally:
+        runtime.close()
+
+
+def test_mutual_tls_requires_client_certificate_validation(tmp_path: Path):
+    server_context, _, peer_digest = _certificate_bundle(tmp_path)
+    server_context.verify_mode = ssl.CERT_NONE
+    receiver = CompanionBridgeReceiver(source_keys={"edge": b"s" * 32},
+        expected_generations={"edge": "generation-1"})
+    with pytest.raises(ValueError, match="mutual_tls_required"):
+        CompanionBridgeMutualTLSRuntime(bind_address="192.168.1.2",
+            tls_context=server_context, expected_peer_certificate_sha256=peer_digest,
+            receiver=receiver,
+            acknowledgment_source_id="core", acknowledgment_generation_id="core-1",
+            acknowledgment_key=b"a" * 32)
+
+
+def test_posix_bridge_key_reader_requires_private_regular_owned_file(tmp_path: Path):
+    key_path = tmp_path / "source.key"
+    key_path.write_bytes(b"x" * 32)
+    key_path.chmod(0o600)
+    assert read_posix_bridge_source_key(key_path) == b"x" * 32
+    key_path.chmod(0o640)
+    with pytest.raises(ValueError, match="custody_invalid"):
+        read_posix_bridge_source_key(key_path)
+    if hasattr(os, "symlink"):
+        link = tmp_path / "key-link"
+        link.symlink_to(key_path)
+        with pytest.raises(ValueError, match="custody_invalid"):
+            read_posix_bridge_source_key(link)
+
+
+def test_generation_rotation_requires_a_new_key_generation_chain_and_verified_authority(tmp_path: Path):
+    initial = BridgeGenerationCustodyRecord.from_mapping({
+        "schema_version": "sentientos.companion_bridge_generation_custody:v1",
+        "source_id": "windows-edge", "generation_id": "edge-generation-1",
+        "key_reference": "dpapi:sentientos/edge-1", "issuer_id": "operator-control-plane",
+        "issued_at": "2026-11-01T00:00:00+00:00", "authority_receipt_digest": "a" * 64,
+        "predecessor_generation_id": None,
+    })
+    successor_mapping = {
+        "schema_version": "sentientos.companion_bridge_generation_custody:v1",
+        "source_id": "windows-edge", "generation_id": "edge-generation-2",
+        "key_reference": "dpapi:sentientos/edge-2", "issuer_id": "operator-control-plane",
+        "issued_at": "2026-11-02T00:00:00+00:00", "authority_receipt_digest": "b" * 64,
+        "predecessor_generation_id": "edge-generation-1",
+    }
+    successor = BridgeGenerationCustodyRecord.from_mapping(successor_mapping)
+    verified = []
+    verify_generation_rotation(previous=initial, successor=successor,
+        authority_receipt_verifier=lambda digest, record: verified.append((digest, record)) or True)
+    assert verified == [("b" * 64, successor)]
+
+    successor_path = tmp_path / "generation.json"
+    successor_path.write_text(__import__("json").dumps(successor_mapping), encoding="utf-8")
+    successor_path.chmod(0o600)
+    assert BridgeGenerationCustodyRecord.load(successor_path) == successor
+    stale = dict(successor_mapping, key_reference="dpapi:sentientos/edge-1")
+    stale_record = BridgeGenerationCustodyRecord.from_mapping(stale)
+    with pytest.raises(ValueError, match="rotation_chain_invalid"):
+        verify_generation_rotation(previous=initial, successor=stale_record,
+            authority_receipt_verifier=lambda digest, record: True)
+    with pytest.raises(ValueError, match="authority_receipt_unverified"):
+        verify_generation_rotation(previous=initial, successor=successor,
+            authority_receipt_verifier=lambda digest, record: False)
+
+
+def test_source_and_acknowledgment_generation_pair_rotates_and_loads_with_private_custody(tmp_path: Path):
+    initial_source = BridgeGenerationCustodyRecord(
+        "windows-edge", "edge-1", "dpapi:edge-1", "operator",
+        "2026-11-01T00:00:00+00:00", "a" * 64, None)
+    initial_ack = BridgeGenerationCustodyRecord(
+        "sentientos-core", "core-1", "wsl:core-1", "operator",
+        "2026-11-01T00:00:00+00:00", "c" * 64, None)
+    successor_source = BridgeGenerationCustodyRecord(
+        "windows-edge", "edge-2", "dpapi:edge-2", "operator",
+        "2026-11-02T00:00:00+00:00", "b" * 64, "edge-1")
+    successor_ack = BridgeGenerationCustodyRecord(
+        "sentientos-core", "core-2", "wsl:core-2", "operator",
+        "2026-11-02T00:00:00+00:00", "d" * 64, "core-1")
+    initial = BridgeGenerationPair(initial_source, initial_ack)
+    successor = BridgeGenerationPair(successor_source, successor_ack)
+    verified: list[str] = []
+    verify_generation_pair_rotation(previous=initial, successor=successor,
+        authority_receipt_verifier=lambda digest, _record: verified.append(digest) or True)
+    assert verified == ["b" * 64, "d" * 64]
+
+    pair_path = tmp_path / "generation-pair.json"
+    pair_path.write_text(__import__("json").dumps(successor.to_dict()), encoding="utf-8")
+    pair_path.chmod(0o600)
+    assert BridgeGenerationPair.load(pair_path) == successor
+    with pytest.raises(ValueError, match="rotation_chain_invalid"):
+        verify_generation_pair_rotation(previous=initial,
+            successor=BridgeGenerationPair(successor_source, initial_ack),
+            authority_receipt_verifier=lambda _digest, _record: True)
+
+
+@pytest.mark.parametrize("address", ["0.0.0.0", "8.8.8.8", "224.0.0.1", "169.254.1.2"])
+def test_protected_transport_rejects_wildcard_public_and_link_local_addresses(address: str):
+    from sentientos.gaming_companion_tls_transport import _validate_private_address
+    with pytest.raises(ValueError):
+        _validate_private_address(address)

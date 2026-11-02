@@ -8,14 +8,27 @@ import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
 from control_plane import Decision, RequestType
 from control_plane.task_admission import AdmissionResponse, admit_request
-from speech_emitter import SpeechEmitter, MAX_AVATAR_DISPLAY_PHRASE_CHARS
+from speech_emitter import MAX_AVATAR_DISPLAY_PHRASE_CHARS
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ChatAvatarStateEmitter(Protocol):
+    """Local or authenticated remote sink for governed chat avatar state."""
+
+    def emit_display_text(self, phrase: str, *, authorization: Any = None,
+                          metadata: Mapping[str, Any] | None = None) -> Any: ...
+    def emit_phrase(self, phrase: str, *, started_at: float | None = None,
+                    speaking: bool | None = None, muted: bool = False,
+                    metadata: Mapping[str, Any] | None = None,
+                    authorization: Any = None) -> Any: ...
+    def emit_idle(self, *, authorization: Any = None,
+                  metadata: Mapping[str, Any] | None = None) -> Any: ...
 
 
 def _digest(value: Mapping[str, Any]) -> str:
@@ -38,7 +51,7 @@ class ChatAvatarOutputController:
     SCOPE = "chat_response_visual_only"
     GRANT_SECONDS = 4 * 60 * 60
 
-    def __init__(self, emitter: SpeechEmitter, *,
+    def __init__(self, emitter: ChatAvatarStateEmitter, *,
                  admission_provider: Callable[..., AdmissionResponse] = admit_request,
                  monotonic_clock: Callable[[], float] = time.monotonic) -> None:
         self._emitter = emitter
@@ -48,6 +61,7 @@ class ChatAvatarOutputController:
         self._grants: dict[str, _SessionGrant] = {}
         self._pending_clears: dict[str, _SessionGrant | None] = {}
         self._last_responses: dict[str, tuple[str, str, str]] = {}
+        self._speech_started_at: dict[tuple[str, str], float] = {}
         self._workload_modes: dict[str, str] = {}
 
     @staticmethod
@@ -205,11 +219,102 @@ class ChatAvatarOutputController:
                 metadata["workload_mode"] = effective_workload_mode
             self._emitter.emit_display_text(visible, authorization=record, metadata=metadata)
             self._last_responses[session_id] = (visible, turn_id, output_digest)
+            for timing_key in tuple(self._speech_started_at):
+                if timing_key[0] == session_id:
+                    self._speech_started_at.pop(timing_key, None)
             if effective_workload_mode is not None:
                 self._workload_modes[session_id] = effective_workload_mode
             else:
                 self._workload_modes.pop(session_id, None)
         return {"status": "emitted", "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS}
+
+    def publish_speech_timing(self, event: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Publish actual local playback timing for the currently displayed turn.
+
+        This conveys utterance/word timing only.  It deliberately does not
+        synthesize phonemes or claim independent audio observation.
+        """
+        session_id = event.get("session_id")
+        turn_id = event.get("turn_id")
+        kind = event.get("event")
+        if (not isinstance(session_id, str) or not isinstance(turn_id, str)
+                or kind not in {"speech_started", "word_started", "speech_finished",
+                                "speech_interrupted", "speech_failed"}):
+            return {"status": "invalid_event"}
+        with self._lock:
+            grant = self._grants.get(session_id)
+            current = self._last_responses.get(session_id)
+            if (grant is None or grant.expires_at <= self._clock()
+                    or current is None or current[1] != turn_id):
+                return {"status": "stale_or_ungranted"}
+            timing: dict[str, Any] = {
+                "schema": "sentientos.local_speech_timing:v1",
+                "event": kind,
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "timing_quality": ("backend_word_start" if kind == "word_started"
+                    else "controller_boundary"),
+            }
+            elapsed = event.get("elapsed_seconds")
+            if isinstance(elapsed, (int, float)) and not isinstance(elapsed, bool):
+                if 0 <= float(elapsed) <= 3600:
+                    timing["elapsed_seconds"] = float(elapsed)
+            started_at = event.get("started_at")
+            if isinstance(started_at, (int, float)) and not isinstance(started_at, bool):
+                now = time.time()
+                if now - 3600 < float(started_at) < now + 60:
+                    timing["started_at"] = float(started_at)
+            timing_key = (session_id, turn_id)
+            if kind == "speech_started" and "started_at" in timing:
+                self._speech_started_at[timing_key] = float(timing["started_at"])
+            elif timing_key in self._speech_started_at:
+                timing["started_at"] = self._speech_started_at[timing_key]
+            if kind == "word_started":
+                word_index = event.get("word_index")
+                char_start = event.get("char_start")
+                char_length = event.get("char_length")
+                if (type(word_index) is not int or type(char_start) is not int
+                        or type(char_length) is not int or word_index < 0
+                        or char_start < 0 or char_length < 0):
+                    return {"status": "invalid_event"}
+                if (word_index > len(current[0]) or char_start > len(current[0])
+                        or char_length > len(current[0])
+                        or char_start + char_length > len(current[0])):
+                    return {"status": "invalid_event"}
+                timing.update({"word_index": word_index, "char_start": char_start,
+                               "char_length": char_length})
+            context_hash = _digest({"grant_digest": grant.grant_digest,
+                "session_id": session_id, "turn_id": turn_id,
+                "scope": self.SCOPE, "speech_timing": timing})
+            admission = self._admit(
+                request_type=RequestType.AVATAR_EMISSION, requester_id="bridge",
+                intent_hash=_digest({"speech_timing": timing}), context_hash=context_hash,
+                policy_version="v1-static",
+                metadata={"approved_by": grant.approved_by,
+                    "approval_method": "session_grant_speech_timing",
+                    "approval_scope": self.SCOPE,
+                    "approval_grant_digest": grant.grant_digest,
+                    "session_id": session_id, "source_turn_id": turn_id},
+            )
+            if admission.decision is not Decision.ALLOW:
+                return {"status": "admission_denied", "reason": admission.reason.value}
+            record = admission.record
+            if (record.request_type is not RequestType.AVATAR_EMISSION
+                    or record.context_hash != context_hash
+                    or record.intent_hash != _digest({"speech_timing": timing})):
+                raise RuntimeError("avatar_speech_timing_binding_invalid")
+            metadata = {"source": "governed_chat_response_speech_timing",
+                "session_id": session_id, "turn_id": turn_id,
+                "output_digest": current[2], "approval_grant_digest": grant.grant_digest,
+                "output_mode": self.SCOPE, "speech_timing": timing}
+            speaking = kind not in {"speech_finished", "speech_interrupted", "speech_failed"}
+            self._emitter.emit_phrase(current[0],
+                started_at=(float(timing["started_at"])
+                            if "started_at" in timing else None),
+                speaking=speaking, muted=False, metadata=metadata, authorization=record)
+            if not speaking:
+                self._speech_started_at.pop(timing_key, None)
+        return {"status": "emitted", "speaking": speaking}
 
     def set_workload_mode(self, session_id: str, workload_mode: str) -> dict[str, Any]:
         """Update the opted-in renderer from the current effective local workload mode."""

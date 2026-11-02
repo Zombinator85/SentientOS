@@ -17,6 +17,7 @@ from control_plane.task_admission import AdmissionResponse, admit_request
 
 LOGGER = logging.getLogger(__name__)
 MAX_SPOKEN_CHARS = 600
+MAX_PENDING_TIMING_EVENTS = 1024
 
 
 def _digest(value: Mapping[str, Any]) -> str:
@@ -66,6 +67,58 @@ class Pyttsx3LocalSpeechPlayer:
             LOGGER.exception("Local chat speech playback failed")
             return False
 
+    def speak_with_timing(self, text: str, event_sink: Callable[[Mapping[str, Any]], None],
+                          *, monotonic_clock: Callable[[], float] = time.monotonic) -> bool:
+        """Speak locally and report backend word-start offsets when available.
+
+        Word events are backend timing, not phoneme/viseme inference.  A
+        backend without ``started-word`` support still reports utterance
+        boundaries from this controller, but does not invent word timings.
+        """
+        callback_ids: list[str] = []
+        disconnect_fn: Callable[[str], Any] | None = None
+        try:
+            engine = self._get_engine()
+            if engine is None:
+                return False
+            utterance_started = monotonic_clock()
+            word_index = 0
+
+            def started_word(name: str, location: int, length: int) -> None:
+                nonlocal word_index
+                del name
+                if (type(location) is not int or type(length) is not int
+                        or location < 0 or length < 0 or location + length > len(text)):
+                    return
+                word_index += 1
+                event_sink({"event": "word_started", "word_index": word_index,
+                    "char_start": location, "char_length": length,
+                    "elapsed_seconds": max(0.0, monotonic_clock() - utterance_started),
+                    "timing_quality": "backend_word_start"})
+
+            connect = getattr(engine, "connect", None)
+            disconnect_candidate = getattr(engine, "disconnect", None)
+            if callable(connect) and callable(disconnect_candidate):
+                disconnect_fn = disconnect_candidate
+                try:
+                    callback_ids.append(connect("started-word", started_word))
+                except Exception:
+                    # Some local TTS backends do not implement word timing.
+                    callback_ids.clear()
+            engine.say(text)
+            engine.runAndWait()
+            return True
+        except Exception:
+            LOGGER.exception("Local chat speech playback failed")
+            return False
+        finally:
+            if disconnect_fn is not None:
+                for callback_id in locals().get("callback_ids", []):
+                    try:
+                        disconnect_fn(callback_id)
+                    except Exception:
+                        LOGGER.debug("Local TTS timing callback cleanup failed", exc_info=True)
+
     def stop(self) -> None:
         engine = self._engine
         if engine is not None:
@@ -87,7 +140,9 @@ class _SpeechGrant:
 class _SpeechRequest:
     session_id: str
     grant_digest: str
+    turn_id: str
     text: str
+    cancelled: threading.Event
 
 
 class ChatSpeechOutputController:
@@ -98,17 +153,30 @@ class ChatSpeechOutputController:
 
     def __init__(self, *, admission_provider: Callable[..., AdmissionResponse] = admit_request,
                  player: LocalSpeechPlayer | None = None,
-                 monotonic_clock: Callable[[], float] = time.monotonic) -> None:
+                 monotonic_clock: Callable[[], float] = time.monotonic,
+                 timing_event_sink: Callable[[Mapping[str, Any]], None] | None = None) -> None:
         self._admit = admission_provider
         self._player = player or Pyttsx3LocalSpeechPlayer()
         self._clock = monotonic_clock
+        self._timing_event_sink = timing_event_sink
+        self._timing_events: queue.Queue[Mapping[str, Any]] = queue.Queue(
+            maxsize=MAX_PENDING_TIMING_EVENTS)
+        self._timing_thread_stop = threading.Event()
+        self._timing_event_drops = 0
         self._lock = threading.RLock()
         self._grants: dict[str, _SpeechGrant] = {}
         self._queue: queue.Queue[_SpeechRequest | None] = queue.Queue(maxsize=1)
         self._closed = False
         self._last_playback_status = "idle"
+        self._active_request: _SpeechRequest | None = None
+        self._last_played_turn: tuple[str, str] | None = None
         self._worker = threading.Thread(target=self._run, name="local-chat-speech", daemon=True)
         self._worker.start()
+        self._timing_worker: threading.Thread | None = None
+        if self._timing_event_sink is not None:
+            self._timing_worker = threading.Thread(target=self._run_timing_events,
+                name="local-chat-speech-timing", daemon=True)
+            self._timing_worker.start()
 
     @staticmethod
     def _validate_session(session_id: str) -> None:
@@ -131,6 +199,13 @@ class ChatSpeechOutputController:
                 "expires_in_seconds": (max(0, int(grant.expires_at - self._clock()))
                                        if grant is not None else 0),
                 "playback_status": self._last_playback_status if grant is not None else "idle",
+                "active_turn_id": (self._active_request.turn_id
+                                   if self._active_request is not None
+                                   and self._active_request.session_id == session_id else None),
+                "last_played_turn_id": (self._last_played_turn[1]
+                                        if self._last_played_turn is not None
+                                        and self._last_played_turn[0] == session_id else None),
+                "timing_event_drops": self._timing_event_drops,
             }
 
     def set_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]:
@@ -230,8 +305,8 @@ class ChatSpeechOutputController:
                     or record.context_hash != context_hash
                     or metadata.get("approval_grant_digest") != grant.grant_digest):
                 raise RuntimeError("chat_speech_response_binding_invalid")
-            request = _SpeechRequest(session_id, grant.grant_digest,
-                                      text[:MAX_SPOKEN_CHARS].strip())
+            request = _SpeechRequest(session_id, grant.grant_digest, turn_id,
+                                      text[:MAX_SPOKEN_CHARS].strip(), threading.Event())
             if not request.text:
                 return {"status": "empty"}
             try:
@@ -242,6 +317,22 @@ class ChatSpeechOutputController:
             self._last_playback_status = "queued"
             return {"status": "queued", "text_truncated": len(text) > MAX_SPOKEN_CHARS}
 
+    def interrupt(self, session_id: str) -> dict[str, Any]:
+        """Best-effort stop current speech and discard pending turns for a session."""
+        self._validate_session(session_id)
+        with self._lock:
+            active = self._active_request
+            if active is not None and active.session_id == session_id:
+                active.cancelled.set()
+                self._active_request = None
+            had_pending = self._discard_pending(session_id)
+            interrupted = (active is not None and active.session_id == session_id) or had_pending
+            if interrupted:
+                self._last_playback_status = "interrupted"
+        if active is not None and active.session_id == session_id:
+            self._player.stop()
+        return {"status": "interrupted" if interrupted else "idle"}
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
@@ -249,6 +340,10 @@ class ChatSpeechOutputController:
             self._closed = True
             grants = tuple(self._grants.items())
             self._grants.clear()
+            active = self._active_request
+            self._active_request = None
+            if active is not None:
+                active.cancelled.set()
             for _, grant in grants:
                 grant.timer.cancel()
             self._discard_pending()
@@ -260,6 +355,9 @@ class ChatSpeechOutputController:
             self._last_playback_status = "stopped"
         if self._worker.is_alive():
             self._worker.join(timeout=1.0)
+        self._timing_thread_stop.set()
+        if self._timing_worker is not None and self._timing_worker.is_alive():
+            self._timing_worker.join(timeout=1.0)
 
     def _run(self) -> None:
         while True:
@@ -274,17 +372,78 @@ class ChatSpeechOutputController:
                         and grant.expires_at > self._clock())
                     if not active:
                         continue
+                    self._active_request = request
                     self._last_playback_status = "speaking"
-                played = self._player.speak(request.text)
+                utterance_started = self._clock()
+                utterance_started_at = time.time()
+                self._emit_timing_event(request, {"event": "speech_started",
+                    "elapsed_seconds": 0.0, "started_at": utterance_started_at,
+                    "timing_quality": "controller_boundary"})
+                timed_speak = getattr(self._player, "speak_with_timing", None)
+                if callable(timed_speak):
+                    played = timed_speak(request.text,
+                        lambda event: self._emit_timing_event(request,
+                            {**event, "started_at": utterance_started_at}),
+                        monotonic_clock=self._clock)
+                else:
+                    played = self._player.speak(request.text)
                 with self._lock:
-                    if self._last_playback_status != "speaker_busy":
+                    still_active = self._active_request is request
+                    if still_active:
+                        self._active_request = None
+                    if request.cancelled.is_set() or not still_active:
+                        self._last_playback_status = "interrupted"
+                    elif self._last_playback_status != "speaker_busy":
                         self._last_playback_status = "played" if played else "playback_failed"
+                    if played and not request.cancelled.is_set() and still_active:
+                        self._last_played_turn = (request.session_id, request.turn_id)
+                self._emit_timing_event(request, {"event": "speech_interrupted"
+                    if request.cancelled.is_set() or not still_active else
+                    "speech_finished" if played else "speech_failed",
+                    "elapsed_seconds": max(0.0, self._clock() - utterance_started),
+                    "started_at": utterance_started_at,
+                    "timing_quality": "controller_boundary"})
             except Exception:
                 LOGGER.exception("Local chat speech worker failed")
-                with self._lock:
-                    self._last_playback_status = "playback_failed"
+                if request is not None:
+                    with self._lock:
+                        self._last_playback_status = (
+                            "interrupted" if request.cancelled.is_set() else "playback_failed")
+                    self._emit_timing_event(request, {"event": "speech_failed",
+                        "elapsed_seconds": 0.0, "timing_quality": "controller_boundary"})
             finally:
                 self._queue.task_done()
+
+    def _emit_timing_event(self, request: _SpeechRequest,
+                           event: Mapping[str, Any]) -> None:
+        sink = self._timing_event_sink
+        if sink is None or self._timing_thread_stop.is_set():
+            return
+        payload = dict(event)
+        payload.update({"session_id": request.session_id, "turn_id": request.turn_id})
+        try:
+            self._timing_events.put_nowait(payload)
+        except queue.Full:
+            with self._lock:
+                self._timing_event_drops += 1
+
+    def _run_timing_events(self) -> None:
+        sink = self._timing_event_sink
+        if sink is None:
+            return
+        while not self._timing_thread_stop.is_set() or not self._timing_events.empty():
+            try:
+                event = self._timing_events.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                sink(event)
+            except Exception as exc:
+                # Avatar synchronization is ancillary; a failed renderer update
+                # must never stop or replay the user's local speech.
+                LOGGER.warning("Avatar speech timing publication failed: %s", type(exc).__name__)
+            finally:
+                self._timing_events.task_done()
 
     def _expire_session(self, session_id: str, grant_digest: str) -> None:
         with self._lock:
@@ -299,11 +458,15 @@ class ChatSpeechOutputController:
         self._grants.pop(session_id, None)
         grant.timer.cancel()
         self._discard_pending(session_id)
+        if self._active_request is not None and self._active_request.session_id == session_id:
+            self._active_request.cancelled.set()
+            self._active_request = None
         self._player.stop()
         self._last_playback_status = "stopped"
 
-    def _discard_pending(self, session_id: str | None = None) -> None:
+    def _discard_pending(self, session_id: str | None = None) -> bool:
         retained: list[_SpeechRequest | None] = []
+        discarded = False
         while True:
             try:
                 item = self._queue.get_nowait()
@@ -311,6 +474,10 @@ class ChatSpeechOutputController:
                 break
             if item is not None and session_id is not None and item.session_id != session_id:
                 retained.append(item)
+            elif item is not None:
+                item.cancelled.set()
+                discarded = True
             self._queue.task_done()
         for item in retained:
             self._queue.put_nowait(item)
+        return discarded

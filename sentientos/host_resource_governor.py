@@ -290,6 +290,7 @@ def build_host_resource_telemetry_from_collector_results(
     memory_values = _collector_values("memory")
     disk_values = _collector_values("disk")
     process_values = _collector_values("process")
+    gpu_values = _collector_values("nvidia_gpu")
     thermal_values = _collector_values("thermal_sensors")
     fan_values = _collector_values("fan_pwm")
     service_values = _collector_values("service_manager")
@@ -302,6 +303,43 @@ def build_host_resource_telemetry_from_collector_results(
     disk_utilization_percent = disk_values.get("used_percent")
     disk_free_bytes = disk_values.get("free_bytes")
     process_count = process_values.get("process_count")
+
+    # NVML reports one sample per device. Use the highest device-wide sample
+    # for pressure admission so a busy/near-full accelerator cannot be hidden
+    # by averaging it with an idle adapter. These values are not attributed to
+    # the inference process and must not be described as per-process usage.
+    gpu_devices = gpu_values.get("devices")
+    gpu_samples: list[float] = []
+    vram_samples: list[float] = []
+    if isinstance(gpu_devices, (list, tuple)):
+        for index, device in enumerate(gpu_devices):
+            if not isinstance(device, Mapping):
+                unavailable.append(f"nvidia_gpu_device_{index}_malformed")
+                continue
+            for key, samples in (
+                ("gpu_utilization_percent", gpu_samples),
+                ("vram_utilization_percent", vram_samples),
+            ):
+                raw_sample = device.get(key)
+                if raw_sample is None:
+                    continue
+                if isinstance(raw_sample, bool):
+                    unavailable.append(f"nvidia_gpu_{key}_malformed")
+                    continue
+                try:
+                    gpu_sample = float(raw_sample)
+                except (TypeError, ValueError):
+                    unavailable.append(f"nvidia_gpu_{key}_malformed")
+                    continue
+                if not 0.0 <= gpu_sample <= 100.0:
+                    unavailable.append(f"nvidia_gpu_{key}_malformed")
+                    continue
+                samples.append(gpu_sample)
+    elif "nvidia_gpu" in by_id and gpu_values.get("device_count", 0):
+        unavailable.append("nvidia_gpu_devices_malformed")
+
+    gpu_utilization_percent = max(gpu_samples) if gpu_samples else None
+    vram_utilization_percent = max(vram_samples) if vram_samples else None
 
     thermal_zone_temperatures_c: dict[str, float] = {}
     for index, zone in enumerate(tuple(thermal_values.get("zones") or ())):
@@ -330,6 +368,8 @@ def build_host_resource_telemetry_from_collector_results(
         snapshot_id=snapshot_id,
         cpu_utilization_percent=float(cpu_utilization_percent) if cpu_utilization_percent is not None else None,
         ram_utilization_percent=float(ram_utilization_percent) if ram_utilization_percent is not None else None,
+        gpu_utilization_percent=gpu_utilization_percent,
+        vram_utilization_percent=vram_utilization_percent,
         disk_utilization_percent=float(disk_utilization_percent) if disk_utilization_percent is not None else None,
         disk_free_bytes=int(disk_free_bytes) if disk_free_bytes is not None else None,
         process_count=int(process_count) if process_count is not None else None,

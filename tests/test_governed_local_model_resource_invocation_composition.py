@@ -19,10 +19,13 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import AdmissionOutcome, ControlPlaneKernel, LifecyclePhase
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, GovernedLocalModelResourceInvocationContext, LocalModelInvocationBudget
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceAllocator, GovernedLocalModelResourceBounds, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy
+from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_runtime import HostObservationCollectorSpec, HostResourceRuntimeCoordinator, build_observation_plan
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError, _resource_linkage_fields,
 )
+from sentientos.runtime_governor import RuntimeGovernor
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = "2026-09-21T08:30:00Z"
@@ -147,3 +150,48 @@ def test_post_effect_guard_failure_consumes_and_cross_links_in_memory_receipt(tm
     assert states(ledger) == ["attempt_begun", "measured_completed", "reconciled"]
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
     assert not (invoker.runtime_root / "receipts" / f"{receipt.receipt_id}.json").exists()
+
+
+def test_background_inference_defers_then_recovers_with_measured_effect_receipts(tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    governor = RuntimeGovernor()
+    kernel = ControlPlaneKernel(runtime_governor=governor, phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "decisions.jsonl")
+    model, invoker, _, context, ledger = setup(tmp_path, kernel=kernel)
+    request = invoker.build_request(purpose="resident_developmental_interpretation", prompt="background work",
+        caller="maintenance", correlation_id="background-retry", budget=LocalModelInvocationBudget(100, 200, 20, 5.0, 2))
+
+    deferred = invoker.invoke(request, resource_context=context)
+    assert deferred.status == "deferred"
+    assert deferred.effects["local_model_inference"] is False
+    assert model.calls == 0 and ledger._state["receipts"] == []
+
+    def collect(name: str, **values: object) -> HostCollectorResult:
+        return HostCollectorResult(name, "available", "2026-11-02T00:00:00+00:00", "fixture", values=values)
+
+    specs = (
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: collect("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: collect("memory", used_percent=50.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: collect("disk", used_percent=20.0, free_bytes=1000)),
+    )
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    evaluation = HostResourceRuntimeCoordinator(kernel=kernel, runtime_state_root=tmp_path / "observation",
+        plan=build_observation_plan(specs=specs)).run_cycle(correlation_id="recovery-observation")
+    assert evaluation is not None
+    assert evaluation.policy_decision.status == "host_resource_policy_nominal"
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+
+    completed = invoker.invoke(request, resource_context=context)
+    assert completed.status == "admitted_completed"
+    assert completed.effects["local_model_inference"] is True
+    assert completed.latency_ms >= 0 and model.calls == 1
+    assert [item["state"] for item in ledger._state["receipts"]] == [
+        "attempt_begun", "measured_completed", "reconciled"]
+    assert ledger._state["receipts"][-1]["effect_receipt_digest"] == completed.receipt_digest

@@ -229,6 +229,16 @@ class ControlPlaneKernel:
             }
         )
 
+    def observe_host_resource_evaluation(self, evaluation: object) -> bool:
+        """Pass a validated, proposal-only observation to the runtime scheduler."""
+        observer = getattr(self._runtime_governor, "observe_host_resource_evaluation", None)
+        if not callable(observer):
+            return False
+        try:
+            return bool(observer(evaluation))
+        except Exception:
+            return False
+
     def admit(self, request: ControlActionRequest) -> ControlActionDecision:
         reasons: list[str] = []
         delegated: dict[str, Any] = {}
@@ -271,7 +281,8 @@ class ControlPlaneKernel:
             delegated["runtime_governor"] = runtime.to_dict()
             if not runtime.allowed:
                 reasons.append(f"runtime_governor:{runtime.reason}")
-                return self._finalize(request, AdmissionOutcome.DENY, reasons, delegated, correlation_id=correlation_id)
+                outcome = AdmissionOutcome.DEFER if runtime.reason.startswith("deferred_") else AdmissionOutcome.DENY
+                return self._finalize(request, outcome, reasons, delegated, correlation_id=correlation_id)
 
         budget_decision, budget_error = self._delegate_proof_budget(request)
         if budget_error:

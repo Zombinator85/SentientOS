@@ -77,6 +77,7 @@ class SpeechEmitter:
         *,
         visemes: Any | None = None,
         started_at: float | None = None,
+        speaking: bool | None = None,
         muted: bool = False,
         metadata: Mapping[str, Any] | None = None,
         authorization: Any | None = None,
@@ -85,20 +86,22 @@ class SpeechEmitter:
         spoken = phrase.strip()
         timeline = _coerce_viseme_timeline(visemes)
         started_value = started_at if started_at is not None else (time.time() if spoken else None)
-        speaking = bool(spoken) and not muted
+        speaking_flag = bool(spoken) and not muted if speaking is None else bool(speaking)
+        if not speaking_flag:
+            started_value = None
         payload: Dict[str, Any] = {
             **DEFAULT_BASE_STATE,
             **dict(self.base_state),
             "current_phrase": spoken,
             "phrase_started_at": started_value,
-            "is_speaking": speaking,
-            "speaking": speaking,
+            "is_speaking": speaking_flag,
+            "speaking": speaking_flag,
             "muted": bool(muted),
             "phrase": {
                 "text": spoken,
                 "started_at": started_value,
                 "muted": bool(muted),
-                "speaking": speaking,
+                "speaking": speaking_flag,
                 "viseme_count": len(timeline),
             },
             "viseme_timeline": timeline,

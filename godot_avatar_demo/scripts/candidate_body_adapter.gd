@@ -12,6 +12,8 @@ var _candidate_identity := {}
 var _motion_bones := {}
 var _expression_shapes := {}
 var _viseme_shapes := {}
+var _speech_activity_shape := ""
+var _speech_activity_report := {"status": "not_requested", "phoneme_claimed": false}
 var _active_motion := "idle"
 var _active_expression_mesh: MeshInstance3D
 var _active_expression_shape := ""
@@ -20,7 +22,7 @@ var _viseme_tween: Tween
 
 func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 		motion_bones: Dictionary, expression_shapes: Dictionary,
-		viseme_shapes: Dictionary) -> Dictionary:
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
 	if not candidate_scene is PackedScene:
 		return {"status": "rejected", "reason": "candidate_scene_invalid"}
 	if evidence.get("result_posture") != "candidate_validated":
@@ -76,6 +78,11 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	if not _validate_shape_mappings(viseme_shapes, _ALLOWED_VISEMES):
 		instance_value.free()
 		return {"status": "rejected", "reason": "candidate_viseme_mapping_invalid"}
+	if not speech_activity_shape.is_empty():
+		if speech_activity_shape.length() > 128 \
+				or _find_shape_in(instance_value as Node3D, speech_activity_shape).is_empty():
+			instance_value.free()
+			return {"status": "rejected", "reason": "candidate_speech_activity_mapping_invalid"}
 	var animation_bindings := _find_motion_animations(instance_value, validated_motion_bones.mapping)
 	if not animation_bindings.valid:
 		instance_value.free()
@@ -98,8 +105,111 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	_motion_bones = validated_motion_bones.mapping
 	_expression_shapes = expression_shapes.duplicate(true)
 	_viseme_shapes = viseme_shapes.duplicate(true)
+	_speech_activity_shape = speech_activity_shape
+	_speech_activity_report = {"status": "not_requested", "phoneme_claimed": false}
 	add_child(_candidate_root)
 	return {"status": "candidate_loaded_unadopted", "identity": _candidate_identity.duplicate(true)}
+
+
+func install_adopted_body(body_scene: PackedScene, descriptor: Dictionary,
+		motion_bones: Dictionary, expression_shapes: Dictionary,
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
+	"""Install only a descriptor returned by the trusted Python adoption loader.
+
+	The renderer verifies artifact bytes and descriptor shape. The caller must
+	pass the result of load_adopted_body after its receipt verifier succeeds; this
+	method is not itself an adoption authority or receipt verifier.
+	"""
+	var required_fields := ["schema_version", "body_id", "artifact_path", "artifact_sha256",
+		"byte_size", "asset_format", "body_generation", "manifest_digest",
+		"rig_semantic_digest", "pointer_digest", "adoption_receipt_digest",
+		"adoption_receipt_verified", "authority_effects_performed"]
+	if descriptor.size() != required_fields.size():
+		return {"status": "rejected", "reason": "adopted_body_descriptor_fields_invalid"}
+	for field in required_fields:
+		if not descriptor.has(field):
+			return {"status": "rejected", "reason": "adopted_body_descriptor_fields_invalid"}
+	if descriptor.get("schema_version") != "sentientos.adopted_renderer_body:v1":
+		return {"status": "rejected", "reason": "adopted_body_descriptor_schema_invalid"}
+	if descriptor.get("adoption_receipt_verified") != true \
+			or descriptor.get("authority_effects_performed") != false:
+		return {"status": "rejected", "reason": "adopted_body_receipt_verification_required"}
+	var body_id := str(descriptor.get("body_id", ""))
+	var artifact_path := str(descriptor.get("artifact_path", ""))
+	var artifact_digest := str(descriptor.get("artifact_sha256", ""))
+	var adoption_digest := str(descriptor.get("adoption_receipt_digest", ""))
+	var body_generation: Variant = descriptor.get("body_generation")
+	var byte_size: Variant = descriptor.get("byte_size")
+	if body_id.is_empty() or body_id.length() > 128 or artifact_path.is_empty() \
+			or artifact_path.length() > 4096 or not _is_digest(artifact_digest) \
+			or not _is_digest(str(descriptor.get("manifest_digest", ""))) \
+			or not _is_digest(str(descriptor.get("rig_semantic_digest", ""))) \
+			or not _is_digest(str(descriptor.get("pointer_digest", ""))) \
+			or adoption_digest.is_empty() or adoption_digest.length() > 256 \
+			or not _is_positive_integer(body_generation) \
+			or not _is_positive_integer(byte_size) \
+			or str(descriptor.get("asset_format", "")) not in ["glb", "gltf"]:
+		return {"status": "rejected", "reason": "adopted_body_descriptor_identity_invalid"}
+	var candidate_evidence := {
+		"result_posture": "candidate_validated",
+		"artifact_sha256": artifact_digest,
+		"receipt_digest": str(descriptor["pointer_digest"]),
+		"authority": {"loader_effects_performed": false},
+		"body_id": body_id,
+		"predecessor_generation": int(body_generation) - 1,
+	}
+	if not body_scene is PackedScene or body_scene.resource_path.is_empty():
+		return {"status": "rejected", "reason": "adopted_body_scene_invalid"}
+	var artifact_bytes := FileAccess.get_file_as_bytes(body_scene.resource_path)
+	if artifact_bytes.size() != int(byte_size):
+		return {"status": "rejected", "reason": "adopted_body_byte_size_mismatch"}
+	var installed := install_candidate(body_scene, candidate_evidence,
+		motion_bones, expression_shapes, viseme_shapes, speech_activity_shape)
+	if installed.get("status") != "candidate_loaded_unadopted":
+		return installed
+	_candidate_identity["adopted"] = true
+	_candidate_identity["evidence_posture"] = "trusted_loader_adoption_receipt_verified"
+	_candidate_identity["body_generation"] = int(body_generation)
+	_candidate_identity["artifact_path"] = artifact_path
+	_candidate_identity["manifest_digest"] = str(descriptor["manifest_digest"])
+	_candidate_identity["rig_semantic_digest"] = str(descriptor["rig_semantic_digest"])
+	_candidate_identity["pointer_digest"] = str(descriptor["pointer_digest"])
+	_candidate_identity["adoption_receipt_digest"] = adoption_digest
+	return {"status": "adopted_body_loaded", "identity": _candidate_identity.duplicate(true),
+		"authority_effects_performed": false}
+
+
+func is_adopted_body_active() -> bool:
+	return is_candidate_active() and _candidate_identity.get("adopted") == true
+
+
+func adopted_body_identity() -> Dictionary:
+	if not is_adopted_body_active():
+		return {}
+	return _candidate_identity.duplicate(true)
+
+
+func rollback_adopted_body() -> Dictionary:
+	if not is_adopted_body_active():
+		return {"status": "unavailable", "reason": "adopted_body_not_active"}
+	if _viseme_tween:
+		_viseme_tween.kill()
+	if _animation_player:
+		_animation_player.stop()
+	if _candidate_root:
+		_candidate_root.queue_free()
+	_candidate_root = null
+	_skeleton = null
+	_animation_player = null
+	_motion_animation_clips.clear()
+	_candidate_identity.clear()
+	_motion_bones.clear()
+	_expression_shapes.clear()
+	_viseme_shapes.clear()
+	_speech_activity_shape = ""
+	_active_motion = "idle"
+	_reset_expression()
+	return {"status": "procedural_body_restored", "adoption_rollback_performed": false}
 
 
 func is_candidate_active() -> bool:
@@ -214,10 +324,43 @@ func play_viseme_timeline(timeline: Array, anchor_timestamp: float = 0.0) -> Dic
 	return {"status": "blend_shape_applied", "shape": shape_name, "cue_count": timeline.size()}
 
 
+func set_speech_activity(active: bool, timing_event: String) -> Dictionary:
+	"""Apply only a generic authored speech-active shape, never a phoneme label."""
+	if not is_candidate_active():
+		_speech_activity_report = {"status": "unavailable", "reason": "candidate_not_loaded",
+			"timing_event": timing_event, "phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if timing_event not in ["speech_started", "word_started", "speech_finished",
+			"speech_interrupted", "speech_failed"]:
+		_speech_activity_report = {"status": "rejected", "reason": "speech_timing_event_unsupported",
+			"phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if _speech_activity_shape.is_empty():
+		_speech_activity_report = {"status": "unsupported", "reason": "authored_speech_activity_shape_unmapped",
+			"timing_event": timing_event, "phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if _viseme_tween:
+		_viseme_tween.kill()
+	var found := _find_shape(_speech_activity_shape)
+	if found.is_empty():
+		_speech_activity_report = {"status": "unsupported", "reason": "authored_speech_activity_shape_unavailable",
+			"requested_shape": _speech_activity_shape, "timing_event": timing_event,
+			"phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	var mesh_node := found["mesh"] as MeshInstance3D
+	var weight := 0.38 if active else 0.0
+	_set_candidate_shape(mesh_node, _speech_activity_shape, weight)
+	_speech_activity_report = {"status": "speaking" if active else "idle",
+		"shape": _speech_activity_shape, "weight": weight, "timing_event": timing_event,
+		"timing_source": "governed_local_tts", "phoneme_claimed": false}
+	return _speech_activity_report.duplicate(true)
+
+
 func renderer_report() -> Dictionary:
 	return {"status": "candidate_loaded_unadopted" if is_candidate_active() else "not_loaded",
 		"identity": _candidate_identity.duplicate(true), "active_motion": _active_motion,
-		"expression": {"status": "not_requested"}, "visemes": {"status": "not_requested"}}
+		"expression": {"status": "not_requested"}, "visemes": {"status": "not_requested"},
+		"speech": _speech_activity_report.duplicate(true)}
 
 
 func _validate_bone_mappings(skeleton: Skeleton3D, mappings: Dictionary) -> Dictionary:
@@ -249,6 +392,14 @@ func _is_digest(value: String) -> bool:
 	return true
 
 
+func _is_positive_integer(value: Variant) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var number := float(value)
+	return is_finite(number) and number >= 1.0 \
+		and is_equal_approx(number, round(number))
+
+
 func _reset_expression() -> void:
 	if _active_expression_mesh and not _active_expression_shape.is_empty():
 		var index := _blend_shape_index(_active_expression_mesh, _active_expression_shape)
@@ -274,9 +425,13 @@ func _blend_shape_index(mesh_node: MeshInstance3D, shape_name: String) -> int:
 
 
 func _find_shape(shape_name: String) -> Dictionary:
-	if shape_name.is_empty():
+	return _find_shape_in(_candidate_root, shape_name)
+
+
+func _find_shape_in(body_root: Node3D, shape_name: String) -> Dictionary:
+	if shape_name.is_empty() or body_root == null:
 		return {}
-	for node in _candidate_root.find_children("*", "MeshInstance3D", true, false):
+	for node in body_root.find_children("*", "MeshInstance3D", true, false):
 		var mesh_node := node as MeshInstance3D
 		if not mesh_node.mesh is ArrayMesh:
 			continue
