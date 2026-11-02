@@ -21,6 +21,11 @@ compares only the foreground process basename against that explicit allowlist; i
 does not read window titles, command lines, or process paths. The local chat page
 provides these controls.
 
+While `automatic` is selected, the page refreshes the foreground match status
+every five seconds so the displayed state follows changes in the active window.
+The model still uses the same read-only foreground check for each new chat turn;
+the page poll is display feedback, not a separate source of inference authority.
+
 Use `GET /workload-mode` to inspect the configured and effective mode. Use
 `POST /workload-mode` with `{"mode":"gaming"}` or `{"mode":"normal"}` to
 select a fixed mode. For automatic mode, include

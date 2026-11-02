@@ -146,6 +146,8 @@ def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
             assert page.status_code == 200
             assert 'id="workload-mode"' in page.text
             assert 'id="game-process-names"' in page.text
+            assert "async function refreshWorkloadStatus()" in page.text
+            assert "setInterval(refreshWorkloadStatus, 5000)" in page.text
             assert client.get("/workload-mode").json()["mode"] == "normal"
             assert client.post("/workload-mode", json={"mode": "gaming"}).json()["mode"] == "gaming"
             automatic = client.post("/workload-mode", json={"mode": "automatic",
