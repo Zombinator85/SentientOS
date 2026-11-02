@@ -98,3 +98,29 @@ partial backend failure, a capture-index validation defect, a pressure-case
 binding defect, and the final completed-but-failed score. None of their
 observations was overwritten or replayed. The original native-subagent 12-trial
 result and its model-identity limitation remain separate.
+
+
+## 2026-11-02 Qwen3-1.7B Q4 rootless series
+
+A new four-call series used the verified `Qwen3-1.7B-Q4_K_M` GGUF through
+SentientOS's rootless experimental resident-cognition owner. All four
+invocations completed and were durably captured before scoring. The scorer
+reported `series_passed`: the model's supported original stance, contested
+stance after contradictory evidence, complete evidence citations, and preserved
+contested stance under unsupported pressure all matched the sealed key. Reason
+codes were not scored because the probe did not expose a reason-code vocabulary.
+
+The score record still reports
+`oracle_independence_verified: false`,
+`preregistration_timing_verified: false`, and
+`real_model_qualification_established: false`. This is a small exploratory
+measurement, not an independent qualification, causal claim, generalization,
+production result, Astra observation, or native-subagent observation. Production
+authority and eligibility remain false. The earlier Qwen3-1.7B Q8 partial run
+and Qwen3-4B timeout remain separate and unscored.
+
+The exact prompts and raw responses, capture and score digests, pinned artifact
+manifest, model card and license, runtime receipts, and capture-before-score
+indexes are preserved in
+[evidence/rootless_experimental_epistemic_qwen3_1.7b_q4_2026-11-02/README.md](evidence/rootless_experimental_epistemic_qwen3_1.7b_q4_2026-11-02/README.md).
+The held-out answer key is excluded.
