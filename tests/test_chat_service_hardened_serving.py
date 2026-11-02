@@ -215,7 +215,9 @@ def test_local_chat_can_explicitly_enable_session_scoped_visual_avatar_output(tm
             assert state["metadata"]["output_digest"]==chat_service.digest_payload({"text":"answer"})
             assert state["metadata"]["workload_mode"]=="normal"
             assert client.post("/avatar-output",json={"session_id":session_id,"enabled":False}).json()["enabled"] is False
-        assert len(admission_calls)==3
+        assert [call["metadata"].get("approval_method") for call in admission_calls] == [
+            "local_chat_ui", "session_grant_workload_sync", "session_grant",
+            "local_chat_ui_revoke"]
         assert all(call["request_type"] is RequestType.AVATAR_EMISSION for call in admission_calls)
     finally:
         chat_service._CONVERSATION_SERVICE=None
