@@ -21,6 +21,7 @@ else:
 
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
+from .foreground_game_bridge import BridgeForegroundGameDetector
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget,
     LocalModelInvocationReceipt, LocalModelPostEffectCustodyError,
@@ -98,11 +99,13 @@ class DevelopmentSimulationInference:
 
 
 class ProductionChatComposition:
-    __slots__ = ("service", "_serving", "_resource_owner")
+    __slots__ = ("service", "_serving", "_resource_owner", "_foreground_game_detector")
     def __init__(self, service: "PersistentConversationService", serving: ProductionServingController,
-                 resource_owner: ProductionChatResourceContextOwner | None = None) -> None:
+                 resource_owner: ProductionChatResourceContextOwner | None = None,
+                 foreground_game_detector: BridgeForegroundGameDetector | None = None) -> None:
         self.service, self._serving = service, serving
         self._resource_owner = resource_owner
+        self._foreground_game_detector = foreground_game_detector
     def close(self) -> None:
         try:
             self.service.close_outputs()
@@ -110,8 +113,12 @@ class ProductionChatComposition:
             try:
                 self._serving.close()
             finally:
-                if self._resource_owner is not None:
-                    self._resource_owner.close()
+                try:
+                    if self._resource_owner is not None:
+                        self._resource_owner.close()
+                finally:
+                    if self._foreground_game_detector is not None:
+                        self._foreground_game_detector.close()
     def ready(self) -> bool:
         return cast(bool, self._serving.serving_is_current())
 
@@ -846,6 +853,7 @@ def _storage_roots_overlap(left: Path, right: Path) -> bool:
 def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
+                              foreground_game_detector: BridgeForegroundGameDetector | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
                               runtime_handoff_id: str | None = None,
@@ -853,6 +861,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               local_speech_output: bool = False) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    if (foreground_game_detector is not None
+            and type(foreground_game_detector) is not BridgeForegroundGameDetector):
+        raise TypeError("exact_bridge_foreground_game_detector_required")
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
         raise TypeError("exact_production_chat_resource_context_owner_required")
     if resource_context_owner is not None and not resource_context_owner.has_single_process_custody:
@@ -889,7 +900,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
         serving.establish(**establish_arguments)
         inference_bridge = ProductionServingInferenceController(
-            serving, runtime_handoff_id=runtime_handoff_id)
+            serving, runtime_handoff_id=runtime_handoff_id,
+            foreground_game_detector=foreground_game_detector)
         inference: ChatInference = (
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
@@ -917,17 +929,26 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output,
             speech_output=speech_output)
     except Exception:
-        if serving is not None:
-            serving.close()
-        if speech_output is not None:
-            speech_output.close()
-        if resource_context_owner is not None:
-            resource_context_owner.close()
+        try:
+            if serving is not None:
+                serving.close()
+        finally:
+            try:
+                if speech_output is not None:
+                    speech_output.close()
+            finally:
+                try:
+                    if resource_context_owner is not None:
+                        resource_context_owner.close()
+                finally:
+                    if foreground_game_detector is not None:
+                        foreground_game_detector.close()
         raise
     assert serving is not None
     close_production_chat()
     _CONVERSATION_SERVICE = service
-    _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving, resource_context_owner)
+    _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving, resource_context_owner,
+                                                       foreground_game_detector)
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
