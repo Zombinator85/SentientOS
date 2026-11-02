@@ -34,10 +34,21 @@ def translate(plan):
     validate_geometry_bounds(plan)
     return tuple((op["operation_id"],op["kind"],op["target"],dict(op["arguments"])) for op in plan["operations"])
 def main(argv):
-    plan_path,output_path,claimed=argv[-3:]; plan=json.load(open(plan_path,encoding="utf-8")); embedded=plan.pop("plan_digest",None)
+    try:
+        separator=argv.index("--")
+        plan_path,predecessor_path,output_path,claimed=argv[separator+1:]
+    except (ValueError,TypeError):
+        raise ValueError("driver_arguments_invalid") from None
+    plan=json.load(open(plan_path,encoding="utf-8")); embedded=plan.pop("plan_digest",None)
     if embedded!=claimed or _digest(plan)!=claimed: raise ValueError("plan_digest_mismatch")
     operations=translate(plan)
     import bpy  # imported only inside Blender
+    predecessor_format=predecessor_path.rsplit(".",1)[-1].lower()
+    if predecessor_format=="glb":
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.import_scene.gltf(filepath=predecessor_path)
+    elif predecessor_format!="blend":
+        raise ValueError("asset_format_unsupported")
     results=[]
     for op_id,kind,target,args in operations:
         # Keep the real backend limited to inspectable mesh and rig operations.
@@ -90,5 +101,15 @@ def main(argv):
                 raise ValueError("armature_binding_weights_missing")
         else: raise ValueError("operation_not_yet_supported_by_blender_driver:"+kind)
         results.append({"operation_id":op_id,"status":"applied"})
-    bpy.ops.wm.save_as_mainfile(filepath=output_path); print("SENTIENTOS_AVATAR_RESULT="+json.dumps({"status":"completed","operations":results},sort_keys=True))
+    if output_path.lower().endswith(".blend"):
+        bpy.ops.wm.save_as_mainfile(filepath=output_path)
+    elif output_path.lower().endswith(".glb"):
+        # Omit generated normals and UVs because the static authoring operations
+        # do not author those channels. This also preserves source vertex counts
+        # across GLB round-trip inspection instead of counting split loop vertices.
+        bpy.ops.export_scene.gltf(filepath=output_path, export_format="GLB", export_apply=True,
+                                  export_normals=False, export_texcoords=False)
+    else:
+        raise ValueError("output_format_unsupported")
+    print("SENTIENTOS_AVATAR_RESULT="+json.dumps({"status":"completed","operations":results},sort_keys=True))
 if __name__=="__main__": main(sys.argv)

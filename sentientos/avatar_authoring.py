@@ -55,6 +55,7 @@ BLENDER_SUPPORTED_OPERATIONS = frozenset({
     "create_primitive_mesh", "create_armature", "create_bone", "set_transform",
     "bind_armature",
 })
+BLENDER_SUPPORTED_FORMATS = frozenset({"blend", "glb"})
 
 
 class AvatarAuthoringError(ValueError):
@@ -315,7 +316,14 @@ class BlenderBackend:
         home = successor.parent.parent / "tool" / "blender-author-home"
         cache = home / ".cache"
         cache.mkdir(parents=True, mode=0o700, exist_ok=True)
-        argv = [str(self.executable), "--background", str(predecessor), "--python", str(self.driver), "--", str(plan_path), str(successor), plan["plan_digest"]]
+        asset_format = predecessor.suffix.lower().lstrip(".")
+        if asset_format not in BLENDER_SUPPORTED_FORMATS or successor.suffix.lower() != predecessor.suffix.lower():
+            raise AvatarAuthoringError("blender_asset_format_unsupported")
+        argv = [str(self.executable), "--background"]
+        if asset_format == "blend":
+            argv.append(str(predecessor))
+        argv.extend(["--python", str(self.driver), "--", str(plan_path), str(predecessor),
+                     str(successor), str(plan["plan_digest"])])
         result = run_supervised(argv, stage_id="avatar_blender_author", timeout_seconds=self.timeout,
                                 env={"PATH": os.defpath, "PYTHONHASHSEED": "0", "LC_ALL": "C",
                                      "HOME": str(home), "XDG_CACHE_HOME": str(cache)}, shell=False)
@@ -331,7 +339,13 @@ class BlenderArtifactInspector:
         self.executable,self.driver,self.timeout=executable,inspector_driver,timeout_seconds
         self.identity=BackendIdentity("configured_blender_inspector","blender-cli-static-inspector","1",str(executable.resolve()),exe["sha256"],drv["sha256"],("inspect",),"configured_candidate_tool")
     def inspect(self, artifact: Path, asset_format: str) -> Mapping[str, Any]:
-        before=file_identity(artifact); argv=[str(self.executable),"--background",str(artifact),"--python",str(self.driver)]
+        before=file_identity(artifact)
+        if asset_format not in BLENDER_SUPPORTED_FORMATS or artifact.suffix.lower() != "." + asset_format:
+            raise AvatarAuthoringError("blender_asset_format_unsupported")
+        argv=[str(self.executable),"--background"]
+        if asset_format == "blend":
+            argv.append(str(artifact))
+        argv.extend(["--python",str(self.driver),"--",str(artifact),asset_format])
         home=artifact.parent.parent/"tool"/"blender-inspector-home"; cache=home/".cache"
         cache.mkdir(parents=True,mode=0o700,exist_ok=True)
         result=run_supervised(argv,stage_id="avatar_blender_inspect",timeout_seconds=self.timeout,
@@ -377,10 +391,11 @@ def build_admission(*, admission_id: str, work_id: str, pointer: Mapping[str, An
 def run_workcell(*, current_pointer: Mapping[str, Any], predecessor_manifest: AvatarBodyManifest, predecessor: Path, plan_value: Mapping[str, Any], admission: Mapping[str, Any], workspace_root: Path, backend: AuthoringBackend, inspector: ArtifactInspector, work_id: str) -> dict[str, Any]:
     plan = validate_plan(plan_value); identity = file_identity(predecessor)
     if identity["sha256"] != current_pointer["artifact_sha256"] or predecessor_manifest.semantic_digest != current_pointer["manifest_digest"]: raise AvatarAuthoringError("predecessor_custody_mismatch")
-    # The configured driver opens native Blender project files. GLB/glTF are
-    # accepted by the broader manifest contract, but this backend does not
-    # import those formats and must reject them before allocating a workcell.
-    if backend.identity.implementation == "blender-cli-static-driver" and predecessor_manifest.asset_format != "blend":
+    # The static Blender workcell supports native .blend and self-contained .glb.
+    # .gltf is deliberately excluded because its external sidecar custody is not
+    # represented by the single-artifact manifest.
+    if (backend.identity.implementation == "blender-cli-static-driver"
+            and predecessor_manifest.asset_format not in BLENDER_SUPPORTED_FORMATS):
         raise AvatarAuthoringError("blender_asset_format_unsupported")
     if set(operation["kind"] for operation in plan["operations"]) - set(backend.identity.capabilities):
         raise AvatarAuthoringError("authoring_backend_capability_mismatch")
