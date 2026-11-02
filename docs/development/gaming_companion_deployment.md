@@ -26,7 +26,8 @@ python -m scripts.gaming_companion_deployment_cli doctor --manifest <deployment.
 
 `validate` checks a closed schema and opt-in defaults. `doctor` performs
 read-only local checks for WSL2, repository and interpreter paths, an existing
-Linux-native state directory, and the installed chat entrypoint. It explicitly
+Linux-native state directory outside the source checkout, and the installed
+chat entrypoint. It explicitly
 reports that Windows components and the authenticated bridge were not observed
 from the WSL process. The doctor never creates missing paths. Its output is
 readiness evidence, not installation, runtime, model, or consent authority.

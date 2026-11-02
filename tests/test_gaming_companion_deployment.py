@@ -63,6 +63,13 @@ def test_manifest_rejects_duplicate_or_unknown_windows_components():
         validate_manifest(_manifest(enabled_windows_components=["screen_capture_all_desktops"]))
 
 
+def test_manifest_requires_absolute_posix_paths_without_nul_bytes():
+    with pytest.raises(GamingCompanionDeploymentError, match="posix_absolute_path_required"):
+        validate_manifest(_manifest(state_root="relative/state"))
+    with pytest.raises(GamingCompanionDeploymentError, match="posix_absolute_path_required"):
+        validate_manifest(_manifest(repository_root="/tmp/bad\x00path"))
+
+
 def test_local_doctor_is_read_only_and_does_not_claim_external_readiness(tmp_path):
     manifest = _manifest(repository_root=str(tmp_path), state_root=str(tmp_path / "state"))
 
@@ -72,6 +79,7 @@ def test_local_doctor_is_read_only_and_does_not_claim_external_readiness(tmp_pat
     assert result["facts"]["bridge_listener"] == "not_implemented"
     assert result["facts"]["foreground_observer"] == "not_observed_from_this_environment"
     assert result["facts"]["godot_renderer"] == "not_observed_from_this_environment"
+    assert result["facts"]["state_root_separate_from_checkout"] is False
     assert result["host_mutation_performed"] is False
     assert not (tmp_path / "state").exists()
 

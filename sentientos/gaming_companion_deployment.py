@@ -33,6 +33,9 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
     for field in ("deployment_id", "repository_root", "python_executable", "state_root"):
         if not isinstance(result.get(field), str) or not result[field].strip():
             raise GamingCompanionDeploymentError("manifest_field_missing:" + field)
+    for field in ("repository_root", "python_executable", "state_root"):
+        if "\x00" in result[field] or not Path(result[field]).is_absolute():
+            raise GamingCompanionDeploymentError("manifest_posix_absolute_path_required:" + field)
     if not isinstance(result["enabled_windows_components"], list):
         raise GamingCompanionDeploymentError("manifest_windows_components_invalid")
     components = result["enabled_windows_components"]
@@ -102,11 +105,18 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
     repo = Path(cfg["repository_root"])
     python = Path(cfg["python_executable"])
     state = Path(cfg["state_root"])
+    try:
+        resolved_repo = repo.resolve(strict=False)
+        resolved_state = state.resolve(strict=False)
+        state_separate_from_repo = resolved_state != resolved_repo and resolved_repo not in resolved_state.parents
+    except OSError:
+        state_separate_from_repo = False
     facts = {
         "wsl2_environment": _is_wsl2(),
         "repository_exists": repo.is_dir() and (repo / "pyproject.toml").is_file(),
         "python_executable_exists": python.is_file() and os.access(python, os.X_OK),
         "state_root_native_linux_path": _native_linux_state_root(str(state)),
+        "state_root_separate_from_checkout": state_separate_from_repo,
         "state_root_exists": state.is_dir() and not state.is_symlink(),
         "chat_entrypoint": shutil.which("sentientos-chat") is not None,
         "bridge_listener": "not_implemented",
@@ -121,7 +131,8 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
     }
     reasons: list[str] = []
     for key in ("wsl2_environment", "repository_exists", "python_executable_exists",
-                "state_root_native_linux_path", "state_root_exists", "chat_entrypoint",
+                "state_root_native_linux_path", "state_root_separate_from_checkout",
+                "state_root_exists", "chat_entrypoint",
                 "installation_identity_reference_present", "serving_operation_reference_present",
                 "runtime_handoff_reference_present", "bridge_key_reference_present",
                 "software_generation_digest_present"):
