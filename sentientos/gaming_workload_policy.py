@@ -14,6 +14,13 @@ SUPPORTED_WORKLOAD_MODES = frozenset({"normal", "gaming", "automatic"})
 class GamingWorkloadPolicy:
     """Apply conservative per-turn ceilings without changing model authority."""
 
+    GAMING_CHAT_STYLE_ID = "gaming_chat_style_v1"
+    GAMING_CHAT_STYLE_INSTRUCTION = (
+        "The user is in a gaming workload. Reply like a friendly peer in a brief, "
+        "low-distraction style. Stay focused on what they asked; avoid long lists "
+        "and unsolicited advice. Workload status does not identify the game, so "
+        "do not infer its title or details."
+    )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200
     GAMING_MAX_NEW_TOKENS = 96
@@ -45,7 +52,22 @@ class GamingWorkloadPolicy:
                                  workload_evidence: Mapping[str, Any] | None = None,
                                  ) -> tuple[LocalModelInvocationBudget, dict[str, Any]]:
         """Return the bounded budget and digest-bound lineage for one call."""
-        return cls.constrain_budget(mode, requested), {
+        lineage = {
             **dict(serving_lineage), "workload_mode": mode,
             "workload_evidence": dict(workload_evidence or {}),
         }
+        if mode == "gaming":
+            lineage["workload_response_style"] = cls.GAMING_CHAT_STYLE_ID
+        return cls.constrain_budget(mode, requested), lineage
+
+    @classmethod
+    def apply_chat_response_style(cls, prompt: str, mode: EffectiveWorkloadMode) -> str:
+        """Add the trusted low-distraction instruction before untrusted chat data."""
+        if mode == "normal":
+            return prompt
+        marker = "[SESSION_HISTORY_DATA]"
+        if (not isinstance(prompt, str) or not prompt.startswith("[SYSTEM_INSTRUCTION]\n")
+                or marker not in prompt):
+            raise ValueError("gaming_chat_instruction_anchor_invalid")
+        head, tail = prompt.split(marker, 1)
+        return head + cls.GAMING_CHAT_STYLE_INSTRUCTION + "\n" + marker + tail

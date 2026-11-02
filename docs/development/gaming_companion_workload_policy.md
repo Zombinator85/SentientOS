@@ -6,6 +6,13 @@ The local chat runtime supports an explicit, reversible `normal`, `gaming`, or
 budgets remain tighter. The effective budget and selected mode are included in the
 ordinary invocation receipt lineage.
 
+In Gaming mode, the trusted chat instruction also asks for brief, friendly,
+low-distraction replies focused on the player's request. It discourages long
+lists and unsolicited advice, and explicitly says that foreground status alone
+does not reveal which game is running. The style identifier is recorded in the
+invocation lineage. Normal mode leaves the prompt unchanged. This affects replies
+to messages the player sends; it does not start conversations or interrupt play.
+
 The production chat process exposes the mode through its local chat API. The mode
 is process-local and starts as `normal` after restart. Select `gaming` to keep the
 low-work budget active for all new turns, or select `automatic` and enter one or
