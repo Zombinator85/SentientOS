@@ -83,11 +83,12 @@ class Inference:
         return dict(saved)
 
 
-def service(tmp_path, inference, avatar_output=None, speech_output=None):
+def service(tmp_path, inference, avatar_output=None, speech_output=None, screen_observer=None):
     return chat_service.PersistentConversationService(inference=inference,
         session_store=ConversationSessionStore(tmp_path / "conversations"),
         memory_store=CanonicalMemoryStore(tmp_path / "memory"),
-        avatar_output=avatar_output, speech_output=speech_output)
+        avatar_output=avatar_output, speech_output=speech_output,
+        screen_observer=screen_observer)
 
 
 def test_production_chat_requires_process_generation_handoff_before_custody(monkeypatch, tmp_path):
