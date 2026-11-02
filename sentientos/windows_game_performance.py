@@ -83,8 +83,10 @@ def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, .
         if not {"ProcessID", "MsBetweenPresents"}.issubset(headers):
             raise GamePerformanceObservationError("presentmon_columns_missing")
         times: list[float] = []
+        rows_seen = 0
         for row in reader:
-            if len(times) >= MAX_PRESENTMON_ROWS:
+            rows_seen += 1
+            if rows_seen > MAX_PRESENTMON_ROWS:
                 raise GamePerformanceObservationError("presentmon_row_count_exceeded")
             try:
                 row_pid = int(row["ProcessID"] or "")
@@ -171,7 +173,7 @@ class WindowsGamePerformanceObserver:
                 unsupported.append("process_cpu_unavailable")
             else:
                 cpu_percent = round(float(cpu), 4)
-            if type(rss) is not int or rss < 0:
+            if type(rss) is not int or not 0 <= rss <= 2**63 - 1:
                 unsupported.append("process_rss_unavailable")
             else:
                 rss_bytes = rss

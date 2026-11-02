@@ -17,7 +17,7 @@ import signal
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol, Sequence, cast
+from typing import Any, Callable, Mapping, Sequence, cast
 
 from .gaming_companion_bridge import CompanionBridgeError
 from .gaming_companion_core_runtime import WSLCoreGamingCompanionRuntime
@@ -25,12 +25,8 @@ from .gaming_companion_deployment import SCHEMA_MUTUAL_TLS_REVERSE, validate_man
 from .gaming_companion_edge_runtime import WindowsEdgeAvatarRuntime
 
 
-class RoleRuntimeProvider(Protocol):
-    def __call__(self, role: str, manifest: Mapping[str, Any]) -> object: ...
-
-
-class RoleLaunchAuthorizer(Protocol):
-    def __call__(self, role: str, manifest: Mapping[str, Any]) -> bool: ...
+RoleRuntimeProvider = Callable[[str, Mapping[str, Any]], object]
+RoleLaunchAuthorizer = Callable[[str, Mapping[str, Any]], bool]
 
 
 def load_role_manifest(path: Path | str) -> dict[str, Any]:
@@ -126,12 +122,15 @@ def run_role(*, role: str, manifest: Mapping[str, Any],
 
     runtime: object | None = None
     try:
-        runtime = runtime_provider(role, normalized)
+        candidate_runtime = runtime_provider(role, normalized)
         expected_type = (WindowsEdgeAvatarRuntime if role == "windows_edge"
                          else WSLCoreGamingCompanionRuntime)
-        if type(runtime) is not expected_type:
+        if type(candidate_runtime) is not expected_type:
             raise CompanionBridgeError("companion_role_runtime_type_mismatch")
+        runtime = candidate_runtime
         runtime.start()
+        if not runtime_is_healthy(role, runtime):
+            return 3
         while not stop_event.wait(float(poll_interval_seconds)):
             if not runtime_is_healthy(role, runtime):
                 return 3

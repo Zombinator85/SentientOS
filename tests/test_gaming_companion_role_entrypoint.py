@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from typing import Any, Mapping, cast
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +13,8 @@ from sentientos.gaming_companion_core_runtime import WSLCoreGamingCompanionRunti
 from sentientos.gaming_companion_deployment import SCHEMA_MUTUAL_TLS_REVERSE
 from sentientos.gaming_companion_edge_runtime import WindowsEdgeAvatarRuntime
 from sentientos.gaming_companion_avatar_output import AvatarCommandDispatchStatus
+from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
+from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.gaming_companion_role_entrypoint import (
     load_role_manifest,
     resolve_provider,
@@ -124,35 +127,41 @@ class _Closable:
         self.closed += 1
 
 
-def _core_runtime(bridge: _CoreBridge) -> WSLCoreGamingCompanionRuntime:
-    return WSLCoreGamingCompanionRuntime(
-        foreground_game_detector=_Closable(),
-        avatar_output_session=_Closable(),  # type: ignore[arg-type]
+def _core_runtime(bridge: _CoreBridge) -> tuple[WSLCoreGamingCompanionRuntime, _Closable]:
+    session = _Closable()
+    runtime = WSLCoreGamingCompanionRuntime(
+        foreground_game_detector=cast(BridgeForegroundGameDetector, _Closable()),
+        avatar_output_session=cast(WSLCoreAvatarOutputSession, session),
         _bridge_runtime=bridge,  # type: ignore[arg-type]
     )
+    return runtime, session
 
 
 def test_role_runner_owns_core_lifetime_and_stops_cleanly() -> None:
     bridge = _CoreBridge()
-    runtime = _core_runtime(bridge)
+    runtime, session = _core_runtime(bridge)
     stop = threading.Event()
     stop.set()
     seen: list[tuple[str, str]] = []
 
+    def provider(role: str, config: Mapping[str, Any]) -> object:
+        seen.append((role, str(config["deployment_id"])))
+        return runtime
+
     result = run_role(role="wsl_core", manifest=_manifest(),
-        runtime_provider=lambda role, config: (seen.append((role, config["deployment_id"])), runtime)[1],
+        runtime_provider=provider,
         launch_authorizer=lambda _role, _config: True,
         stop_event=stop, poll_interval_seconds=0.05, system_name="Linux", is_wsl=True)
 
     assert result == 0
     assert seen == [("wsl_core", "role-entry-fixture")]
     assert bridge.started == 1 and bridge.closed == 1
-    assert runtime.avatar_output_session.closed == 1
+    assert session.closed == 1
 
 
 def test_role_runner_fails_closed_and_closes_when_listener_becomes_unhealthy() -> None:
     bridge = _CoreBridge(running=False)
-    runtime = _core_runtime(bridge)
+    runtime, session = _core_runtime(bridge)
     result = run_role(role="wsl_core", manifest=_manifest(),
         runtime_provider=lambda _role, _config: runtime,
         launch_authorizer=lambda _role, _config: True,
@@ -160,7 +169,7 @@ def test_role_runner_fails_closed_and_closes_when_listener_becomes_unhealthy() -
         system_name="Linux", is_wsl=True)
     assert result == 3
     assert bridge.started == 1 and bridge.closed == 1
-    assert runtime.avatar_output_session.closed == 1
+    assert session.closed == 1
 
 
 def test_role_runner_owns_windows_edge_lifetime() -> None:
@@ -181,7 +190,7 @@ def test_role_runner_owns_windows_edge_lifetime() -> None:
 def test_unsupported_host_does_not_invoke_or_import_provider() -> None:
     called = False
 
-    def provider(_role: str, _manifest: object) -> object:
+    def provider(_role: str, _manifest: Mapping[str, Any]) -> object:
         nonlocal called
         called = True
         return object()
@@ -196,7 +205,7 @@ def test_unsupported_host_does_not_invoke_or_import_provider() -> None:
 def test_launch_authority_denial_prevents_runtime_resolution() -> None:
     called = False
 
-    def provider(_role: str, _manifest: object) -> object:
+    def provider(_role: str, _manifest: Mapping[str, Any]) -> object:
         nonlocal called
         called = True
         return object()
@@ -208,12 +217,28 @@ def test_launch_authority_denial_prevents_runtime_resolution() -> None:
     assert called is False
 
 
+def test_runtime_type_mismatch_is_rejected_without_invoking_untrusted_close() -> None:
+    closed = False
+
+    class UnexpectedRuntime:
+        def close(self) -> None:
+            nonlocal closed
+            closed = True
+
+    with pytest.raises(CompanionBridgeError, match="companion_role_runtime_type_mismatch"):
+        run_role(role="wsl_core", manifest=_manifest(),
+            runtime_provider=lambda _role, _config: UnexpectedRuntime(),
+            launch_authorizer=lambda _role, _config: True,
+            stop_event=threading.Event(), system_name="Linux", is_wsl=True)
+    assert closed is False
+
+
 def test_missing_runtime_identity_blocks_before_authority_provider() -> None:
     manifest = _manifest()
     manifest["runtime_handoff_ref"] = None
     called = False
 
-    def authorizer(_role: str, _config: object) -> bool:
+    def authorizer(_role: str, _config: Mapping[str, Any]) -> bool:
         nonlocal called
         called = True
         return True
