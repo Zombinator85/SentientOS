@@ -2,19 +2,23 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
-from threading import Lock
+import json
+from threading import Event, Lock
+import time
 
 import pytest
 
 from sentientos.foreground_game_bridge import (
     BridgeForegroundGameDetector,
+    WindowsForegroundObservationPump,
     WindowsForegroundBridgePublisher,
 )
 from sentientos.foreground_game_detection import ForegroundGameObservation
-from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge import CompanionBridgeError, CompanionBridgeReceiver
 from sentientos.gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackClient,
     CompanionBridgeLoopbackRuntime,
+    CompanionBridgeTransportError,
 )
 from sentientos.local_model_serving_inference import ProductionServingInferenceController
 
@@ -156,3 +160,125 @@ def test_sender_cannot_claim_an_allowlisted_game_with_an_unlisted_digest():
         assert observation.transport_provenance is None
     finally:
         detector.close()
+
+
+def test_observation_pump_sends_fresh_samples_and_has_a_one_shot_lifecycle():
+    runtime = _runtime()
+    port = runtime.start()
+    acknowledgments = CompanionBridgeReceiver(
+        source_keys={"sentientos-core": CORE_KEY},
+        expected_generations={"sentientos-core": "core-generation-1"},
+        clock=lambda: NOW.timestamp(),
+    )
+    client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=acknowledgments, timeout_seconds=0.5)
+    sample_ready = Event()
+
+    class RepeatedObservation:
+        def observe(self, _process_names):
+            sample_ready.set()
+            return ForegroundGameObservation(
+                "available", True, hashlib.sha256(b"game.exe").hexdigest(), STAMP)
+
+    publisher = WindowsForegroundBridgePublisher(
+        detector=RepeatedObservation(), client=client, source_id=SOURCE_ID,
+        session_id="observer-session-1", generation_id=SOURCE_GENERATION,
+        source_key=SOURCE_KEY)
+    pump = WindowsForegroundObservationPump(
+        publisher=publisher, process_names=("game.exe",), interval_seconds=0.1)
+    try:
+        pump.start()
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline and pump.status().acknowledgments < 2:
+            sample_ready.wait(0.05)
+        pump.close()
+        status = pump.status()
+        assert not status.running
+        assert status.attempts >= 2
+        assert status.acknowledgments >= 2
+        assert status.failures == 0
+        assert status.last_message_id
+        assert status.last_delivery_state == "accepted"
+
+        accepted = []
+        while True:
+            try:
+                accepted.append(runtime.receive(timeout=0))
+            except CompanionBridgeError as exc:
+                assert exc.args == ("bridge_receive_timeout",)
+                break
+        assert len(accepted) >= 2
+        assert [message.sequence for message in accepted] == sorted(
+            message.sequence for message in accepted)
+        with pytest.raises(CompanionBridgeError, match="generation_rotation_required"):
+            pump.start()
+    finally:
+        pump.close()
+        runtime.close()
+
+
+def test_pump_takes_a_new_sample_after_indeterminate_delivery_instead_of_replaying():
+    runtime = _runtime()
+    port = runtime.start()
+    acknowledgments = CompanionBridgeReceiver(
+        source_keys={"sentientos-core": CORE_KEY},
+        expected_generations={"sentientos-core": "core-generation-1"},
+        clock=lambda: NOW.timestamp(),
+    )
+
+    class IndeterminateOnceClient(CompanionBridgeLoopbackClient):
+        def __init__(self):
+            super().__init__(port=port, acknowledgment_receiver=acknowledgments,
+                timeout_seconds=0.5)
+            self.frames = []
+
+        def send(self, encoded):
+            self.frames.append(encoded)
+            if len(self.frames) == 1:
+                raise CompanionBridgeTransportError("bridge_delivery_indeterminate",
+                    delivery_state="indeterminate")
+            return super().send(encoded)
+
+    class ChangingObservation:
+        def __init__(self):
+            self.calls = 0
+
+        def observe(self, _process_names):
+            self.calls += 1
+            name = "game.exe" if self.calls == 1 else "desktop.exe"
+            return ForegroundGameObservation("available", name == "game.exe",
+                hashlib.sha256(name.encode()).hexdigest(), STAMP)
+
+    client = IndeterminateOnceClient()
+    publisher = WindowsForegroundBridgePublisher(
+        detector=ChangingObservation(), client=client, source_id=SOURCE_ID,
+        session_id="observer-session-1", generation_id=SOURCE_GENERATION,
+        source_key=SOURCE_KEY)
+    pump = WindowsForegroundObservationPump(
+        publisher=publisher, process_names=("game.exe",), interval_seconds=0.1)
+    try:
+        pump.start()
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            state = pump.status()
+            if state.failures >= 1 and state.acknowledgments >= 1:
+                break
+            time.sleep(0.01)
+        pump.close()
+        status = pump.status()
+        assert status.last_failure_code == "bridge_delivery_indeterminate"
+        assert status.last_failure_delivery_state == "indeterminate"
+        assert status.last_failure_at
+        assert status.last_delivery_state == "accepted"
+        assert status.failures >= 1
+        assert status.acknowledgments >= 1
+        assert client.frames[0] != client.frames[1]
+        first, second = (json.loads(frame) for frame in client.frames[:2])
+        assert first["sequence"] == 1
+        assert second["sequence"] == 2
+        assert first["payload"]["process_name_digest"] != second["payload"]["process_name_digest"]
+        received = runtime.receive(timeout=0.5)
+        assert received.sequence == 2
+    finally:
+        pump.close()
+        runtime.close()
