@@ -298,14 +298,16 @@ a deterministic fixture. The independently preserved rootless model smoke is
 real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
 
-The one-command local acceptance workflow most recently passed 182 tests with
+The one-command local acceptance workflow most recently passed 224 tests with
 zero failures/errors and 23 repository-marked skips. It includes a real
-Blender-authored GLB candidate exercised in headless Godot because both tools
-were available, plus mTLS Windows-performance transport fixtures and the
-vertical chat/avatar restart scenario. The Blender/Godot body remains a
-non-adopted candidate. The local deployment doctor correctly reported WSL2,
-host configuration, and target checks as unobserved; this was software
-validation, not production commissioning.
+Blender-authored GLB loaded through the receipt-verifying Python fixture loader,
+activated in headless Godot, reported with adoption lineage, and rolled back to
+the procedural body. The approval and receipt verifier are test fixtures, so
+this does not claim production adoption. The suite also covers role runner
+lifecycle/authority checks, mTLS Windows-performance transport fixtures, and
+the vertical chat/avatar restart scenario. The local deployment doctor
+correctly reported WSL2, host configuration, and target checks as unobserved;
+this was software validation, not production commissioning.
 
 The test node
 `tests/test_gaming_companion_vertical_godot.py::test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data`
