@@ -37,9 +37,11 @@ class Kernel:
 class Model:
     def __init__(self, identity, on_generate=None):
         self.active_identity, self.calls, self.closed, self.on_generate = identity, 0, False, on_generate
+        self.prompts = []
 
     def generate(self, prompt, **kwargs):
         self.calls += 1
+        self.prompts.append(prompt)
         if self.on_generate: self.on_generate()
         return "answer"
 
@@ -98,6 +100,21 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
         assert key in linkage
     assert [r.authority_class for r in kernel.requests] == [AuthorityClass.MODEL_SERVING, AuthorityClass.LOCAL_MODEL_INFERENCE]
     assert serving.current_session() == session
+
+
+@pytest.mark.parametrize("mode,style_expected", [("normal", False), ("gaming", True)])
+def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_path, mode, style_expected):
+    bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
+    bridge.set_workload_mode(mode)
+    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+
+    receipt = bridge.generate(prompt=prompt, caller="chat_service", correlation_id="gaming-style")
+
+    observed_prompt = model.prompts[0]
+    instruction = "The user is in a gaming workload."
+    assert (instruction in observed_prompt) is style_expected
+    assert receipt.request["linkage"].get("workload_response_style") == (
+        "gaming_chat_style_v1" if style_expected else None)
 
 
 @pytest.mark.parametrize("outcome", [AdmissionOutcome.DENY, AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])

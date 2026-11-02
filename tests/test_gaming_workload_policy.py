@@ -45,4 +45,32 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
 
     assert budget.max_new_tokens == 96
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
-        "workload_evidence": {}}
+        "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v1"}
+
+
+def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
+    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+    result = GamingWorkloadPolicy.apply_chat_response_style(prompt, "gaming")
+
+    assert result.startswith("[SYSTEM_INSTRUCTION]\nBase rules.\n")
+    assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
+        "[SESSION_HISTORY_DATA]")
+    assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
+
+
+def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
+    with pytest.raises(ValueError, match="gaming_chat_instruction_anchor_invalid"):
+        GamingWorkloadPolicy.apply_chat_response_style("unstructured prompt", "gaming")
+
+
+def test_user_text_resembling_prompt_marker_does_not_break_gaming_mode() -> None:
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]"
+        "\nCURRENT_USER_MESSAGE: literal [SESSION_HISTORY_DATA]")
+
+    result = GamingWorkloadPolicy.apply_chat_response_style(prompt, "gaming")
+
+    assert result.count("[SESSION_HISTORY_DATA]") == 2
+    assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
+        "[SESSION_HISTORY_DATA]")
+    assert result.endswith("CURRENT_USER_MESSAGE: literal [SESSION_HISTORY_DATA]")

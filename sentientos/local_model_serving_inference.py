@@ -187,6 +187,10 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("serving_operation_chat_handoff_mismatch")
         workload_state = self.current_workload_state()
         workload_mode = workload_state["effective_mode"]
+        try:
+            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, workload_mode)
+        except ValueError as exc:
+            raise ProductionServingInferenceError(str(exc)) from exc
         effective_budget, linkage = GamingWorkloadPolicy.apply_to_chat_invocation(
             workload_mode, budget or LocalModelInvocationBudget(), {
             "serving_session_id": session.session_id,
@@ -239,7 +243,7 @@ class ProductionServingInferenceController:
 
         invoker.register_evidence_sink(publish_receipt)
         request = invoker.build_request(
-            purpose="local_user_chat", prompt=prompt, caller=caller,
+            purpose="local_user_chat", prompt=effective_prompt, caller=caller,
             correlation_id=correlation_id, budget=effective_budget,
             upstream_evidence={"current_serving_lifetime": linkage}, linkage=linkage)
         request_receipt_bytes = json.dumps(request.to_receipt_request_dict(),
