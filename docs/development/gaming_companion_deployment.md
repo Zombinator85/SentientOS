@@ -75,11 +75,11 @@ activated even when their components are listed.
 }
 ```
 
-For `private_host_firewall`, the manifest requires a firewall-rule reference.
-The doctor cannot verify that reference or configure the firewall. Do not bind
-the bridge to all interfaces or expose it to a LAN. WSL2 and Windows localhost
-behavior must be verified on the target host before choosing a cross-environment
-binding.
+Only `loopback_only` is currently supported. The manifest rejects
+`private_host_firewall` and firewall-rule references because the runtime has no
+protected cross-host transport or host-firewall verifier. A rule reference by
+itself cannot authorize or prove a network listener. Do not bind the bridge to
+a non-loopback address until those controls and target-host validation exist.
 
 ## Current deployment limit
 

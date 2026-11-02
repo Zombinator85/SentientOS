@@ -43,15 +43,16 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
         raise GamingCompanionDeploymentError("manifest_windows_components_invalid")
     if len(components) != len(set(components)):
         raise GamingCompanionDeploymentError("manifest_windows_components_invalid")
-    if result["bridge_bind_scope"] not in {"loopback_only", "private_host_firewall"}:
+    if result["bridge_bind_scope"] == "private_host_firewall":
+        raise GamingCompanionDeploymentError("manifest_bridge_scope_not_implemented")
+    if result["bridge_bind_scope"] != "loopback_only":
         raise GamingCompanionDeploymentError("manifest_bridge_scope_invalid")
     key_ref = result["bridge_key_reference"]
     if key_ref is not None and (not isinstance(key_ref, str) or not key_ref.strip()):
         raise GamingCompanionDeploymentError("manifest_bridge_key_reference_invalid")
     firewall_ref = result["firewall_rule_reference"]
-    if result["bridge_bind_scope"] == "private_host_firewall" and (
-            not isinstance(firewall_ref, str) or not firewall_ref.strip()):
-        raise GamingCompanionDeploymentError("manifest_firewall_reference_required")
+    if firewall_ref is not None:
+        raise GamingCompanionDeploymentError("manifest_firewall_reference_unsupported")
     for field in ("start_on_login", "automatic_capture", "automatic_speech"):
         if type(result[field]) is not bool:
             raise GamingCompanionDeploymentError("manifest_boolean_invalid:" + field)
