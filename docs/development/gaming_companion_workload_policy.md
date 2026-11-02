@@ -48,3 +48,11 @@ integration work.
 
 This is a runtime preference only. It grants no installation, model, host, memory,
 input-control, or other actuation authority.
+
+When the operator has enabled the local visual companion for a conversation, the
+effective `normal` or `gaming` mode recorded in that turn's verified invocation
+receipt is forwarded as a closed renderer hint. The Godot companion caps its own
+render loop at 60 FPS in normal mode and 15 FPS in gaming mode. This only limits
+the companion process; it does not set game priority, throttle the model backend,
+reserve CPU/GPU capacity, or guarantee that gameplay frame times improve. Unknown
+or absent mode metadata falls back to the normal renderer cap.

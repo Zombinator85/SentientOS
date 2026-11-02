@@ -67,7 +67,7 @@ class ChatAvatarOutput(Protocol):
     def set_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]: ...
     def state(self, session_id: str) -> dict[str, Any]: ...
     def publish_response(self, *, session_id: str, turn_id: str, text: str,
-                         output_digest: str) -> Mapping[str, Any]: ...
+                         output_digest: str, workload_mode: str | None = None) -> Mapping[str, Any]: ...
     def close(self) -> None: ...
 
 
@@ -598,6 +598,10 @@ class PersistentConversationService:
         upstream = receipt.request.get("upstream_evidence", {})
         serving_lifetime = (upstream.get("current_serving_lifetime")
             if isinstance(upstream, Mapping) else None)
+        workload_mode = (serving_lifetime.get("workload_mode")
+            if isinstance(serving_lifetime, Mapping) else None)
+        if not isinstance(workload_mode, str) or workload_mode not in {"normal", "gaming"}:
+            workload_mode = None
         if not isinstance(invoked_identity, Mapping) or not isinstance(identity_payload, Mapping):
             raise RuntimeError("invocation_model_identity_mismatch")
         if "observed_loaded_model_identity" in identity_payload:
@@ -657,9 +661,15 @@ class PersistentConversationService:
                      "omitted_memory_count": memory.get("omitted_memory_count")})
         if self._avatar_output is not None:
             try:
-                self._avatar_output.publish_response(
-                    session_id=session["session_id"], turn_id=str(assistant["turn_id"]),
-                    text=receipt.output_text, output_digest=transcript_output_digest)
+                avatar_publication: dict[str, Any] = {
+                    "session_id": session["session_id"],
+                    "turn_id": str(assistant["turn_id"]),
+                    "text": receipt.output_text,
+                    "output_digest": transcript_output_digest,
+                }
+                if workload_mode is not None:
+                    avatar_publication["workload_mode"] = workload_mode
+                self._avatar_output.publish_response(**avatar_publication)
             except Exception as exc:
                 LOGGER.warning("Avatar response publication failed: %s", type(exc).__name__)
         if self._speech_output is not None:

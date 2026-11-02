@@ -67,6 +67,14 @@ emotion, or generate mouth cues. The state file is owner-only on POSIX. Start
 the local avatar receiver with the same file path and open the Godot demo to
 render updates. The display remains a standalone window, not a game overlay.
 
+For each response, the companion may also receive the effective `normal` or
+`gaming` workload mode from the verified local-model invocation receipt. The
+Godot demo caps only its own render loop at 60 FPS in normal mode and 15 FPS in
+gaming mode. This is a best-effort reduction in companion rendering work; it
+does not control game scheduling, model CPU/GPU threads, or overall system
+resource allocation. The workload signal still identifies only a configured
+foreground executable match, not game content or performance.
+
 ## Optional local spoken replies
 
 The supervised chat process can separately opt into local spoken replies with
