@@ -5,7 +5,7 @@ import json
 import re
 import threading
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import (
@@ -25,7 +25,11 @@ from .local_model_resource_profile import (
 )
 from .installation_state import InstallationStateError
 from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
-from .foreground_game_detection import ForegroundGameDetector, normalize_game_process_names
+from .foreground_game_detection import (
+    ForegroundGameDetector,
+    ForegroundGameObservation,
+    normalize_game_process_names,
+)
 from .chat_process_generation import (
     ChatProcessGenerationError,
     verify_current_chat_process_handoff,
@@ -43,6 +47,10 @@ class ProductionServingInferenceError(RuntimeError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+class ForegroundGameObserver(Protocol):
+    def observe(self, process_names: tuple[str, ...] | list[str]) -> ForegroundGameObservation: ...
 
 
 def unavailable_chat_process_software_generation() -> dict[str, Any]:
@@ -63,7 +71,8 @@ class ProductionServingInferenceController:
                  "_foreground_game_detector")
 
     def __init__(self, serving_controller: ProductionServingController, *,
-                 runtime_handoff_id: str | None = None) -> None:
+                 runtime_handoff_id: str | None = None,
+                 foreground_game_detector: ForegroundGameObserver | None = None) -> None:
         if not isinstance(serving_controller, ProductionServingController):
             raise ProductionServingInferenceError("production_serving_controller_required")
         self._serving = serving_controller
@@ -72,7 +81,7 @@ class ProductionServingInferenceController:
         self._workload_lock = threading.Lock()
         self._workload_mode: WorkloadMode = "normal"
         self._game_process_names: tuple[str, ...] = ()
-        self._foreground_game_detector = ForegroundGameDetector()
+        self._foreground_game_detector = foreground_game_detector or ForegroundGameDetector()
 
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> WorkloadMode:
@@ -102,6 +111,7 @@ class ProductionServingInferenceController:
                 "game_foreground": None,
                 "process_name_digest": None,
                 "observed_at": None,
+                "transport_provenance": None,
             }
         else:
             observed = self._foreground_game_detector.observe(names)
@@ -118,6 +128,8 @@ class ProductionServingInferenceController:
                 "game_foreground": observed.game_foreground,
                 "process_name_digest": observed.process_name_digest,
                 "observed_at": observed.observed_at,
+                "transport_provenance": (dict(observed.transport_provenance)
+                    if observed.transport_provenance is not None else None),
             }
         return {"mode": configured_mode, "effective_mode": effective, **evidence}
 
@@ -239,7 +251,7 @@ class ProductionServingInferenceController:
             "software_generation_attribution": software_generation_attribution,
         }, workload_evidence={key: workload_state[key] for key in (
             "configured_mode", "mode_source", "observation_status", "game_foreground",
-            "process_name_digest", "observed_at")})
+            "process_name_digest", "observed_at", "transport_provenance")})
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")

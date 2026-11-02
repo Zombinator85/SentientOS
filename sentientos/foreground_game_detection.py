@@ -8,7 +8,7 @@ import platform
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 _PROCESS_NAME = re.compile(r"[a-z0-9][a-z0-9 ._-]{0,126}\.exe\Z")
 
@@ -19,15 +19,19 @@ class ForegroundGameObservation:
     game_foreground: bool | None
     process_name_digest: str | None
     observed_at: str
+    transport_provenance: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "schema_version": "sentientos.foreground_game_observation:v1",
             "status": self.status,
             "game_foreground": self.game_foreground,
             "process_name_digest": self.process_name_digest,
             "observed_at": self.observed_at,
         }
+        if self.transport_provenance is not None:
+            result["transport_provenance"] = dict(self.transport_provenance)
+        return result
 
 
 def normalize_game_process_names(names: tuple[str, ...] | list[str]) -> tuple[str, ...]:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import hashlib
 from types import MappingProxyType, SimpleNamespace
 
 import pytest
@@ -13,6 +15,16 @@ from sentientos.local_model_production_serving import ProductionServingControlle
 from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
     ProductionServingInferenceError,
+)
+from sentientos.foreground_game_bridge import (
+    BridgeForegroundGameDetector,
+    WindowsForegroundBridgePublisher,
+)
+from sentientos.foreground_game_detection import ForegroundGameObservation
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge_runtime import (
+    CompanionBridgeLoopbackClient,
+    CompanionBridgeLoopbackRuntime,
 )
 from sentientos.local_model_resource_profile import (
     LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
@@ -54,7 +66,7 @@ class Model:
 
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
           installation_identity="install-1", runtime_handoff_id=None, state_root=None,
-          serving_operation_id="serve-1"):
+          serving_operation_id="serve-1", foreground_game_detector=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": 0}
@@ -89,7 +101,8 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
     session = serving.establish(operation_id=serving_operation_id)
     return ProductionServingInferenceController(
-        serving, runtime_handoff_id=runtime_handoff_id), serving, session, model, kernel, current
+        serving, runtime_handoff_id=runtime_handoff_id,
+        foreground_game_detector=foreground_game_detector), serving, session, model, kernel, current
 
 
 def test_exact_serving_backed_generation_has_independent_admission_and_linkage(monkeypatch, tmp_path):
@@ -119,6 +132,60 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
         "gaming_chat_style_v1" if style_expected else None)
+
+
+def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt_lineage(
+        monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc)
+    stamp = now.isoformat()
+    source_key = b"windows-foreground-test-key-material-32-bytes"
+    core_key = b"sentientos-core-test-key-material-32-bytes"
+    source_id, source_generation = "windows-foreground", "windows-observer-generation-1"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: source_generation}),
+        acknowledgment_source_id="sentientos-core",
+        acknowledgment_generation_id="core-generation-1",
+        acknowledgment_key=core_key, queue_capacity=2)
+    port = runtime.start()
+    detector = BridgeForegroundGameDetector(runtime=runtime, source_id=source_id,
+        generation_id=source_generation, max_observation_age_seconds=5)
+    bridge, serving, _, model, _, _ = setup(
+        monkeypatch, tmp_path, foreground_game_detector=detector)
+    bridge.set_workload_mode("automatic", ("ExampleGame.exe",))
+    client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"sentientos-core": core_key},
+            expected_generations={"sentientos-core": "core-generation-1"}),
+        timeout_seconds=1.0)
+    class WindowsObservation:
+        def observe(self, _names):
+            return ForegroundGameObservation(
+                "available", True, hashlib.sha256(b"examplegame.exe").hexdigest(), stamp)
+
+    publisher = WindowsForegroundBridgePublisher(
+        detector=WindowsObservation(),
+        client=client, source_id=source_id, session_id="observer-session-1",
+        generation_id=source_generation, source_key=source_key)
+    try:
+        publisher.publish_once(("ExampleGame.exe",))
+        prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+        receipt = bridge.generate(prompt=prompt, caller="chat_service", correlation_id="bridged-game")
+
+        assert receipt.status == "admitted_completed"
+        assert receipt.generation_config["max_new_tokens"] <= 96
+        assert "The user is in a gaming workload." in model.prompts[0]
+        linkage = receipt.request["linkage"]
+        assert linkage["workload_mode"] == "gaming"
+        evidence = linkage["workload_evidence"]
+        assert evidence["mode_source"] == "foreground_allowlist_match"
+        assert evidence["transport_provenance"]["source_id"] == source_id
+        assert evidence["transport_provenance"]["generation_id"] == source_generation
+        assert evidence["transport_provenance"]["sequence"] == 1
+        assert evidence["transport_provenance"]["message_id"]
+    finally:
+        detector.close()
+        serving.close()
 
 
 def test_serving_authority_reconstructs_commissioned_resource_profile(tmp_path):

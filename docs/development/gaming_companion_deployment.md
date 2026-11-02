@@ -115,3 +115,38 @@ demonstration. A target-host test must still establish Windows-to-WSL reachabili
 under the selected WSL networking mode, independent key/generation custody,
 source restart rotation, caller integration, and lifecycle supervision. No
 firewall rule or non-loopback bind is created by this implementation.
+
+## Foreground observation integration
+
+`sentientos.foreground_game_bridge` supplies a Windows publisher and a core
+detector for the existing `automatic` workload mode. The publisher samples only
+the foreground executable basename through `ForegroundGameDetector`, sends
+the existing closed foreground-observation record, and retains no executable
+path, title, command line, or screen content. The core adapter accepts only the
+configured source and generation, validates the observation schema and age,
+and recomputes allowlist membership from the process-name digest. The sample's
+message ID, source/session/generation, sequence, and envelope time travel with
+the workload decision into inference lineage.
+
+The optional `configure_production_chat(..., foreground_game_detector=...)`
+composition owns and closes the bridge-backed detector and its dedicated
+loopback runtime. The Windows publisher's `publish_once(process_names)` method
+is a separate component; it requires an already configured loopback client and
+externally custodied source key, source session, and generation. Neither side
+creates or persists those values. The automatic detector consumes only the
+foreground messages delivered to its dedicated bounded runtime queue. Missing,
+stale, malformed, contradictory, or unavailable observations select the
+conservative gaming request budget; an allowlisted non-game foreground app
+selects normal mode. The digest avoids sending the raw basename, but it is not
+anonymization: a receiver can test candidate basenames against it. Treat this
+field as pseudonymous metadata.
+
+This wiring is tested with a deterministic Windows-observation fixture sent over
+actual authenticated local TCP and fed into the production serving controller's
+automatic-mode decision. It does not establish Windows API execution in this
+Linux workspace, a scheduler that continuously runs `publish_once`, target
+Windows-to-WSL reachability, or live GLORP responsiveness. The ordinary
+`sentientos-chat` CLI does not provision bridge keys or start this observer; an
+authorized deployment composition must supply the runtime and publisher
+components. The observer sees only which allowlisted executable is foreground,
+not game content or measured gameplay impact.
