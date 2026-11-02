@@ -40,7 +40,7 @@ func _initialize() -> void:
 	var install_result: Dictionary = demo.install_experimental_candidate(
 		candidate_value as PackedScene, evidence,
 		{"wave": "upper", "nod": "upper"},
-		{"smile": "FaceSmile", "frown": "FaceFrown", "rest": "FaceNeutral"},
+		{"smile": "smile", "frown": "FaceFrown", "rest": "FaceNeutral"},
 		{"a": "MouthOpen", "e": "MouthOpen", "i": "MouthOpen", "o": "MouthOpen", "u": "MouthOpen"})
 	if install_result.get("status") != "candidate_loaded_unadopted":
 		_fail("candidate_probe_install_failed:" + str(install_result))
@@ -57,7 +57,7 @@ func _initialize() -> void:
 		if mesh_node.mesh == null:
 			continue
 		for surface_index in range(mesh_node.mesh.get_surface_count()):
-			var material := mesh_node.get_active_material(surface_index) as StandardMaterial3D
+			var material := mesh_node.mesh.surface_get_material(surface_index) as StandardMaterial3D
 			if material and Vector3(material.albedo_color.r, material.albedo_color.g,
 					material.albedo_color.b).distance_to(expected_color) < 0.01:
 				color_survived = true
@@ -72,7 +72,6 @@ func _initialize() -> void:
 		"viseme_timeline": [{"time": 0.0, "duration": 0.1, "viseme": "a"}],
 	}
 	demo.call("_apply_state", state, 0.016)
-	var renderer_report: Dictionary = demo.latest_renderer_report()
 	var candidate_report: Dictionary = demo.latest_candidate_renderer_report()
 	var candidate_state: Dictionary = candidate_report.get("candidate_state", {})
 	var identity: Dictionary = candidate_state.get("identity", {})
@@ -89,8 +88,14 @@ func _initialize() -> void:
 	if motion.get("bone_pose_rotation", {}).get("z", 0.0) == 0.0:
 		_fail("candidate_probe_bone_pose_not_changed")
 		return
-	if candidate_state.get("expression", {}).get("status") != "unsupported":
-		_fail("candidate_probe_missing_expression_not_reported")
+	if candidate_state.get("expression", {}).get("status") != "blend_shape_applied":
+		_fail("candidate_probe_authored_expression_not_applied")
+		return
+	if candidate_state.get("expression", {}).get("shape") != "smile":
+		_fail("candidate_probe_authored_expression_shape_mismatch")
+		return
+	if not is_equal_approx(float(candidate_state.get("expression", {}).get("weight", 0.0)), 0.8):
+		_fail("candidate_probe_authored_expression_weight_mismatch")
 		return
 	if candidate_state.get("visemes", {}).get("status") != "unsupported":
 		_fail("candidate_probe_missing_viseme_not_reported")

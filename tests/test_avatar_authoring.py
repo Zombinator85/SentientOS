@@ -186,13 +186,31 @@ def test_blender_driver_capabilities_match_the_declared_backend() -> None:
         assert _primitive_vertex_count(args)==primitive_mesh_vertex_count(args)
 
 
-def test_blender_driver_rejects_unimplemented_operations_before_importing_bpy() -> None:
+def test_blender_driver_rejects_shape_keys_without_geometry_edits_before_importing_bpy() -> None:
     from scripts.avatar_blender_driver import translate
 
     value={"schema_version":"sentientos.avatar_authoring_plan:v1","operations":[
         {"operation_id":"shape","kind":"create_shape_key","target":"Body","arguments":{}}]}
-    with pytest.raises(ValueError,match="invalid_plan"):
+    with pytest.raises(ValueError,match="shape_key_arguments_invalid"):
         translate(value)
+
+
+def test_shape_key_geometry_offsets_are_bounded_and_unique(tmp_path):
+    source=artifact(tmp_path/"shape-key.glb")
+    valid_plan=plan(manifest(source))
+    next(item for item in valid_plan["operations"] if item["kind"]=="create_shape_key")["arguments"]["vertex_offsets"]=[
+        {"vertex_index":2,"offset":[0.0,0.0,0.05]}]
+    assert validate_plan(valid_plan)["plan_digest"].startswith("sha256:")
+    for offsets,error in (
+        ([{"vertex_index":2,"offset":[0.0,0.0,0.05]},{"vertex_index":2,"offset":[0.0,0.0,0.03]}],"shape_key_vertex_offsets_invalid"),
+        ([{"vertex_index":4096,"offset":[0.0,0.0,0.05]}],"shape_key_vertex_offsets_invalid"),
+        ([{"vertex_index":2,"offset":[0.0,0.0,0.26]}],"shape_key_vertex_offset_bound_exceeded"),
+        ([{"vertex_index":2,"offset":[0.0,0.0,0.0]}],"shape_key_vertex_offset_bound_exceeded"),
+    ):
+        invalid=plan(manifest(source))
+        target=next(item for item in invalid["operations"] if item["kind"]=="create_shape_key")
+        target["arguments"]["vertex_offsets"]=offsets
+        with pytest.raises(AvatarAuthoringError,match=error): validate_plan(invalid)
 
 
 @pytest.mark.parametrize("arguments,error",[
@@ -253,6 +271,13 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
                 {"base_color":[0.11,0.57,0.65,1.0],"metallic":0.18,"roughness":0.32}, {"exists":True}),
             operation("head-material","assign_material","CompanionHead",
                 {"material":"CompanionCeramic"}, {"material":"CompanionCeramic"}),
+            operation("smile","create_shape_key","CompanionHead",{"shape_key":"smile","vertex_offsets":[
+                {"vertex_index":208,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":209,"offset":[0.0,0.0,0.08]},
+                {"vertex_index":210,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":268,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":269,"offset":[0.0,0.0,0.08]},
+                {"vertex_index":270,"offset":[0.0,0.0,0.04]}]}, {"shape_key":"smile"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -270,7 +295,7 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
         inspector=inspector,work_id="smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated"
-    assert result["comparison"]["counts"]["satisfied"]==7
+    assert result["comparison"]["counts"]["satisfied"]==8
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
@@ -283,6 +308,10 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
     assert material["roughness"]==pytest.approx(0.32,abs=1e-4)
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
+    assert "smile" in result["successor_inspection"]["shape_keys"]["CompanionHead"]
+    shape_geometry=result["successor_inspection"]["shape_key_geometry"]["CompanionHead"]["smile"]
+    assert shape_geometry["changed_vertex_count"]==6
+    assert shape_geometry["maximum_vertex_delta"]==pytest.approx(0.08,abs=1e-4)
 
 def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
     executable=shutil.which("blender")
@@ -316,6 +345,13 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
                 {"base_color":[0.11,0.57,0.65,1.0],"metallic":0.18,"roughness":0.32}, {"exists":True}),
             operation("head-material","assign_material","CompanionHead",
                 {"material":"CompanionCeramic"}, {"material":"CompanionCeramic"}),
+            operation("smile","create_shape_key","CompanionHead",{"shape_key":"smile","vertex_offsets":[
+                {"vertex_index":208,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":209,"offset":[0.0,0.0,0.08]},
+                {"vertex_index":210,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":268,"offset":[0.0,0.0,0.04]},
+                {"vertex_index":269,"offset":[0.0,0.0,0.08]},
+                {"vertex_index":270,"offset":[0.0,0.0,0.04]}]}, {"shape_key":"smile"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -333,7 +369,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         inspector=inspector,work_id="glb-smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated", result["comparison"]
-    assert result["comparison"]["counts"]["satisfied"]==7
+    assert result["comparison"]["counts"]["satisfied"]==8
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
@@ -346,6 +382,10 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
     assert material["roughness"]==pytest.approx(0.32,abs=1e-4)
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
+    assert "smile" in result["successor_inspection"]["shape_keys"]["CompanionHead"]
+    shape_geometry=result["successor_inspection"]["shape_key_geometry"]["CompanionHead"]["smile"]
+    assert shape_geometry["changed_vertex_count"]==6
+    assert shape_geometry["maximum_vertex_delta"]==pytest.approx(0.08,abs=1e-4)
 
     godot=shutil.which("godot")
     if godot is None:
@@ -383,7 +423,9 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         assert candidate_state["identity"]["artifact_sha256"]==candidate_evidence["artifact_sha256"]
         assert candidate_state["identity"]["adopted"] is False
         assert candidate_state["motion"]["status"]=="applied"
-        assert candidate_state["expression"]["status"]=="unsupported"
+        assert candidate_state["expression"]["status"]=="blend_shape_applied"
+        assert candidate_state["expression"]["shape"]=="smile"
+        assert candidate_state["expression"]["weight"]==pytest.approx(0.8,abs=1e-6)
         assert candidate_state["visemes"]["status"]=="unsupported"
         report_payload={key:value for key,value in report.items() if key!="source_digest"}
         expected_report_digest="sha256:"+hashlib.sha256(json.dumps(report_payload,

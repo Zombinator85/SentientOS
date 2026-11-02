@@ -49,13 +49,14 @@ OP_ARGUMENTS: dict[str, frozenset[str]] = {
     "create_bone": frozenset({"parent", "head", "tail"}),
     "parent_object": frozenset({"armature", "bone"}),
     "bind_armature": frozenset({"armature"}),
-    "create_shape_key": frozenset({"shape_key"}),
+    "create_shape_key": frozenset({"shape_key", "vertex_offsets"}),
     "register_channel": frozenset({"channel", "channel_kind", "control"}),
     "set_label": frozenset({"label", "value"}),
 }
 BLENDER_SUPPORTED_OPERATIONS = frozenset({
     "create_primitive_mesh", "create_armature", "create_bone", "set_transform",
     "bind_armature", "create_material", "assign_material",
+    "create_shape_key",
 })
 BLENDER_SUPPORTED_FORMATS = frozenset({"blend", "glb"})
 
@@ -161,6 +162,26 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
                         or not math.isfinite(float(property_value))
                         or not 0.0 <= float(property_value) <= 1.0):
                     raise AvatarAuthoringError("material_property_invalid")
+        if kind == "create_shape_key":
+            if "shape_key" not in args:
+                raise AvatarAuthoringError("shape_key_name_required")
+            _name(args["shape_key"])
+            if "vertex_offsets" in args:
+                offsets = args["vertex_offsets"]
+                if not isinstance(offsets, list) or not 1 <= len(offsets) <= 256:
+                    raise AvatarAuthoringError("shape_key_vertex_offsets_invalid")
+                seen_vertices: set[int] = set()
+                for offset in offsets:
+                    if (not isinstance(offset, dict) or set(offset) != {"vertex_index", "offset"}
+                            or type(offset["vertex_index"]) is not int
+                            or not 0 <= offset["vertex_index"] < MAX_PRIMITIVE_MESH_VERTICES
+                            or offset["vertex_index"] in seen_vertices):
+                        raise AvatarAuthoringError("shape_key_vertex_offsets_invalid")
+                    seen_vertices.add(offset["vertex_index"])
+                    vector = _vector(offset["offset"])
+                    if (any(abs(component) > 0.25 for component in vector)
+                            or not any(component != 0.0 for component in vector)):
+                        raise AvatarAuthoringError("shape_key_vertex_offset_bound_exceeded")
         if kind == "create_primitive_mesh":
             primitive = args.get("primitive", "cube")
             if primitive not in {"cube", "uv_sphere", "cylinder", "cone", "plane"}:
@@ -291,7 +312,8 @@ class SyntheticArtifactInspector:
         value = {"schema_version": INSPECTION_SCHEMA, "artifact_sha256": identity["sha256"], "byte_size": identity["byte_size"],
                  "format": asset_format, "body_id": model["body_id"], "labels": model["labels"], "objects": model["objects"],
                  "armatures": model["armatures"], "bones": bones, "materials": model["materials"], "shape_keys": model["shape_keys"],
-                 "channels": model["channels"], "warnings": [], "unsupported": [], "inspector_identity": asdict(self.identity)}
+                 "channels": model["channels"], "shape_key_geometry": {},
+                 "warnings": [], "unsupported": [], "inspector_identity": asdict(self.identity)}
         value["inspection_digest"] = digest(value); return value
 
 
@@ -332,7 +354,12 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
             bones = after["armatures"].get(args["armature"], {}).get("bones", {})
             satisfied = (obj.get("armature") == args["armature"]
                 and (weighted_groups is None or bool(set(weighted_groups) & set(bones))))
-        elif kind == "create_shape_key": satisfied = args["shape_key"] in after["shape_keys"].get(target, [])
+        elif kind == "create_shape_key":
+            satisfied = args["shape_key"] in after["shape_keys"].get(target, [])
+            if "vertex_offsets" in args:
+                evidence = after.get("shape_key_geometry", {}).get(target, {}).get(args["shape_key"], {})
+                satisfied = satisfied and evidence.get("changed_vertex_count") == len(args["vertex_offsets"])
+                satisfied = satisfied and evidence.get("maximum_vertex_delta", 0.0) > 0.0
         elif kind == "register_channel": satisfied = after["channels"].get(args["channel"]) == {"kind": args["channel_kind"], "control": args["control"]}
         elif kind == "set_label": satisfied = after["labels"].get(args["label"]) == args["value"]
         results.append({"operation_id": op["operation_id"], "classification": "satisfied" if satisfied else "unsatisfied"})
@@ -410,7 +437,7 @@ class BlenderArtifactInspector:
         except json.JSONDecodeError as exc: raise AvatarAuthoringError("inspector_result_invalid") from exc
         after=file_identity(artifact)
         if before != after: raise AvatarAuthoringError("successor_digest_changed_during_inspection")
-        value={"schema_version":INSPECTION_SCHEMA,"artifact_sha256":after["sha256"],"byte_size":after["byte_size"],"format":asset_format,"body_id":structure.get("body_id"),"labels":structure.get("labels",{}),"objects":structure.get("objects",{}),"armatures":structure.get("armatures",{}),"bones":structure.get("bones",{}),"materials":structure.get("materials",{}),"shape_keys":structure.get("shape_keys",{}),"channels":structure.get("channels",{}),"warnings":structure.get("warnings",[]),"unsupported":structure.get("unsupported",[]),"inspector_identity":asdict(self.identity)}
+        value={"schema_version":INSPECTION_SCHEMA,"artifact_sha256":after["sha256"],"byte_size":after["byte_size"],"format":asset_format,"body_id":structure.get("body_id"),"labels":structure.get("labels",{}),"objects":structure.get("objects",{}),"armatures":structure.get("armatures",{}),"bones":structure.get("bones",{}),"materials":structure.get("materials",{}),"shape_keys":structure.get("shape_keys",{}),"shape_key_geometry":structure.get("shape_key_geometry",{}),"channels":structure.get("channels",{}),"warnings":structure.get("warnings",[]),"unsupported":structure.get("unsupported",[]),"inspector_identity":asdict(self.identity)}
         value["inspection_digest"]=digest(value); return value
 
 

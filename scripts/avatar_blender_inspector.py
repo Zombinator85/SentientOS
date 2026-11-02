@@ -16,7 +16,7 @@ def main() -> None:
         bpy.ops.import_scene.gltf(filepath=artifact_path)
     elif asset_format!="blend":
         raise ValueError("asset_format_unsupported")
-    objects={}; armatures={}; bones={}; shape_keys={}; materials={}
+    objects={}; armatures={}; bones={}; shape_keys={}; shape_key_geometry={}; materials={}
     for material in bpy.data.materials:
         settings: dict[str, object]={"base_color":list(material.diffuse_color),"metallic":None,"roughness":None}
         if material.use_nodes and material.node_tree:
@@ -40,7 +40,17 @@ def main() -> None:
             for bone in sorted(obj.data.bones,key=lambda item:item.name):
                 data={"parent":bone.parent.name if bone.parent else None,"head":list(bone.head_local),"tail":list(bone.tail_local)}; armatures[obj.name]["bones"][bone.name]=data; bones[f"{obj.name}/{bone.name}"]=data
         keys=getattr(getattr(obj,"data",None),"shape_keys",None)
-        if keys: shape_keys[obj.name]=[key.name for key in keys.key_blocks]
-    value={"body_id":None,"labels":{},"objects":objects,"armatures":armatures,"bones":bones,"materials":materials,"shape_keys":shape_keys,"channels":{},"warnings":[],"unsupported":[]}
+        if keys:
+            shape_keys[obj.name]=[key.name for key in keys.key_blocks]
+            basis=keys.reference_key
+            shape_key_geometry[obj.name]={}
+            if basis:
+                for key in keys.key_blocks:
+                    if key==basis: continue
+                    deltas=[(vertex.co-basis.data[index].co).length for index,vertex in enumerate(key.data)]
+                    shape_key_geometry[obj.name][key.name]={
+                        "changed_vertex_count":sum(1 for delta in deltas if delta>1e-6),
+                        "maximum_vertex_delta":max(deltas,default=0.0)}
+    value={"body_id":None,"labels":{},"objects":objects,"armatures":armatures,"bones":bones,"materials":materials,"shape_keys":shape_keys,"shape_key_geometry":shape_key_geometry,"channels":{},"warnings":[],"unsupported":[]}
     print("SENTIENTOS_AVATAR_INSPECTION="+json.dumps(value,sort_keys=True,separators=(",",":")))
 if __name__=="__main__": main()
