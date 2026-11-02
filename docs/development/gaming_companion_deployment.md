@@ -188,9 +188,21 @@ capture provenance digests, and an explicit `raw_frame_retained=false` marker.
 Window titles, executable paths, and raw pixels are not included in the
 observation or persisted by this adapter.
 
-The API is disabled unless a caller explicitly requests a screen snapshot and
-composes it with an enabled `ScreenConfig` and a current consent provider. It
-does not start ambient capture, publish to a remote provider, write memory, or
-grant action authority. Linux cloud fixtures can test the policy and OCR
-boundaries; actual Windows capture, local Tesseract availability, and gameplay
-impact still require GLORP validation.
+The `/chat` request field `observe_screen` defaults to `false`. An application
+must explicitly configure `configure_production_chat(screen_observer=...)`
+with an enabled `ScreenOCR` owner constructed using the consent provider before
+requests can use this feature. Each request then opts in with
+`{"observe_screen": true}`. An unconfigured observer fails closed. A repeated
+idempotent request with the same request ID and options returns its prior result
+without recapturing; reusing that ID with different observation options is a
+conflict.
+
+OCR text enters only the current governed inference prompt, labeled as
+untrusted screen data. It is not added to the user's transcript or memory. The
+session and invocation linkage retain only bounded capture and text digests,
+capture time and scope, optional process and consent digests, and the
+raw-frame-retention marker. This feature does not start ambient capture,
+publish to a remote provider, or grant action authority.
+Linux fixtures can test request routing and privacy behavior; actual Windows
+capture, local Tesseract availability, and gameplay impact still require GLORP
+validation.
