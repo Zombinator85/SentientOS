@@ -39,9 +39,9 @@ routes are available only when the production chat composition is active.
 Automatic detection uses the Windows foreground-window process API. On unsupported
 platforms or when process observation fails, it chooses the lower-work Gaming
 budget and reports that the signal was unavailable. The allowlist and mode are
-runtime configuration is process-local and reset on restart; the local chat page
-restores the browser's preference when available. This feature reduces each chat turn's maximum
-work; it does not change llama.cpp CPU thread count, reserve CPU or GPU capacity,
+process-local runtime configuration and reset on restart; the local chat page
+restores the browser's preference when available. This feature reduces each chat
+turn's maximum work; it does not change llama.cpp CPU thread count, reserve CPU or GPU capacity,
 stop background inference, observe frame time, or establish hardware suitability.
 Those need host-side scheduling and performance measurements and remain future
 integration work.
