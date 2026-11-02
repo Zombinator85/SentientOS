@@ -198,19 +198,22 @@ is implemented and tested.
   `WindowsEdgeAvatarCommandDispatchOwner` requires an external receipt
   verifier before submitting a command to `WindowsGodotAvatarStateQueue`,
   which writes the visual-only state format consumed by the existing Godot
-  forwarder. A real certificate-backed localhost mTLS test exercises
-  chat-command encode/send/receive/receipt-check/state-file delivery. A real
-  Windows listener, authority-log resolver, paired runtime launcher, and
-  renderer observation are not yet composed; state-file delivery does not
-  establish that a frame rendered.
+  forwarder. The v3 deployment schema and
+  `build_windows_edge_avatar_runtime` now compose the reverse mTLS listener,
+  separately verified generation pair, external command-receipt verifier, and
+  Godot state sink behind one bounded owner. Its reference-binding factory test
+  and the certificate-backed localhost route test pass. There is still no
+  Windows authority-log adapter, executable paired role launcher, GLORP
+  listener, or renderer observation; state-file delivery does not establish
+  that a frame rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process
   supervision is tested, but there is still no coordinated cross-platform
-  startup/shutdown, exact Windows-edge/WSL-core role entrypoints, OS service
-  registration, custody-reference resolution, firewall setup, or target-host
-  recovery validation. The Windows readiness and scheduled-task machinery
-  remains specific to maintenance.
+  startup/shutdown, executable Windows-edge/WSL-core role entrypoints, OS
+  service registration, production custody-reference adapters, firewall setup,
+  or target-host recovery validation. The Windows readiness and scheduled-task
+  machinery remains specific to maintenance.
 - **Resource feedback:** the governor in `host_resource_governor.py` remains
   proposal-only. The exact llama.cpp worker now applies the gaming request's
   two-thread ceiling to decode and batch work, clamped to the commissioned
@@ -351,16 +354,19 @@ performance adapter with pressure-policy input, durable renderer self-report
 capture, and turn-scoped speech interruption. These are component increments,
 not a complete Windows-edge/WSL-core deployment.
 
-1. Implement the exact Windows-edge and WSL-core entrypoints that resolve the
-manifest's protected references, construct the observed core and edge
-components, and supply authority-backed launch and health callbacks to the new
-process supervisor. Do not create keys, generations, certificates, firewall
-rules, or OS persistence.
-2. Compose the existing reverse-route producer and dispatcher with a real
-Windows mTLS listener, an authority-backed receipt resolver, and a bounded
-Godot command queue. Run failure injection for queue rejection, transport
-uncertainty, restart, and generation rotation without replaying uncertain
-messages.
+1. Implement executable Windows-edge and WSL-core role entrypoints that resolve
+   the manifest's protected references, construct the full role components,
+   and supply authority-backed launch and health callbacks to the process
+   supervisor. The reverse-avatar edge composition factory exists; the forward
+   telemetry/cognition core composition and platform custody adapters remain
+   unfinished. Do not create keys, generations, certificates, firewall rules,
+   or OS persistence.
+2. Exercise the reverse-route edge owner with target-side authority and a real
+   Windows mTLS listener. The local factory composes the validated v3 manifest,
+   externally resolved key/TLS/generation custody, receipt verifier, and bounded
+   Godot state queue. Run failure injection for queue rejection, transport
+   uncertainty, restart, and generation rotation without replaying uncertain
+   messages.
 3. Execute the Godot report return route on Windows/WSL through the loopback
 edge relay, protected mTLS bridge, and durable World-State capture. The
 software-only relay integration test passes; target transport and attribution

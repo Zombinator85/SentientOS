@@ -162,6 +162,35 @@ Replace the example references and pin with provisioned values. The certificate
 pin is a public certificate digest; private keys and HMAC key bytes stay in
 their platform stores.
 
+## Reverse avatar transport (manifest v3)
+
+Manifest v3 retains the v2 Windows-edge→WSL-core telemetry listener and adds a
+separate `reverse_avatar_tls` contract for WSL-core→Windows-edge avatar commands.
+The reverse object names the Windows private bind address and port, edge server
+certificate/key references, WSL core client certificate/key references, CA
+reference, pinned WSL core certificate digest, a distinct source-key custody
+reference, and independent source/acknowledgment generation custody references.
+It also requires a separate operator-managed reverse firewall-rule reference.
+The validator rejects public or loopback binds and rejects reuse of the
+forward-direction HMAC source key. Neither firewall rule is created or checked
+by the manifest doctor; it reports both listeners and firewall rules as
+unobserved until attributable host probes exist.
+
+This schema makes the two authenticated directions explicit. It does not yet
+constitute a Windows/WSL role launcher or provision certificates, keys,
+generation receipts, or firewall policy.
+
+`sentientos.gaming_companion_edge_runtime.build_windows_edge_avatar_runtime`
+is the first role-composition factory for v3. Given the validated manifest,
+platform custody resolvers, a prebuilt server TLS context, independently
+verified generation records, an admission-receipt verifier, and the renderer
+state sink, it constructs the Windows-side reverse listener and bounded command
+dispatcher as one start/close owner. It does not create any of those authorities
+or install an OS service. The local test verifies its reference binding and
+fail-closed receipt ordering; the certificate-backed localhost test separately
+verifies the transport and state-file route. Neither test binds GLORP's private
+address or establishes Windows readiness.
+
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
 CA context, and an exact certificate fingerprint pin. The client requires a
