@@ -14,6 +14,10 @@ from sentientos.local_model_serving_inference import (
     ProductionServingInferenceController,
     ProductionServingInferenceError,
 )
+from sentientos.local_model_resource_profile import (
+    LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+    llama_cpp_resource_profile_digest,
+)
 from sentientos.local_runtime_provisioning import semantic_digest
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -115,6 +119,47 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
         "gaming_chat_style_v1" if style_expected else None)
+
+
+def test_serving_authority_reconstructs_commissioned_resource_profile(tmp_path):
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"profile-bound-model")
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    load = {"engine": "llama_cpp", "n_ctx": 512, "n_gpu_layers": 0,
+        "resource_profile": profile,
+        "resource_profile_digest": llama_cpp_resource_profile_digest(profile)}
+    options = {"gpu_layers": 0, "resource_profile_digest": load["resource_profile_digest"],
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "profile-model", options)],
+        default_engine="llama_cpp", max_context_tokens=512,
+        generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
+    expected = build_local_model_authority_map(config, allowed_roots=[tmp_path],
+        observed_at="1970-01-01T00:00:00+00:00")
+    session = SimpleNamespace(binding={"artifact_path": str(artifact),
+        "model_id": "profile-model", "load_configuration": load,
+        "authority_map_digest": expected.map_digest})
+
+    actual = ProductionServingInferenceController._authority(session)
+
+    assert actual.map_digest == expected.map_digest
+
+
+def test_serving_authority_rejects_profile_digest_mismatch(tmp_path):
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"profile-bound-model")
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    session = SimpleNamespace(binding={"artifact_path": str(artifact),
+        "model_id": "profile-model", "load_configuration": {
+            "engine": "llama_cpp", "n_ctx": 512, "n_gpu_layers": 0,
+            "resource_profile": profile, "resource_profile_digest": "0" * 64},
+        "authority_map_digest": "unused"})
+
+    with pytest.raises(ProductionServingInferenceError, match="resource_profile_mismatch"):
+        ProductionServingInferenceController._authority(session)
 
 
 @pytest.mark.parametrize("outcome", [AdmissionOutcome.DENY, AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])

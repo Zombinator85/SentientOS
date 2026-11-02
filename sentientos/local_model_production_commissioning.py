@@ -23,6 +23,12 @@ from .local_model import LocalModel
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_model_artifact_acquisition import compose_acquisition_plan, verify_acquisition_receipt
 from .local_model_authority import build_local_model_authority_map
+from .local_model_resource_profile import (
+    LocalModelResourceProfileError,
+    llama_cpp_constructor_options,
+    llama_cpp_resource_profile_digest,
+    validate_llama_cpp_resource_profile,
+)
 from .local_runtime_backend_verification import compose_verification_plan as compose_backend_plan
 from .local_runtime_provisioning import semantic_digest
 
@@ -132,34 +138,57 @@ _PROBE = r'''import json,sys
 P="SENTIENTOS_MODEL_COMPATIBILITY="
 try:
  from llama_cpp import Llama
- m=Llama(model_path=sys.argv[1],vocab_only=True,n_ctx=64,n_gpu_layers=int(sys.argv[2]),verbose=False)
+ options=json.loads(sys.argv[2])
+ m=Llama(model_path=sys.argv[1],vocab_only=True,verbose=False,**options)
  del m
  out={"ok":True,"probe_mode":"bounded_model_construction_vocab_only","semantic_generations":0}
 except Exception as e: out={"ok":False,"error_type":type(e).__name__,"diagnostic":str(e)[:512]}
 print(P+json.dumps(out,sort_keys=True,separators=(",",":")))'''
 
 
-def route_load_configuration(chain: Mapping[str, Any]) -> dict[str, Any]:
+def route_load_configuration(chain: Mapping[str, Any], *,
+                              resource_profile: Mapping[str, Any] | None = None) -> dict[str, Any]:
     family = str(chain["backend_family"])
     # A conservative accelerated load proves runtime availability, not full offload.
     layers = 0 if family == "cpu" else 1
-    return {"engine": "llama_cpp", "n_ctx": 512, "n_gpu_layers": layers,
+    result = {"engine": "llama_cpp", "n_ctx": 512, "n_gpu_layers": layers,
             "offload_claim": "cpu_only" if layers == 0 else "conservative_accelerator_layer",
             "ambient_accelerator_detection": False}
+    if resource_profile is not None:
+        try:
+            profile = validate_llama_cpp_resource_profile(resource_profile)
+        except LocalModelResourceProfileError as exc:
+            raise ProductionCommissioningError(str(exc)) from exc
+        if family == "cpu" and profile["n_gpu_layers"] != 0:
+            raise ProductionCommissioningError("resource_profile_cpu_route_offload_invalid")
+        result.update({
+            "n_ctx": profile["n_ctx"],
+            "n_gpu_layers": profile["n_gpu_layers"],
+            "offload_claim": "cpu_only" if profile["n_gpu_layers"] == 0 else "explicit_resource_profile",
+            "resource_profile": profile,
+            "resource_profile_digest": llama_cpp_resource_profile_digest(profile),
+        })
+    return result
 
 
 def verify_compatibility(chain: Mapping[str, Any], *, timeout_seconds: float = 60,
+                         resource_profile: Mapping[str, Any] | None = None,
                          runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> dict[str, Any]:
     digest, size = _digest_file(Path(str(chain["artifact_path"])))
     if (digest, size) != (chain["artifact_sha256"], chain["artifact_size_bytes"]):
         raise ProductionCommissioningError("acquired_artifact_stale")
-    config = route_load_configuration(chain)
+    config = route_load_configuration(chain, resource_profile=resource_profile)
+    profile = config.get("resource_profile")
+    constructor_options = (llama_cpp_constructor_options(profile)
+                          if isinstance(profile, Mapping) else {
+                              "n_ctx": 64, "n_gpu_layers": int(config["n_gpu_layers"])})
     env = {k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE", "VIRTUAL_ENV", "CONDA_PREFIX"}}
     env["PYTHONDONTWRITEBYTECODE"] = "1"; env["NO_PROXY"] = "*"
     with tempfile.TemporaryDirectory(prefix="sentientos-model-compat-") as cwd:
         try:
             result = runner([str(chain["interpreter_path"]), "-I", "-c", _PROBE,
-                str(chain["artifact_path"]), str(config["n_gpu_layers"])], cwd=cwd, env=env,
+                str(chain["artifact_path"]), json.dumps(constructor_options, sort_keys=True,
+                    separators=(",", ":"))], cwd=cwd, env=env,
                 text=True, capture_output=True, timeout=timeout_seconds, check=False)
         except subprocess.TimeoutExpired as exc:
             raise ProductionCommissioningError("compatibility_timeout") from exc
@@ -192,7 +221,8 @@ def compose_commissioning_plan(chain: Mapping[str, Any], compatibility: Mapping[
         raise ProductionCommissioningError("compatibility_chain_mismatch")
     value = {"schema_version": PLAN_SCHEMA, "status": "local_model_commissioning_planned",
         "chain": dict(chain), "compatibility_receipt_digest": compatibility["receipt_semantic_digest"],
-        "load_configuration": route_load_configuration(chain), "output_root": str(Path(output_root).absolute()),
+        "load_configuration": dict(compatibility.get("load_configuration")
+            or route_load_configuration(chain)), "output_root": str(Path(output_root).absolute()),
         "smoke_contract": {"prompt_id": SMOKE_PROMPT_ID, "prompt_digest": semantic_digest({"prompt": SMOKE_PROMPT}),
             "max_calls": 1, "max_input_chars": 128, "max_output_chars": 128, "max_new_tokens": 8, "timeout_seconds": 20},
         "allowed_effects": {"model_load": True, "local_model_inference": True, "commissioning_receipt_write": True},
@@ -216,8 +246,26 @@ def _config(plan: Mapping[str, Any]) -> ModelConfig:
     max_new_tokens = smoke.get("max_new_tokens", 8) if isinstance(smoke, Mapping) else 8
     if type(max_new_tokens) is not int or not 1 <= max_new_tokens <= 512:
         raise ProductionCommissioningError("commissioning_generation_ceiling_invalid")
+    candidate_options: dict[str, Any] = {"gpu_layers": int(load["n_gpu_layers"])}
+    profile = load.get("resource_profile")
+    if profile is not None:
+        try:
+            validated_profile = validate_llama_cpp_resource_profile(profile)
+        except LocalModelResourceProfileError as exc:
+            raise ProductionCommissioningError(str(exc)) from exc
+        profile_digest = llama_cpp_resource_profile_digest(validated_profile)
+        if (load.get("resource_profile_digest") != profile_digest
+                or int(load.get("n_ctx", -1)) != validated_profile["n_ctx"]
+                or int(load.get("n_gpu_layers", -1)) != validated_profile["n_gpu_layers"]
+                or ("n_threads" in load
+                    and load["n_threads"] != validated_profile["n_threads"])):
+            raise ProductionCommissioningError("resource_profile_load_configuration_mismatch")
+        candidate_options["resource_profile_digest"] = profile_digest
+        for name in ("n_threads", "n_threads_batch", "n_batch", "n_ubatch"):
+            if validated_profile[name]:
+                candidate_options[name] = validated_profile[name]
     return ModelConfig([ModelCandidate(Path(chain["artifact_path"]), "llama_cpp", str(chain["model_id"]),
-        {"gpu_layers": int(load["n_gpu_layers"])})], default_engine="llama_cpp", max_context_tokens=int(load["n_ctx"]),
+        candidate_options)], default_engine="llama_cpp", max_context_tokens=int(load["n_ctx"]),
         generation=GenerationConfig(max_new_tokens=max_new_tokens, temperature=0, top_p=1))
 
 
@@ -275,7 +323,8 @@ legacy_commission = commission
 
 def prepare_commissioning_intent(chain: Mapping[str, Any], *,
         installation_handle: InstallationStateHandle, correlation_id: str,
-        max_new_tokens: int = 8) -> Mapping[str, Any]:
+        max_new_tokens: int = 8,
+        resource_profile: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
     """Revalidate evidence and return its canonical intent without model effects."""
     from .local_model_production_commissioning_authority import (
         CommissioningAuthorityError, build_intent,
@@ -284,7 +333,7 @@ def prepare_commissioning_intent(chain: Mapping[str, Any], *,
         fresh_chain = revalidate_chain(chain)
         return build_intent(
             fresh_chain, installation_handle, correlation_id=correlation_id,
-            max_new_tokens=max_new_tokens)
+            max_new_tokens=max_new_tokens, resource_profile=resource_profile)
     except CommissioningAuthorityError as exc:
         raise ProductionCommissioningError(exc.code) from exc
 
@@ -293,6 +342,7 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
         approval_evidence: Mapping[str, Any], control_plane_kernel: ControlPlaneKernel,
         correlation_id: str, observation_time: datetime | None = None,
         max_new_tokens: int = 8,
+        resource_profile: Mapping[str, Any] | None = None,
         clock: Callable[[], datetime] | None = None,
         compatibility_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         model_factory: Callable[[ModelConfig], Any] | None = None,
@@ -314,7 +364,8 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
     try:
         intent = prepare_commissioning_intent(chain, installation_handle=installation_handle,
                                               correlation_id=correlation_id,
-                                              max_new_tokens=max_new_tokens)
+                                              max_new_tokens=max_new_tokens,
+                                              resource_profile=resource_profile)
         fresh_chain = revalidate_chain(chain)
         approval = verify_external_approval(approval_evidence, intent, observation_time=observation_time or now(),
             allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
@@ -334,7 +385,9 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
     try: current_proof(installation_handle, acquisition_plan)
     except CommissioningAuthorityError as exc: raise ProductionCommissioningError(exc.code) from exc
     raw_compat = legacy_verify_compatibility(fresh_chain,
-        timeout_seconds=float(intent["compatibility_probe_contract"]["timeout_seconds"]), runner=compatibility_runner)
+        timeout_seconds=float(intent["compatibility_probe_contract"]["timeout_seconds"]),
+        resource_profile=intent["load_configuration"].get("resource_profile"),
+        runner=compatibility_runner)
     compatibility = {
         "schema_version": HARDENED_COMPATIBILITY_SCHEMA, "status": "local_model_compatibility_verified",
         "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],

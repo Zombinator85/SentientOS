@@ -13,6 +13,11 @@ from typing import Any, Mapping
 from sentientos.installation_state import InstallationStateHandle
 from sentientos.local_model_catalog_consumer_custody import construct_authoritative_catalog_consumer_proof
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.local_model_resource_profile import (
+    LocalModelResourceProfileError,
+    llama_cpp_resource_profile_digest,
+    validate_llama_cpp_resource_profile,
+)
 
 INTENT_SCHEMA = "sentientos.local_model_commissioning_intent:v1"
 APPROVAL_SCHEMA = "sentientos.local_model_commissioning_approval:v1"
@@ -90,7 +95,8 @@ def current_proof(handle: InstallationStateHandle, acquisition_plan: Mapping[str
 
 
 def build_intent(chain: Mapping[str, Any], handle: InstallationStateHandle, *, correlation_id: str,
-                 max_new_tokens: int = 8) -> Mapping[str, Any]:
+                 max_new_tokens: int = 8,
+                 resource_profile: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
     """Build immutable governance intent before the first construction effect."""
     if type(max_new_tokens) is not int or not 1 <= max_new_tokens <= 512:
         raise CommissioningAuthorityError("commissioning_generation_ceiling_invalid")
@@ -111,6 +117,20 @@ def build_intent(chain: Mapping[str, Any], handle: InstallationStateHandle, *, c
     load = {"engine": "llama_cpp", "n_ctx": 512, "n_gpu_layers": 0 if chain.get("backend_family") == "cpu" else 1,
             "offload_claim": "cpu_only" if chain.get("backend_family") == "cpu" else "conservative_accelerator_layer",
             "ambient_accelerator_detection": False}
+    if resource_profile is not None:
+        try:
+            profile = validate_llama_cpp_resource_profile(resource_profile)
+        except LocalModelResourceProfileError as exc:
+            raise CommissioningAuthorityError(str(exc)) from exc
+        if chain.get("backend_family") == "cpu" and profile["n_gpu_layers"] != 0:
+            raise CommissioningAuthorityError("resource_profile_cpu_route_offload_invalid")
+        load.update({
+            "n_ctx": profile["n_ctx"],
+            "n_gpu_layers": profile["n_gpu_layers"],
+            "offload_claim": "cpu_only" if profile["n_gpu_layers"] == 0 else "explicit_resource_profile",
+            "resource_profile": profile,
+            "resource_profile_digest": llama_cpp_resource_profile_digest(profile),
+        })
     probe = {"mode": "bounded_model_construction_vocab_only", "semantic_generations": 0, "n_ctx": 64,
              "timeout_seconds": 60}
     smoke = {"prompt_id": "sentientos.local_model_commissioning_smoke:v1", "max_calls": 1,

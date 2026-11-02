@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from sentientos.local_model import LocalModel
+from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 
 
 def _write_config(tmp_path: Path, data: dict) -> Path:
@@ -151,7 +152,6 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
                 "usage": {"completion_tokens": 8, "prompt_tokens": 5}}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
-
     model = LocalModel.autoload()
 
     assert "Mistral" in model.metadata.get("name", "")
@@ -167,6 +167,36 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert completion == {"schema_version": "sentientos.llama_cpp_completion_observation:v1",
         "backend": "llama_cpp", "finish_reason": "length", "completion_tokens": 8,
         "prompt_tokens": 5, "token_limit_reached": True}
+
+
+def test_llama_cpp_passes_complete_resource_profile_to_constructor(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    artifact = tmp_path / "profile.gguf"
+    artifact.write_bytes(b"GGUF-profile")
+    captured: dict[str, object] = {}
+
+    class DummyLlama:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
+    monkeypatch.setattr("sentientos.local_model.optional_import",
+        lambda package, *, feature: sys.modules["llama_cpp"])
+    candidate = ModelCandidate(artifact, "llama_cpp", "profile-model", {
+        "gpu_layers": 0, "n_threads": 4, "n_threads_batch": 2,
+        "n_batch": 128, "n_ubatch": 64,
+    })
+    config = ModelConfig([candidate], default_engine="llama_cpp", max_context_tokens=512,
+        generation=GenerationConfig(max_new_tokens=8))
+
+    backend, _ = LocalModel._initialise_backend(candidate, config)
+
+    assert captured == {
+        "model_path": str(artifact), "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128,
+        "n_ubatch": 64, "logits_all": False,
+    }
+    assert backend.engine == "llama_cpp"
 
 
 def test_transformers_backend_defaults_trust_remote_code_false(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

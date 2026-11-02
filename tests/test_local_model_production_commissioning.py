@@ -25,6 +25,7 @@ from sentientos.local_model_production_commissioning import (
     verify_compatibility,
 )
 from sentientos.local_model_runtime_worker import ExactRuntimeLocalModel, MAX_PROTOCOL_BYTES, _environment
+from sentientos.local_model_resource_profile import LLAMA_CPP_RESOURCE_PROFILE_SCHEMA
 from sentientos.local_runtime_provisioning import semantic_digest
 
 
@@ -85,6 +86,32 @@ def test_compatibility_receipt_records_truthful_bounded_construction(tmp_path: P
     assert "vocab_only=True" in observed["argv"][3]  # type: ignore[index]
     assert receipt["model_construction_performed"] is True and receipt["semantic_generations"] == 0
     assert receipt["commissioning_performed"] is receipt["authority_granted"] is False
+
+
+def test_compatibility_probe_carries_explicit_profile_options(tmp_path: Path) -> None:
+    model = tmp_path / "model.gguf"; model.write_bytes(b"gguf")
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    observed: dict[str, object] = {}
+
+    def runner(argv: list[str], **kwargs: object) -> CompletedProcess[str]:
+        observed["argv"] = argv
+        payload = {"ok": True, "probe_mode": "bounded_model_construction_vocab_only",
+                   "semantic_generations": 0}
+        return CompletedProcess(argv, 0,
+            "SENTIENTOS_MODEL_COMPATIBILITY=" + json.dumps(payload), "")
+
+    receipt = verify_compatibility(_chain(model, Path("/verified/python")),
+        resource_profile=profile, runner=runner)
+    args = observed["argv"]
+    assert isinstance(args, list)
+    assert json.loads(args[-1]) == {
+        "n_ctx": 512, "n_gpu_layers": 0, "n_threads": 4,
+        "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64,
+    }
+    assert receipt["load_configuration"]["resource_profile"] == profile
+    assert receipt["load_configuration"]["resource_profile_digest"]
 
 
 @pytest.mark.parametrize("mode", ["malformed", "incompatible", "timeout", "stale"])
@@ -170,8 +197,13 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     def popen(argv, **kwargs): captured.update(argv=argv, kwargs=kwargs); return process
     monkeypatch.setattr("sentientos.local_model_runtime_worker.subprocess.Popen", popen)
     monkeypatch.setenv("PYTHONPATH", "ambient"); monkeypatch.setenv("VIRTUAL_ENV", "ambient")
-    worker = ExactRuntimeLocalModel(chain, route_load_configuration(chain))
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    worker = ExactRuntimeLocalModel(chain, route_load_configuration(chain,
+        resource_profile=profile))
     assert captured["argv"][0] == str(interpreter.resolve())  # type: ignore[index]
+    assert json.loads(captured["argv"][11]) == profile  # type: ignore[index]
     assert "PYTHONPATH" not in captured["kwargs"]["env"] and "VIRTUAL_ENV" not in captured["kwargs"]["env"]  # type: ignore[index]
     output, completion = worker.generate_governed_with_metadata("hello")
     assert output == "bounded"
@@ -187,6 +219,20 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     with pytest.raises(ModelLoadError, match="request too large"): worker.generate("x" * MAX_PROTOCOL_BYTES)
     worker.close(); assert json.loads(writes[-1])["type"] == "shutdown" and process.closed
     assert "NO_PROXY" in _environment()
+
+
+def test_exact_runtime_rejects_conflicting_legacy_thread_setting(tmp_path: Path) -> None:
+    model = tmp_path / "m.gguf"; model.write_bytes(b"GGUFsynthetic")
+    interpreter = tmp_path / "python"; interpreter.write_text("x")
+    chain = _chain(model, interpreter)
+    profile = {"schema_version": LLAMA_CPP_RESOURCE_PROFILE_SCHEMA,
+        "profile_id": "cpu-gaming-v1", "n_ctx": 512, "n_gpu_layers": 0,
+        "n_threads": 4, "n_threads_batch": 2, "n_batch": 128, "n_ubatch": 64}
+    load = route_load_configuration(chain, resource_profile=profile)
+    load["n_threads"] = 8
+
+    with pytest.raises(ModelLoadError, match="does not match"):
+        ExactRuntimeLocalModel(chain, load)
 
 
 def test_exact_runtime_worker_timeout_cancellation_terminates_child() -> None:
