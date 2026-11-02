@@ -50,9 +50,10 @@ def test_manifest_is_closed_and_manual_activation_only():
 
 @pytest.mark.parametrize("scope,firewall,reason", [
     ("public", None, "manifest_bridge_scope_invalid"),
-    ("private_host_firewall", None, "manifest_firewall_reference_required"),
+    ("private_host_firewall", "operator-managed-rule", "manifest_bridge_scope_not_implemented"),
+    ("loopback_only", "operator-managed-rule", "manifest_firewall_reference_unsupported"),
 ])
-def test_manifest_rejects_public_or_unscoped_networking(scope, firewall, reason):
+def test_manifest_rejects_networking_scopes_without_a_supported_transport(scope, firewall, reason):
     with pytest.raises(GamingCompanionDeploymentError, match=reason):
         validate_manifest(_manifest(bridge_bind_scope=scope, firewall_rule_reference=firewall))
 
