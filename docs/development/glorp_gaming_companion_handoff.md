@@ -257,8 +257,10 @@ is implemented and tested.
   software-level interruption handling. Word timing now crosses the tested
   localhost mTLS reverse route to the Godot state input, where the procedural
   mouth animates from utterance and interruption boundaries. Actual playback,
-  Windows/WSL routing, target timing, and authored-body viseme animation remain
-  untested.
+  Windows/WSL routing, and target timing remain untested. The unadopted authored
+  candidate probe now applies a separately mapped generic speech-activity
+  blend shape and verifies interruption closes it; word-start offsets are not
+  treated as phonemes or visemes, and this is not evidence of an adopted body.
 - **Authored-body adoption:** authoring, structural inspection, operator
   adoption, compare-and-swap lineage, rollback, and an experimental Godot
   candidate adapter exist. The demo's active body remains procedural; it has
@@ -370,8 +372,10 @@ allowed artifact root all agree. Wire its descriptor to Godot import/rollback
 and preserve the adoption lineage. The loader is implemented and fixture
 tested; no operator-adopted GLORP artifact has been loaded.
 5. Connect existing timing events to an explicitly adopted body's authored
-mouth rig while keeping word offsets distinct from phoneme labels. Verify
-actual local audio latency and immediate renderer interruption on target.
+   mouth rig using its explicit generic speech-activity mapping while keeping
+   word offsets distinct from phoneme labels. The unadopted candidate now has
+   a fixture-tested path. Verify actual local audio latency and immediate
+   renderer interruption on target after adoption.
 6. Extend the local acceptance command into the supervised cross-platform
 commissioning workflow after protected Windows/WSL custody and OS service
 interfaces are available. Current local command invokes the existing software
