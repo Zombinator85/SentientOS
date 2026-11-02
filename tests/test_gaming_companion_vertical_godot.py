@@ -21,7 +21,7 @@ from tests.test_chat_service_hardened_serving import Inference, service
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_fixture_chat_reaches_real_godot_and_returns_unverified_renderer_evidence(tmp_path):
+def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data(tmp_path):
     godot = shutil.which("godot") or shutil.which("godot4")
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
@@ -38,15 +38,36 @@ def test_fixture_chat_reaches_real_godot_and_returns_unverified_renderer_evidenc
     state_path = tmp_path / "avatar_state.json"
     avatar = ChatAvatarOutputController(
         SpeechEmitter(AvatarStateEmitter(state_path)), admission_provider=approve)
-    app = service(tmp_path, Inference(), avatar)
+    screen_observation = {
+        "modality": "screen",
+        "text": "quest objective: find the observatory",
+        "captured_at": "2026-11-02T17:00:00Z",
+        "backend": "fixture",
+        "capture_digest": "a" * 64,
+        "process_name_digest": "b" * 64,
+        "consent_id_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "raw_frame_retained": False,
+    }
+    inference = Inference()
+    app = service(tmp_path, inference, avatar, screen_observer=lambda: screen_observation)
     session_id = app.create_session()
     try:
         app.set_workload_mode("gaming")
         assert app.set_avatar_output_enabled(session_id, True)["enabled"] is True
-        reply = app.chat("Quick check-in while I play", session_id=session_id)
+        reply = app.chat("Quick check-in while I play", session_id=session_id,
+                         observe_screen=True)
+        assert "quest objective: find the observatory" in inference.calls[0]["prompt"]
+        assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in inference.calls[0]["prompt"]
+        persisted_session = app.sessions.load(session_id)
+        assistant_turn = persisted_session["turns"][-1]
+        assert assistant_turn["linkage"]["screen_observation_provenance"]["capture_digest"] == "a" * 64
+        assert assistant_turn["linkage"]["screen_observation_provenance"]["raw_frame_retained"] is False
+        assert "quest objective: find the observatory" not in json.dumps(persisted_session)
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
         assert persisted["current_phrase"] == reply.response
         assert persisted["metadata"]["workload_mode"] == "gaming"
+        assert "quest objective: find the observatory" not in json.dumps(persisted)
 
         forwarded = AvatarStateForwarder(state_path)._read_state()
         assert forwarded is not None
@@ -86,5 +107,6 @@ def test_fixture_chat_reaches_real_godot_and_returns_unverified_renderer_evidenc
         restored = restarted.sessions.load(session_id)
         assert restored["turns"][-1]["text"] == reply.response
         assert [turn["role"] for turn in restored["turns"]] == ["user", "assistant"]
+        assert "quest objective: find the observatory" not in json.dumps(restored)
     finally:
         restarted.close_outputs()
