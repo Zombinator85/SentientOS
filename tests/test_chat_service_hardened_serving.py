@@ -283,6 +283,60 @@ def test_enabled_avatar_tracks_live_workload_changes_without_another_chat_turn(t
         app.close_outputs()
 
 
+def test_gaming_companion_vertical_fixture_survives_forwarding_and_restart(tmp_path):
+    from godot_avatar_receiver import AvatarStateForwarder
+
+    def approve(**kwargs):
+        record = AuthorizationRecord.create(request_type=kwargs["request_type"],
+            requester_id=kwargs["requester_id"], intent_hash=kwargs["intent_hash"],
+            context_hash=kwargs["context_hash"], policy_version=kwargs["policy_version"],
+            decision=Decision.ALLOW, reason=ReasonCode.OK, metadata=kwargs["metadata"])
+        return AdmissionResponse(Decision.ALLOW, ReasonCode.OK, record)
+
+    target = tmp_path / "avatar_state.json"
+    avatar_output = ChatAvatarOutputController(
+        SpeechEmitter(AvatarStateEmitter(target)), admission_provider=approve)
+    inference = Inference()
+    app = service(tmp_path, inference, avatar_output)
+    session_id = app.create_session()
+    try:
+        assert app.set_workload_mode("gaming") == "gaming"
+        assert app.set_avatar_output_enabled(session_id, True)["enabled"] is True
+        response = app.chat("Quick check-in", session_id=session_id)
+        assert response.response == "answer"
+
+        state = json.loads(target.read_text(encoding="utf-8"))
+        assert state["current_phrase"] == response.response
+        assert state["metadata"]["workload_mode"] == "gaming"
+        assert state["metadata"]["output_mode"] == "chat_response_visual_only"
+
+        forwarded = AvatarStateForwarder(target)._read_state()
+        assert forwarded is not None
+        assert forwarded["workload_mode"] == "gaming"
+        assert forwarded["phrase"]["text"] == response.response
+
+        app.set_workload_mode("normal")
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            state = json.loads(target.read_text(encoding="utf-8"))
+            if state.get("metadata", {}).get("workload_mode") == "normal":
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("avatar did not receive normal workload mode")
+        assert state["current_phrase"] == response.response
+    finally:
+        app.close_outputs()
+
+    restarted = service(tmp_path, Inference())
+    try:
+        restored = restarted.sessions.load(session_id)
+        assert [turn["role"] for turn in restored["turns"]] == ["user", "assistant"]
+        assert restored["turns"][-1]["text"] == response.response
+    finally:
+        restarted.close_outputs()
+
+
 def test_chat_reply_cannot_restore_stale_workload_mode_after_foreground_change(tmp_path):
     def approve(**kwargs):
         record = AuthorizationRecord.create(request_type=kwargs["request_type"],
