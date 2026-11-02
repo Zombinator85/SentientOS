@@ -175,6 +175,7 @@ def test_worker_resource_measurements_are_bound_to_invocation_receipt(tmp_path: 
 @pytest.mark.parametrize("field,value", [
     ("user_cpu_seconds", -0.01),
     ("system_cpu_seconds", float("inf")),
+    ("user_cpu_seconds", 10 ** 1000),
     ("wall_seconds", True),
     ("process_peak_rss_bytes", -1),
     ("process_peak_rss_bytes", 1_099_511_627_777),

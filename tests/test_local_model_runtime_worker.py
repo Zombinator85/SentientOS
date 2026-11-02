@@ -9,9 +9,14 @@ import sys
 
 import pytest
 
-from sentientos.local_model_runtime_worker import _WORKER
+from sentientos.local_model_runtime_worker import _WORKER, _valid_runtime_resource_seconds
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+@pytest.mark.parametrize("value", [True, -0.1, float("inf"), 10 ** 1000])
+def test_runtime_resource_seconds_rejects_nonfinite_or_unrepresentable_values(value: object) -> None:
+    assert not _valid_runtime_resource_seconds(value)
 
 
 def test_exact_runtime_worker_reports_bounded_invocation_resources(tmp_path: Path) -> None:

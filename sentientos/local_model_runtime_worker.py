@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import threading
@@ -12,6 +13,16 @@ from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .local_model import ActiveModelIdentity, ModelLoadError
 
 MAX_PROTOCOL_BYTES = 65536
+
+
+def _valid_runtime_resource_seconds(value: object) -> bool:
+    if value is None:
+        return True
+    try:
+        return (not isinstance(value, bool) and isinstance(value, (int, float))
+                and math.isfinite(float(value)) and 0 <= float(value) <= 3600)
+    except (OverflowError, TypeError, ValueError):
+        return False
 
 _WORKER = r'''import hashlib,json,os,sys
 import time
@@ -187,8 +198,7 @@ class ExactRuntimeLocalModel:
             raise ModelLoadError("exact runtime worker resource observation malformed")
         for key in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
             value = resources.get(key)
-            if (value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
-                    or not 0 <= float(value) <= 3600)):
+            if not _valid_runtime_resource_seconds(value):
                 raise ModelLoadError("exact runtime worker resource observation malformed")
         rss_bytes = resources.get("process_peak_rss_bytes")
         if rss_bytes is not None and (type(rss_bytes) is not int or not 0 <= rss_bytes <= 1_099_511_627_776):

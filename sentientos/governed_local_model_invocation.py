@@ -61,10 +61,15 @@ def validate_llama_completion_observation(value: object) -> bool:
             return False
         for name in ("user_cpu_seconds", "system_cpu_seconds", "wall_seconds"):
             metric = metrics.get(name)
-            if (metric is not None and (isinstance(metric, bool)
-                    or not isinstance(metric, (int, float)) or not math.isfinite(float(metric))
-                    or not 0 <= float(metric) <= 3600)):
-                return False
+            if metric is not None:
+                try:
+                    valid_metric = (not isinstance(metric, bool)
+                        and isinstance(metric, (int, float))
+                        and math.isfinite(float(metric)) and 0 <= float(metric) <= 3600)
+                except (OverflowError, TypeError, ValueError):
+                    valid_metric = False
+                if not valid_metric:
+                    return False
         rss = metrics.get("process_peak_rss_bytes")
         if rss is not None and (type(rss) is not int or not 0 <= rss <= 1_099_511_627_776):
             return False
