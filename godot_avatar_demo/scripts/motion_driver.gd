@@ -12,7 +12,7 @@ func _ready() -> void:
 
 
 func apply_motion(motion: String) -> void:
-    var player := _resolve_player()
+    var player: AnimationPlayer = _resolve_player()
     if player == null:
         return
 
@@ -23,14 +23,14 @@ func apply_motion(motion: String) -> void:
     _play(target)
 
 
-func _resolve_player():
+func _resolve_player() -> AnimationPlayer:
     if animation_player_path == NodePath(""):
         return null
-    return get_node_or_null(animation_player_path)
+    return get_node_or_null(animation_player_path) as AnimationPlayer
 
 
 func _play(name: String) -> void:
-    var player := _resolve_player()
+    var player: AnimationPlayer = _resolve_player()
     if player == null:
         return
     if player.has_animation(name):
