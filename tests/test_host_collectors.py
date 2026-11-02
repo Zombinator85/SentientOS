@@ -46,14 +46,103 @@ def test_memory_collector_degrades_when_details_missing() -> None:
     result = collect_memory_observation(memory_provider=lambda: None, observed_at=STAMP)
     assert result.status in {"partial", "unavailable"}
     assert result.telemetry_only is True
+    assert result.source == "standard_library:os.sysconf"
     assert validate_host_collector_result(result).ok
 
 
 def test_cpu_collector_reports_partial_when_utilization_unavailable() -> None:
-    result = collect_cpu_observation(observed_at=STAMP)
+    result = collect_cpu_observation(cpu_utilization_provider=lambda: None, observed_at=STAMP)
     assert result.status in {"partial", "unavailable"}
     assert result.values.get("utilization_percent") is None
     assert any(finding.code == "cpu_utilization_unavailable" for finding in result.findings)
+
+
+def test_cpu_collector_accepts_a_finite_injected_sample() -> None:
+    result = collect_cpu_observation(cpu_utilization_provider=lambda: 42.25, observed_at=STAMP)
+    assert result.status == "available"
+    assert result.values["utilization_percent"] == 42.25
+    assert result.source == "injected_cpu_utilization_provider"
+    assert result.telemetry_only is True
+    assert validate_host_collector_result(result).ok
+
+
+def test_cpu_collector_uses_psutil_with_a_bounded_sample(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[float | None] = []
+
+    def cpu_percent(*, interval: float | None) -> float:
+        calls.append(interval)
+        return 31.5
+
+    monkeypatch.setattr(
+        "sentientos.host_collectors.importlib.import_module",
+        lambda name: SimpleNamespace(cpu_percent=cpu_percent),
+    )
+    result = collect_cpu_observation(observed_at=STAMP)
+    assert calls == [0.1]
+    assert result.values["utilization_percent"] == 31.5
+    assert result.source == "psutil:cpu_percent(interval=0.1)"
+
+
+def test_cpu_collector_degrades_when_psutil_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(name: str) -> object:
+        raise ImportError(name)
+
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module", missing)
+    result = collect_cpu_observation(observed_at=STAMP)
+    assert result.values["utilization_percent"] is None
+    assert result.source == "standard_library:os,platform"
+    assert any(finding.code == "cpu_utilization_unavailable" for finding in result.findings)
+
+
+@pytest.mark.parametrize("sample", [float("nan"), float("inf"), -0.1, 100.1, True, "42"])
+def test_cpu_collector_rejects_malformed_samples(sample: object) -> None:
+    result = collect_cpu_observation(cpu_utilization_provider=lambda: sample, observed_at=STAMP)
+    assert result.values["utilization_percent"] is None
+    assert any(finding.code == "cpu_utilization_invalid" for finding in result.findings)
+
+
+def test_cpu_collector_contains_provider_failure() -> None:
+    def fail() -> float:
+        raise OSError("sensor unavailable")
+
+    result = collect_cpu_observation(cpu_utilization_provider=fail, observed_at=STAMP)
+    assert result.status == "partial"
+    assert result.values["utilization_percent"] is None
+    assert any(finding.code == "cpu_utilization_provider_error" for finding in result.findings)
+
+
+def test_memory_collector_uses_optional_provider_values() -> None:
+    result = collect_memory_observation(
+        memory_provider=lambda: {"total_bytes": 1000, "available_bytes": 250, "used_percent": 75.0},
+        observed_at=STAMP,
+    )
+    assert result.status == "available"
+    assert result.values["used_percent"] == 75.0
+    assert result.source == "injected_memory_provider"
+    assert validate_host_collector_result(result).ok
+
+
+def test_memory_collector_uses_psutil_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    memory = SimpleNamespace(total=1000, available=250, percent=75.0)
+    monkeypatch.setattr(
+        "sentientos.host_collectors.importlib.import_module",
+        lambda name: SimpleNamespace(virtual_memory=lambda: memory),
+    )
+    result = collect_memory_observation(observed_at=STAMP)
+    assert result.status == "available"
+    assert result.source == "psutil:virtual_memory"
+    assert result.values == {"total_bytes": 1000, "available_bytes": 250, "used_percent": 75.0}
+
+
+def test_memory_collector_falls_back_when_psutil_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(name: str) -> object:
+        raise ImportError(name)
+
+    monkeypatch.setattr("sentientos.host_collectors.importlib.import_module", missing)
+    result = collect_memory_observation(observed_at=STAMP)
+    assert result.source == "standard_library:os.sysconf"
+    assert result.status == "partial"
+    assert result.values.get("usage_unavailable") is True
 
 
 def test_linux_cpu_features_are_explicit_tri_state_facts() -> None:

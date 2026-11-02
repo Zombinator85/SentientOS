@@ -42,6 +42,7 @@ FORBIDDEN_COLLECTOR_MARKERS = frozenset(
 
 DiskUsageProvider = Callable[[str], Any]
 MemoryProvider = Callable[[], Mapping[str, Any] | None]
+CPUUtilizationProvider = Callable[[], Any]
 DirectoryLister = Callable[[str], Sequence[str]]
 TextReader = Callable[[str], str | None]
 WindowsFeatureProvider = Callable[[int], bool]
@@ -204,12 +205,41 @@ def collect_disk_observation(
         return _result("disk", "error", observed_at=observed_at, source="standard_library:shutil.disk_usage", findings=(_finding("disk_unavailable", "warning", str(exc)),), warnings=("disk_usage_unavailable",))
 
 
-def collect_memory_observation(*, memory_provider: MemoryProvider | None = None, observed_at: str | None = None) -> HostCollectorResult:
+def _psutil_memory_provider() -> Mapping[str, Any] | None:
+    """Read current system memory through the explicitly optional psutil package."""
+
     try:
-        supplied = dict(memory_provider() or {}) if memory_provider is not None else {}
+        psutil = importlib.import_module("psutil")
+    except ImportError:
+        return None
+    memory = psutil.virtual_memory()
+    return {
+        "total_bytes": int(memory.total),
+        "available_bytes": int(memory.available),
+        "used_percent": float(memory.percent),
+    }
+
+
+def collect_memory_observation(*, memory_provider: MemoryProvider | None = None, observed_at: str | None = None) -> HostCollectorResult:
+    provider = memory_provider or _psutil_memory_provider
+    source = "injected_memory_provider" if memory_provider is not None else "psutil:virtual_memory"
+    try:
+        supplied = dict(provider() or {})
     except Exception as exc:  # deterministic tests may inject failing providers
-        return _result("memory", "error", observed_at=observed_at, source="injected_memory_provider", findings=(_finding("memory_provider_error", "warning", str(exc)),), warnings=("memory_unavailable",))
+        if memory_provider is None and isinstance(exc, ImportError):
+            supplied = {}
+        else:
+            return _result("memory", "error", observed_at=observed_at, source=source, findings=(_finding("memory_provider_error", "warning", str(exc)),), warnings=("memory_unavailable",))
     values: dict[str, Any] = dict(supplied)
+    if values:
+        return _result(
+            "memory",
+            "available" if "used_percent" in values else "partial",
+            observed_at=observed_at,
+            source=source,
+            values=values,
+            findings=() if "used_percent" in values else (_finding("memory_usage_unavailable", "info", "Total RAM observed but utilization was not computed."),),
+        )
     if not values:
         if hasattr(os, "sysconf"):
             try:
@@ -226,9 +256,37 @@ def collect_memory_observation(*, memory_provider: MemoryProvider | None = None,
     return _result("memory", status, observed_at=observed_at, source="standard_library:os.sysconf", values=values, findings=findings)
 
 
-def collect_cpu_observation(*, observed_at: str | None = None) -> HostCollectorResult:
+def _psutil_cpu_utilization() -> float:
+    """Return a bounded-time CPU sample; an interval avoids psutil's first-call sentinel."""
+
+    psutil = importlib.import_module("psutil")
+    return float(psutil.cpu_percent(interval=0.1))
+
+
+def collect_cpu_observation(
+    *, cpu_utilization_provider: CPUUtilizationProvider | None = None, observed_at: str | None = None
+) -> HostCollectorResult:
     values: dict[str, Any] = {"cpu_count": os.cpu_count(), "processor": platform.processor() or "unknown", "utilization_percent": None}
-    findings = [_finding("cpu_utilization_unavailable", "info", "Standard library does not provide instantaneous CPU utilization without sampling or optional dependencies.")]
+    findings = []
+    source = "standard_library:os,platform"
+    provider = cpu_utilization_provider or _psutil_cpu_utilization
+    try:
+        utilization = provider()
+        if isinstance(utilization, (int, float)) and not isinstance(utilization, bool):
+            utilization = float(utilization)
+            if math.isfinite(utilization) and 0 <= utilization <= 100:
+                values["utilization_percent"] = round(utilization, 6)
+                source = "injected_cpu_utilization_provider" if cpu_utilization_provider is not None else "psutil:cpu_percent(interval=0.1)"
+            else:
+                findings.append(_finding("cpu_utilization_invalid", "warning", "CPU utilization sample was outside the finite 0–100 percent range."))
+        elif utilization is not None:
+            findings.append(_finding("cpu_utilization_invalid", "warning", "CPU utilization sample was not numeric."))
+    except ImportError:
+        pass
+    except Exception as exc:  # contain optional sensor and deterministic test provider failures
+        findings.append(_finding("cpu_utilization_provider_error", "warning", type(exc).__name__))
+    if values["utilization_percent"] is None and not any(f.code.startswith("cpu_utilization_") for f in findings):
+        findings.append(_finding("cpu_utilization_unavailable", "info", "Install the optional runtime dependency to collect a bounded CPU utilization sample."))
     try:
         load1, load5, load15 = os.getloadavg()
         values.update({"load_average_1m": load1, "load_average_5m": load5, "load_average_15m": load15})
@@ -236,7 +294,9 @@ def collect_cpu_observation(*, observed_at: str | None = None) -> HostCollectorR
     except (OSError, AttributeError):
         status = "partial" if values["cpu_count"] is not None else "unavailable"
         findings.append(_finding("load_average_unavailable", "info", "Load average unavailable on this platform."))
-    return _result("cpu", status, observed_at=observed_at, source="standard_library:os,platform", values=values, findings=findings)
+    if values["utilization_percent"] is not None:
+        status = "available"
+    return _result("cpu", status, observed_at=observed_at, source=source, values=values, findings=findings)
 
 
 def _x86_architecture(value: str) -> bool:

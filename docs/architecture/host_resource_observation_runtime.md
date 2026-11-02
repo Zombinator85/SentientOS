@@ -23,6 +23,14 @@ installed automatically or required for startup. The adapter does not collect
 per-process GPU utilization, attribute work to the model worker, alter collector
 scheduling, or control the GPU.
 
+When the existing optional `runtime` dependency group provides `psutil`, the
+default CPU and memory collectors also take a bounded 100 ms CPU utilization
+sample and read system memory utilization. Without that dependency, they retain
+the standard-library partial observations and report utilization as
+unavailable. These measurements describe host-wide state; they are not
+attributed to a model process and do not themselves change scheduling, thread
+counts, GPU allocation, or other host behavior.
+
 ## Validation, redaction, and identity
 
 Runtime validation checks collector IDs, statuses, serialized size, finite numbers, telemetry-only fields, false-effect fields, nested content, pressure reports, policy decisions, and proposal receipts. Durable artifacts redact hardware addresses, paths, usernames, command lines, environment/credential-looking values, tracebacks, PIDs, and arbitrary file content. Semantic identity ignores timestamps, durations, worker order, roots, PIDs, and artifact locations while binding collector semantics, snapshot posture, pressure labels, policy decision, and receipt IDs.
