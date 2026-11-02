@@ -17,7 +17,7 @@ from sentientos.avatar_authoring import (
     adopt, adoption_observation, blender_readiness, build_admission, digest,
     compare_structure, genesis_adopt, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
     BlenderArtifactInspector, BlenderBackend,
-    successor_manifest, validate_plan,
+    primitive_mesh_vertex_count, successor_manifest, validate_plan,
 )
 from sentientos.embodiment_self_observation import AvatarBodyManifest, EmbodimentEvidenceOwner
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
@@ -104,6 +104,23 @@ def test_plan_operation_and_geometry_bounds(tmp_path):
     with pytest.raises(AvatarAuthoringError,match="geometry_bound"): validate_plan(value)
 
 
+def test_blender_primitive_vertex_estimate_and_per_mesh_bound(tmp_path):
+    m=manifest(artifact(tmp_path/"a.glb")); value=plan(m)
+    mesh=operation("head","create_primitive_mesh","Head",{"primitive":"uv_sphere","vertices":128},{})
+    value["operations"]=[mesh]
+    with pytest.raises(AvatarAuthoringError,match="primitive_geometry_bound_exceeded"):
+        validate_plan(value)
+    assert primitive_mesh_vertex_count({"primitive":"uv_sphere","vertices":64})==1986
+
+
+def test_authoring_plan_total_geometry_budget_is_bounded(tmp_path):
+    m=manifest(artifact(tmp_path/"a.glb")); value=plan(m)
+    value["operations"]=[operation(f"head-{index}","create_primitive_mesh",f"Head{index}",
+        {"primitive":"uv_sphere","vertices":64},{}) for index in range(33)]
+    with pytest.raises(AvatarAuthoringError,match="plan_geometry_budget_exceeded"):
+        validate_plan(value)
+
+
 def test_artifact_workspace_and_adoption_fail_closed(tmp_path):
     source,old,pointer_path,pointer,result=execute(tmp_path)
     with pytest.raises(AvatarAuthoringError,match="candidate_not_validated"):
@@ -137,9 +154,13 @@ def test_blender_readiness_absent_is_precise_and_non_authoritative(tmp_path):
 
 
 def test_blender_driver_capabilities_match_the_declared_backend() -> None:
-    from scripts.avatar_blender_driver import SUPPORTED_OPERATIONS
+    from scripts.avatar_blender_driver import SUPPORTED_OPERATIONS, _primitive_vertex_count
 
     assert SUPPORTED_OPERATIONS == BLENDER_SUPPORTED_OPERATIONS
+    for primitive, vertices in (("cube", 32), ("plane", 32), ("uv_sphere", 32),
+                                ("uv_sphere", 64), ("cylinder", 256), ("cone", 256)):
+        args={"primitive":primitive,"vertices":vertices} if primitive in {"uv_sphere","cylinder","cone"} else {"primitive":primitive}
+        assert _primitive_vertex_count(args)==primitive_mesh_vertex_count(args)
 
 
 def test_blender_driver_rejects_unimplemented_operations_before_importing_bpy() -> None:
@@ -189,7 +210,8 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
             operation("rig","create_armature","SentientRig",{}, {"exists":True}),
             operation("root","create_bone","SentientRig",{"parent":None,"head":[0,0,-1],"tail":[0,0,0]}, {"bone":"root"}),
             operation("upper","create_bone","SentientRig",{"parent":"root","head":[0,0,0],"tail":[0,0,1]}, {"bone":"upper"}),
-            operation("skin","bind_armature","Cube",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
+            operation("head","create_primitive_mesh","CompanionHead",{"primitive":"uv_sphere","vertices":32}, {}),
+            operation("skin","bind_armature","CompanionHead",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -207,10 +229,12 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
         inspector=inspector,work_id="smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated"
-    assert result["comparison"]["counts"]["satisfied"]==4
+    assert result["comparison"]["counts"]["satisfied"]==5
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
-    assert set(result["successor_inspection"]["objects"]["Cube"]["vertex_group_names"])=={"root","upper"}
+    head=result["successor_inspection"]["objects"]["CompanionHead"]
+    assert head["vertex_count"]==482
+    assert set(head["vertex_group_names"])=={"root","upper"}
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
 
