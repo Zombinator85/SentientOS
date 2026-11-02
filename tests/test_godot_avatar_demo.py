@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from avatar_state import AvatarState, AvatarStateEmitter
+from godot_avatar_receiver import AvatarStateForwarder
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -59,6 +62,15 @@ def test_godot_companion_scene_instantiates_and_responds_to_avatar_state(tmp_pat
     source = Path(__file__).parents[1] / "godot_avatar_demo"
     project = tmp_path / "godot_avatar_demo"
     shutil.copytree(source, project, ignore=shutil.ignore_patterns(".godot", "*.uid"))
+    state_path = tmp_path / "avatar_state.json"
+    AvatarStateEmitter(state_path).emit(AvatarState(
+        mood="joy", intensity=0.8, expression="smile", motion="wave",
+        current_phrase="gg", is_speaking=False,
+    ))
+    packet = AvatarStateForwarder(state_path)._read_state()
+    assert packet is not None
+    assert packet["phrase"]["text"] == "gg"
+    (project / "avatar_packet.json").write_text(json.dumps(packet), encoding="utf-8")
     script = project / "exercise_companion.gd"
     script.write_text(
         "extends SceneTree\n"
@@ -107,7 +119,10 @@ def test_godot_companion_scene_instantiates_and_responds_to_avatar_state(tmp_pat
         "\tif not check(mouth.scale.y > rest_mouth, \"viseme_did_not_open_mouth\"):\n\t\treturn\n"
         "\tawait create_timer(0.2).timeout\n"
         "\tif not check(is_equal_approx(mouth.scale.y, rest_mouth), \"viseme_did_not_close_mouth\"):\n\t\treturn\n"
-        "\tscene._apply_state({\"expression\": \"smile\", \"mood\": \"joy\", \"intensity\": 0.8, \"motion\": \"wave\", \"phrase\": {\"text\": \"gg\", \"muted\": false}})\n"
+        "\tvar packet_text := FileAccess.get_file_as_string(\"res://avatar_packet.json\")\n"
+        "\tvar packet: Variant = JSON.parse_string(packet_text)\n"
+        "\tif not check(packet is Dictionary, \"avatar_packet_invalid\"):\n\t\treturn\n"
+        "\tscene._apply_state(packet as Dictionary)\n"
         "\tif not check(scene.get_node(\"UI/StatusLabel\").text.contains(\"gg\"), \"state_phrase_not_rendered\"):\n\t\treturn\n"
         "\tprint(\"SENTIENTOS_COMPANION_SCENE_READY\")\n"
         "\tquit(0)\n",
