@@ -306,9 +306,17 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         script=project/"load_candidate.gd"
         script.write_text("extends SceneTree\nfunc _initialize() -> void:\n"
             "    var candidate = load(\"res://candidate.glb\")\n"
-            "    if candidate is PackedScene:\n        print(\"SENTIENTOS_GLB_LOADED\")\n"
-            "        quit(0)\n    else:\n        push_error(\"candidate_not_a_packed_scene\")\n"
-            "        quit(1)\n",encoding="utf-8")
+            "    if not candidate is PackedScene:\n        push_error(\"candidate_not_a_packed_scene\")\n"
+            "        quit(1)\n        return\n"
+            "    var instance = candidate.instantiate()\n"
+            "    var meshes = instance.find_children(\"*\",\"MeshInstance3D\",true,false)\n"
+            "    var skeletons = instance.find_children(\"*\",\"Skeleton3D\",true,false)\n"
+            "    if meshes.is_empty() or skeletons.is_empty():\n"
+            "        push_error(\"candidate_mesh_or_skeleton_missing\")\n        quit(1)\n        return\n"
+            "    var mesh_count = meshes.size()\n    var skeleton_count = skeletons.size()\n"
+            "    instance.free()\n"
+            "    print(\"SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d\" % [mesh_count,skeleton_count])\n"
+            "    quit(0)\n",encoding="utf-8")
         godot_home=tmp_path/"godot-home"; godot_cache=tmp_path/"godot-cache"
         godot_font=tmp_path/"godot-font-cache"
         for directory in (godot_home,godot_cache,godot_font): directory.mkdir()
@@ -320,7 +328,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         loaded=subprocess.run([godot,"--headless","--path",str(project),"--script",str(script)],
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert loaded.returncode==0, loaded.stdout+loaded.stderr
-        assert "SENTIENTOS_GLB_LOADED" in loaded.stdout, loaded.stdout+loaded.stderr
+        assert "SENTIENTOS_GLB_SCENE_READY meshes=" in loaded.stdout, loaded.stdout+loaded.stderr
 
 
 def test_run_workcell_rejects_unavailable_backend_capability_before_workspace_creation(tmp_path):
