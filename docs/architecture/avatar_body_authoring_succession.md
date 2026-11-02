@@ -30,12 +30,22 @@ output are rejected. Each run owns `input/`, `plan/`, `tool/`, `output/`, and
 
 The synthetic author transforms actual bounded fixture bytes; a separate parser
 reads successor bytes and is labelled `synthetic_test`, never Blender evidence.
-The configured Blender adapter requires an operator-supplied executable, can bind
-its digest, uses `shell=False`, minimal environment, timeout/tree termination,
-bounded tails, and exact argv. `scripts/avatar_blender_driver.py` is static
-repository code; callers supply JSON only. There is no PATH discovery, generated
-Python, `exec`, addon installation, or network fetch. Readiness is read-only and
-reports `blender_backend_unavailable` when the configured executable is absent.
+The configured Blender adapter requires an operator-supplied executable and
+static driver paths, can pin the executable digest, uses `shell=False`, a minimal
+workspace-scoped environment, timeout/tree termination, bounded tails, and exact
+argv. `run-one --backend blender` uses the repository-owned authoring and
+inspection drivers; its actual operation set is limited to mesh creation,
+transforms, armatures, bones, and automatic armature binding. Binding is accepted
+only when the independent inspector sees both an armature modifier and weights
+assigned to one of its bones. Unsupported plan operations fail before a Blender
+process starts. This adapter currently accepts native `.blend` predecessors;
+the broader `.glb` and `.gltf` manifest support does not imply that this driver
+can import those formats. It rejects them before creating a workcell. Backend
+identity records `configured_candidate_tool`, not production evidence.
+`scripts/avatar_blender_driver.py` is static repository code; callers supply JSON
+only. There is no PATH discovery, generated Python, `exec`, addon installation,
+or network fetch. Readiness is read-only and reports `blender_backend_unavailable`
+when the configured executable is absent.
 
 ## Adoption, rollback, and embodiment
 
@@ -61,9 +71,12 @@ developmental interpretation -> controlled later strategy comparison. Renderer
 and observer are separate protocol roles. The Godot demo and UDP receiver remain
 legacy/demo surfaces and are not production evidence or trusted transport.
 
-Established are bounded plans, fixture authoring, inspection, separate CAS
-adoption and rollback, exact consequence evidence, World-State projection, and
-synthetic causal experiments. Not established are Blender/Godot installation,
+Established are bounded plans, fixture authoring, a configured Blender adapter,
+independent structural inspection, separate CAS adoption and rollback, exact
+consequence evidence, World-State projection, and synthetic causal experiments.
+An available Blender executable only demonstrates tool availability, not a
+commissioned production renderer or an adopted avatar. Not established are
+production Blender/Godot deployment,
 physical causation, beneficial adaptation, closed embodied development,
 psychological ownership, consciousness, or sentience. A changed strategy is not
 automatically an improvement. `neos_blender_bridge.py` remains legacy only.
