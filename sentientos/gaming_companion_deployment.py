@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import ipaddress
 import re
 import shutil
 import sys
@@ -9,12 +10,21 @@ from pathlib import Path
 from typing import Any, Mapping
 
 SCHEMA = "sentientos.gaming_companion_deployment:v1"
+SCHEMA_MUTUAL_TLS = "sentientos.gaming_companion_deployment:v2"
 _TOP_FIELDS = frozenset({
     "schema_version", "deployment_id", "repository_root", "python_executable",
     "state_root", "installation_identity_ref", "serving_operation_ref",
     "runtime_handoff_ref", "software_generation_digest", "enabled_windows_components",
     "bridge_key_reference", "bridge_bind_scope", "firewall_rule_reference",
     "start_on_login", "automatic_capture", "automatic_speech",
+})
+_TOP_FIELDS_MUTUAL_TLS = _TOP_FIELDS | {"bridge_tls"}
+_TLS_FIELDS = frozenset({
+    "schema_version", "core_bind_address", "port", "server_hostname",
+    "ca_bundle_reference", "core_certificate_reference", "core_private_key_reference",
+    "windows_edge_client_certificate_reference", "windows_edge_client_private_key_reference",
+    "expected_windows_edge_certificate_sha256", "source_key_custody_reference",
+    "source_generation_custody_reference", "acknowledgment_generation_custody_reference",
 })
 _WINDOWS_COMPONENTS = frozenset({"foreground_observer", "godot_renderer", "local_audio_output"})
 
@@ -25,10 +35,12 @@ class GamingCompanionDeploymentError(ValueError):
 
 def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
     """Validate the versioned split-host contract without probing or mutating hosts."""
-    if not isinstance(value, Mapping) or set(value) != _TOP_FIELDS:
+    schema = value.get("schema_version") if isinstance(value, Mapping) else None
+    expected_fields = _TOP_FIELDS_MUTUAL_TLS if schema == SCHEMA_MUTUAL_TLS else _TOP_FIELDS
+    if not isinstance(value, Mapping) or set(value) != expected_fields:
         raise GamingCompanionDeploymentError("manifest_fields_invalid")
     result = dict(value)
-    if result.get("schema_version") != SCHEMA:
+    if result.get("schema_version") not in {SCHEMA, SCHEMA_MUTUAL_TLS}:
         raise GamingCompanionDeploymentError("manifest_schema_unsupported")
     for field in ("deployment_id", "repository_root", "python_executable", "state_root"):
         if not isinstance(result.get(field), str) or not result[field].strip():
@@ -43,16 +55,48 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
         raise GamingCompanionDeploymentError("manifest_windows_components_invalid")
     if len(components) != len(set(components)):
         raise GamingCompanionDeploymentError("manifest_windows_components_invalid")
-    if result["bridge_bind_scope"] == "private_host_firewall":
-        raise GamingCompanionDeploymentError("manifest_bridge_scope_not_implemented")
-    if result["bridge_bind_scope"] != "loopback_only":
+    if schema == SCHEMA:
+        if result["bridge_bind_scope"] == "private_host_firewall":
+            raise GamingCompanionDeploymentError("manifest_bridge_scope_not_implemented")
+        if result["bridge_bind_scope"] != "loopback_only":
+            raise GamingCompanionDeploymentError("manifest_bridge_scope_invalid")
+        if result["firewall_rule_reference"] is not None:
+            raise GamingCompanionDeploymentError("manifest_firewall_reference_unsupported")
+    elif result["bridge_bind_scope"] != "mutual_tls_private":
         raise GamingCompanionDeploymentError("manifest_bridge_scope_invalid")
     key_ref = result["bridge_key_reference"]
     if key_ref is not None and (not isinstance(key_ref, str) or not key_ref.strip()):
         raise GamingCompanionDeploymentError("manifest_bridge_key_reference_invalid")
     firewall_ref = result["firewall_rule_reference"]
-    if firewall_ref is not None:
-        raise GamingCompanionDeploymentError("manifest_firewall_reference_unsupported")
+    if schema == SCHEMA_MUTUAL_TLS:
+        if not isinstance(firewall_ref, str) or not firewall_ref.strip():
+            raise GamingCompanionDeploymentError("manifest_firewall_reference_required")
+        tls = result.get("bridge_tls")
+        if not isinstance(tls, Mapping) or set(tls) != _TLS_FIELDS:
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_fields_invalid")
+        if tls.get("schema_version") != "sentientos.companion_bridge_mtls:v1":
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_schema_unsupported")
+        try:
+            address = ipaddress.ip_address(str(tls.get("core_bind_address", "")))
+        except ValueError as exc:
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_address_invalid") from exc
+        if (not address.is_private or address.is_loopback or address.is_link_local
+                or address.is_unspecified or address.is_multicast or address.is_global):
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_private_address_required")
+        if type(tls.get("port")) is not int or not 1 <= tls["port"] <= 65535:
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_port_invalid")
+        for field in (
+            "server_hostname", "ca_bundle_reference", "core_certificate_reference",
+            "core_private_key_reference", "windows_edge_client_certificate_reference",
+            "windows_edge_client_private_key_reference", "source_key_custody_reference",
+            "source_generation_custody_reference", "acknowledgment_generation_custody_reference",
+        ):
+            if not isinstance(tls.get(field), str) or not tls[field].strip() or len(tls[field]) > 512:
+                raise GamingCompanionDeploymentError("manifest_bridge_tls_reference_invalid:" + field)
+        if tls["source_key_custody_reference"] != key_ref:
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_source_key_reference_mismatch")
+        if re.fullmatch(r"[0-9a-f]{64}", str(tls.get("expected_windows_edge_certificate_sha256", ""))) is None:
+            raise GamingCompanionDeploymentError("manifest_bridge_tls_peer_certificate_pin_invalid")
     for field in ("start_on_login", "automatic_capture", "automatic_speech"):
         if type(result[field]) is not bool:
             raise GamingCompanionDeploymentError("manifest_boolean_invalid:" + field)
@@ -132,6 +176,10 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
         "bridge_key_reference_present": bool(cfg["bridge_key_reference"]),
         "software_generation_digest_present": bool(cfg["software_generation_digest"]),
     }
+    if cfg["schema_version"] == SCHEMA_MUTUAL_TLS:
+        facts["bridge_transport_kind"] = "mutual_tls_private"
+        facts["bridge_private_bind_address_configured"] = True
+        facts["bridge_peer_certificate_pin_configured"] = True
     reasons: list[str] = []
     for key in ("wsl2_environment", "repository_exists", "python_executable_exists",
                 "state_root_native_linux_path", "state_root_separate_from_checkout",
@@ -146,6 +194,9 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
         warnings.append("authenticated_bridge_listener_unobserved")
     if facts["bridge_runtime_source_in_checkout"] is not True:
         warnings.append("authenticated_bridge_runtime_source_unavailable")
+    if cfg["schema_version"] == SCHEMA_MUTUAL_TLS:
+        warnings.append("split_host_tls_listener_not_observed")
+        warnings.append("firewall_rule_not_independently_verified")
     for component in cfg["enabled_windows_components"]:
         facts[component] = "not_observed_from_this_environment"
         warnings.append(component + "_readiness_unverified")
@@ -162,4 +213,5 @@ def inspect_local(manifest: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-__all__ = ["SCHEMA", "GamingCompanionDeploymentError", "validate_manifest", "inspect_local"]
+__all__ = ["SCHEMA", "SCHEMA_MUTUAL_TLS", "GamingCompanionDeploymentError",
+           "validate_manifest", "inspect_local"]

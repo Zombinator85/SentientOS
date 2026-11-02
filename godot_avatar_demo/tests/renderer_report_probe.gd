@@ -40,7 +40,7 @@ func _run_probe() -> void:
 	var motion: Dictionary = report.get("renderer_state", {}).get("motion", {})
 	var expression: Dictionary = report.get("renderer_state", {}).get("expression", {})
 	var arm_rotation: Dictionary = motion.get("left_arm_rotation_radians", {})
-	if report.get("schema_version") != "sentientos.avatar_renderer_report:v1":
+	if report.get("schema_version") != "sentientos.avatar_renderer_report:v2":
 		push_error("renderer_probe_schema_invalid")
 		quit(1)
 		return

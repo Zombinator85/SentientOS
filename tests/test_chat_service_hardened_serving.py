@@ -135,6 +135,22 @@ def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tm
         "verified_predecessor_runtime_software_generation_digest"}
 
 
+def test_new_chat_turn_interrupts_previous_local_speech(tmp_path):
+    class SpeechOutput:
+        def __init__(self): self.interrupted = []; self.published = []
+        def interrupt(self, session_id):
+            self.interrupted.append(session_id); return {"status": "interrupted"}
+        def publish_response(self, **kwargs):
+            self.published.append(kwargs); return {"status": "queued"}
+    speech = SpeechOutput()
+    app = service(tmp_path, Inference(), speech_output=speech)
+    first = app.chat("first message")
+    second = app.chat("follow-up", session_id=first.session_id)
+    assert second.session_id == first.session_id
+    assert speech.interrupted == [first.session_id, first.session_id]
+    assert [item["turn_id"] for item in speech.published] == [first.turn_id, second.turn_id]
+
+
 def test_chat_workload_mode_is_process_local_and_operator_switchable(tmp_path):
     inference = Inference()
     app = service(tmp_path, inference)

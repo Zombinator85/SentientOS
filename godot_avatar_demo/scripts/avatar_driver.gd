@@ -6,6 +6,7 @@ extends Node
 @export var motion_driver_path: NodePath
 @export var candidate_body_adapter_path: NodePath
 @export var status_label_path: NodePath
+@export var renderer_report_relay_port := 0
 
 var _server := UDPServer.new()
 var _last_packet := {}
@@ -14,13 +15,32 @@ var _report_sequence := 0
 var _last_renderer_report := {}
 var _candidate_report_sequence := 0
 var _last_candidate_renderer_report := {}
+var _renderer_report_sender: PacketPeerUDP
 const NORMAL_RENDER_FPS := 60
 const GAMING_RENDER_FPS := 15
 const LOOPBACK_BIND_ADDRESS := "127.0.0.1"
 
 
 func _ready() -> void:
-	_renderer_generation_id = "godot-demo-" + str(Time.get_ticks_usec())
+	_renderer_generation_id = OS.get_environment("SENTIENTOS_RENDERER_GENERATION_ID")
+	if not _is_generation_id(_renderer_generation_id):
+		_renderer_generation_id = "godot-demo-" + str(Time.get_ticks_usec())
+	var relay_port_text := OS.get_environment("SENTIENTOS_RENDERER_REPORT_RELAY_PORT")
+	if not relay_port_text.is_empty():
+		if not relay_port_text.is_valid_int():
+			_write_status("Renderer report relay port invalid")
+		else:
+			renderer_report_relay_port = relay_port_text.to_int()
+	if renderer_report_relay_port < 0 or renderer_report_relay_port > 65535:
+		renderer_report_relay_port = 0
+		_write_status("Renderer report relay port out of range")
+	if renderer_report_relay_port > 0:
+		_renderer_report_sender = PacketPeerUDP.new()
+		var sender_error := _renderer_report_sender.connect_to_host(
+			LOOPBACK_BIND_ADDRESS, renderer_report_relay_port)
+		if sender_error != OK:
+			_renderer_report_sender = null
+			_write_status("Renderer report relay unavailable (%s)" % error_string(sender_error))
 	_set_workload_mode("normal")
 	if auto_listen:
 		var result := _server.listen(listen_port, LOOPBACK_BIND_ADDRESS)
@@ -63,6 +83,8 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 	var motion: String = str(state.get("motion", "idle"))
 	var phrase_value: Variant = state.get("phrase", {})
 	var phrase_block: Dictionary = phrase_value if phrase_value is Dictionary else {}
+	var metadata_value: Variant = state.get("metadata", {})
+	var command_metadata: Dictionary = metadata_value if metadata_value is Dictionary else {}
 	var phrase: String = str(phrase_block.get("text", state.get("current_phrase", "")))
 	var muted := bool(phrase_block.get("muted", false))
 	var status: String = "%s @ %.2f (%s) [%s workload, %d FPS cap]" % [
@@ -87,6 +109,18 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 		motion_driver.apply_motion(motion)
 		if motion_driver.has_method("renderer_report"):
 			motion_report = motion_driver.renderer_report()
+	var speech_report := {"status": "not_requested", "phoneme_claimed": false}
+	var timing_metadata: Variant = command_metadata.get("speech_timing", {})
+	if typeof(timing_metadata) == TYPE_DICTIONARY:
+		var timing_event := str((timing_metadata as Dictionary).get("event", ""))
+		if timing_event in ["speech_started", "word_started", "speech_finished",
+				"speech_interrupted", "speech_failed"]:
+			var speaking_now := timing_event in ["speech_started", "word_started"]
+			if blendshape_driver and blendshape_driver.has_method("set_speech_activity"):
+				speech_report = blendshape_driver.set_speech_activity(speaking_now, timing_event)
+			else:
+				speech_report = {"status": "unavailable", "reason": "speech_renderer_unavailable",
+					"timing_event": timing_event, "phoneme_claimed": false}
 	var candidate_report := {"status": "not_loaded"}
 	var candidate_adapter: Node = _resolve_node(candidate_body_adapter_path)
 	if candidate_adapter and candidate_adapter.has_method("is_candidate_active") \
@@ -103,7 +137,8 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 	else:
 		_last_candidate_renderer_report = {}
 	_record_renderer_report(state, workload_mode, expression, mood, intensity, motion,
-		expression_report, motion_report, frame_delta_seconds, apply_started_usec)
+		expression_report, motion_report, speech_report, frame_delta_seconds,
+		apply_started_usec)
 
 
 func install_experimental_candidate(candidate_scene: PackedScene, evidence: Dictionary,
@@ -118,12 +153,13 @@ func install_experimental_candidate(candidate_scene: PackedScene, evidence: Dict
 
 func _record_renderer_report(state: Dictionary, workload_mode: String, expression: String,
 		mood: String, intensity: float, motion: String, expression_report: Dictionary,
-		motion_report: Dictionary, frame_delta_seconds: float, apply_started_usec: int) -> void:
+		motion_report: Dictionary, speech_report: Dictionary,
+		frame_delta_seconds: float, apply_started_usec: int) -> void:
 	_report_sequence += 1
 	var metadata: Variant = state.get("metadata", {})
 	var command_metadata: Dictionary = metadata if metadata is Dictionary else {}
 	var report := {
-		"schema_version": "sentientos.avatar_renderer_report:v1",
+		"schema_version": "sentientos.avatar_renderer_report:v2",
 		"evidence_class": "avatar_renderer_reported_state",
 		"source_id": "godot-procedural-demo",
 		"renderer_generation_id": _renderer_generation_id,
@@ -136,6 +172,7 @@ func _record_renderer_report(state: Dictionary, workload_mode: String, expressio
 		"commanded_state": {"expression": expression, "mood": mood, "intensity": intensity,
 			"motion": motion, "workload_mode": workload_mode},
 		"renderer_state": {"expression": expression_report, "motion": motion_report,
+			"speech": speech_report,
 			"applied_render_cap_fps": Engine.max_fps},
 		"frame_delta_seconds": frame_delta_seconds if frame_delta_seconds >= 0 else null,
 		"apply_duration_usec": maxi(0, Time.get_ticks_usec() - apply_started_usec),
@@ -145,9 +182,27 @@ func _record_renderer_report(state: Dictionary, workload_mode: String, expressio
 	}
 	var hash_context := HashingContext.new()
 	hash_context.start(HashingContext.HASH_SHA256)
-	hash_context.update(JSON.stringify(report).to_utf8_buffer())
+	hash_context.update(JSON.stringify(report, "", true).to_utf8_buffer())
 	report["source_digest"] = "sha256:" + hash_context.finish().hex_encode()
 	_last_renderer_report = report
+	_send_renderer_report(report)
+
+
+func _send_renderer_report(report: Dictionary) -> void:
+	if _renderer_report_sender == null:
+		return
+	var encoded := JSON.stringify(report).to_utf8_buffer()
+	if encoded.is_empty() or encoded.size() > 60000:
+		_write_status("Renderer report exceeds relay packet limit")
+		return
+	var result := _renderer_report_sender.put_packet(encoded)
+	if result != OK:
+		_write_status("Renderer report relay send failed (%s)" % error_string(result))
+
+
+func _exit_tree() -> void:
+	if _renderer_report_sender != null:
+		_renderer_report_sender.close()
 
 
 func _record_candidate_renderer_report(state: Dictionary, candidate_state: Dictionary,
@@ -174,7 +229,7 @@ func _record_candidate_renderer_report(state: Dictionary, candidate_state: Dicti
 	}
 	var hash_context := HashingContext.new()
 	hash_context.start(HashingContext.HASH_SHA256)
-	hash_context.update(JSON.stringify(report).to_utf8_buffer())
+	hash_context.update(JSON.stringify(report, "", true).to_utf8_buffer())
 	report["source_digest"] = "sha256:" + hash_context.finish().hex_encode()
 	_last_candidate_renderer_report = report
 
@@ -197,6 +252,15 @@ func _write_status(message: String) -> void:
 	var label: Label = _resolve_label(status_label_path)
 	if label and label.has_method("set_text"):
 		label.text = message
+
+
+func _is_generation_id(value: String) -> bool:
+	if value.is_empty() or value.length() > 128:
+		return false
+	var pattern := RegEx.new()
+	if pattern.compile("^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$") != OK:
+		return false
+	return pattern.search(value) != null
 
 
 func _resolve_node(path: NodePath) -> Node:

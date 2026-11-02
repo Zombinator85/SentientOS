@@ -24,6 +24,7 @@ else:
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
 from .foreground_game_bridge import BridgeForegroundGameDetector
+from .avatar_renderer_report_ingress import RendererReportCaptureOwner
 from .foreground_game_detection import normalize_game_process_names
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget,
@@ -74,6 +75,7 @@ class ChatAvatarOutput(Protocol):
     def publish_response(self, *, session_id: str, turn_id: str, text: str,
                          output_digest: str, workload_mode: str | None = None) -> Mapping[str, Any]: ...
     def set_workload_mode(self, session_id: str, workload_mode: str) -> Mapping[str, Any]: ...
+    def publish_speech_timing(self, event: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def close(self) -> None: ...
 
 
@@ -102,13 +104,16 @@ class DevelopmentSimulationInference:
 
 
 class ProductionChatComposition:
-    __slots__ = ("service", "_serving", "_resource_owner", "_foreground_game_detector")
+    __slots__ = ("service", "_serving", "_resource_owner", "_foreground_game_detector",
+                 "_renderer_report_capture_owner")
     def __init__(self, service: "PersistentConversationService", serving: ProductionServingController,
                  resource_owner: ProductionChatResourceContextOwner | None = None,
-                 foreground_game_detector: BridgeForegroundGameDetector | None = None) -> None:
+                 foreground_game_detector: BridgeForegroundGameDetector | None = None,
+                 renderer_report_capture_owner: RendererReportCaptureOwner | None = None) -> None:
         self.service, self._serving = service, serving
         self._resource_owner = resource_owner
         self._foreground_game_detector = foreground_game_detector
+        self._renderer_report_capture_owner = renderer_report_capture_owner
     def close(self) -> None:
         try:
             self.service.close_outputs()
@@ -120,8 +125,12 @@ class ProductionChatComposition:
                     if self._resource_owner is not None:
                         self._resource_owner.close()
                 finally:
-                    if self._foreground_game_detector is not None:
-                        self._foreground_game_detector.close()
+                    try:
+                        if self._foreground_game_detector is not None:
+                            self._foreground_game_detector.close()
+                    finally:
+                        if self._renderer_report_capture_owner is not None:
+                            self._renderer_report_capture_owner.close()
     def ready(self) -> bool:
         return cast(bool, self._serving.serving_is_current())
 
@@ -549,6 +558,13 @@ class PersistentConversationService:
                 raise ChatRequestStateError(str(exc)) from exc
             if not created:
                 return self._recover_idempotent_response(session["session_id"], user_turn)
+        if self._speech_output is not None:
+            interrupt_speech = getattr(self._speech_output, "interrupt", None)
+            if callable(interrupt_speech):
+                try:
+                    interrupt_speech(session["session_id"])
+                except Exception as exc:
+                    LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
             if turn.get("role") == "assistant"), None)
         predecessor_identity_digest = str(session.get("model_identity_digest", ""))
@@ -938,6 +954,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
                               foreground_game_detector: BridgeForegroundGameDetector | None = None,
+                              renderer_report_capture_owner: RendererReportCaptureOwner | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
                               runtime_handoff_id: str | None = None,
@@ -949,6 +966,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     if (foreground_game_detector is not None
             and type(foreground_game_detector) is not BridgeForegroundGameDetector):
         raise TypeError("exact_bridge_foreground_game_detector_required")
+    if (renderer_report_capture_owner is not None
+            and type(renderer_report_capture_owner) is not RendererReportCaptureOwner):
+        raise TypeError("exact_renderer_report_capture_owner_required")
     if screen_observer is not None and not callable(screen_observer):
         raise TypeError("callable_screen_observer_required")
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
@@ -1007,7 +1027,11 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             from control_plane import admit_request
             from .chat_speech_output import ChatSpeechOutputController
 
-            speech_output = ChatSpeechOutputController(admission_provider=admit_request)
+            timing_sink = (getattr(avatar_output, "publish_speech_timing", None)
+                           if avatar_output is not None else None)
+            speech_output = ChatSpeechOutputController(
+                admission_provider=admit_request,
+                timing_event_sink=timing_sink if callable(timing_sink) else None)
         # The roots were checked before serving was established.  Transcript
         # custody remains installation-scoped; canonical memory remains user-scoped.
         handle.ensure_directory(conversation_root)
@@ -1015,6 +1039,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             session_store=ConversationSessionStore(conversation_root.path),
             memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output,
             speech_output=speech_output, screen_observer=screen_observer)
+        if renderer_report_capture_owner is not None:
+            renderer_report_capture_owner.start()
     except Exception:
         try:
             if serving is not None:
@@ -1028,14 +1054,19 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                     if resource_context_owner is not None:
                         resource_context_owner.close()
                 finally:
-                    if foreground_game_detector is not None:
-                        foreground_game_detector.close()
+                    try:
+                        if foreground_game_detector is not None:
+                            foreground_game_detector.close()
+                    finally:
+                        if renderer_report_capture_owner is not None:
+                            renderer_report_capture_owner.close()
         raise
     assert serving is not None
     close_production_chat()
     _CONVERSATION_SERVICE = service
     _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving, resource_context_owner,
-                                                       foreground_game_detector)
+                                                       foreground_game_detector,
+                                                       renderer_report_capture_owner)
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,

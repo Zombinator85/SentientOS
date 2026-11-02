@@ -261,6 +261,8 @@ class HostResourceRuntimeCoordinator:
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
         evaluation=HostResourceRuntimeEvaluation(_id("hre_", ev_sem), self.plan, epoch, snapshot, pressure, decision2, receipts, validate_epoch(epoch).findings, _id("hres_", ev_sem), True)
         self._epochs_by_correlation[correlation_id]=evaluation
+        if validate_evaluation(evaluation).ok:
+            self.kernel.observe_host_resource_evaluation(evaluation)
         return evaluation
     def persist_bundle(self, evaluation: HostResourceRuntimeEvaluation, *, tick_id: str) -> HostResourceRuntimeReceipt:
         return persist_evidence_bundle(self.runtime_state_root, evaluation, tick_id=tick_id)

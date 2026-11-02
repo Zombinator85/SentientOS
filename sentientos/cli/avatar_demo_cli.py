@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -39,7 +40,13 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-godot", action="store_true", help="Skip launching Godot and only run the UDP forwarder"
     )
-    return parser.parse_args(argv)
+    parser.add_argument("--renderer-report-relay-port", type=int, default=None,
+                        help="Opt in to sending renderer self-reports to a loopback-only edge relay")
+    args = parser.parse_args(argv)
+    if (args.renderer_report_relay_port is not None
+            and not 1 <= args.renderer_report_relay_port <= 65535):
+        parser.error("--renderer-report-relay-port must be from 1 to 65535")
+    return args
 
 
 def resolve_project_dir(candidate: Optional[Path]) -> Optional[Path]:
@@ -57,7 +64,8 @@ def resolve_godot_binary(candidate: Optional[Path]) -> Optional[Path]:
     return Path(system) if system else None
 
 
-def launch_godot(project_dir: Path, godot_bin: Optional[Path]) -> Optional[subprocess.Popen[bytes]]:
+def launch_godot(project_dir: Path, godot_bin: Optional[Path], *,
+                 renderer_report_relay_port: int | None = None) -> Optional[subprocess.Popen[bytes]]:
     binary = resolve_godot_binary(godot_bin)
     if binary is None:
         print("Godot binary not found; run the installer with --with-avatar or set --godot-bin.")
@@ -66,7 +74,13 @@ def launch_godot(project_dir: Path, godot_bin: Optional[Path]) -> Optional[subpr
     args = [str(binary), "--path", str(project_dir), "--scene", DEFAULT_SCENE]
     print(f"Launching Godot demo from {project_dir} using {binary}")
     try:
-        return subprocess.Popen(args)
+        child_environment = os.environ.copy()
+        if renderer_report_relay_port is not None:
+            if not 1 <= renderer_report_relay_port <= 65535:
+                raise ValueError("renderer_report_relay_port_invalid")
+            child_environment["SENTIENTOS_RENDERER_REPORT_RELAY_PORT"] = str(
+                renderer_report_relay_port)
+        return subprocess.Popen(args, env=child_environment)
     except FileNotFoundError:
         print("Failed to spawn Godot; ensure the binary is executable.")
     return None
@@ -85,7 +99,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     godot_proc: Optional[subprocess.Popen[bytes]] = None
     if not args.no_godot and project_dir:
-        godot_proc = launch_godot(project_dir, args.godot_bin)
+        godot_proc = launch_godot(project_dir, args.godot_bin,
+            renderer_report_relay_port=args.renderer_report_relay_port)
 
     try:
         while True:

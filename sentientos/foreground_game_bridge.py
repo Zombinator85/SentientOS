@@ -19,6 +19,7 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
     CompanionBridgeTransportError,
 )
+from .gaming_companion_supervisor import CompanionBridgeSupervisor
 
 _SCHEMA = "sentientos.foreground_game_observation:v1"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
@@ -203,11 +204,20 @@ class WindowsForegroundObservationPump:
 class BridgeForegroundGameDetector:
     """Consume verified Windows samples and fail conservatively when they expire."""
 
-    def __init__(self, *, runtime: CompanionBridgeLoopbackRuntime, source_id: str,
-                 generation_id: str, clock: Callable[[], datetime] | None = None,
+    def __init__(self, *, runtime: CompanionBridgeLoopbackRuntime | CompanionBridgeSupervisor,
+                 source_id: str, generation_id: str | None = None,
+                 clock: Callable[[], datetime] | None = None,
                  max_observation_age_seconds: float = 5.0) -> None:
-        if not isinstance(runtime, CompanionBridgeLoopbackRuntime):
-            raise CompanionBridgeError("bridge_loopback_runtime_required")
+        if not isinstance(runtime, (CompanionBridgeLoopbackRuntime, CompanionBridgeSupervisor)):
+            raise CompanionBridgeError("bridge_runtime_or_supervisor_required")
+        if isinstance(runtime, CompanionBridgeSupervisor):
+            if generation_id is not None and generation_id != runtime.generation_id:
+                raise CompanionBridgeError("bridge_supervisor_generation_mismatch")
+            self._generation_provider = lambda: runtime.generation_id
+        elif not isinstance(generation_id, str) or not generation_id:
+            raise CompanionBridgeError("bridge_generation_id_required")
+        else:
+            self._generation_provider = lambda: generation_id
         if (isinstance(max_observation_age_seconds, bool)
                 or not isinstance(max_observation_age_seconds, (int, float))
                 or not math.isfinite(float(max_observation_age_seconds))
@@ -252,8 +262,9 @@ class BridgeForegroundGameDetector:
 
     def _parse(self, message: VerifiedBridgeMessage,
                allowed_digests: set[str]) -> ForegroundGameObservation | None:
+        generation_id = self._generation_provider()
         if (message.kind != "observation" or message.source_id != self._source_id
-                or message.generation_id != self._generation_id):
+                or not isinstance(generation_id, str) or message.generation_id != generation_id):
             return None
         payload = message.payload
         required = {"schema_version", "status", "game_foreground", "process_name_digest", "observed_at"}

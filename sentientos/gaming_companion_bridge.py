@@ -15,7 +15,7 @@ import re
 import socket
 import struct
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -196,6 +196,7 @@ class VerifiedBridgeMessage:
     created_at: str
     payload: Mapping[str, Any]
     admission: Mapping[str, str] | None
+    signed_envelope: bytes = field(default=b"", repr=False, compare=False)
 
 
 class CompanionBridgeReceiver:
@@ -225,6 +226,11 @@ class CompanionBridgeReceiver:
         self._clock = clock or (lambda: datetime.now(timezone.utc).timestamp())
         self._high_water: dict[tuple[str, str, str], int] = {}
         self._sequence_lock = threading.Lock()
+
+    @property
+    def expected_generations(self) -> Mapping[str, str]:
+        """Expose configured source generation identities without source keys."""
+        return dict(self._generations)
 
     def accept(self, encoded: bytes) -> VerifiedBridgeMessage:
         if not isinstance(encoded, bytes) or not encoded or len(encoded) > MAX_ENVELOPE_BYTES:
@@ -289,4 +295,5 @@ class CompanionBridgeReceiver:
             self._high_water[cursor] = sequence
         message_id = hashlib.sha256(_canonical(body)).hexdigest()
         return VerifiedBridgeMessage(message_id, kind, source_id, session_id,
-            generation_id, sequence, stamp, dict(payload), dict(admission) if admission else None)
+            generation_id, sequence, stamp, dict(payload), dict(admission) if admission else None,
+            encoded)

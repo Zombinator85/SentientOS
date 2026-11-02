@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
+import re
+import threading
 from collections import defaultdict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Deque, Mapping
@@ -50,6 +53,7 @@ class GovernorDecision:
     correlation_id: str
     action_priority: int
     action_family: str
+    evidence_refs: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -65,6 +69,7 @@ class GovernorDecision:
             "correlation_id": self.correlation_id,
             "action_priority": self.action_priority,
             "action_family": self.action_family,
+            "evidence_refs": dict(self.evidence_refs),
         }
 
 
@@ -203,6 +208,15 @@ class RuntimeGovernor:
         self._subject_decisions: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
+        # The observation runtime may publish one validated, read-only host
+        # resource evaluation. Only its identifiers, pressure labels, and
+        # measured CPU/RAM values are retained here; this is scheduling input,
+        # not host mutation authority.
+        self._host_resource_evidence: dict[str, object] | None = None
+        # Fresh bridge-authenticated game pacing is supplemental scheduling
+        # evidence, never a substitute for the core CPU/RAM observation epoch.
+        self._game_performance_evidence: dict[str, object] | None = None
+        self._resource_evidence_lock = threading.Lock()
 
     @staticmethod
     def _restriction_class_for_reason(reason: str) -> str:
@@ -1019,6 +1033,13 @@ class RuntimeGovernor:
                 metadata=payload,
                 correlation_id=correlation_id,
             )
+        if normalized == "local_model_inference":
+            return self._admit_local_model_inference(
+                actor=actor,
+                subject=subject,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
         if normalized == "amendment_apply":
             return self._admit_amendment_apply(
                 actor=actor,
@@ -1037,6 +1058,211 @@ class RuntimeGovernor:
             metadata=payload,
             correlation_id=correlation_id,
         )
+
+    def observe_host_resource_evaluation(self, evaluation: object) -> bool:
+        """Accept only a valid proposal-only collector evaluation for scheduling."""
+        try:
+            from sentientos.host_resource_runtime import HostResourceRuntimeEvaluation, validate_evaluation
+
+            if type(evaluation) is not HostResourceRuntimeEvaluation or not validate_evaluation(evaluation).ok:
+                return False
+            if not evaluation.no_effect_authority or evaluation.plan.effect_authority:
+                return False
+            evidence: dict[str, object] = {
+                "evaluation_id": evaluation.evaluation_id,
+                "epoch_id": evaluation.epoch.epoch_id,
+                "observed_at": evaluation.epoch.observed_at,
+                "snapshot_id": evaluation.snapshot.snapshot_id,
+                "report_id": evaluation.pressure_report.report_id,
+                "report_digest": evaluation.policy_decision.report_digest,
+                "pressure_labels": tuple(evaluation.pressure_report.pressure_labels),
+                "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
+                "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
+            }
+            with self._resource_evidence_lock:
+                self._host_resource_evidence = evidence
+            return True
+        except (ImportError, AttributeError, TypeError, ValueError):
+            return False
+
+    def observe_verified_game_performance(self, observation: object) -> bool:
+        """Retain one fresh, authenticated Windows game pacing observation."""
+        try:
+            from sentientos.game_performance_bridge import VerifiedGamePerformanceObservation
+
+            if type(observation) is not VerifiedGamePerformanceObservation:
+                return False
+            observed_at = datetime.fromisoformat(observation.observed_at.replace("Z", "+00:00"))
+            if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+                return False
+            age = (datetime.now(timezone.utc) - observed_at.astimezone(timezone.utc)).total_seconds()
+            if (age < 0 or age > 10 or observation.status not in {"available", "partial"}
+                    or not isinstance(observation.source_id, str) or not observation.source_id
+                    or not isinstance(observation.generation_id, str) or not observation.generation_id
+                    or type(observation.sequence) is not int or observation.sequence < 1
+                    or not isinstance(observation.message_id, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", observation.message_id) is None
+                    or not isinstance(observation.payload_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", observation.payload_digest) is None
+                    or not isinstance(observation.process_id_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", observation.process_id_digest) is None):
+                return False
+            p95, hitches = observation.frame_time_p95_ms, observation.hitch_count_over_50ms
+            if p95 is not None and (isinstance(p95, bool) or not isinstance(p95, (int, float))
+                    or not math.isfinite(float(p95)) or not 0 < p95 <= 10_000):
+                return False
+            if hitches is not None and (type(hitches) is not int or not 0 <= hitches <= 100_000):
+                return False
+            if p95 is None and hitches is None:
+                return False
+            evidence: dict[str, object] = {
+                "observed_at": observed_at.astimezone(timezone.utc).isoformat(),
+                "source_id": observation.source_id,
+                "generation_id": observation.generation_id,
+                "sequence": observation.sequence,
+                "message_id": observation.message_id,
+                "payload_digest": observation.payload_digest,
+                "frame_time_p95_ms": float(p95) if p95 is not None else None,
+                "hitch_count_over_50ms": hitches,
+            }
+            with self._resource_evidence_lock:
+                self._game_performance_evidence = evidence
+            return True
+        except (ImportError, AttributeError, TypeError, ValueError, OverflowError):
+            return False
+
+    def _admit_local_model_inference(
+        self,
+        *,
+        actor: str,
+        subject: str,
+        metadata: dict[str, object] | None,
+        correlation_id: str | None,
+    ) -> GovernorDecision:
+        pressure = self.sample_pressure()
+        now = datetime.now(timezone.utc)
+        payload = dict(metadata or {})
+        purpose = str(payload.get("purpose") or "")
+        foreground = purpose == "local_user_chat"
+        with self._resource_evidence_lock:
+            evidence = dict(self._host_resource_evidence) if self._host_resource_evidence is not None else None
+            game_evidence = dict(self._game_performance_evidence) if self._game_performance_evidence is not None else None
+        evidence_age_seconds: float | None = None
+        evidence_ref: dict[str, object] = {"status": "unavailable"}
+        labels: set[str] = set()
+        if evidence is not None:
+            try:
+                observed_at = datetime.fromisoformat(str(evidence["observed_at"]))
+                evidence_age_seconds = (now - observed_at).total_seconds()
+            except (KeyError, TypeError, ValueError):
+                evidence_age_seconds = None
+            if evidence_age_seconds is not None and 0 <= evidence_age_seconds <= 120:
+                raw_labels = evidence.get("pressure_labels")
+                if isinstance(raw_labels, (tuple, list)) and all(
+                        isinstance(label, str) for label in raw_labels):
+                    labels = set(raw_labels)
+                    evidence_ref = {
+                        "status": "current",
+                        "evaluation_id": evidence["evaluation_id"],
+                        "epoch_id": evidence["epoch_id"],
+                        "snapshot_id": evidence["snapshot_id"],
+                        "report_id": evidence["report_id"],
+                        "report_digest": evidence["report_digest"],
+                        "age_seconds": round(evidence_age_seconds, 3),
+                    }
+                else:
+                    evidence_ref = {"status": "invalid", "reason": "pressure_labels_invalid"}
+            else:
+                evidence_ref = {"status": "stale_or_invalid", "age_seconds": evidence_age_seconds}
+
+        pressure_reasons = labels.intersection({"cpu_pressure", "memory_pressure", "gpu_pressure", "thermal_pressure"})
+        game_pressure = False
+        game_evidence_ref: dict[str, object] = {"status": "unavailable"}
+        if game_evidence is not None:
+            try:
+                game_age = (now - datetime.fromisoformat(
+                    str(game_evidence["observed_at"])).astimezone(timezone.utc)).total_seconds()
+            except (KeyError, TypeError, ValueError):
+                game_age = None
+            if game_age is not None and 0 <= game_age <= 10:
+                p95 = game_evidence.get("frame_time_p95_ms")
+                hitches = game_evidence.get("hitch_count_over_50ms")
+                game_pressure = ((isinstance(p95, (int, float)) and p95 >= 50.0)
+                                 or (type(hitches) is int and hitches > 0))
+                game_evidence_ref = {
+                    "status": "current", "source_id": game_evidence["source_id"],
+                    "generation_id": game_evidence["generation_id"],
+                    "sequence": game_evidence["sequence"],
+                    "message_id": game_evidence["message_id"],
+                    "payload_digest": game_evidence["payload_digest"],
+                    "frame_time_p95_ms": p95,
+                    "hitch_count_over_50ms": hitches,
+                    "age_seconds": round(game_age, 3),
+                }
+            else:
+                game_evidence_ref = {"status": "stale_or_invalid", "age_seconds": game_age}
+        # Background work waits for a completed, fresh observation epoch. An
+        # absent or stale epoch is missing evidence, not a measurement of low
+        # pressure. Foreground chat remains governed by its separate request
+        # budget and is intentionally not deferred by this gate.
+        incomplete = evidence_ref.get("status") != "current"
+        if evidence_ref.get("status") == "current" and evidence is not None:
+            incomplete = (evidence.get("cpu_utilization_percent") is None
+                          or evidence.get("ram_utilization_percent") is None)
+
+        reason = "allowed"
+        blocks = False
+        if not foreground and incomplete:
+            reason, blocks = "deferred_resource_telemetry_incomplete", True
+        elif not foreground and pressure_reasons:
+            reason, blocks = "deferred_background_inference_under_host_pressure", True
+        elif not foreground and game_pressure:
+            reason, blocks = "deferred_background_inference_for_game_frame_pressure", True
+        elif not foreground and pressure.composite >= self._pressure_warn:
+            reason, blocks = "deferred_background_inference_under_runtime_pressure", True
+
+        posture_eval = PostureRuleEvaluation(
+            dimension="host_resource_inference_admission",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=90 if blocks else 40,
+            details={
+                "purpose": purpose or "unspecified_background",
+                "foreground": foreground,
+                "host_resource_evidence": evidence_ref,
+                "observed_pressure_labels": sorted(labels),
+                "blocking_pressure_labels": sorted(pressure_reasons),
+                "game_performance_evidence": game_evidence_ref,
+                "game_frame_pressure": game_pressure,
+            },
+        )
+        posture = self._compose_runtime_posture(
+            action_class="local_model_inference",
+            scope="local",
+            pressure=pressure,
+            now=now,
+            evaluations=[posture_eval],
+        )
+        allowed = not blocks or self._mode != "enforce"
+        payload["host_resource_evidence"] = evidence_ref
+        payload["observed_pressure_labels"] = sorted(labels)
+        payload["game_performance_evidence"] = game_evidence_ref
+        payload["game_frame_pressure"] = game_pressure
+        decision = self._decision(
+            action_class="local_model_inference",
+            allowed=allowed,
+            reason=reason,
+            subject=subject,
+            scope="local",
+            origin=actor,
+            pressure=pressure,
+            metadata=payload,
+            correlation_id=correlation_id,
+            posture=posture,
+        )
+        self._record_contention(action_class="local_model_inference", allowed=allowed, now=now)
+        return decision
 
     def sample_pressure(self) -> PressureSnapshot:
         now = datetime.now(timezone.utc)
@@ -1685,6 +1911,12 @@ class RuntimeGovernor:
             correlation_id=correlation,
             action_priority=profile.priority,
             action_family=profile.family,
+            evidence_refs={
+                key: metadata[key]
+                for key in ("host_resource_evidence", "observed_pressure_labels",
+                            "game_performance_evidence", "game_frame_pressure")
+                if metadata is not None and key in metadata
+            },
         )
         payload = decision.to_dict()
         payload["metadata"] = {
