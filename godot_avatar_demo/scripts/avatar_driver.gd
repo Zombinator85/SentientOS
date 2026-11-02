@@ -4,6 +4,7 @@ extends Node
 @export var auto_listen := true
 @export var blendshape_driver_path: NodePath
 @export var motion_driver_path: NodePath
+@export var candidate_body_adapter_path: NodePath
 @export var status_label_path: NodePath
 
 var _server := UDPServer.new()
@@ -11,6 +12,8 @@ var _last_packet := {}
 var _renderer_generation_id := ""
 var _report_sequence := 0
 var _last_renderer_report := {}
+var _candidate_report_sequence := 0
+var _last_candidate_renderer_report := {}
 const NORMAL_RENDER_FPS := 60
 const GAMING_RENDER_FPS := 15
 const LOOPBACK_BIND_ADDRESS := "127.0.0.1"
@@ -71,10 +74,10 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 
 	var blendshape_driver: Node = _resolve_node(blendshape_driver_path)
 	var expression_report := {"status": "unavailable", "reason": "blendshape_driver_unavailable"}
+	var viseme_value: Variant = state.get("viseme_timeline", [])
+	var visemes: Array = viseme_value if viseme_value is Array else []
 	if blendshape_driver and blendshape_driver.has_method("apply_expression"):
 		expression_report = blendshape_driver.apply_expression(expression, mood, intensity)
-		var viseme_value: Variant = state.get("viseme_timeline", [])
-		var visemes: Array = viseme_value if viseme_value is Array else []
 		if visemes is Array and blendshape_driver.has_method("play_viseme_timeline"):
 			blendshape_driver.play_viseme_timeline(visemes, float(state.get("timestamp", 0.0)))
 
@@ -84,8 +87,33 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 		motion_driver.apply_motion(motion)
 		if motion_driver.has_method("renderer_report"):
 			motion_report = motion_driver.renderer_report()
+	var candidate_report := {"status": "not_loaded"}
+	var candidate_adapter: Node = _resolve_node(candidate_body_adapter_path)
+	if candidate_adapter and candidate_adapter.has_method("is_candidate_active") \
+			and candidate_adapter.is_candidate_active():
+		var candidate_expression: Dictionary = candidate_adapter.apply_expression(expression, intensity)
+		var candidate_visemes: Dictionary = candidate_adapter.play_viseme_timeline(
+			visemes, float(state.get("timestamp", 0.0)))
+		var candidate_motion: Dictionary = candidate_adapter.apply_motion(motion)
+		candidate_report = candidate_adapter.renderer_report()
+		candidate_report["expression"] = candidate_expression
+		candidate_report["visemes"] = candidate_visemes
+		candidate_report["motion"] = candidate_motion
+		_record_candidate_renderer_report(state, candidate_report, apply_started_usec)
+	else:
+		_last_candidate_renderer_report = {}
 	_record_renderer_report(state, workload_mode, expression, mood, intensity, motion,
 		expression_report, motion_report, frame_delta_seconds, apply_started_usec)
+
+
+func install_experimental_candidate(candidate_scene: PackedScene, evidence: Dictionary,
+		motion_bones: Dictionary, expression_shapes: Dictionary,
+		viseme_shapes: Dictionary) -> Dictionary:
+	var adapter: Node = _resolve_node(candidate_body_adapter_path)
+	if adapter == null or not adapter.has_method("install_candidate"):
+		return {"status": "unavailable", "reason": "candidate_body_adapter_unavailable"}
+	return adapter.install_candidate(candidate_scene, evidence, motion_bones,
+		expression_shapes, viseme_shapes)
 
 
 func _record_renderer_report(state: Dictionary, workload_mode: String, expression: String,
@@ -122,8 +150,41 @@ func _record_renderer_report(state: Dictionary, workload_mode: String, expressio
 	_last_renderer_report = report
 
 
+func _record_candidate_renderer_report(state: Dictionary, candidate_state: Dictionary,
+		apply_started_usec: int) -> void:
+	_candidate_report_sequence += 1
+	var metadata_value: Variant = state.get("metadata", {})
+	var metadata: Dictionary = metadata_value if metadata_value is Dictionary else {}
+	var report := {
+		"schema_version": "sentientos.experimental_candidate_avatar_renderer_report:v1",
+		"evidence_class": "experimental_candidate_avatar_renderer_report",
+		"renderer_generation_id": _renderer_generation_id,
+		"sequence": _candidate_report_sequence,
+		"reported_at": Time.get_datetime_string_from_system(true, false) + "Z",
+		"session_id": metadata.get("session_id"),
+		"turn_id": metadata.get("turn_id"),
+		"output_digest": metadata.get("output_digest"),
+		"candidate_state": candidate_state.duplicate(true),
+		"commanded_state": {"expression": str(state.get("expression", "rest")),
+			"motion": str(state.get("motion", "idle")),
+			"intensity": float(state.get("intensity", 0.0))},
+		"apply_duration_usec": maxi(0, Time.get_ticks_usec() - apply_started_usec),
+		"effect_proven": false,
+		"independent_observation": false,
+	}
+	var hash_context := HashingContext.new()
+	hash_context.start(HashingContext.HASH_SHA256)
+	hash_context.update(JSON.stringify(report).to_utf8_buffer())
+	report["source_digest"] = "sha256:" + hash_context.finish().hex_encode()
+	_last_candidate_renderer_report = report
+
+
 func latest_renderer_report() -> Dictionary:
 	return _last_renderer_report.duplicate(true)
+
+
+func latest_candidate_renderer_report() -> Dictionary:
+	return _last_candidate_renderer_report.duplicate(true)
 
 
 func _set_workload_mode(workload_mode: String) -> void:

@@ -356,40 +356,13 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         shutil.copytree(Path(__file__).parents[1]/"godot_avatar_demo",project,
             ignore=shutil.ignore_patterns(".godot","*.uid"))
         shutil.copyfile(Path(result["successor_path"]),project/"candidate.glb")
-        script=project/"load_candidate.gd"
-        script.write_text("extends SceneTree\nfunc _initialize() -> void:\n"
-            "    var candidate = load(\"res://candidate.glb\")\n"
-            "    if not candidate is PackedScene:\n        push_error(\"candidate_not_a_packed_scene\")\n"
-            "        quit(1)\n        return\n"
-            "    var instance = candidate.instantiate()\n"
-            "    var meshes = instance.find_children(\"*\",\"MeshInstance3D\",true,false)\n"
-            "    var skeletons = instance.find_children(\"*\",\"Skeleton3D\",true,false)\n"
-            "    if meshes.is_empty() or skeletons.is_empty():\n"
-            "        push_error(\"candidate_mesh_or_skeleton_missing\")\n        quit(1)\n        return\n"
-            "    var expected_color = Vector3(pow(0.11, 1.0 / 2.2), pow(0.57, 1.0 / 2.2), pow(0.65, 1.0 / 2.2))\n"
-            "    var color_survived = false\n"
-            "    for mesh_node in meshes:\n"
-            "        if mesh_node.mesh == null:\n            continue\n"
-            "        for surface_index in range(mesh_node.mesh.get_surface_count()):\n"
-            "            var surface_material = mesh_node.get_active_material(surface_index)\n"
-            "            if surface_material is StandardMaterial3D:\n"
-            "                var color = surface_material.albedo_color\n"
-            "                if Vector3(color.r,color.g,color.b).distance_to(expected_color) < 0.01:\n"
-            "                    color_survived = true\n"
-            "    if not color_survived:\n"
-            "        var actual_colors = []\n"
-            "        for mesh_node in meshes:\n"
-            "            if mesh_node.mesh == null:\n                continue\n"
-            "            for surface_index in range(mesh_node.mesh.get_surface_count()):\n"
-            "                var surface_material = mesh_node.get_active_material(surface_index)\n"
-            "                if surface_material is StandardMaterial3D:\n                    actual_colors.append(surface_material.albedo_color)\n"
-            "        instance.free()\n"
-            "        push_error(\"candidate_material_color_missing expected=%s actual=%s\" % [expected_color,actual_colors])\n"
-            "        quit(1)\n        return\n"
-            "    var mesh_count = meshes.size()\n    var skeleton_count = skeletons.size()\n"
-            "    instance.free()\n"
-            "    print(\"SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d\" % [mesh_count,skeleton_count])\n"
-            "    quit(0)\n",encoding="utf-8")
+        script="res://tests/candidate_body_probe.gd"
+        candidate_evidence={"result_posture":result["receipt"]["result_posture"],
+            "artifact_sha256":result["receipt"]["successor_artifact"]["sha256"],
+            "receipt_digest":result["receipt"]["receipt_digest"],
+            "authority":result["receipt"]["authority"],
+            "body_id":result["receipt"]["body_id"],
+            "predecessor_generation":result["receipt"]["predecessor_generation"]}
         godot_home=tmp_path/"godot-home"; godot_cache=tmp_path/"godot-cache"
         godot_font=tmp_path/"godot-font-cache"
         for directory in (godot_home,godot_cache,godot_font): directory.mkdir()
@@ -398,10 +371,27 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         imported=subprocess.run([godot,"--headless","--path",str(project),"--editor","--quit"],
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert imported.returncode==0, imported.stdout+imported.stderr
-        loaded=subprocess.run([godot,"--headless","--path",str(project),"--quit-after","300","--script",str(script)],
+        loaded=subprocess.run([godot,"--headless","--path",str(project),"--quit-after","300",
+            "--script",script,"--",json.dumps(candidate_evidence,separators=(",",":"))],
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert loaded.returncode==0, loaded.stdout+loaded.stderr
-        assert "SENTIENTOS_GLB_SCENE_READY meshes=" in loaded.stdout, loaded.stdout+loaded.stderr
+        assert "sentientos_candidate_renderer_probe_passed" in loaded.stdout, loaded.stdout+loaded.stderr
+        report_line=next(line for line in loaded.stdout.splitlines()
+            if line.startswith("sentientos_candidate_renderer_report_json:"))
+        report=json.loads(report_line.split(":",1)[1])
+        candidate_state=report["candidate_state"]
+        assert candidate_state["identity"]["artifact_sha256"]==candidate_evidence["artifact_sha256"]
+        assert candidate_state["identity"]["adopted"] is False
+        assert candidate_state["motion"]["status"]=="applied"
+        assert candidate_state["expression"]["status"]=="unsupported"
+        assert candidate_state["visemes"]["status"]=="unsupported"
+        report_payload={key:value for key,value in report.items() if key!="source_digest"}
+        expected_report_digest="sha256:"+hashlib.sha256(json.dumps(report_payload,
+            sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode("utf-8")).hexdigest()
+        assert report["source_digest"]==expected_report_digest
+        assert report["schema_version"]=="sentientos.experimental_candidate_avatar_renderer_report:v1"
+        assert report["effect_proven"] is False
+        assert report["independent_observation"] is False
 
 
 def test_run_workcell_rejects_unavailable_backend_capability_before_workspace_creation(tmp_path):
