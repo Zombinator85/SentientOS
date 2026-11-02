@@ -14,14 +14,14 @@ The deterministic plan contains the current collectors from `sentientos.host_col
 
 Required collectors distinguish stale or unavailable telemetry from zero values. Optional unsupported platform collectors are recorded truthfully as unavailable rather than failed host effects.
 
-`collect_nvidia_gpu_observation` is an optional, read-only NVML adapter for a
-host with `nvidia-ml-py` installed (`pip install -e '.[gpu-telemetry]'`). It can
-report device-wide utilization, VRAM, temperature, and power, plus collector
-overhead. Missing APIs or invalid samples remain unavailable. The adapter does
-not collect per-process GPU utilization, attribute work to the model worker,
-alter collector scheduling, or control the GPU. It is not added to the default
-basic collector set, so the optional package is not silently installed or
-required by ordinary startup.
+`collect_nvidia_gpu_observation` is an optional, read-only NVML adapter included
+in the default admitted observation plan. On a host with `nvidia-ml-py`
+installed (`pip install -e '.[gpu-telemetry]'`) it can report device-wide
+utilization, VRAM, temperature, and power, plus collector overhead. Missing
+packages, APIs, or invalid samples remain unavailable; the dependency is not
+installed automatically or required for startup. The adapter does not collect
+per-process GPU utilization, attribute work to the model worker, alter collector
+scheduling, or control the GPU.
 
 ## Validation, redaction, and identity
 
