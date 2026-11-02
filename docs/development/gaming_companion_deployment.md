@@ -174,3 +174,23 @@ priority, power settings, or other processes. It does not guarantee smooth
 gameplay; target-host measurements are still required to tune the ceiling. The
 limit applies only to the exact llama.cpp runtime worker and is bounded by the
 existing commissioned profile.
+
+## User-requested screen observations
+
+`sentientos.perception.game_screen_capture` provides an opt-in Windows capture
+adapter for a specifically allowlisted foreground game's client area. Each
+capture requires a current caller-supplied operator consent record with an
+expiry and process allowlist; absent or expired consent, an unapproved
+foreground process, stale capture cadence, unsupported platform, or oversized frame fails closed. Frames
+are processed in memory by local Tesseract with a hard timeout, duplicate
+frames are suppressed, and the returned perception contains bounded OCR text,
+capture provenance digests, and an explicit `raw_frame_retained=false` marker.
+Window titles, executable paths, and raw pixels are not included in the
+observation or persisted by this adapter.
+
+The API is disabled unless a caller explicitly requests a screen snapshot and
+composes it with an enabled `ScreenConfig` and a current consent provider. It
+does not start ambient capture, publish to a remote provider, write memory, or
+grant action authority. Linux cloud fixtures can test the policy and OCR
+boundaries; actual Windows capture, local Tesseract availability, and gameplay
+impact still require GLORP validation.
