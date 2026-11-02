@@ -188,6 +188,24 @@ capture provenance digests, and an explicit `raw_frame_retained=false` marker.
 Window titles, executable paths, and raw pixels are not included in the
 observation or persisted by this adapter.
 
+`sentientos.screen_observation_bridge` adds an authenticated loopback transport
+for the bounded output of that OCR owner. The Windows publisher accepts only the
+closed OCR result shape (at most 1200 text characters and digest-only capture
+provenance); it cannot accept or send RGB frame data. The core provider verifies
+the existing HMAC/source/generation/freshness/sequence envelope and rejects
+stale or malformed observations before returning one result to the chat
+observer. An observation is consumed once from its bounded queue. The
+`tests/test_gaming_companion_vertical_godot.py` scenario exercises this path
+with fixture capture and OCR, an actual loopback socket, persistent chat, the
+authorized avatar output path, and headless Godot.
+
+This remains a same-host loopback integration. It does not provide encryption,
+Windows-to-WSL routing, key custody, startup supervision, or a production
+launcher for the Windows publisher. Do not change the fixed loopback bind to a
+non-loopback interface to make this code appear cross-platform; a protected
+transport and target-host network/firewall plan are still required before
+screen text may cross the Windows/WSL boundary.
+
 The `/chat` request field `observe_screen` defaults to `false`. An application
 must explicitly configure `configure_production_chat(screen_observer=...)`
 with an enabled `ScreenOCR` owner constructed using the consent provider before

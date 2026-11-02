@@ -677,6 +677,30 @@ class PersistentConversationService:
                 if (isinstance(value, str) and len(value) == 64
                         and all(character in "0123456789abcdef" for character in value)):
                     screen_provenance[key] = value
+            bridge_provenance = screen_observation.get("bridge_message_provenance")
+            if isinstance(bridge_provenance, Mapping):
+                bridge_fields = {
+                    "message_id", "source_id", "session_id", "generation_id",
+                    "sequence", "created_at", "payload_digest",
+                }
+                message_id = bridge_provenance.get("message_id")
+                payload_digest = bridge_provenance.get("payload_digest")
+                source_id = bridge_provenance.get("source_id")
+                source_session_id = bridge_provenance.get("session_id")
+                generation_id = bridge_provenance.get("generation_id")
+                sequence = bridge_provenance.get("sequence")
+                created_at = bridge_provenance.get("created_at")
+                if (set(bridge_provenance) == bridge_fields
+                        and isinstance(message_id, str) and len(message_id) == 64
+                        and all(character in "0123456789abcdef" for character in message_id)
+                        and isinstance(payload_digest, str) and len(payload_digest) == 64
+                        and all(character in "0123456789abcdef" for character in payload_digest)
+                        and isinstance(source_id, str) and source_id
+                        and isinstance(source_session_id, str) and source_session_id
+                        and isinstance(generation_id, str) and generation_id
+                        and type(sequence) is int and sequence > 0
+                        and isinstance(created_at, str) and len(created_at) <= 64):
+                    screen_provenance["bridge_message_provenance"] = dict(bridge_provenance)
             linkage["screen_observation_provenance"] = screen_provenance
         client_request_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
             if isinstance(user_turn.get("linkage"), Mapping) else None)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,23 @@ from control_plane.records import AuthorizationRecord
 from control_plane.task_admission import AdmissionResponse
 from sentientos.avatar_renderer_report_ingress import renderer_report_world_state_record
 from sentientos.chat_avatar_output import ChatAvatarOutputController
+from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge_runtime import (
+    CompanionBridgeLoopbackClient,
+    CompanionBridgeLoopbackRuntime,
+)
+from sentientos.metrics import MetricsRegistry
+from sentientos.perception.game_screen_capture import (
+    CapturedGameFrame,
+    ForegroundGameWindow,
+    GameScreenCaptureConsent,
+    WindowsGameScreenCapture,
+)
+from sentientos.perception.screen_ocr import ScreenConfig, ScreenOCR
+from sentientos.screen_observation_bridge import (
+    BridgeScreenObservationProvider,
+    WindowsScreenObservationBridgePublisher,
+)
 from speech_emitter import SpeechEmitter
 from avatar_state import AvatarStateEmitter
 from godot_avatar_receiver import AvatarStateForwarder
@@ -38,19 +56,43 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
     state_path = tmp_path / "avatar_state.json"
     avatar = ChatAvatarOutputController(
         SpeechEmitter(AvatarStateEmitter(state_path)), admission_provider=approve)
-    screen_observation = {
-        "modality": "screen",
-        "text": "quest objective: find the observatory",
-        "captured_at": "2026-11-02T17:00:00Z",
-        "backend": "fixture",
-        "capture_digest": "a" * 64,
-        "process_name_digest": "b" * 64,
-        "consent_id_digest": "c" * 64,
-        "capture_scope": "allowlisted_foreground_game_client_area",
-        "raw_frame_retained": False,
-    }
+    captured_at = datetime.now(timezone.utc)
+    source_key = b"windows-screen-test-key-material-32-bytes"
+    core_key = b"sentientos-core-screen-test-key-material"
+    source_id, source_generation = "windows-screen", "windows-screen-generation-1"
+    runtime = CompanionBridgeLoopbackRuntime(
+        receiver=CompanionBridgeReceiver(source_keys={source_id: source_key},
+            expected_generations={source_id: source_generation}),
+        acknowledgment_source_id="sentientos-core-screen",
+        acknowledgment_generation_id="core-screen-generation-1",
+        acknowledgment_key=core_key, queue_capacity=2)
+    port = runtime.start()
+    client = CompanionBridgeLoopbackClient(port=port,
+        acknowledgment_receiver=CompanionBridgeReceiver(
+            source_keys={"sentientos-core-screen": core_key},
+            expected_generations={"sentientos-core-screen": "core-screen-generation-1"}),
+        timeout_seconds=1)
+    capture = WindowsGameScreenCapture(
+        consent_provider=lambda: GameScreenCaptureConsent(
+            "screen-consent", ("ExampleGame.exe",),
+            (captured_at + timedelta(minutes=5)).isoformat()),
+        window_provider=lambda: ForegroundGameWindow("ExampleGame.exe", 0, 0, 4, 4),
+        frame_provider=lambda _window: CapturedGameFrame(4, 4, bytes(4 * 4 * 3)),
+        clock=lambda: captured_at, monotonic=lambda: 1.0)
+    screen_ocr = ScreenOCR(ScreenConfig(enable=True, ocr_backend="fixture"),
+        capture_fn=capture, ocr_fn=lambda _frame: "quest objective: find the observatory",
+        metrics=MetricsRegistry())
+    screen_observation = screen_ocr.snapshot()
+    assert screen_observation is not None
+    publisher = WindowsScreenObservationBridgePublisher(
+        observe=lambda: screen_observation, client=client, source_id=source_id,
+        session_id="windows-screen-session-1", generation_id=source_generation,
+        source_key=source_key)
+    assert publisher.publish_once() is not None
+    screen_observer = BridgeScreenObservationProvider(runtime=runtime,
+        source_id=source_id, generation_id=source_generation)
     inference = Inference()
-    app = service(tmp_path, inference, avatar, screen_observer=lambda: screen_observation)
+    app = service(tmp_path, inference, avatar, screen_observer=screen_observer)
     session_id = app.create_session()
     try:
         app.set_workload_mode("gaming")
@@ -61,7 +103,13 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in inference.calls[0]["prompt"]
         persisted_session = app.sessions.load(session_id)
         assistant_turn = persisted_session["turns"][-1]
-        assert assistant_turn["linkage"]["screen_observation_provenance"]["capture_digest"] == "a" * 64
+        assert (assistant_turn["linkage"]["screen_observation_provenance"]["capture_digest"]
+                == screen_observation["capture_digest"])
+        bridge_provenance = assistant_turn["linkage"]["screen_observation_provenance"][
+            "bridge_message_provenance"]
+        assert bridge_provenance["source_id"] == source_id
+        assert bridge_provenance["generation_id"] == source_generation
+        assert bridge_provenance["sequence"] == 1
         assert assistant_turn["linkage"]["screen_observation_provenance"]["raw_frame_retained"] is False
         assert "quest objective: find the observatory" not in json.dumps(persisted_session)
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
@@ -101,6 +149,7 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         assert record["payload"]["observer_issuer_posture"] == "unverified_caller_assertion"
     finally:
         app.close_outputs()
+        runtime.close()
 
     restarted = service(tmp_path, Inference())
     try:

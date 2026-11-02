@@ -1,6 +1,6 @@
 # Pre-GLORP gaming companion handoff
 
-**Source baseline:** `ce043a6a6ec96f77f8a329accd4a8af8d651c7f8` (verified `main` at this handoff update)  
+**Source baseline:** `71f5424112e379b21a650d9069305761554a30b9` (verified `main` at the start of this integration increment)
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
@@ -130,10 +130,13 @@ run as one deployment procedure.
   independent observation; its source digest is still a renderer claim. The
   procedural demo is not the inspected Blender-authored candidate and is not an
   adopted body.
-- **Perception and situated behavior:** there is no connected, opt-in Windows
-  screen-capture-to-cognition path. Foreground process matching identifies an
-  allowlisted executable only; it does not see game content. No ambient screen,
-  microphone, or provider capture should be enabled.
+- **Perception and situated behavior:** the bounded, opt-in Windows game capture
+  and local OCR owner now has an authenticated loopback bridge into the chat
+  screen-observer interface. The vertical scenario runs fixture capture/OCR
+  through a real loopback socket before persistent chat and Godot rendering.
+  This is same-host software integration, not Windows-to-WSL transport, a live
+  desktop capture, or actual game perception by a local model. No ambient
+  screen, microphone, or provider capture should be enabled.
 - **Speech:** production chat has a separately admitted local TTS path, but
   actual playback, Windows/WSL routing, interruption, and timing-aligned
   visemes have not been exercised on the target host.
@@ -154,16 +157,22 @@ real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
 
 The test node
-`tests/test_gaming_companion_vertical_godot.py::test_fixture_chat_reaches_real_godot_and_returns_unverified_renderer_evidence`
-joins the fixture-backed persistent chat, per-session `AVATAR_EMISSION`, state
-file, Python receiver normalization, and actual headless Godot scene. It passes
-the receiver's normalized JSON as a test-only command-line argument, captures
-the renderer's session/turn/output digest lineage, projects the report through
-the embodiment evidence owner, then restarts chat and verifies transcript
-recovery. It does not exercise a running network bridge. The separate headless
-probe still checks a wave and smile transform directly. Both routes retain
-renderer self-report as an unverified caller assertion. No independent physical
-consequence is proved.
+`tests/test_gaming_companion_vertical_godot.py::test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data`
+uses the consent-checked Windows capture and OCR owners with fixture frame/OCR
+providers, transmits their bounded result over the authenticated loopback bridge,
+and supplies the verified observation to persistent chat. It then exercises
+per-session `AVATAR_EMISSION`, the avatar state file, the actual headless Godot
+scene, renderer report lineage, and chat transcript recovery after restart. The
+fixture OCR text is present in the inference prompt but not the persisted
+transcript or avatar state. Godot's renderer report remains an unverified
+self-report, and no independent physical consequence is proved. The separate
+headless probe checks an authored wave clip and expression behavior.
+
+This scenario does not establish real Windows capture, Windows-to-WSL
+connectivity, production model execution, game performance, or hardware
+telemetry. HMAC authenticates the loopback message but does not encrypt it; the
+bridge must not be moved off loopback for cross-host use without a separately
+designed protected transport.
 
 ## GLORP acceptance sequence
 
