@@ -1,22 +1,32 @@
 # Gaming workload mode
 
-The local chat runtime supports an explicit, reversible `normal` / `gaming`
-workload mode. Gaming mode limits each chat invocation to 4,000 input characters,
+The local chat runtime supports an explicit, reversible `normal`, `gaming`, or
+`automatic` workload mode. Gaming mode limits each chat invocation to 4,000 input characters,
 1,200 output characters, 96 new tokens, and 12 seconds. Existing tighter request
 budgets remain tighter. The effective budget and selected mode are included in the
 ordinary invocation receipt lineage.
 
 The production chat process exposes the mode through its local chat API. The mode
-is process-local and starts as `normal` after restart. A caller must choose
-`gaming`; the current runtime does not detect foreground games automatically.
-The local chat page also provides a Gaming mode checkbox.
-Use `GET /workload-mode` to inspect it and `POST /workload-mode` with
-`{"mode":"gaming"}` or `{"mode":"normal"}` to change it. These routes are
-available only when the production chat composition is active.
-The mode reduces the amount of work a single response can request. It does not
-change llama.cpp CPU thread count, reserve CPU or GPU capacity, stop background
-inference, observe frame time, or establish hardware suitability. Those controls
-need authenticated workload signals and host-side measurements and remain future
+is process-local and starts as `normal` after restart. Select `gaming` to keep the
+low-work budget active for all new turns, or select `automatic` and enter one or
+more Windows executable basenames such as `ExampleGame.exe`. Automatic mode
+compares only the foreground process basename against that explicit allowlist; it
+does not read window titles, command lines, or process paths. The local chat page
+provides these controls.
+
+Use `GET /workload-mode` to inspect the configured and effective mode. Use
+`POST /workload-mode` with `{"mode":"gaming"}` or `{"mode":"normal"}` to
+select a fixed mode. For automatic mode, include
+`{"mode":"automatic","game_process_names":["ExampleGame.exe"]}`. These
+routes are available only when the production chat composition is active.
+
+Automatic detection uses the Windows foreground-window process API. On unsupported
+platforms or when process observation fails, it chooses the lower-work Gaming
+budget and reports that the signal was unavailable. The allowlist and mode are
+process-local and reset on restart. This feature reduces each chat turn's maximum
+work; it does not change llama.cpp CPU thread count, reserve CPU or GPU capacity,
+stop background inference, observe frame time, or establish hardware suitability.
+Those need host-side scheduling and performance measurements and remain future
 integration work.
 
 This is a runtime preference only. It grants no installation, model, host, memory,

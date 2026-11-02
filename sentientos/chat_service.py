@@ -110,6 +110,7 @@ class ChatResponse(BaseModel):
 
 class ChatWorkloadModeRequest(BaseModel):
     mode: str
+    game_process_names: tuple[str, ...] = ()
 
 
 class ChatRequestStateError(ValueError):
@@ -138,17 +139,24 @@ class PersistentConversationService:
             raise RuntimeError("conversation_model_identity_unavailable")
         return str(self.sessions.create(model_identity=identity)["session_id"])
 
-    def set_workload_mode(self, mode: str) -> str:
+    def set_workload_mode(self, mode: str,
+                          game_process_names: tuple[str, ...] | list[str] = ()) -> str:
         setter = getattr(self._inference, "set_workload_mode", None)
         if not callable(setter):
             raise RuntimeError("chat_workload_mode_unavailable")
-        return str(setter(GamingWorkloadPolicy.validate_mode(mode)))
+        return str(setter(GamingWorkloadPolicy.validate_mode(mode), game_process_names))
 
     def current_workload_mode(self) -> str:
         getter = getattr(self._inference, "current_workload_mode", None)
         if not callable(getter):
             raise RuntimeError("chat_workload_mode_unavailable")
         return str(getter())
+
+    def current_workload_state(self) -> dict[str, Any]:
+        getter = getattr(self._inference, "current_workload_state", None)
+        if not callable(getter):
+            raise RuntimeError("chat_workload_mode_unavailable")
+        return dict(getter())
 
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
@@ -818,17 +826,19 @@ async def readiness_endpoint() -> dict[str, str]:
 
 
 @APP.get("/workload-mode")
-async def workload_mode_endpoint() -> dict[str, str]:
+async def workload_mode_endpoint() -> dict[str, Any]:
     try:
-        return {"mode": _get_conversation_service().current_workload_mode()}
+        return _get_conversation_service().current_workload_state()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
 
 
 @APP.post("/workload-mode")
-async def set_workload_mode_endpoint(request: ChatWorkloadModeRequest) -> dict[str, str]:
+async def set_workload_mode_endpoint(request: ChatWorkloadModeRequest) -> dict[str, Any]:
     try:
-        return {"mode": _get_conversation_service().set_workload_mode(request.mode)}
+        mode = _get_conversation_service().set_workload_mode(
+            request.mode, request.game_process_names)
+        return _get_conversation_service().current_workload_state() | {"mode": mode}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -890,7 +900,7 @@ async def root_page() -> HTMLResponse:
                 .boot-entry[data-level="warning"] { border-color: #f0a202; }
                 .boot-entry[data-level="error"] { border-color: #f2545b; }
                 #workload-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
-                #workload-mode { width: auto; min-height: 0; }
+                #workload-mode, #game-process-names { width: auto; min-height: 0; margin: 0.25rem; padding: 0.4rem; }
                 #workload-status { margin-left: 0.5rem; color: #aaa; }
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
@@ -906,7 +916,14 @@ async def root_page() -> HTMLResponse:
                 <h1>SentientOS Local Chat</h1>
                 <p>Start a local conversation with the SentientOS daemon. All interactions remain on your machine.</p>
                 <section id="workload-controls" aria-label="Workload mode">
-                    <label><input id="workload-mode" type="checkbox" /> Gaming mode: shorter responses and a smaller per-turn inference budget</label>
+                    <label for="workload-mode">Workload mode</label>
+                    <select id="workload-mode">
+                        <option value="normal">Normal</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="automatic">Automatic by foreground game</option>
+                    </select>
+                    <label for="game-process-names">Watched game executables</label>
+                    <input id="game-process-names" type="text" placeholder="ExampleGame.exe, AnotherGame.exe" />
                     <span id="workload-status" role="status"></span>
                 </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
@@ -987,42 +1004,58 @@ async def root_page() -> HTMLResponse:
                 }
                 async function refreshWorkloadMode() {
                     const control = document.getElementById('workload-mode');
+                    const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
                     try {
                         const response = await fetch('/workload-mode');
                         if (!response.ok) throw new Error('unavailable');
                         const data = await response.json();
-                        control.checked = data.mode === 'gaming';
-                        status.textContent = data.mode === 'gaming' ? 'Active' : 'Off';
+                        control.value = data.mode;
+                        status.textContent = data.mode === 'automatic'
+                            ? (data.observation_status === 'available'
+                                ? (data.effective_mode === 'gaming' ? 'Game detected; low-work mode active' : 'No watched game in foreground')
+                                : 'Detection unavailable; low-work mode active')
+                            : (data.mode === 'gaming' ? 'Low-work mode active' : 'Normal mode');
                     } catch (_) {
-                        control.checked = false;
                         control.disabled = true;
+                        names.disabled = true;
                         status.textContent = 'Unavailable';
                     }
                 }
                 async function changeWorkloadMode() {
                     const control = document.getElementById('workload-mode');
+                    const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
                     control.disabled = true;
                     try {
+                        const processNames = names.value.split(',').map(value => value.trim()).filter(Boolean);
                         const response = await fetch('/workload-mode', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ mode: control.checked ? 'gaming' : 'normal' }),
+                            body: JSON.stringify({ mode: control.value, game_process_names: processNames }),
                         });
                         if (!response.ok) throw new Error('unavailable');
                         const data = await response.json();
-                        control.checked = data.mode === 'gaming';
-                        status.textContent = data.mode === 'gaming' ? 'Active for new turns' : 'Off';
+                        status.textContent = data.mode === 'automatic'
+                            ? (data.observation_status === 'available'
+                                ? (data.effective_mode === 'gaming' ? 'Game detected; low-work mode active' : 'No watched game in foreground')
+                                : 'Detection unavailable; low-work mode active')
+                            : (data.mode === 'gaming' ? 'Low-work mode active for new turns' : 'Normal mode');
                     } catch (_) {
-                        status.textContent = 'Unable to change mode';
+                        const message = control.value === 'automatic'
+                            ? 'Add one or more executable names ending in .exe' : 'Unable to change mode';
                         await refreshWorkloadMode();
+                        status.textContent = message;
                     } finally {
                         control.disabled = status.textContent === 'Unavailable';
+                        names.disabled = status.textContent === 'Unavailable';
                     }
                 }
                 document.getElementById('send').addEventListener('click', sendMessage);
                 document.getElementById('workload-mode').addEventListener('change', changeWorkloadMode);
+                document.getElementById('game-process-names').addEventListener('change', () => {
+                    if (document.getElementById('workload-mode').value === 'automatic') changeWorkloadMode();
+                });
                 document.getElementById('message').addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                         event.preventDefault();

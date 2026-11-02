@@ -19,7 +19,8 @@ from .governed_local_model_invocation import (
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .installation_state import InstallationStateError
-from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
+from .gaming_workload_policy import EffectiveWorkloadMode, GamingWorkloadPolicy, WorkloadMode
+from .foreground_game_detection import ForegroundGameDetector, normalize_game_process_names
 from .chat_process_generation import (
     ChatProcessGenerationError,
     verify_current_chat_process_handoff,
@@ -53,7 +54,8 @@ class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
     __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock",
-                 "_workload_lock", "_workload_mode")
+                 "_workload_lock", "_workload_mode", "_game_process_names",
+                 "_foreground_game_detector")
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None) -> None:
@@ -64,17 +66,55 @@ class ProductionServingInferenceController:
         self._receipt_capacity_lock = threading.Lock()
         self._workload_lock = threading.Lock()
         self._workload_mode: WorkloadMode = "normal"
+        self._game_process_names: tuple[str, ...] = ()
+        self._foreground_game_detector = ForegroundGameDetector()
 
-    def set_workload_mode(self, mode: str) -> WorkloadMode:
+    def set_workload_mode(self, mode: str,
+                          game_process_names: tuple[str, ...] | list[str] = ()) -> WorkloadMode:
         """Set a process-local chat budget mode; this grants no host authority."""
         validated = GamingWorkloadPolicy.validate_mode(mode)
+        names = (normalize_game_process_names(game_process_names)
+                 if validated == "automatic" else ())
         with self._workload_lock:
             self._workload_mode = validated
+            self._game_process_names = names
         return validated
 
     def current_workload_mode(self) -> WorkloadMode:
         with self._workload_lock:
             return self._workload_mode
+
+    def current_workload_state(self) -> dict[str, Any]:
+        with self._workload_lock:
+            configured_mode = self._workload_mode
+            names = self._game_process_names
+        if configured_mode != "automatic":
+            effective: EffectiveWorkloadMode = configured_mode
+            evidence: dict[str, Any] = {
+                "configured_mode": configured_mode,
+                "mode_source": "operator_selected",
+                "observation_status": "not_requested",
+                "game_foreground": None,
+                "process_name_digest": None,
+                "observed_at": None,
+            }
+        else:
+            observed = self._foreground_game_detector.observe(names)
+            if observed.status == "available":
+                effective = "gaming" if observed.game_foreground is True else "normal"
+                source = "foreground_allowlist_match" if observed.game_foreground else "foreground_allowlist_no_match"
+            else:
+                # If automatic detection is unavailable, keep the safer low-work profile.
+                effective = "gaming"
+                source = "foreground_observation_unavailable_conservative_gaming"
+            evidence = {
+                "configured_mode": "automatic", "mode_source": source,
+                "observation_status": observed.status,
+                "game_foreground": observed.game_foreground,
+                "process_name_digest": observed.process_name_digest,
+                "observed_at": observed.observed_at,
+            }
+        return {"mode": configured_mode, "effective_mode": effective, **evidence}
 
     def _software_generation_attribution(self) -> dict[str, Any]:
         if self._runtime_handoff_id is None:
@@ -145,7 +185,8 @@ class ProductionServingInferenceController:
         if (configured_operation is not None
                 and configured_operation != binding.get("serving_operation_id")):
             raise ProductionServingInferenceError("serving_operation_chat_handoff_mismatch")
-        workload_mode = self.current_workload_mode()
+        workload_state = self.current_workload_state()
+        workload_mode = workload_state["effective_mode"]
         effective_budget, linkage = GamingWorkloadPolicy.apply_to_chat_invocation(
             workload_mode, budget or LocalModelInvocationBudget(), {
             "serving_session_id": session.session_id,
@@ -170,7 +211,9 @@ class ProductionServingInferenceController:
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
             "software_generation_attribution": software_generation_attribution,
-        })
+        }, workload_evidence={key: workload_state[key] for key in (
+            "configured_mode", "mode_source", "observation_status", "game_foreground",
+            "process_name_digest", "observed_at")})
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")
