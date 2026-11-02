@@ -13,7 +13,7 @@ from sentientos.avatar_renderer_report_ingress import renderer_report_world_stat
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_real_godot_demo_emits_bounded_renderer_self_report(tmp_path):
+def test_real_godot_demo_emits_bounded_renderer_self_report(tmp_path: Path) -> None:
     godot = shutil.which("godot") or shutil.which("godot4")
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
@@ -47,3 +47,12 @@ def test_real_godot_demo_emits_bounded_renderer_self_report(tmp_path):
     assert record["payload"]["renderer_report"]["renderer_state"]["motion"]["active_motion"] == "wave"
     assert record["effect_proven"] is False
     assert record["payload"]["observer_issuer_posture"] == "unverified_caller_assertion"
+
+
+def test_godot_demo_udp_listener_is_explicitly_loopback_only() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    driver = (repository_root / "godot_avatar_demo/scripts/avatar_driver.gd").read_text(
+        encoding="utf-8")
+    assert 'const LOOPBACK_BIND_ADDRESS := "127.0.0.1"' in driver
+    assert "_server.listen(listen_port, LOOPBACK_BIND_ADDRESS)" in driver
+    assert "_server.listen(listen_port)" not in driver

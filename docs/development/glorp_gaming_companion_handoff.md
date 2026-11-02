@@ -1,6 +1,6 @@
 # Pre-GLORP gaming companion handoff
 
-**Source baseline:** `6a6366d9c2626922f40ad426f1e76595f15347f7` (verified `main` at this handoff update)  
+**Source baseline:** `ce043a6a6ec96f77f8a329accd4a8af8d651c7f8` (verified `main` at this handoff update)  
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
@@ -84,9 +84,9 @@ run as one deployment procedure.
 
 ## What remains unfinished
 
-- **Split WSL2/Windows bridge:** the current forwarder and demo use unauthenticated
-  UDP and default to loopback. They are suitable only for the current same-host
-  local demo. Do not change the destination to a WSL/Windows interface address
+- **Split WSL2/Windows bridge:** the forwarder and Godot demo use unauthenticated
+  same-host UDP; the Godot listener now explicitly binds to `127.0.0.1`. This is
+  still not an authenticated cross-host bridge. Do not change the bind address
   or expose the listener to the LAN. A versioned authenticated bridge, source
   and generation binding, replay protection, reconnect/backpressure behavior,
   and Windows-side observer adapter do not exist yet. The new envelope library

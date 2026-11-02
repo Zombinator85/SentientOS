@@ -22,3 +22,8 @@ to speak. They only render state supplied by SentientOS.
 The scene is a standalone preview window. It does not create an in-game overlay, inspect game frames, measure frame
 time, or throttle host/GPU resources. Those capabilities require separate platform and operator integration.
 This demo is not a production renderer and does not activate or adopt an avatar body.
+
+
+The demo receiver binds its UDP port to `127.0.0.1` explicitly. It is a
+same-host convenience channel, not an authenticated network bridge; do not
+change its bind address or expose the port to a LAN.

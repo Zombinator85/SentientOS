@@ -13,15 +13,16 @@ var _report_sequence := 0
 var _last_renderer_report := {}
 const NORMAL_RENDER_FPS := 60
 const GAMING_RENDER_FPS := 15
+const LOOPBACK_BIND_ADDRESS := "127.0.0.1"
 
 
 func _ready() -> void:
 	_renderer_generation_id = "godot-demo-" + str(Time.get_ticks_usec())
 	_set_workload_mode("normal")
 	if auto_listen:
-		var result := _server.listen(listen_port)
+		var result := _server.listen(listen_port, LOOPBACK_BIND_ADDRESS)
 		if result == OK:
-			_write_status("Listening on UDP %d" % listen_port)
+			_write_status("Listening on loopback UDP %d" % listen_port)
 		else:
 			_write_status("UDP listener unavailable (%s)" % error_string(result))
 	else:
