@@ -26,7 +26,21 @@ def require_authorization_for_request_types(
         raise AuthorizationError(str(reason))
 
     request_type = getattr(authorization, "request_type", None)
-    if request_type not in {RequestType(item) for item in allowed_request_types}:
+    allowed: set[RequestType] = set()
+    for item in allowed_request_types:
+        if isinstance(item, RequestType):
+            allowed.add(item)
+            continue
+        if not isinstance(item, str):
+            raise AuthorizationError(ReasonCode.INVALID_AUTHORIZATION.value)
+        try:
+            allowed.add(RequestType(item))
+        except ValueError:
+            try:
+                allowed.add(RequestType(item.upper()))
+            except ValueError as exc:
+                raise AuthorizationError(ReasonCode.INVALID_AUTHORIZATION.value) from exc
+    if request_type not in allowed:
         raise AuthorizationError(ReasonCode.INVALID_AUTHORIZATION.value)
     return authorization
 

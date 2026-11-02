@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import logging
 import hashlib
 import json
@@ -62,6 +63,14 @@ class ChatInference(Protocol):
                  caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt: ...
 
 
+class ChatAvatarOutput(Protocol):
+    def set_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]: ...
+    def state(self, session_id: str) -> dict[str, Any]: ...
+    def publish_response(self, *, session_id: str, turn_id: str, text: str,
+                         output_digest: str) -> Mapping[str, Any]: ...
+    def close(self) -> None: ...
+
+
 class DevelopmentSimulationInference:
     """Affirmative test/development-only adapter; never selected by production."""
     __slots__ = ("_delegate",)
@@ -86,10 +95,13 @@ class ProductionChatComposition:
         self._resource_owner = resource_owner
     def close(self) -> None:
         try:
-            self._serving.close()
+            self.service.close_avatar_output()
         finally:
-            if self._resource_owner is not None:
-                self._resource_owner.close()
+            try:
+                self._serving.close()
+            finally:
+                if self._resource_owner is not None:
+                    self._resource_owner.close()
     def ready(self) -> bool:
         return cast(bool, self._serving.serving_is_current())
 
@@ -113,6 +125,11 @@ class ChatWorkloadModeRequest(BaseModel):
     game_process_names: tuple[str, ...] = ()
 
 
+class ChatAvatarOutputRequest(BaseModel):
+    session_id: str
+    enabled: bool
+
+
 class ChatRequestStateError(ValueError):
     """A replay conflict or an intentionally unreplayed interrupted request."""
 
@@ -125,8 +142,10 @@ class PersistentConversationService:
     """
     def __init__(self, *, inference: ChatInference, session_store: ConversationSessionStore,
                  memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
-                 memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None) -> None:
+                 memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None,
+                 avatar_output: ChatAvatarOutput | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
+        self._avatar_output = avatar_output
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -157,6 +176,24 @@ class PersistentConversationService:
         if not callable(getter):
             raise RuntimeError("chat_workload_mode_unavailable")
         return dict(getter())
+
+    def avatar_output_state(self, session_id: str | None) -> dict[str, Any]:
+        if self._avatar_output is None:
+            return {"configured": False, "enabled": False}
+        if session_id is None:
+            return {"configured": True, "enabled": False}
+        self.sessions.load(session_id)
+        return self._avatar_output.state(session_id)
+
+    def set_avatar_output_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]:
+        if self._avatar_output is None:
+            raise RuntimeError("chat_avatar_output_not_configured")
+        self.sessions.load(session_id)
+        return self._avatar_output.set_enabled(session_id, enabled)
+
+    def close_avatar_output(self) -> None:
+        if self._avatar_output is not None:
+            self._avatar_output.close()
 
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
@@ -583,6 +620,13 @@ class PersistentConversationService:
                      "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
                      "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
                      "omitted_memory_count": memory.get("omitted_memory_count")})
+        if self._avatar_output is not None:
+            try:
+                self._avatar_output.publish_response(
+                    session_id=session["session_id"], turn_id=str(assistant["turn_id"]),
+                    text=receipt.output_text, output_digest=transcript_output_digest)
+            except Exception as exc:
+                LOGGER.warning("Avatar response publication failed: %s", type(exc).__name__)
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
             operation_id = "retain:" + session["session_id"] + ":" + user_turn["turn_id"]
@@ -668,7 +712,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               control_plane_kernel: ControlPlaneKernel | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
-                              runtime_handoff_id: str | None = None) -> None:
+                              runtime_handoff_id: str | None = None,
+                              avatar_state_path: Path | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
@@ -711,12 +756,22 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
         )
+        avatar_output = None
+        if avatar_state_path is not None:
+            from control_plane import admit_request
+            from avatar_state import AvatarStateEmitter
+            from speech_emitter import SpeechEmitter
+            from .chat_avatar_output import ChatAvatarOutputController
+
+            avatar_output = ChatAvatarOutputController(
+                SpeechEmitter(AvatarStateEmitter(avatar_state_path)),
+                admission_provider=admit_request)
         # The roots were checked before serving was established.  Transcript
         # custody remains installation-scoped; canonical memory remains user-scoped.
         handle.ensure_directory(conversation_root)
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(conversation_root.path),
-            memory_store=CanonicalMemoryStore(memory_root))
+            memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output)
     except Exception:
         if serving is not None:
             serving.close()
@@ -845,6 +900,32 @@ async def set_workload_mode_endpoint(request: ChatWorkloadModeRequest) -> dict[s
         raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
 
 
+@APP.get("/avatar-output")
+async def avatar_output_state_endpoint(session_id: str | None = None) -> dict[str, Any]:
+    try:
+        return _get_conversation_service().avatar_output_state(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Chat session not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Avatar output state unavailable") from exc
+
+
+@APP.post("/avatar-output")
+async def set_avatar_output_endpoint(request: ChatAvatarOutputRequest) -> dict[str, Any]:
+    try:
+        return _get_conversation_service().set_avatar_output_enabled(
+            request.session_id, request.enabled)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Chat session not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        LOGGER.warning("Avatar output control unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Avatar output unavailable") from exc
+
+
 @APP.post("/sessions")
 async def create_session() -> dict[str, str]:
     try:
@@ -902,6 +983,8 @@ async def root_page() -> HTMLResponse:
                 #workload-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
                 #workload-mode, #game-process-names { width: auto; min-height: 0; margin: 0.25rem; padding: 0.4rem; }
                 #workload-status { margin-left: 0.5rem; color: #aaa; }
+                #avatar-output-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
+                #avatar-output-status { margin-left: 0.5rem; color: #aaa; }
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
                 .response { margin-top: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px; }
@@ -925,6 +1008,12 @@ async def root_page() -> HTMLResponse:
                     <label for="game-process-names">Watched game executables</label>
                     <input id="game-process-names" type="text" placeholder="ExampleGame.exe, AnotherGame.exe" />
                     <span id="workload-status" role="status"></span>
+                </section>
+                <section id="avatar-output-controls" aria-label="Avatar response display">
+                    <label for="avatar-output-enabled">Show replies in companion</label>
+                    <input id="avatar-output-enabled" type="checkbox" disabled />
+                    <span id="avatar-output-status" role="status">Visual text and a nod only; no audio.</span>
+                    <p>Approval is limited to this conversation and expires after four hours or when the chat service stops.</p>
                 </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
                 <button id="send">Send</button>
@@ -1001,6 +1090,62 @@ async def root_page() -> HTMLResponse:
                     localStorage.removeItem(pendingKey);
                     responseTextEl.textContent = data.response;
                     responseEl.hidden = false;
+                    refreshAvatarOutput();
+                }
+                async function ensureConversationSession() {
+                    let sessionId = localStorage.getItem('sentientos_session_id');
+                    if (sessionId) return sessionId;
+                    const created = await fetch('/sessions', { method: 'POST' });
+                    if (!created.ok) throw new Error('session_unavailable');
+                    sessionId = (await created.json()).session_id;
+                    localStorage.setItem('sentientos_session_id', sessionId);
+                    return sessionId;
+                }
+                async function refreshAvatarOutput(preserveStatus = false) {
+                    const control = document.getElementById('avatar-output-enabled');
+                    const status = document.getElementById('avatar-output-status');
+                    const sessionId = localStorage.getItem('sentientos_session_id');
+                    try {
+                        const query = sessionId ? '?session_id=' + encodeURIComponent(sessionId) : '';
+                        const response = await fetch('/avatar-output' + query);
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.disabled = data.configured !== true;
+                        control.checked = data.enabled === true;
+                        if (!preserveStatus) {
+                            status.textContent = data.configured
+                                ? (data.enabled ? 'Visual-only approval active for this conversation.'
+                                    : (data.clear_pending ? 'Off; the previous display could not be cleared.' : 'Off'))
+                                : 'Avatar state path is not configured.';
+                        }
+                    } catch (_) {
+                        control.disabled = true;
+                        status.textContent = 'Avatar output status unavailable';
+                    }
+                }
+                async function changeAvatarOutput() {
+                    const control = document.getElementById('avatar-output-enabled');
+                    const status = document.getElementById('avatar-output-status');
+                    control.disabled = true;
+                    try {
+                        const sessionId = await ensureConversationSession();
+                        const response = await fetch('/avatar-output', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: sessionId, enabled: control.checked }),
+                        });
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.checked = data.enabled === true;
+                        status.textContent = data.enabled
+                            ? 'Visual-only approval active for this conversation.'
+                            : (data.reason ? 'Approval denied: ' + data.reason
+                                : (data.state_cleared === false ? 'Off; avatar state could not be cleared.' : 'Off'));
+                    } catch (_) {
+                        control.checked = false;
+                        status.textContent = 'Unable to update avatar output';
+                    } finally {
+                        await refreshAvatarOutput(true);
+                    }
                 }
                 async function refreshWorkloadMode() {
                     const control = document.getElementById('workload-mode');
@@ -1127,6 +1272,7 @@ async def root_page() -> HTMLResponse:
                     }
                 }
                 document.getElementById('send').addEventListener('click', sendMessage);
+                document.getElementById('avatar-output-enabled').addEventListener('change', changeAvatarOutput);
                 document.getElementById('workload-mode').addEventListener('change', changeWorkloadMode);
                 document.getElementById('game-process-names').addEventListener('change', () => {
                     if (document.getElementById('workload-mode').value === 'automatic') changeWorkloadMode();
@@ -1139,8 +1285,10 @@ async def root_page() -> HTMLResponse:
                 });
                 refreshBootFeed();
                 refreshWorkloadMode();
+                refreshAvatarOutput();
                 setInterval(refreshBootFeed, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
+                setInterval(refreshAvatarOutput, 5000);
             </script>
         </body>
         </html>
@@ -1156,6 +1304,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--resource-provisioning-id")
     parser.add_argument("--runtime-handoff-id", required=True)
     parser.add_argument("--expected-software-generation-digest", required=True)
+    parser.add_argument("--avatar-state-path", type=Path,
+                        help="Opt in to a local visual-only avatar output state file")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
@@ -1178,7 +1328,8 @@ def main(argv: list[str] | None = None) -> None:
                 serving_operation_id=args.serving_operation_id,
                 expected_activation_state_digest=args.expected_activation_state_digest,
                 resource_provisioning_id=args.resource_provisioning_id,
-                runtime_handoff_id=args.runtime_handoff_id)
+                runtime_handoff_id=args.runtime_handoff_id,
+                avatar_state_path=args.avatar_state_path)
             run(host=args.host, port=args.port)
     except Exception as exc:
         raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
@@ -1187,9 +1338,21 @@ def main(argv: list[str] | None = None) -> None:
 def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     if _CONVERSATION_SERVICE is None:
         raise RuntimeError("chat_not_explicitly_configured")
+    if (_CONVERSATION_SERVICE.avatar_output_state(None).get("configured") is True
+            and not _is_loopback_host(host)):
+        raise RuntimeError("chat_avatar_output_requires_loopback_host")
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)
+
+
+def _is_loopback_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 

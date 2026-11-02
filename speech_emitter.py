@@ -18,6 +18,7 @@ DEFAULT_BASE_STATE: Dict[str, Any] = {
 }
 
 DEFAULT_VISEME_DURATION = 0.12
+MAX_AVATAR_DISPLAY_PHRASE_CHARS = 2048
 
 VisemeTimeline = List[Dict[str, Any]]
 
@@ -107,7 +108,8 @@ class SpeechEmitter:
             payload["metadata"] = dict(metadata)
         return self.avatar_state_emitter.emit(payload)
 
-    def emit_idle(self, *, authorization: Any | None = None) -> Dict[str, Any]:
+    def emit_idle(self, *, authorization: Any | None = None,
+                  metadata: Mapping[str, Any] | None = None) -> Dict[str, Any]:
         _require_avatar_authorization(authorization)
         payload: Dict[str, Any] = {
             **DEFAULT_BASE_STATE,
@@ -121,6 +123,40 @@ class SpeechEmitter:
             "viseme_events": [],
             "phrase": {"text": "", "started_at": None, "muted": False, "speaking": False, "viseme_count": 0},
         }
+        if metadata:
+            payload["metadata"] = dict(metadata)
+        return self.avatar_state_emitter.emit(payload)
+
+    def emit_display_text(
+        self, phrase: str, *, authorization: Any | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        """Show a chat caption without claiming speech or invoking TTS."""
+        _require_avatar_authorization(authorization)
+        visible = phrase[:MAX_AVATAR_DISPLAY_PHRASE_CHARS]
+        payload: Dict[str, Any] = {
+            **DEFAULT_BASE_STATE,
+            **dict(self.base_state),
+            "intensity": 0.25,
+            "expression": "rest",
+            "motion": "nod",
+            "current_phrase": visible,
+            "phrase_started_at": None,
+            "is_speaking": False,
+            "speaking": False,
+            "muted": False,
+            "phrase": {
+                "text": visible,
+                "started_at": None,
+                "muted": False,
+                "speaking": False,
+                "viseme_count": 0,
+            },
+            "viseme_timeline": [],
+            "viseme_events": [],
+        }
+        if metadata:
+            payload["metadata"] = dict(metadata)
         return self.avatar_state_emitter.emit(payload)
 
     def emit_from_tts(
