@@ -43,7 +43,7 @@ the target host.
   on 2026-11-02 with the already verified Qwen2.5-0.5B-Instruct Q4_K_M artifact
   and `llama-cpp-python 0.3.35`. The exact prompt, response, model/runtime
   identity, timing, resource data, and receipts are preserved in
-  [`evidence/pre_glorp_model_baseline_2026-11-02/`](evidence/pre_glorp_model_baseline_2026-11-02/).
+  `docs/development/evidence/pre_glorp_model_baseline_2026-11-02/`.
   That run is rootless experimental evidence, not production commissioning or a
   gaming-performance trial.
 
