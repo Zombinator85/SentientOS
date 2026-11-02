@@ -142,6 +142,11 @@ def _validate_message(kind: str, payload: Mapping[str, Any], admission: Mapping[
             _identifier(payload.get("message_id"), "bridge_acknowledgment_reference")
         except CompanionBridgeError as exc:
             raise CompanionBridgeError("bridge_acknowledgment_reference_required") from exc
+        disposition = payload.get("disposition")
+        if disposition is not None and (
+                not isinstance(disposition, str)
+                or disposition not in {"accepted", "rejected_backpressure"}):
+            raise CompanionBridgeError("bridge_acknowledgment_disposition_invalid")
 
 
 def encode_message(*, kind: str, source_id: str, session_id: str,

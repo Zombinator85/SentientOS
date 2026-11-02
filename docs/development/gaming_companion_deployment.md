@@ -81,8 +81,37 @@ binding.
 ## Current deployment limit
 
 The authenticated envelope and replay checks live in
-`sentientos.gaming_companion_bridge`; that module does not open sockets, custody
-keys, reconnect, or manage component lifecycles. The current avatar forwarder
-and Godot demo remain a same-host loopback demonstration. Startup, health
-monitoring, reconnect, shutdown, and actual Windows/WSL communication remain
-unfinished and must be proven on the target machine.
+`sentientos.gaming_companion_bridge`. `sentientos.gaming_companion_bridge_runtime`
+now provides a bounded TCP lifecycle for one envelope per connection. The
+listener is fixed to `127.0.0.1`; there is no configurable all-interface or LAN
+bind. It verifies the existing HMAC/source/generation/freshness/sequence rules,
+places accepted messages in a bounded in-memory queue, and returns a signed,
+message-linked acknowledgment. The client opens a fresh loopback connection for
+each message. After a listener restart, a caller must construct a new client
+with the newly issued acknowledgment generation. A runtime instance cannot be
+started a second time; its replacement must receive newly issued source
+generations after shutdown.
+
+This is a local transport component, not the split Windows/WSL deployment. Keys
+and active generations must be supplied by an external custody/configuration
+owner; the runtime neither creates nor persists them. A restart must use a
+fresh source generation because replay high-water marks and queued messages are
+process-local. External generation custody must issue and supply fresh values;
+the transport cannot verify that an externally supplied generation is new. A
+full queue returns a signed, message-linked `rejected_backpressure`
+acknowledgment without verifying the frame or consuming its sequence; the
+sender may retry that same frame after queue capacity returns. A disconnect
+after transmission, however, leaves delivery indeterminate. Callers must not
+automatically replay or issue a replacement event until the receiving owner
+resolves whether the original was accepted; the transport does not provide
+exactly-once delivery or a reconciliation store. The runtime does not execute
+avatar commands, grant authority, persist messages, translate Windows/WSL
+networking, or promote renderer self-reports to independent observations. The
+caller still has to route each verified message through its existing authorized
+owner.
+
+The current avatar forwarder and Godot demo remain a same-host loopback
+demonstration. A target-host test must still establish Windows-to-WSL reachability
+under the selected WSL networking mode, independent key/generation custody,
+source restart rotation, caller integration, and lifecycle supervision. No
+firewall rule or non-loopback bind is created by this implementation.
