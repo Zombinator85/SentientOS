@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, ControlActionDecision, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
-from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
+from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_nvidia_gpu_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
@@ -31,7 +31,7 @@ FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS
 
 @dataclass(frozen=True)
 class HostObservationBudget:
-    max_collectors: int = 9
+    max_collectors: int = 10
     per_collector_timeout_seconds: float = 1.0
     total_deadline_seconds: float = 5.0
     max_workers: int = 4
@@ -130,6 +130,7 @@ def default_collector_specs() -> tuple[HostObservationCollectorSpec, ...]:
         HostObservationCollectorSpec("process", False, ("linux",), 50, collect_process_observation),
         HostObservationCollectorSpec("network_interfaces", False, ("linux",), 60, collect_network_interface_observation),
         HostObservationCollectorSpec("service_manager", False, allp, 70, collect_service_manager_observation),
+        HostObservationCollectorSpec("nvidia_gpu", False, allp, 75, collect_nvidia_gpu_observation),
         HostObservationCollectorSpec("thermal_sensors", False, ("linux",), 80, collect_thermal_sensor_observation),
         HostObservationCollectorSpec("fan_pwm", False, ("linux",), 90, collect_fan_pwm_observation),
     ), key=lambda s: (s.order, s.collector_id)))

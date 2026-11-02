@@ -61,6 +61,16 @@ def test_validation_redaction_identity_and_semantics(tmp_path):
     assert p1.semantic_digest != p3.semantic_digest
 
 
+def test_default_observation_plan_includes_optional_nvidia_telemetry() -> None:
+    plan = build_observation_plan()
+    gpu_collectors = [item for item in plan.collectors if item.collector_id == "nvidia_gpu"]
+
+    assert len(gpu_collectors) == 1
+    assert gpu_collectors[0].required is False
+    assert len(plan.collectors) <= plan.budget.max_collectors
+    assert plan.effect_authority is False
+
+
 def test_evaluation_snapshot_policy_world_state_and_artifact_custody(tmp_path):
     c = HostResourceRuntimeCoordinator(kernel=ControlPlaneKernel(phase=LifecyclePhase.MAINTENANCE), runtime_state_root=tmp_path, plan=build_observation_plan(specs=[HostObservationCollectorSpec("memory", True, ("linux","unknown"), 1, lambda observed_at=None: _result("memory", "partial", total_bytes=1, usage_unavailable=True)), HostObservationCollectorSpec("disk", True, ("linux","unknown"), 2, lambda observed_at=None: _result("disk", "available", used_percent=0, free_bytes=10)), HostObservationCollectorSpec("cpu", True, ("linux","unknown"), 3, lambda observed_at=None: _result("cpu", "partial", load_average_1m=0.0))]))
     e = c.run_cycle(correlation_id="tick:eval")
