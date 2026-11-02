@@ -67,6 +67,28 @@ emotion, or generate mouth cues. The state file is owner-only on POSIX. Start
 the local avatar receiver with the same file path and open the Godot demo to
 render updates. The display remains a standalone window, not a game overlay.
 
+## Optional local spoken replies
+
+The supervised chat process can separately opt into local spoken replies with
+`--local-speech-output`. The local chat page then offers **Speak replies with
+local voice**. It is off by default and needs a separate per-conversation
+`SPEECH_TTS` grant; the grant expires after four hours or when the process
+stops. Install the narrow optional dependency with
+`pip install -e '.[local-tts]'`. The player uses `pyttsx3` and the host's local
+speech engine only. This path does not select Edge TTS, upload text, record a
+microphone, or send audio to a provider. When the local backend is missing, the
+control remains unavailable. At most one short response waits in the playback
+queue; a full queue reports busy instead of accumulating delayed speech.
+Disabling the control discards queued replies and requests that active playback
+stop.
+
+Speech output is generated audio from text, not live lip-sync evidence. The
+avatar's visual chat state and speech playback use separate output paths; the
+renderer does not claim mouth motion merely because audio was queued. Gaming
+mode still affects the model's reply budget and wording only. It does not
+automatically speak, start a conversation, capture game frames or audio, or
+control the game.
+
 ## Safe embodiment guidance
 
 - Treat `mood` and `intensity` as advisory, not prescriptive; never force an
