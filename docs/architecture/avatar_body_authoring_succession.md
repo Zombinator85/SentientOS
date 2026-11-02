@@ -38,9 +38,15 @@ inspection drivers; its actual operation set is limited to mesh creation,
 transforms, armatures, bones, and automatic armature binding. Binding is accepted
 only when the independent inspector sees both an armature modifier and weights
 assigned to one of its bones. Unsupported plan operations fail before a Blender
-process starts. This adapter currently accepts native `.blend` predecessors;
-the broader `.glb` and `.gltf` manifest support does not imply that this driver
-can import those formats. It rejects them before creating a workcell. Backend
+process starts. This adapter accepts native `.blend` and self-contained `.glb`
+predecessors. For GLB, the repository-owned driver imports the copied source,
+applies only the bounded operation set, exports one GLB, then a separate Blender
+process imports that output for structural inspection. GLB export omits normals
+and UVs because the current operations do not author those channels; the
+candidate is geometry and skinning only, without authored textures or facial
+animation. The acceptance test also loads the candidate in Godot when that
+engine is installed. `.gltf` is rejected because external buffer and image
+sidecars are not covered by the one-file artifact custody identity. Backend
 identity records `configured_candidate_tool`, not production evidence.
 Primitive creation is bounded by both an estimated 4,096 vertices per mesh and
 65,536 total estimated vertices per plan; the independent inspector records the

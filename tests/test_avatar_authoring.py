@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.avatar_authoring import (
-    AvatarAuthoringError, BackendIdentity, BLENDER_SUPPORTED_OPERATIONS,
+    AvatarAuthoringError, BackendIdentity, BLENDER_SUPPORTED_FORMATS, BLENDER_SUPPORTED_OPERATIONS,
     SyntheticArtifactInspector, SyntheticAuthoringBackend,
     adopt, adoption_observation, blender_readiness, build_admission, digest,
     compare_structure, genesis_adopt, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
@@ -157,6 +158,7 @@ def test_blender_driver_capabilities_match_the_declared_backend() -> None:
     from scripts.avatar_blender_driver import SUPPORTED_OPERATIONS, _primitive_vertex_count
 
     assert SUPPORTED_OPERATIONS == BLENDER_SUPPORTED_OPERATIONS
+    assert BLENDER_SUPPORTED_FORMATS == {"blend", "glb"}
     for primitive, vertices in (("cube", 32), ("plane", 32), ("uv_sphere", 32),
                                 ("uv_sphere", 64), ("cylinder", 256), ("cone", 256)):
         args={"primitive":primitive,"vertices":vertices} if primitive in {"uv_sphere","cylinder","cone"} else {"primitive":primitive}
@@ -238,6 +240,96 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
 
+def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
+    executable=shutil.which("blender")
+    if executable is None:
+        pytest.skip("Blender is unavailable in this validation environment")
+    source=tmp_path/"predecessor.glb"
+    home=tmp_path/"home"; cache=tmp_path/"cache"
+    home.mkdir(); cache.mkdir()
+    created=subprocess.run([executable,"--background","--factory-startup","--python-expr",
+        f"import bpy; bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.mesh.primitive_cube_add(); bpy.ops.export_scene.gltf(filepath={str(source)!r}, export_format='GLB')"],
+        check=False,capture_output=True,text=True,timeout=45,
+        env={"PATH":os.defpath,"HOME":str(home),"XDG_CACHE_HOME":str(cache),"LC_ALL":"C"})
+    assert created.returncode==0 and source.is_file(), created.stderr[-2000:]
+
+    import hashlib
+    source_digest="sha256:"+hashlib.sha256(source.read_bytes()).hexdigest()
+    old=AvatarBodyManifest("installation:diagnostic","avatar:glb-smoke",source_digest,"glb",
+        "rig:empty",digest({}),"renderer:diagnostic","right-handed-y-up",(),(),(),(),(),
+        ("avatar_pose",),1,None,"non-adopted-glb-test")
+    value={"schema_version":"sentientos.avatar_authoring_plan:v1","plan_id":"glb-smoke",
+        "installation_body_id":old.installation_body_id,"body_id":"avatar:glb-smoke",
+        "predecessor_generation":1,"predecessor_artifact_digest":source_digest,
+        "predecessor_manifest_digest":old.semantic_digest,"proposed_by":"test",
+        "operations":[
+            operation("rig","create_armature","SentientRig",{}, {"exists":True}),
+            operation("root","create_bone","SentientRig",{"parent":None,"head":[0,0,-1],"tail":[0,0,0]}, {"bone":"root"}),
+            operation("upper","create_bone","SentientRig",{"parent":"root","head":[0,0,0],"tail":[0,0,1]}, {"bone":"upper"}),
+            operation("head","create_primitive_mesh","CompanionHead",{"primitive":"uv_sphere","vertices":32}, {}),
+            operation("skin","bind_armature","CompanionHead",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
+        ]}
+    pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
+    driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
+    inspector_driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_inspector.py"
+    backend=BlenderBackend(Path(executable),driver)
+    inspector=BlenderArtifactInspector(Path(executable),inspector_driver)
+    workspace=(tmp_path/"workcells"/"glb-smoke").resolve()
+    successor=workspace/"output"/"successor.glb"
+    checked=validate_plan(value)
+    admission=build_admission(admission_id="development-glb-smoke",work_id="glb-smoke",pointer=pointer,
+        plan=checked,workspace=workspace,backend=backend.identity,output=successor,
+        operator_approval="test-only; no adoption")
+    result=run_workcell(current_pointer=pointer,predecessor_manifest=old,predecessor=source,
+        plan_value=value,admission=admission,workspace_root=tmp_path/"workcells",backend=backend,
+        inspector=inspector,work_id="glb-smoke")
+
+    assert result["receipt"]["result_posture"]=="candidate_validated", result["comparison"]
+    assert result["comparison"]["counts"]["satisfied"]==5
+    assert result["comparison"]["unexpected_changes"]==[]
+    assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
+    head=result["successor_inspection"]["objects"]["CompanionHead"]
+    assert head["vertex_count"]==482
+    assert set(head["vertex_group_names"])=={"root","upper"}
+    assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
+    assert not any(result["receipt"]["authority"].values())
+
+    godot=shutil.which("godot")
+    if godot is None:
+        godot=next((str(path) for path in (Path("/usr/local/bin/godot"),Path("/usr/bin/godot"),
+            Path("/usr/bin/godot4")) if path.is_file() and os.access(path,os.X_OK)),None)
+    if godot is not None:
+        project=tmp_path/"godot-project"
+        shutil.copytree(Path(__file__).parents[1]/"godot_avatar_demo",project,
+            ignore=shutil.ignore_patterns(".godot","*.uid"))
+        shutil.copyfile(Path(result["successor_path"]),project/"candidate.glb")
+        script=project/"load_candidate.gd"
+        script.write_text("extends SceneTree\nfunc _initialize() -> void:\n"
+            "    var candidate = load(\"res://candidate.glb\")\n"
+            "    if not candidate is PackedScene:\n        push_error(\"candidate_not_a_packed_scene\")\n"
+            "        quit(1)\n        return\n"
+            "    var instance = candidate.instantiate()\n"
+            "    var meshes = instance.find_children(\"*\",\"MeshInstance3D\",true,false)\n"
+            "    var skeletons = instance.find_children(\"*\",\"Skeleton3D\",true,false)\n"
+            "    if meshes.is_empty() or skeletons.is_empty():\n"
+            "        push_error(\"candidate_mesh_or_skeleton_missing\")\n        quit(1)\n        return\n"
+            "    var mesh_count = meshes.size()\n    var skeleton_count = skeletons.size()\n"
+            "    instance.free()\n"
+            "    print(\"SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d\" % [mesh_count,skeleton_count])\n"
+            "    quit(0)\n",encoding="utf-8")
+        godot_home=tmp_path/"godot-home"; godot_cache=tmp_path/"godot-cache"
+        godot_font=tmp_path/"godot-font-cache"
+        for directory in (godot_home,godot_cache,godot_font): directory.mkdir()
+        godot_env={"PATH":os.defpath,"HOME":str(godot_home),"XDG_CACHE_HOME":str(godot_cache),
+            "FONTCONFIG_CACHE_DIR":str(godot_font)}
+        imported=subprocess.run([godot,"--headless","--path",str(project),"--editor","--quit"],
+            check=False,capture_output=True,text=True,timeout=60,env=godot_env)
+        assert imported.returncode==0, imported.stdout+imported.stderr
+        loaded=subprocess.run([godot,"--headless","--path",str(project),"--script",str(script)],
+            check=False,capture_output=True,text=True,timeout=60,env=godot_env)
+        assert loaded.returncode==0, loaded.stdout+loaded.stderr
+        assert "SENTIENTOS_GLB_SCENE_READY meshes=" in loaded.stdout, loaded.stdout+loaded.stderr
+
 
 def test_run_workcell_rejects_unavailable_backend_capability_before_workspace_creation(tmp_path):
     source=artifact(tmp_path/"body.glb"); old=manifest(source)
@@ -253,8 +345,8 @@ def test_run_workcell_rejects_unavailable_backend_capability_before_workspace_cr
     assert not workspace.exists()
 
 
-def test_blender_workcell_rejects_non_native_project_before_workspace_creation(tmp_path):
-    source=artifact(tmp_path/"body.glb"); old=manifest(source)
+def test_blender_workcell_rejects_gltf_sidecars_before_workspace_creation(tmp_path):
+    source=artifact(tmp_path/"body.glb"); old=replace(manifest(source),asset_format="gltf")
     pointer={"artifact_sha256":old.source_artifact_digest,"manifest_digest":old.semantic_digest}
     backend=BackendIdentity("configured_blender","blender-cli-static-driver","1",None,None,"driver",
         tuple(sorted(BLENDER_SUPPORTED_OPERATIONS)),"production")
