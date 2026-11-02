@@ -57,7 +57,7 @@ class Inference:
             "output_truncated": False}
         request = {"request_id": request_id, "active_model_identity": loaded_identity,
             "upstream_evidence": {"current_serving_lifetime": {
-                **self.identity, "caller_context": {
+                **self.identity, "workload_mode": self.workload_mode, "caller_context": {
                     "session_id": kwargs["caller_linkage"]["session_id"],
                     "user_turn_id": kwargs["caller_linkage"]["user_turn_id"]}}},
             "linkage": linkage}
@@ -212,11 +212,37 @@ def test_local_chat_can_explicitly_enable_session_scoped_visual_avatar_output(tm
             assert state["metadata"]["session_id"]==session_id
             assert state["metadata"]["turn_id"]==data["turn_id"]
             assert state["metadata"]["output_digest"]==chat_service.digest_payload({"text":"answer"})
+            assert state["metadata"]["workload_mode"]=="normal"
             assert client.post("/avatar-output",json={"session_id":session_id,"enabled":False}).json()["enabled"] is False
         assert len(admission_calls)==3
         assert all(call["request_type"] is RequestType.AVATAR_EMISSION for call in admission_calls)
     finally:
         chat_service._CONVERSATION_SERVICE=None
+
+
+def test_verified_gaming_workload_mode_reaches_enabled_avatar_state(tmp_path):
+    def approve(**kwargs):
+        record = AuthorizationRecord.create(request_type=kwargs["request_type"],
+            requester_id=kwargs["requester_id"], intent_hash=kwargs["intent_hash"],
+            context_hash=kwargs["context_hash"], policy_version=kwargs["policy_version"],
+            decision=Decision.ALLOW, reason=ReasonCode.OK, metadata=kwargs["metadata"])
+        return AdmissionResponse(Decision.ALLOW, ReasonCode.OK, record)
+
+    target = tmp_path / "avatar_state.json"
+    avatar_output = ChatAvatarOutputController(SpeechEmitter(AvatarStateEmitter(target)),
+        admission_provider=approve)
+    inference = Inference()
+    inference.workload_mode = "gaming"
+    app = service(tmp_path, inference, avatar_output)
+    session_id = app.create_session()
+    try:
+        assert avatar_output.set_enabled(session_id, True)["enabled"] is True
+        response = app.chat("hello", session_id=session_id)
+        state = json.loads(target.read_text(encoding="utf-8"))
+        assert state["current_phrase"] == response.response == "answer"
+        assert state["metadata"]["workload_mode"] == "gaming"
+    finally:
+        avatar_output.close()
 
 
 def test_chat_speech_output_is_published_only_through_configured_controller(tmp_path):

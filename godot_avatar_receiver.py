@@ -100,7 +100,8 @@ class AvatarStateForwarder:
             return None
         intensity = max(0.0, min(1.0, intensity_value))
 
-        phrase_data = raw.get("phrase") if isinstance(raw.get("phrase"), dict) else {}
+        phrase_value = raw.get("phrase")
+        phrase_data: dict[str, Any] = phrase_value if isinstance(phrase_value, dict) else {}
         phrase_text = phrase_data.get("text", raw.get("current_phrase", ""))
         if not isinstance(phrase_text, str) or len(phrase_text) > MAX_PHRASE_CHARS:
             return None
@@ -156,6 +157,10 @@ class AvatarStateForwarder:
             "viseme_timeline": normalized_visemes,
             "timestamp": timestamp_value,
         }
+        metadata = raw.get("metadata")
+        workload_mode = metadata.get("workload_mode") if isinstance(metadata, dict) else None
+        if isinstance(workload_mode, str) and workload_mode in {"normal", "gaming"}:
+            payload["workload_mode"] = workload_mode
         if not all(payload.get(key) for key in ("mood", "expression", "motion")):
             return None
         if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_UDP_PAYLOAD_BYTES:
@@ -169,7 +174,8 @@ class AvatarStateForwarder:
         expression = payload.get("expression")
         motion = payload.get("motion")
         intensity = payload.get("intensity")
-        phrase_info = payload.get("phrase") if isinstance(payload.get("phrase"), dict) else {}
+        phrase_value = payload.get("phrase")
+        phrase_info: dict[str, Any] = phrase_value if isinstance(phrase_value, dict) else {}
         phrase = phrase_info.get("text") or payload.get("current_phrase")
         speaking = payload.get("speaking")
         status = ""
@@ -199,7 +205,7 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 def _resolve_state_file(candidate: Optional[Path]) -> Path:
     if candidate:
         return candidate
-    return get_state_file("avatar_state.json")
+    return Path(get_state_file("avatar_state.json"))
 
 
 def main(argv: Optional[list[str]] = None) -> None:

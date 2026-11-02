@@ -8,9 +8,12 @@ extends Node
 
 var _server := UDPServer.new()
 var _last_packet := {}
+const NORMAL_RENDER_FPS := 60
+const GAMING_RENDER_FPS := 15
 
 
 func _ready() -> void:
+	_set_workload_mode("normal")
 	if auto_listen:
 		var result := _server.listen(listen_port)
 		if result == OK:
@@ -41,6 +44,10 @@ func _drain_peer(peer: PacketPeerUDP) -> void:
 
 func _apply_state(state: Dictionary) -> void:
 	_last_packet = state
+	var workload_mode: String = str(state.get("workload_mode", "normal"))
+	if workload_mode != "gaming":
+		workload_mode = "normal"
+	_set_workload_mode(workload_mode)
 	var expression: String = str(state.get("expression", "rest"))
 	var mood: String = str(state.get("mood", "calm"))
 	var intensity := float(state.get("intensity", 0.0))
@@ -49,7 +56,9 @@ func _apply_state(state: Dictionary) -> void:
 	var phrase_block: Dictionary = phrase_value if phrase_value is Dictionary else {}
 	var phrase: String = str(phrase_block.get("text", state.get("current_phrase", "")))
 	var muted := bool(phrase_block.get("muted", false))
-	var status: String = "%s @ %.2f (%s)" % [expression, intensity, motion]
+	var status: String = "%s @ %.2f (%s) [%s workload, %d FPS cap]" % [
+		expression, intensity, motion, workload_mode, Engine.max_fps
+	]
 	if phrase != "":
 		status += " – %s%s" % ["(muted) " if muted else "", phrase]
 	_write_status(status)
@@ -65,6 +74,12 @@ func _apply_state(state: Dictionary) -> void:
 	var motion_driver: Node = _resolve_node(motion_driver_path)
 	if motion_driver and motion_driver.has_method("apply_motion"):
 		motion_driver.apply_motion(motion)
+
+
+func _set_workload_mode(workload_mode: String) -> void:
+	# This caps only the companion renderer process. It does not change host or
+	# game scheduling and does not claim to reserve system resources.
+	Engine.max_fps = GAMING_RENDER_FPS if workload_mode == "gaming" else NORMAL_RENDER_FPS
 
 
 func _write_status(message: String) -> void:

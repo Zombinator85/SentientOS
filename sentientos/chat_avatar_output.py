@@ -145,7 +145,7 @@ class ChatAvatarOutputController:
                 "clear_pending": session_id in self._pending_clears}
 
     def publish_response(self, *, session_id: str, turn_id: str, text: str,
-                         output_digest: str) -> dict[str, Any]:
+                         output_digest: str, workload_mode: str | None = None) -> dict[str, Any]:
         self._validate_session_id(session_id)
         if not isinstance(turn_id, str) or not turn_id or not isinstance(text, str):
             raise ValueError("avatar_output_response_invalid")
@@ -178,13 +178,18 @@ class ChatAvatarOutputController:
                     or record.intent_hash != output_digest or record.context_hash != context_hash):
                 raise RuntimeError("avatar_output_response_binding_invalid")
             visible = text[:MAX_AVATAR_DISPLAY_PHRASE_CHARS]
-            self._emitter.emit_display_text(visible, authorization=record, metadata={
+            metadata = {
                 "source": "governed_chat_response", "session_id": session_id,
                 "turn_id": turn_id, "output_digest": output_digest,
                 "approval_grant_digest": grant.grant_digest,
                 "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS,
                 "output_mode": self.SCOPE,
-            })
+            }
+            # This is a renderer hint only. Accept the closed effective-mode
+            # vocabulary; never persist arbitrary workload metadata.
+            if isinstance(workload_mode, str) and workload_mode in {"normal", "gaming"}:
+                metadata["workload_mode"] = workload_mode
+            self._emitter.emit_display_text(visible, authorization=record, metadata=metadata)
         return {"status": "emitted", "phrase_truncated": len(text) > MAX_AVATAR_DISPLAY_PHRASE_CHARS}
 
     def close(self) -> None:
