@@ -105,6 +105,27 @@ def test_plan_operation_and_geometry_bounds(tmp_path):
     with pytest.raises(AvatarAuthoringError,match="geometry_bound"): validate_plan(value)
 
 
+@pytest.mark.parametrize("arguments,error",[
+    ({"base_color":[0.1,0.2,0.3],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
+    ({"base_color":[0.1,0.2,0.3,float("nan")],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
+    ({"base_color":[0.1,0.2,1.1,1.0],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
+    ({"base_color":[0.1,0.2,0.3,1.0],"metallic":1.1,"roughness":0.5},"material_property_invalid"),
+    ({"base_color":[0.1,0.2,0.3,1.0],"metallic":0.1,"roughness":-0.1},"material_property_invalid"),
+])
+def test_material_plan_parameters_are_finite_and_bounded(tmp_path,arguments,error):
+    m=manifest(artifact(tmp_path/"material.glb")); value=plan(m)
+    value["operations"]=[operation("material","create_material","Companion",arguments,{"exists":True})]
+    with pytest.raises(AvatarAuthoringError,match=error): validate_plan(value)
+
+
+def test_transform_plan_rejects_nonfinite_components(tmp_path):
+    m=manifest(artifact(tmp_path/"material.glb")); value=plan(m)
+    value["operations"]=[operation("move","set_transform","Body",
+        {"location":[0.0,float("nan"),0.0]}, {})]
+    with pytest.raises(AvatarAuthoringError,match="plan_vector_invalid"):
+        validate_plan(value)
+
+
 def test_blender_primitive_vertex_estimate_and_per_mesh_bound(tmp_path):
     m=manifest(artifact(tmp_path/"a.glb")); value=plan(m)
     mesh=operation("head","create_primitive_mesh","Head",{"primitive":"uv_sphere","vertices":128},{})
@@ -174,6 +195,20 @@ def test_blender_driver_rejects_unimplemented_operations_before_importing_bpy() 
         translate(value)
 
 
+@pytest.mark.parametrize("arguments,error",[
+    ({"base_color":[0.1,0.2,0.3],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
+    ({"base_color":[0.1,0.2,0.3,float("nan")],"metallic":0.1,"roughness":0.5},"material_color_invalid"),
+    ({"base_color":[0.1,0.2,0.3,1.0],"metallic":0.1,"roughness":1.01},"material_property_invalid"),
+])
+def test_blender_driver_independently_rejects_invalid_material_values(arguments,error):
+    from scripts.avatar_blender_driver import translate
+
+    value={"schema_version":"sentientos.avatar_authoring_plan:v1","operations":[
+        {"operation_id":"ceramic","kind":"create_material","target":"Ceramic","arguments":arguments}]}
+    with pytest.raises(ValueError,match=error):
+        translate(value)
+
+
 def test_structure_comparison_reports_unrequested_new_bones():
     checked=validate_plan({"schema_version":"sentientos.avatar_authoring_plan:v1","plan_id":"rig",
         "installation_body_id":"install","body_id":"body","predecessor_generation":1,
@@ -214,6 +249,10 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
             operation("upper","create_bone","SentientRig",{"parent":"root","head":[0,0,0],"tail":[0,0,1]}, {"bone":"upper"}),
             operation("head","create_primitive_mesh","CompanionHead",{"primitive":"uv_sphere","vertices":32}, {}),
             operation("skin","bind_armature","CompanionHead",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
+            operation("ceramic","create_material","CompanionCeramic",
+                {"base_color":[0.11,0.57,0.65,1.0],"metallic":0.18,"roughness":0.32}, {"exists":True}),
+            operation("head-material","assign_material","CompanionHead",
+                {"material":"CompanionCeramic"}, {"material":"CompanionCeramic"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -231,12 +270,17 @@ def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(t
         inspector=inspector,work_id="smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated"
-    assert result["comparison"]["counts"]["satisfied"]==5
+    assert result["comparison"]["counts"]["satisfied"]==7
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
     assert head["vertex_count"]==482
     assert set(head["vertex_group_names"])=={"root","upper"}
+    assert head["materials"]==["CompanionCeramic"]
+    material=result["successor_inspection"]["materials"]["CompanionCeramic"]
+    assert material["base_color"]==pytest.approx([0.11,0.57,0.65,1.0],abs=1e-4)
+    assert material["metallic"]==pytest.approx(0.18,abs=1e-4)
+    assert material["roughness"]==pytest.approx(0.32,abs=1e-4)
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
 
@@ -268,6 +312,10 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
             operation("upper","create_bone","SentientRig",{"parent":"root","head":[0,0,0],"tail":[0,0,1]}, {"bone":"upper"}),
             operation("head","create_primitive_mesh","CompanionHead",{"primitive":"uv_sphere","vertices":32}, {}),
             operation("skin","bind_armature","CompanionHead",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
+            operation("ceramic","create_material","CompanionCeramic",
+                {"base_color":[0.11,0.57,0.65,1.0],"metallic":0.18,"roughness":0.32}, {"exists":True}),
+            operation("head-material","assign_material","CompanionHead",
+                {"material":"CompanionCeramic"}, {"material":"CompanionCeramic"}),
         ]}
     pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
@@ -285,12 +333,17 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         inspector=inspector,work_id="glb-smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated", result["comparison"]
-    assert result["comparison"]["counts"]["satisfied"]==5
+    assert result["comparison"]["counts"]["satisfied"]==7
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]
     assert head["vertex_count"]==482
     assert set(head["vertex_group_names"])=={"root","upper"}
+    assert head["materials"]==["CompanionCeramic"]
+    material=result["successor_inspection"]["materials"]["CompanionCeramic"]
+    assert material["base_color"]==pytest.approx([0.11,0.57,0.65,1.0],abs=1e-4)
+    assert material["metallic"]==pytest.approx(0.18,abs=1e-4)
+    assert material["roughness"]==pytest.approx(0.32,abs=1e-4)
     assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
     assert not any(result["receipt"]["authority"].values())
 
@@ -313,6 +366,26 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
             "    var skeletons = instance.find_children(\"*\",\"Skeleton3D\",true,false)\n"
             "    if meshes.is_empty() or skeletons.is_empty():\n"
             "        push_error(\"candidate_mesh_or_skeleton_missing\")\n        quit(1)\n        return\n"
+            "    var expected_color = Vector3(pow(0.11, 1.0 / 2.2), pow(0.57, 1.0 / 2.2), pow(0.65, 1.0 / 2.2))\n"
+            "    var color_survived = false\n"
+            "    for mesh_node in meshes:\n"
+            "        if mesh_node.mesh == null:\n            continue\n"
+            "        for surface_index in range(mesh_node.mesh.get_surface_count()):\n"
+            "            var surface_material = mesh_node.get_active_material(surface_index)\n"
+            "            if surface_material is StandardMaterial3D:\n"
+            "                var color = surface_material.albedo_color\n"
+            "                if Vector3(color.r,color.g,color.b).distance_to(expected_color) < 0.01:\n"
+            "                    color_survived = true\n"
+            "    if not color_survived:\n"
+            "        var actual_colors = []\n"
+            "        for mesh_node in meshes:\n"
+            "            if mesh_node.mesh == null:\n                continue\n"
+            "            for surface_index in range(mesh_node.mesh.get_surface_count()):\n"
+            "                var surface_material = mesh_node.get_active_material(surface_index)\n"
+            "                if surface_material is StandardMaterial3D:\n                    actual_colors.append(surface_material.albedo_color)\n"
+            "        instance.free()\n"
+            "        push_error(\"candidate_material_color_missing expected=%s actual=%s\" % [expected_color,actual_colors])\n"
+            "        quit(1)\n        return\n"
             "    var mesh_count = meshes.size()\n    var skeleton_count = skeletons.size()\n"
             "    instance.free()\n"
             "    print(\"SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d\" % [mesh_count,skeleton_count])\n"
@@ -325,7 +398,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         imported=subprocess.run([godot,"--headless","--path",str(project),"--editor","--quit"],
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert imported.returncode==0, imported.stdout+imported.stderr
-        loaded=subprocess.run([godot,"--headless","--path",str(project),"--script",str(script)],
+        loaded=subprocess.run([godot,"--headless","--path",str(project),"--quit-after","300","--script",str(script)],
             check=False,capture_output=True,text=True,timeout=60,env=godot_env)
         assert loaded.returncode==0, loaded.stdout+loaded.stderr
         assert "SENTIENTOS_GLB_SCENE_READY meshes=" in loaded.stdout, loaded.stdout+loaded.stderr

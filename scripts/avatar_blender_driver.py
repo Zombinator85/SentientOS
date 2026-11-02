@@ -1,9 +1,9 @@
 # mypy: disable-error-code="no-untyped-def,no-untyped-call,import-not-found"
 """Repository-owned Blender driver.  JSON plans contain no executable code."""
 from __future__ import annotations
-import hashlib, json, sys
+import hashlib, json, math, sys
 
-SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature"}
+SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature","create_material","assign_material"}
 MAX_PRIMITIVE_MESH_VERTICES=4096
 MAX_PLAN_GEOMETRY_VERTICES=65536
 
@@ -28,10 +28,28 @@ def validate_geometry_bounds(plan):
         total+=estimate
         if total>MAX_PLAN_GEOMETRY_VERTICES: raise ValueError("plan_geometry_budget_exceeded")
     return total
+def validate_material_bounds(plan):
+    for operation in plan.get("operations",[]):
+        if operation.get("kind")!="create_material": continue
+        arguments=operation.get("arguments",{})
+        if not isinstance(arguments,dict) or set(arguments)!={"base_color","metallic","roughness"}:
+            raise ValueError("material_arguments_invalid")
+        color=arguments["base_color"]
+        if (not isinstance(color,list) or len(color)!=4
+                or any(type(value) not in (int,float) or not math.isfinite(float(value))
+                       or not 0.0<=float(value)<=1.0 for value in color)):
+            raise ValueError("material_color_invalid")
+        for key in ("metallic","roughness"):
+            value=arguments[key]
+            if type(value) not in (int,float) or not math.isfinite(float(value)) or not 0.0<=float(value)<=1.0:
+                raise ValueError("material_property_invalid")
 def translate(plan):
     allowed=SUPPORTED_OPERATIONS
     if plan.get("schema_version")!="sentientos.avatar_authoring_plan:v1" or any(op.get("kind") not in allowed for op in plan.get("operations",[])): raise ValueError("invalid_plan")
     validate_geometry_bounds(plan)
+    validate_material_bounds(plan)
+    if any(not isinstance(op.get("arguments"),dict) for op in plan.get("operations",[])):
+        raise ValueError("authoring_operation_arguments_invalid")
     return tuple((op["operation_id"],op["kind"],op["target"],dict(op["arguments"])) for op in plan["operations"])
 def main(argv):
     try:
@@ -88,6 +106,23 @@ def main(argv):
             obj=bpy.data.objects[target]
             for key in ("location","rotation","scale"):
                 if key in args: setattr(obj,"rotation_euler" if key=="rotation" else key,args[key])
+        elif kind=="create_material":
+            if bpy.data.materials.get(target) is not None: raise ValueError("material_already_exists")
+            material=bpy.data.materials.new(target)
+            color=[float(value) for value in args["base_color"]]
+            material.diffuse_color=color
+            material.use_nodes=True
+            shader=next((node for node in material.node_tree.nodes if node.type=="BSDF_PRINCIPLED"),None)
+            if shader is None: raise ValueError("principled_shader_unavailable")
+            shader.inputs["Base Color"].default_value=color
+            shader.inputs["Metallic"].default_value=float(args["metallic"])
+            shader.inputs["Roughness"].default_value=float(args["roughness"])
+        elif kind=="assign_material":
+            obj=bpy.data.objects.get(target)
+            material=bpy.data.materials.get(args["material"])
+            if obj is None or obj.type!="MESH" or material is None:
+                raise ValueError("material_assignment_target_invalid")
+            obj.data.materials.append(material)
         elif kind=="bind_armature":
             obj=bpy.data.objects[target]; arm=bpy.data.objects[args["armature"]]
             if obj.type!="MESH" or arm.type!="ARMATURE": raise ValueError("armature_binding_type_invalid")

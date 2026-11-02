@@ -16,7 +16,17 @@ def main() -> None:
         bpy.ops.import_scene.gltf(filepath=artifact_path)
     elif asset_format!="blend":
         raise ValueError("asset_format_unsupported")
-    objects={}; armatures={}; bones={}; shape_keys={}; materials={m.name:{} for m in bpy.data.materials}
+    objects={}; armatures={}; bones={}; shape_keys={}; materials={}
+    for material in bpy.data.materials:
+        settings={"base_color":list(material.diffuse_color),"metallic":None,"roughness":None}
+        if material.use_nodes and material.node_tree:
+            shader=next((node for node in material.node_tree.nodes if node.type=="BSDF_PRINCIPLED"),None)
+            if shader:
+                metallic_input=shader.inputs.get("Metallic")
+                roughness_input=shader.inputs.get("Roughness")
+                if metallic_input: settings["metallic"]=float(metallic_input.default_value)
+                if roughness_input: settings["roughness"]=float(roughness_input.default_value)
+        materials[material.name]=settings
     # Blender's glTF importer creates temporary custom-shape helpers in this
     # explicitly non-exported collection for imported armatures. They are not
     # nodes in the GLB and must not become candidate structure.

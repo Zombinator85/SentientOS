@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import fcntl
 import json
+import math
 import os
 import shutil
 import stat
@@ -44,6 +45,7 @@ OP_ARGUMENTS: dict[str, frozenset[str]] = {
     "duplicate_object": frozenset({"source"}), "rename_object": frozenset({"new_name"}),
     "set_transform": frozenset({"location", "rotation", "scale", "tolerance"}),
     "assign_material": frozenset({"material"}), "create_armature": frozenset(),
+    "create_material": frozenset({"base_color", "metallic", "roughness"}),
     "create_bone": frozenset({"parent", "head", "tail"}),
     "parent_object": frozenset({"armature", "bone"}),
     "bind_armature": frozenset({"armature"}),
@@ -53,7 +55,7 @@ OP_ARGUMENTS: dict[str, frozenset[str]] = {
 }
 BLENDER_SUPPORTED_OPERATIONS = frozenset({
     "create_primitive_mesh", "create_armature", "create_bone", "set_transform",
-    "bind_armature",
+    "bind_armature", "create_material", "assign_material",
 })
 BLENDER_SUPPORTED_FORMATS = frozenset({"blend", "glb"})
 
@@ -89,9 +91,21 @@ def _name(value: Any) -> str:
 
 
 def _vector(value: Any) -> list[float]:
-    if not isinstance(value, list) or len(value) != 3 or any(type(x) not in (int, float) or abs(x) > 10000 for x in value):
+    if not isinstance(value, list) or len(value) != 3 or any(
+        type(x) not in (int, float) or not math.isfinite(float(x)) or abs(x) > 10000
+        for x in value
+    ):
         raise AvatarAuthoringError("plan_vector_invalid")
     return [float(x) for x in value]
+
+
+def _rgba(value: Any) -> list[float]:
+    if not isinstance(value, list) or len(value) != 4 or any(
+        type(channel) not in (int, float) or not math.isfinite(float(channel))
+        or not 0.0 <= float(channel) <= 1.0 for channel in value
+    ):
+        raise AvatarAuthoringError("material_color_invalid")
+    return [float(channel) for channel in value]
 
 
 def primitive_mesh_vertex_count(arguments: Mapping[str, Any]) -> int:
@@ -137,6 +151,16 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
         args = operation["arguments"]
         if not isinstance(args, dict) or set(args) - OP_ARGUMENTS[kind]:
             raise AvatarAuthoringError("authoring_operation_arguments_invalid")
+        if kind == "create_material":
+            if set(args) != {"base_color", "metallic", "roughness"}:
+                raise AvatarAuthoringError("authoring_operation_arguments_invalid")
+            _rgba(args["base_color"])
+            for property_name in ("metallic", "roughness"):
+                property_value = args[property_name]
+                if (type(property_value) not in (int, float)
+                        or not math.isfinite(float(property_value))
+                        or not 0.0 <= float(property_value) <= 1.0):
+                    raise AvatarAuthoringError("material_property_invalid")
         if kind == "create_primitive_mesh":
             primitive = args.get("primitive", "cube")
             if primitive not in {"cube", "uv_sphere", "cylinder", "cone", "plane"}:
@@ -156,6 +180,11 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
             raise AvatarAuthoringError("authoring_operation_code_or_path_forbidden")
         for key, item in args.items():
             if key in {"location", "rotation", "scale", "head", "tail"}: _vector(item)
+            elif key == "base_color": _rgba(item)
+            elif key in {"metallic", "roughness"} and kind == "create_material":
+                if (type(item) not in (int, float) or not math.isfinite(float(item))
+                        or not 0.0 <= float(item) <= 1.0):
+                    raise AvatarAuthoringError("material_property_invalid")
             elif key == "vertices" and (type(item) is not int or not 3 <= item <= 256):
                 raise AvatarAuthoringError("geometry_bound_exceeded")
             elif key == "tolerance" and (type(item) not in (int, float) or not 0 <= item <= 0.1):
@@ -222,6 +251,12 @@ def _apply_operation(model: dict[str, Any], operation: Mapping[str, Any]) -> Non
     elif kind == "set_transform": objects[target]["transform"] = {k: args.get(k, objects[target]["transform"][k]) for k in ("location","rotation","scale")}
     elif kind == "assign_material":
         model["materials"].setdefault(args["material"], {}); objects[target]["materials"].append(args["material"])
+    elif kind == "create_material":
+        model["materials"][target] = {
+            "base_color": _rgba(args["base_color"]),
+            "metallic": float(args["metallic"]),
+            "roughness": float(args["roughness"]),
+        }
     elif kind == "create_armature": rigs[target] = {"bones": {}}
     elif kind == "create_bone": rigs.setdefault(target, {"bones": {}})["bones"][operation["postcondition"].get("bone", args.get("bone", operation["operation_id"]))] = {"parent": args.get("parent"), "head": args.get("head", [0.,0.,0.]), "tail": args.get("tail", [0.,1.,0.])}
     elif kind == "parent_object": objects[target]["parent"] = {"armature": args["armature"], "bone": args.get("bone")}
@@ -274,6 +309,20 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
         elif kind == "rename_object": satisfied = args["new_name"] in after["objects"] and target not in after["objects"]
         elif kind == "set_transform": satisfied = target in after["objects"] and all(after["objects"][target]["transform"].get(k) == v for k,v in args.items() if k in {"location","rotation","scale"})
         elif kind == "assign_material": satisfied = args["material"] in after["objects"].get(target, {}).get("materials", [])
+        elif kind == "create_material":
+            observed = after["materials"].get(target)
+            expected_color = _rgba(args["base_color"])
+            satisfied = (target not in before.get("materials", {})
+                and isinstance(observed, Mapping)
+                and isinstance(observed.get("base_color"), (list, tuple))
+                and len(observed["base_color"]) == 4
+                and all(type(channel) in (int, float) and math.isfinite(float(channel))
+                        and abs(float(channel) - expected) <= 1e-4
+                        for channel, expected in zip(observed["base_color"], expected_color))
+                and type(observed.get("metallic")) in (int, float)
+                and abs(float(observed["metallic"]) - float(args["metallic"])) <= 1e-4
+                and type(observed.get("roughness")) in (int, float)
+                and abs(float(observed["roughness"]) - float(args["roughness"])) <= 1e-4)
         elif kind == "create_armature": satisfied = target in after["armatures"]
         elif kind == "create_bone": satisfied = f"{target}/{op['postcondition'].get('bone', op['operation_id'])}" in after["bones"]
         elif kind == "parent_object": satisfied = after["objects"].get(target, {}).get("parent") == {"armature": args["armature"], "bone": args.get("bone")}
@@ -294,7 +343,11 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
     }
     unexpected_objects = (set(after["objects"]) - set(before["objects"]) | set(after["armatures"]) - set(before["armatures"])) - requested_new
     unexpected_bones = (set(after["bones"]) - set(before["bones"])) - requested_bones
-    unexpected = sorted([*unexpected_objects, *(f"bone:{name}" for name in unexpected_bones)])
+    requested_materials = {op["target"] for op in plan["operations"]
+                           if op["kind"] == "create_material"}
+    unexpected_materials = (set(after.get("materials", {})) - set(before.get("materials", {}))) - requested_materials
+    unexpected = sorted([*unexpected_objects, *(f"bone:{name}" for name in unexpected_bones),
+                         *(f"material:{name}" for name in unexpected_materials)])
     counts = {name: sum(r["classification"] == name for r in results) for name in ("satisfied","unsatisfied","contradicted","not_measurable")}
     value = {"schema_version": COMPARISON_SCHEMA, "predecessor_inspection_digest": before["inspection_digest"], "plan_digest": plan["plan_digest"], "successor_inspection_digest": after["inspection_digest"], "operation_results": results, "unexpected_changes": unexpected, "counts": counts}
     value["comparison_digest"] = digest(value); return value
