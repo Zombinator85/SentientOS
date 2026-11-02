@@ -162,6 +162,26 @@ def test_build_resource_telemetry_from_collectors_classifies_thermal_and_fan_tel
     assert validate_host_resource_pressure_report(report, snapshot).ok
 
 
+def test_cpu_and_memory_collector_samples_reach_pressure_evaluation() -> None:
+    from sentientos.host_collectors import collect_cpu_observation, collect_memory_observation
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    results = (
+        collect_cpu_observation(cpu_utilization_provider=lambda: 93.0, observed_at="2026-01-01T00:00:00+00:00"),
+        collect_memory_observation(
+            memory_provider=lambda: {"total_bytes": 1000, "available_bytes": 80, "used_percent": 92.0},
+            observed_at="2026-01-01T00:00:00+00:00",
+        ),
+    )
+    snapshot = build_host_resource_telemetry_from_collector_results(results, snapshot_id="cpu-ram")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.cpu_utilization_percent == 93.0
+    assert snapshot.ram_utilization_percent == 92.0
+    assert set(report.pressure_labels) == {"cpu_pressure", "memory_pressure"}
+    assert all(candidate.does_not_mutate_host for candidate in report.proposal_candidates)
+
+
 def test_incomplete_collector_data_yields_unavailable_findings_and_digest_is_deterministic() -> None:
     from sentientos.host_collectors import HostCollectorResult
     from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
