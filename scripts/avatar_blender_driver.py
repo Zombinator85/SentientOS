@@ -3,7 +3,7 @@
 from __future__ import annotations
 import hashlib, json, math, sys
 
-SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature","create_material","assign_material"}
+SUPPORTED_OPERATIONS={"create_primitive_mesh","create_armature","create_bone","set_transform","bind_armature","create_material","assign_material","create_shape_key"}
 MAX_PRIMITIVE_MESH_VERTICES=4096
 MAX_PLAN_GEOMETRY_VERTICES=65536
 
@@ -43,11 +43,37 @@ def validate_material_bounds(plan):
             value=arguments[key]
             if type(value) not in (int,float) or not math.isfinite(float(value)) or not 0.0<=float(value)<=1.0:
                 raise ValueError("material_property_invalid")
+def validate_shape_key_bounds(plan):
+    for operation in plan.get("operations",[]):
+        if operation.get("kind")!="create_shape_key": continue
+        arguments=operation.get("arguments",{})
+        if (not isinstance(arguments,dict) or set(arguments)!={"shape_key","vertex_offsets"}
+                or not isinstance(arguments["shape_key"],str) or not arguments["shape_key"]
+                or len(arguments["shape_key"])>128 or any(c in arguments["shape_key"] for c in ("/","\\","\x00"))):
+            raise ValueError("shape_key_arguments_invalid")
+        offsets=arguments["vertex_offsets"]
+        if not isinstance(offsets,list) or not 1<=len(offsets)<=256:
+            raise ValueError("shape_key_vertex_offsets_invalid")
+        seen=set()
+        for item in offsets:
+            if (not isinstance(item,dict) or set(item)!={"vertex_index","offset"}
+                    or type(item["vertex_index"]) is not int
+                    or not 0<=item["vertex_index"]<MAX_PRIMITIVE_MESH_VERTICES
+                    or item["vertex_index"] in seen):
+                raise ValueError("shape_key_vertex_offsets_invalid")
+            seen.add(item["vertex_index"])
+            vector=item["offset"]
+            if (not isinstance(vector,list) or len(vector)!=3
+                    or any(type(value) not in (int,float) or not math.isfinite(float(value))
+                           or abs(float(value))>0.25 for value in vector)
+                    or not any(float(value)!=0.0 for value in vector)):
+                raise ValueError("shape_key_vertex_offset_bound_exceeded")
 def translate(plan):
     allowed=SUPPORTED_OPERATIONS
     if plan.get("schema_version")!="sentientos.avatar_authoring_plan:v1" or any(op.get("kind") not in allowed for op in plan.get("operations",[])): raise ValueError("invalid_plan")
     validate_geometry_bounds(plan)
     validate_material_bounds(plan)
+    validate_shape_key_bounds(plan)
     if any(not isinstance(op.get("arguments"),dict) for op in plan.get("operations",[])):
         raise ValueError("authoring_operation_arguments_invalid")
     return tuple((op["operation_id"],op["kind"],op["target"],dict(op["arguments"])) for op in plan["operations"])
@@ -134,6 +160,18 @@ def main(argv):
             bone_names={bone.name for bone in arm.data.bones}
             if not bone_names.intersection(group.name for group in obj.vertex_groups):
                 raise ValueError("armature_binding_weights_missing")
+        elif kind=="create_shape_key":
+            obj=bpy.data.objects.get(target)
+            if obj is None or obj.type!="MESH": raise ValueError("shape_key_target_not_mesh")
+            if obj.data.shape_keys is not None and obj.data.shape_keys.key_blocks.get(args["shape_key"]) is not None:
+                raise ValueError("shape_key_already_exists")
+            if obj.data.shape_keys is None: obj.shape_key_add(name="Basis",from_mix=False)
+            shape=obj.shape_key_add(name=args["shape_key"],from_mix=False)
+            from mathutils import Vector
+            for item in args["vertex_offsets"]:
+                index=item["vertex_index"]
+                if index>=len(shape.data): raise ValueError("shape_key_vertex_index_out_of_range")
+                shape.data[index].co += Vector(item["offset"])
         else: raise ValueError("operation_not_yet_supported_by_blender_driver:"+kind)
         results.append({"operation_id":op_id,"status":"applied"})
     if output_path.lower().endswith(".blend"):

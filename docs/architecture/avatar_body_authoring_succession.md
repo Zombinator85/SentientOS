@@ -34,18 +34,27 @@ The configured Blender adapter requires an operator-supplied executable and
 static driver paths, can pin the executable digest, uses `shell=False`, a minimal
 workspace-scoped environment, timeout/tree termination, bounded tails, and exact
 argv. `run-one --backend blender` uses the repository-owned authoring and
-inspection drivers; its actual operation set is limited to mesh creation,
-transforms, armatures, bones, and automatic armature binding. Binding is accepted
+inspection drivers; its actual operation set covers mesh creation, transforms,
+armatures, bones, automatic armature binding, material assignment, and bounded
+shape-key deformation. A Blender create_shape_key operation must name 1 to 256
+distinct vertex offsets; each index is bounded, each component is finite and at
+most 0.25 units, and zero offsets are rejected. The independent inspector reports
+changed-vertex count and maximum displacement from the Basis shape, and the
+structural comparison requires the requested deformation to survive saving or
+GLB export. Binding is accepted
 only when the independent inspector sees both an armature modifier and weights
 assigned to one of its bones. Unsupported plan operations fail before a Blender
 process starts. This adapter accepts native `.blend` and self-contained `.glb`
 predecessors. For GLB, the repository-owned driver imports the copied source,
-applies only the bounded operation set, exports one GLB, then a separate Blender
+applies the bounded operation set, exports one GLB, then a separate Blender
 process imports that output for structural inspection. GLB export omits normals
 and UVs because the current operations do not author those channels; the
-candidate is geometry and skinning only, without authored textures or facial
-animation. The acceptance test also loads the candidate in Godot when that
-engine is installed. `.gltf` is rejected because external buffer and image
+candidate can contain geometry, skinning, materials, and authored morph shapes,
+but has no authored animation clips or textures. The acceptance test also loads
+the candidate in Godot and applies a shape key when that engine is installed.
+The separate experimental renderer adapter can apply mapped candidate shape keys
+and skeleton motion, while reporting missing facial channels as unsupported.
+gltf is rejected because external buffer and image
 sidecars are not covered by the one-file artifact custody identity. Backend
 identity records `configured_candidate_tool`, not production evidence.
 Primitive creation is bounded by both an estimated 4,096 vertices per mesh and
