@@ -31,6 +31,7 @@ var _viseme_tween: Tween
 var _mouth_rest := Vector3.ONE
 var _eye_left_rest := Vector3.ONE
 var _eye_right_rest := Vector3.ONE
+var _last_apply_report := {"status": "not_applied"}
 
 
 func _ready() -> void:
@@ -45,14 +46,16 @@ func _ready() -> void:
 		_eye_right_rest = right_eye.scale
 
 
-func apply_expression(expression: String, mood: String, intensity: float) -> void:
+func apply_expression(expression: String, mood: String, intensity: float) -> Dictionary:
 	var mesh: MeshInstance3D = _resolve_mesh()
 	if mesh == null:
-		return
+		_last_apply_report = {"status": "unavailable", "reason": "mesh_unavailable"}
+		return _last_apply_report.duplicate(true)
 
 	var target: Variant = expression_to_shape.get(expression, mood_to_shape.get(mood, null))
 	if target == null:
-		return
+		_last_apply_report = {"status": "unsupported", "reason": "expression_mapping_unavailable"}
+		return _last_apply_report.duplicate(true)
 
 	var shape_name: String = str(target)
 	var shape_index: int = _blend_shape_index(mesh, shape_name)
@@ -61,8 +64,26 @@ func apply_expression(expression: String, mood: String, intensity: float) -> voi
 	if shape_index >= 0:
 		mesh.set_blend_shape_value(shape_index, weight)
 		_active_shapes = [shape_index]
+		_last_apply_report = {"status": "blend_shape_applied", "shape": shape_name,
+			"weight": mesh.get_blend_shape_value(shape_index)}
 	else:
 		_apply_procedural_expression(expression, mood, weight)
+		var mouth := _resolve_node(mouth_node_path)
+		var left_eye := _resolve_node(eye_left_path)
+		var right_eye := _resolve_node(eye_right_path)
+		_last_apply_report = {"status": "procedural_fallback_applied", "target": shape_name,
+			"weight": weight, "mouth_scale": _vector3_payload(mouth.scale) if mouth else null,
+			"left_eye_scale": _vector3_payload(left_eye.scale) if left_eye else null,
+			"right_eye_scale": _vector3_payload(right_eye.scale) if right_eye else null}
+	return _last_apply_report.duplicate(true)
+
+
+func latest_apply_report() -> Dictionary:
+	return _last_apply_report.duplicate(true)
+
+
+func _vector3_payload(value: Vector3) -> Dictionary:
+	return {"x": value.x, "y": value.y, "z": value.z}
 
 
 func play_viseme_timeline(timeline: Array, anchor_timestamp: float = 0.0) -> void:
@@ -73,6 +94,8 @@ func play_viseme_timeline(timeline: Array, anchor_timestamp: float = 0.0) -> voi
 	if _viseme_tween:
 		_viseme_tween.kill()
 	_reset_viseme(mesh)
+	if timeline.is_empty():
+		return
 	_viseme_tween = get_tree().create_tween()
 
 	var elapsed: float = 0.0

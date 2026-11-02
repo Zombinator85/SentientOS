@@ -112,10 +112,17 @@ run as one deployment procedure.
   run. NVML is not installed here, and no GLORP device sample exists.
   Per-process GPU utilization and game frame-time collection remain
   unimplemented.
-- **Renderer feedback:** the current Godot receiver consumes commanded state.
-  It does not emit an authenticated post-update report, bone/transform state,
-  timing receipt, or independent observation. The procedural demo is not the
-  inspected Blender-authored candidate and is not an adopted body.
+- **Renderer feedback:** Godot now produces a bounded in-memory
+  `sentientos.avatar_renderer_report:v1` after applying a state. It includes
+  session/turn/output lineage when available, the commanded state, post-apply
+  animation and transform values, expression result, FPS cap, timing, and a
+  source digest. A Python ingress validates its closed shape and projects it
+  through the existing embodiment evidence owner as an explicitly unverified
+  renderer self-report. An actual headless Godot scene probe exercises this
+  path. The report is not yet transported to chat, durably captured, or an
+  independent observation; its source digest is still a renderer claim. The
+  procedural demo is not the inspected Blender-authored candidate and is not an
+  adopted body.
 - **Perception and situated behavior:** there is no connected, opt-in Windows
   screen-capture-to-cognition path. Foreground process matching identifies an
   allowlisted executable only; it does not see game content. No ambient screen,
@@ -139,10 +146,14 @@ a deterministic fixture. The independently preserved rootless model smoke is
 real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
 
-The test proves the local software path from fixture-backed conversation to
-authorized commanded avatar state, mode update, receiver normalization, and
-durable conversation reload. It does not prove renderer execution or an
-independent physical consequence.
+The chat test proves the local software path from fixture-backed conversation
+to authorized commanded avatar state, mode update, receiver normalization, and
+durable conversation reload. Separately, the headless Godot test proves that
+the actual procedural scene applies a wave and smile, reports post-apply state,
+and that Python passes this report through the embodiment owner without
+upgrading it to effect proof or independent observation. These two test paths
+are not yet connected to each other by a running bridge. No independent
+physical consequence is proved.
 
 ## GLORP acceptance sequence
 
@@ -186,7 +197,8 @@ the unresolved split-network step prevents calling it a complete deployment:
 4. Add measurement adapters, then an explicitly authorized request-budget
    effect owner; retain proposal-only host governance until that owner is
    separately admitted.
-5. Add renderer reports and independently sourced observations, followed by
-   opt-in perception and speech paths.
+5. Connect renderer reports through the bridge and durable World-State capture;
+   add independently sourced observation, then opt-in perception and speech
+   paths.
 6. Repeat the same vertical scenario after each connection, labeling fixtures,
    actual CPU inference, and GLORP hardware observations separately.

@@ -39,6 +39,24 @@ def test_forwarder_emits_bounded_renderer_fields_only(tmp_path):
     assert "metadata" not in payload
 
 
+def test_forwarder_preserves_only_chat_command_correlation_for_renderer_report(tmp_path):
+    state_path = tmp_path / "avatar_state.json"
+    state_path.write_text(json.dumps(_state(metadata={
+        "session_id": "session-1", "turn_id": "turn-2", "output_digest": "a" * 64,
+        "output_mode": "chat_response_visual_only", "workload_mode": "gaming",
+        "approval_grant_digest": "private-governance-field", "extra": "discarded",
+    })), encoding="utf-8")
+
+    payload = AvatarStateForwarder(state_path)._read_state()
+
+    assert payload is not None
+    assert payload["metadata"] == {
+        "session_id": "session-1", "turn_id": "turn-2", "output_digest": "a" * 64,
+        "output_mode": "chat_response_visual_only",
+    }
+    assert payload["workload_mode"] == "gaming"
+
+
 @pytest.mark.parametrize("workload_mode", ["normal", "gaming"])
 def test_forwarder_exposes_only_closed_workload_mode_for_renderer(tmp_path, workload_mode):
     state_path = tmp_path / "avatar_state.json"

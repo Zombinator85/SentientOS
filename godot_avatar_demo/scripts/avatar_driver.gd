@@ -8,11 +8,15 @@ extends Node
 
 var _server := UDPServer.new()
 var _last_packet := {}
+var _renderer_generation_id := ""
+var _report_sequence := 0
+var _last_renderer_report := {}
 const NORMAL_RENDER_FPS := 60
 const GAMING_RENDER_FPS := 15
 
 
 func _ready() -> void:
+	_renderer_generation_id = "godot-demo-" + str(Time.get_ticks_usec())
 	_set_workload_mode("normal")
 	if auto_listen:
 		var result := _server.listen(listen_port)
@@ -24,25 +28,26 @@ func _ready() -> void:
 		_write_status("Preview mode")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _server.is_listening():
 		return
 
 	_server.poll()
 	while _server.is_connection_available():
 		var peer := _server.take_connection()
-		_drain_peer(peer)
+		_drain_peer(peer, delta)
 
 
-func _drain_peer(peer: PacketPeerUDP) -> void:
+func _drain_peer(peer: PacketPeerUDP, frame_delta_seconds: float) -> void:
 	while peer.get_available_packet_count() > 0:
 		var packet := peer.get_packet().get_string_from_utf8()
 		var payload: Variant = JSON.parse_string(packet)
 		if typeof(payload) == TYPE_DICTIONARY:
-			_apply_state(payload as Dictionary)
+			_apply_state(payload as Dictionary, frame_delta_seconds)
 
 
-func _apply_state(state: Dictionary) -> void:
+func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
+	var apply_started_usec := Time.get_ticks_usec()
 	_last_packet = state
 	var workload_mode: String = str(state.get("workload_mode", "normal"))
 	if workload_mode != "gaming":
@@ -64,16 +69,60 @@ func _apply_state(state: Dictionary) -> void:
 	_write_status(status)
 
 	var blendshape_driver: Node = _resolve_node(blendshape_driver_path)
+	var expression_report := {"status": "unavailable", "reason": "blendshape_driver_unavailable"}
 	if blendshape_driver and blendshape_driver.has_method("apply_expression"):
-		blendshape_driver.apply_expression(expression, mood, intensity)
+		expression_report = blendshape_driver.apply_expression(expression, mood, intensity)
 		var viseme_value: Variant = state.get("viseme_timeline", [])
 		var visemes: Array = viseme_value if viseme_value is Array else []
 		if visemes is Array and blendshape_driver.has_method("play_viseme_timeline"):
 			blendshape_driver.play_viseme_timeline(visemes, float(state.get("timestamp", 0.0)))
 
 	var motion_driver: Node = _resolve_node(motion_driver_path)
+	var motion_report := {"active_motion": null, "observed_nodes": {}}
 	if motion_driver and motion_driver.has_method("apply_motion"):
 		motion_driver.apply_motion(motion)
+		if motion_driver.has_method("renderer_report"):
+			motion_report = motion_driver.renderer_report()
+	_record_renderer_report(state, workload_mode, expression, mood, intensity, motion,
+		expression_report, motion_report, frame_delta_seconds, apply_started_usec)
+
+
+func _record_renderer_report(state: Dictionary, workload_mode: String, expression: String,
+		mood: String, intensity: float, motion: String, expression_report: Dictionary,
+		motion_report: Dictionary, frame_delta_seconds: float, apply_started_usec: int) -> void:
+	_report_sequence += 1
+	var metadata: Variant = state.get("metadata", {})
+	var command_metadata: Dictionary = metadata if metadata is Dictionary else {}
+	var report := {
+		"schema_version": "sentientos.avatar_renderer_report:v1",
+		"evidence_class": "avatar_renderer_reported_state",
+		"source_id": "godot-procedural-demo",
+		"renderer_generation_id": _renderer_generation_id,
+		"sequence": _report_sequence,
+		"reported_at": Time.get_datetime_string_from_system(true, false) + "Z",
+		"session_id": command_metadata.get("session_id"),
+		"turn_id": command_metadata.get("turn_id"),
+		"output_digest": command_metadata.get("output_digest"),
+		"output_mode": command_metadata.get("output_mode"),
+		"commanded_state": {"expression": expression, "mood": mood, "intensity": intensity,
+			"motion": motion, "workload_mode": workload_mode},
+		"renderer_state": {"expression": expression_report, "motion": motion_report,
+			"applied_render_cap_fps": Engine.max_fps},
+		"frame_delta_seconds": frame_delta_seconds if frame_delta_seconds >= 0 else null,
+		"apply_duration_usec": maxi(0, Time.get_ticks_usec() - apply_started_usec),
+		"body_generation": "godot-procedural-demo-unadopted",
+		"effect_proven": false,
+		"independent_observation": false,
+	}
+	var hash_context := HashingContext.new()
+	hash_context.start(HashingContext.HASH_SHA256)
+	hash_context.update(JSON.stringify(report).to_utf8_buffer())
+	report["source_digest"] = "sha256:" + hash_context.finish().hex_encode()
+	_last_renderer_report = report
+
+
+func latest_renderer_report() -> Dictionary:
+	return _last_renderer_report.duplicate(true)
 
 
 func _set_workload_mode(workload_mode: String) -> void:
