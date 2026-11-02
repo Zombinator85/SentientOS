@@ -1006,38 +1006,95 @@ async def root_page() -> HTMLResponse:
                     const control = document.getElementById('workload-mode');
                     const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
+                    control.disabled = true;
+                    names.disabled = true;
                     try {
                         const response = await fetch('/workload-mode');
                         if (!response.ok) throw new Error('unavailable');
-                        const data = await response.json();
+                        let data = await response.json();
+                        const preference = readWorkloadPreference();
+                        if (preference) {
+                            names.value = preference.game_process_names.join(', ');
+                            const restored = await fetch('/workload-mode', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(preference),
+                            });
+                            if (restored.ok) data = await restored.json();
+                            else status.textContent = 'Saved workload preference could not be restored';
+                        }
                         control.value = data.mode;
-                        status.textContent = data.mode === 'automatic'
-                            ? (data.observation_status === 'available'
-                                ? (data.effective_mode === 'gaming' ? 'Game detected; low-work mode active' : 'No watched game in foreground')
-                                : 'Detection unavailable; low-work mode active')
-                            : (data.mode === 'gaming' ? 'Low-work mode active' : 'Normal mode');
+                        if (!preference || data.mode === preference.mode) {
+                            status.textContent = workloadStatusMessage(data);
+                        }
                     } catch (_) {
                         control.disabled = true;
                         names.disabled = true;
                         status.textContent = 'Unavailable';
+                    } finally {
+                        const unavailable = status.textContent === 'Unavailable';
+                        control.disabled = unavailable;
+                        names.disabled = unavailable;
                     }
+                }
+                const workloadPreferenceKey = 'sentientos_workload_preference_v1';
+                function readWorkloadPreference() {
+                    try {
+                        const value = JSON.parse(localStorage.getItem(workloadPreferenceKey) || 'null');
+                        if (!value || !['normal', 'gaming', 'automatic'].includes(value.mode)
+                                || !Array.isArray(value.game_process_names)
+                                || value.game_process_names.length > 32
+                                || value.game_process_names.some(name => typeof name !== 'string')) return null;
+                        return { mode: value.mode, game_process_names: value.game_process_names };
+                    } catch (_) { return null; }
+                }
+                function saveWorkloadPreference(mode, gameProcessNames) {
+                    try {
+                        localStorage.setItem(workloadPreferenceKey, JSON.stringify({
+                            mode, game_process_names: gameProcessNames,
+                        }));
+                        return true;
+                    } catch (_) { return false; }
+                }
+                function workloadStatusMessage(data) {
+                    return data.mode === 'automatic'
+                        ? (data.observation_status === 'available'
+                            ? (data.effective_mode === 'gaming'
+                                ? 'Game detected; low-work mode active'
+                                : 'No watched game in foreground')
+                            : 'Detection unavailable; low-work mode active')
+                        : (data.mode === 'gaming' ? 'Low-work mode active' : 'Normal mode');
                 }
                 async function refreshWorkloadStatus() {
                     const control = document.getElementById('workload-mode');
-                    if (control.value !== 'automatic') return;
+                    if (control.disabled) return;
+                    const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
                     try {
                         const response = await fetch('/workload-mode');
                         if (!response.ok) throw new Error('unavailable');
-                        const data = await response.json();
-                        if (control.value !== 'automatic' || data.mode !== 'automatic') return;
-                        status.textContent = data.observation_status === 'available'
-                            ? (data.effective_mode === 'gaming'
-                                ? 'Game detected; low-work mode active'
-                                : 'No watched game in foreground')
-                            : 'Detection unavailable; low-work mode active';
+                        let data = await response.json();
+                        if (control.value !== data.mode) {
+                            const preference = readWorkloadPreference();
+                            if (preference && preference.mode === control.value) {
+                                const restored = await fetch('/workload-mode', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(preference),
+                                });
+                                if (restored.ok) data = await restored.json();
+                            }
+                        }
+                        if (control.value !== data.mode) {
+                            control.value = data.mode;
+                            const preference = readWorkloadPreference();
+                            if (preference && preference.mode === data.mode) {
+                                names.value = preference.game_process_names.join(', ');
+                            }
+                        }
+                        status.textContent = workloadStatusMessage(data);
                     } catch (_) {
-                        status.textContent = 'Automatic detection status unavailable';
+                        status.textContent = 'Workload status unavailable';
                     }
                 }
                 async function changeWorkloadMode() {
@@ -1045,6 +1102,7 @@ async def root_page() -> HTMLResponse:
                     const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
                     control.disabled = true;
+                    names.disabled = true;
                     try {
                         const processNames = names.value.split(',').map(value => value.trim()).filter(Boolean);
                         const response = await fetch('/workload-mode', {
@@ -1054,11 +1112,10 @@ async def root_page() -> HTMLResponse:
                         });
                         if (!response.ok) throw new Error('unavailable');
                         const data = await response.json();
-                        status.textContent = data.mode === 'automatic'
-                            ? (data.observation_status === 'available'
-                                ? (data.effective_mode === 'gaming' ? 'Game detected; low-work mode active' : 'No watched game in foreground')
-                                : 'Detection unavailable; low-work mode active')
-                            : (data.mode === 'gaming' ? 'Low-work mode active for new turns' : 'Normal mode');
+                        const saved = saveWorkloadPreference(
+                            data.mode, data.mode === 'automatic' ? processNames : []);
+                        status.textContent = workloadStatusMessage(data)
+                            + (saved ? '' : '; not saved in this browser');
                     } catch (_) {
                         const message = control.value === 'automatic'
                             ? 'Add one or more executable names ending in .exe' : 'Unable to change mode';

@@ -13,10 +13,14 @@ does not reveal which game is running. The style identifier is recorded in the
 invocation lineage. Normal mode leaves the prompt unchanged. This affects replies
 to messages the player sends; it does not start conversations or interrupt play.
 
-The production chat process exposes the mode through its local chat API. The mode
-is process-local and starts as `normal` after restart. Select `gaming` to keep the
-low-work budget active for all new turns, or select `automatic` and enter one or
-more Windows executable basenames such as `ExampleGame.exe`. Automatic mode
+The production chat process exposes the mode through its local chat API. Its
+runtime state resets to `normal` after restart. The local chat page stores the
+selected mode and, for `automatic`, the user-entered executable basenames in that
+browser origin's local storage and reapplies them when the page reconnects to a
+restarted service. This preference is not shared with other browsers or clients.
+Select `gaming` to keep the low-work budget active for all new turns, or select
+`automatic` and enter one or more Windows executable basenames such as
+`ExampleGame.exe`. Automatic mode
 compares only the foreground process basename against that explicit allowlist; it
 does not read window titles, command lines, or process paths. The local chat page
 provides these controls.
@@ -35,7 +39,8 @@ routes are available only when the production chat composition is active.
 Automatic detection uses the Windows foreground-window process API. On unsupported
 platforms or when process observation fails, it chooses the lower-work Gaming
 budget and reports that the signal was unavailable. The allowlist and mode are
-process-local and reset on restart. This feature reduces each chat turn's maximum
+runtime configuration is process-local and reset on restart; the local chat page
+restores the browser's preference when available. This feature reduces each chat turn's maximum
 work; it does not change llama.cpp CPU thread count, reserve CPU or GPU capacity,
 stop background inference, observe frame time, or establish hardware suitability.
 Those need host-side scheduling and performance measurements and remain future
