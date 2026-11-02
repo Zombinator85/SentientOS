@@ -1,6 +1,6 @@
 # Pre-GLORP gaming companion handoff
 
-**Source baseline:** `196e049c4f1f204e9be4fb71a29b5033c86417fe`  
+**Source baseline:** `ce043a6a6ec96f77f8a329accd4a8af8d651c7f8` (verified `main` at this handoff update)  
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
@@ -84,9 +84,9 @@ run as one deployment procedure.
 
 ## What remains unfinished
 
-- **Split WSL2/Windows bridge:** the current forwarder and demo use unauthenticated
-  UDP and default to loopback. They are suitable only for the current same-host
-  local demo. Do not change the destination to a WSL/Windows interface address
+- **Split WSL2/Windows bridge:** the forwarder and Godot demo use unauthenticated
+  same-host UDP; the Godot listener now explicitly binds to `127.0.0.1`. This is
+  still not an authenticated cross-host bridge. Do not change the bind address
   or expose the listener to the LAN. A versioned authenticated bridge, source
   and generation binding, replay protection, reconnect/backpressure behavior,
   and Windows-side observer adapter do not exist yet. The new envelope library
@@ -97,17 +97,27 @@ run as one deployment procedure.
   is process-local, so callers must rotate to a fresh generation before
   restarting a receiver or old messages may be accepted again within the
   timestamp window.
-- **Topology and lifecycle:** no companion deployment manifest or one-command
-  readiness doctor currently composes WSL core, Windows observer, renderer, and
-  local speech. The existing Windows readiness and scheduled-task machinery is
-  for maintenance, not companion startup. There is no coordinated start,
-  health check, reconnect, or shutdown for a split deployment.
+- **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
+  doctor now exist, but the doctor cannot observe Windows components or a live
+  bridge from this cloud Linux environment. It does not supervise or start
+  processes. There is still no coordinated startup, health check, reconnect, or
+  shutdown for a split deployment. The Windows readiness and scheduled-task
+  machinery remains specific to maintenance.
 - **Resource feedback:** the governor in `host_resource_governor.py` emits
   proposal-only reports. It does not control inference. Gaming mode shortens
   direct chat requests but does not reduce llama.cpp thread counts, unload the
   model, pause optional background inference, reserve GPU capacity, or ensure
-  better game frame times. No GLORP CPU/GPU/VRAM, temperature, power, or frame
+  better game frame times.
+  In the inspected rootless runtime, llama-cpp-python 0.3.35 exposes no
+  `Llama.set_n_threads` or `set_n_threads_batch` API, and the exact runtime
+  worker fixes `n_threads` at startup. There is no per-turn thread-control
+  message in its current protocol; a dynamic thread change needs a separately
+  governed runtime/worker change or reload, not just a workload-mode label. No GLORP CPU/GPU/VRAM, temperature, power, or frame
   time measurements are present.
+- `sentientos.gaming_companion_deployment` and its CLI provide a closed split-host
+  manifest and read-only WSL2 deployment doctor. The doctor reports absent
+  Windows and bridge evidence; it does not create state, grant authority, start
+  components, or claim that the deployment is ready.
 - **GPU telemetry:** the NVML collector has fixture coverage only in this cloud
   run. NVML is not installed here, and no GLORP device sample exists.
   Per-process GPU utilization and game frame-time collection remain
@@ -189,19 +199,19 @@ the unresolved split-network step prevents calling it a complete deployment:
 
 ## Next engineering increments
 
-1. Add a deployment manifest and read-only doctor for the split topology, with
-   explicit `blocked`, `ready_with_warnings`, and `ready` facts; it must never
-   create installation identity, grants, receipts, firewall rules, or services.
-2. Add independently configured source-key custody, generation rotation, a
-   bounded listener/client lifecycle, reconnect and backpressure. Keep
-   non-loopback transport disabled until that work is validated.
-3. Connect the bridge to the real foreground observer and admitted avatar
-   output, then compose startup, health, reconnect, and shutdown.
-4. Add measurement adapters, then an explicitly authorized request-budget
-   effect owner; retain proposal-only host governance until that owner is
-   separately admitted.
-5. Connect renderer reports through the bridge and durable World-State capture;
-   add independently sourced observation, then opt-in perception and speech
-   paths.
-6. Repeat the same vertical scenario after each connection, labeling fixtures,
-   actual CPU inference, and GLORP hardware observations separately.
+1. Establish independently configured source-key custody and generation rotation,
+   then implement a bounded listener/client lifecycle, reconnect, and
+   backpressure. Validate the implementation on authorized loopback transport
+   before any Windows/WSL route; keep non-loopback exposure disabled.
+2. Connect the Windows foreground observer to the authenticated bridge and the
+   chat workload-state path. Verify stale, invalid, or missing observations
+   retain the conservative gaming budget.
+3. Connect renderer reports through the bridge and durable World-State capture;
+   preserve their self-reported status until an independent observer exists.
+4. Compose startup, health, reconnect, and shutdown around the read-only
+   deployment doctor without creating installation identity or grants.
+5. Define and admit a reversible request-budget effect owner using measured
+   CPU/GPU/VRAM and game frame-time inputs. The current gaming budget does not
+   lower llama.cpp thread count or establish better frame times.
+6. Run preregistered GLORP comparisons only after the target host is provisioned;
+   report fixtures, rootless CPU inference, and GLORP observations separately.
