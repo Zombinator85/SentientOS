@@ -32,6 +32,7 @@ from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
 )
+from .gaming_workload_policy import GamingWorkloadPolicy
 from .conversation_session import (
     ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution,
@@ -107,6 +108,10 @@ class ChatResponse(BaseModel):
     retention: dict[str, object]
 
 
+class ChatWorkloadModeRequest(BaseModel):
+    mode: str
+
+
 class ChatRequestStateError(ValueError):
     """A replay conflict or an intentionally unreplayed interrupted request."""
 
@@ -132,6 +137,18 @@ class PersistentConversationService:
         if not isinstance(identity, Mapping):
             raise RuntimeError("conversation_model_identity_unavailable")
         return str(self.sessions.create(model_identity=identity)["session_id"])
+
+    def set_workload_mode(self, mode: str) -> str:
+        setter = getattr(self._inference, "set_workload_mode", None)
+        if not callable(setter):
+            raise RuntimeError("chat_workload_mode_unavailable")
+        return str(setter(GamingWorkloadPolicy.validate_mode(mode)))
+
+    def current_workload_mode(self) -> str:
+        getter = getattr(self._inference, "current_workload_mode", None)
+        if not callable(getter):
+            raise RuntimeError("chat_workload_mode_unavailable")
+        return str(getter())
 
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
@@ -800,6 +817,24 @@ async def readiness_endpoint() -> dict[str, str]:
     return {"status": "ready"}
 
 
+@APP.get("/workload-mode")
+async def workload_mode_endpoint() -> dict[str, str]:
+    try:
+        return {"mode": _get_conversation_service().current_workload_mode()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
+
+
+@APP.post("/workload-mode")
+async def set_workload_mode_endpoint(request: ChatWorkloadModeRequest) -> dict[str, str]:
+    try:
+        return {"mode": _get_conversation_service().set_workload_mode(request.mode)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
+
+
 @APP.post("/sessions")
 async def create_session() -> dict[str, str]:
     try:
@@ -854,6 +889,9 @@ async def root_page() -> HTMLResponse:
                 .boot-entry { margin: 0.5rem 0; padding: 0.5rem; border-left: 4px solid #444; background: #0f0f0f; border-radius: 4px; }
                 .boot-entry[data-level="warning"] { border-color: #f0a202; }
                 .boot-entry[data-level="error"] { border-color: #f2545b; }
+                #workload-controls { margin: 1rem 0; padding: 0.75rem; background: #1b1b1b; border-radius: 8px; }
+                #workload-mode { width: auto; min-height: 0; }
+                #workload-status { margin-left: 0.5rem; color: #aaa; }
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
                 .response { margin-top: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px; }
@@ -867,6 +905,10 @@ async def root_page() -> HTMLResponse:
                 </section>
                 <h1>SentientOS Local Chat</h1>
                 <p>Start a local conversation with the SentientOS daemon. All interactions remain on your machine.</p>
+                <section id="workload-controls" aria-label="Workload mode">
+                    <label><input id="workload-mode" type="checkbox" /> Gaming mode: shorter responses and a smaller per-turn inference budget</label>
+                    <span id="workload-status" role="status"></span>
+                </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
                 <button id="send">Send</button>
                 <div id="response" class="response" hidden>
@@ -943,7 +985,44 @@ async def root_page() -> HTMLResponse:
                     responseTextEl.textContent = data.response;
                     responseEl.hidden = false;
                 }
+                async function refreshWorkloadMode() {
+                    const control = document.getElementById('workload-mode');
+                    const status = document.getElementById('workload-status');
+                    try {
+                        const response = await fetch('/workload-mode');
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.checked = data.mode === 'gaming';
+                        status.textContent = data.mode === 'gaming' ? 'Active' : 'Off';
+                    } catch (_) {
+                        control.checked = false;
+                        control.disabled = true;
+                        status.textContent = 'Unavailable';
+                    }
+                }
+                async function changeWorkloadMode() {
+                    const control = document.getElementById('workload-mode');
+                    const status = document.getElementById('workload-status');
+                    control.disabled = true;
+                    try {
+                        const response = await fetch('/workload-mode', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ mode: control.checked ? 'gaming' : 'normal' }),
+                        });
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.checked = data.mode === 'gaming';
+                        status.textContent = data.mode === 'gaming' ? 'Active for new turns' : 'Off';
+                    } catch (_) {
+                        status.textContent = 'Unable to change mode';
+                        await refreshWorkloadMode();
+                    } finally {
+                        control.disabled = status.textContent === 'Unavailable';
+                    }
+                }
                 document.getElementById('send').addEventListener('click', sendMessage);
+                document.getElementById('workload-mode').addEventListener('change', changeWorkloadMode);
                 document.getElementById('message').addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                         event.preventDefault();
@@ -951,6 +1030,7 @@ async def root_page() -> HTMLResponse:
                     }
                 });
                 refreshBootFeed();
+                refreshWorkloadMode();
                 setInterval(refreshBootFeed, 5000);
             </script>
         </body>

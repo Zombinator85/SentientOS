@@ -127,6 +127,12 @@ class ResourceBackedProductionChatInference:
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         return cast(Mapping[str, Any], self._delegate.current_conversation_model_identity())
 
+    def set_workload_mode(self, mode: str) -> str:
+        return self._delegate.set_workload_mode(mode)
+
+    def current_workload_mode(self) -> str:
+        return self._delegate.current_workload_mode()
+
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
                                      session_id: str, user_turn_id: str,
                                      assistant_text: str | None = None,

@@ -23,6 +23,9 @@ class Inference:
             "observed_loaded_model_identity": {"posture": "production"}}
         self.calls = []; self.statuses = iter(statuses or ["admitted_completed"] * 10)
         self.receipts = {}
+        self.workload_mode = "normal"
+    def set_workload_mode(self, mode): self.workload_mode = mode; return mode
+    def current_workload_mode(self): return self.workload_mode
     def current_conversation_model_identity(self): return dict(self.identity)
     def generate(self, **kwargs):
         self.calls.append(kwargs); status = next(self.statuses)
@@ -115,6 +118,36 @@ def test_successful_turn_and_second_turn_have_distinct_inference_correlations(tm
     assert set(inference.calls[1]["caller_linkage"]) == base_linkage | {
         "verified_predecessor_invocation", "verified_predecessor_runtime_handoff_digest",
         "verified_predecessor_runtime_software_generation_digest"}
+
+
+def test_chat_workload_mode_is_process_local_and_operator_switchable(tmp_path):
+    inference = Inference()
+    app = service(tmp_path, inference)
+
+    assert app.current_workload_mode() == "normal"
+    assert app.set_workload_mode("gaming") == "gaming"
+    assert app.current_workload_mode() == "gaming"
+    assert app.set_workload_mode("normal") == "normal"
+
+
+def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
+    from fastapi.testclient import TestClient
+
+    inference = Inference()
+    chat_service._CONVERSATION_SERVICE = service(tmp_path, inference)
+    try:
+        with TestClient(chat_service.APP) as client:
+            page = client.get("/")
+            assert page.status_code == 200
+            assert 'id="workload-mode"' in page.text
+            assert client.get("/workload-mode").json() == {"mode": "normal"}
+            assert client.post("/workload-mode", json={"mode": "gaming"}).json() == {
+                "mode": "gaming"}
+            response = client.post("/workload-mode", json={"mode": "automatic"})
+        assert response.status_code == 400
+        assert inference.workload_mode == "gaming"
+    finally:
+        chat_service._CONVERSATION_SERVICE = None
 
 
 def test_conversation_identity_change_uses_verified_predecessor_lineage(tmp_path):
