@@ -19,6 +19,7 @@ from .governed_local_model_invocation import (
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .installation_state import InstallationStateError
+from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
 from .chat_process_generation import (
     ChatProcessGenerationError,
     verify_current_chat_process_handoff,
@@ -51,7 +52,8 @@ def unavailable_chat_process_software_generation() -> dict[str, Any]:
 class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
-    __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock")
+    __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock",
+                 "_workload_lock", "_workload_mode")
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None) -> None:
@@ -60,6 +62,19 @@ class ProductionServingInferenceController:
         self._serving = serving_controller
         self._runtime_handoff_id = runtime_handoff_id
         self._receipt_capacity_lock = threading.Lock()
+        self._workload_lock = threading.Lock()
+        self._workload_mode: WorkloadMode = "normal"
+
+    def set_workload_mode(self, mode: str) -> WorkloadMode:
+        """Set a process-local chat budget mode; this grants no host authority."""
+        validated = GamingWorkloadPolicy.validate_mode(mode)
+        with self._workload_lock:
+            self._workload_mode = validated
+        return validated
+
+    def current_workload_mode(self) -> WorkloadMode:
+        with self._workload_lock:
+            return self._workload_mode
 
     def _software_generation_attribution(self) -> dict[str, Any]:
         if self._runtime_handoff_id is None:
@@ -130,7 +145,9 @@ class ProductionServingInferenceController:
         if (configured_operation is not None
                 and configured_operation != binding.get("serving_operation_id")):
             raise ProductionServingInferenceError("serving_operation_chat_handoff_mismatch")
-        linkage: Mapping[str, Any] = {
+        workload_mode = self.current_workload_mode()
+        effective_budget, linkage = GamingWorkloadPolicy.apply_to_chat_invocation(
+            workload_mode, budget or LocalModelInvocationBudget(), {
             "serving_session_id": session.session_id,
             "serving_receipt_id": binding.get("serving_receipt_id"),
             "serving_receipt_semantic_digest": binding.get("serving_receipt_semantic_digest"),
@@ -153,7 +170,7 @@ class ProductionServingInferenceController:
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
             "software_generation_attribution": software_generation_attribution,
-        }
+        })
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")
@@ -180,7 +197,7 @@ class ProductionServingInferenceController:
         invoker.register_evidence_sink(publish_receipt)
         request = invoker.build_request(
             purpose="local_user_chat", prompt=prompt, caller=caller,
-            correlation_id=correlation_id, budget=budget,
+            correlation_id=correlation_id, budget=effective_budget,
             upstream_evidence={"current_serving_lifetime": linkage}, linkage=linkage)
         request_receipt_bytes = json.dumps(request.to_receipt_request_dict(),
             sort_keys=True, separators=(",", ":"), ensure_ascii=False,
