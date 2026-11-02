@@ -228,9 +228,12 @@ func _set_candidate_shape(mesh_node: MeshInstance3D, shape_name: String, weight:
 
 
 func _blend_shape_index(mesh_node: MeshInstance3D, shape_name: String) -> int:
-	if not mesh_node.mesh is ArrayMesh:
+	if mesh_node.mesh == null:
 		return -1
-	return (mesh_node.mesh as ArrayMesh).find_blend_shape_by_name(shape_name)
+	for index in range(mesh_node.mesh.get_blend_shape_count()):
+		if mesh_node.mesh.get_blend_shape_name(index) == shape_name:
+			return index
+	return -1
 
 
 func _find_shape(shape_name: String) -> Dictionary:
@@ -240,8 +243,7 @@ func _find_shape(shape_name: String) -> Dictionary:
 		var mesh_node := node as MeshInstance3D
 		if not mesh_node.mesh is ArrayMesh:
 			continue
-		var mesh := mesh_node.mesh as ArrayMesh
-		var shape_index: int = mesh.find_blend_shape_by_name(shape_name)
+		var shape_index := _blend_shape_index(mesh_node, shape_name)
 		if shape_index >= 0:
 			return {"mesh": mesh_node, "index": shape_index}
 	return {}
