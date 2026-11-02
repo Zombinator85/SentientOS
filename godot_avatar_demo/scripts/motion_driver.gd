@@ -92,6 +92,25 @@ func apply_motion(motion: String) -> void:
 			head.rotation.y = _head_rest.y
 
 
+func renderer_report() -> Dictionary:
+	var player := _resolve_player()
+	var head := _resolve_node(head_pivot_path)
+	var arm := _resolve_node(left_arm_path)
+	var body := _resolve_node(body_path)
+	return {
+		"active_motion": _active_motion,
+		"animation_player_active": player != null and player.is_playing(),
+		"head_rotation_radians": _vector3_payload(head.rotation) if head else null,
+		"left_arm_rotation_radians": _vector3_payload(arm.rotation) if arm else null,
+		"body_position": _vector3_payload(body.position) if body else null,
+		"observed_nodes": {"head": head != null, "left_arm": arm != null, "body": body != null},
+	}
+
+
+func _vector3_payload(value: Vector3) -> Dictionary:
+	return {"x": value.x, "y": value.y, "z": value.z}
+
+
 func _finish_gesture() -> void:
 	var head := _resolve_node(head_pivot_path)
 	var arm := _resolve_node(left_arm_path)

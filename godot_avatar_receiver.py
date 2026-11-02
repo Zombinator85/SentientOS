@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import socket
 import threading
 import time
@@ -19,6 +20,8 @@ MAX_STATE_FILE_BYTES = 64 * 1024
 MAX_UDP_PAYLOAD_BYTES = 60 * 1024
 MAX_VISEME_CUES = 256
 MAX_PHRASE_CHARS = 2048
+_OUTPUT_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+_CORRELATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z")
 
 
 def _finite_number(value: object, default: float) -> float | None:
@@ -161,6 +164,19 @@ class AvatarStateForwarder:
         workload_mode = metadata.get("workload_mode") if isinstance(metadata, dict) else None
         if isinstance(workload_mode, str) and workload_mode in {"normal", "gaming"}:
             payload["workload_mode"] = workload_mode
+        if isinstance(metadata, dict):
+            correlation: Dict[str, str] = {}
+            for field in ("session_id", "turn_id"):
+                value = metadata.get(field)
+                if isinstance(value, str) and _CORRELATION_ID.fullmatch(value):
+                    correlation[field] = value
+            output_digest = metadata.get("output_digest")
+            output_mode = metadata.get("output_mode")
+            if (len(correlation) == 2 and isinstance(output_digest, str)
+                    and _OUTPUT_DIGEST.fullmatch(output_digest)
+                    and output_mode == "chat_response_visual_only"):
+                payload["metadata"] = {**correlation,
+                    "output_digest": output_digest, "output_mode": output_mode}
         if not all(payload.get(key) for key in ("mood", "expression", "motion")):
             return None
         if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_UDP_PAYLOAD_BYTES:
