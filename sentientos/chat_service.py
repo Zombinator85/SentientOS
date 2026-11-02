@@ -1022,6 +1022,24 @@ async def root_page() -> HTMLResponse:
                         status.textContent = 'Unavailable';
                     }
                 }
+                async function refreshWorkloadStatus() {
+                    const control = document.getElementById('workload-mode');
+                    if (control.value !== 'automatic') return;
+                    const status = document.getElementById('workload-status');
+                    try {
+                        const response = await fetch('/workload-mode');
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        if (control.value !== 'automatic' || data.mode !== 'automatic') return;
+                        status.textContent = data.observation_status === 'available'
+                            ? (data.effective_mode === 'gaming'
+                                ? 'Game detected; low-work mode active'
+                                : 'No watched game in foreground')
+                            : 'Detection unavailable; low-work mode active';
+                    } catch (_) {
+                        status.textContent = 'Automatic detection status unavailable';
+                    }
+                }
                 async function changeWorkloadMode() {
                     const control = document.getElementById('workload-mode');
                     const names = document.getElementById('game-process-names');
@@ -1065,6 +1083,7 @@ async def root_page() -> HTMLResponse:
                 refreshBootFeed();
                 refreshWorkloadMode();
                 setInterval(refreshBootFeed, 5000);
+                setInterval(refreshWorkloadStatus, 5000);
             </script>
         </body>
         </html>
