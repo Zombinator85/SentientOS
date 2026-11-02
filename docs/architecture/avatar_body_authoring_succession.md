@@ -35,8 +35,9 @@ static driver paths, can pin the executable digest, uses `shell=False`, a minima
 workspace-scoped environment, timeout/tree termination, bounded tails, and exact
 argv. `run-one --backend blender` uses the repository-owned authoring and
 inspection drivers; its actual operation set covers mesh creation, transforms,
-armatures, bones, automatic armature binding, material assignment, and bounded
-shape-key deformation. A Blender create_shape_key operation must name 1 to 256
+armatures, bones, automatic armature binding, material assignment, bounded
+shape-key deformation, and one bounded bone animation clip. A Blender
+create_shape_key operation must name 1 to 256
 distinct vertex offsets; each index is bounded, each component is finite and at
 most 0.25 units, and zero offsets are rejected. The independent inspector reports
 changed-vertex count and maximum displacement from the Basis shape, and the
@@ -50,8 +51,16 @@ applies the bounded operation set, exports one GLB, then a separate Blender
 process imports that output for structural inspection. GLB export omits normals
 and UVs because the current operations do not author those channels; the
 candidate can contain geometry, skinning, materials, and authored morph shapes,
-but has no authored animation clips or textures. The acceptance test also loads
-the candidate in Godot and applies a shape key when that engine is installed.
+and authored animation clips, but has no authored textures. A
+create_bone_animation operation is limited to one named armature bone, 2 to 32
+strictly increasing keyframes, frame numbers up to 600, rotations within 180
+degrees, and a duration of at most 10 seconds at 1 to 60 frames per second.
+Blender exports clips as glTF actions; independent inspection reopens the GLB,
+identifies the single bone with changing rotation even when the import produces
+static tracks for the other bones, and requires that clip and bone to survive
+serialization. The acceptance test loads the candidate in Godot, applies a
+shape key, and verifies a mapped authored clip is playing when that engine is
+installed.
 The separate experimental renderer adapter can apply mapped candidate shape keys
 and skeleton motion, while reporting missing facial channels as unsupported.
 gltf is rejected because external buffer and image

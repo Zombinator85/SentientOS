@@ -6,6 +6,8 @@ const _ALLOWED_VISEMES := ["a", "e", "i", "o", "u", "neutral"]
 
 var _candidate_root: Node3D
 var _skeleton: Skeleton3D
+var _animation_player: AnimationPlayer
+var _motion_animation_clips := {}
 var _candidate_identity := {}
 var _motion_bones := {}
 var _expression_shapes := {}
@@ -74,11 +76,17 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	if not _validate_shape_mappings(viseme_shapes, _ALLOWED_VISEMES):
 		instance_value.free()
 		return {"status": "rejected", "reason": "candidate_viseme_mapping_invalid"}
+	var animation_bindings := _find_motion_animations(instance_value, validated_motion_bones.mapping)
+	if not animation_bindings.valid:
+		instance_value.free()
+		return {"status": "rejected", "reason": animation_bindings.reason}
 
 	if _candidate_root:
 		_candidate_root.queue_free()
 	_candidate_root = instance_value
 	_skeleton = candidate_skeleton
+	_animation_player = animation_bindings.player
+	_motion_animation_clips = animation_bindings.mapping
 	_candidate_identity = {
 		"evidence_posture": "caller_supplied_candidate_validation",
 		"body_id": str(evidence.get("body_id", "")),
@@ -104,15 +112,25 @@ func apply_motion(motion: String) -> Dictionary:
 	if motion not in _ALLOWED_MOTIONS:
 		return {"status": "unsupported", "reason": "motion_not_in_closed_mapping", "motion": motion}
 	if motion == "idle":
+		if _animation_player:
+			_animation_player.stop()
 		for mapped_bone in _motion_bones.values():
 			var rest_index := _skeleton.find_bone(str(mapped_bone))
 			if rest_index >= 0:
 				_skeleton.set_bone_pose_rotation(rest_index,
 					_skeleton.get_bone_rest(rest_index).basis.get_rotation_quaternion())
 		_active_motion = "idle"
-		return {"status": "applied", "active_motion": _active_motion, "bone": null}
+		return {"status": "applied", "active_motion": _active_motion, "bone": null,
+			"motion_source": "rest_pose"}
 	if not _motion_bones.has(motion):
 		return {"status": "unsupported", "reason": "motion_mapping_unavailable", "motion": motion}
+	if _motion_animation_clips.has(motion):
+		var clip: String = _motion_animation_clips[motion]
+		if _animation_player.current_animation != clip or not _animation_player.is_playing():
+			_animation_player.play(clip)
+		_active_motion = motion
+		return {"status": "applied", "active_motion": motion, "bone": _motion_bones[motion],
+			"motion_source": "authored_gltf_animation", "animation_clip": clip}
 	var bone_name: String = _motion_bones[motion]
 	var bone_index := _skeleton.find_bone(bone_name)
 	if bone_index < 0:
@@ -124,7 +142,26 @@ func apply_motion(motion: String) -> Dictionary:
 	_skeleton.set_bone_pose_rotation(bone_index, pose)
 	_active_motion = motion
 	return {"status": "applied", "active_motion": motion, "bone": bone_name,
-		"bone_pose_rotation": _quaternion_payload(pose)}
+		"motion_source": "direct_skeleton_pose", "bone_pose_rotation": _quaternion_payload(pose)}
+
+
+func _find_motion_animations(candidate: Node3D, mappings: Dictionary) -> Dictionary:
+	var selected_player: AnimationPlayer
+	var selected_clips := {}
+	for node in candidate.find_children("*", "AnimationPlayer", true, false):
+		var player := node as AnimationPlayer
+		var clips := {}
+		for motion_value in mappings:
+			var motion: String = str(motion_value)
+			if player.has_animation(motion):
+				clips[motion] = motion
+		if clips.is_empty():
+			continue
+		if selected_player:
+			return {"valid": false, "reason": "candidate_motion_animation_player_ambiguous"}
+		selected_player = player
+		selected_clips = clips
+	return {"valid": true, "player": selected_player, "mapping": selected_clips}
 
 
 func apply_expression(expression: String, intensity: float) -> Dictionary:

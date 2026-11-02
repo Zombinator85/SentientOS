@@ -51,6 +51,46 @@ def main() -> None:
                     shape_key_geometry[obj.name][key.name]={
                         "changed_vertex_count":sum(1 for delta in deltas if delta>1e-6),
                         "maximum_vertex_delta":max(deltas,default=0.0)}
-    value={"body_id":None,"labels":{},"objects":objects,"armatures":armatures,"bones":bones,"materials":materials,"shape_keys":shape_keys,"shape_key_geometry":shape_key_geometry,"channels":{},"warnings":[],"unsupported":[]}
+    channels={}
+    for armature in (obj for obj in bpy.data.objects if obj.type=="ARMATURE"
+                     and obj.animation_data is not None):
+        action_names={}
+        if armature.animation_data.action is not None:
+            action_names[armature.animation_data.action]=armature.animation_data.action.name
+        for track in armature.animation_data.nla_tracks:
+            for strip in track.strips:
+                if strip.action is not None:
+                    action_names[strip.action]=track.name
+        for action,animation_name in action_names.items():
+            bone_curves={}
+            for curve in action.fcurves:
+                path=curve.data_path
+                if not path.startswith('pose.bones["'):
+                    continue
+                bone_name=path[len('pose.bones["'):].split('"]',1)[0]
+                bone_curves.setdefault(bone_name,[]).append(curve)
+            moving_bones=set()
+            for bone_name,curves in bone_curves.items():
+                for curve in curves:
+                    if not (curve.data_path.endswith(".rotation_euler")
+                            or curve.data_path.endswith(".rotation_quaternion")):
+                        continue
+                    values=[float(point.co[1]) for point in curve.keyframe_points]
+                    if len(values)>1 and any(abs(value-values[0])>1e-6 for value in values[1:]):
+                        moving_bones.add(bone_name)
+                        break
+            if len(moving_bones)!=1:
+                continue
+            bone_name=next(iter(moving_bones))
+            keyframe_count=0
+            for curve in bone_curves[bone_name]:
+                keyframe_count+=len(curve.keyframe_points)
+            if keyframe_count<2:
+                continue
+            start,end=action.frame_range
+            channels[animation_name]={"kind":"motion","control":f"{armature.name}/{bone_name}",
+                "animation_clip":animation_name,"bone":bone_name,
+                "frame_count":max(1,int(round(end-start))+1),"keyframe_count":keyframe_count}
+    value={"body_id":None,"labels":{},"objects":objects,"armatures":armatures,"bones":bones,"materials":materials,"shape_keys":shape_keys,"shape_key_geometry":shape_key_geometry,"channels":channels,"warnings":[],"unsupported":[]}
     print("SENTIENTOS_AVATAR_INSPECTION="+json.dumps(value,sort_keys=True,separators=(",",":")))
 if __name__=="__main__": main()
