@@ -594,7 +594,9 @@ def load_adopted_body(*, pointer_path: Path, manifest: AvatarBodyManifest,
     if not callable(adoption_receipt_verifier):
         raise AvatarAuthoringError("adoption_receipt_verifier_required")
     pointer = load_pointer(pointer_path)
-    if (pointer.get("body_generation") != manifest.body_generation
+    if (pointer.get("installation_identity") != manifest.installation_body_id
+            or pointer.get("body_identity") != manifest.avatar_asset_id
+            or pointer.get("body_generation") != manifest.body_generation
             or pointer.get("manifest_digest") != manifest.semantic_digest
             or pointer.get("artifact_sha256") != manifest.source_artifact_digest
             or pointer.get("rig_semantic_digest") != manifest.rig_semantic_digest):
@@ -623,6 +625,7 @@ def load_adopted_body(*, pointer_path: Path, manifest: AvatarBodyManifest,
         raise AvatarAuthoringError("adoption_receipt_unverified")
     return {
         "schema_version": "sentientos.adopted_renderer_body:v1",
+        "body_id": str(pointer["body_identity"]),
         "artifact_path": str(resolved_artifact),
         "artifact_sha256": identity["sha256"],
         "byte_size": identity["byte_size"],
@@ -640,6 +643,15 @@ def load_adopted_body(*, pointer_path: Path, manifest: AvatarBodyManifest,
 def genesis_adopt(*, pointer_path: Path, installation_id: str, body_id: str, artifact: Path, manifest: AvatarBodyManifest, approval: str) -> dict[str, Any]:
     if pointer_path.exists(): raise AvatarAuthoringError("genesis_requires_absent_pointer")
     if not approval: raise AvatarAuthoringError("adoption_approval_missing")
+    if not isinstance(manifest, AvatarBodyManifest):
+        raise AvatarAuthoringError("genesis_manifest_required")
+    try:
+        manifest.validate()
+    except (TypeError, ValueError) as exc:
+        raise AvatarAuthoringError("genesis_manifest_invalid") from exc
+    if (installation_id != manifest.installation_body_id
+            or body_id != manifest.avatar_asset_id):
+        raise AvatarAuthoringError("genesis_identity_manifest_mismatch")
     ident=file_identity(artifact)
     if manifest.body_generation != 1 or ident["sha256"] != manifest.source_artifact_digest: raise AvatarAuthoringError("genesis_manifest_mismatch")
     value={"schema_version":POINTER_SCHEMA,"installation_identity":installation_id,"body_identity":body_id,"body_generation":1,"artifact_path":ident["path"],"artifact_sha256":ident["sha256"],"byte_size":ident["byte_size"],"manifest_digest":manifest.semantic_digest,"rig_semantic_digest":manifest.rig_semantic_digest,"predecessor_generation":None,"adoption_receipt_digest":"genesis:"+digest(approval)[7:],"update_sequence":1}
@@ -654,11 +666,23 @@ def _append_lineage(path: Path, event: Mapping[str, Any]) -> None:
 
 def adopt(*, pointer_path: Path, lineage_path: Path, expected_pointer_digest: str, candidate: Mapping[str, Any], manifest: AvatarBodyManifest, approval: str) -> dict[str, Any]:
     if not approval: raise AvatarAuthoringError("adoption_approval_missing")
+    if not isinstance(manifest, AvatarBodyManifest):
+        raise AvatarAuthoringError("adoption_manifest_required")
+    try:
+        manifest.validate()
+    except (TypeError, ValueError) as exc:
+        raise AvatarAuthoringError("adoption_manifest_invalid") from exc
     if candidate["receipt"]["result_posture"] != "candidate_validated": raise AvatarAuthoringError("candidate_not_validated")
+    if (candidate["receipt"].get("installation_body_id") != manifest.installation_body_id
+            or candidate["receipt"].get("body_id") != manifest.avatar_asset_id):
+        raise AvatarAuthoringError("adoption_identity_manifest_mismatch")
     ident=file_identity(Path(candidate["successor_path"]))
     if ident["sha256"] != candidate["successor_inspection"]["artifact_sha256"] or manifest.source_artifact_digest != ident["sha256"]: raise AvatarAuthoringError("successor_digest_changed_after_inspection")
     with _pointer_lock(pointer_path):
         current=load_pointer(pointer_path)
+        if (current.get("installation_identity") != manifest.installation_body_id
+                or current.get("body_identity") != manifest.avatar_asset_id):
+            raise AvatarAuthoringError("adoption_pointer_identity_mismatch")
         if current["pointer_digest"] != expected_pointer_digest or current["body_generation"]+1 != manifest.body_generation: raise AvatarAuthoringError("body_generation_compare_and_swap_failed")
         receipt={"schema_version":ADOPTION_SCHEMA,"adoption_id":"adopt:"+candidate["receipt"]["receipt_digest"][7:23],"from_generation":current["body_generation"],"to_generation":manifest.body_generation,"predecessor_pointer_digest":current["pointer_digest"],"successor_artifact_sha256":ident["sha256"],"successor_manifest_digest":manifest.semantic_digest,"authoring_receipt_digest":candidate["receipt"]["receipt_digest"],"approval":approval,"authority":dict(FALSE_AUTHORITY)}
         receipt["adoption_receipt_digest"]=digest(receipt)

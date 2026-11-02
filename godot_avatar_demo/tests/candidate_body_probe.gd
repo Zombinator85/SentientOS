@@ -15,8 +15,8 @@ func _initialize() -> void:
 		_fail("candidate_probe_glb_not_packed_scene")
 		return
 	var arguments := OS.get_cmdline_user_args()
-	if arguments.is_empty():
-		_fail("candidate_probe_evidence_missing")
+	if arguments.size() < 2:
+		_fail("candidate_probe_evidence_or_adoption_descriptor_missing")
 		return
 	var evidence_value: Variant = JSON.parse_string(arguments[0])
 	if typeof(evidence_value) != TYPE_DICTIONARY:
@@ -156,6 +156,76 @@ func _initialize() -> void:
 	if candidate_report.get("effect_proven") != false or candidate_report.get("independent_observation") != false:
 		_fail("candidate_probe_evidence_posture_invalid")
 		return
+	var adopted_value: Variant = JSON.parse_string(arguments[1])
+	if typeof(adopted_value) != TYPE_DICTIONARY:
+		_fail("candidate_probe_adopted_descriptor_invalid")
+		return
+	var adopted_descriptor := adopted_value as Dictionary
+	var procedural_avatar := demo.get_node("Avatar")
+	var rejected_descriptor := adopted_descriptor.duplicate(true)
+	rejected_descriptor["adoption_receipt_verified"] = false
+	var rejected_result: Dictionary = demo.install_adopted_body(candidate_value as PackedScene,
+		rejected_descriptor, {"wave": "upper"}, {"smile": "smile"}, {}, "MouthOpen")
+	if rejected_result.get("reason") != "adopted_body_receipt_verification_required" \
+			or not procedural_avatar.visible:
+		_fail("candidate_probe_unverified_adoption_changed_active_body")
+		return
+	var altered_digest_descriptor := adopted_descriptor.duplicate(true)
+	altered_digest_descriptor["artifact_sha256"] = "sha256:" + "0".repeat(64)
+	var altered_digest_result: Dictionary = demo.install_adopted_body(candidate_value as PackedScene,
+		altered_digest_descriptor, {"wave": "upper"}, {"smile": "smile"}, {}, "MouthOpen")
+	if altered_digest_result.get("reason") != "candidate_artifact_digest_mismatch" \
+			or not procedural_avatar.visible or not adapter.is_candidate_active():
+		_fail("candidate_probe_mismatched_adopted_artifact_changed_active_body")
+		return
+	var altered_size_descriptor := adopted_descriptor.duplicate(true)
+	altered_size_descriptor["byte_size"] = int(altered_size_descriptor["byte_size"]) + 1
+	var altered_size_result: Dictionary = demo.install_adopted_body(candidate_value as PackedScene,
+		altered_size_descriptor, {"wave": "upper"}, {"smile": "smile"}, {}, "MouthOpen")
+	if altered_size_result.get("reason") != "adopted_body_byte_size_mismatch" \
+			or not procedural_avatar.visible or not adapter.is_candidate_active():
+		_fail("candidate_probe_mismatched_adopted_size_changed_active_body")
+		return
+	var adopted_result: Dictionary = demo.install_adopted_body(candidate_value as PackedScene,
+		adopted_descriptor, {"wave": "upper", "nod": "upper"},
+		{"smile": "smile", "frown": "FaceFrown", "rest": "FaceNeutral"}, {}, "MouthOpen")
+	if adopted_result.get("status") != "adopted_body_loaded":
+		_fail("candidate_probe_adopted_body_install_failed:" + str(adopted_result))
+		return
+	if procedural_avatar.visible or not adapter.is_adopted_body_active() \
+			or adapter.position != Vector3.ZERO:
+		_fail("candidate_probe_adopted_body_not_made_operational")
+		return
+	var adopted_identity: Dictionary = adopted_result.get("identity", {})
+	if adopted_identity.get("adopted") != true \
+			or adopted_identity.get("body_generation") != adopted_descriptor.get("body_generation") \
+			or adopted_identity.get("pointer_digest") != adopted_descriptor.get("pointer_digest") \
+			or adopted_identity.get("adoption_receipt_digest") != adopted_descriptor.get("adoption_receipt_digest"):
+		_fail("candidate_probe_adoption_lineage_not_preserved")
+		return
+	state["metadata"]["speech_timing"] = {"event": "speech_started"}
+	demo.call("_apply_state", state, 0.016)
+	var adopted_report: Dictionary = demo.latest_renderer_report()
+	if adopted_report.get("body_generation") != adopted_descriptor.get("body_generation") \
+			or adopted_report.get("body_identity") != adopted_descriptor.get("body_id") \
+			or adopted_report.get("renderer_state", {}).get("adopted_body", {}).get("status") != "active" \
+			or adopted_report.get("effect_proven") != false \
+			or adopted_report.get("independent_observation") != false:
+		_fail("candidate_probe_adopted_renderer_report_invalid")
+		return
+	var adopted_renderer_state: Dictionary = adopted_report.get("renderer_state", {})
+	if adopted_renderer_state.get("expression", {}).get("status") != "blend_shape_applied" \
+			or adopted_renderer_state.get("motion", {}).get("status") != "applied" \
+			or adopted_renderer_state.get("speech", {}).get("status") != "speaking":
+		_fail("candidate_probe_adopted_body_was_not_the_reported_operational_body")
+		return
+	var rollback_result: Dictionary = demo.rollback_adopted_body()
+	if rollback_result.get("status") != "procedural_body_restored" \
+			or not procedural_avatar.visible or adapter.is_candidate_active() \
+			or adapter.position != Vector3(1.7, 0.0, 0.0):
+		_fail("candidate_probe_adopted_body_rollback_failed:" + str(rollback_result))
+		return
+	print("sentientos_adopted_body_round_trip_passed")
 	print("sentientos_candidate_renderer_report_json:" + JSON.stringify(candidate_report))
 	print("SENTIENTOS_GLB_SCENE_READY meshes=%d skeletons=%d" % [meshes.size(), skeletons.size()])
 	print("sentientos_candidate_renderer_probe_passed")

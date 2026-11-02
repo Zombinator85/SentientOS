@@ -19,7 +19,9 @@ from sentientos.gaming_companion_tls_transport import CompanionBridgeMutualTLSCl
 from sentientos.gaming_companion_tls_transport import CompanionBridgeMutualTLSRuntime
 from control_plane import Decision, ReasonCode, RequestType
 from control_plane.records import AuthorizationRecord
+from control_plane.task_admission import AdmissionResponse
 from tests.test_gaming_companion_tls_transport import _certificate_bundle
+from sentientos.chat_avatar_output import ChatAvatarOutputController
 
 
 class _Runtime:
@@ -48,6 +50,16 @@ def _authorization():
         metadata={"approved_by": "operator"})
 
 
+class _AvatarAdmission:
+    def __call__(self, **request):
+        record = AuthorizationRecord.create(
+            request_type=request["request_type"], requester_id=str(request["requester_id"]),
+            intent_hash=str(request["intent_hash"]), context_hash=str(request["context_hash"]),
+            policy_version=str(request["policy_version"]), decision=Decision.ALLOW,
+            reason=ReasonCode.OK, metadata=request.get("metadata"))
+        return AdmissionResponse(Decision.ALLOW, ReasonCode.OK, record)
+
+
 def test_admitted_chat_output_crosses_signed_reverse_route_and_reaches_dispatcher():
     key = b"k" * 32
     receiver = CompanionBridgeReceiver(source_keys={"sentientos-core": key},
@@ -74,6 +86,63 @@ def test_admitted_chat_output_crosses_signed_reverse_route_and_reaches_dispatche
     assert delivered[0]["workload_mode"] == "gaming"
     assert dispatcher.status().renderer_effect_proven is False
     sender.close()
+
+
+def test_remote_avatar_emitter_uses_authorized_chat_session_and_closes_phrase():
+    key = b"r" * 32
+    receiver = CompanionBridgeReceiver(source_keys={"sentientos-core": key},
+        expected_generations={"sentientos-core": "core-generation-1"})
+    client = _Client(receiver)
+    sender = MutualTLSAvatarCommandSender(client=client, source_id="sentientos-core",
+        session_id=None, generation_id="core-generation-1", source_key=key,
+        admission_receipt_builder=lambda _authorization: {
+            "receipt_id": "remote-admission", "semantic_digest": "f" * 64})
+    output = ChatAvatarOutputController(BridgeChatAvatarOutputEmitter(sender),
+        admission_provider=_AvatarAdmission())
+    try:
+        assert output.set_enabled("actual-chat-session", True)["enabled"] is True
+        result = output.publish_response(session_id="actual-chat-session", turn_id="turn-7",
+            text="Hello from the governed chat owner", output_digest="a" * 64,
+            workload_mode="gaming")
+        assert result["status"] == "emitted"
+        response_message = client.sent[-1]
+        assert response_message.session_id == "actual-chat-session"
+        assert response_message.payload["workload_mode"] == "gaming"
+        timing = output.publish_speech_timing({"session_id": "actual-chat-session",
+            "turn_id": "turn-7", "event": "speech_interrupted"})
+        assert timing["status"] == "emitted"
+        assert client.sent[-1].session_id == "actual-chat-session"
+        assert client.sent[-1].payload["speech_timing"]["event"] == "speech_interrupted"
+    finally:
+        output.close()
+        sender.close()
+    assert client.sent[-1].session_id == "actual-chat-session"
+    assert client.sent[-1].payload["phrase"] == ""
+
+
+def test_remote_avatar_emitter_rejects_session_metadata_outside_authorization():
+    key = b"s" * 32
+    receiver = CompanionBridgeReceiver(source_keys={"sentientos-core": key},
+        expected_generations={"sentientos-core": "core-generation-1"})
+    sender = MutualTLSAvatarCommandSender(client=_Client(receiver),
+        source_id="sentientos-core", session_id=None,
+        generation_id="core-generation-1", source_key=key,
+        admission_receipt_builder=lambda _authorization: {
+            "receipt_id": "remote-admission", "semantic_digest": "f" * 64})
+    emitter = BridgeChatAvatarOutputEmitter(sender)
+    authorized_for = AuthorizationRecord.create(
+        request_type=RequestType.AVATAR_EMISSION, requester_id="bridge",
+        intent_hash="a" * 64, context_hash="b" * 64, policy_version="test",
+        decision=Decision.ALLOW, reason=ReasonCode.OK,
+        metadata={"session_id": "authorized-session"})
+    try:
+        with pytest.raises(CompanionBridgeError,
+                           match="avatar_command_session_authorization_mismatch"):
+            emitter.emit_display_text("cross-session", authorization=authorized_for,
+                metadata={"session_id": "other-session", "turn_id": "turn-1",
+                    "output_digest": "c" * 64})
+    finally:
+        sender.close()
 
 
 def test_admitted_chat_output_crosses_mutual_tls_into_edge_dispatcher(tmp_path):

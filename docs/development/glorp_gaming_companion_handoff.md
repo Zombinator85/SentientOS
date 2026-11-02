@@ -204,9 +204,13 @@ is implemented and tested.
   Godot state sink behind one bounded owner. The WSL counterpart,
   `build_wsl_core_avatar_output_session`, resolves the same generation custody,
   uses distinct source/acknowledgment keys, and pins the Windows edge server
-  certificate before sending application bytes. Its session factory resolves
-  custody by exact reference and validates receipt ordering. Both role factories
-  and the certificate-backed localhost route are fixture-tested. There is still
+  certificate before sending application bytes. The combined
+  `build_wsl_core_gaming_companion_runtime` also composes the verified forward
+  Windows-observation listener with the existing workload detector. Production
+  chat can own the output session, preserve chat-session authorization, clear
+  renderer state, and close the sender in order. Its factories resolve custody
+  by exact reference and validate receipt ordering. The role factories and
+  certificate-backed localhost route are fixture-tested. There is still
   no executable paired role launcher, platform custody adapter, GLORP listener,
   or renderer observation; state-file delivery does not establish that a frame
   rendered.
@@ -270,9 +274,12 @@ is implemented and tested.
   treated as phonemes or visemes, and this is not evidence of an adopted body.
 - **Authored-body adoption:** authoring, structural inspection, operator
   adoption, compare-and-swap lineage, rollback, and an experimental Godot
-  candidate adapter exist. The demo's active body remains procedural; it has
-  not loaded the adopted GLORP artifact with its production manifest and
-  renderer handoff. Target prerequisites include an operator-adopted artifact,
+  candidate adapter exist. A Blender/Godot fixture now exercises the full
+  loader-descriptor → operational-body activation → lineage report → rollback
+  path. Its receipt verifier and approval are test fixtures, and the renderer
+  report remains a self-report. The demo has not loaded the adopted GLORP
+  artifact with its production manifest and renderer handoff. Target
+  prerequisites include an operator-adopted artifact,
   its current pointer/manifest/receipt chain, the required Blender/Godot import
   support, and a target renderer process that can load the exact asset digest.
 - **Local model:** the rootless smoke proves that one small CPU model can run in
@@ -358,13 +365,15 @@ performance adapter with pressure-policy input, durable renderer self-report
 capture, and turn-scoped speech interruption. These are component increments,
 not a complete Windows-edge/WSL-core deployment.
 
-1. Implement executable Windows-edge and WSL-core role entrypoints that resolve
-   the manifest's protected references, construct the full role components,
-   and supply authority-backed launch and health callbacks to the process
-   supervisor. Reverse-avatar edge and WSL output-session factories now exist;
-   the forward telemetry/cognition core composition, platform custody adapters,
-   and paired executable launchers remain unfinished. Do not create keys,
-   generations, certificates, firewall rules, or OS persistence.
+1. Install platform providers for the paired `sentientos-gaming-companion-role`
+   executable. The executable validates manifest v3, selects only the matching
+   Windows-edge or WSL-core runtime owner, monitors listener health, and closes
+   cleanly; the existing edge and bidirectional WSL factories are the provider
+   composition points. No authorized Windows/WSL platform provider is available
+   in this cloud workspace, so DPAPI/credential-store and authority receipt
+   integration remain target work. The foreground launcher and its lifecycle
+   fixtures are implemented. Do not create keys, generations, certificates,
+   firewall rules, or OS persistence.
 2. Exercise the reverse-route edge owner with target-side authority and a real
    Windows mTLS listener. The local factory composes the validated v3 manifest,
    externally resolved key/TLS/generation custody, receipt verifier, and bounded
@@ -377,10 +386,11 @@ software-only relay integration test passes; target transport and attribution
 remain unverified. Keep authenticated relay identity separate from renderer
 self-report and independent physical observation.
 4. Use `load_adopted_body` to resolve the current adopted artifact only after
-an authority-backed receipt verifier, manifest binding, content hash, and
-allowed artifact root all agree. Wire its descriptor to Godot import/rollback
-and preserve the adoption lineage. The loader is implemented and fixture
-tested; no operator-adopted GLORP artifact has been loaded.
+   an authority-backed receipt verifier, manifest binding, content hash, and
+   allowed artifact root all agree. Its descriptor is wired to Godot activation
+   and rollback, with generation, manifest, pointer, and receipt lineage in the
+   renderer self-report. The end-to-end GLB scenario uses fixture custody and
+   approval only; no operator-adopted GLORP artifact has been loaded.
 5. Connect existing timing events to an explicitly adopted body's authored
    mouth rig using its explicit generic speech-activity mapping while keeping
    word offsets distinct from phoneme labels. The unadopted candidate now has

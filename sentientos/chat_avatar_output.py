@@ -8,14 +8,27 @@ import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 
 from control_plane import Decision, RequestType
 from control_plane.task_admission import AdmissionResponse, admit_request
-from speech_emitter import SpeechEmitter, MAX_AVATAR_DISPLAY_PHRASE_CHARS
+from speech_emitter import MAX_AVATAR_DISPLAY_PHRASE_CHARS
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ChatAvatarStateEmitter(Protocol):
+    """Local or authenticated remote sink for governed chat avatar state."""
+
+    def emit_display_text(self, phrase: str, *, authorization: Any = None,
+                          metadata: Mapping[str, Any] | None = None) -> Any: ...
+    def emit_phrase(self, phrase: str, *, started_at: float | None = None,
+                    speaking: bool | None = None, muted: bool = False,
+                    metadata: Mapping[str, Any] | None = None,
+                    authorization: Any = None) -> Any: ...
+    def emit_idle(self, *, authorization: Any = None,
+                  metadata: Mapping[str, Any] | None = None) -> Any: ...
 
 
 def _digest(value: Mapping[str, Any]) -> str:
@@ -38,7 +51,7 @@ class ChatAvatarOutputController:
     SCOPE = "chat_response_visual_only"
     GRANT_SECONDS = 4 * 60 * 60
 
-    def __init__(self, emitter: SpeechEmitter, *,
+    def __init__(self, emitter: ChatAvatarStateEmitter, *,
                  admission_provider: Callable[..., AdmissionResponse] = admit_request,
                  monotonic_clock: Callable[[], float] = time.monotonic) -> None:
         self._emitter = emitter

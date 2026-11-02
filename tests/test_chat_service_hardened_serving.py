@@ -14,6 +14,7 @@ from control_plane.records import AuthorizationRecord
 from control_plane.task_admission import AdmissionResponse
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_avatar_output import ChatAvatarOutputController
+from sentientos.gaming_companion_core_runtime import WSLCoreAvatarOutputSession
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
 from sentientos.installation_state import InstallationIdentity
@@ -110,6 +111,57 @@ def test_production_chat_requires_process_generation_handoff_before_custody(monk
     with pytest.raises(RuntimeError, match="chat_process_generation_handoff_required"):
         chat_service.configure_production_chat(installation_identity="Install-1", serving_operation_id="serve-explicit")
     assert events == []
+
+
+def test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter(monkeypatch, tmp_path):
+    events = []
+
+    class Handle:
+        root = tmp_path / "installation"
+        def fixed_object(self, _name):
+            return SimpleNamespace(path=self.root / "chat" / "conversations")
+        def ensure_directory(self, _directory): events.append("conversation_custody_ready")
+
+    handle = Handle()
+    monkeypatch.setattr(chat_service, "open_chat_process_handoff",
+        lambda **_kwargs: (handle, {}))
+
+    class Serving:
+        def __init__(self, _handle, _kernel): pass
+        def establish(self, **_kwargs): events.append("serving_established")
+        def close(self): events.append("serving_closed")
+        def serving_is_current(self): return True
+
+    class InferenceBridge:
+        def __init__(self, *_args, **_kwargs): pass
+
+    monkeypatch.setattr(chat_service, "ProductionServingController", Serving)
+    monkeypatch.setattr(chat_service, "ProductionServingInferenceController", InferenceBridge)
+    monkeypatch.setattr(chat_service, "sentientos_data_dir", lambda: tmp_path / "data")
+    monkeypatch.setattr(chat_service, "sentientos_memory_dir", lambda _root=None: tmp_path / "memory")
+
+    class Sender:
+        def close(self): events.append("avatar_session_closed")
+
+    session = WSLCoreAvatarOutputSession.__new__(WSLCoreAvatarOutputSession)
+    session.emitter = SimpleNamespace(
+        emit_display_text=lambda *_args, **_kwargs: {},
+        emit_phrase=lambda *_args, **_kwargs: {},
+        emit_idle=lambda *_args, **_kwargs: {})
+    session._sender = Sender()
+    session._closed = False
+
+    chat_service.close_production_chat()
+    chat_service.configure_production_chat(
+        installation_identity="Install-1", serving_operation_id="serve-1",
+        runtime_handoff_id="handoff-1", avatar_output_session=session)
+    composition = chat_service._PRODUCTION_COMPOSITION
+    assert composition is not None
+    assert composition.service._avatar_output is not None
+    assert isinstance(composition.service._avatar_output, ChatAvatarOutputController)
+    assert composition._avatar_output_owner is session
+    chat_service.close_production_chat()
+    assert events[-1] == "avatar_session_closed"
 
 
 def test_invalid_installation_identity_fails_before_custody(monkeypatch):
@@ -453,8 +505,10 @@ def test_production_composition_closes_avatar_before_serving_and_resource_owner(
     service=SimpleNamespace(close_outputs=lambda: events.append("outputs"))
     serving=SimpleNamespace(close=lambda: events.append("serving"))
     owner=SimpleNamespace(close=lambda: events.append("resource_owner"))
-    chat_service.ProductionChatComposition(service, serving, owner).close()
-    assert events == ["outputs", "serving", "resource_owner"]
+    avatar_owner=SimpleNamespace(close=lambda: events.append("avatar_output_owner"))
+    chat_service.ProductionChatComposition(service, serving, owner,
+        avatar_output_owner=avatar_owner).close()
+    assert events == ["outputs", "serving", "resource_owner", "avatar_output_owner"]
 
 
 def test_conversation_identity_change_uses_verified_predecessor_lineage(tmp_path):

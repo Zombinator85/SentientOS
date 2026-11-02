@@ -48,8 +48,9 @@ governed local-model invocation, deployment validation, loopback mTLS,
 in-process and child-process supervisor recovery, Windows-observer fixtures, renderer evidence, speech
 interruption, and vertical chat/avatar scenarios. When Blender and Godot are
 installed, it also runs an actual Blender GLB authoring and headless Godot
-candidate-rendering scenario. The report distinguishes that non-adopted
-candidate from fixtures and records component availability. The command runs
+candidate-rendering scenario and a separate fixture adoption round trip. The
+report distinguishes candidate preview from fixture adoption and records
+component availability. The command runs
 the read-only doctor and retains a restricted-permission test log, JUnit
 summary, and content digest. A passing local suite is reported separately
 from the doctor and never claims target-host commissioning. A bounded
@@ -58,8 +59,13 @@ health probing, graceful shutdown, and generation-rotated recovery in a real
 child-process fixture. It does not install services or startup persistence,
 resolve platform credential stores, or claim that the edge/core roles were
 launched here. Windows DPAPI, PresentMon availability, cross-host
-firewall/routing, real Windows/WSL role launchers, real audio devices, and an
-adopted Blender body remain unrun until target-host acceptance.
+firewall/routing, real Windows/WSL role launchers, real audio devices, and
+production adoption of a GLORP body remain unrun until target-host acceptance.
+The Blender/Godot round trip creates a fixture pointer and receipt, passes the
+descriptor from `load_adopted_body`, activates the GLB in the demo, checks
+generation lineage in the renderer self-report, and rolls back to the
+procedural body. Its verifier and approval are test fixtures; it establishes
+neither production adoption authority nor independent renderer observation.
 
 `blocked` means a required local precondition is missing. `ready_with_warnings`
 means the local checks passed but a configured external component or optional
@@ -179,9 +185,8 @@ forward-direction HMAC source key. Neither firewall rule is created or checked
 by the manifest doctor; it reports both listeners and firewall rules as
 unobserved until attributable host probes exist.
 
-This schema makes the two authenticated directions explicit. It does not yet
-constitute a Windows/WSL role launcher or provision certificates, keys,
-generation receipts, or firewall policy.
+This schema makes the two authenticated directions explicit. It does not
+provision certificates, keys, generation receipts, or firewall policy.
 
 `sentientos.gaming_companion_edge_runtime.build_windows_edge_avatar_runtime`
 is the first role-composition factory for v3. Given the validated manifest,
@@ -203,6 +208,56 @@ acknowledgment generation, and returns a session-scoped admitted chat emitter.
 Its factory fixture confirms exact reference routing and receipt checks before
 key reads; the localhost mTLS test covers transport behavior separately. It
 does not start a persistent core process or contact a target listener.
+
+`build_wsl_core_gaming_companion_runtime` composes the two directions for one
+WSL core lifetime: it validates the forward Windows-observation generation and
+TLS custody before creating the unstarted mTLS listener, exposes that listener
+through `BridgeForegroundGameDetector`, and constructs the independently
+custodied reverse avatar sender. The factory does not bind a socket. Start it
+only after the target platform adapters have resolved the configured authority
+records. Start the runtime, then pass that exact owner to
+`configure_production_chat` alongside the production installation and process
+handoff. Production chat
+continues to require its normal current-serving and per-session avatar
+admissions; the remote sender binds each command to that chat session and the
+authority receipt metadata. The production composition clears output before it
+closes the session transport. Fixture coverage exercises the combined factory
+and the production owner lifecycle without contacting a target host.
+
+`sentientos-gaming-companion-role` is the foreground executable for either
+`windows_edge` or `wsl_core`. It validates the closed v3 manifest, refuses an
+unsupported host before importing the platform provider, requires that provider
+to return the exact corresponding edge/core runtime owner, monitors listener
+health, and closes the owner on SIGINT/SIGTERM. The provider is installed
+platform code supplied explicitly as `package.module:factory`; it must resolve
+the manifest's opaque references through the platform custody adapters and
+call the existing runtime composition factory with its receipt verifiers and
+admission callbacks. A separate required `--launch-authorizer` must verify
+the authority-backed launch record for the manifest's installation identity,
+runtime handoff, software generation, and selected role before the provider
+is imported or the runtime is built. Missing references or a denied launch
+stop before key reads or listener startup. The role executable does not mint authority, recover
+uncertain messages, retry, install a service, configure startup persistence,
+or alter firewall policy. Cross-process recovery remains the responsibility
+of `GamingCompanionProcessSupervisor`, which requires a fresh verified
+generation pair and exact launch authorization before every restart.
+
+Example foreground invocations after installing the authorized platform
+provider:
+
+```text
+sentientos-gaming-companion-role --role wsl_core --manifest deployment.json \
+  --provider sentientos_platform.wsl_custody:create_core_runtime \
+  --launch-authorizer sentientos_platform.authority:verify_role_launch
+sentientos-gaming-companion-role --role windows_edge --manifest deployment.json \
+  --provider sentientos_platform.windows_custody:create_edge_runtime \
+  --launch-authorizer sentientos_platform.authority:verify_role_launch
+```
+
+These commands do not supply credentials or authority. A missing provider,
+manifest reference, receipt verifier, or platform capability leaves the role
+blocked. Cloud tests exercise role lifecycle and host rejection with fixtures;
+they do not claim Windows execution or WSL2 target startup.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied

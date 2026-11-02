@@ -35,6 +35,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_process_supervisor.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
+    "tests/test_gaming_companion_role_entrypoint.py",
     "tests/test_gaming_companion_avatar_output.py",
     "tests/test_foreground_game_bridge.py",
     "tests/test_windows_game_performance.py",
@@ -45,8 +46,10 @@ FIXTURE_TESTS = (
     "tests/test_godot_renderer_report_integration.py",
     "tests/test_chat_avatar_output.py",
     "tests/test_chat_speech_output.py",
+    "tests/test_chat_service_resource_allocation.py",
     "tests/test_chat_service_hardened_serving.py::test_gaming_companion_vertical_fixture_survives_forwarding_and_restart",
     "tests/test_chat_service_hardened_serving.py::test_new_chat_turn_interrupts_previous_local_speech",
+    "tests/test_chat_service_hardened_serving.py::test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter",
 )
 
 
@@ -151,7 +154,10 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 "godot_renderer_executable": godot_path,
                 "godot_renderer_subcheck": ("executed" if blender_test_status == "passed"
                     and godot_path is not None else "not_available_or_not_run"),
-                "scope": "generated non-adopted GLB candidate; authoring receipt has no adoption authority",
+                "scope": "generated fixture adoption through the Python receipt-verifying loader, Godot activation, lineage report, and rollback; fixture approval is not production authority",
+                "adopted_body_round_trip": ("executed" if blender_test_status == "passed"
+                    and godot_path is not None else "not_available_or_not_run"),
+                "production_adoption_claimed": False,
             },
             "windows_game_performance": {
                 "status": "controlled_windows_fixtures_only",
@@ -164,9 +170,17 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 "target_listener_started": False,
             },
             "reverse_avatar_core_output_composition": {
-                "status": "custody_bound_session_factory_fixture_only",
-                "test_node": "test_core_avatar_session_resolves_reverse_tls_and_admission_references",
+                "status": "custody_bound_bidirectional_factory_fixture_only",
+                "test_node": "test_core_companion_factory_composes_verified_game_input_and_reverse_output",
+                "target_listener_started": False,
                 "target_listener_contacted": False,
+                "production_chat_binding_fixture": "test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter",
+            },
+            "paired_role_entrypoint": {
+                "status": "lifecycle_and_host_rejection_fixtures_only" if tests_passed else "blocked",
+                "test_node": "tests/test_gaming_companion_role_entrypoint.py",
+                "windows_or_wsl_process_launched": False,
+                "platform_provider_installed": False,
             },
         },
         "target_host_validation": {"status": "not_run",

@@ -111,6 +111,107 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	return {"status": "candidate_loaded_unadopted", "identity": _candidate_identity.duplicate(true)}
 
 
+func install_adopted_body(body_scene: PackedScene, descriptor: Dictionary,
+		motion_bones: Dictionary, expression_shapes: Dictionary,
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
+	"""Install only a descriptor returned by the trusted Python adoption loader.
+
+	The renderer verifies artifact bytes and descriptor shape. The caller must
+	pass the result of load_adopted_body after its receipt verifier succeeds; this
+	method is not itself an adoption authority or receipt verifier.
+	"""
+	var required_fields := ["schema_version", "body_id", "artifact_path", "artifact_sha256",
+		"byte_size", "asset_format", "body_generation", "manifest_digest",
+		"rig_semantic_digest", "pointer_digest", "adoption_receipt_digest",
+		"adoption_receipt_verified", "authority_effects_performed"]
+	if descriptor.size() != required_fields.size():
+		return {"status": "rejected", "reason": "adopted_body_descriptor_fields_invalid"}
+	for field in required_fields:
+		if not descriptor.has(field):
+			return {"status": "rejected", "reason": "adopted_body_descriptor_fields_invalid"}
+	if descriptor.get("schema_version") != "sentientos.adopted_renderer_body:v1":
+		return {"status": "rejected", "reason": "adopted_body_descriptor_schema_invalid"}
+	if descriptor.get("adoption_receipt_verified") != true \
+			or descriptor.get("authority_effects_performed") != false:
+		return {"status": "rejected", "reason": "adopted_body_receipt_verification_required"}
+	var body_id := str(descriptor.get("body_id", ""))
+	var artifact_path := str(descriptor.get("artifact_path", ""))
+	var artifact_digest := str(descriptor.get("artifact_sha256", ""))
+	var adoption_digest := str(descriptor.get("adoption_receipt_digest", ""))
+	var body_generation: Variant = descriptor.get("body_generation")
+	var byte_size: Variant = descriptor.get("byte_size")
+	if body_id.is_empty() or body_id.length() > 128 or artifact_path.is_empty() \
+			or artifact_path.length() > 4096 or not _is_digest(artifact_digest) \
+			or not _is_digest(str(descriptor.get("manifest_digest", ""))) \
+			or not _is_digest(str(descriptor.get("rig_semantic_digest", ""))) \
+			or not _is_digest(str(descriptor.get("pointer_digest", ""))) \
+			or adoption_digest.is_empty() or adoption_digest.length() > 256 \
+			or not _is_positive_integer(body_generation) \
+			or not _is_positive_integer(byte_size) \
+			or str(descriptor.get("asset_format", "")) not in ["glb", "gltf"]:
+		return {"status": "rejected", "reason": "adopted_body_descriptor_identity_invalid"}
+	var candidate_evidence := {
+		"result_posture": "candidate_validated",
+		"artifact_sha256": artifact_digest,
+		"receipt_digest": str(descriptor["pointer_digest"]),
+		"authority": {"loader_effects_performed": false},
+		"body_id": body_id,
+		"predecessor_generation": int(body_generation) - 1,
+	}
+	if not body_scene is PackedScene or body_scene.resource_path.is_empty():
+		return {"status": "rejected", "reason": "adopted_body_scene_invalid"}
+	var artifact_bytes := FileAccess.get_file_as_bytes(body_scene.resource_path)
+	if artifact_bytes.size() != int(byte_size):
+		return {"status": "rejected", "reason": "adopted_body_byte_size_mismatch"}
+	var installed := install_candidate(body_scene, candidate_evidence,
+		motion_bones, expression_shapes, viseme_shapes, speech_activity_shape)
+	if installed.get("status") != "candidate_loaded_unadopted":
+		return installed
+	_candidate_identity["adopted"] = true
+	_candidate_identity["evidence_posture"] = "trusted_loader_adoption_receipt_verified"
+	_candidate_identity["body_generation"] = int(body_generation)
+	_candidate_identity["artifact_path"] = artifact_path
+	_candidate_identity["manifest_digest"] = str(descriptor["manifest_digest"])
+	_candidate_identity["rig_semantic_digest"] = str(descriptor["rig_semantic_digest"])
+	_candidate_identity["pointer_digest"] = str(descriptor["pointer_digest"])
+	_candidate_identity["adoption_receipt_digest"] = adoption_digest
+	return {"status": "adopted_body_loaded", "identity": _candidate_identity.duplicate(true),
+		"authority_effects_performed": false}
+
+
+func is_adopted_body_active() -> bool:
+	return is_candidate_active() and _candidate_identity.get("adopted") == true
+
+
+func adopted_body_identity() -> Dictionary:
+	if not is_adopted_body_active():
+		return {}
+	return _candidate_identity.duplicate(true)
+
+
+func rollback_adopted_body() -> Dictionary:
+	if not is_adopted_body_active():
+		return {"status": "unavailable", "reason": "adopted_body_not_active"}
+	if _viseme_tween:
+		_viseme_tween.kill()
+	if _animation_player:
+		_animation_player.stop()
+	if _candidate_root:
+		_candidate_root.queue_free()
+	_candidate_root = null
+	_skeleton = null
+	_animation_player = null
+	_motion_animation_clips.clear()
+	_candidate_identity.clear()
+	_motion_bones.clear()
+	_expression_shapes.clear()
+	_viseme_shapes.clear()
+	_speech_activity_shape = ""
+	_active_motion = "idle"
+	_reset_expression()
+	return {"status": "procedural_body_restored", "adoption_rollback_performed": false}
+
+
 func is_candidate_active() -> bool:
 	return _candidate_root != null and _skeleton != null
 
@@ -289,6 +390,14 @@ func _is_digest(value: String) -> bool:
 		if "0123456789abcdef".find(character) < 0:
 			return false
 	return true
+
+
+func _is_positive_integer(value: Variant) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var number := float(value)
+	return is_finite(number) and number >= 1.0 \
+		and is_equal_approx(number, round(number))
 
 
 func _reset_expression() -> void:

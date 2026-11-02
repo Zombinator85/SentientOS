@@ -5,6 +5,7 @@ extends Node
 @export var blendshape_driver_path: NodePath
 @export var motion_driver_path: NodePath
 @export var candidate_body_adapter_path: NodePath
+@export var procedural_avatar_path: NodePath
 @export var status_label_path: NodePath
 @export var renderer_report_relay_port := 0
 
@@ -16,12 +17,16 @@ var _last_renderer_report := {}
 var _candidate_report_sequence := 0
 var _last_candidate_renderer_report := {}
 var _renderer_report_sender: PacketPeerUDP
+var _candidate_preview_position := Vector3.ZERO
 const NORMAL_RENDER_FPS := 60
 const GAMING_RENDER_FPS := 15
 const LOOPBACK_BIND_ADDRESS := "127.0.0.1"
 
 
 func _ready() -> void:
+	var candidate_adapter: Node3D = _resolve_node(candidate_body_adapter_path) as Node3D
+	if candidate_adapter:
+		_candidate_preview_position = candidate_adapter.position
 	_renderer_generation_id = OS.get_environment("SENTIENTOS_RENDERER_GENERATION_ID")
 	if not _is_generation_id(_renderer_generation_id):
 		_renderer_generation_id = "godot-demo-" + str(Time.get_ticks_usec())
@@ -123,6 +128,9 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 					"timing_event": timing_event, "phoneme_claimed": false}
 	var candidate_report := {"status": "not_loaded"}
 	var candidate_adapter: Node = _resolve_node(candidate_body_adapter_path)
+	var adopted_body_active: bool = candidate_adapter != null \
+			and candidate_adapter.has_method("is_adopted_body_active") \
+			and candidate_adapter.is_adopted_body_active()
 	if candidate_adapter and candidate_adapter.has_method("is_candidate_active") \
 			and candidate_adapter.is_candidate_active():
 		var candidate_expression: Dictionary = candidate_adapter.apply_expression(expression, intensity)
@@ -142,7 +150,13 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 		candidate_report["visemes"] = candidate_visemes
 		candidate_report["speech"] = candidate_speech
 		candidate_report["motion"] = candidate_motion
-		_record_candidate_renderer_report(state, candidate_report, apply_started_usec)
+		if adopted_body_active:
+			_last_candidate_renderer_report = {}
+			expression_report = candidate_expression
+			motion_report = candidate_motion
+			speech_report = candidate_speech
+		else:
+			_record_candidate_renderer_report(state, candidate_report, apply_started_usec)
 	else:
 		_last_candidate_renderer_report = {}
 	_record_renderer_report(state, workload_mode, expression, mood, intensity, motion,
@@ -158,6 +172,39 @@ func install_experimental_candidate(candidate_scene: PackedScene, evidence: Dict
 		return {"status": "unavailable", "reason": "candidate_body_adapter_unavailable"}
 	return adapter.install_candidate(candidate_scene, evidence, motion_bones,
 		expression_shapes, viseme_shapes, speech_activity_shape)
+
+
+func install_adopted_body(body_scene: PackedScene, descriptor: Dictionary,
+		motion_bones: Dictionary, expression_shapes: Dictionary,
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
+	var adapter: Node3D = _resolve_node(candidate_body_adapter_path) as Node3D
+	var procedural_avatar := _resolve_node(procedural_avatar_path)
+	if adapter == null or not adapter.has_method("install_adopted_body"):
+		return {"status": "unavailable", "reason": "adopted_body_adapter_unavailable"}
+	if procedural_avatar == null:
+		return {"status": "unavailable", "reason": "procedural_avatar_unavailable"}
+	var result: Dictionary = adapter.install_adopted_body(body_scene, descriptor,
+		motion_bones, expression_shapes, viseme_shapes, speech_activity_shape)
+	if result.get("status") != "adopted_body_loaded":
+		return result
+	adapter.position = Vector3.ZERO
+	procedural_avatar.visible = false
+	return result
+
+
+func rollback_adopted_body() -> Dictionary:
+	var adapter: Node3D = _resolve_node(candidate_body_adapter_path) as Node3D
+	var procedural_avatar := _resolve_node(procedural_avatar_path)
+	if adapter == null or procedural_avatar == null \
+			or not adapter.has_method("rollback_adopted_body"):
+		return {"status": "unavailable", "reason": "adopted_body_rollback_unavailable"}
+	if not adapter.has_method("is_adopted_body_active") or not adapter.is_adopted_body_active():
+		return {"status": "unavailable", "reason": "adopted_body_not_active"}
+	var result: Dictionary = adapter.rollback_adopted_body()
+	if result.get("status") == "procedural_body_restored":
+		procedural_avatar.visible = true
+		adapter.position = _candidate_preview_position
+	return result
 
 
 func _record_renderer_report(state: Dictionary, workload_mode: String, expression: String,
@@ -189,6 +236,22 @@ func _record_renderer_report(state: Dictionary, workload_mode: String, expressio
 		"effect_proven": false,
 		"independent_observation": false,
 	}
+	var candidate_adapter: Node = _resolve_node(candidate_body_adapter_path)
+	if candidate_adapter and candidate_adapter.has_method("is_adopted_body_active") \
+			and candidate_adapter.is_adopted_body_active():
+		var identity: Dictionary = candidate_adapter.adopted_body_identity()
+		report["body_generation"] = identity.get("body_generation", "unknown")
+		report["body_identity"] = identity.get("body_id", "unknown")
+		report["renderer_state"]["adopted_body"] = {
+			"status": "active",
+			"evidence_posture": identity.get("evidence_posture"),
+			"artifact_sha256": identity.get("artifact_sha256"),
+			"manifest_digest": identity.get("manifest_digest"),
+			"pointer_digest": identity.get("pointer_digest"),
+			"adoption_receipt_digest": identity.get("adoption_receipt_digest"),
+			"authority_effects_performed": false,
+		}
+		report["source_id"] = "godot-adopted-body-demo"
 	var hash_context := HashingContext.new()
 	hash_context.start(HashingContext.HASH_SHA256)
 	hash_context.update(JSON.stringify(report, "", true).to_utf8_buffer())

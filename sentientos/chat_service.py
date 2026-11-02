@@ -11,7 +11,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -105,15 +105,17 @@ class DevelopmentSimulationInference:
 
 class ProductionChatComposition:
     __slots__ = ("service", "_serving", "_resource_owner", "_foreground_game_detector",
-                 "_renderer_report_capture_owner")
+                 "_renderer_report_capture_owner", "_avatar_output_owner")
     def __init__(self, service: "PersistentConversationService", serving: ProductionServingController,
                  resource_owner: ProductionChatResourceContextOwner | None = None,
                  foreground_game_detector: BridgeForegroundGameDetector | None = None,
-                 renderer_report_capture_owner: RendererReportCaptureOwner | None = None) -> None:
+                 renderer_report_capture_owner: RendererReportCaptureOwner | None = None,
+                 avatar_output_owner: Any | None = None) -> None:
         self.service, self._serving = service, serving
         self._resource_owner = resource_owner
         self._foreground_game_detector = foreground_game_detector
         self._renderer_report_capture_owner = renderer_report_capture_owner
+        self._avatar_output_owner = avatar_output_owner
     def close(self) -> None:
         try:
             self.service.close_outputs()
@@ -129,10 +131,14 @@ class ProductionChatComposition:
                         if self._foreground_game_detector is not None:
                             self._foreground_game_detector.close()
                     finally:
-                        if self._renderer_report_capture_owner is not None:
-                            self._renderer_report_capture_owner.close()
+                        try:
+                            if self._renderer_report_capture_owner is not None:
+                                self._renderer_report_capture_owner.close()
+                        finally:
+                            if self._avatar_output_owner is not None:
+                                self._avatar_output_owner.close()
     def ready(self) -> bool:
-        return cast(bool, self._serving.serving_is_current())
+        return self._serving.serving_is_current()
 
 class ChatRequest(BaseModel):
     message: str
@@ -959,10 +965,29 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               resource_provisioning_id: str | None = None,
                               runtime_handoff_id: str | None = None,
                               avatar_state_path: Path | None = None,
+                              avatar_output_session: Any | None = None,
+                              gaming_companion_runtime: Any | None = None,
                               local_speech_output: bool = False,
                               screen_observer: Callable[[], Mapping[str, object] | None] | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    avatar_output_owner = None
+    core_runtime_owns_foreground_detector = False
+    if gaming_companion_runtime is not None:
+        from .gaming_companion_core_runtime import WSLCoreGamingCompanionRuntime
+
+        if type(gaming_companion_runtime) is not WSLCoreGamingCompanionRuntime:
+            raise TypeError("exact_wsl_core_gaming_companion_runtime_required")
+        if foreground_game_detector is not None or avatar_output_session is not None:
+            raise ValueError("gaming_companion_runtime_components_are_owned")
+        if gaming_companion_runtime.status().get("state") != "running":
+            raise ValueError("wsl_core_gaming_companion_runtime_must_be_started")
+        foreground_game_detector = gaming_companion_runtime.foreground_game_detector
+        avatar_output_session = gaming_companion_runtime.avatar_output_session
+        avatar_output_owner = gaming_companion_runtime
+        core_runtime_owns_foreground_detector = True
+    elif avatar_output_session is not None:
+        avatar_output_owner = avatar_output_session
     if (foreground_game_detector is not None
             and type(foreground_game_detector) is not BridgeForegroundGameDetector):
         raise TypeError("exact_bridge_foreground_game_detector_required")
@@ -977,6 +1002,15 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         raise ValueError("resource_ledger_single_process_custody_required")
     if resource_context_owner is not None and resource_provisioning_id is not None:
         raise ValueError("resource_owner_and_provisioning_id_mutually_exclusive")
+    avatar_output_emitter = None
+    if avatar_output_session is not None:
+        from .gaming_companion_core_runtime import WSLCoreAvatarOutputSession
+
+        if type(avatar_output_session) is not WSLCoreAvatarOutputSession:
+            raise TypeError("exact_wsl_core_avatar_output_session_required")
+        if avatar_state_path is not None:
+            raise ValueError("avatar_output_session_and_state_path_mutually_exclusive")
+        avatar_output_emitter = avatar_output_session.emitter
     identity = InstallationIdentity.parse(installation_identity)
     if runtime_handoff_id is None:
         raise RuntimeError("chat_process_generation_handoff_required")
@@ -1014,7 +1048,13 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
         )
         avatar_output = None
-        if avatar_state_path is not None:
+        if avatar_output_emitter is not None:
+            from control_plane import admit_request
+            from .chat_avatar_output import ChatAvatarOutputController
+
+            avatar_output = ChatAvatarOutputController(avatar_output_emitter,
+                admission_provider=admit_request)
+        elif avatar_state_path is not None:
             from control_plane import admit_request
             from avatar_state import AvatarStateEmitter
             from speech_emitter import SpeechEmitter
@@ -1055,18 +1095,25 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                         resource_context_owner.close()
                 finally:
                     try:
-                        if foreground_game_detector is not None:
+                        if (foreground_game_detector is not None
+                                and not core_runtime_owns_foreground_detector):
                             foreground_game_detector.close()
                     finally:
-                        if renderer_report_capture_owner is not None:
-                            renderer_report_capture_owner.close()
+                        try:
+                            if renderer_report_capture_owner is not None:
+                                renderer_report_capture_owner.close()
+                        finally:
+                            if avatar_output_owner is not None:
+                                avatar_output_owner.close()
         raise
     assert serving is not None
     close_production_chat()
     _CONVERSATION_SERVICE = service
     _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving, resource_context_owner,
-                                                       foreground_game_detector,
-                                                       renderer_report_capture_owner)
+                                                       (None if core_runtime_owns_foreground_detector
+                                                        else foreground_game_detector),
+                                                       renderer_report_capture_owner,
+                                                       avatar_output_owner)
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,

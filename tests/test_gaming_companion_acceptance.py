@@ -58,7 +58,14 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert report["fixture_tests"]["skipped"] == 2
     assert report["real_software_scenarios"]["blender_authored_glb_candidate"]["status"] == "not_run"
     assert report["real_software_scenarios"]["reverse_avatar_edge_composition"]["target_listener_started"] is False
-    assert report["real_software_scenarios"]["reverse_avatar_core_output_composition"]["target_listener_contacted"] is False
+    core_scenario = report["real_software_scenarios"]["reverse_avatar_core_output_composition"]
+    assert core_scenario["target_listener_started"] is False
+    assert core_scenario["target_listener_contacted"] is False
+    assert core_scenario["production_chat_binding_fixture"] == "test_production_chat_owns_wsl_core_avatar_session_and_uses_its_emitter"
+    role_scenario = report["real_software_scenarios"]["paired_role_entrypoint"]
+    assert role_scenario["status"] == "lifecycle_and_host_rejection_fixtures_only"
+    assert role_scenario["windows_or_wsl_process_launched"] is False
+    assert role_scenario["platform_provider_installed"] is False
     assert len(report["fixture_tests"]["log_sha256"]) == 64
     assert report["target_host_validation"]["status"] == "not_run"
     assert report["authority_effects_performed"] is False

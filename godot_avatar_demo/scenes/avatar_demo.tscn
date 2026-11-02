@@ -52,6 +52,7 @@ blendshape_driver_path = NodePath("BlendshapeDriver")
 motion_driver_path = NodePath("MotionDriver")
 status_label_path = NodePath("UI/StatusLabel")
 candidate_body_adapter_path = NodePath("CandidateBodyAdapter")
+procedural_avatar_path = NodePath("Avatar")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment")

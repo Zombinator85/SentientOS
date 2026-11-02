@@ -41,7 +41,7 @@ class MutualTLSAvatarCommandSender:
     """
 
     def __init__(self, *, client: CompanionBridgeMutualTLSClient,
-                 source_id: str, session_id: str, generation_id: str,
+                 source_id: str, session_id: str | None, generation_id: str,
                  source_key: bytes,
                  admission_receipt_builder: AdmissionReceiptBuilder) -> None:
         if not isinstance(client, CompanionBridgeMutualTLSClient):
@@ -50,6 +50,9 @@ class MutualTLSAvatarCommandSender:
             raise CompanionBridgeError("bridge_key_too_short")
         if not callable(admission_receipt_builder):
             raise CompanionBridgeError("avatar_command_receipt_builder_required")
+        if (session_id is not None
+                and (not isinstance(session_id, str) or not session_id or len(session_id) > 128)):
+            raise CompanionBridgeError("avatar_command_session_id_invalid")
         self._client = client
         self._source_id, self._session_id = source_id, session_id
         self._generation_id = generation_id
@@ -59,9 +62,15 @@ class MutualTLSAvatarCommandSender:
         self._lock = threading.Lock()
         self._closed = False
 
-    def send_command(self, payload: Mapping[str, object], authorization: Any) -> VerifiedBridgeMessage:
+    def send_command(self, payload: Mapping[str, object], authorization: Any, *,
+                     session_id: str | None = None) -> VerifiedBridgeMessage:
         require_authorization_for_request_types(authorization,
             allowed_request_types=("avatar_emission",))
+        selected_session = session_id if session_id is not None else self._session_id
+        if (not isinstance(selected_session, str) or not selected_session
+                or len(selected_session) > 128
+                or (self._session_id is not None and selected_session != self._session_id)):
+            raise CompanionBridgeError("avatar_command_session_id_invalid")
         receipt = self._receipt(authorization)
         if not isinstance(receipt, Mapping):
             raise CompanionBridgeError("avatar_command_admission_receipt_invalid")
@@ -70,7 +79,7 @@ class MutualTLSAvatarCommandSender:
                 raise CompanionBridgeError("avatar_command_sender_closed")
             sequence = self._sequence + 1
             encoded = encode_message(kind="avatar_command", source_id=self._source_id,
-                session_id=self._session_id, generation_id=self._generation_id,
+                session_id=selected_session, generation_id=self._generation_id,
                 sequence=sequence, payload=payload, key=bytes(self._source_key),
                 admission=receipt)
             # Do not advance on local encoding failure. Once send begins, keep
@@ -213,11 +222,24 @@ class BridgeChatAvatarOutputEmitter:
             raise CompanionBridgeError("avatar_command_sender_required")
         self._sender = sender
 
+    @staticmethod
+    def _session_id(authorization: Any, metadata: Mapping[str, Any]) -> str | None:
+        session_id = metadata.get("session_id")
+        authorization_metadata = getattr(authorization, "metadata", None)
+        if (isinstance(authorization_metadata, Mapping)
+                and authorization_metadata.get("session_id") not in (None, session_id)):
+            raise CompanionBridgeError("avatar_command_session_authorization_mismatch")
+        if session_id is not None and (
+                not isinstance(session_id, str) or not session_id or len(session_id) > 128):
+            raise CompanionBridgeError("avatar_command_session_id_invalid")
+        return session_id
+
     def emit_display_text(self, phrase: str, *, authorization: Any = None,
                           metadata: Mapping[str, Any] | None = None) -> dict[str, object]:
         require_authorization_for_request_types(authorization,
             allowed_request_types=("avatar_emission",))
         metadata = metadata if isinstance(metadata, Mapping) else {}
+        session_id = self._session_id(authorization, metadata)
         output_digest = metadata.get("output_digest")
         turn_id = metadata.get("turn_id")
         if not isinstance(phrase, str) or not isinstance(output_digest, str):
@@ -235,7 +257,7 @@ class BridgeChatAvatarOutputEmitter:
         workload_mode = metadata.get("workload_mode")
         if workload_mode in {"normal", "gaming"}:
             payload["workload_mode"] = workload_mode
-        acknowledgment = self._sender.send_command(payload, authorization)
+        acknowledgment = self._sender.send_command(payload, authorization, session_id=session_id)
         return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
                 "renderer_effect_proven": False}
 
@@ -248,6 +270,7 @@ class BridgeChatAvatarOutputEmitter:
         require_authorization_for_request_types(authorization,
             allowed_request_types=("avatar_emission",))
         metadata = metadata if isinstance(metadata, Mapping) else {}
+        session_id = self._session_id(authorization, metadata)
         output_digest, turn_id = metadata.get("output_digest"), metadata.get("turn_id")
         timing = metadata.get("speech_timing")
         if (not isinstance(phrase, str) or not isinstance(output_digest, str)
@@ -262,13 +285,14 @@ class BridgeChatAvatarOutputEmitter:
         workload_mode = metadata.get("workload_mode")
         if workload_mode in {"normal", "gaming"}:
             payload["workload_mode"] = workload_mode
-        acknowledgment = self._sender.send_command(payload, authorization)
+        acknowledgment = self._sender.send_command(payload, authorization, session_id=session_id)
         return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
                 "renderer_effect_proven": False}
 
     def emit_idle(self, *, authorization: Any = None,
                   metadata: Mapping[str, Any] | None = None) -> dict[str, object]:
         metadata = metadata if isinstance(metadata, Mapping) else {}
+        session_id = self._session_id(authorization, metadata)
         turn_id = metadata.get("turn_id")
         payload: dict[str, object] = {
             "output_mode": "chat_response_visual_only", "phrase": "",
@@ -277,7 +301,7 @@ class BridgeChatAvatarOutputEmitter:
             "output_digest": hashlib.sha256(b"sentientos-avatar-idle-v1").hexdigest(),
             "turn_id": turn_id if isinstance(turn_id, str) and turn_id else "clear-" + uuid4().hex,
         }
-        acknowledgment = self._sender.send_command(payload, authorization)
+        acknowledgment = self._sender.send_command(payload, authorization, session_id=session_id)
         return {"status": "sent", "acknowledgment_message_id": acknowledgment.message_id,
                 "renderer_effect_proven": False}
 
