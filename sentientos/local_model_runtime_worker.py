@@ -80,6 +80,8 @@ try:
   if profile["n_threads_batch"]: options["n_threads_batch"]=profile["n_threads_batch"]
  elif nthreads: options["n_threads"]=nthreads
  model=Llama(model_path=path,verbose=False,**options)
+ base_threads=int(model.n_threads); base_threads_batch=int(model.n_threads_batch)
+ if not (0<=base_threads<=256 and 0<=base_threads_batch<=256): raise RuntimeError("runtime_thread_profile_invalid")
  emit({"type":"ready","interpreter_path":os.path.realpath(sys.executable),"artifact_sha256":h.hexdigest(),"artifact_size_bytes":size,"engine":"llama_cpp","posture":posture,**resources()})
  for line in sys.stdin:
   if len(line.encode())>65536: raise RuntimeError("request_too_large")
@@ -88,22 +90,40 @@ try:
   if set(request)!={"type","prompt","history","generation"} or request["type"]!="generate": raise RuntimeError("malformed_protocol")
   prompt=request["prompt"]; history=request["history"]; generation=request["generation"]
   if not isinstance(prompt,str) or len(prompt)>32768 or not isinstance(history,list): raise RuntimeError("malformed_protocol")
-  resource_before=resources(); generation_started=time.monotonic()
-  rendered="\n".join([*(str(x) for x in history),prompt])
-  max_tokens=min(int(generation.get("max_new_tokens",8)),512)
-  temperature=float(generation.get("temperature",0)); top_p=float(generation.get("top_p",1))
-  if generation.get("use_model_chat_template") is True:
-   context=json.loads(prompt)
-   if not isinstance(context,dict) or not isinstance(context.get("instruction"),str): raise RuntimeError("chat_template_context_invalid")
-   system_instruction=context.pop("instruction")
-   response_format={"type":"json_object"}
-   schema=generation.get("structured_output_schema")
-   if isinstance(schema,dict): response_format["schema"]=schema
-   result=model.create_chat_completion(messages=[{"role":"system","content":system_instruction},{"role":"user","content":json.dumps(context,sort_keys=True,separators=(",",":"))}],max_tokens=max_tokens,temperature=temperature,top_p=top_p,response_format=response_format)
-   output=str(result["choices"][0]["message"]["content"])
-  else:
-   result=model(rendered,max_tokens=max_tokens,temperature=temperature,top_p=top_p)
-   output=str(result["choices"][0]["text"])
+  if not isinstance(generation,dict): raise RuntimeError("malformed_protocol")
+  has_thread_ceiling="max_backend_threads" in generation
+  thread_ceiling=generation.pop("max_backend_threads",None)
+  restore_threads=None
+  effective_threads=None
+  if has_thread_ceiling:
+   if type(thread_ceiling) is not int or not 1<=thread_ceiling<=256: raise RuntimeError("backend_thread_ceiling_invalid")
+   set_threads=getattr(__import__("llama_cpp"),"llama_set_n_threads",None)
+   context=getattr(model,"ctx",None)
+   if not callable(set_threads) or context is None: raise RuntimeError("backend_thread_limit_unavailable")
+   effective_threads=min(thread_ceiling,base_threads or thread_ceiling,base_threads_batch or thread_ceiling)
+   restore_threads=(set_threads,context,base_threads,base_threads_batch)
+  try:
+   if restore_threads is not None:
+    restore_threads[0](restore_threads[1],effective_threads,effective_threads)
+   resource_before=resources(); generation_started=time.monotonic()
+   rendered="\n".join([*(str(x) for x in history),prompt])
+   max_tokens=min(int(generation.get("max_new_tokens",8)),512)
+   temperature=float(generation.get("temperature",0)); top_p=float(generation.get("top_p",1))
+   if generation.get("use_model_chat_template") is True:
+    context=json.loads(prompt)
+    if not isinstance(context,dict) or not isinstance(context.get("instruction"),str): raise RuntimeError("chat_template_context_invalid")
+    system_instruction=context.pop("instruction")
+    response_format={"type":"json_object"}
+    schema=generation.get("structured_output_schema")
+    if isinstance(schema,dict): response_format["schema"]=schema
+    result=model.create_chat_completion(messages=[{"role":"system","content":system_instruction},{"role":"user","content":json.dumps(context,sort_keys=True,separators=(",",":"))}],max_tokens=max_tokens,temperature=temperature,top_p=top_p,response_format=response_format)
+    output=str(result["choices"][0]["message"]["content"])
+   else:
+    result=model(rendered,max_tokens=max_tokens,temperature=temperature,top_p=top_p)
+    output=str(result["choices"][0]["text"])
+  finally:
+   if restore_threads is not None:
+    restore_threads[0](restore_threads[1],restore_threads[2],restore_threads[3])
   if len(output)>32768: raise RuntimeError("response_too_large")
   emit({"type":"generated","output":output,**resources(),
    "invocation_resources":generation_resources(resource_before,generation_started)})
@@ -122,6 +142,8 @@ def _environment() -> dict[str, str]:
 
 class ExactRuntimeLocalModel:
     """LocalModel-compatible session whose llama.cpp calls stay in one exact interpreter."""
+
+    supports_per_invocation_thread_limit = True
 
     def __init__(self, chain: Mapping[str, Any], load: Mapping[str, Any], *, startup_timeout: float = 30,
                  identity_posture: str = "production") -> None:
@@ -211,6 +233,10 @@ class ExactRuntimeLocalModel:
                                **generation: Any) -> tuple[str, dict[str, Any]]:
         if self._process.poll() is not None:
             raise ModelLoadError("exact runtime worker exited; explicit reload required")
+        if "max_backend_threads" in generation and (
+                type(generation["max_backend_threads"]) is not int
+                or not 1 <= generation["max_backend_threads"] <= 256):
+            raise ModelLoadError("invalid per-invocation backend thread limit")
         request = {"type": "generate", "prompt": prompt, "history": list(history or ()), "generation": generation}
         data = json.dumps(request, sort_keys=True, separators=(",", ":"))
         if len(data.encode()) > MAX_PROTOCOL_BYTES:

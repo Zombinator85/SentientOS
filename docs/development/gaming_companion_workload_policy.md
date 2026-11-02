@@ -46,10 +46,11 @@ platforms or when process observation fails, it chooses the lower-work Gaming
 budget and reports that the signal was unavailable. The allowlist and mode are
 process-local runtime configuration and reset on restart; the local chat page
 restores the browser's preference when available. This feature reduces each chat
-turn's maximum work; it does not change llama.cpp CPU thread count, reserve CPU or GPU capacity,
+turn's maximum work. The exact llama.cpp worker also lowers decode and batch CPU
+threads to at most two for each gaming chat turn, bounded by the commissioned
+profile and restored after the turn. It does not reserve CPU or GPU capacity,
 stop background inference, observe frame time, or establish hardware suitability.
-Those need host-side scheduling and performance measurements and remain future
-integration work.
+Host scheduling and performance measurements remain future integration work.
 
 This is a runtime preference only. It grants no installation, model, host, memory,
 input-control, or other actuation authority.

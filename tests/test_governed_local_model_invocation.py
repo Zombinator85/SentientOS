@@ -76,6 +76,23 @@ def test_admitted_chat_receipt_is_digest_bound(tmp_path: Path) -> None:
     assert not ok
 
 
+@pytest.mark.parametrize("thread_limit,expected_reason", [
+    (2, "backend_thread_limit_unavailable"),
+    (True, "backend_thread_ceiling_invalid"),
+])
+def test_backend_thread_ceiling_fails_closed_before_unsupported_generation(
+        tmp_path: Path, thread_limit: object, expected_reason: str) -> None:
+    fake, inv = _invoker(tmp_path)
+    req = inv.build_request(purpose="local_user_chat", prompt="hi", caller="test",
+        correlation_id="thread-ceiling-unsupported",
+        linkage={"max_backend_threads": thread_limit})
+
+    receipt = inv.invoke(req)
+
+    assert fake.calls == 0
+    assert expected_reason in receipt.reason_codes
+
+
 def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")

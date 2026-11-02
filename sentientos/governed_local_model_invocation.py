@@ -380,6 +380,14 @@ class GovernedLocalModelInvoker:
             else: reasons.append("model_not_eligible_for_purpose")
         if len(request.prompt) > request.budget.max_input_chars: reasons.append("input_oversized")
         if request.expected_output_format not in {"text", "json"}: reasons.append("expected_output_format_invalid")
+        thread_limit = request.linkage.get("max_backend_threads")
+        if "max_backend_threads" in request.linkage and (
+                request.purpose != "local_user_chat"
+                or type(thread_limit) is not int or not 1 <= thread_limit <= 256):
+            reasons.append("backend_thread_ceiling_invalid")
+        elif ("max_backend_threads" in request.linkage
+                and getattr(self.model, "supports_per_invocation_thread_limit", False) is not True):
+            reasons.append("backend_thread_limit_unavailable")
         if request.structured_output_schema is not None:
             schema = request.structured_output_schema
             if request.expected_output_format != "json": reasons.append("structured_output_schema_invalid")
@@ -454,6 +462,8 @@ class GovernedLocalModelInvoker:
                     try:
                         self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
                         generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE, ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None, "use_model_chat_template": request.purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE}
+                        if thread_limit is not None:
+                            generation["max_backend_threads"] = thread_limit
                         gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                         if pre_effect_guard is not None:
                             try: pre_effect_guard()
@@ -477,7 +487,10 @@ class GovernedLocalModelInvoker:
                             if governed_generate is not None:
                                 return cast(str, governed_generate(request.prompt, **gen_kwargs)), None
                             try: return cast(str, self.model.generate(request.prompt, **gen_kwargs)), None
-                            except TypeError: return cast(str, self.model.generate(request.prompt)), None
+                            except TypeError:
+                                if "max_backend_threads" in gen_kwargs:
+                                    raise
+                                return cast(str, self.model.generate(request.prompt)), None
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model)
                             try: output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
