@@ -45,6 +45,28 @@ applies `avatar_state.json` updates to your avatar rig. The watcher script
 requirements (`watchdog`) are already present in `requirements.txt` for use in
 Python-side file listeners.
 
+## Explicit local chat companion output
+
+The supervised production chat process can be started with
+`--avatar-state-path <local-file>` to configure an output path. Without that
+argument, the chat UI cannot publish to the avatar. When configured, the local
+chat page offers **Show replies in companion** and the server only starts on a
+loopback address. Enabling it creates a
+human-approved `AVATAR_EMISSION` grant scoped to that one conversation. The
+grant expires after four hours and is discarded when the chat process stops;
+turning the control off revokes it immediately. Each emitted turn gets its own
+admission record bound to the exact response digest and turn.
+
+The state file is shared, so only one conversation can publish at a time. If an
+authorized clear is denied, output remains disabled and the display channel is
+reserved until an authorized clear succeeds; the UI reports that pending state.
+
+This path displays the assistant's response text and a neutral nod only. It
+does not call TTS, claim that the avatar is speaking, infer the assistant's
+emotion, or generate mouth cues. The state file is owner-only on POSIX. Start
+the local avatar receiver with the same file path and open the Godot demo to
+render updates. The display remains a standalone window, not a game overlay.
+
 ## Safe embodiment guidance
 
 - Treat `mood` and `intensity` as advisory, not prescriptive; never force an

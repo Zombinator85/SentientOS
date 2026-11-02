@@ -2,14 +2,21 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import json
 
 import pytest
 
 from sentientos import chat_service
+from avatar_state import AvatarStateEmitter
+from control_plane import Decision, ReasonCode, RequestType
+from control_plane.records import AuthorizationRecord
+from control_plane.task_admission import AdmissionResponse
 from sentientos.canonical_memory import CanonicalMemoryStore
+from sentientos.chat_avatar_output import ChatAvatarOutputController
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
 from sentientos.installation_state import InstallationIdentity
+from speech_emitter import SpeechEmitter
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -75,10 +82,11 @@ class Inference:
         return dict(saved)
 
 
-def service(tmp_path, inference):
+def service(tmp_path, inference, avatar_output=None):
     return chat_service.PersistentConversationService(inference=inference,
         session_store=ConversationSessionStore(tmp_path / "conversations"),
-        memory_store=CanonicalMemoryStore(tmp_path / "memory"))
+        memory_store=CanonicalMemoryStore(tmp_path / "memory"),
+        avatar_output=avatar_output)
 
 
 def test_production_chat_requires_process_generation_handoff_before_custody(monkeypatch, tmp_path):
@@ -152,6 +160,7 @@ def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
             assert "function readWorkloadPreference()" in page.text
             assert "function saveWorkloadPreference(mode, gameProcessNames)" in page.text
             assert "preference.mode === control.value" in page.text
+            assert client.get("/avatar-output").json()=={"configured":False,"enabled":False}
             assert client.get("/workload-mode").json()["mode"] == "normal"
             assert client.post("/workload-mode", json={"mode": "gaming"}).json()["mode"] == "gaming"
             automatic = client.post("/workload-mode", json={"mode": "automatic",
@@ -163,6 +172,72 @@ def test_chat_workload_mode_api_rejects_unsupported_mode(tmp_path):
         assert inference.workload_mode == "automatic"
     finally:
         chat_service._CONVERSATION_SERVICE = None
+
+
+def test_local_chat_can_explicitly_enable_session_scoped_visual_avatar_output(tmp_path):
+    from fastapi.testclient import TestClient
+
+    admission_calls=[]
+    def approve(**kwargs):
+        admission_calls.append(dict(kwargs))
+        record=AuthorizationRecord.create(request_type=kwargs["request_type"],
+            requester_id=kwargs["requester_id"],intent_hash=kwargs["intent_hash"],
+            context_hash=kwargs["context_hash"],policy_version=kwargs["policy_version"],
+            decision=Decision.ALLOW,reason=ReasonCode.OK,metadata=kwargs["metadata"])
+        return AdmissionResponse(Decision.ALLOW,ReasonCode.OK,record)
+
+    target=tmp_path/"avatar_state.json"
+    avatar_output=ChatAvatarOutputController(SpeechEmitter(AvatarStateEmitter(target)),
+        admission_provider=approve)
+    inference=Inference()
+    app=service(tmp_path,inference,avatar_output)
+    session_id=app.create_session()
+    chat_service._CONVERSATION_SERVICE=app
+    try:
+        with TestClient(chat_service.APP) as client:
+            page=client.get("/")
+            assert page.status_code==200
+            assert "Show replies in companion" in page.text
+            assert "Visual text and a nod only; no audio." in page.text
+            assert client.get("/avatar-output").json()=={"configured":True,"enabled":False}
+            assert client.post("/avatar-output",json={"session_id":session_id,"enabled":True}).json()["enabled"] is True
+            assert client.get("/avatar-output",params={"session_id":session_id}).json()["enabled"] is True
+            response=client.post("/chat",json={"message":"hello","session_id":session_id,"request_id":"chat-1"})
+            assert response.status_code==200,response.text
+            data=response.json()
+            state=json.loads(target.read_text(encoding="utf-8"))
+            assert state["current_phrase"]==data["response"]=="answer"
+            assert state["speaking"] is False
+            assert state["viseme_timeline"]==[]
+            assert state["metadata"]["session_id"]==session_id
+            assert state["metadata"]["turn_id"]==data["turn_id"]
+            assert state["metadata"]["output_digest"]==chat_service.digest_payload({"text":"answer"})
+            assert client.post("/avatar-output",json={"session_id":session_id,"enabled":False}).json()["enabled"] is False
+        assert len(admission_calls)==3
+        assert all(call["request_type"] is RequestType.AVATAR_EMISSION for call in admission_calls)
+    finally:
+        chat_service._CONVERSATION_SERVICE=None
+
+
+def test_avatar_output_server_requires_loopback_binding(monkeypatch):
+    monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE",
+        SimpleNamespace(avatar_output_state=lambda _session_id: {"configured": True}))
+    assert chat_service._is_loopback_host("127.0.0.1") is True
+    assert chat_service._is_loopback_host("::1") is True
+    assert chat_service._is_loopback_host("localhost") is True
+    assert chat_service._is_loopback_host("0.0.0.0") is False
+    assert chat_service._is_loopback_host("192.168.1.12") is False
+    with pytest.raises(RuntimeError, match="chat_avatar_output_requires_loopback_host"):
+        chat_service.run(host="0.0.0.0")
+
+
+def test_production_composition_closes_avatar_before_serving_and_resource_owner():
+    events=[]
+    service=SimpleNamespace(close_avatar_output=lambda: events.append("avatar"))
+    serving=SimpleNamespace(close=lambda: events.append("serving"))
+    owner=SimpleNamespace(close=lambda: events.append("resource_owner"))
+    chat_service.ProductionChatComposition(service, serving, owner).close()
+    assert events == ["avatar", "serving", "resource_owner"]
 
 
 def test_conversation_identity_change_uses_verified_predecessor_lineage(tmp_path):
