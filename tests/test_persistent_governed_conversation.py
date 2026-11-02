@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
@@ -191,9 +192,56 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
         request_id="screen-api-1", observe_screen=True)))
     assert response.response == "local answer"
     assert "quest objective" in invoker.requests[0].prompt
+    status = asyncio.run(chat_service.screen_observation_status_endpoint())
+    assert status == {"configured": True, "per_message_opt_in_required": True}
     page = asyncio.run(chat_service.root_page())
     assert b"observe-screen" in page.body
     assert b"observe_screen: observeScreen" in page.body
+    assert b"refreshScreenObservationStatus" in page.body
+
+
+def test_cli_screen_configuration_requires_explicit_windows_process_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sentientos.perception import game_screen_capture
+
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    captured: dict[str, object] = {}
+
+    class Owner:
+        def snapshot(self):
+            return None
+
+    def build_owner(*, config, consent_provider):
+        captured["config"] = config
+        captured["consent"] = consent_provider()
+        return Owner()
+
+    monkeypatch.setattr(game_screen_capture, "build_windows_game_screen_ocr", build_owner)
+    assert chat_service._build_cli_screen_observer([], 60, platform_name="linux") is None
+    with pytest.raises(ValueError, match="windows_desktop"):
+        chat_service._build_cli_screen_observer(["ExampleGame.exe"], 60, platform_name="linux")
+    with pytest.raises(ValueError, match="allowlist_invalid"):
+        chat_service._build_cli_screen_observer(["not-a-game"], 60, platform_name="nt")
+    with pytest.raises(ValueError, match="out_of_range"):
+        chat_service._build_cli_screen_observer(["ExampleGame.exe"], 0, platform_name="nt")
+
+    observer = chat_service._build_cli_screen_observer(
+        ["ExampleGame.exe"], 60, platform_name="nt", now=now)
+    assert callable(observer)
+    assert captured["config"].enable is True
+    consent = captured["consent"]
+    assert consent.allowed_process_names == ("examplegame.exe",)
+    assert consent.expires_at == "2026-01-01T01:00:00Z"
+
+
+def test_configured_screen_capture_requires_loopback_chat_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = service(tmp_path, screen_observer=lambda: None)
+    monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE", app)
+    with pytest.raises(RuntimeError, match="screen_observation_requires_loopback"):
+        chat_service.run(host="0.0.0.0")
 
 
 def test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn(tmp_path: Path) -> None:

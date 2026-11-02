@@ -197,6 +197,17 @@ idempotent request with the same request ID and options returns its prior result
 without recapturing; reusing that ID with different observation options is a
 conflict.
 
+The production chat launcher can create the owner only when started with one or
+more `--screen-observation-process GAME.exe` arguments. These arguments form an
+exact Windows process allowlist and create an in-memory consent record that
+expires after `--screen-observation-consent-minutes` (1 to 240; default 60) or
+when the chat process stops. The user must still check the screen-observation
+box for each message. Screen observation is rejected on non-Windows systems
+and the launcher refuses non-loopback binds while this feature is configured.
+The host must have the project's `runtime` and `windows` extras installed and a
+local `tesseract` executable on `PATH`; the launcher does not install or
+download these components.
+
 OCR text enters only the current governed inference prompt, labeled as
 untrusted screen data. It is not added to the user's transcript or memory. The
 session and invocation linkage retain only bounded capture and text digests,
