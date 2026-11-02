@@ -182,6 +182,52 @@ def test_cpu_and_memory_collector_samples_reach_pressure_evaluation() -> None:
     assert all(candidate.does_not_mutate_host for candidate in report.proposal_candidates)
 
 
+def test_nvml_device_wide_samples_reach_pressure_using_worst_device() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={
+            "device_count": 2,
+            "sample_scope": "device_wide",
+            "per_process_attribution_available": False,
+            "devices": [
+                {"index": 0, "gpu_utilization_percent": 18.0, "vram_utilization_percent": 25.0},
+                {"index": 1, "gpu_utilization_percent": 93.0, "vram_utilization_percent": 96.0},
+            ],
+        },
+    )
+
+    snapshot = build_host_resource_telemetry_from_collector_results((gpu,), snapshot_id="nvml-multi")
+    report = evaluate_host_resource_pressure(snapshot)
+
+    assert snapshot.gpu_utilization_percent == 93.0
+    assert snapshot.vram_utilization_percent == 96.0
+    assert "gpu_pressure" in report.pressure_labels
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+
+def test_nvml_malformed_device_sample_is_unavailable_not_idle() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    gpu = HostCollectorResult(
+        collector_id="nvidia_gpu",
+        status="available",
+        observed_at="2026-11-02T00:00:00+00:00",
+        source="test:NVML",
+        values={"device_count": 1, "devices": [{"gpu_utilization_percent": 101.0}]},
+    )
+    snapshot = build_host_resource_telemetry_from_collector_results((gpu,), snapshot_id="nvml-invalid")
+
+    assert snapshot.gpu_utilization_percent is None
+    assert "nvidia_gpu_gpu_utilization_percent_malformed" in snapshot.unavailable_sensor_labels
+
+
 def test_incomplete_collector_data_yields_unavailable_findings_and_digest_is_deterministic() -> None:
     from sentientos.host_collectors import HostCollectorResult
     from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results

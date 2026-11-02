@@ -156,3 +156,54 @@ def test_host_pressure_defers_background_inference_and_recovers_without_reservin
     # reports pressure; its independent invocation limits still apply.
     assert kernel.observe_host_resource_evaluation(pressured)
     assert kernel.admit(foreground).outcome == AdmissionOutcome.ALLOW
+
+
+def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl",
+    )
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                                     lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                                     lambda observed_at=None: _result("memory", used_percent=40.0)),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                                     lambda observed_at=None: _result("disk", used_percent=30.0, free_bytes=1000)),
+        HostObservationCollectorSpec("nvidia_gpu", False, ("linux", "unknown"), 4,
+                                     lambda observed_at=None: _result(
+                                         "nvidia_gpu", device_count=1,
+                                         devices=[{"index": 0, "gpu_utilization_percent": 95.0,
+                                                   "vram_utilization_percent": 92.0}]))
+    ])
+
+    evaluation = HostResourceRuntimeCoordinator(
+        kernel=kernel, runtime_state_root=tmp_path / "resources", plan=plan,
+    ).run_cycle(correlation_id="gpu-pressure")
+    assert evaluation is not None and validate_evaluation(evaluation).ok
+    assert evaluation.snapshot.gpu_utilization_percent == 95.0
+    assert evaluation.snapshot.vram_utilization_percent == 92.0
+    assert "gpu_pressure" in evaluation.pressure_report.pressure_labels
+    assert kernel.observe_host_resource_evaluation(evaluation)
+
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    request = ControlActionRequest(
+        action_kind="local_model_inference",
+        authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance",
+        target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "gpu-pressure-inference"},
+    )
+    decision = kernel.admit(request)
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_background_inference_under_host_pressure" in decision.reason_codes
+    resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
+    assert resource_evidence["gpu_utilization_percent"] == 95.0
+    assert resource_evidence["vram_utilization_percent"] == 92.0

@@ -1078,6 +1078,8 @@ class RuntimeGovernor:
                 "pressure_labels": tuple(evaluation.pressure_report.pressure_labels),
                 "cpu_utilization_percent": evaluation.snapshot.cpu_utilization_percent,
                 "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
+                "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
+                "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
             }
             with self._resource_evidence_lock:
                 self._host_resource_evidence = evidence
@@ -1168,6 +1170,8 @@ class RuntimeGovernor:
                         "snapshot_id": evidence["snapshot_id"],
                         "report_id": evidence["report_id"],
                         "report_digest": evidence["report_digest"],
+                        "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
+                        "vram_utilization_percent": evidence.get("vram_utilization_percent"),
                         "age_seconds": round(evidence_age_seconds, 3),
                     }
                 else:

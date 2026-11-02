@@ -3,7 +3,11 @@
 The host-resource observation runtime can forward a validated, proposal-only
 evaluation to the runtime governor. This input contains the observation epoch,
 snapshot and pressure-report identifiers, pressure labels, CPU/RAM values,
-and observation time. It does not grant host mutation or inference authority.
+device-wide GPU/VRAM values when available, and observation time. It does not
+grant host mutation or inference authority. For multiple NVIDIA devices the
+highest valid utilization sample is retained so a loaded device is not hidden
+by averaging it with idle devices. NVML samples are device-wide and do not
+identify which process or model caused the load.
 
 In enforced mode, background local-model inference is deferred when no fresh
 host evaluation exists, required CPU/RAM values are incomplete, the evaluation
@@ -25,7 +29,16 @@ tests cover deferral, no backend entry while deferred, recovery after a fresh
 observation, and receipt linkage. They do not claim that this cloud or GLORP
 hardware was measured.
 
-The Windows game frame-time adapter is not yet connected to this policy. Frame
-time must not be inferred from CPU/RAM pressure, and an unavailable game
-observation must remain unavailable until a source-authenticated observation
-is routed into the governor with its own provenance.
+The Windows game frame-time adapter forwards authenticated frame-time and
+process-resource observations to the governor with their own source,
+generation, sequence, message, and digest provenance. Fresh frame-time
+pressure defers background inference, and a fresh
+low-pressure observation permits a later attempt. A missing or stale game
+observation remains unavailable; frame-time is never inferred from CPU/RAM or
+GPU pressure.
+
+GPU/VRAM pressure reaches the same background admission check through NVML when
+that collector is available. The samples remain device-wide. Per-process GPU
+attribution and runtime-specific GPU-offload requirements are not established
+by this telemetry, and absent NVML data must not be interpreted as an idle
+device or as proof that a model used no accelerator.
