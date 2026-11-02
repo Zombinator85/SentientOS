@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -87,8 +88,26 @@ class AvatarStateEmitter:
     def emit(self, state: AvatarState | Mapping[str, Any]) -> Dict[str, Any]:
         payload = self._prepare_payload(state)
         self.target_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.target_path.open("w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.target_path.name}.", suffix=".tmp",
+            dir=self.target_path.parent,
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as fp:
+                json.dump(payload, fp, ensure_ascii=False, indent=2)
+                fp.flush()
+                os.fsync(fp.fileno())
+            os.replace(temporary_name, self.target_path)
+        except BaseException:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            try:
+                os.unlink(temporary_name)
+            except FileNotFoundError:
+                pass
+            raise
         return payload
 
     def _prepare_payload(self, state: AvatarState | Mapping[str, Any]) -> Dict[str, Any]:

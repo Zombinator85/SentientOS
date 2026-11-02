@@ -16,9 +16,12 @@ and how to keep the pipeline bounded by doctrine and safety constraints.
 - `is_speaking` / `speaking`: boolean flag indicating whether the speaker is active (set to `False` when muted).
 - `viseme_timeline`: ordered viseme events (`time`, `duration`, `viseme`) for lip-sync playback.
 
-The emitter writes `avatar_state.json` into the SentientOS data directory
-(`sentientos.storage.get_state_file("avatar_state.json")`). Downstream systems
-may tail the file to drive blendshapes, emojis, or symbolic gestures.
+The emitter atomically replaces `avatar_state.json` in the SentientOS data
+directory (`sentientos.storage.get_state_file("avatar_state.json")`). Its
+temporary and resulting files use owner-only permissions on POSIX systems, so
+readers never observe a partially serialized state and phrase text is not
+world-readable by default. Downstream systems may tail the file to drive
+blendshapes, emojis, or symbolic gestures.
 
 The payload always includes a timestamp, resolved runtime mode, and whether the
 system is running in `LOCAL_OWNER` mode. External consumers must treat
