@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -9,9 +12,11 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.avatar_authoring import (
-    AvatarAuthoringError, SyntheticArtifactInspector, SyntheticAuthoringBackend,
+    AvatarAuthoringError, BackendIdentity, BLENDER_SUPPORTED_OPERATIONS,
+    SyntheticArtifactInspector, SyntheticAuthoringBackend,
     adopt, adoption_observation, blender_readiness, build_admission, digest,
-    genesis_adopt, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
+    compare_structure, genesis_adopt, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
+    BlenderArtifactInspector, BlenderBackend,
     successor_manifest, validate_plan,
 )
 from sentientos.embodiment_self_observation import AvatarBodyManifest, EmbodimentEvidenceOwner
@@ -125,5 +130,137 @@ def test_cas_missing_approval_and_unrequested_mutation(tmp_path):
 
 def test_blender_readiness_absent_is_precise_and_non_authoritative(tmp_path):
     driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
-    result=blender_readiness(tmp_path/"missing-blender",driver,tmp_path/"workspace")
+    workspace=tmp_path/"workspace"
+    result=blender_readiness(tmp_path/"missing-blender",driver,workspace)
     assert result["status"]=="blender_backend_unavailable" and not any(result["authority"].values()) and not result["mutation_performed"]
+    assert not workspace.exists()
+
+
+def test_blender_driver_capabilities_match_the_declared_backend() -> None:
+    from scripts.avatar_blender_driver import SUPPORTED_OPERATIONS
+
+    assert SUPPORTED_OPERATIONS == BLENDER_SUPPORTED_OPERATIONS
+
+
+def test_blender_driver_rejects_unimplemented_operations_before_importing_bpy() -> None:
+    from scripts.avatar_blender_driver import translate
+
+    value={"schema_version":"sentientos.avatar_authoring_plan:v1","operations":[
+        {"operation_id":"shape","kind":"create_shape_key","target":"Body","arguments":{}}]}
+    with pytest.raises(ValueError,match="invalid_plan"):
+        translate(value)
+
+
+def test_structure_comparison_reports_unrequested_new_bones():
+    checked=validate_plan({"schema_version":"sentientos.avatar_authoring_plan:v1","plan_id":"rig",
+        "installation_body_id":"install","body_id":"body","predecessor_generation":1,
+        "predecessor_artifact_digest":"sha256:artifact","predecessor_manifest_digest":"sha256:manifest",
+        "proposed_by":"test","operations":[operation("root","create_bone","Rig",{}, {"bone":"root"})]})
+    before={"inspection_digest":"before","bones":{},"objects":{},"armatures":{}}
+    after={"inspection_digest":"after","bones":{"Rig/root":{},"Rig/Bone":{}},
+        "objects":{},"armatures":{}}
+    compared=compare_structure(before,checked,after)
+    assert compared["unexpected_changes"]==["bone:Rig/Bone"]
+
+
+def test_configured_blender_creates_and_independently_inspects_non_adopted_rig(tmp_path):
+    executable=shutil.which("blender")
+    if executable is None:
+        pytest.skip("Blender is unavailable in this validation environment")
+    source=tmp_path/"predecessor.blend"
+    home=tmp_path/"home"; cache=tmp_path/"cache"
+    home.mkdir(); cache.mkdir()
+    created=subprocess.run([executable,"--background","--factory-startup","--python-expr",
+        f"import bpy; bpy.ops.wm.save_as_mainfile(filepath={str(source)!r})"],
+        check=False,capture_output=True,text=True,timeout=45,
+        env={"PATH":os.defpath,"HOME":str(home),"XDG_CACHE_HOME":str(cache),"LC_ALL":"C"})
+    assert created.returncode==0 and source.is_file(), created.stderr[-2000:]
+
+    import hashlib
+    source_digest="sha256:"+hashlib.sha256(source.read_bytes()).hexdigest()
+    old=AvatarBodyManifest("installation:diagnostic","avatar:smoke",source_digest,"blend",
+        "rig:empty",digest({}),"renderer:diagnostic","right-handed-y-up",(),(),(),(),(),
+        ("avatar_pose",),1,None,"non-adopted-blender-test")
+    value={"schema_version":"sentientos.avatar_authoring_plan:v1","plan_id":"blender-smoke",
+        "installation_body_id":old.installation_body_id,"body_id":"avatar:smoke",
+        "predecessor_generation":1,"predecessor_artifact_digest":source_digest,
+        "predecessor_manifest_digest":old.semantic_digest,"proposed_by":"test",
+        "operations":[
+            operation("rig","create_armature","SentientRig",{}, {"exists":True}),
+            operation("root","create_bone","SentientRig",{"parent":None,"head":[0,0,-1],"tail":[0,0,0]}, {"bone":"root"}),
+            operation("upper","create_bone","SentientRig",{"parent":"root","head":[0,0,0],"tail":[0,0,1]}, {"bone":"upper"}),
+            operation("skin","bind_armature","Cube",{"armature":"SentientRig"}, {"armature":"SentientRig"}),
+        ]}
+    pointer={"body_generation":1,"artifact_sha256":source_digest,"manifest_digest":old.semantic_digest}
+    driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_driver.py"
+    inspector_driver=Path(__file__).parents[1]/"scripts"/"avatar_blender_inspector.py"
+    backend=BlenderBackend(Path(executable),driver)
+    inspector=BlenderArtifactInspector(Path(executable),inspector_driver)
+    workspace=(tmp_path/"workcells"/"smoke").resolve()
+    successor=workspace/"output"/"successor.blend"
+    checked=validate_plan(value)
+    admission=build_admission(admission_id="development-smoke",work_id="smoke",pointer=pointer,
+        plan=checked,workspace=workspace,backend=backend.identity,output=successor,
+        operator_approval="test-only; no adoption")
+    result=run_workcell(current_pointer=pointer,predecessor_manifest=old,predecessor=source,
+        plan_value=value,admission=admission,workspace_root=tmp_path/"workcells",backend=backend,
+        inspector=inspector,work_id="smoke")
+
+    assert result["receipt"]["result_posture"]=="candidate_validated"
+    assert result["comparison"]["counts"]["satisfied"]==4
+    assert result["comparison"]["unexpected_changes"]==[]
+    assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
+    assert set(result["successor_inspection"]["objects"]["Cube"]["vertex_group_names"])=={"root","upper"}
+    assert result["receipt"]["backend_identity"]["evidence_posture"]=="configured_candidate_tool"
+    assert not any(result["receipt"]["authority"].values())
+
+
+def test_run_workcell_rejects_unavailable_backend_capability_before_workspace_creation(tmp_path):
+    source=artifact(tmp_path/"body.glb"); old=manifest(source)
+    pointer={"artifact_sha256":old.source_artifact_digest,"manifest_digest":old.semantic_digest}
+    class LimitedBackend:
+        identity=BackendIdentity("limited","test","1",None,None,"driver",("set_transform",),"synthetic_test")
+        def author(self,*_args,**_kwargs): raise AssertionError("unsupported authoring ran")
+    workspace=tmp_path/"uncreated-workspace"
+    with pytest.raises(AvatarAuthoringError,match="authoring_backend_capability_mismatch"):
+        run_workcell(current_pointer=pointer,predecessor_manifest=old,predecessor=source,
+            plan_value=plan(old),admission={},workspace_root=workspace,backend=LimitedBackend(),
+            inspector=SyntheticArtifactInspector(),work_id="work-unsupported")
+    assert not workspace.exists()
+
+
+def test_blender_workcell_rejects_non_native_project_before_workspace_creation(tmp_path):
+    source=artifact(tmp_path/"body.glb"); old=manifest(source)
+    pointer={"artifact_sha256":old.source_artifact_digest,"manifest_digest":old.semantic_digest}
+    backend=BackendIdentity("configured_blender","blender-cli-static-driver","1",None,None,"driver",
+        tuple(sorted(BLENDER_SUPPORTED_OPERATIONS)),"production")
+    class ConfiguredBackend:
+        identity=backend
+    workspace=tmp_path/"uncreated-workspace"
+    with pytest.raises(AvatarAuthoringError,match="blender_asset_format_unsupported"):
+        run_workcell(current_pointer=pointer,predecessor_manifest=old,predecessor=source,
+            plan_value=plan(old),admission={},workspace_root=workspace,backend=ConfiguredBackend(),
+            inspector=SyntheticArtifactInspector(),work_id="work-unsupported-format")
+    assert not workspace.exists()
+
+
+def test_cli_selects_explicit_blender_author_and_inspector_paths(monkeypatch):
+    from scripts import avatar_authoring as cli
+
+    observed=[]
+    class Backend:
+        def __init__(self, executable, driver, *, expected_sha256=None):
+            observed.append(("author", executable, driver, expected_sha256))
+    class Inspector:
+        def __init__(self, executable, driver, *, expected_sha256=None):
+            observed.append(("inspector", executable, driver, expected_sha256))
+    monkeypatch.setattr(cli, "BlenderBackend", Backend)
+    monkeypatch.setattr(cli, "BlenderArtifactInspector", Inspector)
+    args=cli.parser().parse_args(["run-one","--pointer","p","--manifest","m","--predecessor","a.blend",
+        "--plan","plan","--workspace-root","work","--work-id","w","--admission-id","admit",
+        "--approval","development","--output","out","--backend","blender","--blender","/opt/blender",
+        "--driver","/repo/driver.py","--inspector-driver","/repo/inspect.py","--executable-sha256","sha256:abc"])
+    backend,inspector=cli._authoring_backends(args)
+    assert isinstance(backend,Backend) and isinstance(inspector,Inspector)
+    assert observed==[("author",Path("/opt/blender"),Path("/repo/driver.py"),"sha256:abc"),
+        ("inspector",Path("/opt/blender"),Path("/repo/inspect.py"),"sha256:abc")]

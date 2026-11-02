@@ -7,7 +7,7 @@ import bpy
 def main() -> None:
     objects={}; armatures={}; bones={}; shape_keys={}; materials={m.name:{} for m in bpy.data.materials}
     for obj in sorted(bpy.data.objects,key=lambda item:item.name):
-        objects[obj.name]={"type":obj.type,"transform":{"location":list(obj.location),"rotation":list(obj.rotation_euler),"scale":list(obj.scale)},"materials":[slot.material.name for slot in obj.material_slots if slot.material],"parent":obj.parent.name if obj.parent else None,"armature":next((m.object.name for m in obj.modifiers if m.type=="ARMATURE" and m.object),None)}
+        objects[obj.name]={"type":obj.type,"transform":{"location":list(obj.location),"rotation":list(obj.rotation_euler),"scale":list(obj.scale)},"materials":[slot.material.name for slot in obj.material_slots if slot.material],"parent":obj.parent.name if obj.parent else None,"armature":next((m.object.name for m in obj.modifiers if m.type=="ARMATURE" and m.object),None),"vertex_group_names":sorted(group.name for group in obj.vertex_groups)}
         if obj.type=="ARMATURE":
             armatures[obj.name]={"bones":{}}
             for bone in sorted(obj.data.bones,key=lambda item:item.name):

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.avatar_authoring import (
+    AvatarAuthoringError, BlenderArtifactInspector, BlenderBackend,
     SyntheticArtifactInspector, SyntheticAuthoringBackend, adopt, blender_readiness,
     build_admission, lineage, load_pointer, renderer_handoff, rollback, run_workcell,
     successor_manifest, validate_plan,
@@ -53,13 +54,30 @@ def _write(path: str | None, value: Mapping[str, Any]) -> None:
     print(data)
 
 
+def _authoring_backends(args: argparse.Namespace) -> tuple[Any, Any]:
+    if args.backend == "synthetic":
+        return SyntheticAuthoringBackend(), SyntheticArtifactInspector()
+    if not all((args.blender, args.driver, args.inspector_driver)):
+        raise AvatarAuthoringError("configured_blender_paths_required")
+    return (
+        BlenderBackend(Path(args.blender), Path(args.driver),
+                       expected_sha256=args.executable_sha256),
+        BlenderArtifactInspector(Path(args.blender), Path(args.inspector_driver),
+                                 expected_sha256=args.executable_sha256),
+    )
+
+
 def parser() -> argparse.ArgumentParser:
     root=argparse.ArgumentParser(); sub=root.add_subparsers(dest="command",required=True)
     p=sub.add_parser("plan-validate"); p.add_argument("--plan",required=True)
     p=sub.add_parser("readiness"); p.add_argument("--blender",required=True); p.add_argument("--driver",required=True); p.add_argument("--workspace-root",required=True); p.add_argument("--executable-sha256")
     p=sub.add_parser("run-one");
     for name in ("pointer","manifest","predecessor","plan","workspace-root","work-id","admission-id","approval","output"): p.add_argument("--"+name,required=True)
-    p.add_argument("--backend",choices=("synthetic",),required=True)
+    p.add_argument("--backend",choices=("synthetic","blender"),required=True)
+    p.add_argument("--blender")
+    p.add_argument("--driver")
+    p.add_argument("--inspector-driver")
+    p.add_argument("--executable-sha256")
     p=sub.add_parser("candidate-status"); p.add_argument("--candidate",required=True); p.add_argument("--manifest",required=True)
     p=sub.add_parser("adopt")
     for name in ("pointer","lineage","candidate","predecessor-manifest","expected-pointer-digest","approval","output"): p.add_argument("--"+name,required=True)
@@ -97,7 +115,7 @@ def main(argv: list[str] | None=None) -> int:
     if command=="plan-validate": result=validate_plan(_read(args.plan))
     elif command=="readiness": result=blender_readiness(Path(args.blender),Path(args.driver),Path(args.workspace_root),expected_sha256=args.executable_sha256)
     elif command=="run-one":
-        pointer=load_pointer(Path(args.pointer)); manifest=_manifest(args.manifest); plan=validate_plan(_read(args.plan)); backend=SyntheticAuthoringBackend(); inspector=SyntheticArtifactInspector()
+        pointer=load_pointer(Path(args.pointer)); manifest=_manifest(args.manifest); plan=validate_plan(_read(args.plan)); backend,inspector=_authoring_backends(args)
         workspace=(Path(args.workspace_root)/args.work_id).resolve(); successor=workspace/"output"/f"successor.{manifest.asset_format}"
         admission=build_admission(admission_id=args.admission_id,work_id=args.work_id,pointer=pointer,plan=plan,workspace=workspace,backend=backend.identity,output=successor,operator_approval=args.approval)
         result=run_workcell(current_pointer=pointer,predecessor_manifest=manifest,predecessor=Path(args.predecessor),plan_value=_read(args.plan),admission=admission,workspace_root=Path(args.workspace_root),backend=backend,inspector=inspector,work_id=args.work_id); _write(args.output,result); return 0

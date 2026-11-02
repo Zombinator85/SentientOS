@@ -49,6 +49,10 @@ OP_ARGUMENTS: dict[str, frozenset[str]] = {
     "register_channel": frozenset({"channel", "channel_kind", "control"}),
     "set_label": frozenset({"label", "value"}),
 }
+BLENDER_SUPPORTED_OPERATIONS = frozenset({
+    "create_primitive_mesh", "create_armature", "create_bone", "set_transform",
+    "bind_armature",
+})
 
 
 class AvatarAuthoringError(ValueError):
@@ -111,11 +115,20 @@ def validate_plan(value: Mapping[str, Any]) -> dict[str, Any]:
         args = operation["arguments"]
         if not isinstance(args, dict) or set(args) - OP_ARGUMENTS[kind]:
             raise AvatarAuthoringError("authoring_operation_arguments_invalid")
+        if kind == "create_primitive_mesh":
+            primitive = args.get("primitive", "cube")
+            if primitive not in {"cube", "uv_sphere", "cylinder", "cone", "plane"}:
+                raise AvatarAuthoringError("primitive_kind_unsupported")
+            vertices = args.get("vertices")
+            if vertices is not None and (type(vertices) is not int or not 3 <= vertices <= 256):
+                raise AvatarAuthoringError("geometry_bound_exceeded")
+            if "vertices" in args and primitive not in {"uv_sphere", "cylinder", "cone"}:
+                raise AvatarAuthoringError("primitive_vertex_parameter_unsupported")
         if any(key.lower() in {"python", "script", "shell", "command", "addon", "url", "path"} for key in args):
             raise AvatarAuthoringError("authoring_operation_code_or_path_forbidden")
         for key, item in args.items():
             if key in {"location", "rotation", "scale", "head", "tail"}: _vector(item)
-            elif key == "vertices" and (type(item) is not int or not 3 <= item <= 10000):
+            elif key == "vertices" and (type(item) is not int or not 3 <= item <= 256):
                 raise AvatarAuthoringError("geometry_bound_exceeded")
             elif key == "tolerance" and (type(item) not in (int, float) or not 0 <= item <= 0.1):
                 raise AvatarAuthoringError("tolerance_invalid")
@@ -232,13 +245,24 @@ def compare_structure(before: Mapping[str, Any], plan: Mapping[str, Any], after:
         elif kind == "create_armature": satisfied = target in after["armatures"]
         elif kind == "create_bone": satisfied = f"{target}/{op['postcondition'].get('bone', op['operation_id'])}" in after["bones"]
         elif kind == "parent_object": satisfied = after["objects"].get(target, {}).get("parent") == {"armature": args["armature"], "bone": args.get("bone")}
-        elif kind == "bind_armature": satisfied = after["objects"].get(target, {}).get("armature") == args["armature"]
+        elif kind == "bind_armature":
+            obj = after["objects"].get(target, {})
+            weighted_groups = obj.get("vertex_group_names")
+            bones = after["armatures"].get(args["armature"], {}).get("bones", {})
+            satisfied = (obj.get("armature") == args["armature"]
+                and (weighted_groups is None or bool(set(weighted_groups) & set(bones))))
         elif kind == "create_shape_key": satisfied = args["shape_key"] in after["shape_keys"].get(target, [])
         elif kind == "register_channel": satisfied = after["channels"].get(args["channel"]) == {"kind": args["channel_kind"], "control": args["control"]}
         elif kind == "set_label": satisfied = after["labels"].get(args["label"]) == args["value"]
         results.append({"operation_id": op["operation_id"], "classification": "satisfied" if satisfied else "unsatisfied"})
     requested_new = {op["target"] for op in plan["operations"] if op["kind"] in {"create_primitive_mesh","duplicate_object","create_armature"}}
-    unexpected = sorted((set(after["objects"]) - set(before["objects"]) | set(after["armatures"]) - set(before["armatures"])) - requested_new)
+    requested_bones = {
+        f"{op['target']}/{op['postcondition'].get('bone', op['operation_id'])}"
+        for op in plan["operations"] if op["kind"] == "create_bone"
+    }
+    unexpected_objects = (set(after["objects"]) - set(before["objects"]) | set(after["armatures"]) - set(before["armatures"])) - requested_new
+    unexpected_bones = (set(after["bones"]) - set(before["bones"])) - requested_bones
+    unexpected = sorted([*unexpected_objects, *(f"bone:{name}" for name in unexpected_bones)])
     counts = {name: sum(r["classification"] == name for r in results) for name in ("satisfied","unsatisfied","contradicted","not_measurable")}
     value = {"schema_version": COMPARISON_SCHEMA, "predecessor_inspection_digest": before["inspection_digest"], "plan_digest": plan["plan_digest"], "successor_inspection_digest": after["inspection_digest"], "operation_results": results, "unexpected_changes": unexpected, "counts": counts}
     value["comparison_digest"] = digest(value); return value
@@ -252,12 +276,18 @@ class BlenderBackend:
         if not os.access(executable, os.X_OK): raise AvatarAuthoringError("blender_backend_unavailable")
         if expected_sha256 and exe["sha256"] != expected_sha256: raise AvatarAuthoringError("blender_executable_digest_mismatch")
         drv = file_identity(driver, maximum=1024 * 1024)
-        self.identity = BackendIdentity("configured_blender", "blender-cli-static-driver", "1", str(executable.resolve()), exe["sha256"], drv["sha256"], tuple(OP_ARGUMENTS), "production")
+        self.identity = BackendIdentity("configured_blender", "blender-cli-static-driver", "1",
+            str(executable.resolve()), exe["sha256"], drv["sha256"],
+            tuple(sorted(BLENDER_SUPPORTED_OPERATIONS)), "configured_candidate_tool")
     def author(self, predecessor: Path, plan: Mapping[str, Any], successor: Path) -> Mapping[str, Any]:
         plan_path = successor.parent.parent / "plan" / "authoring_plan.json"
+        home = successor.parent.parent / "tool" / "blender-author-home"
+        cache = home / ".cache"
+        cache.mkdir(parents=True, mode=0o700, exist_ok=True)
         argv = [str(self.executable), "--background", str(predecessor), "--python", str(self.driver), "--", str(plan_path), str(successor), plan["plan_digest"]]
         result = run_supervised(argv, stage_id="avatar_blender_author", timeout_seconds=self.timeout,
-                                env={"PATH": os.defpath, "PYTHONHASHSEED": "0", "LC_ALL": "C", "HOME": str(successor.parent.parent)}, shell=False)
+                                env={"PATH": os.defpath, "PYTHONHASHSEED": "0", "LC_ALL": "C",
+                                     "HOME": str(home), "XDG_CACHE_HOME": str(cache)}, shell=False)
         return {**result.to_dict(), "status": "completed" if result.return_code == 0 and not result.termination_reason else "failed", "authority": dict(FALSE_AUTHORITY)}
 
 
@@ -268,10 +298,13 @@ class BlenderArtifactInspector:
         if not os.access(executable,os.X_OK): raise AvatarAuthoringError("blender_backend_unavailable")
         if expected_sha256 and exe["sha256"] != expected_sha256: raise AvatarAuthoringError("blender_executable_digest_mismatch")
         self.executable,self.driver,self.timeout=executable,inspector_driver,timeout_seconds
-        self.identity=BackendIdentity("configured_blender_inspector","blender-cli-static-inspector","1",str(executable.resolve()),exe["sha256"],drv["sha256"],("inspect",),"production")
+        self.identity=BackendIdentity("configured_blender_inspector","blender-cli-static-inspector","1",str(executable.resolve()),exe["sha256"],drv["sha256"],("inspect",),"configured_candidate_tool")
     def inspect(self, artifact: Path, asset_format: str) -> Mapping[str, Any]:
         before=file_identity(artifact); argv=[str(self.executable),"--background",str(artifact),"--python",str(self.driver)]
-        result=run_supervised(argv,stage_id="avatar_blender_inspect",timeout_seconds=self.timeout,env={"PATH":os.defpath,"PYTHONHASHSEED":"0","LC_ALL":"C"},shell=False)
+        home=artifact.parent.parent/"tool"/"blender-inspector-home"; cache=home/".cache"
+        cache.mkdir(parents=True,mode=0o700,exist_ok=True)
+        result=run_supervised(argv,stage_id="avatar_blender_inspect",timeout_seconds=self.timeout,
+            env={"PATH":os.defpath,"PYTHONHASHSEED":"0","LC_ALL":"C","HOME":str(home),"XDG_CACHE_HOME":str(cache)},shell=False)
         if result.return_code or result.termination_reason: raise AvatarAuthoringError("inspector_failed")
         marker="SENTIENTOS_AVATAR_INSPECTION="; lines=[line for line in result.stdout_tail.splitlines() if line.startswith(marker)]
         if len(lines)!=1: raise AvatarAuthoringError("inspector_result_incomplete")
@@ -286,7 +319,8 @@ class BlenderArtifactInspector:
 def blender_readiness(executable: Path, driver: Path, workspace_root: Path, *, expected_sha256: str | None = None) -> dict[str, Any]:
     base = {"status": "blender_backend_unavailable", "authority": dict(FALSE_AUTHORITY), "mutation_performed": False}
     try:
-        workspace_root.resolve().mkdir(parents=True, exist_ok=True)
+        # Readiness must not provision the workspace or create any filesystem state.
+        _ = workspace_root
         backend = BlenderBackend(executable, driver, expected_sha256=expected_sha256, timeout_seconds=15)
     except (OSError, AvatarAuthoringError) as exc:
         return {**base, "reason": str(exc)}
@@ -312,6 +346,13 @@ def build_admission(*, admission_id: str, work_id: str, pointer: Mapping[str, An
 def run_workcell(*, current_pointer: Mapping[str, Any], predecessor_manifest: AvatarBodyManifest, predecessor: Path, plan_value: Mapping[str, Any], admission: Mapping[str, Any], workspace_root: Path, backend: AuthoringBackend, inspector: ArtifactInspector, work_id: str) -> dict[str, Any]:
     plan = validate_plan(plan_value); identity = file_identity(predecessor)
     if identity["sha256"] != current_pointer["artifact_sha256"] or predecessor_manifest.semantic_digest != current_pointer["manifest_digest"]: raise AvatarAuthoringError("predecessor_custody_mismatch")
+    # The configured driver opens native Blender project files. GLB/glTF are
+    # accepted by the broader manifest contract, but this backend does not
+    # import those formats and must reject them before allocating a workcell.
+    if backend.identity.implementation == "blender-cli-static-driver" and predecessor_manifest.asset_format != "blend":
+        raise AvatarAuthoringError("blender_asset_format_unsupported")
+    if set(operation["kind"] for operation in plan["operations"]) - set(backend.identity.capabilities):
+        raise AvatarAuthoringError("authoring_backend_capability_mismatch")
     suffix = predecessor_manifest.asset_format
     workspace, copied, successor = prepare_workspace(workspace_root, work_id, predecessor, suffix)
     expected = build_admission(admission_id=admission["admission_id"], work_id=work_id, pointer=current_pointer, plan=plan, workspace=workspace, backend=backend.identity, output=successor, operator_approval=admission["operator_approval"])
