@@ -71,6 +71,14 @@ class ChatAvatarOutput(Protocol):
     def close(self) -> None: ...
 
 
+class ChatSpeechOutput(Protocol):
+    def set_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]: ...
+    def state(self, session_id: str | None) -> dict[str, Any]: ...
+    def publish_response(self, *, session_id: str, turn_id: str, text: str,
+                         output_digest: str) -> Mapping[str, Any]: ...
+    def close(self) -> None: ...
+
+
 class DevelopmentSimulationInference:
     """Affirmative test/development-only adapter; never selected by production."""
     __slots__ = ("_delegate",)
@@ -95,7 +103,7 @@ class ProductionChatComposition:
         self._resource_owner = resource_owner
     def close(self) -> None:
         try:
-            self.service.close_avatar_output()
+            self.service.close_outputs()
         finally:
             try:
                 self._serving.close()
@@ -130,6 +138,11 @@ class ChatAvatarOutputRequest(BaseModel):
     enabled: bool
 
 
+class ChatSpeechOutputRequest(BaseModel):
+    session_id: str
+    enabled: bool
+
+
 class ChatRequestStateError(ValueError):
     """A replay conflict or an intentionally unreplayed interrupted request."""
 
@@ -143,9 +156,11 @@ class PersistentConversationService:
     def __init__(self, *, inference: ChatInference, session_store: ConversationSessionStore,
                  memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None,
-                 avatar_output: ChatAvatarOutput | None = None) -> None:
+                 avatar_output: ChatAvatarOutput | None = None,
+                 speech_output: ChatSpeechOutput | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self._avatar_output = avatar_output
+        self._speech_output = speech_output
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(
             memory_store, admission_gate=self.admission_gate)
@@ -191,9 +206,29 @@ class PersistentConversationService:
         self.sessions.load(session_id)
         return self._avatar_output.set_enabled(session_id, enabled)
 
+    def speech_output_state(self, session_id: str | None) -> dict[str, Any]:
+        if self._speech_output is None:
+            return {"configured": False, "enabled": False, "backend_available": False}
+        if session_id is not None:
+            self.sessions.load(session_id)
+        return self._speech_output.state(session_id)
+
+    def set_speech_output_enabled(self, session_id: str, enabled: bool) -> dict[str, Any]:
+        if self._speech_output is None:
+            raise RuntimeError("chat_speech_output_not_configured")
+        self.sessions.load(session_id)
+        return self._speech_output.set_enabled(session_id, enabled)
+
     def close_avatar_output(self) -> None:
         if self._avatar_output is not None:
             self._avatar_output.close()
+
+    def close_outputs(self) -> None:
+        try:
+            self.close_avatar_output()
+        finally:
+            if self._speech_output is not None:
+                self._speech_output.close()
 
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
@@ -627,6 +662,13 @@ class PersistentConversationService:
                     text=receipt.output_text, output_digest=transcript_output_digest)
             except Exception as exc:
                 LOGGER.warning("Avatar response publication failed: %s", type(exc).__name__)
+        if self._speech_output is not None:
+            try:
+                self._speech_output.publish_response(
+                    session_id=session["session_id"], turn_id=str(assistant["turn_id"]),
+                    text=receipt.output_text, output_digest=transcript_output_digest)
+            except Exception as exc:
+                LOGGER.warning("Local speech publication failed: %s", type(exc).__name__)
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
             operation_id = "retain:" + session["session_id"] + ":" + user_turn["turn_id"]
@@ -713,7 +755,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
                               resource_provisioning_id: str | None = None,
                               runtime_handoff_id: str | None = None,
-                              avatar_state_path: Path | None = None) -> None:
+                              avatar_state_path: Path | None = None,
+                              local_speech_output: bool = False) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
@@ -738,6 +781,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         from .production_chat_resource_provisioning import load_production_chat_resource_context_owner
         resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
     serving: ProductionServingController | None = None
+    speech_output: ChatSpeechOutput | None = None
     try:
         data_root = sentientos_data_dir()
         memory_root = sentientos_memory_dir(data_root)
@@ -766,15 +810,23 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             avatar_output = ChatAvatarOutputController(
                 SpeechEmitter(AvatarStateEmitter(avatar_state_path)),
                 admission_provider=admit_request)
+        if local_speech_output:
+            from control_plane import admit_request
+            from .chat_speech_output import ChatSpeechOutputController
+
+            speech_output = ChatSpeechOutputController(admission_provider=admit_request)
         # The roots were checked before serving was established.  Transcript
         # custody remains installation-scoped; canonical memory remains user-scoped.
         handle.ensure_directory(conversation_root)
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(conversation_root.path),
-            memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output)
+            memory_store=CanonicalMemoryStore(memory_root), avatar_output=avatar_output,
+            speech_output=speech_output)
     except Exception:
         if serving is not None:
             serving.close()
+        if speech_output is not None:
+            speech_output.close()
         if resource_context_owner is not None:
             resource_context_owner.close()
         raise
@@ -926,6 +978,31 @@ async def set_avatar_output_endpoint(request: ChatAvatarOutputRequest) -> dict[s
         raise HTTPException(status_code=503, detail="Avatar output unavailable") from exc
 
 
+@APP.get("/speech-output")
+async def speech_output_state_endpoint(session_id: str | None = None) -> dict[str, Any]:
+    try:
+        return _get_conversation_service().speech_output_state(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Chat session not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Speech output status unavailable") from exc
+
+
+@APP.post("/speech-output")
+async def set_speech_output_endpoint(request: ChatSpeechOutputRequest) -> dict[str, Any]:
+    try:
+        return _get_conversation_service().set_speech_output_enabled(
+            request.session_id, request.enabled)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Chat session not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Speech output unavailable") from exc
+
+
 @APP.post("/sessions")
 async def create_session() -> dict[str, str]:
     try:
@@ -1014,6 +1091,11 @@ async def root_page() -> HTMLResponse:
                     <input id="avatar-output-enabled" type="checkbox" disabled />
                     <span id="avatar-output-status" role="status">Visual text and a nod only; no audio.</span>
                     <p>Approval is limited to this conversation and expires after four hours or when the chat service stops.</p>
+                </section>
+                <section id="speech-output-controls" aria-label="Local speech output">
+                    <label for="speech-output-enabled">Speak replies with local voice</label>
+                    <input id="speech-output-enabled" type="checkbox" disabled />
+                    <span id="speech-output-status" role="status">Off; local system voice only, no cloud TTS.</span>
                 </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
                 <button id="send">Send</button>
@@ -1147,6 +1229,54 @@ async def root_page() -> HTMLResponse:
                         await refreshAvatarOutput(true);
                     }
                 }
+                async function refreshSpeechOutput(preserveStatus = false) {
+                    const control = document.getElementById('speech-output-enabled');
+                    const status = document.getElementById('speech-output-status');
+                    const sessionId = localStorage.getItem('sentientos_session_id');
+                    try {
+                        const query = sessionId ? '?session_id=' + encodeURIComponent(sessionId) : '';
+                        const response = await fetch('/speech-output' + query);
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.disabled = data.configured !== true || data.backend_available !== true;
+                        control.checked = data.enabled === true;
+                        if (!preserveStatus) {
+                            status.textContent = data.configured !== true
+                                ? 'Local speech is not enabled for this server.'
+                                : (data.backend_available !== true
+                                    ? 'Local pyttsx3 voice backend is unavailable.'
+                                    : (data.enabled
+                                        ? 'Approved for this conversation; playback: ' + data.playback_status + '.'
+                                        : 'Off; local system voice only, no cloud TTS.'));
+                        }
+                    } catch (_) {
+                        control.disabled = true;
+                        status.textContent = 'Local speech status unavailable';
+                    }
+                }
+                async function changeSpeechOutput() {
+                    const control = document.getElementById('speech-output-enabled');
+                    const status = document.getElementById('speech-output-status');
+                    control.disabled = true;
+                    try {
+                        const sessionId = await ensureConversationSession();
+                        const response = await fetch('/speech-output', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: sessionId, enabled: control.checked }),
+                        });
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.checked = data.enabled === true;
+                        status.textContent = data.enabled
+                            ? 'Local speech approved for this conversation.'
+                            : (data.reason || 'Local speech off.');
+                    } catch (_) {
+                        control.checked = false;
+                        status.textContent = 'Unable to update local speech output';
+                    } finally {
+                        await refreshSpeechOutput(true);
+                    }
+                }
                 async function refreshWorkloadMode() {
                     const control = document.getElementById('workload-mode');
                     const names = document.getElementById('game-process-names');
@@ -1273,6 +1403,7 @@ async def root_page() -> HTMLResponse:
                 }
                 document.getElementById('send').addEventListener('click', sendMessage);
                 document.getElementById('avatar-output-enabled').addEventListener('change', changeAvatarOutput);
+                document.getElementById('speech-output-enabled').addEventListener('change', changeSpeechOutput);
                 document.getElementById('workload-mode').addEventListener('change', changeWorkloadMode);
                 document.getElementById('game-process-names').addEventListener('change', () => {
                     if (document.getElementById('workload-mode').value === 'automatic') changeWorkloadMode();
@@ -1286,9 +1417,11 @@ async def root_page() -> HTMLResponse:
                 refreshBootFeed();
                 refreshWorkloadMode();
                 refreshAvatarOutput();
+                refreshSpeechOutput();
                 setInterval(refreshBootFeed, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
                 setInterval(refreshAvatarOutput, 5000);
+                setInterval(refreshSpeechOutput, 5000);
             </script>
         </body>
         </html>
@@ -1306,6 +1439,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--expected-software-generation-digest", required=True)
     parser.add_argument("--avatar-state-path", type=Path,
                         help="Opt in to a local visual-only avatar output state file")
+    parser.add_argument("--local-speech-output", action="store_true",
+                        help="Enable opt-in local pyttsx3 speech output for chat replies")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
@@ -1329,7 +1464,8 @@ def main(argv: list[str] | None = None) -> None:
                 expected_activation_state_digest=args.expected_activation_state_digest,
                 resource_provisioning_id=args.resource_provisioning_id,
                 runtime_handoff_id=args.runtime_handoff_id,
-                avatar_state_path=args.avatar_state_path)
+                avatar_state_path=args.avatar_state_path,
+                local_speech_output=args.local_speech_output)
             run(host=args.host, port=args.port)
     except Exception as exc:
         raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
@@ -1341,6 +1477,9 @@ def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     if (_CONVERSATION_SERVICE.avatar_output_state(None).get("configured") is True
             and not _is_loopback_host(host)):
         raise RuntimeError("chat_avatar_output_requires_loopback_host")
+    if (_CONVERSATION_SERVICE.speech_output_state(None).get("configured") is True
+            and not _is_loopback_host(host)):
+        raise RuntimeError("chat_speech_output_requires_loopback_host")
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)

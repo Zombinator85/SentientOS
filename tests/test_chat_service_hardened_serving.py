@@ -82,11 +82,11 @@ class Inference:
         return dict(saved)
 
 
-def service(tmp_path, inference, avatar_output=None):
+def service(tmp_path, inference, avatar_output=None, speech_output=None):
     return chat_service.PersistentConversationService(inference=inference,
         session_store=ConversationSessionStore(tmp_path / "conversations"),
         memory_store=CanonicalMemoryStore(tmp_path / "memory"),
-        avatar_output=avatar_output)
+        avatar_output=avatar_output, speech_output=speech_output)
 
 
 def test_production_chat_requires_process_generation_handoff_before_custody(monkeypatch, tmp_path):
@@ -219,9 +219,52 @@ def test_local_chat_can_explicitly_enable_session_scoped_visual_avatar_output(tm
         chat_service._CONVERSATION_SERVICE=None
 
 
+def test_chat_speech_output_is_published_only_through_configured_controller(tmp_path):
+    class SpeechOutput:
+        def __init__(self): self.calls = []; self.enabled = set()
+        def set_enabled(self, session_id, enabled):
+            if enabled: self.enabled.add(session_id)
+            else: self.enabled.discard(session_id)
+            return {"session_id": session_id, "enabled": enabled}
+        def state(self, session_id): return {"configured": True, "backend_available": True,
+            "enabled": session_id in self.enabled, "playback_status": "idle"}
+        def publish_response(self, **kwargs): self.calls.append(kwargs); return {"status": "queued"}
+        def close(self): pass
+
+    from fastapi.testclient import TestClient
+
+    inference = Inference()
+    speech = SpeechOutput()
+    app = service(tmp_path, inference, speech_output=speech)
+    session_id = app.create_session()
+    chat_service._CONVERSATION_SERVICE = app
+    try:
+        with TestClient(chat_service.APP) as client:
+            page = client.get("/")
+            assert "Speak replies with local voice" in page.text
+            assert client.get("/speech-output", params={"session_id": session_id}).json()["enabled"] is False
+            enabled = client.post("/speech-output", json={"session_id": session_id, "enabled": True})
+            assert enabled.status_code == 200 and enabled.json()["enabled"] is True
+            response = client.post("/chat", json={
+                "message": "hello", "session_id": session_id, "request_id": "speech-chat-1"})
+            assert response.status_code == 200, response.text
+            data = response.json()
+            assert len(speech.calls) == 1
+            call = speech.calls[0]
+            assert call["session_id"] == session_id
+            assert call["turn_id"] == data["turn_id"]
+            assert call["text"] == data["response"]
+            assert len(call["output_digest"]) == 64
+            assert client.post("/speech-output", json={
+                "session_id": session_id, "enabled": False}).json()["enabled"] is False
+    finally:
+        chat_service._CONVERSATION_SERVICE = None
+
+
 def test_avatar_output_server_requires_loopback_binding(monkeypatch):
     monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE",
-        SimpleNamespace(avatar_output_state=lambda _session_id: {"configured": True}))
+        SimpleNamespace(avatar_output_state=lambda _session_id: {"configured": True},
+                        speech_output_state=lambda _session_id: {"configured": False}))
     assert chat_service._is_loopback_host("127.0.0.1") is True
     assert chat_service._is_loopback_host("::1") is True
     assert chat_service._is_loopback_host("localhost") is True
@@ -231,13 +274,21 @@ def test_avatar_output_server_requires_loopback_binding(monkeypatch):
         chat_service.run(host="0.0.0.0")
 
 
+def test_speech_output_server_requires_loopback_binding(monkeypatch):
+    monkeypatch.setattr(chat_service, "_CONVERSATION_SERVICE", SimpleNamespace(
+        avatar_output_state=lambda _session_id: {"configured": False},
+        speech_output_state=lambda _session_id: {"configured": True}))
+    with pytest.raises(RuntimeError, match="chat_speech_output_requires_loopback_host"):
+        chat_service.run(host="0.0.0.0")
+
+
 def test_production_composition_closes_avatar_before_serving_and_resource_owner():
     events=[]
-    service=SimpleNamespace(close_avatar_output=lambda: events.append("avatar"))
+    service=SimpleNamespace(close_outputs=lambda: events.append("outputs"))
     serving=SimpleNamespace(close=lambda: events.append("serving"))
     owner=SimpleNamespace(close=lambda: events.append("resource_owner"))
     chat_service.ProductionChatComposition(service, serving, owner).close()
-    assert events == ["avatar", "serving", "resource_owner"]
+    assert events == ["outputs", "serving", "resource_owner"]
 
 
 def test_conversation_identity_change_uses_verified_predecessor_lineage(tmp_path):
