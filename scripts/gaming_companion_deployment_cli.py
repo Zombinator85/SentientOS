@@ -1,6 +1,16 @@
-"""Read-only validation and readiness commands for companion deployment manifests."""
+"""
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+"""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/ 
 from __future__ import annotations
-
+"""Read-only validation and readiness commands for companion deployment manifests."""
 import argparse
 import json
 from pathlib import Path
