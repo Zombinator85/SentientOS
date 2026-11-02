@@ -12,6 +12,8 @@ var _candidate_identity := {}
 var _motion_bones := {}
 var _expression_shapes := {}
 var _viseme_shapes := {}
+var _speech_activity_shape := ""
+var _speech_activity_report := {"status": "not_requested", "phoneme_claimed": false}
 var _active_motion := "idle"
 var _active_expression_mesh: MeshInstance3D
 var _active_expression_shape := ""
@@ -20,7 +22,7 @@ var _viseme_tween: Tween
 
 func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 		motion_bones: Dictionary, expression_shapes: Dictionary,
-		viseme_shapes: Dictionary) -> Dictionary:
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
 	if not candidate_scene is PackedScene:
 		return {"status": "rejected", "reason": "candidate_scene_invalid"}
 	if evidence.get("result_posture") != "candidate_validated":
@@ -76,6 +78,11 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	if not _validate_shape_mappings(viseme_shapes, _ALLOWED_VISEMES):
 		instance_value.free()
 		return {"status": "rejected", "reason": "candidate_viseme_mapping_invalid"}
+	if not speech_activity_shape.is_empty():
+		if speech_activity_shape.length() > 128 \
+				or _find_shape_in(instance_value as Node3D, speech_activity_shape).is_empty():
+			instance_value.free()
+			return {"status": "rejected", "reason": "candidate_speech_activity_mapping_invalid"}
 	var animation_bindings := _find_motion_animations(instance_value, validated_motion_bones.mapping)
 	if not animation_bindings.valid:
 		instance_value.free()
@@ -98,6 +105,8 @@ func install_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 	_motion_bones = validated_motion_bones.mapping
 	_expression_shapes = expression_shapes.duplicate(true)
 	_viseme_shapes = viseme_shapes.duplicate(true)
+	_speech_activity_shape = speech_activity_shape
+	_speech_activity_report = {"status": "not_requested", "phoneme_claimed": false}
 	add_child(_candidate_root)
 	return {"status": "candidate_loaded_unadopted", "identity": _candidate_identity.duplicate(true)}
 
@@ -214,10 +223,43 @@ func play_viseme_timeline(timeline: Array, anchor_timestamp: float = 0.0) -> Dic
 	return {"status": "blend_shape_applied", "shape": shape_name, "cue_count": timeline.size()}
 
 
+func set_speech_activity(active: bool, timing_event: String) -> Dictionary:
+	"""Apply only a generic authored speech-active shape, never a phoneme label."""
+	if not is_candidate_active():
+		_speech_activity_report = {"status": "unavailable", "reason": "candidate_not_loaded",
+			"timing_event": timing_event, "phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if timing_event not in ["speech_started", "word_started", "speech_finished",
+			"speech_interrupted", "speech_failed"]:
+		_speech_activity_report = {"status": "rejected", "reason": "speech_timing_event_unsupported",
+			"phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if _speech_activity_shape.is_empty():
+		_speech_activity_report = {"status": "unsupported", "reason": "authored_speech_activity_shape_unmapped",
+			"timing_event": timing_event, "phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	if _viseme_tween:
+		_viseme_tween.kill()
+	var found := _find_shape(_speech_activity_shape)
+	if found.is_empty():
+		_speech_activity_report = {"status": "unsupported", "reason": "authored_speech_activity_shape_unavailable",
+			"requested_shape": _speech_activity_shape, "timing_event": timing_event,
+			"phoneme_claimed": false}
+		return _speech_activity_report.duplicate(true)
+	var mesh_node := found["mesh"] as MeshInstance3D
+	var weight := 0.38 if active else 0.0
+	_set_candidate_shape(mesh_node, _speech_activity_shape, weight)
+	_speech_activity_report = {"status": "speaking" if active else "idle",
+		"shape": _speech_activity_shape, "weight": weight, "timing_event": timing_event,
+		"timing_source": "governed_local_tts", "phoneme_claimed": false}
+	return _speech_activity_report.duplicate(true)
+
+
 func renderer_report() -> Dictionary:
 	return {"status": "candidate_loaded_unadopted" if is_candidate_active() else "not_loaded",
 		"identity": _candidate_identity.duplicate(true), "active_motion": _active_motion,
-		"expression": {"status": "not_requested"}, "visemes": {"status": "not_requested"}}
+		"expression": {"status": "not_requested"}, "visemes": {"status": "not_requested"},
+		"speech": _speech_activity_report.duplicate(true)}
 
 
 func _validate_bone_mappings(skeleton: Skeleton3D, mappings: Dictionary) -> Dictionary:
@@ -274,9 +316,13 @@ func _blend_shape_index(mesh_node: MeshInstance3D, shape_name: String) -> int:
 
 
 func _find_shape(shape_name: String) -> Dictionary:
-	if shape_name.is_empty():
+	return _find_shape_in(_candidate_root, shape_name)
+
+
+func _find_shape_in(body_root: Node3D, shape_name: String) -> Dictionary:
+	if shape_name.is_empty() or body_root == null:
 		return {}
-	for node in _candidate_root.find_children("*", "MeshInstance3D", true, false):
+	for node in body_root.find_children("*", "MeshInstance3D", true, false):
 		var mesh_node := node as MeshInstance3D
 		if not mesh_node.mesh is ArrayMesh:
 			continue

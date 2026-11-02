@@ -128,10 +128,19 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 		var candidate_expression: Dictionary = candidate_adapter.apply_expression(expression, intensity)
 		var candidate_visemes: Dictionary = candidate_adapter.play_viseme_timeline(
 			visemes, float(state.get("timestamp", 0.0)))
+		var candidate_speech := {"status": "not_requested", "phoneme_claimed": false}
+		if typeof(timing_metadata) == TYPE_DICTIONARY:
+			var candidate_timing_event := str((timing_metadata as Dictionary).get("event", ""))
+			if candidate_timing_event in ["speech_started", "word_started", "speech_finished",
+					"speech_interrupted", "speech_failed"]:
+				candidate_speech = candidate_adapter.set_speech_activity(
+					candidate_timing_event in ["speech_started", "word_started"],
+					candidate_timing_event)
 		var candidate_motion: Dictionary = candidate_adapter.apply_motion(motion)
 		candidate_report = candidate_adapter.renderer_report()
 		candidate_report["expression"] = candidate_expression
 		candidate_report["visemes"] = candidate_visemes
+		candidate_report["speech"] = candidate_speech
 		candidate_report["motion"] = candidate_motion
 		_record_candidate_renderer_report(state, candidate_report, apply_started_usec)
 	else:
@@ -143,12 +152,12 @@ func _apply_state(state: Dictionary, frame_delta_seconds: float = -1.0) -> void:
 
 func install_experimental_candidate(candidate_scene: PackedScene, evidence: Dictionary,
 		motion_bones: Dictionary, expression_shapes: Dictionary,
-		viseme_shapes: Dictionary) -> Dictionary:
+		viseme_shapes: Dictionary, speech_activity_shape: String = "") -> Dictionary:
 	var adapter: Node = _resolve_node(candidate_body_adapter_path)
 	if adapter == null or not adapter.has_method("install_candidate"):
 		return {"status": "unavailable", "reason": "candidate_body_adapter_unavailable"}
 	return adapter.install_candidate(candidate_scene, evidence, motion_bones,
-		expression_shapes, viseme_shapes)
+		expression_shapes, viseme_shapes, speech_activity_shape)
 
 
 func _record_renderer_report(state: Dictionary, workload_mode: String, expression: String,

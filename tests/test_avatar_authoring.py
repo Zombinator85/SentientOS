@@ -452,6 +452,10 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
                 {"vertex_index":268,"offset":[0.0,0.0,0.04]},
                 {"vertex_index":269,"offset":[0.0,0.0,0.08]},
                 {"vertex_index":270,"offset":[0.0,0.0,0.04]}]}, {"shape_key":"smile"}),
+                operation("speech-activity","create_shape_key","CompanionHead",{"shape_key":"MouthOpen","vertex_offsets":[
+                    {"vertex_index":96,"offset":[0.0,0.0,0.025]},
+                    {"vertex_index":97,"offset":[0.0,0.0,0.05]},
+                    {"vertex_index":98,"offset":[0.0,0.0,0.025]}]}, {"shape_key":"MouthOpen"}),
             operation("wave-clip","create_bone_animation","SentientRig",{
                 "animation":"wave","armature":"SentientRig","bone":"upper","fps":30,
                 "keyframes":[
@@ -477,7 +481,7 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
         inspector=inspector,work_id="glb-smoke")
 
     assert result["receipt"]["result_posture"]=="candidate_validated", result["comparison"]
-    assert result["comparison"]["counts"]["satisfied"]==9
+    assert result["comparison"]["counts"]["satisfied"]==10
     assert result["comparison"]["unexpected_changes"]==[]
     assert sorted(result["successor_inspection"]["bones"])==["SentientRig/root","SentientRig/upper"]
     head=result["successor_inspection"]["objects"]["CompanionHead"]

@@ -41,8 +41,7 @@ func _initialize() -> void:
 	var install_result: Dictionary = demo.install_experimental_candidate(
 		candidate_value as PackedScene, evidence,
 		{"wave": "upper", "nod": "upper"},
-		{"smile": "smile", "frown": "FaceFrown", "rest": "FaceNeutral"},
-		{"a": "MouthOpen", "e": "MouthOpen", "i": "MouthOpen", "o": "MouthOpen", "u": "MouthOpen"})
+		{"smile": "smile", "frown": "FaceFrown", "rest": "FaceNeutral"}, {}, "MouthOpen")
 	if install_result.get("status") != "candidate_loaded_unadopted":
 		_fail("candidate_probe_install_failed:" + str(install_result))
 		return
@@ -69,7 +68,8 @@ func _initialize() -> void:
 		"expression": "smile", "mood": "joy", "intensity": 0.8,
 		"motion": "wave", "workload_mode": "gaming",
 		"metadata": {"session_id": "candidate-session", "turn_id": "candidate-turn",
-			"output_digest": "d".repeat(64), "output_mode": "chat_response_visual_only"},
+			"output_digest": "d".repeat(64), "output_mode": "chat_response_visual_only",
+			"speech_timing": {"event": "speech_started"}},
 		"viseme_timeline": [{"time": 0.0, "duration": 0.1, "viseme": "a"}],
 	}
 	demo.call("_apply_state", state, 0.016)
@@ -122,6 +122,36 @@ func _initialize() -> void:
 		return
 	if candidate_state.get("visemes", {}).get("status") != "unsupported":
 		_fail("candidate_probe_missing_viseme_not_reported")
+		return
+	if candidate_state.get("speech", {}).get("status") != "speaking" \
+			or candidate_state.get("speech", {}).get("phoneme_claimed") != false:
+		_fail("candidate_probe_authored_speech_activity_not_applied:" +
+			JSON.stringify(candidate_state.get("speech", {})))
+		return
+	var mouth_open_mesh: MeshInstance3D
+	var mouth_open_index: int = -1
+	for mesh_value in meshes:
+		var candidate_mesh := mesh_value as MeshInstance3D
+		if candidate_mesh.mesh != null:
+			for shape_index in range(candidate_mesh.mesh.get_blend_shape_count()):
+				if candidate_mesh.mesh.get_blend_shape_name(shape_index) == "MouthOpen":
+					mouth_open_index = shape_index
+					mouth_open_mesh = candidate_mesh
+					break
+			if mouth_open_index >= 0:
+				break
+	if mouth_open_mesh == null or mouth_open_index < 0 \
+			or not is_equal_approx(mouth_open_mesh.get_blend_shape_value(mouth_open_index), 0.38):
+		_fail("candidate_probe_speech_activity_shape_weight_invalid")
+		return
+	state["metadata"]["speech_timing"] = {"event": "speech_interrupted"}
+	demo.call("_apply_state", state, 0.016)
+	var interrupted_report: Dictionary = demo.latest_candidate_renderer_report()
+	if interrupted_report.get("candidate_state", {}).get("speech", {}).get("status") != "idle":
+		_fail("candidate_probe_interruption_did_not_close_speech_activity")
+		return
+	if not is_equal_approx(mouth_open_mesh.get_blend_shape_value(mouth_open_index), 0.0):
+		_fail("candidate_probe_interruption_left_authored_mouth_open")
 		return
 	if candidate_report.get("effect_proven") != false or candidate_report.get("independent_observation") != false:
 		_fail("candidate_probe_evidence_posture_invalid")
