@@ -6,8 +6,10 @@ import ipaddress
 import logging
 import hashlib
 import json
+import os
 import threading
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol, cast
 
@@ -22,6 +24,7 @@ else:
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
 from .foreground_game_bridge import BridgeForegroundGameDetector
+from .foreground_game_detection import normalize_game_process_names
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget,
     LocalModelInvocationReceipt, LocalModelPostEffectCustodyError,
@@ -207,6 +210,9 @@ class PersistentConversationService:
         if not callable(getter):
             raise RuntimeError("chat_workload_mode_unavailable")
         return dict(getter())
+
+    def screen_observation_configured(self) -> bool:
+        return self._screen_observer is not None
 
     def avatar_output_state(self, session_id: str | None) -> dict[str, Any]:
         if self._avatar_output is None:
@@ -1105,6 +1111,15 @@ async def readiness_endpoint() -> dict[str, str]:
     return {"status": "ready"}
 
 
+@APP.get("/screen-observation")
+async def screen_observation_status_endpoint() -> dict[str, bool]:
+    """Expose only whether a per-request screen observer was explicitly configured."""
+    return {
+        "configured": _get_conversation_service().screen_observation_configured(),
+        "per_message_opt_in_required": True,
+    }
+
+
 @APP.get("/workload-mode")
 async def workload_mode_endpoint() -> dict[str, Any]:
     try:
@@ -1358,6 +1373,23 @@ async def root_page() -> HTMLResponse:
                     responseEl.hidden = false;
                     refreshAvatarOutput();
                 }
+                async function refreshScreenObservationStatus() {
+                    const control = document.getElementById('observe-screen');
+                    const status = document.getElementById('screen-observation-status');
+                    try {
+                        const response = await fetch('/screen-observation');
+                        if (!response.ok) throw new Error('unavailable');
+                        const data = await response.json();
+                        control.disabled = data.configured !== true;
+                        status.textContent = data.configured === true
+                            ? 'Configured for this server. OCR stays local and is not saved; each message still requires this checkbox.'
+                            : 'Not configured. The server needs an explicit local process allowlist and consented screen source.';
+                    } catch (_) {
+                        control.checked = false;
+                        control.disabled = true;
+                        status.textContent = 'Screen observation status unavailable';
+                    }
+                }
                 async function ensureConversationSession() {
                     let sessionId = localStorage.getItem('sentientos_session_id');
                     if (sessionId) return sessionId;
@@ -1602,6 +1634,7 @@ async def root_page() -> HTMLResponse:
                 refreshWorkloadMode();
                 refreshAvatarOutput();
                 refreshSpeechOutput();
+                refreshScreenObservationStatus();
                 setInterval(refreshBootFeed, 5000);
                 setInterval(refreshWorkloadStatus, 5000);
                 setInterval(refreshAvatarOutput, 5000);
@@ -1611,6 +1644,42 @@ async def root_page() -> HTMLResponse:
         </html>
         """
     )
+
+
+def _build_cli_screen_observer(process_names: list[str], consent_minutes: int, *,
+                               platform_name: str | None = None,
+                               now: datetime | None = None) -> Callable[[], Mapping[str, object] | None] | None:
+    """Build a one-process-lifetime screen owner only after explicit CLI opt-in."""
+    if not process_names:
+        return None
+    if (platform_name or os.name) != "nt":
+        raise ValueError("screen_observation_requires_windows_desktop_session")
+    if (type(consent_minutes) is not int or not 1 <= consent_minutes <= 240):
+        raise ValueError("screen_observation_consent_minutes_out_of_range")
+    try:
+        allowed_process_names = normalize_game_process_names(process_names)
+    except ValueError as exc:
+        raise ValueError("screen_observation_process_allowlist_invalid") from exc
+    consent_start = now or datetime.now(timezone.utc)
+    if consent_start.tzinfo is None or consent_start.utcoffset() is None:
+        raise ValueError("screen_observation_consent_clock_invalid")
+    expires_at = (consent_start.astimezone(timezone.utc)
+        + timedelta(minutes=consent_minutes)).isoformat().replace("+00:00", "Z")
+    from .perception.game_screen_capture import (
+        GameScreenCaptureConsent, build_windows_game_screen_ocr,
+    )
+    from .perception.screen_ocr import ScreenConfig
+
+    consent = GameScreenCaptureConsent(
+        consent_id="chat-screen-" + uuid.uuid4().hex,
+        allowed_process_names=allowed_process_names,
+        expires_at=expires_at,
+    )
+    owner = build_windows_game_screen_ocr(
+        config=ScreenConfig(enable=True, interval_s=2.0, ocr_backend="tesseract"),
+        consent_provider=lambda: consent,
+    )
+    return owner.snapshot
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -1625,9 +1694,21 @@ def main(argv: list[str] | None = None) -> None:
                         help="Opt in to a local visual-only avatar output state file")
     parser.add_argument("--local-speech-output", action="store_true",
                         help="Enable opt-in local pyttsx3 speech output for chat replies")
+    parser.add_argument("--screen-observation-process", action="append", default=[],
+                        metavar="GAME.exe",
+                        help="Opt in to per-message local screen OCR for this allowlisted Windows game; repeat for multiple games")
+    parser.add_argument("--screen-observation-consent-minutes", type=int, default=60,
+                        help="Expire the launch-scoped screen consent after 1 to 240 minutes (default: 60)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
+    try:
+        screen_observer = _build_cli_screen_observer(
+            args.screen_observation_process, args.screen_observation_consent_minutes)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if screen_observer is not None and not _is_loopback_host(args.host):
+        parser.error("screen_observation_requires_loopback_chat_host")
 
     # Supervised children share one installation-scoped lifetime lock. This prevents
     # a replacement daemon from treating a second child as a successor while an
@@ -1649,7 +1730,8 @@ def main(argv: list[str] | None = None) -> None:
                 resource_provisioning_id=args.resource_provisioning_id,
                 runtime_handoff_id=args.runtime_handoff_id,
                 avatar_state_path=args.avatar_state_path,
-                local_speech_output=args.local_speech_output)
+                local_speech_output=args.local_speech_output,
+                screen_observer=screen_observer)
             run(host=args.host, port=args.port)
     except Exception as exc:
         raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
@@ -1664,6 +1746,9 @@ def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     if (_CONVERSATION_SERVICE.speech_output_state(None).get("configured") is True
             and not _is_loopback_host(host)):
         raise RuntimeError("chat_speech_output_requires_loopback_host")
+    if (_CONVERSATION_SERVICE.screen_observation_configured()
+            and not _is_loopback_host(host)):
+        raise RuntimeError("chat_screen_observation_requires_loopback_host")
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)
