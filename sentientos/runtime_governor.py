@@ -209,12 +209,12 @@ class RuntimeGovernor:
         self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
         # The observation runtime may publish one validated, read-only host
-        # resource evaluation. Only its identifiers, pressure labels, and
-        # measured CPU/RAM values are retained here; this is scheduling input,
-        # not host mutation authority.
+        # resource evaluation. Its identifiers, pressure labels, measured
+        # CPU/RAM/GPU/VRAM values, and sensor coverage are retained as
+        # scheduling input, never as host mutation authority.
         self._host_resource_evidence: dict[str, object] | None = None
         # Fresh bridge-authenticated game pacing is supplemental scheduling
-        # evidence, never a substitute for the core CPU/RAM observation epoch.
+        # evidence, never a substitute for the host-resource observation epoch.
         self._game_performance_evidence: dict[str, object] | None = None
         self._resource_evidence_lock = threading.Lock()
 

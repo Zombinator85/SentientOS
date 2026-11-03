@@ -134,7 +134,7 @@ def _digest_text(payload: Any) -> str:
 def _verified_model_execution_profile(
     model: Any, record: LocalModelAuthorityRecord | None,
 ) -> dict[str, Any] | None:
-    """Describe only the exact load profile bound to a real loaded llama.cpp model."""
+    """Describe accelerator use from a verified active local model identity."""
     if record is None or record.engine not in {"llama_cpp", "transformers"}:
         return None
     try:
@@ -144,23 +144,39 @@ def _verified_model_execution_profile(
         if type(model) is not LocalModel:
             return None
         identity = getattr(model, "active_identity", None)
-        config = getattr(model, "config", None)
         if (type(identity) is not ActiveModelIdentity or identity.fallback
                 or identity.engine != record.engine or identity.posture != "production"
-                or identity.configuration_digest != record.configuration_digest
-                or type(config) is not ModelConfig
+                or identity.configuration_digest != record.configuration_digest):
+            return None
+
+        def profile(route: str, layers: int | None = None) -> dict[str, Any]:
+            return {
+                "schema_version": "sentientos.model_execution_profile:v1",
+                "engine": identity.engine,
+                "accelerator_route": route,
+                "gpu_layers": layers,
+                "configuration_digest": identity.configuration_digest,
+            }
+
+        config = getattr(model, "config", None)
+        if (type(config) is not ModelConfig
                 or type(identity.candidate_index) is not int
                 or not isinstance(getattr(config, "candidates", None), list)
                 or not 0 <= identity.candidate_index < len(config.candidates)):
-            return None
+            return profile("unknown")
         candidate = config.candidates[identity.candidate_index]
         engine = candidate.engine or config.default_engine
         if engine == "auto":
             engine = LocalModel._guess_engine(candidate)
-        if (str(engine).lower() != identity.engine
-                or candidate_configuration_digest(candidate, config, identity.engine)
-                    != identity.configuration_digest):
-            return None
+        try:
+            configuration_matches = (
+                str(engine).lower() == identity.engine
+                and candidate_configuration_digest(candidate, config, identity.engine)
+                    == identity.configuration_digest)
+        except (AttributeError, TypeError, ValueError):
+            configuration_matches = False
+        if not configuration_matches:
+            return profile("unknown")
         layers: int | None = None
         accelerator_route = "unknown"
         if identity.engine == "llama_cpp":
@@ -204,13 +220,7 @@ def _verified_model_execution_profile(
                     accelerator_route = "gpu"
                 elif device_type == "cpu":
                     accelerator_route = "cpu"
-        return {
-            "schema_version": "sentientos.model_execution_profile:v1",
-            "engine": identity.engine,
-            "accelerator_route": accelerator_route,
-            "gpu_layers": layers,
-            "configuration_digest": identity.configuration_digest,
-        }
+        return profile(accelerator_route, layers)
     except (AttributeError, IndexError, TypeError, ValueError):
         return None
 

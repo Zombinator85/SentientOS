@@ -250,16 +250,19 @@ def test_production_identity_mismatch_is_blocked(tmp_path: Path) -> None:
     assert fake.calls == 0
 
 
-@pytest.mark.parametrize("engine,gpu_layers,device_type,expected_route", [
-    ("llama_cpp", 0, None, "cpu"),
-    ("llama_cpp", 16, None, "gpu"),
-    ("transformers", None, "cpu", "cpu"),
-    ("transformers", None, "cuda", "gpu"),
-    ("transformers", None, None, "unknown"),
+@pytest.mark.parametrize(
+    "engine,gpu_layers,device_type,expected_route,profile_layers,config_changes_after_request", [
+    ("llama_cpp", 0, None, "cpu", 0, False),
+    ("llama_cpp", 16, None, "gpu", 16, False),
+    ("transformers", None, "cpu", "cpu", None, False),
+    ("transformers", None, "cuda", "gpu", None, False),
+    ("transformers", None, None, "unknown", None, False),
+    ("llama_cpp", 16, None, "unknown", None, True),
 ])
 def test_verified_loaded_model_accelerator_profile_reaches_inference_admission(
         tmp_path: Path, engine: str, gpu_layers: int | None, device_type: str | None,
-        expected_route: str, monkeypatch) -> None:
+        expected_route: str, profile_layers: int | None, config_changes_after_request: bool,
+        monkeypatch) -> None:
     from sentientos.local_model import LocalModel
     from sentientos.host_resource_runtime import (
         HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
@@ -337,6 +340,8 @@ def test_verified_loaded_model_accelerator_profile_reaches_inference_admission(
         kernel=kernel, runtime_root=tmp_path / "runtime")
     request = invoker.build_request(purpose="maintenance_implementation", prompt="hello",
         caller="test", correlation_id=f"loaded-profile-{gpu_layers}")
+    if config_changes_after_request:
+        model.config.generation = GenerationConfig(max_new_tokens=9)
 
     receipt = invoker.invoke(request)
 
@@ -354,7 +359,7 @@ def test_verified_loaded_model_accelerator_profile_reaches_inference_admission(
         "schema_version": "sentientos.model_execution_profile:v1",
         "engine": engine,
         "accelerator_route": expected_route,
-        "gpu_layers": gpu_layers,
+        "gpu_layers": profile_layers,
         "configuration_digest": model.active_identity.configuration_digest,
     }
 
