@@ -355,6 +355,8 @@ class WindowsGodotAvatarStateQueue:
             return False
         metadata: dict[str, object] = {
             "source": "authenticated_sentientos_core_chat_command",
+            "session_id": message.session_id,
+            "output_mode": "chat_response_visual_only",
             "output_digest": output_digest,
             "transport_message_id": message.message_id,
             "transport_source_id": message.source_id,
