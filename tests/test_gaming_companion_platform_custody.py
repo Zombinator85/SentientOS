@@ -164,3 +164,45 @@ def test_linux_host_that_is_not_wsl_is_rejected(tmp_path: Path) -> None:
         CompanionPlatformCustodyResolver(root=root,
             references={"secret:source": _entry("bridge_key", "source.key", "posix_private_file")},
             system_name="Linux", is_wsl2=False)
+
+@pytest.mark.skipif(os.name != "nt", reason="CurrentUser DPAPI requires Windows")
+def test_windows_dpapi_reader_unseals_current_user_key(tmp_path: Path) -> None:
+    import ctypes
+
+    from sentientos.gaming_companion_tls_transport import (
+        read_windows_dpapi_bridge_source_key,
+    )
+
+    class DataBlob(ctypes.Structure):
+        _fields_ = [("cbData", ctypes.c_uint32),
+                    ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
+
+    plaintext = b"disposable GLORP DPAPI custody test key" + b"x" * 32
+    source_buffer = (ctypes.c_ubyte * len(plaintext)).from_buffer_copy(plaintext)
+    source = DataBlob(len(plaintext),
+        ctypes.cast(source_buffer, ctypes.POINTER(ctypes.c_ubyte)))
+    protected = DataBlob()
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    crypt32.CryptProtectData.argtypes = (
+        ctypes.POINTER(DataBlob), ctypes.c_wchar_p, ctypes.POINTER(DataBlob),
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+        ctypes.POINTER(DataBlob))
+    crypt32.CryptProtectData.restype = ctypes.c_int
+    kernel32.LocalFree.argtypes = (ctypes.c_void_p,)
+    kernel32.LocalFree.restype = ctypes.c_void_p
+
+    if not crypt32.CryptProtectData(
+            ctypes.byref(source), "SentientOS disposable test key", None,
+            None, None, 0x1, ctypes.byref(protected)):
+        raise AssertionError("CryptProtectData failed")
+
+    protected_path = tmp_path / "disposable-current-user.dpapi"
+    try:
+        protected_path.write_bytes(
+            ctypes.string_at(protected.pbData, protected.cbData))
+    finally:
+        ctypes.memset(protected.pbData, 0, protected.cbData)
+        kernel32.LocalFree(protected.pbData)
+
+    assert read_windows_dpapi_bridge_source_key(protected_path) == plaintext
