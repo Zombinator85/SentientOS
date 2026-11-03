@@ -4,6 +4,9 @@ import logging
 import os
 import hashlib
 import json
+import ipaddress
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
@@ -148,6 +151,105 @@ class _EchoBackend(_ModelBackend):
         if history_text:
             return f"[{name}] {history_text} => {prompt}"
         return f"[{name}] {prompt}"
+
+
+class _OllamaBackend(_ModelBackend):
+    """Digest-pinned Ollama inference on a numeric loopback endpoint only."""
+
+    engine = "ollama"
+
+    def __init__(self, candidate: ModelCandidate, metadata: Dict[str, Any],
+                 max_context_tokens: int) -> None:
+        super().__init__(candidate, metadata)
+        options = dict(candidate.options)
+        allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "keep_alive",
+                   "think", "timeout_seconds"}
+        if set(options) - allowed:
+            raise ModelLoadError("ollama_option_not_allowed")
+        if candidate.path is None or not candidate.path.is_file():
+            raise ModelLoadError("ollama_local_manifest_required")
+        manifest_digest, _ = _stream_sha256(candidate.path)
+        expected = str(options.get("manifest_sha256", "")).lower()
+        if len(expected) != 64 or manifest_digest != expected:
+            raise ModelLoadError("ollama_manifest_digest_mismatch")
+        base = str(options.get("api_base", "http://127.0.0.1:11434"))
+        parsed = urllib.parse.urlsplit(base)
+        try:
+            address = ipaddress.ip_address(parsed.hostname or "")
+            port = parsed.port
+        except ValueError as exc:
+            raise ModelLoadError("ollama_loopback_address_required") from exc
+        if (parsed.scheme != "http" or not address.is_loopback or parsed.username
+                or parsed.password or parsed.path not in {"", "/"} or parsed.query
+                or parsed.fragment or port not in {None, 11434}):
+            raise ModelLoadError("ollama_loopback_address_required")
+        model = options.get("model")
+        if not isinstance(model, str) or not model or len(model) > 128:
+            raise ModelLoadError("ollama_model_name_required")
+        timeout = options.get("timeout_seconds", 60)
+        if type(timeout) not in {int, float} or not 1 <= timeout <= 120:
+            raise ModelLoadError("ollama_timeout_out_of_range")
+        authority = f"[{address}]" if address.version == 6 else str(address)
+        self._base = f"http://{authority}:{port or 11434}"
+        self._model = model
+        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        self._timeout = float(timeout)
+        if type(max_context_tokens) is not int or not 1 <= max_context_tokens <= 8192:
+            raise ModelLoadError("ollama_context_limit_out_of_range")
+        self._context = max_context_tokens
+        self._num_gpu = options.get("num_gpu", 99)
+        if type(self._num_gpu) is not int or not 0 <= self._num_gpu <= 128:
+            raise ModelLoadError("ollama_gpu_layer_limit_invalid")
+        self._keep_alive = options.get("keep_alive", "15m")
+        if self._keep_alive not in {"0", "5m", "15m"}:
+            raise ModelLoadError("ollama_keep_alive_invalid")
+        self._think = options.get("think", False)
+        if type(self._think) is not bool:
+            raise ModelLoadError("ollama_think_must_be_boolean")
+        self._metadata.update({"model": model, "api_base": self._base,
+                               "manifest_sha256": manifest_digest,
+                               "backend_posture": "local_loopback_development"})
+
+        request = urllib.request.Request(self._base + "/api/tags", method="GET")
+        try:
+            with self._opener.open(request, timeout=self._timeout) as response:
+                payload = json.loads(response.read(1024 * 1024).decode("utf-8"))
+        except Exception as exc:
+            raise ModelLoadError("ollama_local_api_unavailable") from exc
+        matches = [entry for entry in payload.get("models", [])
+                   if entry.get("name") == model and entry.get("digest") == manifest_digest]
+        if len(matches) != 1:
+            raise ModelLoadError("ollama_model_digest_unverified")
+
+    def generate(self, prompt: str, history: Sequence[str],
+                 generation: Dict[str, Any]) -> str:
+        options = {
+            "num_ctx": self._context,
+            "num_predict": max(1, min(int(generation.get("max_new_tokens", 256)), 512)),
+            "num_gpu": self._num_gpu,
+            "temperature": max(0.0, min(float(generation.get("temperature", 0.6)), 1.2)),
+            "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
+            "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
+        }
+        body = json.dumps({"model": self._model, "prompt": prompt, "stream": False,
+                           "think": self._think, "keep_alive": self._keep_alive,
+                           "options": options}, separators=(",", ":")).encode("utf-8")
+        request = urllib.request.Request(self._base + "/api/generate", data=body,
+            headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with self._opener.open(request, timeout=self._timeout) as response:
+                raw = response.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise ModelLoadError("ollama_response_oversized")
+            payload = json.loads(raw.decode("utf-8"))
+        except ModelLoadError:
+            raise
+        except Exception as exc:
+            raise ModelLoadError("ollama_local_generation_failed") from exc
+        answer = payload.get("response")
+        if payload.get("done") is not True or not isinstance(answer, str) or not answer.strip():
+            raise ModelLoadError("ollama_local_generation_invalid")
+        return answer.strip()
 
 
 class _TransformersBackend(_ModelBackend):
@@ -489,7 +591,8 @@ class LocalModel:
             model_content_sha256=content, artifact_size_bytes=size, sidecar_metadata_digest=sidecar,
             configuration_digest=candidate_configuration_digest(candidate, config, engine),
             candidate_index=candidate_index,
-            posture="production" if engine in {"llama_cpp", "transformers"} else "simulation",
+            posture=("production" if engine in {"llama_cpp", "transformers"}
+                     else "development_only" if engine == "ollama" else "simulation"),
             fallback=engine in {"null", "echo"},
         )
 
@@ -548,6 +651,8 @@ class LocalModel:
             backend = _LlamaCppBackend(candidate, metadata, config.generation, config.max_context_tokens)
         elif engine == "transformers":
             backend = _TransformersBackend(candidate, metadata, config.generation, config.max_context_tokens)
+        elif engine == "ollama":
+            backend = _OllamaBackend(candidate, metadata, config.max_context_tokens)
         else:
             raise ModelLoadError(f"Unknown backend engine '{engine}'")
         metadata.setdefault("engine", engine)
