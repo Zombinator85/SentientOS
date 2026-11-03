@@ -198,6 +198,9 @@ def test_chat_endpoint_and_local_ui_expose_per_message_screen_opt_in(
     assert b"observe-screen" in page.body
     assert b"observe_screen: observeScreen" in page.body
     assert b"refreshScreenObservationStatus" in page.body
+    assert b"let chatSendInFlight = false" in page.body
+    assert b"sendButton.disabled = true" in page.body
+    assert b"chatSendInFlight = false" in page.body
 
 
 def test_cli_screen_configuration_requires_explicit_windows_process_allowlist(
@@ -346,7 +349,10 @@ def test_canonical_data_root_is_frozen_after_import(monkeypatch: pytest.MonkeyPa
     assert sentientos_data_dir() != primary.resolve()
 
 def test_legacy_sidecar_is_inert_but_visible(tmp_path: Path) -> None:
-    root=tmp_path/"memory"; root.mkdir(); (root/"conversation_memories.json").write_text('[{"text":"legacy secret"}]')
+    root=tmp_path/"memory"
+    root.mkdir(mode=0o700)
+    root.chmod(0o700)
+    (root/"conversation_memories.json").write_text('[{"text":"legacy secret"}]')
     store=CanonicalMemoryStore(root)
     result=store.retrieve("legacy")
     assert result["memories"] == [] and result["legacy_sidecar_present"] is True

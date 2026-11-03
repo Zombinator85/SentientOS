@@ -170,6 +170,8 @@ class DevelopmentLocalChatInference:
         state: dict[str, Any] = {
             "mode": configured, "effective_mode": effective,
             "mode_source": source,
+            "observation_status": evidence["status"],
+            "game_foreground": evidence["game_foreground"],
             "foreground_game_detected": evidence["game_foreground"] is True,
             "workload_evidence": evidence,
         }
@@ -1724,56 +1726,64 @@ async def root_page() -> HTMLResponse:
                     }
                 }
 
+                let chatSendInFlight = false;
                 async function sendMessage() {
-                    const messageEl = document.getElementById('message');
-                    const responseEl = document.getElementById('response');
-                    const responseTextEl = document.getElementById('response-text');
-                    const message = messageEl.value.trim();
-                    const observeScreen = document.getElementById('observe-screen').checked;
-                    if (!message) {
-                        alert('Please enter a message before sending.');
-                        return;
-                    }
-                    let sessionId = localStorage.getItem('sentientos_session_id');
-                    if (!sessionId) {
-                        const created = await fetch('/sessions', { method: 'POST' });
-                        if (!created.ok) {
-                            alert('Unable to create a conversation session.');
+                    if (chatSendInFlight) return;
+                    const sendButton = document.getElementById('send');
+                    chatSendInFlight = true;
+                    sendButton.disabled = true;
+                    sendButton.textContent = 'Sending...';
+                    try {
+                        const messageEl = document.getElementById('message');
+                        const responseEl = document.getElementById('response');
+                        const responseTextEl = document.getElementById('response-text');
+                        const message = messageEl.value.trim();
+                        const observeScreen = document.getElementById('observe-screen').checked;
+                        if (!message) { alert('Please enter a message before sending.'); return; }
+                        let sessionId = localStorage.getItem('sentientos_session_id');
+                        if (!sessionId) {
+                            const created = await fetch('/sessions', { method: 'POST' });
+                            if (!created.ok) { alert('Unable to create a conversation session.'); return; }
+                            sessionId = (await created.json()).session_id;
+                            localStorage.setItem('sentientos_session_id', sessionId);
+                        }
+                        const messageDigestBytes = await crypto.subtle.digest(
+                            'SHA-256', new TextEncoder().encode(message));
+                        const messageDigest = Array.from(new Uint8Array(messageDigestBytes))
+                            .map(value => value.toString(16).padStart(2, '0')).join('');
+                        const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest
+                            + ':' + (observeScreen ? 'screen' : 'text');
+                        let pending = null;
+                        try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null'); }
+                        catch (_) { pending = null; }
+                        const requestId = pending && typeof pending.request_id === 'string'
+                            ? pending.request_id : crypto.randomUUID();
+                        localStorage.setItem(pendingKey, JSON.stringify({ request_id: requestId }));
+                        const res = await fetch('/chat', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message, session_id: sessionId, request_id: requestId,
+                                observe_screen: observeScreen }),
+                        });
+                        if (!res.ok) {
+                            const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
+                            alert(detail.detail || 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
                             return;
                         }
-                        sessionId = (await created.json()).session_id;
-                        localStorage.setItem('sentientos_session_id', sessionId);
+                        const data = await res.json();
+                        localStorage.setItem('sentientos_session_id', data.session_id);
+                        localStorage.removeItem(pendingKey);
+                        responseTextEl.textContent = data.response;
+                        responseEl.hidden = false;
+                        await refreshConversationTranscript();
+                        refreshAvatarOutput();
+                    } catch (err) {
+                        alert('Unable to send this message. The same request identity will be reused if retried.');
+                        console.error('Unable to send SentientOS chat message', err);
+                    } finally {
+                        chatSendInFlight = false;
+                        sendButton.disabled = false;
+                        sendButton.textContent = 'Send';
                     }
-                    const messageDigestBytes = await crypto.subtle.digest(
-                        'SHA-256', new TextEncoder().encode(message));
-                    const messageDigest = Array.from(new Uint8Array(messageDigestBytes))
-                        .map(value => value.toString(16).padStart(2, '0')).join('');
-                    const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest
-                        + ':' + (observeScreen ? 'screen' : 'text');
-                    let pending = null;
-                    try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null'); }
-                    catch (_) { pending = null; }
-                    const requestId = pending && typeof pending.request_id === 'string'
-                        ? pending.request_id : crypto.randomUUID();
-                    localStorage.setItem(pendingKey, JSON.stringify({ request_id: requestId }));
-                    const res = await fetch('/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message, session_id: sessionId, request_id: requestId,
-                            observe_screen: observeScreen }),
-                    });
-                    if (!res.ok) {
-                        const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
-                        alert(detail.detail || 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
-                        return;
-                    }
-                    const data = await res.json();
-                    localStorage.setItem('sentientos_session_id', data.session_id);
-                    localStorage.removeItem(pendingKey);
-                    responseTextEl.textContent = data.response;
-                    responseEl.hidden = false;
-                    await refreshConversationTranscript();
-                    refreshAvatarOutput();
                 }
                 async function refreshScreenObservationStatus() {
                     const control = document.getElementById('observe-screen');
