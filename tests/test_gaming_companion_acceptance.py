@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.gaming_companion_acceptance import run_acceptance
+from scripts.gaming_companion_acceptance import _inspect_process_profile
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -85,6 +86,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     report = run_acceptance(manifest_path=manifest, results_dir=results,
                             runner=successful_runner)
     assert report["status"] == "local_fixture_validation_passed"
+    assert report["process_profile_preflight"]["status"] == "not_supplied"
     assert report["real_software_scenarios"]["screen_observation_chat_to_godot"]["status"] == "not_run"
     assert report["real_software_scenarios"]["screen_observation_chat_to_godot"]["raw_frame_retained"] is False
     assert report["real_software_scenarios"]["paired_role_coordinator"]["status"] == "not_run"
@@ -137,6 +139,61 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert report["production_commissioning_claimed"] is False
     assert os.stat(results).st_mode & 0o777 == 0o700
     assert os.stat(results / "acceptance.json").st_mode & 0o777 == 0o600
+
+
+def test_process_profile_preflight_validates_shape_without_granting_or_starting(
+        tmp_path: Path) -> None:
+    profile = tmp_path / "process-profile.json"
+    profile.write_text(json.dumps({
+        "schema_version": "sentientos.companion_process_launch_profiles:v1",
+        "roles": {
+            "windows_edge": {
+                "argv": [r"C:\Program Files\SentientOS\.venv\Scripts\python.exe",
+                    "-m", "sentientos.gaming_companion_role_entrypoint",
+                    "--role", "windows_edge", "--manifest",
+                    r"C:\ProgramData\SentientOS\deployment.json",
+                    "--provider", "sentientos_platform.windows:build_edge",
+                    "--launch-authorizer", "sentientos_platform.authority:authorize_edge"],
+                "working_directory": r"C:\Program Files\SentientOS",
+                "environment": {"SENTIENTOS_COMPANION_ROLE": "windows_edge"},
+                "startup_timeout_seconds": 20, "shutdown_timeout_seconds": 5,
+            },
+            "wsl_core": {
+                "argv": [r"C:\Windows\System32\wsl.exe", "--distribution",
+                    "Ubuntu-SentientOS", "--exec", "/srv/sentientos/.venv/bin/python",
+                    "-m", "sentientos.gaming_companion_role_entrypoint",
+                    "--role", "wsl_core", "--manifest", "/etc/sentientos/deployment.json",
+                    "--provider", "sentientos_platform.wsl:build_core",
+                    "--launch-authorizer", "sentientos_platform.authority:authorize_core"],
+                "working_directory": r"C:\Program Files\SentientOS",
+                "environment": {"SENTIENTOS_COMPANION_ROLE": "wsl_core"},
+                "startup_timeout_seconds": 25, "shutdown_timeout_seconds": 8,
+            },
+        },
+    }), encoding="utf-8")
+    os.chmod(profile, 0o600)
+
+    report = _inspect_process_profile(profile, system_name="Windows")
+
+    assert report == {
+        "status": "bounded_profile_validated",
+        "roles": ["windows_edge", "wsl_core"],
+        "authority_granted": False,
+        "processes_started": False,
+        "target_profile_provisioned": False,
+    }
+
+
+def test_process_profile_preflight_reports_unsupported_platform(tmp_path: Path) -> None:
+    profile = tmp_path / "process-profile.json"
+    profile.write_text("{}", encoding="utf-8")
+
+    report = _inspect_process_profile(profile, system_name="Linux")
+
+    assert report["status"] == "blocked"
+    assert report["reason_code"] == "companion_process_profile_windows_host_required"
+    assert report["authority_granted"] is False
+    assert report["processes_started"] is False
 
 
 def test_acceptance_rejects_manifest_symlinks_before_running_tests(tmp_path: Path) -> None:

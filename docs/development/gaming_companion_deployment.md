@@ -40,8 +40,17 @@ creating the manifest:
 ```text
 python -m scripts.gaming_companion_acceptance \
   --manifest /path/to/deployment.json \
+  --process-profile /path/to/companion-process-profile.json \
   --results-dir /path/to/private/acceptance-run
 ```
+
+`--process-profile` is optional. When supplied on the Windows host, acceptance
+validates the bounded Windows-edge/WSL-core command profile and records its
+result separately. This checks profile syntax and role binding only; it does
+not verify signed launch receipts, grant authority, start either process, or
+claim that the target roles are healthy. On a non-Windows host the profile
+preflight reports the platform as unsupported while the independent local
+fixture suite still runs.
 
 The command runs the repository test runner over host-pressure admission,
 governed local-model invocation, deployment validation, authenticated bridge
