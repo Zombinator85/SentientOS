@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
@@ -21,6 +22,12 @@ def _path_from_url(url: str) -> Path | None:
         return None
     if parsed.scheme == "file":
         raw_path = parsed.path
+        if os.name == "nt":
+            if parsed.netloc and parsed.netloc.lower() != "localhost":
+                raw_path = f"//{parsed.netloc}{raw_path}"
+            elif (len(raw_path) >= 3 and raw_path[0] == "/"
+                    and raw_path[1].isalpha() and raw_path[2] == ":"):
+                raw_path = raw_path[1:]
     else:
         raw_path = parsed.path or parsed.netloc
     if not raw_path:

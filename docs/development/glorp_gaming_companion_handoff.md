@@ -486,11 +486,20 @@ The dispatcher now accepts an optional `SQLiteAdmissionReceiptReplayGuard`.
 It stores hashed receipt identifiers in a bounded SQLite table and atomically
 claims them before renderer-queue delivery, so duplicate claims fail closed
 across dispatcher restarts and concurrent processes. The default remains the
-existing bounded in-memory guard. The focused GLORP WSL avatar-output suite
-passed 16 tests, including a separate-interpreter restart check, concurrent
-claims, and capacity exhaustion. No production runtime is configured to use the
-SQLite guard; its database directory must be installation-owned and protected
-by OS access controls, and the external receipt verifier remains required.
+existing bounded in-memory guard. At source
+`83dc5aaf`, the focused avatar-output suite passed 16 tests on both
+GLORP WSL and Windows. The tests include a separate-interpreter restart check,
+concurrent process claims, and capacity exhaustion. The editable-install suite
+passed its five `legacy` tests on both operating systems; the Windows runner
+reported `editable_ok=true` for the `C:\SentientOS-edge` checkout. No production
+runtime is configured to use the SQLite guard; its database directory must be
+installation-owned and protected by OS access controls, and the external receipt
+verifier remains required.
+
+Windows test setup exposed a defect in editable-install validation: pip's
+drive-letter `file:///C:/...` URL was misread as a POSIX path, so the runner
+refused the Windows checkout. The URL parser now normalizes Windows drive paths
+and UNC paths before comparing the installed checkout.
 
 On 2026-11-03, the default cross-host smoke passed on current merged `main` at
 `26f74b7bf760d150d3302d0f6453fb12695476c9`, using clean Windows and WSL
