@@ -44,6 +44,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         assert "tests/test_gaming_companion_bridge_runtime.py" in command
         assert "tests/test_gaming_companion_pair_supervisor.py" in command
         assert "tests/test_gaming_companion_pair_entrypoint.py" in command
+        assert "tests/test_gaming_companion_bidirectional_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
         assert env["SENTIENTOS_CONTROL_KERNEL_ROOT"].startswith(str(results / "test-state"))
@@ -61,6 +62,10 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert report["real_software_scenarios"]["screen_observation_chat_to_godot"]["raw_frame_retained"] is False
     assert report["real_software_scenarios"]["paired_role_coordinator"]["status"] == "not_run"
     assert report["real_software_scenarios"]["paired_role_coordinator"]["windows_or_wsl_process_launched"] is False
+    transport_scenario = report["real_software_scenarios"]["bidirectional_authenticated_transport"]
+    assert transport_scenario["status"] == "not_run"
+    assert transport_scenario["target_windows_or_wsl_transport_claimed"] is False
+    assert transport_scenario["firewall_validation_claimed"] is False
     assert report["read_only_deployment_doctor"]["host_mutation_performed"] is False
     assert report["fixture_tests"]["tests"] == 11
     assert report["fixture_tests"]["skipped"] == 2

@@ -391,18 +391,22 @@ resource measurements. It also adds protected mTLS transport primitives,
 source-key readers, verified generation rotation, in-process listener and
 authority-gated child-process supervisors, a fixture-tested Windows
 performance adapter with pressure-policy input, durable renderer self-report
-capture, and turn-scoped speech interruption. These are component increments,
-not a complete Windows-edge/WSL-core deployment.
+capture, and turn-scoped speech interruption. The paired lifecycle coordinator
+now starts core before edge, rolls back partial startup, closes in reverse
+order, and stops its peer after terminal failure. The local acceptance suite
+also exercises both authenticated mTLS directions in one loopback fixture:
+Windows-edge observation to WSL-core, followed by admitted avatar output back
+to the edge dispatcher. These are software-level results, not target-host
+commissioning.
 
-1. Install platform providers for the paired `sentientos-gaming-companion-role`
-   executable. The executable validates manifest v3, selects only the matching
-   Windows-edge or WSL-core runtime owner, monitors listener health, and closes
-   cleanly; the existing edge and bidirectional WSL factories are the provider
-   composition points. No authorized Windows/WSL platform provider is available
-   in this cloud workspace, so DPAPI/credential-store and authority receipt
-   integration remain target work. The foreground launcher and its lifecycle
-   fixtures are implemented. Do not create keys, generations, certificates,
-   firewall rules, or OS persistence.
+1. Integrate the installed target authority and custody providers with the
+   paired `sentientos-gaming-companion-pair` executable. It validates manifest
+   v3 and coordinates the two role supervisors, but the repository does not
+   contain the operator-specific API for verifying deployment/generation
+   receipts or resolving the installation identity, runtime handoff, DPAPI
+   material, and WSL protected files. Those concrete provider contracts must
+   be supplied by the authorized target installation. Do not create keys,
+   generations, certificates, firewall rules, or OS persistence in the cloud.
 2. Exercise the reverse-route edge owner with target-side authority and a real
    Windows mTLS listener. The local factory composes the validated v3 manifest,
    externally resolved key/TLS/generation custody, receipt verifier, and bounded
