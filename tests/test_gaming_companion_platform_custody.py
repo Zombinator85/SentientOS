@@ -66,6 +66,7 @@ def _custody_fixture(root: Path):
     return refs
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX WSL custody test")
 def test_wsl_custody_resolves_generation_keys_and_mtls_contexts(tmp_path: Path) -> None:
     root = tmp_path / "custody"
     refs = _custody_fixture(root)
@@ -119,6 +120,7 @@ def test_custody_catalog_rejects_paths_that_escape_or_change_platform_root(
         resolver.read_bridge_key("secret:source")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows symlink creation may require elevated privilege")
 def test_custody_catalog_rejects_symlink_asset_and_unknown_reference(tmp_path: Path) -> None:
     root = tmp_path / "custody"
     root.mkdir(mode=0o700)
