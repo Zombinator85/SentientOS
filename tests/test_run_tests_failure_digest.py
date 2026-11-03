@@ -20,6 +20,7 @@ class _Completed:
 def test_successful_run_removes_prior_failure_digest(monkeypatch, tmp_path):
     run_dir = tmp_path / "glow" / "test_runs"
     run_dir.mkdir(parents=True)
+    monkeypatch.setenv(run_tests.TEST_RUN_DIR_ENV, str(run_dir))
     stale_digest = run_dir / "test_failure_digest.json"
     stale_digest.write_text('{"failure_groups":[{"nodeid":"old failure"}]}', encoding="utf-8")
 
