@@ -71,7 +71,9 @@ def _is_social_checkin_request(message: str) -> bool:
     markers = (
         "how are you", "how's it going", "how is it going", "how are things",
         "how do you feel", "just checking in", "just saying hi",
-        "just saying hello", "how about you",
+        "just saying hello", "how about you", "ask me one easy question",
+        "ask one easy question", "tell me you are here", "tell me you're here",
+        "say you are here", "say you're here", "here with me",
     )
     return any(marker in normalized for marker in markers)
 
