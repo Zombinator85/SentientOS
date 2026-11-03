@@ -62,6 +62,19 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "what was my previous message",
     )
     return any(marker in normalized for marker in markers)
+
+
+def _is_social_checkin_request(message: str) -> bool:
+    """Avoid treating casual check-ins as requests for topic-matched advice."""
+    normalized = " ".join(message.casefold().split())
+    markers = (
+        "how are you", "how's it going", "how is it going", "how are things",
+        "how do you feel", "just checking in", "just saying hi",
+        "just saying hello", "how about you",
+    )
+    return any(marker in normalized for marker in markers)
+
+
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 _PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
@@ -896,13 +909,15 @@ class PersistentConversationService:
             # trusted gaming instruction and prompt structure before invocation.
             history_budget = min(history_budget, 2000)
         recent_session_recall = _is_recent_session_recall_request(message)
+        social_checkin = _is_social_checkin_request(message)
+        history_roles = ("user",) if recent_session_recall or social_checkin else None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
-            exclude_turn_id=user_turn["turn_id"],
-            include_roles=("user",) if recent_session_recall else None)
-        # For explicit recent-turn recall, the current transcript is the source
-        # of truth. Lexical long-term retrieval can otherwise over-weight older,
-        # topic-matching memories (for example, prior Cronos questions).
-        memory_query = "" if recent_session_recall else message
+            exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
+        # Exact recall and casual check-ins rely on the active transcript.
+        # Lexical long-term retrieval can otherwise over-weight topic-matching
+        # memories, while old assistant advice can make a greeting sound like
+        # another request for help.
+        memory_query = "" if recent_session_recall or social_checkin else message
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
         runtime_context = self._verified_runtime_context(
             identity=identity_payload, history=history, memory=memory,
@@ -927,7 +942,7 @@ class PersistentConversationService:
                 history_budget = next_budget
                 history = self.sessions.reconstruct(
                     session["session_id"], budget_chars=history_budget,
-                    exclude_turn_id=user_turn["turn_id"])
+                    exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
                 runtime_context = self._verified_runtime_context(
                     identity=identity_payload, history=history, memory=memory,
                     session_id=session["session_id"], screen_observation=screen_observation)
