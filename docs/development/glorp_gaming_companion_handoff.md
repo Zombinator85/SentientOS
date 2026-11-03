@@ -4,13 +4,15 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3408 are merged;
-PR #3408 advanced `main` to `42ee2c35` with portable headless Godot validation.
-The current campaign branch extends the GLORP Windows-edge to WSL-core
-renderer-report run so the headless Godot probe consumes the exact admitted
-state-file queue entry. Its exact result is recorded below. The previously
-reported local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor
-of that main commit.
+**Current software status (2026-11-03):** PRs #3392 through #3409 are merged;
+PR #3409 advanced `main` to `548b9c81` with the GLORP Windows-edge to WSL-core
+renderer-report smoke. The current campaign extends that run so the headless
+Godot scene consumes the exact admitted state-file queue entry over loopback
+UDP and returns its self-report over mTLS to temporary WSL capture. PR #3410 was
+closed when its temporary stacked base was deleted; its unmerged work is carried
+forward in the current branch and is being validated directly against `main`.
+The previously reported local commit `b3b4fc6eff93978284857dbb9e2520c848d01633`
+is an ancestor of the merged main history.
 The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
 child-process and paired-role supervision, renderer-report return, the
@@ -438,6 +440,18 @@ production authority.
 The same source also passed the default smoke without `--godot-executable`,
 using two ephemeral listeners; the Godot and renderer-report fields correctly
 reported `not_run`.
+
+After rebasing the state-queue and live UDP work directly onto merged `main`,
+source `668376837f2570fd28a5a06fb960e343ffc734ff` passed the same clean-checkout
+GLORP run. The actual `avatar_demo.tscn` scene started its UDP listener, consumed
+the forwarded admitted queue payload, verified session/turn/digest, gaming mode,
+15 FPS cap and disabled effects, then returned its renderer self-report over
+loopback mTLS for temporary WSL capture. `windows_to_wsl`,
+`wsl_to_windows_queue`, `godot_avatar_state_queue`, `godot_command_lineage`,
+`renderer_report_mtls`, and `renderer_report_wsl_capture` passed. Windows process
+CPU was 0.0%, RSS was 39,768,064 bytes, and its PID was not exposed. This remains
+headless software-path evidence: no interactive rendering, physical effect,
+production authority, or game impact was established.
 
 ## GLORP acceptance sequence
 
