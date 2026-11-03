@@ -229,17 +229,28 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
     session_id = client.post("/sessions").json()["session_id"]
     first = client.post("/chat", json={"session_id": session_id,
-        "message": "I am taking a break before Cronos."})
+        "message": ("I am taking a breather between fights in Cronos. Say something "
+                    "friendly, then ask me one easy question to keep me company.")})
     assert first.status_code == 200
     recall = client.post("/chat", json={"session_id": session_id,
-        "message": "Before you asked about Cronos earlier in this chat, what did I say I was doing?"})
+        "message": "When I was taking a breather between fights earlier, what did I ask you to do?"})
     assert recall.status_code == 200
 
-    assert memory_queries == ["I am taking a break before Cronos.", ""]
-    assert "I am taking a break before Cronos." in invoker.prompts[-1]
+    assert memory_queries == [
+        ("I am taking a breather between fights in Cronos. Say something friendly, "
+         "then ask me one easy question to keep me company."),
+        "",
+    ]
+    assert "I am taking a breather between fights in Cronos." in invoker.prompts[-1]
+    assert "ask me one easy question to keep me company" in invoker.prompts[-1]
     assert "USER_DATA:" in invoker.prompts[-1]
     assert "ASSISTANT_DATA:" not in invoker.prompts[-1]
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
+    assert (
+        "preserve who said or asked each thing and keep the answer focused. "
+        "Do not add a new follow-up question unless the current user message "
+        "explicitly requests one."
+    ) in invoker.prompts[-1]
 
 
 def test_social_checkin_uses_only_current_message_without_stale_context(

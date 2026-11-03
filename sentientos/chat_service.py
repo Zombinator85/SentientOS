@@ -58,8 +58,9 @@ def _is_recent_session_recall_request(message: str) -> bool:
     markers = (
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in this conversation", "just before", "before you asked",
-        "what did i just say", "what was my last message",
-        "what was my previous message",
+        "what did i just say", "what did i ask you", "what did i ask",
+        "what did i tell you", "what did i say i was", "what was i doing",
+        "what was my last message", "what was my previous message",
     )
     return any(marker in normalized for marker in markers)
 
