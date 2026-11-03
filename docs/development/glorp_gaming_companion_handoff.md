@@ -4,24 +4,21 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392, #3393, and #3394 are
-merged; `main` is `5575f1b5101bf9261f94dd99ea84da62bd7249a6`. The previously reported
+**Current software status (2026-11-03):** PRs #3392 through #3395 are merged;
+`main` is `1e92f41e2bd29f23c71ff6654f66a5df3d12c3d9`. The previously reported
 local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
 main commit. The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
-child-process supervision, renderer-report return, the adopted-body fixture
-round trip, speech timing delivery, and the expanded one-command acceptance
-workflow. This change adds paired-role startup/shutdown coordination on top of
-the existing per-role authority-gated supervisors. The current target-only checklist is
-the `target_host_validation.required_checks` list emitted by
+child-process and paired-role supervision, renderer-report return, the
+adopted-body fixture round trip, speech timing delivery, and the expanded
+one-command acceptance workflow. PR #3396 adds an integrated software test of
+both authenticated transport directions. The target-only checklist is the
+`target_host_validation.required_checks` list emitted by
 `scripts/gaming_companion_acceptance.py`; none of those target checks is
-represented as completed by cloud fixtures. After adding the screen-to-chat-
-to-Godot vertical scenario to the one-command acceptance workflow, local
-acceptance passed 254 tests (0 failures, 0 errors, 23 skips) with Blender and
-Godot available. The paired-role coordinator candidate based on this main
-commit adds its start/rollback/shutdown scenarios to acceptance and passes 263
-tests (0 failures, 0 errors, 23 skips). Both reports distinguish executed
-software scenarios from target-host validation and production commissioning.
+represented as completed by cloud fixtures. With Blender and Godot available,
+the exact PR #3396 candidate passed 264 tests (0 failures, 0 errors, 23 skips).
+The acceptance report distinguishes executed software scenarios from
+target-host validation and production commissioning.
 
 **Campaign continuation update (2026-11-02; worktree parent
 `c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
