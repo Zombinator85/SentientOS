@@ -357,7 +357,11 @@ composes two installed `CompanionProcessLaunchSpec` records into the existing
 core-first/edge-second process supervisor pair. It requires distinct role
 profiles, a generation-pair loader and readiness probe for each role, and the
 verified installation callbacks. Each process supervisor verifies the fresh
-generation records and exact command digest receipt before `Popen`; startup
+generation records and exact command digest receipt before `Popen`. The
+process-launch receipt also binds the deployment ID, installation identity,
+runtime handoff, and software generation from the same validated manifest, so
+a matching command and generation pair cannot reuse a receipt from another
+installation. Startup
 rolls back the core if the edge is denied, shutdown stops edge before core, and
 recovery continues to require newly verified generation records. The provider
 does not launch on non-Windows hosts or choose command paths, role profiles,

@@ -113,12 +113,36 @@ def test_pair_and_process_launch_subjects_bind_runtime_identity_and_exact_comman
     generation = BridgeGenerationPair(_record(), BridgeGenerationCustodyRecord(
         "wsl-core", "core-generation-2", "posix:core-key", "fixture-operator-authority",
         (NOW - timedelta(seconds=1)).isoformat(), "sha256:" + "d" * 64, "core-generation-1"))
-    assert process_launch_subject(role="wsl_core", command_digest="c" * 64,
-        generation=generation)["command_digest"] == "c" * 64
+    process_subject = process_launch_subject(role="wsl_core", command_digest="c" * 64,
+        generation=generation, manifest=manifest)
+    assert process_subject["command_digest"] == "c" * 64
+    assert process_subject["deployment_id"] == "glorp-companion"
     with pytest.raises(CompanionAuthorityReceiptError,
                        match="companion_process_launch_subject_invalid"):
         process_launch_subject(role="wsl_core", command_digest="bad",
-            generation=generation)
+            generation=generation, manifest=manifest)
+
+
+def test_process_launch_receipt_is_scoped_to_installation_identity() -> None:
+    private, public = _signer()
+    manifest = {"deployment_id": "glorp-companion", "installation_identity_ref": "install:glorp",
+        "runtime_handoff_ref": "runtime-handoff:active", "software_generation_digest": "sha256:" + "b" * 64}
+    other_installation = {**manifest, "installation_identity_ref": "install:other"}
+    generation = BridgeGenerationPair(_record(), BridgeGenerationCustodyRecord(
+        "wsl-core", "core-generation-2", "posix:core-key", "fixture-operator-authority",
+        (NOW - timedelta(seconds=1)).isoformat(), "sha256:" + "d" * 64, "core-generation-1"))
+    subject = process_launch_subject(role="wsl_core", command_digest="c" * 64,
+        generation=generation, manifest=manifest)
+    receipt = _receipt(private, receipt_type="process_launch", subject=subject)
+    verifier = SignedCompanionAuthorityVerifier({"fixture-operator-authority": public},
+        clock=lambda: NOW)
+
+    with pytest.raises(CompanionAuthorityReceiptError,
+                       match="companion_authority_receipt_subject_mismatch"):
+        verifier.authorize_process_launch(receipt, str(receipt["semantic_digest"]),
+            role="wsl_core", command_digest="c" * 64, generation=generation,
+            manifest=other_installation)
+
 
 
 @pytest.mark.parametrize("mutation,reason", [
@@ -236,15 +260,17 @@ def test_concrete_callbacks_resolve_signed_pair_and_generation_receipts(tmp_path
     pair = BridgeGenerationPair(bound_record, BridgeGenerationCustodyRecord(
         "wsl-core", "core-generation-2", "posix:core-key", "fixture-operator-authority",
         (NOW - timedelta(seconds=1)).isoformat(), "sha256:" + "d" * 64, "core-generation-1"))
+    manifest = {"deployment_id": "glorp-companion", "installation_identity_ref": "install:glorp",
+        "runtime_handoff_ref": "runtime-handoff:active", "software_generation_digest": "sha256:" + "b" * 64}
     process_subject = process_launch_subject(role="wsl_core", command_digest="c" * 64,
-        generation=pair)
+        generation=pair, manifest=manifest)
     process_receipt = _receipt(private, receipt_type="process_launch", subject=process_subject)
     process_key = hashlib.sha256(canonical_receipt_bytes(
         {"receipt_type": "process_launch", "subject": process_subject})).hexdigest()
     process_path = root / ("subject-" + process_key + ".json")
     process_path.write_text(json.dumps(process_receipt), encoding="utf-8")
     os.chmod(process_path, 0o600)
-    assert callbacks.authorize_process_launch("wsl_core", "c" * 64, pair) is True
+    assert callbacks.authorize_process_launch("wsl_core", "c" * 64, pair, manifest) is True
 
 
 def test_receipt_verifier_rejects_non_json_subject_values() -> None:

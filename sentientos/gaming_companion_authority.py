@@ -112,15 +112,18 @@ def role_launch_subject(role: str, manifest: Mapping[str, Any]) -> dict[str, Any
 
 
 def process_launch_subject(*, role: str, command_digest: str,
-                            generation: BridgeGenerationPair) -> dict[str, str]:
+                            generation: BridgeGenerationPair,
+                            manifest: Mapping[str, Any]) -> dict[str, str]:
     if role not in {"windows_edge", "wsl_core"}:
         raise CompanionAuthorityReceiptError("companion_process_role_invalid")
     if (not re.fullmatch(r"[0-9a-f]{64}", command_digest)
-            or type(generation) is not BridgeGenerationPair):
+            or type(generation) is not BridgeGenerationPair
+            or not isinstance(manifest, Mapping)):
         raise CompanionAuthorityReceiptError("companion_process_launch_subject_invalid")
+    deployment_binding = pair_launch_subject(manifest)
     generation_digest = "sha256:" + hashlib.sha256(
         canonical_receipt_bytes(generation.to_dict())).hexdigest()
-    return {"action": "launch_process", "role": role,
+    return {**deployment_binding, "action": "launch_process", "role": role,
             "command_digest": command_digest, "generation_pair_digest": generation_digest}
 
 
@@ -221,10 +224,11 @@ class SignedCompanionAuthorityVerifier:
 
     def authorize_process_launch(self, receipt: Mapping[str, Any], expected_digest: str, *,
                                  role: str, command_digest: str,
-                                 generation: BridgeGenerationPair) -> bool:
+                                 generation: BridgeGenerationPair,
+                                 manifest: Mapping[str, Any]) -> bool:
         return self.verify(receipt, receipt_type="process_launch",
             expected_subject=process_launch_subject(role=role, command_digest=command_digest,
-                generation=generation), expected_digest=expected_digest)
+                generation=generation, manifest=manifest), expected_digest=expected_digest)
 
     @staticmethod
     def _timestamp(value: Any) -> datetime:
@@ -297,15 +301,17 @@ class CompanionAuthorityCallbacks:
         return self._verifier.authorize_pair_launch(receipt, digest, manifest)
 
     def authorize_process_launch(self, role: str, command_digest: str,
-                                 generation: BridgeGenerationPair) -> bool:
+                                 generation: BridgeGenerationPair,
+                                 manifest: Mapping[str, Any]) -> bool:
         subject = process_launch_subject(role=role, command_digest=command_digest,
-            generation=generation)
+            generation=generation, manifest=manifest)
         receipt = self._store.load_subject("process_launch", subject)
         digest = receipt.get("semantic_digest")
         if not isinstance(digest, str):
             raise CompanionAuthorityReceiptError("companion_authority_receipt_digest_invalid")
         return self._verifier.authorize_process_launch(receipt, digest,
-            role=role, command_digest=command_digest, generation=generation)
+            role=role, command_digest=command_digest, generation=generation,
+            manifest=manifest)
 
     def authorize_role_launch(self, role: str, manifest: Mapping[str, Any]) -> bool:
         subject = role_launch_subject(role, manifest)
