@@ -202,8 +202,8 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "You are the currently active conversational model within SentientOS" in prompt
     assert "use the configured model label from VERIFIED_RUNTIME_CONTEXT" in prompt
     assert "Do not add a generic model/AI limitations preamble or unrelated self-description" in prompt
-    assert "Telemetry confirms an allowlisted process is foreground, not its name" in prompt
-    assert "attribute game titles to the user" in prompt
+    assert "Use configured_game_process_names as verified foreground identities" in prompt
+    assert "Without screen data, do not claim gameplay events" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     runtime = json.loads(runtime_block)
@@ -216,6 +216,37 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert runtime["capabilities"]["local_speech_output"]["configured"] is False
     assert runtime["capabilities"]["screen_observation"]["configured"] is False
     assert "How are you doing in there?" in prompt
+
+
+def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_path):
+    import json
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+
+    class Detector:
+        def observe(self, names):
+            assert tuple(names) == ("cronos-win64-shipping.exe",)
+            return ForegroundGameObservation("available", True, "a" * 64,
+                "2026-11-03T17:00:00+00:00")
+
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": "What do you know about my current Cronos session?"
+    })
+
+    assert response.status_code == 200
+    prompt = invoker.prompts[-1]
+    assert "Use configured_game_process_names as verified foreground identities" in prompt
+    runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
+        "\n[SESSION_HISTORY_DATA]", 1)[0]
+    workload = json.loads(runtime_block)["workload"]
+    assert workload["game_foreground"] is True
+    assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
 
 
 def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_path, monkeypatch):
@@ -391,11 +422,13 @@ def test_development_automatic_mode_switches_profiles_from_fresh_observations():
     assert active_state["mode_source"] == "foreground_allowlist_match"
     assert active_state["observation_status"] == "available"
     assert active_state["game_foreground"] is True
+    assert active_state["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
     detector.foreground = False
     state = inference.current_workload_state()
     assert state["mode"] == "automatic"
     assert state["effective_mode"] == "normal"
     assert state["foreground_game_detected"] is False
+    assert "configured_game_process_names" not in state
     assert state["workload_evidence"]["process_name_digest"] == "a" * 64
 
     inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nhello",

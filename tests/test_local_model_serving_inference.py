@@ -224,6 +224,8 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         assert linkage["max_backend_threads"] == 2
         assert receipt.generation_config["actual_generation_parameters"][
             "max_backend_threads"] == 2
+        state = bridge.current_workload_state()
+        assert state["configured_game_process_names"] == ["examplegame.exe"]
         evidence = linkage["workload_evidence"]
         assert evidence["mode_source"] == "foreground_allowlist_match"
         assert evidence["transport_provenance"]["source_id"] == source_id
