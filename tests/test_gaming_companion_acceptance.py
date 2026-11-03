@@ -40,6 +40,8 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
 
     def successful_runner(command, *, cwd, stdout, stderr, check, env):
         assert command[1:4] == ["-m", "scripts.run_tests", "-q"]
+        assert "tests/test_gaming_companion_vertical_godot.py" in command
+        assert "tests/test_gaming_companion_bridge_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
         assert env["SENTIENTOS_CONTROL_KERNEL_ROOT"].startswith(str(results / "test-state"))
@@ -53,6 +55,8 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     report = run_acceptance(manifest_path=manifest, results_dir=results,
                             runner=successful_runner)
     assert report["status"] == "local_fixture_validation_passed"
+    assert report["real_software_scenarios"]["screen_observation_chat_to_godot"]["status"] == "not_run"
+    assert report["real_software_scenarios"]["screen_observation_chat_to_godot"]["raw_frame_retained"] is False
     assert report["read_only_deployment_doctor"]["host_mutation_performed"] is False
     assert report["fixture_tests"]["tests"] == 11
     assert report["fixture_tests"]["skipped"] == 2

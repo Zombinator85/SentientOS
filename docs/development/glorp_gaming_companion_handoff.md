@@ -4,6 +4,21 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
+**Current software status (2026-11-03):** PR #3392 and PR #3393 are merged;
+`main` is `3dfb7ed1444e5fa1e07139be5a32504080d811ca`. The previously reported
+local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
+main commit. The merged software includes GPU/VRAM-aware background admission,
+reverse avatar output, role-specific edge/core entrypoints, authority-gated
+child-process supervision, renderer-report return, the adopted-body fixture
+round trip, and speech timing delivery. The current target-only checklist is
+the `target_host_validation.required_checks` list emitted by
+`scripts/gaming_companion_acceptance.py`; none of those target checks is
+represented as completed by cloud fixtures. After adding the screen-to-chat-
+to-Godot vertical scenario to the one-command acceptance workflow, local
+acceptance passed 254 tests (0 failures, 0 errors, 23 skips) with Blender and
+Godot available. Its report distinguishes executed software scenarios from
+target-host validation and production commissioning.
+
 **Campaign continuation update (2026-11-02; worktree parent
 `c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
 host-pressure deferral, a Windows performance observer, durable renderer-report
@@ -167,14 +182,17 @@ Omit `--renderer-report-relay-port` when no edge relay is running. The Godot
 sender has no remote host option and only targets `127.0.0.1`; failed or
 unavailable report delivery does not retry or change the renderer's output.
 
-Both entrypoints expose `--help`. The avatar launcher starts the forwarder and
-Godot child when the supplied executable/project exist; interrupting the
-launcher stops its forwarder and terminates the child. A separately verified
-chat startup, avatar-session opt-in, and chat shutdown sequence has not yet been
-run as one deployment procedure. There is not yet a Windows-edge command that
-loads DPAPI and generation custody, starts the observer/renderer relay, and
-supervises it as an OS process; no such command is listed as runnable until it
-is implemented and tested.
+The avatar demo and companion roles expose `--help`. The role executable
+supports `windows_edge` and `wsl_core`, requires an authority-backed launch
+authorizer before importing the platform provider, validates the exact role
+runtime owner, monitors health, and closes it on SIGINT/SIGTERM.
+`GamingCompanionProcessSupervisor` can supervise a role child and recover it
+only after a fresh generation pair and launch authorization pass. The
+platform-specific provider/custody packages that resolve real Windows DPAPI,
+WSL key files, authority receipts, and launch records are not part of this
+cloud checkout, and no paired Windows/WSL target lifecycle has been executed.
+A separately verified target chat startup, avatar-session opt-in, and shutdown
+sequence remains on the GLORP checklist.
 
 ## What remains unfinished
 
@@ -191,7 +209,10 @@ is implemented and tested.
   high-water marks are process-local, so every restart needs newly issued source
   generations; uncertain deliveries are not replayed. Both in-process listener
   supervision and a separately tested local child-process supervisor are
-  available, but no paired Windows/WSL role launcher composes them yet. The
+  available, and role-specific foreground entrypoints plus an authority-gated
+  child-process supervisor are implemented. No deployment coordinator starts
+  both Windows and WSL roles as one paired lifecycle, and the platform custody
+  provider packages are not present in this checkout. The
   `BridgeChatAvatarOutputEmitter` now creates visual-only commands from an
   admitted chat response; `MutualTLSAvatarCommandSender` signs and transmits
   each command once using the protected edge mTLS client. On Windows,
@@ -211,16 +232,16 @@ is implemented and tested.
   renderer state, and close the sender in order. Its factories resolve custody
   by exact reference and validate receipt ordering. The role factories and
   certificate-backed localhost route are fixture-tested. There is still
-  no executable paired role launcher, platform custody adapter, GLORP listener,
-  or renderer observation; state-file delivery does not establish that a frame
+  no paired-role coordinator, installed platform custody adapter, GLORP
+  listener, or independent renderer observation; state-file delivery does not establish that a frame
   rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process
-  supervision is tested, but there is still no coordinated cross-platform
-  startup/shutdown, executable Windows-edge/WSL-core role entrypoints, OS
-  service registration, production custody-reference adapters, firewall setup,
-  or target-host recovery validation. The Windows readiness and scheduled-task
+  supervision and role-specific executable entrypoints are tested, but there is
+  still no coordinated cross-platform startup/shutdown, installed production
+  custody-reference providers, OS service registration, firewall setup, or
+  target-host recovery validation. The Windows readiness and scheduled-task
   machinery remains specific to maintenance.
 - **Resource feedback:** the governor in `host_resource_governor.py` remains
   proposal-only. The exact llama.cpp worker now applies the gaming request's
@@ -298,8 +319,10 @@ a deterministic fixture. The independently preserved rootless model smoke is
 real inference, but it was not substituted into this test because it is not the
 production serving owner and would cross experimental custody boundaries.
 
-The one-command local acceptance workflow most recently passed 224 tests with
-zero failures/errors and 23 repository-marked skips. It includes a real
+The one-command local acceptance workflow most recently passed 235 tests with
+zero failures/errors and 23 repository-marked skips on the PR #3393 head; its
+hosted Required / Quality Gate also passed. The merged #3392 acceptance run
+passed 228 tests with zero failures/errors and 23 skips. The suite includes a real
 Blender-authored GLB loaded through the receipt-verifying Python fixture loader,
 activated in headless Godot, reported with adoption lineage, and rolled back to
 the procedural body. The approval and receipt verifier are test fixtures, so
