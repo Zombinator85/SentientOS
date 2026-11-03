@@ -44,6 +44,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         assert "tests/test_gaming_companion_bridge_runtime.py" in command
         assert "tests/test_gaming_companion_pair_supervisor.py" in command
         assert "tests/test_gaming_companion_pair_entrypoint.py" in command
+        assert "tests/test_gaming_companion_authority.py" in command
         assert "tests/test_gaming_companion_bidirectional_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
