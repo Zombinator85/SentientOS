@@ -931,11 +931,14 @@ class PersistentConversationService:
         # over-weight topic-matching memories (for example, old Cronos advice).
         memory_query = "" if recent_session_recall or social_checkin else message
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
-        runtime_context: dict[str, Any] = {}
-        if not social_checkin:
-            runtime_context = self._verified_runtime_context(
-                identity=identity_payload, history=history, memory=memory,
-                session_id=session["session_id"], screen_observation=screen_observation)
+        # Keep casual check-ins independent of old transcript and retrieved
+        # memories while still grounding the model in current, verified system
+        # identity and capability state. A greeting must not make the runtime
+        # itself invisible to the model.
+        runtime_context = self._verified_runtime_context(
+            identity=identity_payload, history=history, memory=memory,
+            session_id=session["session_id"],
+            screen_observation=None if social_checkin else screen_observation)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
@@ -958,11 +961,10 @@ class PersistentConversationService:
                 history = self.sessions.reconstruct(
                     session["session_id"], budget_chars=history_budget,
                     exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
-                runtime_context = {}
-                if not social_checkin:
-                    runtime_context = self._verified_runtime_context(
-                        identity=identity_payload, history=history, memory=memory,
-                        session_id=session["session_id"], screen_observation=screen_observation)
+                runtime_context = self._verified_runtime_context(
+                    identity=identity_payload, history=history, memory=memory,
+                    session_id=session["session_id"],
+                    screen_observation=None if social_checkin else screen_observation)
                 prompt = assemble_local_chat_context(history=history,
                     memory_snapshot=memory, current_message=message,
                     runtime_context=runtime_context,
