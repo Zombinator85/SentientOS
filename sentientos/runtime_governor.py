@@ -209,12 +209,12 @@ class RuntimeGovernor:
         self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
         # The observation runtime may publish one validated, read-only host
-        # resource evaluation. Only its identifiers, pressure labels, and
-        # measured CPU/RAM values are retained here; this is scheduling input,
-        # not host mutation authority.
+        # resource evaluation. Its identifiers, pressure labels, measured
+        # CPU/RAM/GPU/VRAM values, and sensor coverage are retained as
+        # scheduling input, never as host mutation authority.
         self._host_resource_evidence: dict[str, object] | None = None
         # Fresh bridge-authenticated game pacing is supplemental scheduling
-        # evidence, never a substitute for the core CPU/RAM observation epoch.
+        # evidence, never a substitute for the host-resource observation epoch.
         self._game_performance_evidence: dict[str, object] | None = None
         self._resource_evidence_lock = threading.Lock()
 
@@ -1080,6 +1080,10 @@ class RuntimeGovernor:
                 "ram_utilization_percent": evaluation.snapshot.ram_utilization_percent,
                 "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
                 "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+                "gpu_telemetry_available": (
+                    evaluation.snapshot.gpu_utilization_percent is not None
+                    or evaluation.snapshot.vram_utilization_percent is not None
+                ),
             }
             with self._resource_evidence_lock:
                 self._host_resource_evidence = evidence
@@ -1172,6 +1176,7 @@ class RuntimeGovernor:
                         "report_digest": evidence["report_digest"],
                         "gpu_utilization_percent": evidence.get("gpu_utilization_percent"),
                         "vram_utilization_percent": evidence.get("vram_utilization_percent"),
+                        "gpu_telemetry_available": evidence.get("gpu_telemetry_available"),
                         "age_seconds": round(evidence_age_seconds, 3),
                     }
                 else:
@@ -1180,6 +1185,40 @@ class RuntimeGovernor:
                 evidence_ref = {"status": "stale_or_invalid", "age_seconds": evidence_age_seconds}
 
         pressure_reasons = labels.intersection({"cpu_pressure", "memory_pressure", "gpu_pressure", "thermal_pressure"})
+        execution_profile = payload.get("model_execution_profile")
+        gpu_layers: int | None = None
+        gpu_profile_digest: str | None = None
+        accelerator_route: str | None = None
+        if isinstance(execution_profile, Mapping):
+            raw_layers = execution_profile.get("gpu_layers")
+            raw_profile_digest = execution_profile.get("configuration_digest")
+            raw_route = execution_profile.get("accelerator_route")
+            profile_engine = execution_profile.get("engine")
+            if (set(execution_profile) == {"schema_version", "engine", "accelerator_route",
+                                           "gpu_layers", "configuration_digest"}
+                    and execution_profile.get("schema_version") == "sentientos.model_execution_profile:v1"
+                    and profile_engine in {"llama_cpp", "transformers"}
+                    and raw_route in {"cpu", "gpu", "unknown"}
+                    and ((profile_engine == "llama_cpp" and type(raw_layers) is int
+                          and 0 <= raw_layers <= 256
+                          and raw_route == ("gpu" if raw_layers else "cpu"))
+                         or (profile_engine == "llama_cpp" and raw_layers is None
+                             and raw_route == "unknown")
+                         or (profile_engine == "transformers" and raw_layers is None))
+                    and isinstance(raw_profile_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", raw_profile_digest)):
+                gpu_layers = raw_layers if type(raw_layers) is int else None
+                accelerator_route = str(raw_route)
+                gpu_profile_digest = raw_profile_digest
+        gpu_offload_requested = accelerator_route == "gpu"
+        gpu_telemetry_required = accelerator_route in {"gpu", "unknown"}
+        gpu_telemetry_incomplete = (
+            not foreground
+            and gpu_telemetry_required
+            and evidence_ref.get("status") == "current"
+            and evidence is not None
+            and evidence.get("gpu_telemetry_available") is not True
+        )
         game_pressure = False
         game_evidence_ref: dict[str, object] = {"status": "unavailable"}
         if game_evidence is not None:
@@ -1218,6 +1257,8 @@ class RuntimeGovernor:
         blocks = False
         if not foreground and incomplete:
             reason, blocks = "deferred_resource_telemetry_incomplete", True
+        elif not foreground and gpu_telemetry_incomplete:
+            reason, blocks = "deferred_gpu_offload_telemetry_incomplete", True
         elif not foreground and pressure_reasons:
             reason, blocks = "deferred_background_inference_under_host_pressure", True
         elif not foreground and game_pressure:
@@ -1237,6 +1278,12 @@ class RuntimeGovernor:
                 "host_resource_evidence": evidence_ref,
                 "observed_pressure_labels": sorted(labels),
                 "blocking_pressure_labels": sorted(pressure_reasons),
+                "model_gpu_offload_requested": gpu_offload_requested,
+                "model_gpu_telemetry_required": gpu_telemetry_required,
+                "model_gpu_layers": gpu_layers,
+                "model_accelerator_route": accelerator_route,
+                "model_configuration_digest": gpu_profile_digest,
+                "gpu_telemetry_incomplete_for_model": gpu_telemetry_incomplete,
                 "game_performance_evidence": game_evidence_ref,
                 "game_frame_pressure": game_pressure,
             },
