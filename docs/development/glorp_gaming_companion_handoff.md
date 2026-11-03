@@ -6,8 +6,9 @@
 
 **Current software status (2026-11-03):** PRs #3392 through #3408 are merged;
 PR #3408 advanced `main` to `42ee2c35` with portable headless Godot validation.
-The current campaign branch adds a GLORP Windows-edge to WSL-core
-renderer-report run; its exact result is recorded below. The previously
+The current campaign branch extends the GLORP Windows-edge to WSL-core
+renderer-report run so the headless Godot probe consumes the exact admitted
+state-file queue entry. Its exact result is recorded below. The previously
 reported local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor
 of that main commit.
 The merged software includes GPU/VRAM-aware background admission,
@@ -392,12 +393,15 @@ the real Windows process provider, publishes the report over mTLS, and the WSL
 core verifies its schema, freshness, identity, and authenticated transport.
 The sample exposes only a PID digest, CPU percentage, and RSS; no executable
 name or raw PID is returned. PresentMon remains unavailable in this smoke. With
-`--godot-executable`, the Windows child also runs the renderer probe headlessly,
-forwards its self-report through the loopback edge relay and mTLS, and the WSL
-core validates and captures it in a private temporary store that is deleted
-when the smoke exits. The avatar admission callback is a test fixture and the
-Windows sink is an in-memory queue; a pass does not prove a frame rendered or
-establish production commissioning.
+`--godot-executable`, the Windows child also runs the renderer probe headlessly.
+The WSL avatar command passes through the authenticated edge owner and
+`WindowsGodotAvatarStateQueue`; its temporary state file is fed to the Godot
+probe, which checks session, turn, output digest, and gaming mode before
+emitting its renderer self-report. The Windows loopback relay sends that report
+over mTLS to WSL, where the core validates and captures it in a private
+temporary store deleted when the smoke exits. The avatar admission callback
+remains a test fixture. Headless state application and a self-report do not
+prove an interactive frame rendered or establish production commissioning.
 
 On 2026-11-03, source `f1b8dc2a772dc3cda20b628be21e6b59ce1ca9e2` passed on GLORP:
 `windows_to_wsl=passed`, `wsl_to_windows_queue=passed`, and
@@ -416,16 +420,24 @@ console binary passed the renderer-report UDP probe, the speech interruption
 probe, and both avatar-demo headless checks. These checks ran in headless mode;
 they do not establish interactive rendering or gaming performance.
 
-On 2026-11-03, source `98985abaa781e04aae3be93e74d7d07832321f26` passed the
+On 2026-11-03, source `8f6fee6497d64268076e58a1e0c9e85b94ae8428` passed the
 combined GLORP smoke with the same clean Windows and WSL SHA. The Windows child
-reported 0.0% CPU and 39,550,976 bytes RSS, with no raw PID exposed. The actual
-headless Godot probe emitted a renderer self-report; the Windows loopback relay
-forwarded it over mTLS and WSL captured it in the temporary evidence store.
-`windows_to_wsl`, `wsl_to_windows_queue`, `renderer_report_mtls`, and
+reported 0.0% CPU and 39,612,416 bytes RSS, with no raw PID exposed. The WSL
+avatar command was accepted into the Windows Godot state-file queue; Godot's
+headless probe consumed that state and verified command lineage and gaming
+mode. Its renderer self-report returned through the Windows loopback relay over
+mTLS, then WSL captured it in the temporary evidence store.
+`windows_to_wsl`, `wsl_to_windows_queue`, `godot_avatar_state_queue`,
+`godot_command_lineage`, `renderer_report_mtls`, and
 `renderer_report_wsl_capture` all passed. Both `renderer_effect_proven` and
 `renderer_report_effect_proven` remained false; report capture was temporary.
-This verifies transport and evidence custody on GLORP, not the renderer's
-independent physical effect, production custody, or production authority.
+This verifies software transport and temporary evidence custody on GLORP, not
+an interactive frame or independent physical effect, production custody, or
+production authority.
+
+The same source also passed the default smoke without `--godot-executable`,
+using two ephemeral listeners; the Godot and renderer-report fields correctly
+reported `not_run`.
 
 ## GLORP acceptance sequence
 
