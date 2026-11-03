@@ -202,8 +202,8 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "You are the currently active conversational model within SentientOS" in prompt
     assert "use the configured model label from VERIFIED_RUNTIME_CONTEXT" in prompt
     assert "Do not add a generic model/AI limitations preamble or unrelated self-description" in prompt
-    assert "Use configured_game_process_names as verified foreground identities" in prompt
-    assert "Without screen data, do not claim gameplay events" in prompt
+    assert "For game questions, mention configured_game_process_names when present" in prompt
+    assert "without screen data, say gameplay details are unknown" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     runtime = json.loads(runtime_block)
@@ -241,7 +241,7 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "Use configured_game_process_names as verified foreground identities" in prompt
+    assert "For game questions, mention configured_game_process_names when present" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     workload = json.loads(runtime_block)["workload"]
