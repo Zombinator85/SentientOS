@@ -77,7 +77,8 @@ def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
     session_id = None
     for index in range(3):
         response = client.post("/chat", json={
-            "message": f"Turn {index}: " + ("remember this detail " * 18),
+            "message": ("Turn 0: remember violet comet. " if index == 0 else
+                        f"Turn {index}: ") + ("remember this detail " * 18),
             "session_id": session_id,
         })
         assert response.status_code == 200
@@ -90,3 +91,4 @@ def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
 
     assert response.status_code == 200
     assert len(invoker.prompts[-1]) <= GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
+    assert "Turn 0: remember violet comet." in invoker.prompts[-1]
