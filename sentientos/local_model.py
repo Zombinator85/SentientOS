@@ -223,6 +223,9 @@ class _OllamaBackend(_ModelBackend):
 
     def generate(self, prompt: str, history: Sequence[str],
                  generation: Dict[str, Any]) -> str:
+        keep_alive = generation.get("keep_alive", self._keep_alive)
+        if keep_alive not in {"0", "5m", "15m"}:
+            raise ModelLoadError("ollama_keep_alive_invalid")
         options = {
             "num_ctx": self._context,
             "num_predict": max(1, min(int(generation.get("max_new_tokens", 256)), 512)),
@@ -232,7 +235,7 @@ class _OllamaBackend(_ModelBackend):
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
         body = json.dumps({"model": self._model, "prompt": prompt, "stream": False,
-                           "think": self._think, "keep_alive": self._keep_alive,
+                           "think": self._think, "keep_alive": keep_alive,
                            "options": options}, separators=(",", ":")).encode("utf-8")
         request = urllib.request.Request(self._base + "/api/generate", data=body,
             headers={"Content-Type": "application/json"}, method="POST")

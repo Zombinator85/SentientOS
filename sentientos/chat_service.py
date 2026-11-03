@@ -132,6 +132,11 @@ class DevelopmentLocalChatInference:
         linkage = {**dict(caller_linkage), "workload_mode": mode,
             "workload_evidence": {"status": "operator_selected",
                 "source": "local_development_session"}}
+        identity = getattr(self._delegate.model, "active_identity", None)
+        if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
+            # Keep GPU-backed development models available only for the duration
+            # of a gaming-mode turn; Ollama releases their VRAM after responding.
+            linkage["ollama_keep_alive"] = "0"
         request = self._delegate.build_request(purpose="local_user_chat",
             prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
             budget=effective_budget, linkage=linkage)

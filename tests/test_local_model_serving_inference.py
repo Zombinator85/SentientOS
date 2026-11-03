@@ -139,6 +139,30 @@ def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_pa
         "max_backend_threads") == (2 if style_expected else None)
 
 
+def test_gaming_workload_requests_ollama_unload_after_chat_turn():
+    from sentientos.chat_service import DevelopmentLocalChatInference
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    class Invoker:
+        model = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+
+        def build_request(self, **kwargs):
+            return kwargs
+
+        def invoke(self, request):
+            return request
+
+    inference = DevelopmentLocalChatInference(Invoker())
+    inference.set_workload_mode("gaming")
+    prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+    request = inference.generate(prompt=prompt, caller="test",
+        correlation_id="gaming-ollama", budget=LocalModelInvocationBudget(),
+        caller_linkage={})
+
+    assert request["linkage"]["workload_mode"] == "gaming"
+    assert request["linkage"]["ollama_keep_alive"] == "0"
+
+
 def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt_lineage(
         monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)

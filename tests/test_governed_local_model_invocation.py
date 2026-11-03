@@ -93,6 +93,56 @@ def test_backend_thread_ceiling_fails_closed_before_unsupported_generation(
     assert expected_reason in receipt.reason_codes
 
 
+def test_gaming_ollama_keep_alive_is_governed_and_forwarded(tmp_path: Path) -> None:
+    import hashlib
+
+    manifest = tmp_path / "ollama-manifest.json"
+    manifest.write_text('{"model":"qwen3:8b"}\n', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    candidate = ModelCandidate(path=manifest, engine="ollama", name="Qwen3 development",
+        options={"api_base": "http://127.0.0.1:11434", "model": "qwen3:8b",
+            "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m"})
+    config = ModelConfig(candidates=[candidate], default_engine="ollama",
+        max_context_tokens=4096, generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+
+    class CapturingModel(FakeModel):
+        def __init__(self) -> None:
+            super().__init__()
+            self.generation = {}
+
+        def generate(self, prompt: str, **kwargs: object) -> str:
+            self.generation = kwargs
+            return super().generate(prompt, **kwargs)
+
+    model = CapturingModel()
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"),
+        runtime_root=tmp_path / "runtime")
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="gaming-unload",
+        linkage={"workload_mode": "gaming", "ollama_keep_alive": "0"})
+
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "admitted_completed"
+    assert model.generation["keep_alive"] == "0"
+
+
+def test_ollama_keep_alive_override_is_rejected_for_other_engines(tmp_path: Path) -> None:
+    fake, invoker = _invoker(tmp_path)
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="reject-ollama-residency",
+        linkage={"ollama_keep_alive": "0"})
+
+    receipt = invoker.invoke(request)
+
+    assert fake.calls == 0
+    assert receipt.status == "blocked_invalid"
+    assert "ollama_keep_alive_override_invalid" in receipt.reason_codes
+
+
 def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> None:
     model_path = tmp_path / "m.gguf"
     model_path.write_bytes(b"bytes")
