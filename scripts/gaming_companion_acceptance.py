@@ -41,6 +41,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_platform_provider.py",
     "tests/test_gaming_companion_platform_installation.py",
     "tests/test_gaming_companion_platform_pair_process.py",
+    "tests/test_gaming_companion_process_profile.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
@@ -268,6 +269,24 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 "target_processes_spawned": False,
                 "installation_profiles_or_authority_provisioned": False,
                 "production_commissioning_claimed": False,
+            },
+            "platform_process_profiles": {
+                "status": ("bounded_profile_fixture_passed"
+                    if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
+                        "test_profile_loader_builds_closed_windows_and_wsl_role_specs",
+                        "test_profile_loader_rejects_extra_command_arguments_and_secret_environment",
+                        "test_profile_loader_rejects_duplicate_fields_and_untrusted_hosts",
+                        "test_profile_loader_rejects_path_escape_and_wrong_role_binding"))
+                    else "blocked"),
+                "test_nodes": [
+                    "test_profile_loader_builds_closed_windows_and_wsl_role_specs",
+                    "test_profile_loader_rejects_extra_command_arguments_and_secret_environment",
+                    "test_profile_loader_rejects_duplicate_fields_and_untrusted_hosts",
+                    "test_profile_loader_rejects_path_escape_and_wrong_role_binding",
+                ],
+                "authority_granted": False,
+                "processes_spawned": False,
+                "target_profile_provisioned": False,
             },
             "paired_role_coordinator": {
                 "status": executed_nodes.get(
