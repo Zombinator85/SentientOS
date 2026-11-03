@@ -22,7 +22,7 @@ def test_gaming_mode_caps_each_turn_without_expanding_tighter_limits() -> None:
     actual = GamingWorkloadPolicy.constrain_budget("gaming", requested)
 
     assert actual == LocalModelInvocationBudget(max_input_chars=4000, max_output_chars=1200,
-        max_new_tokens=96, timeout_seconds=12, max_calls_per_correlation=1)
+        max_new_tokens=96, timeout_seconds=20, max_calls_per_correlation=1)
 
 
 def test_gaming_mode_does_not_expand_an_already_tighter_budget() -> None:

@@ -120,7 +120,7 @@ class _TemporaryCompanionEdge:
             raise
 
     @staticmethod
-    def _forward_lines(stream, target: queue.Queue[str], report_file: Path) -> None:
+    def _forward_lines(stream: Any, target: queue.Queue[str], report_file: Path) -> None:
         for line in stream:
             rendered = line.rstrip()
             if rendered.startswith("RENDERER_REPORT "):
@@ -160,6 +160,8 @@ class _TemporaryCompanionEdge:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state-dir", type=Path, required=True)
+    parser.add_argument("--gaming-model-config", type=Path,
+        help="optional pinned local Ollama profile selected only in gaming workload mode")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--windows-python", type=Path)
@@ -252,6 +254,39 @@ def main() -> int:
     atomic_write_json(state / "model-authority-map.json", authority.to_dict())
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         runtime_root=state / "invocations")
+    gaming_invoker = None
+    if args.gaming_model_config is not None:
+        primary_config_path = os.environ["SENTIENTOS_MODEL_CONFIG"]
+        gaming_config_path = args.gaming_model_config.expanduser().resolve()
+        os.environ["SENTIENTOS_MODEL_CONFIG"] = str(gaming_config_path)
+        try:
+            gaming_config = load_model_config()
+            if (len(gaming_config.candidates) != 1
+                    or gaming_config.candidates[0].engine != "ollama"):
+                parser.error("gaming profile requires exactly one Ollama candidate")
+            gaming_candidate = gaming_config.candidates[0]
+            if gaming_candidate.path is None:
+                parser.error("gaming Ollama profile requires a local manifest path")
+            gaming_authority = build_local_model_authority_map(
+                gaming_config, allowed_roots=[gaming_candidate.path.parent])
+            gaming_record = gaming_authority.records[0]
+            if (gaming_record.disposition != "development_only"
+                    or gaming_record.runtime_eligibility_status != "eligible"
+                    or gaming_record.allowed_invocation_purposes != ("local_user_chat",)):
+                parser.error("gaming model authority is not eligible for local chat")
+            gaming_model = LocalModel.autoload()
+            if (gaming_model.active_identity.posture != "development_only"
+                    or gaming_model.active_identity.fallback
+                    or gaming_authority.record_for_active_identity(
+                        gaming_model.active_identity, "local_user_chat") is None):
+                parser.error("gaming model does not match its local-chat authority")
+            atomic_write_json(state / "gaming-model-authority-map.json",
+                gaming_authority.to_dict())
+            gaming_invoker = GovernedLocalModelInvoker(
+                model=gaming_model, authority_map=gaming_authority,
+                runtime_root=state / "gaming-invocations")
+        finally:
+            os.environ["SENTIENTOS_MODEL_CONFIG"] = primary_config_path
     edge: _TemporaryCompanionEdge | None = None
     try:
         if all(value is not None for value in edge_args):
@@ -263,7 +298,8 @@ def main() -> int:
             edge = _TemporaryCompanionEdge(
                 windows_python=args.windows_python, windows_checkout=args.windows_checkout,
                 godot_executable=args.godot_exe, godot_project=args.godot_project)
-        configure_development_chat(invoker=invoker, data_root=chat_state,
+        configure_development_chat(invoker=invoker, gaming_invoker=gaming_invoker,
+            data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None)
         print(json.dumps({
             "state": "running",
@@ -273,6 +309,8 @@ def main() -> int:
             "engine": model.active_identity.engine,
             "model": candidate.options.get("model"),
             "model_identity": model.active_identity.semantic_artifact_identity,
+            "gaming_model": (gaming_model.active_identity.semantic_artifact_identity
+                if args.gaming_model_config is not None else None),
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "companion_identity_posture": (

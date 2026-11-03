@@ -89,30 +89,44 @@ class ChatSpeechOutput(Protocol):
 
 class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
-    __slots__ = ("_delegate", "_workload_mode", "_workload_lock")
-    def __init__(self, invoker: GovernedLocalModelInvoker) -> None:
+    __slots__ = ("_delegate", "_gaming_delegate", "_workload_mode", "_workload_lock")
+    def __init__(self, invoker: GovernedLocalModelInvoker,
+                 gaming_invoker: GovernedLocalModelInvoker | None = None) -> None:
         self._delegate = invoker
+        self._gaming_delegate = gaming_invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
+    def _active_delegate(self, mode: WorkloadMode | None = None) -> GovernedLocalModelInvoker:
+        selected = mode or self.current_workload_mode()
+        if selected == "gaming" and self._gaming_delegate is not None:
+            return self._gaming_delegate
+        return self._delegate
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
-        identity = getattr(self._delegate.model, "active_identity", None)
+        identity = getattr(self._active_delegate().model, "active_identity", None)
         return identity.to_dict() if identity is not None else {}
-    def current_conversation_model_label(self) -> str | None:
-        identity = getattr(self._delegate.model, "active_identity", None)
-        authority_map = getattr(self._delegate, "authority_map", None)
+    def _model_label_for(self, delegate: GovernedLocalModelInvoker) -> str | None:
+        identity = getattr(delegate.model, "active_identity", None)
+        authority_map = getattr(delegate, "authority_map", None)
         resolver = getattr(authority_map, "record_for_active_identity", None)
         if identity is None or not callable(resolver):
             return None
         record = resolver(identity, "local_user_chat")
         label = getattr(record, "name", None)
         return label if isinstance(label, str) and label else None
+    def current_conversation_model_label(self) -> str | None:
+        return self._model_label_for(self._active_delegate())
     def current_workload_mode(self) -> WorkloadMode:
         with self._workload_lock:
             return self._workload_mode
     def current_workload_state(self) -> dict[str, Any]:
         mode = self.current_workload_mode()
+        delegate = self._active_delegate(mode)
+        profile = ("gaming" if self._gaming_delegate is not None
+            and delegate is self._gaming_delegate else "primary")
+        model_label = self._model_label_for(delegate)
         return {"mode": mode, "effective_mode": mode,
             "mode_source": "local_development_operator_selection",
+            "selected_profile": profile, "selected_model_label": model_label,
             "foreground_game_detected": False,
             "workload_evidence": {"status": "operator_selected",
                 "source": "local_development_session"}}
@@ -132,15 +146,14 @@ class DevelopmentLocalChatInference:
         linkage = {**dict(caller_linkage), "workload_mode": mode,
             "workload_evidence": {"status": "operator_selected",
                 "source": "local_development_session"}}
-        identity = getattr(self._delegate.model, "active_identity", None)
+        delegate = self._active_delegate(mode)
+        identity = getattr(delegate.model, "active_identity", None)
         if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
-            # Keep GPU-backed development models available only for the duration
-            # of a gaming-mode turn; Ollama releases their VRAM after responding.
             linkage["ollama_keep_alive"] = "0"
-        request = self._delegate.build_request(purpose="local_user_chat",
+        request = delegate.build_request(purpose="local_user_chat",
             prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
             budget=effective_budget, linkage=linkage)
-        return self._delegate.invoke(request)
+        return delegate.invoke(request)
 
 
 # Backwards-compatible name for callers that used this adapter with test-only
@@ -1268,6 +1281,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
+                               gaming_invoker: GovernedLocalModelInvoker | None = None,
                                data_root: Path | None = None,
                                avatar_output_emitter: Any | None = None) -> None:
     """Explicitly install governed local development chat inference."""
@@ -1287,7 +1301,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
             avatar_output_emitter, admission_provider=admit_request)
     close_production_chat()
     _CONVERSATION_SERVICE = PersistentConversationService(
-        inference=DevelopmentLocalChatInference(invoker),
+        inference=DevelopmentLocalChatInference(invoker, gaming_invoker),
         session_store=ConversationSessionStore(conversation_root),
         memory_store=CanonicalMemoryStore(memory_root),
         avatar_output=avatar_output)

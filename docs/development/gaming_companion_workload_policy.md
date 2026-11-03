@@ -2,9 +2,14 @@
 
 The local chat runtime supports an explicit, reversible `normal`, `gaming`, or
 `automatic` workload mode. Gaming mode limits each chat invocation to 4,000 input characters,
-1,200 output characters, 96 new tokens, and 12 seconds. Existing tighter request
+1,200 output characters, 96 new tokens, and 20 seconds. Existing tighter request
 budgets remain tighter. The effective budget and selected mode are included in the
-ordinary invocation receipt lineage.
+ordinary invocation receipt lineage. A supervised development runner can accept
+an optional pinned Ollama gaming profile; gaming-mode requests then use that
+profile and request unload after each turn. This allows a smaller model to serve
+game-time requests while the primary model remains selected in normal mode.
+Actual latency and gameplay interference depend on the host and must be measured;
+the budget alone does not establish coexistence.
 
 In Gaming mode, the trusted chat instruction also asks for brief, friendly,
 low-distraction replies focused on the player's request. It discourages long
