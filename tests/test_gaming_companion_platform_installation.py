@@ -16,6 +16,7 @@ from sentientos.gaming_companion_platform_installation import (
     load_companion_platform_installation,
 )
 from sentientos.gaming_companion_platform_provider import GamingCompanionPlatformRoleProvider
+from sentientos.gaming_companion_receipt_replay import SQLiteAdmissionReceiptReplayGuard
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -109,14 +110,17 @@ def test_verified_installation_composes_role_provider_without_rebinding_authorit
         catalog_receipt=receipt,
         trusted_issuer_public_keys={"fixture-install-authority": public_key},
         system_name="Linux", is_wsl2=True)
+    replay_guard = SQLiteAdmissionReceiptReplayGuard(tmp_path / "receipt-replays.sqlite3")
 
     provider = GamingCompanionPlatformRoleProvider.from_installation(
         installation, system_name="Linux", is_wsl2=True,
+        receipt_replay_guard=replay_guard,
         admission_receipt_builder=lambda _authorization: {
             "receipt_id": "fixture-only", "semantic_digest": "f" * 64})
 
     assert provider._custody is installation.custody
     assert provider._authority is installation.authority
+    assert provider._receipt_replay_guard is replay_guard
 
 
 def test_platform_catalog_signature_binds_reference_paths_before_asset_access(
