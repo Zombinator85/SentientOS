@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, TextIO
@@ -29,6 +30,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
+from sentientos.avatar_renderer_report_ingress import (
+    RendererReportCaptureOwner,
+    RendererReportEvidenceStore,
+)
+from sentientos.avatar_renderer_report_relay import WindowsRendererReportRelay
 from sentientos.gaming_companion_avatar_output import (
     BridgeChatAvatarOutputEmitter,
     MutualTLSAvatarCommandSender,
@@ -166,6 +172,8 @@ def _windows_child() -> int:
         acknowledgment_key=base64.b64decode(cfg["avatar_ack"]),
         socket_timeout_seconds=2.0)
     client = None
+    renderer_client = None
+    relay = None
     try:
         port = runtime.start()
         print(f"READY {port}", flush=True)
@@ -199,11 +207,60 @@ def _windows_child() -> int:
         print("RESULT " + json.dumps({"accepted": accepted,
             "renderer_effect_proven": owner.status().renderer_effect_proven,
             "phrase": delivered[0].get("phrase") if delivered else None}), flush=True)
-        return 0 if accepted and delivered else 2
+        if not accepted or not delivered:
+            return 2
+        if cfg.get("godot_executable"):
+            temp_root = Path(cfg["godot_temp"])
+            temp_root.mkdir(parents=True, exist_ok=True)
+            project = temp_root / "godot_avatar_demo"
+            shutil.copytree(Path(cfg["godot_project"]), project,
+                ignore=shutil.ignore_patterns(".godot", "*.uid"))
+            renderer_client = CompanionBridgeMutualTLSClient(
+                address=cfg["wsl_ip"], port=cfg["renderer_port"],
+                server_hostname="wsl-core.test", tls_context=client_ctx,
+                acknowledgment_receiver=CompanionBridgeReceiver(
+                    source_keys={"wsl-renderer-core": base64.b64decode(
+                        cfg["renderer_ack_key"])},
+                    expected_generations={"wsl-renderer-core":
+                        "wsl-renderer-ack-test-1"}),
+                expected_server_certificate_sha256=cfg["wsl_pin"],
+                timeout_seconds=4.0)
+            relay = WindowsRendererReportRelay(client=renderer_client,
+                source_id="windows-renderer-relay", session_id="godot-renderer-smoke",
+                generation_id="windows-renderer-test-1",
+                source_key=base64.b64decode(cfg["renderer_source_key"]),
+                renderer_generation_id="godot-demo-cross-host-test-1")
+            relay_port = relay.start()
+            environment = _secret_free_environment()
+            environment.update({
+                "SENTIENTOS_RENDERER_GENERATION_ID": "godot-demo-cross-host-test-1",
+                "SENTIENTOS_RENDERER_REPORT_RELAY_PORT": str(relay_port),
+                "XDG_CACHE_HOME": str(temp_root / "cache"),
+                "XDG_CONFIG_HOME": str(temp_root / "config"),
+                "XDG_DATA_HOME": str(temp_root / "data"),
+            })
+            for name in ("XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+                Path(environment[name]).mkdir(parents=True, exist_ok=True)
+            godot = subprocess.run([cfg["godot_executable"], "--headless",
+                "--path", str(project), "--script",
+                "res://tests/renderer_report_probe.gd"], capture_output=True,
+                text=True, timeout=30, env=environment, check=False)
+            if godot.returncode != 0 or "godot_renderer_report_probe_passed" not in godot.stdout:
+                raise RuntimeError("godot_renderer_report_probe_failed")
+            deadline = time.monotonic() + 8.0
+            while relay.status().forwarded == 0 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            if relay.status().forwarded != 1:
+                raise RuntimeError("renderer_report_mtls_forward_failed")
+            print("RENDERER_RESULT " + json.dumps({"godot_headless": "passed",
+                "relay_forwarded": 1, "renderer_effect_proven": False}), flush=True)
+        return 0
     except Exception as exc:
         print("ERROR " + type(exc).__name__, flush=True)
         return 2
     finally:
+        if relay:
+            relay.close()
         runtime.close()
 
 
@@ -219,13 +276,19 @@ def _forward_lines(stream: TextIO, lines: queue.Queue[str]) -> None:
         lines.put(line.rstrip())
 
 
-def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
+def run(*, windows_checkout: Path, windows_python: Path,
+       godot_executable: Path | None = None) -> dict[str, object]:
     if platform.system() != "Linux" or not (
             os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP")):
         raise ValueError("wsl2_required")
     windows_script = windows_checkout / "scripts" / Path(__file__).name
     if not windows_script.is_file() or not windows_python.is_file():
         raise ValueError("windows_smoke_runtime_missing")
+    if godot_executable is not None and not godot_executable.is_file():
+        raise ValueError("godot_executable_unavailable")
+    windows_godot_project = windows_checkout / "godot_avatar_demo"
+    if godot_executable is not None and not (windows_godot_project / "project.godot").is_file():
+        raise ValueError("windows_godot_project_unavailable")
     wsl_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         check=True, capture_output=True, text=True, timeout=3).stdout.strip()
     wsl_dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
@@ -248,10 +311,13 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
     if win_sha != wsl_sha:
         raise ValueError("source_sha_mismatch")
     wsl_ip, windows_ip = _addresses()
-    observation_key, observation_ack, avatar_key, avatar_ack = (
-        secrets.token_bytes(32) for _ in range(4))
+    observation_key, observation_ack, avatar_key, avatar_ack, renderer_key, renderer_ack = (
+        secrets.token_bytes(32) for _ in range(6))
     process: subprocess.Popen[str] | None = None
     core: CompanionBridgeMutualTLSRuntime | None = None
+    renderer_owner: RendererReportCaptureOwner | None = None
+    renderer_store: RendererReportEvidenceStore | None = None
+    renderer_temp: tempfile.TemporaryDirectory[str] | None = None
     sender: MutualTLSAvatarCommandSender | None = None
     try:
         with tempfile.TemporaryDirectory(prefix="sentientos-bridge-smoke-",
@@ -268,6 +334,28 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
                 acknowledgment_generation_id="wsl-observation-ack-test-1",
                 acknowledgment_key=observation_ack, socket_timeout_seconds=2.0)
             core_port = core.start()
+            renderer_port: int | None = None
+            if godot_executable is not None:
+                renderer_temp = tempfile.TemporaryDirectory(
+                    prefix="sentientos-renderer-smoke-")
+                renderer_core = CompanionBridgeMutualTLSRuntime(bind_address=wsl_ip, port=0,
+                    tls_context=wsl_server,
+                    expected_peer_certificate_sha256=edge["pin"],
+                    receiver=CompanionBridgeReceiver(
+                        source_keys={"windows-renderer-relay": renderer_key},
+                        expected_generations={"windows-renderer-relay":
+                            "windows-renderer-test-1"}),
+                    acknowledgment_source_id="wsl-renderer-core",
+                    acknowledgment_generation_id="wsl-renderer-ack-test-1",
+                    acknowledgment_key=renderer_ack, socket_timeout_seconds=2.0)
+                renderer_store = RendererReportEvidenceStore(
+                    Path(renderer_temp.name) / "captures")
+                renderer_owner = RendererReportCaptureOwner(
+                    runtime=renderer_core, store=renderer_store)
+                renderer_owner.start()
+                renderer_port = renderer_core.status().port
+                if renderer_port is None:
+                    raise RuntimeError("renderer_core_listener_failed")
             cfg = {"bind": windows_ip, "peer_pin": wsl["pin"], "wsl_ip": wsl_ip,
                 "wsl_port": core_port, "wsl_pin": wsl["pin"],
                 "ca": _win_path(ca), "cert": _win_path(edge["cert"]),
@@ -276,6 +364,13 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
                 "observation_ack": base64.b64encode(observation_ack).decode(),
                 "avatar_key": base64.b64encode(avatar_key).decode(),
                 "avatar_ack": base64.b64encode(avatar_ack).decode()}
+            if godot_executable is not None and renderer_port is not None:
+                cfg.update({"renderer_port": renderer_port,
+                    "renderer_source_key": base64.b64encode(renderer_key).decode(),
+                    "renderer_ack_key": base64.b64encode(renderer_ack).decode(),
+                    "godot_executable": _win_path(godot_executable),
+                    "godot_project": _win_path(windows_godot_project),
+                    "godot_temp": _win_path(Path(temp) / "godot-run")})
             python = str(windows_python)
             script = _win_path(windows_script)
             process = subprocess.Popen([python, script, "--windows-edge-child"],
@@ -327,6 +422,32 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
             if not result.startswith("RESULT "):
                 raise RuntimeError("windows_dispatch_failed")
             edge_result = json.loads(result[len("RESULT "):])
+            renderer_result: dict[str, object] | None = None
+            renderer_capture: dict[str, object] | None = None
+            if godot_executable is not None:
+                renderer_line = _read_line(lines, 45.0)
+                if not renderer_line.startswith("RENDERER_RESULT "):
+                    raise RuntimeError("godot_renderer_report_failed")
+                renderer_result = json.loads(renderer_line[len("RENDERER_RESULT "):])
+                if renderer_owner is None or renderer_store is None:
+                    raise RuntimeError("renderer_report_capture_unavailable")
+                deadline = time.monotonic() + 10.0
+                while renderer_owner.status()["captured"] == 0 and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                if renderer_owner.status()["captured"] != 1:
+                    raise RuntimeError("renderer_report_not_captured_by_wsl_core")
+                records = renderer_store.world_state_records(max_records=4)
+                if len(records) != 1:
+                    raise RuntimeError("renderer_report_durable_record_missing")
+                renderer_capture = records[0]
+                payload = renderer_capture.get("payload")
+                if (not isinstance(payload, dict)
+                        or payload.get("transport_authentication_principal") !=
+                            "windows-renderer-relay"
+                        or payload.get("renderer_source_independently_authenticated") is not False
+                        or payload.get("renderer_state_independently_observed") is not False
+                        or renderer_capture.get("effect_proven") is not False):
+                    raise RuntimeError("renderer_report_evidence_boundary_invalid")
             process.wait(timeout=5)
             if process.returncode != 0:
                 raise RuntimeError("windows_edge_child_failed")
@@ -337,16 +458,26 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
                 "windows_process_rss_bytes": performance.process_rss_bytes,
                 "windows_frame_time_source": "unsupported",
                 "windows_process_id_exposed": False,
+                "godot_headless": (renderer_result.get("godot_headless")
+                    if renderer_result else "not_run"),
+                "renderer_report_mtls": ("passed" if renderer_result else "not_run"),
+                "renderer_report_wsl_capture": ("passed" if renderer_capture else "not_run"),
+                "renderer_report_effect_proven": False,
+                "renderer_report_capture_temporary": renderer_result is not None,
                 "wsl_to_windows_queue": "passed" if edge_result["accepted"] else "blocked",
                 "chat_emitter": emitted["status"],
                 "renderer_effect_proven": edge_result["renderer_effect_proven"],
                 "credentials": "ephemeral test-only credentials",
-                "ephemeral_listeners_started": 2,
+                "ephemeral_listeners_started": 4 if renderer_result else 2,
                 "firewall_changed": False, "services_installed": False,
                 "persistent_host_configuration_changed": False,
                 "production_commissioning_claimed": False,
                 "host_mutation_performed": False}
     finally:
+        if renderer_owner:
+            renderer_owner.close()
+        if renderer_temp:
+            renderer_temp.cleanup()
         if sender:
             sender.close()
         if core:
@@ -364,6 +495,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--windows-edge-child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--windows-checkout", type=Path)
     parser.add_argument("--windows-python", type=Path)
+    parser.add_argument("--godot-executable", type=Path,
+        help="optionally run the Windows Godot renderer-report probe headlessly")
     args = parser.parse_args(argv)
     if args.windows_edge_child:
         try:
@@ -375,7 +508,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--windows-checkout and --windows-python are required")
     try:
         result = run(windows_checkout=args.windows_checkout,
-            windows_python=args.windows_python)
+            windows_python=args.windows_python,
+            godot_executable=args.godot_executable)
     except subprocess.CalledProcessError as exc:
         command = Path(str(exc.cmd[0])).name if exc.cmd else "command"
         result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
