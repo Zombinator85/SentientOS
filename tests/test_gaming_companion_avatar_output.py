@@ -354,3 +354,51 @@ def test_dispatch_requires_authority_callbacks_and_bounded_poll_interval():
     with pytest.raises(CompanionBridgeError, match="avatar_command_poll_interval_invalid"):
         WindowsEdgeAvatarCommandDispatchOwner(runtime=_Runtime(), receipt_verifier=lambda *_: True,
             renderer_sink=lambda *_: True, poll_interval_seconds=0)
+
+def test_uncertain_ack_retry_with_same_admission_reaches_renderer_once():
+    message, admission = verified_command()
+    bridge_receiver = CompanionBridgeReceiver(
+        source_keys={"sentientos-core": b"k" * 32},
+        expected_generations={"sentientos-core": "core-generation-1"})
+    delivered = []
+    owner = WindowsEdgeAvatarCommandDispatchOwner(runtime=_Runtime(),
+        receipt_verifier=lambda receipt_id, digest, _message:
+            (receipt_id, digest) ==
+                (admission["receipt_id"], admission["semantic_digest"]),
+        renderer_sink=lambda payload, _message:
+            delivered.append(dict(payload)) is None)
+
+    class _IndeterminateAckClient(CompanionBridgeMutualTLSClient):
+        def __init__(self):
+            self.dispatch_results = []
+
+        def send(self, encoded):
+            received = bridge_receiver.accept(encoded)
+            self.dispatch_results.append(owner.dispatch_one(received))
+            if len(self.dispatch_results) == 1:
+                raise CompanionBridgeError("test_transport_ack_uncertain")
+            return VerifiedBridgeMessage(
+                "ack-" + str(len(self.dispatch_results)), "acknowledgment",
+                "sentientos-edge", received.session_id, "edge-generation-1",
+                len(self.dispatch_results), received.created_at,
+                {"message_id": received.message_id, "disposition": "accepted"},
+                None,
+            )
+
+    client = _IndeterminateAckClient()
+    sender = MutualTLSAvatarCommandSender(
+        client=client, source_id="sentientos-core", session_id="session-1",
+        generation_id="core-generation-1", source_key=b"k" * 32,
+        admission_receipt_builder=lambda _authorization: admission)
+    try:
+        with pytest.raises(CompanionBridgeError,
+                           match="test_transport_ack_uncertain"):
+            sender.send_command(message.payload, _authorization())
+        acknowledgment = sender.send_command(message.payload, _authorization())
+        assert acknowledgment.kind == "acknowledgment"
+        assert client.dispatch_results == [True, False]
+        assert len(delivered) == 1
+        assert owner.status().last_failure == (
+            "avatar_command_admission_receipt_replayed")
+    finally:
+        sender.close()
