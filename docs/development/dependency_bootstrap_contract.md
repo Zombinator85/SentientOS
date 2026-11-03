@@ -29,8 +29,10 @@ headroom, bootstrap fails with a temporary-storage error before invoking pip.
 
 `requirements-lock.txt` is the default wheel-resolution lock.
 `requirements-src-lock.txt` is a source-resolution audit artifact, not a second
-default install. `scripts.lock install` installs one lock and the project with
-`--no-deps`.
+default install. The source lock retains hashes for both source archives and
+wheels because hosted validation installs it with pip's default wheel selection
+after the source-resolution audit. `scripts.lock install` installs one lock and
+the project with `--no-deps`.
 
 Before adding a dependency, prove it with an exact executable test. Add a minimal
 harness requirement to `requirements-codex.txt` and semantically match the `codex`
