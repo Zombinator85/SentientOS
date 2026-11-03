@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ssl
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +11,9 @@ pytestmark = pytest.mark.no_legacy_skip
 from sentientos.gaming_companion_bridge import CompanionBridgeError
 from sentientos.gaming_companion_deployment import SCHEMA_MUTUAL_TLS_REVERSE
 from sentientos.gaming_companion_edge_runtime import build_windows_edge_avatar_runtime
+from sentientos.gaming_companion_receipt_replay import (
+    SQLiteAdmissionReceiptReplayGuard,
+)
 from sentientos.gaming_companion_tls_transport import (
     BridgeGenerationCustodyRecord,
     BridgeGenerationPair,
@@ -97,3 +101,32 @@ def test_edge_runtime_factory_requires_generation_receipts_before_reading_keys(t
             renderer_sink=lambda _payload, _message: True,
         )
     assert reads == []
+
+
+def test_edge_runtime_factory_wires_optional_durable_receipt_guard(tmp_path: Path) -> None:
+    manifest = _reverse_mutual_tls_manifest()
+    manifest["repository_root"] = str(tmp_path)
+    manifest["python_executable"] = sys.executable
+    manifest["state_root"] = str(tmp_path / "runtime-state")
+    server_context, _, _ = _certificate_bundle(tmp_path)
+    pair = _generation_pair()
+    guard = SQLiteAdmissionReceiptReplayGuard(
+        tmp_path / "edge-receipt-replay.sqlite3", max_receipts=4)
+
+    owner = build_windows_edge_avatar_runtime(
+        manifest=manifest,
+        generation_pair_loader=lambda _source, _ack: pair,
+        bridge_key_reader=lambda reference: (
+            b"s" * 32 if reference == pair.source.key_reference else b"a" * 32
+        ),
+        server_tls_context_factory=lambda _ca, _cert, _key: server_context,
+        generation_receipt_verifier=lambda _digest, _record: True,
+        command_receipt_verifier=lambda _receipt, _digest, _message: True,
+        renderer_sink=lambda _payload, _message: True,
+        receipt_replay_guard=guard,
+    )
+
+    assert owner.status().state == "stopped"
+    assert owner.status().listener_port is None
+    assert owner.status().authority_effects_performed is False
+    assert owner._dispatcher._receipt_replay_guard is guard

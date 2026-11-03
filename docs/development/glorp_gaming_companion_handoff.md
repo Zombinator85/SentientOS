@@ -495,6 +495,8 @@ reported `editable_ok=true` for the `C:\SentientOS-edge` checkout. No production
 runtime is configured to use the SQLite guard; its database directory must be
 installation-owned and protected by OS access controls, and the external receipt
 verifier remains required.
+The Windows edge runtime factory now accepts the guard from its platform
+caller. No GLORP runtime currently supplies or uses a durable guard.
 
 Windows test setup exposed a defect in editable-install validation: pip's
 drive-letter `file:///C:/...` URL was misread as a POSIX path, so the runner
