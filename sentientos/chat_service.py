@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Protocol
 
-from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
+from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request
 
 if TYPE_CHECKING:
     class BaseModel:
@@ -97,6 +97,15 @@ class DevelopmentLocalChatInference:
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         identity = getattr(self._delegate.model, "active_identity", None)
         return identity.to_dict() if identity is not None else {}
+    def current_conversation_model_label(self) -> str | None:
+        identity = getattr(self._delegate.model, "active_identity", None)
+        authority_map = getattr(self._delegate, "authority_map", None)
+        resolver = getattr(authority_map, "record_for_active_identity", None)
+        if identity is None or not callable(resolver):
+            return None
+        record = resolver(identity, "local_user_chat")
+        label = getattr(record, "name", None)
+        return label if isinstance(label, str) and label else None
     def current_workload_mode(self) -> WorkloadMode:
         with self._workload_lock:
             return self._workload_mode
@@ -259,6 +268,75 @@ class PersistentConversationService:
 
     def screen_observation_configured(self) -> bool:
         return self._screen_observer is not None
+
+    def _verified_runtime_context(self, *, identity: Mapping[str, Any],
+                                  history: Any, memory: Mapping[str, Any],
+                                  session_id: str,
+                                  screen_observation: Mapping[str, Any] | None) -> dict[str, Any]:
+        """Build small user-facing facts from live, already-owned runtime state."""
+        model = {key: identity[key] for key in (
+            "engine", "semantic_artifact_identity", "posture", "fallback")
+            if key in identity and isinstance(identity[key], (str, bool))}
+        label_resolver = getattr(self._inference, "current_conversation_model_label", None)
+        if callable(label_resolver):
+            try:
+                label = label_resolver()
+            except Exception:
+                label = None
+            if isinstance(label, str) and label:
+                model["configured_candidate_label"] = label
+
+        try:
+            workload = self.current_workload_state()
+            workload_context = {key: workload[key] for key in (
+                "mode", "effective_mode", "mode_source", "observation_status")
+                if key in workload and isinstance(workload[key], str)}
+            observation_status = workload.get("observation_status")
+            if observation_status == "available" and type(workload.get("game_foreground")) is bool:
+                workload_context["game_foreground"] = workload["game_foreground"]
+            elif workload.get("mode_source") == "local_development_operator_selection":
+                workload_context["foreground_game_observation"] = "not_observed"
+        except Exception:
+            workload_context = {"availability": "unavailable"}
+
+        try:
+            avatar = self.avatar_output_state(session_id)
+            avatar_context: dict[str, object] = {
+                key: avatar.get(key) is True for key in ("configured", "enabled")}
+        except Exception:
+            avatar_context = {"configured": False, "enabled": False,
+                              "status": "unavailable"}
+        try:
+            speech = self.speech_output_state(session_id)
+            speech_context: dict[str, object] = {
+                key: speech.get(key) is True
+                for key in ("configured", "enabled", "backend_available")}
+        except Exception:
+            speech_context = {"configured": False, "enabled": False,
+                              "backend_available": False, "status": "unavailable"}
+
+        return {
+            "system": {"name": "SentientOS", "runtime_posture": identity.get("posture", "unknown")},
+            "assistant_role": "the active local model providing conversation inside SentientOS",
+            "active_model": model,
+            "workload": workload_context,
+            "capabilities": {
+                "local_conversation": "available",
+                "conversation_history": {
+                    "persisted_locally": True,
+                    "prior_turns_included": len(history.turns),
+                    "selected_history_truncated": bool(history.truncated),
+                },
+                "retrieved_memories_included": len(memory.get("memories", [])),
+                "godot_avatar_output": avatar_context,
+                "local_speech_output": speech_context,
+                "screen_observation": {
+                    "configured": self._screen_observer is not None,
+                    "included_this_turn": screen_observation is not None,
+                    "requires_per_message_opt_in": True,
+                },
+            },
+        }
 
     def avatar_output_state(self, session_id: str | None) -> dict[str, Any]:
         if self._avatar_output is None:
@@ -710,8 +788,12 @@ class PersistentConversationService:
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
+        runtime_context = self._verified_runtime_context(
+            identity=identity_payload, history=history, memory=memory,
+            session_id=session["session_id"], screen_observation=screen_observation)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
+            runtime_context=runtime_context,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
             compact_history=gaming_development_turn)
@@ -730,8 +812,12 @@ class PersistentConversationService:
                 history = self.sessions.reconstruct(
                     session["session_id"], budget_chars=history_budget,
                     exclude_turn_id=user_turn["turn_id"])
+                runtime_context = self._verified_runtime_context(
+                    identity=identity_payload, history=history, memory=memory,
+                    session_id=session["session_id"], screen_observation=screen_observation)
                 prompt = assemble_local_chat_context(history=history,
                     memory_snapshot=memory, current_message=message,
+                    runtime_context=runtime_context,
                     verified_prior_runtime_lineage=predecessor_runtime_lineage,
                     screen_observation=screen_observation,
                     compact_history=True)
@@ -1382,6 +1468,35 @@ async def list_sessions() -> list[dict[str, Any]]:
             detail="conversation_session_listing_unavailable_or_degraded") from exc
 
 
+@APP.get("/sessions/{session_id}/turns")
+async def inspect_session_turns(session_id: str, request: Request) -> dict[str, Any]:
+    """Return the bounded, display-safe transcript for one local chat session."""
+    client_host = getattr(getattr(request, "client", None), "host", None)
+    try:
+        local_client = isinstance(client_host, str) and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        raise HTTPException(status_code=403,
+            detail="conversation_transcript_local_access_required")
+    try:
+        session = _get_conversation_service().sessions.load(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="conversation_session_not_found") from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503,
+            detail="conversation_session_unavailable_or_invalid") from exc
+    turns = session["turns"]
+    visible_turns = turns[-100:]
+    return {
+        "session_id": session_id,
+        "total_turns": len(turns),
+        "truncated": len(visible_turns) < len(turns),
+        "turns": [{key: turn[key] for key in ("turn_id", "sequence", "role", "timestamp", "text")}
+                  for turn in visible_turns],
+    }
+
+
 @APP.get("/sessions/{session_id}")
 async def inspect_session(session_id: str) -> dict[str, Any]:
     try:
@@ -1413,6 +1528,12 @@ async def root_page() -> HTMLResponse:
             <style>
                 body { font-family: Arial, sans-serif; margin: 0; padding: 2rem; background: #111; color: #f5f5f5; }
                 #chat { max-width: 640px; margin: 0 auto; }
+                #conversation { max-height: 48vh; overflow-y: auto; margin: 1rem 0; }
+                .turn { margin: 0.75rem 0; padding: 0.8rem 1rem; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+                .turn[data-role="user"] { background: #183047; }
+                .turn[data-role="assistant"] { background: #1e1e1e; }
+                .turn-label { display: block; margin-bottom: 0.35rem; color: #aaa; font-size: 0.85rem; }
+                #conversation-status { color: #aaa; }
                 #boot-ceremony { margin-bottom: 2rem; padding: 1rem; background: #1b1b1b; border-radius: 8px; }
                 #boot-ceremony h2 { margin-top: 0; }
                 .boot-entry { margin: 0.5rem 0; padding: 0.5rem; border-left: 4px solid #444; background: #0f0f0f; border-radius: 4px; }
@@ -1462,6 +1583,9 @@ async def root_page() -> HTMLResponse:
                     <span id="speech-output-status" role="status">Off; local system voice only, no cloud TTS.</span>
                 </section>
                 <textarea id="message" placeholder="Type your message..."></textarea>
+                <section id="conversation" aria-label="Conversation transcript" aria-live="polite">
+                    <p id="conversation-status">Your conversation will appear here.</p>
+                </section>
                 <section id="screen-observation-controls" aria-label="Screen observation">
                     <label for="observe-screen"><input id="observe-screen" type="checkbox" />
                         Include the current consented game screen in this message</label>
@@ -1544,6 +1668,7 @@ async def root_page() -> HTMLResponse:
                     localStorage.removeItem(pendingKey);
                     responseTextEl.textContent = data.response;
                     responseEl.hidden = false;
+                    await refreshConversationTranscript();
                     refreshAvatarOutput();
                 }
                 async function refreshScreenObservationStatus() {
@@ -1571,6 +1696,49 @@ async def root_page() -> HTMLResponse:
                     sessionId = (await created.json()).session_id;
                     localStorage.setItem('sentientos_session_id', sessionId);
                     return sessionId;
+                }
+                async function refreshConversationTranscript() {
+                    const container = document.getElementById('conversation');
+                    const sessionId = localStorage.getItem('sentientos_session_id');
+                    if (!sessionId) return;
+                    try {
+                        const response = await fetch('/sessions/' + encodeURIComponent(sessionId) + '/turns');
+                        if (!response.ok) throw new Error('transcript_unavailable');
+                        const data = await response.json();
+                        container.replaceChildren();
+                        if (data.truncated) {
+                            const notice = document.createElement('p');
+                            notice.id = 'conversation-status';
+                            notice.textContent = 'Showing the latest ' + data.turns.length
+                                + ' of ' + data.total_turns + ' turns.';
+                            container.appendChild(notice);
+                        }
+                        if (!data.turns.length) {
+                            const empty = document.createElement('p');
+                            empty.id = 'conversation-status';
+                            empty.textContent = 'Start a message to begin this conversation.';
+                            container.appendChild(empty);
+                        }
+                        data.turns.forEach((turn) => {
+                            const entry = document.createElement('article');
+                            entry.className = 'turn';
+                            entry.dataset.role = turn.role;
+                            const label = document.createElement('strong');
+                            label.className = 'turn-label';
+                            label.textContent = turn.role === 'user' ? 'You' : 'SentientOS';
+                            const content = document.createElement('div');
+                            content.textContent = turn.text;
+                            entry.append(label, content);
+                            container.appendChild(entry);
+                        });
+                        container.scrollTop = container.scrollHeight;
+                    } catch (_) {
+                        container.replaceChildren();
+                        const unavailable = document.createElement('p');
+                        unavailable.id = 'conversation-status';
+                        unavailable.textContent = 'Saved conversation transcript is unavailable.';
+                        container.appendChild(unavailable);
+                    }
                 }
                 async function refreshAvatarOutput(preserveStatus = false) {
                     const control = document.getElementById('avatar-output-enabled');
@@ -1804,6 +1972,7 @@ async def root_page() -> HTMLResponse:
                     }
                 });
                 refreshBootFeed();
+                refreshConversationTranscript();
                 refreshWorkloadMode();
                 refreshAvatarOutput();
                 refreshSpeechOutput();
