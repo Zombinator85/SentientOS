@@ -4,8 +4,9 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3395 are merged;
-`main` is `1e92f41e2bd29f23c71ff6654f66a5df3d12c3d9`. The previously reported
+**Current software status (2026-11-03):** PRs #3392 through #3405 are merged;
+PR #3405 advanced `main` to `8b454976` with the failure-digest test isolation
+fix. The previously reported
 local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
 main commit. The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
@@ -19,6 +20,10 @@ represented as completed by cloud fixtures. With Blender and Godot available,
 the exact PR #3396 candidate passed 264 tests (0 failures, 0 errors, 23 skips).
 The acceptance report distinguishes executed software scenarios from
 target-host validation and production commissioning.
+
+The current GLORP campaign branch adds a separate-process Windows/WSL bridge
+smoke. Its exact run and scope are recorded below; it does not replace the
+production custody, authority, renderer, or gameplay checks.
 
 **Campaign continuation update (2026-11-02; worktree parent
 `c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
@@ -203,9 +208,15 @@ sequence remains on the GLORP checklist.
   authenticated, loopback-only TCP listener/client, and
   `sentientos.foreground_game_bridge` supplies a Windows publisher and automatic
   chat detector. Focused tests exercise authenticated localhost delivery and
-  detector-to-inference lineage. The production chat composition can own that
-  detector, but no coordinated split-host deployment has established
-  Windows-to-WSL reachability. Source-key custody, durable generation rotation,
+  detector-to-inference lineage. On GLORP, the separate-process smoke at
+  source `198a8dd2249890e745f64fd8df0ad19aa6a7cbc3` used separate native Windows
+  and WSL2 processes and passed both mTLS directions over the current private
+  WSL route. A Windows fixture observation reached the WSL listener; an
+  authorized fixture chat output reached the Windows edge dispatch queue. The
+  smoke used temporary test identities and admission fixtures, not installed
+  custody or production authority. It proves transport and queue delivery for
+  this run, not Godot rendering, live observation, durable rotation, firewall
+  policy, or production startup. Source-key custody, durable generation rotation,
   and startup generation issuance remain external. Queue state and sequence
   high-water marks are process-local, so every restart needs newly issued source
   generations; uncertain deliveries are not replayed. Both in-process listener
@@ -347,17 +358,47 @@ headless probe checks an authored wave clip and expression behavior.
 
 This scenario does not establish real Windows capture, Windows-to-WSL
 connectivity, production model execution, game performance, or hardware
-telemetry. The loopback bridge authenticates but does not encrypt. Cross-host
-deployment uses the separate TLS 1.2+ mTLS transport, which has local
-certificate-fixture coverage but no Windows/WSL reachability result.
+telemetry. The loopback bridge authenticates but does not encrypt. The separate
+cross-host smoke below exercises the TLS 1.2+ mTLS transport on Windows and WSL2
+with temporary test identities; it does not establish production custody or
+gameplay behavior.
+
+## GLORP Windows/WSL cross-host smoke
+
+The opt-in command `scripts.gaming_companion_cross_host_smoke` starts one
+temporary Windows edge listener and the real WSL core listener on the private
+WSL route. It requires clean Windows and WSL checkouts at the same Git SHA, plus
+Python 3.11 environments with `requirements-codex.txt` installed. Example:
+
+```bash
+.venv/bin/python -m scripts.gaming_companion_cross_host_smoke \
+  --windows-checkout /mnt/c/SentientOS-edge \
+  --windows-python /mnt/c/SentientOS-edge/.venv/Scripts/python.exe
+```
+
+The command creates temporary TLS certificates and HMAC keys, passes the test
+keys to the Windows child over stdin, then removes the temporary directory. It
+opens two ephemeral listeners but changes no firewall rule, service, startup
+setting, or persistent host configuration. The admission callback is a test
+fixture, and the Windows sink is an in-memory queue; a pass does not prove a
+frame rendered or establish production commissioning.
+
+On 2026-11-03, source `198a8dd2249890e745f64fd8df0ad19aa6a7cbc3` passed on GLORP:
+`windows_to_wsl=passed`, `wsl_to_windows_queue=passed`, and
+`renderer_effect_proven=false`. This is real cross-process transport on the
+target host with fixture payloads and test identities. Windows/WSL production
+custody, generation issuance, firewall policy, OS-process supervision under
+production authority, Godot rendering, audio, game observation, and gameplay
+impact remain unverified.
 
 ## GLORP acceptance sequence
 
-Do not start until the target Windows/WSL host has been explicitly provisioned
-and the current installation/runtime/model/serving/process-generation receipts
-exist. No such target-host authority or receipts are available in this cloud
-workspace. The following is the exact current sequence that the source supports;
-the unresolved split-network step prevents calling it a complete deployment:
+Do not start production commissioning until the required installation,
+runtime/model/serving, and process-generation receipts exist. Those authority
+records are still absent. The bounded cross-host smoke above is an engineering
+transport check and is not a substitute. The following is the exact current
+sequence that the source supports; unresolved production custody, authority,
+and firewall configuration prevent calling it a complete deployment:
 
 1. In the provisioned WSL repository environment, use the actual verified
    values from the active installation and process-generation records with the
