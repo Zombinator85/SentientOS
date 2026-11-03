@@ -285,7 +285,10 @@ def test_development_automatic_mode_switches_profiles_from_fresh_observations():
 
     inference.set_workload_mode("automatic", ("Cronos-Win64-Shipping.exe",))
     assert invoker.model is gaming
-    assert inference.current_workload_state()["mode_source"] == "foreground_allowlist_match"
+    active_state = inference.current_workload_state()
+    assert active_state["mode_source"] == "foreground_allowlist_match"
+    assert active_state["observation_status"] == "available"
+    assert active_state["game_foreground"] is True
     detector.foreground = False
     state = inference.current_workload_state()
     assert state["mode"] == "automatic"
