@@ -312,6 +312,63 @@ class _OllamaBackend(_ModelBackend):
             except OSError:
                 return False
 
+    def is_resident(self) -> bool:
+        """Observe whether this exact pinned model is currently loaded by Ollama."""
+        request = urllib.request.Request(self._base + "/api/ps", method="GET")
+        try:
+            with self._opener.open(request, timeout=min(self._timeout, 5.0)) as response:
+                raw = response.read(256 * 1024 + 1)
+            if len(raw) > 256 * 1024:
+                raise ModelLoadError("ollama_process_list_oversized")
+            payload = json.loads(raw.decode("utf-8"))
+        except ModelLoadError:
+            raise
+        except Exception as exc:
+            raise ModelLoadError("ollama_process_list_unavailable") from exc
+        models = payload.get("models")
+        if not isinstance(models, list):
+            raise ModelLoadError("ollama_process_list_invalid")
+        return any(isinstance(entry, dict) and entry.get("name") == self._model
+            for entry in models)
+
+    def release_residency(self) -> dict[str, Any]:
+        """Ask the pinned local Ollama model to unload without generating tokens."""
+        body = json.dumps({"model": self._model, "prompt": "", "stream": False,
+                           "keep_alive": "0"}, separators=(",", ":")).encode("utf-8")
+        parsed = urllib.parse.urlsplit(self._base)
+        host = parsed.hostname
+        if host is None:
+            raise ModelLoadError("ollama_loopback_address_required")
+        connection = http.client.HTTPConnection(host, parsed.port,
+                                                timeout=min(self._timeout, 10.0))
+        with self._active_request_lock:
+            if self._active_connection is not None:
+                raise ModelLoadError("ollama_request_still_active")
+            self._active_connection = connection
+        try:
+            connection.request("POST", "/api/generate", body=body,
+                headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            raw = response.read(64 * 1024 + 1)
+            if len(raw) > 64 * 1024:
+                raise ModelLoadError("ollama_unload_response_oversized")
+            payload = json.loads(raw.decode("utf-8"))
+        except ModelLoadError:
+            raise
+        except Exception as exc:
+            raise ModelLoadError("ollama_residency_release_failed") from exc
+        finally:
+            connection.close()
+            with self._active_request_lock:
+                if self._active_connection is connection:
+                    self._active_connection = None
+        if (payload.get("done") is not True
+                or payload.get("done_reason") not in {"unload", None}
+                or payload.get("response", "") != ""):
+            raise ModelLoadError("ollama_residency_release_unconfirmed")
+        return {"backend": "ollama", "model": self._model,
+            "result": "unload_requested", "done_reason": payload.get("done_reason")}
+
 
 class _TransformersBackend(_ModelBackend):
     engine = "transformers"
@@ -696,6 +753,20 @@ class LocalModel:
         """Delegate cancellation to a backend that supports terminating active work."""
         cancel = getattr(self.backend, "cancel_pending_generation", None)
         return bool(cancel()) if callable(cancel) else False
+
+    def release_residency(self) -> dict[str, Any]:
+        """Release backend memory; callers must first obtain governed admission."""
+        release = getattr(self.backend, "release_residency", None)
+        if not callable(release):
+            raise ModelLoadError("model_residency_release_unavailable")
+        return dict(release())
+
+    def is_resident(self) -> bool:
+        """Return exact-backend residency evidence when the engine exposes it."""
+        observer = getattr(self.backend, "is_resident", None)
+        if not callable(observer):
+            raise ModelLoadError("model_residency_observation_unavailable")
+        return bool(observer())
 
     @classmethod
     def _initialise_backend(

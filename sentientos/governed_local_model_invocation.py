@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import json, math, os, time, concurrent.futures, threading
+import json, math, os, time, concurrent.futures, threading, uuid
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, cast
 
-from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
+from .control_plane_kernel import (AuthorityClass, ControlActionRequest,
+    ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel)
 from .local_model_authority import (LocalModelAuthorityMap, LocalModelAuthorityRecord,
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE, ROOTLESS_EXPERIMENTAL_PURPOSE,
     atomic_write_json, digest_payload, validate_authority_map)
@@ -364,6 +365,38 @@ class LocalModelInvocationReceipt:
         return p
 
 
+@dataclass(frozen=True)
+class LocalModelResidencyReleaseReceipt:
+    correlation_id: str
+    model_identity_digest: str
+    reason_code: str
+    status: str
+    reason_codes: tuple[str, ...]
+    admission_decision_ref: str
+    backend_result: Mapping[str, Any] | None
+    observed_at: str
+
+    def semantic_payload(self) -> dict[str, Any]:
+        return {"schema_version": "sentientos.local_model_residency_release:v1",
+            "correlation_id": self.correlation_id,
+            "model_identity_digest": self.model_identity_digest,
+            "reason_code": self.reason_code, "status": self.status,
+            "reason_codes": list(self.reason_codes),
+            "admission_decision_ref": self.admission_decision_ref,
+            "backend_result": (dict(self.backend_result)
+                if self.backend_result is not None else None),
+            "observed_at": self.observed_at}
+
+    @property
+    def receipt_digest(self) -> str:
+        return digest_payload(self.semantic_payload())
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = self.semantic_payload()
+        payload["receipt_digest"] = self.receipt_digest
+        return payload
+
+
 def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     schema = payload.get("schema_version")
@@ -451,11 +484,94 @@ class LocalModelPostEffectCustodyError(RuntimeError):
 
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock()
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock(); self._active_state_lock = threading.Lock(); self._active_release_event: threading.Event | None = None
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
         self._evidence_sink = sink
+
+    def release_model_residency(self, *, reason_code: str = "gaming_mode_entered",
+                                 correlation_id: str | None = None
+                                 ) -> LocalModelResidencyReleaseReceipt:
+        """Admit and audit a local model release before asking Ollama to unload."""
+        identity = getattr(self.model, "active_identity", None)
+        identity_digest = digest_payload(identity.to_dict()) if identity is not None else "0" * 64
+        correlation = correlation_id or f"gaming-release:{uuid.uuid4().hex}"
+        request = ControlActionRequest(
+            action_kind="local_model_resource_release",
+            authority_class=AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE,
+            actor="local_development_workload_controller",
+            target_subsystem="local_model_residency",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"correlation_id": correlation,
+                "purpose": "local_model_resource_release",
+                "model_identity_digest": identity_digest,
+                "reason_code": reason_code})
+        decision = self.kernel.admit(request)
+        status = "denied"
+        reasons: list[str] = list(decision.reason_codes)
+        backend_result: Mapping[str, Any] | None = None
+        lock_acquired = False
+        if decision.allowed:
+            if identity is None or getattr(identity, "engine", None) != "ollama":
+                status = "not_applicable"
+                reasons = ["ollama_residency_release_not_applicable"]
+            elif self.authority_map.record_for_active_identity(identity, "local_user_chat") is None:
+                status = "denied"
+                reasons = ["active_model_chat_authority_missing"]
+            else:
+                try:
+                    resident = self.model.is_resident()
+                except Exception as exc:
+                    resident = None
+                    status = "release_failed"
+                    reasons = [f"residency_observation_failed:{exc.__class__.__name__}"]
+                if resident is False:
+                    status = "already_unloaded"
+                    reasons = ["local_model_already_unloaded"]
+                elif resident is True:
+                    lock_acquired = self._active_invocation_lock.acquire(blocking=False)
+                    if not lock_acquired:
+                        with self._active_state_lock:
+                            active_release_event = self._active_release_event
+                            if active_release_event is not None:
+                                active_release_event.set()
+                        cancel = getattr(self.model, "cancel_pending_generation", None)
+                        if callable(cancel):
+                            try:
+                                cancel()
+                            except Exception:
+                                pass
+                        lock_acquired = self._active_invocation_lock.acquire(timeout=1.0)
+                    if not lock_acquired:
+                        status = "deferred"
+                        reasons = ["active_inference_did_not_quiesce"]
+                    else:
+                        try:
+                            backend_result = self.model.release_residency()
+                            still_resident = self.model.is_resident()
+                            if still_resident:
+                                status = "release_unconfirmed"
+                                reasons = ["model_remained_resident_after_release"]
+                            else:
+                                status = "released"
+                                reasons = ["local_model_residency_released"]
+                        except Exception as exc:
+                            status = "release_failed"
+                            reasons = [f"residency_release_failed:{exc.__class__.__name__}"]
+                        finally:
+                            self._active_invocation_lock.release()
+        receipt = LocalModelResidencyReleaseReceipt(
+            correlation_id=correlation, model_identity_digest=identity_digest,
+            reason_code=reason_code, status=status, reason_codes=tuple(reasons),
+            admission_decision_ref=decision.admission_decision_ref,
+            backend_result=backend_result, observed_at=datetime.now(timezone.utc).isoformat())
+        receipt_path = self.runtime_root / "resource_release_receipts" / (
+            uuid.uuid5(uuid.NAMESPACE_URL, correlation).hex + ".json")
+        receipt_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(receipt_path.parent, 0o700)
+        atomic_write_json(receipt_path, receipt.to_dict())
+        return receipt
 
     def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None, structured_output_schema: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
         identity = getattr(self.model, "active_identity", None)
@@ -490,6 +606,7 @@ class GovernedLocalModelInvoker:
             False if resource_context is not None else None)
         generated_output: str | None = None
         inference_attempted = threading.Event()
+        active_release_event: threading.Event | None = None
         record = self._record_for(request.model_id)
         ok, map_reasons = validate_authority_map(self.authority_map.to_dict())
         if not ok: reasons += ["authority_map_invalid", *map_reasons]
@@ -615,6 +732,9 @@ class GovernedLocalModelInvoker:
                             backend_entered = True
                         if not self._active_invocation_lock.acquire(blocking=False):
                             raise RuntimeError("model_invocation_already_active")
+                        active_release_event = threading.Event()
+                        with self._active_state_lock:
+                            self._active_release_event = active_release_event
                         lock_release_guard = threading.Lock()
                         lock_released = False
                         def _release_invocation_lock() -> None:
@@ -652,6 +772,9 @@ class GovernedLocalModelInvoker:
                             future = executor.submit(_call_model)
                         except Exception:
                             _release_invocation_lock()
+                            with self._active_state_lock:
+                                if self._active_release_event is active_release_event:
+                                    self._active_release_event = None
                             raise
                         future.add_done_callback(lambda _future: _release_invocation_lock())
                         try:
@@ -678,6 +801,9 @@ class GovernedLocalModelInvoker:
                         finally:
                             if not shutdown_without_wait:
                                 executor.shutdown(wait=True, cancel_futures=True)
+                            with self._active_state_lock:
+                                if self._active_release_event is active_release_event:
+                                    self._active_release_event = None
                         if backend_completion is not None:
                             if not validate_backend_completion_observation(backend_completion):
                                 raise ValueError("backend_completion_observation_invalid")
@@ -698,7 +824,13 @@ class GovernedLocalModelInvoker:
                         else: status = "admitted_simulation" if record and record.engine in {"null", "echo"} else "admitted_completed"
                     except TimeoutError: status = "timeout"; reasons.append("timeout")
                     except GovernedLocalModelResourceError as exc: status = "resource_custody_failure"; reasons.append("resource_transition:" + str(exc).split(":", 1)[0])
-                    except Exception as exc: status = "backend_failure"; reasons.append(f"backend_failure:{exc.__class__.__name__}")
+                    except Exception as exc:
+                        if active_release_event is not None and active_release_event.is_set():
+                            status = "cancelled"
+                            reasons.append("cancelled_for_workload_transition")
+                        else:
+                            status = "backend_failure"
+                            reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = inference_attempted.is_set()
         receipt_output = generated_output if generated_output is not None else output

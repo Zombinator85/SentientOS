@@ -46,6 +46,7 @@ class AuthorityClass(str, Enum):
     DAEMON_RESTART = "daemon_restart"
     PROPOSAL_EVALUATION = "proposal_evaluation"
     LOCAL_MODEL_INFERENCE = "local_model_inference"
+    LOCAL_MODEL_RESOURCE_RELEASE = "local_model_resource_release"
     PROPOSAL_ADOPTION = "proposal_adoption"
     MANIFEST_OR_IDENTITY_MUTATION = "manifest_or_identity_mutation"
     FEDERATED_CONTROL = "federated_control"
@@ -530,6 +531,7 @@ class ControlPlaneKernel:
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
             AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
             AuthorityClass.LOCAL_MODEL_INFERENCE: "local_model_inference",
+            AuthorityClass.LOCAL_MODEL_RESOURCE_RELEASE: "local_model_resource_release",
         }
         action_class = action_map.get(request.authority_class)
         if action_class is None:

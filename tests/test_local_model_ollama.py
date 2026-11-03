@@ -38,6 +38,8 @@ class _Opener:
         self.requests.append(request)
         if request.full_url.endswith("/api/tags"):
             return _Response({"models": [{"name": "qwen3:8b", "digest": self.digest}]})
+        if request.full_url.endswith("/api/ps"):
+            return _Response({"models": [{"name": "qwen3:8b"}]})
         return _Response({"done": True, "response": "A real local answer."})
 
 
@@ -57,6 +59,9 @@ class _HTTPConnection:
         self.body = body
         type(self).last_body = body
     def getresponse(self):
+        request = json.loads(self.body)
+        if request.get("prompt") == "" and request.get("keep_alive") == "0":
+            return _HTTPResponse({"done": True, "response": "", "done_reason": "unload"})
         return _HTTPResponse({"done": True, "response": "A real local answer.",
             "total_duration": 123, "load_duration": 23,
             "prompt_eval_duration": 34, "eval_duration": 56,
@@ -114,6 +119,14 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert completion["load_duration_ns"] == 23
     assert completion["completion_tokens"] == 7
     assert validate_backend_completion_observation(completion)
+    assert backend.is_resident() is True
+
+    released = backend.release_residency()
+    assert released == {"backend": "ollama", "model": "qwen3:8b",
+        "result": "unload_requested", "done_reason": "unload"}
+    unload_request = json.loads(_HTTPConnection.last_body)
+    assert unload_request["prompt"] == ""
+    assert unload_request["keep_alive"] == "0"
 
     backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "0"})
     assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "0"
