@@ -30,6 +30,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
+from avatar_state import AvatarStateEmitter
 from sentientos.avatar_renderer_report_ingress import (
     RendererReportCaptureOwner,
     RendererReportEvidenceStore,
@@ -39,6 +40,7 @@ from sentientos.gaming_companion_avatar_output import (
     BridgeChatAvatarOutputEmitter,
     MutualTLSAvatarCommandSender,
     WindowsEdgeAvatarCommandDispatchOwner,
+    WindowsGodotAvatarStateQueue,
 )
 from sentientos.game_performance_bridge import (
     GamePerformanceBridgeDetector,
@@ -174,8 +176,14 @@ def _windows_child() -> int:
     client = None
     renderer_client = None
     relay = None
+    state_queue = None
+    state_path: Path | None = None
     try:
         port = runtime.start()
+        if cfg.get("godot_executable"):
+            state_path = Path(cfg["godot_temp"]) / "avatar_state.json"
+            state_queue = WindowsGodotAvatarStateQueue(
+                state_emitter=AvatarStateEmitter(state_path))
         print(f"READY {port}", flush=True)
         client = CompanionBridgeMutualTLSClient(address=cfg["wsl_ip"],
             port=cfg["wsl_port"], server_hostname="wsl-core.test",
@@ -195,8 +203,10 @@ def _windows_child() -> int:
         delivered: list[dict[str, object]] = []
 
         def render(payload: Mapping[str, object],
-                   _message: VerifiedBridgeMessage) -> bool:
+                   message: VerifiedBridgeMessage) -> bool:
             delivered.append(dict(payload))
+            if state_queue is not None:
+                return state_queue.enqueue(payload, message)
             return True
 
         owner = WindowsEdgeAvatarCommandDispatchOwner(runtime=runtime,
@@ -210,6 +220,17 @@ def _windows_child() -> int:
         if not accepted or not delivered:
             return 2
         if cfg.get("godot_executable"):
+            if state_queue is None or state_path is None or state_queue.accepted_count != 1:
+                raise RuntimeError("godot_avatar_state_queue_rejected")
+            queued_state = json.loads(state_path.read_text(encoding="utf-8"))
+            metadata = queued_state.get("metadata")
+            if (not isinstance(metadata, dict)
+                    or metadata.get("session_id") != "cross-host-test"
+                    or metadata.get("turn_id") != "smoke-turn"
+                    or metadata.get("workload_mode") != "gaming"
+                    or metadata.get("output_mode") != "chat_response_visual_only"
+                    or queued_state.get("workload_mode") != "gaming"):
+                raise RuntimeError("godot_avatar_state_lineage_invalid")
             temp_root = Path(cfg["godot_temp"])
             temp_root.mkdir(parents=True, exist_ok=True)
             project = temp_root / "godot_avatar_demo"
@@ -250,7 +271,8 @@ def _windows_child() -> int:
                 Path(environment[name]).mkdir(parents=True, exist_ok=True)
             godot = subprocess.run([cfg["godot_executable"], "--headless",
                 "--path", str(project), "--script",
-                "res://tests/renderer_report_probe.gd"], capture_output=True,
+                "res://tests/renderer_report_probe.gd", "--",
+                json.dumps(queued_state, separators=(",", ":"))], capture_output=True,
                 text=True, timeout=30, env=environment, check=False)
             if godot.returncode != 0 or "godot_renderer_report_probe_passed" not in godot.stdout:
                 raise RuntimeError("godot_renderer_report_probe_failed")
@@ -259,8 +281,21 @@ def _windows_child() -> int:
                 time.sleep(0.02)
             if relay.status().forwarded != 1:
                 raise RuntimeError("renderer_report_mtls_forward_failed")
+            report_line = next((line for line in godot.stdout.splitlines()
+                if line.startswith("sentientos_renderer_report_json:")), None)
+            if report_line is None:
+                raise RuntimeError("godot_renderer_report_missing")
+            report = json.loads(report_line.split(":", 1)[1])
+            if (report.get("session_id") != metadata["session_id"]
+                    or report.get("turn_id") != metadata["turn_id"]
+                    or report.get("output_digest") != metadata["output_digest"]
+                    or report.get("output_mode") != metadata["output_mode"]
+                    or report.get("commanded_state", {}).get("workload_mode") != "gaming"):
+                raise RuntimeError("godot_renderer_command_lineage_mismatch")
             print("RENDERER_RESULT " + json.dumps({"godot_headless": "passed",
-                "relay_forwarded": 1, "renderer_effect_proven": False}), flush=True)
+                "relay_forwarded": 1, "avatar_state_queue": "accepted",
+                "command_lineage": "verified", "workload_mode": "gaming",
+                "renderer_effect_proven": False}), flush=True)
         return 0
     except Exception as exc:
         print("ERROR " + type(exc).__name__, flush=True)
@@ -466,6 +501,12 @@ def run(*, windows_checkout: Path, windows_python: Path,
                 "windows_frame_time_source": "unsupported",
                 "windows_process_id_exposed": False,
                 "godot_headless": (renderer_result.get("godot_headless")
+                    if renderer_result else "not_run"),
+                "godot_avatar_state_queue": (renderer_result.get("avatar_state_queue")
+                    if renderer_result else "not_run"),
+                "godot_command_lineage": (renderer_result.get("command_lineage")
+                    if renderer_result else "not_run"),
+                "godot_workload_mode": (renderer_result.get("workload_mode")
                     if renderer_result else "not_run"),
                 "renderer_report_mtls": ("passed" if renderer_result else "not_run"),
                 "renderer_report_wsl_capture": ("passed" if renderer_capture else "not_run"),

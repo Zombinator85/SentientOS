@@ -70,13 +70,16 @@ class AvatarState:
         }
         if self.metadata:
             payload["metadata"] = dict(self.metadata)
+            workload_mode = self.metadata.get("workload_mode")
+            if isinstance(workload_mode, str) and workload_mode in {"normal", "gaming"}:
+                payload["workload_mode"] = workload_mode
         return payload
 
 
 def resolve_mode(mode: Optional[str] = None) -> str:
     """Resolve the current runtime mode for avatar emission."""
 
-    return mode or os.getenv("SENTIENTOS_MODE", SENTIENTOS_MODE)
+    return mode or os.getenv("SENTIENTOS_MODE") or SENTIENTOS_MODE or "DEFAULT"
 
 
 class AvatarStateEmitter:
