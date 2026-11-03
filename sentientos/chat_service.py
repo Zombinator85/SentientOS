@@ -206,6 +206,19 @@ class DevelopmentLocalChatInference:
         if release is not None:
             state["residency_release"] = release
         return state
+    def reconcile_workload_state(self) -> dict[str, Any]:
+        """Apply automatic profile transitions observed by the local UI poll."""
+        state = self.current_workload_state()
+        if state["mode"] != "automatic":
+            return state
+        with self._workload_lock:
+            # A concurrent operator mode change wins over this stale observation.
+            if self._workload_mode != "automatic":
+                return self.current_workload_state()
+            self._select_profile_locked(state["effective_mode"])
+            if self._residency_release is not None:
+                state["residency_release"] = dict(self._residency_release)
+        return state
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> str:
         selected = GamingWorkloadPolicy.validate_mode(mode)
@@ -393,6 +406,12 @@ class PersistentConversationService:
         if not callable(getter):
             raise RuntimeError("chat_workload_mode_unavailable")
         return dict(getter())
+
+    def reconcile_workload_state(self) -> dict[str, Any]:
+        reconciler = getattr(self._inference, "reconcile_workload_state", None)
+        if callable(reconciler):
+            return dict(reconciler())
+        return self.current_workload_state()
 
     def screen_observation_configured(self) -> bool:
         return self._screen_observer is not None
@@ -1547,6 +1566,15 @@ async def workload_mode_endpoint() -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
 
 
+@APP.post("/workload-mode/reconcile")
+async def reconcile_workload_mode_endpoint() -> dict[str, Any]:
+    """Reconcile an automatic game transition and release the prior profile if needed."""
+    try:
+        return _get_conversation_service().reconcile_workload_state()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
+
+
 @APP.post("/workload-mode")
 async def set_workload_mode_endpoint(request: ChatWorkloadModeRequest) -> dict[str, Any]:
     try:
@@ -2071,7 +2099,7 @@ async def root_page() -> HTMLResponse:
                     const names = document.getElementById('game-process-names');
                     const status = document.getElementById('workload-status');
                     try {
-                        const response = await fetch('/workload-mode');
+                        const response = await fetch('/workload-mode/reconcile', { method: 'POST' });
                         if (!response.ok) throw new Error('unavailable');
                         let data = await response.json();
                         if (control.value !== data.mode) {
