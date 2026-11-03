@@ -52,6 +52,20 @@ class CancellableBlockingModel(FakeModel):
         self.cancelled.set()
 
 
+class NonCancellableBlockingModel(FakeModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = Event()
+
+    def generate(self, prompt: str, **kwargs: object) -> str:
+        self.calls += 1
+        self.release.wait(timeout=3)
+        return "released"
+
+    def cancel_pending_generation(self) -> bool:
+        return False
+
+
 def _invoker(tmp_path: Path, text: str = "ok"):
     model_path = tmp_path / "m.gguf"; model_path.write_bytes(b"bytes")
     cfg = ModelConfig(candidates=[ModelCandidate(path=model_path, engine="llama_cpp", name="m")], generation=GenerationConfig(max_new_tokens=8))
@@ -164,8 +178,43 @@ def test_invocation_timeout_cancels_cooperative_model_worker(tmp_path: Path) -> 
 
     assert receipt.status == "timeout"
     assert "timeout" in receipt.reason_codes
+    assert "timeout_worker_terminated" in receipt.reason_codes
+    assert receipt.effects["local_model_inference"] is True
     assert model.cancelled.is_set()
     assert monotonic() - started < 0.5
+
+
+def test_unconfirmed_timeout_is_bounded_and_blocks_overlapping_generation(
+        tmp_path: Path) -> None:
+    model_path = tmp_path / "m.gguf"
+    model_path.write_bytes(b"bytes")
+    config = ModelConfig(candidates=[ModelCandidate(
+        path=model_path, engine="llama_cpp", name="m")],
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    model = NonCancellableBlockingModel()
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"),
+        runtime_root=tmp_path / "runtime")
+    first = invoker.build_request(purpose="local_user_chat", prompt="wait",
+        caller="test", correlation_id="unconfirmed-timeout-one",
+        budget=LocalModelInvocationBudget(timeout_seconds=0.02))
+
+    started = monotonic()
+    receipt = invoker.invoke(first)
+    assert receipt.status == "timeout"
+    assert "timeout_worker_cancellation_failed" in receipt.reason_codes
+    assert receipt.effects["local_model_inference"] is True
+    assert monotonic() - started < 0.8
+
+    second = invoker.build_request(purpose="local_user_chat", prompt="overlap",
+        caller="test", correlation_id="unconfirmed-timeout-two")
+    blocked = invoker.invoke(second)
+    assert blocked.status == "backend_failure"
+    assert "backend_failure:RuntimeError" in blocked.reason_codes
+    assert model.calls == 1
+    model.release.set()
 
 
 def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_path: Path) -> None:

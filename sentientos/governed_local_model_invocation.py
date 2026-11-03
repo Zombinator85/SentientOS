@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json, math, os, time, concurrent.futures
+import json, math, os, time, concurrent.futures, threading
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -84,6 +84,31 @@ def validate_llama_completion_observation(value: object) -> bool:
                 True if value.get("finish_reason") == "length" else
                 False if value.get("finish_reason") == "stop" else None)):
         return False
+    return True
+
+
+def validate_backend_completion_observation(value: object) -> bool:
+    """Validate bounded completion facts from supported local inference backends."""
+    if validate_llama_completion_observation(value):
+        return True
+    keys = {"schema_version", "backend", "finish_reason", "completion_tokens",
+        "prompt_tokens", "token_limit_reached", "total_duration_ns",
+        "load_duration_ns", "prompt_eval_duration_ns", "eval_duration_ns"}
+    if not isinstance(value, Mapping) or set(value) != keys:
+        return False
+    if (value.get("schema_version") != "sentientos.ollama_completion_observation:v1"
+            or value.get("backend") != "ollama"
+            or value.get("finish_reason") not in {"stop", "length", "unknown"}
+            or value.get("token_limit_reached") is not (
+                True if value.get("finish_reason") == "length" else
+                False if value.get("finish_reason") == "stop" else None)):
+        return False
+    for key, maximum in (("completion_tokens", 131072), ("prompt_tokens", 131072),
+            ("total_duration_ns", 3_600_000_000_000), ("load_duration_ns", 3_600_000_000_000),
+            ("prompt_eval_duration_ns", 3_600_000_000_000), ("eval_duration_ns", 3_600_000_000_000)):
+        item = value.get(key)
+        if item is not None and (type(item) is not int or not 0 <= item <= maximum):
+            return False
     return True
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
     "type": "object",
@@ -355,7 +380,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         if schema == INVOCATION_RECEIPT_SCHEMA_V3:
             semantic["backend_completion"] = payload.get("backend_completion")
             completion = payload.get("backend_completion")
-            if not validate_llama_completion_observation(completion):
+            if not validate_backend_completion_observation(completion):
                 reasons.append("backend_completion_observation_invalid")
             elif (isinstance(completion, Mapping)
                     and completion.get("finish_reason") == "length"
@@ -426,7 +451,7 @@ class LocalModelPostEffectCustodyError(RuntimeError):
 
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None; self._active_invocation_lock = threading.Lock()
 
     def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
         """Install an explicit observational receipt sink owned by the runtime."""
@@ -464,6 +489,7 @@ class GovernedLocalModelInvoker:
         resource_linkage_persistence_confirmed: bool | None = (
             False if resource_context is not None else None)
         generated_output: str | None = None
+        inference_attempted = threading.Event()
         record = self._record_for(request.model_id)
         ok, map_reasons = validate_authority_map(self.authority_map.to_dict())
         if not ok: reasons += ["authority_map_invalid", *map_reasons]
@@ -587,7 +613,23 @@ class GovernedLocalModelInvoker:
                         if resource_context is not None and attempt_id is not None:
                             resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                             backend_entered = True
+                        if not self._active_invocation_lock.acquire(blocking=False):
+                            raise RuntimeError("model_invocation_already_active")
+                        lock_release_guard = threading.Lock()
+                        lock_released = False
+                        def _release_invocation_lock() -> None:
+                            nonlocal lock_released
+                            with lock_release_guard:
+                                if not lock_released:
+                                    lock_released = True
+                                    self._active_invocation_lock.release()
                         def _call_model() -> tuple[str, Mapping[str, Any] | None]:
+                            try:
+                                return _call_model_inner()
+                            finally:
+                                _release_invocation_lock()
+                        def _call_model_inner() -> tuple[str, Mapping[str, Any] | None]:
+                            inference_attempted.set()
                             metadata_generator = getattr(self.model, "generate_governed_with_metadata", None)
                             if callable(metadata_generator):
                                 response = metadata_generator(request.prompt, **gen_kwargs)
@@ -604,21 +646,40 @@ class GovernedLocalModelInvoker:
                                 if "max_backend_threads" in gen_kwargs:
                                     raise
                                 return cast(str, self.model.generate(request.prompt)), None
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                        shutdown_without_wait = False
+                        try:
                             future = executor.submit(_call_model)
-                            try: output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
-                            except concurrent.futures.TimeoutError as exc:
-                                cancel_pending_generation = getattr(
-                                    self.model, "cancel_pending_generation", None)
-                                if callable(cancel_pending_generation):
-                                    try:
-                                        cancel_pending_generation()
-                                    except Exception:
-                                        reasons.append("timeout_worker_cancellation_failed")
-                                future.cancel()
-                                raise TimeoutError() from exc
+                        except Exception:
+                            _release_invocation_lock()
+                            raise
+                        future.add_done_callback(lambda _future: _release_invocation_lock())
+                        try:
+                            output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
+                        except concurrent.futures.TimeoutError as exc:
+                            cancel = getattr(self.model, "cancel_pending_generation", None)
+                            requested = False
+                            cancellation_hook_available = callable(cancel)
+                            if callable(cancel):
+                                try: requested = cancel() is True
+                                except Exception: pass
+                            future.cancel()
+                            try: future.result(timeout=0.5)
+                            except concurrent.futures.CancelledError: pass
+                            except concurrent.futures.TimeoutError: pass
+                            except Exception: pass
+                            if future.done(): reasons.append("timeout_worker_terminated")
+                            elif requested: reasons.append("timeout_cancellation_unconfirmed")
+                            elif cancellation_hook_available: reasons.append("timeout_worker_cancellation_failed")
+                            else: reasons.append("timeout_worker_cancellation_unavailable")
+                            executor.shutdown(wait=False, cancel_futures=True)
+                            shutdown_without_wait = True
+                            raise TimeoutError() from exc
+                        finally:
+                            if not shutdown_without_wait:
+                                executor.shutdown(wait=True, cancel_futures=True)
                         if backend_completion is not None:
-                            if not validate_llama_completion_observation(backend_completion):
+                            if not validate_backend_completion_observation(backend_completion):
                                 raise ValueError("backend_completion_observation_invalid")
                             if backend_completion.get("token_limit_reached") is True:
                                 truncated = True
@@ -639,8 +700,8 @@ class GovernedLocalModelInvoker:
                     except GovernedLocalModelResourceError as exc: status = "resource_custody_failure"; reasons.append("resource_transition:" + str(exc).split(":", 1)[0])
                     except Exception as exc: status = "backend_failure"; reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
-        effect_occurred = generated_output is not None
-        receipt_output = generated_output if effect_occurred else output
+        effect_occurred = inference_attempted.is_set()
+        receipt_output = generated_output if generated_output is not None else output
         receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
         if persist:
             try:

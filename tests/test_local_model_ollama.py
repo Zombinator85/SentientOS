@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from pathlib import Path
 
 import pytest
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.local_model import LocalModel, ModelLoadError
+from sentientos.governed_local_model_invocation import validate_backend_completion_observation
 from sentientos.local_model_authority import (
     PRODUCTION_ENGINES, build_local_model_authority_map,
 )
@@ -39,6 +41,30 @@ class _Opener:
         return _Response({"done": True, "response": "A real local answer."})
 
 
+class _HTTPResponse:
+    def __init__(self, payload: dict) -> None:
+        self.payload = json.dumps(payload).encode()
+    def read(self, _size: int = -1) -> bytes:
+        return self.payload
+
+
+class _HTTPConnection:
+    last_body = b""
+    def __init__(self, *_args, **_kwargs) -> None:
+        self.body = b""
+        self.sock = None
+    def request(self, _method: str, _path: str, *, body: bytes, headers: dict) -> None:
+        self.body = body
+        type(self).last_body = body
+    def getresponse(self):
+        return _HTTPResponse({"done": True, "response": "A real local answer.",
+            "total_duration": 123, "load_duration": 23,
+            "prompt_eval_duration": 34, "eval_duration": 56,
+            "eval_count": 7, "prompt_eval_count": 9})
+    def close(self) -> None:
+        pass
+
+
 def _candidate(tmp_path: Path, *, endpoint: str = "http://127.0.0.1:11434"):
     manifest = tmp_path / "qwen3-manifest"
     manifest.write_text('{"model":"qwen3:8b"}\n', encoding="utf-8")
@@ -59,6 +85,7 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     opener = _Opener(digest)
     monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
         lambda *_args: opener)
+    monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", _HTTPConnection)
 
     backend, _metadata = LocalModel._initialise_backend(candidate, config)
     identity = LocalModel._identity_for(candidate, config, backend, backend.metadata, 0)
@@ -75,19 +102,64 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert authority.record_for_active_identity(identity, "local_user_chat") is authority.records[0]
     assert authority.record_for_active_identity(identity, "maintenance_implementation") is None
     assert backend.generate("Say hello", (), {"max_new_tokens": 96}) == "A real local answer."
-    generation_request = opener.requests[-1]
-    sent = json.loads(generation_request.data)
+    sent = json.loads(_HTTPConnection.last_body)
     assert sent["model"] == "qwen3:8b"
     assert sent["stream"] is False
     assert sent["options"]["num_ctx"] == 4096
     assert sent["options"]["num_gpu"] == 99
 
+    text, completion = backend.generate_with_metadata("Say hello", (), {"max_new_tokens": 96})
+    assert text == "A real local answer."
+    assert completion["total_duration_ns"] == 123
+    assert completion["load_duration_ns"] == 23
+    assert completion["completion_tokens"] == 7
+    assert validate_backend_completion_observation(completion)
+
     backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "0"})
-    assert json.loads(opener.requests[-1].data)["keep_alive"] == "0"
+    assert json.loads(_HTTPConnection.last_body)["keep_alive"] == "0"
     request_count = len(opener.requests)
     with pytest.raises(ModelLoadError, match="ollama_keep_alive_invalid"):
         backend.generate("Say hello", (), {"keep_alive": "unbounded"})
     assert len(opener.requests) == request_count
+
+
+def test_ollama_active_request_can_be_cancelled(monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path) -> None:
+    _manifest, digest, candidate, config = _candidate(tmp_path)
+    opener = _Opener(digest)
+    monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
+        lambda *_args: opener)
+    entered, stopped = threading.Event(), threading.Event()
+
+    class _Socket:
+        def shutdown(self, _how: int) -> None:
+            stopped.set()
+
+    class _BlockingConnection(_HTTPConnection):
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.sock = _Socket()
+        def getresponse(self):
+            entered.set()
+            stopped.wait(2)
+            raise OSError("request socket closed")
+
+    monkeypatch.setattr("sentientos.local_model.http.client.HTTPConnection", _BlockingConnection)
+    backend, _ = LocalModel._initialise_backend(candidate, config)
+    failures: list[Exception] = []
+
+    def invoke() -> None:
+        try:
+            backend.generate("slow", (), {})
+        except Exception as exc:
+            failures.append(exc)
+
+    worker = threading.Thread(target=invoke)
+    worker.start()
+    assert entered.wait(1)
+    assert backend.cancel_pending_generation() is True
+    worker.join(1)
+    assert not worker.is_alive()
+    assert failures
 
 
 def test_ollama_backend_rejects_non_loopback_and_unpinned_manifest(
