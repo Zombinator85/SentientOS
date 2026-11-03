@@ -10,6 +10,7 @@ import shutil
 import subprocess
 
 import pytest
+from tests.godot_runtime import godot_executable
 
 from sentientos.avatar_renderer_report_ingress import renderer_report_world_state_record
 from sentientos.avatar_renderer_report_ingress import RendererReportCaptureOwner, RendererReportEvidenceStore
@@ -25,7 +26,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_real_godot_demo_emits_bounded_renderer_self_report(tmp_path: Path) -> None:
-    godot = shutil.which("godot") or shutil.which("godot4")
+    godot = godot_executable()
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
     repository_root = Path(__file__).resolve().parents[1]
@@ -73,7 +74,7 @@ def test_real_godot_demo_emits_bounded_renderer_self_report(tmp_path: Path) -> N
 
 
 def test_godot_uses_real_tts_boundaries_to_open_and_interrupt_avatar_mouth(tmp_path: Path) -> None:
-    godot = shutil.which("godot") or shutil.which("godot4")
+    godot = godot_executable()
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
     project = Path(__file__).resolve().parents[1] / "godot_avatar_demo"
@@ -99,7 +100,7 @@ def test_godot_demo_udp_listener_is_explicitly_loopback_only() -> None:
 
 
 def test_godot_report_reaches_durable_capture_through_edge_relay_and_mtls(tmp_path: Path):
-    godot = shutil.which("godot") or shutil.which("godot4")
+    godot = godot_executable()
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
     repository_root = Path(__file__).resolve().parents[1]

@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests.godot_runtime import godot_executable
 from avatar_state import AvatarState, AvatarStateEmitter
 from godot_avatar_receiver import AvatarStateForwarder
 
@@ -14,11 +15,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_godot_avatar_demo_scripts_parse_in_supported_engine(tmp_path: Path) -> None:
-    executable = shutil.which("godot")
-    if executable is None:
-        executable = next((str(candidate) for candidate in (
-            Path("/usr/local/bin/godot"), Path("/usr/bin/godot"), Path("/usr/bin/godot4"),
-        ) if candidate.is_file() and os.access(candidate, os.X_OK)), None)
+    executable = godot_executable()
     if executable is None:
         pytest.skip("Godot is unavailable in this validation environment")
 
@@ -51,11 +48,7 @@ def test_godot_avatar_demo_scripts_parse_in_supported_engine(tmp_path: Path) -> 
 
 
 def test_godot_companion_scene_instantiates_and_responds_to_avatar_state(tmp_path: Path) -> None:
-    executable = shutil.which("godot")
-    if executable is None:
-        executable = next((str(candidate) for candidate in (
-            Path("/usr/local/bin/godot"), Path("/usr/bin/godot"), Path("/usr/bin/godot4"),
-        ) if candidate.is_file() and os.access(candidate, os.X_OK)), None)
+    executable = godot_executable()
     if executable is None:
         pytest.skip("Godot is unavailable in this validation environment")
 
