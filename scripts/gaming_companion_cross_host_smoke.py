@@ -225,12 +225,16 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
     wsl_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         check=True, capture_output=True, text=True, timeout=3).stdout.strip()
     git_exe = Path("/mnt/c/Program Files/Git/cmd/git.exe")
-    win_sha = subprocess.run([str(git_exe), "-C", str(windows_checkout),
-        "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
-        timeout=5).stdout.strip()
-    dirty = subprocess.run([str(git_exe), "-C", str(windows_checkout),
-        "status", "--porcelain"], check=True, capture_output=True, text=True,
-        timeout=5).stdout.strip()
+    windows_checkout_arg = _win_path(windows_checkout)
+    try:
+        win_sha = subprocess.run([str(git_exe), "-C", windows_checkout_arg,
+            "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
+            timeout=5).stdout.strip()
+        dirty = subprocess.run([str(git_exe), "-C", windows_checkout_arg,
+            "status", "--porcelain"], check=True, capture_output=True, text=True,
+            timeout=5).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        raise ValueError("windows_checkout_git_verification_failed") from exc
     if dirty:
         raise ValueError("windows_checkout_must_be_clean")
     if win_sha != wsl_sha:
@@ -358,8 +362,9 @@ def main(argv: list[str] | None = None) -> int:
             windows_python=args.windows_python)
     except Exception as exc:
         result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
-            "status": "blocked", "reason_code": str(exc.args[0])[:128]
-                if exc.args else type(exc).__name__,
+            "status": "blocked", "reason_code": (
+                str(exc.args[0])[:128] if isinstance(exc, ValueError) and exc.args
+                else type(exc).__name__),
             "host_mutation_performed": False, "production_commissioning_claimed": False}
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0 if result["status"] == "passed" else 2
