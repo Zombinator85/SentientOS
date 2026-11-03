@@ -199,11 +199,13 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "You are the currently active conversational model within SentientOS" in prompt
-    assert "use the configured model label from VERIFIED_RUNTIME_CONTEXT" in prompt
-    assert "Do not add a generic model/AI limitations preamble or unrelated self-description" in prompt
-    assert "For game questions, mention configured_game_process_names when present" in prompt
-    assert "without screen data, say gameplay details are unknown" in prompt
+    assert "You are the active local conversational model inside SentientOS" in prompt
+    assert "use the configured model label when asked" in prompt
+    assert "skip generic limitations or unrelated self-description" in prompt
+    assert "For current screen/game questions, if workload.game_foreground is true, name configured_game_process_names" in prompt
+    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in prompt
+    assert "Answer the current message directly and cover every requested part" in prompt
+    assert "A foreground process confirms only the app is open" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     runtime = json.loads(runtime_block)
@@ -241,12 +243,38 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
 
     assert response.status_code == 200
     prompt = invoker.prompts[-1]
-    assert "For game questions, mention configured_game_process_names when present" in prompt
+    assert "For current screen/game questions, if workload.game_foreground is true, name configured_game_process_names" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     workload = json.loads(runtime_block)["workload"]
     assert workload["game_foreground"] is True
     assert workload["configured_game_process_names"] == ["cronos-win64-shipping.exe"]
+    assert "[VERIFIED_CURRENT_WORKLOAD_FACTS]" in prompt
+    assert "Verified foreground game: Cronos (cronos-win64-shipping.exe)" in prompt
+    assert "game screen and actions are not observed this turn" in prompt
+
+
+def test_live_screen_question_skips_cross_session_memories(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    response = client.post("/chat", json={
+        "message": "Can you see my screen right now? If not, say what you can confirm."
+    })
+
+    assert response.status_code == 200
+    assert memory_queries == [""]
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
+    assert "A foreground process confirms only the app is open" in invoker.prompts[-1]
+    assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in invoker.prompts[-1]
 
 
 def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_path, monkeypatch):
@@ -277,9 +305,37 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "ASSISTANT_DATA:" not in invoker.prompts[-1]
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
     assert (
-        "For this recall, answer every part from relevant USER_DATA, preserve "
-        "speaker attribution, and avoid unrequested questions."
+        "For this recall, answer from relevant speaker-labeled turns included in "
+        "SESSION_HISTORY_DATA; do not infer missing messages or use MEMORY_DATA."
     ) in invoker.prompts[-1]
+
+
+def test_recent_assistant_reply_recall_includes_same_session_answer_only(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    first = client.post("/chat", json={"message": "Can you see my screen?"})
+    sid = first.json()["session_id"]
+    second = client.post("/chat", json={"session_id": sid,
+        "message": "What did I ask, and what did you answer?"})
+
+    assert second.status_code == 200
+    assert memory_queries == ["", ""]
+    prompt = invoker.prompts[-1]
+    assert "USER_DATA: " in prompt and "Can you see my screen?" in prompt
+    assert "ASSISTANT_DATA: " in prompt and "explicit simulation" in prompt
+    assert "do not infer missing messages or use MEMORY_DATA" in prompt
+    assert "MEMORY_DATA:" not in prompt
+    assert second.json()["context"]["selected_turn_count"] == 2
+    assert second.json()["context"]["selected_memory_count"] == 0
 
 
 def test_social_checkin_uses_only_current_message_without_stale_context(
