@@ -212,3 +212,74 @@ def test_windows_dpapi_reader_unseals_current_user_key(tmp_path: Path) -> None:
             "bridge_key", protected_path.name, "windows_dpapi")},
         system_name="Windows", is_wsl2=False)
     assert resolver.read_bridge_key("credential-store:test") == plaintext
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows DPAPI requires Windows")
+def test_windows_dpapi_secret_loads_encrypted_mtls_identities(tmp_path: Path) -> None:
+    import ctypes
+
+    from sentientos.gaming_companion_tls_transport import (
+        read_windows_dpapi_bridge_source_key,
+    )
+
+    _server_context, _client_context, _peer_pin = _certificate_bundle(tmp_path)
+    del _server_context, _client_context, _peer_pin
+    password = b"disposable mTLS test passphrase, not an operator secret"
+    for filename in ("server.key", "client.key"):
+        key_path = tmp_path / filename
+        key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+        key_path.write_bytes(key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.BestAvailableEncryption(password),
+        ))
+
+    class DataBlob(ctypes.Structure):
+        _fields_ = [("cbData", ctypes.c_uint32),
+                    ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
+
+    source_buffer = (ctypes.c_ubyte * len(password)).from_buffer_copy(password)
+    source = DataBlob(len(password),
+        ctypes.cast(source_buffer, ctypes.POINTER(ctypes.c_ubyte)))
+    protected = DataBlob()
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    crypt32.CryptProtectData.argtypes = (
+        ctypes.POINTER(DataBlob), ctypes.c_wchar_p, ctypes.POINTER(DataBlob),
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+        ctypes.POINTER(DataBlob))
+    crypt32.CryptProtectData.restype = ctypes.c_int
+    kernel32.LocalFree.argtypes = (ctypes.c_void_p,)
+    kernel32.LocalFree.restype = ctypes.c_void_p
+    if not crypt32.CryptProtectData(
+            ctypes.byref(source), "SentientOS disposable mTLS test secret",
+            None, None, None, 0x1, ctypes.byref(protected)):
+        raise AssertionError("CryptProtectData failed for test passphrase")
+    protected_path = tmp_path / "tls-passphrase.dpapi"
+    try:
+        protected_path.write_bytes(
+            ctypes.string_at(protected.pbData, protected.cbData))
+    finally:
+        ctypes.memset(protected.pbData, 0, protected.cbData)
+        kernel32.LocalFree(protected.pbData)
+
+    references = {
+        "tls:ca": _entry("ca_bundle", "ca.pem", "public_file"),
+        "tls:server-cert": _entry("certificate", "server.pem", "public_file"),
+        "tls:client-cert": _entry("certificate", "client.pem", "public_file"),
+        "tls:server-key": _entry(
+            "private_key", "server.key", "encrypted_pem", "secret:tls-pass"),
+        "tls:client-key": _entry(
+            "private_key", "client.key", "encrypted_pem", "secret:tls-pass"),
+        "secret:tls-pass": _entry(
+            "secret", "tls-passphrase.dpapi", "windows_dpapi"),
+    }
+    resolver = CompanionPlatformCustodyResolver(
+        root=tmp_path, references=references, system_name="Windows",
+        is_wsl2=False, windows_key_reader=read_windows_dpapi_bridge_source_key)
+    server = resolver.server_tls_context(
+        "tls:ca", "tls:server-cert", "tls:server-key")
+    client = resolver.client_tls_context(
+        "tls:ca", "tls:client-cert", "tls:client-key")
+    assert server.verify_mode == ssl.CERT_REQUIRED
+    assert client.verify_mode == ssl.CERT_REQUIRED
+    assert client.check_hostname is True
