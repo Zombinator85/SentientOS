@@ -4,14 +4,16 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3409 are merged;
-PR #3409 advanced `main` to `548b9c81` with the GLORP Windows-edge to WSL-core
-renderer-report smoke. The current campaign extends that run so the headless
-Godot scene consumes the exact admitted state-file queue entry over loopback
-UDP and returns its self-report over mTLS to temporary WSL capture. PR #3410 was
-closed when its temporary stacked base was deleted; its unmerged work is carried
-forward in the current branch and is being validated directly against `main`.
-The previously reported local commit `b3b4fc6eff93978284857dbb9e2520c848d01633`
+**Current software status (2026-11-03):** PRs #3392 through #3409 and #3411 through #3415 are merged;
+main is at ac251710. PR #3411 verified the actual headless Godot avatar scene
+consuming the admitted Windows queue state over loopback UDP and returning its
+self-report over mTLS for temporary WSL capture. PRs #3412 and #3413 verified
+the Windows custody resolver with disposable CurrentUser DPAPI material and
+encrypted client/server mTLS identities. PRs #3414 and #3415 added bounded
+in-process admission-receipt replay protection and its fail-closed window
+test. PR #3410 was closed when its temporary stacked base was deleted; its
+unmerged implementation was carried forward and merged through #3411.
+The previously reported local commit b3b4fc6eff93978284857dbb9e2520c848d01633
 is an ancestor of the merged main history.
 The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
@@ -453,6 +455,21 @@ CPU was 0.0%, RSS was 39,768,064 bytes, and its PID was not exposed. This remain
 headless software-path evidence: no interactive rendering, physical effect,
 production authority, or game impact was established.
 
+On 2026-11-03, the Windows platform-custody module passed on GLORP at source
+e994cafe9184e70e69d7d91e12377c8a651ed4b0 (9 passed, 2 skipped). The test
+protected a disposable passphrase with CurrentUser DPAPI and loaded temporary
+encrypted client and server private-key files through the production custody
+resolver into mTLS contexts. The WSL module passed with its two Windows-only
+cases skipped. This verifies the local resolver path, not installed custody,
+operator-issued generations, or production authority.
+
+At source 855f2cc0, the focused avatar-output suite passed on both GLORP
+Windows and WSL (12 passed each). Reusing one admission receipt is rejected
+before another authority-verifier or renderer-queue call, and a full bounded
+receipt window fails closed. The production owner keeps up to 8192 consumed
+receipt identifiers in process memory. Durable replay prevention across
+process restart remains the installed receipt verifier's responsibility.
+
 ## GLORP acceptance sequence
 
 Do not start production commissioning until the required installation,
@@ -473,10 +490,10 @@ and firewall configuration prevent calling it a complete deployment:
    session. Test normal/gaming transitions, revoke the grant, and terminate both
    processes. Restart chat and verify conversation recovery and that the
    ephemeral avatar grant did not survive.
-4. Before using the Windows foreground observer from WSL, add and test the
-   authenticated bridge and lifecycle components listed above. Without that
-   bridge, automatic foreground mode on Linux reports the detector as
-   unsupported and selects the conservative gaming budget.
+4. Keep production Windows foreground observation gated until the installed
+   WSL/Windows bridge authority, custody provider, and generation lifecycle
+   are provisioned and exercised. The development smoke verifies test-only
+   transport, not live foreground-game attribution.
 5. Only after the software topology works, conduct the preregistered GLORP
    game-only, unregulated-inference, and governed-inference comparisons. Record
    frame-time p50/p95/p99, hitches, tokens/sec, inference latency, CPU/RAM/GPU/
@@ -513,11 +530,12 @@ commissioning.
    Godot state queue. Run failure injection for queue rejection, transport
    uncertainty, restart, and generation rotation without replaying uncertain
    messages.
-3. Execute the Godot report return route on Windows/WSL through the loopback
-edge relay, protected mTLS bridge, and durable World-State capture. The
-software-only relay integration test passes; target transport and attribution
-remain unverified. Keep authenticated relay identity separate from renderer
-self-report and independent physical observation.
+3. The Godot report return route passed on GLORP at source
+   668376837f2570fd28a5a06fb960e343ffc734ff: the real headless avatar scene
+   consumed the admitted state over loopback UDP, and its renderer self-report
+   returned over mTLS to WSL. The evidence store was temporary and deleted when
+   the smoke exited. Durable World-State capture, production transport, live
+   renderer attribution, and independent physical observation remain open.
 4. Use `load_adopted_body` to resolve the current adopted artifact only after
    an authority-backed receipt verifier, manifest binding, content hash, and
    allowed artifact root all agree. Its descriptor is wired to Godot activation
