@@ -22,11 +22,13 @@ class GamingWorkloadPolicy:
         "rephrase the prompt, or infer game details."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
-        "This is friendly small talk, not a help request. Answer 'How are you?' "
-        "directly: say you are here and ready to chat, then ask at most one easy "
-        "question about the user's break. Never ask what help is needed or claim "
-        "you are playing or experiencing the game. Example (vary naturally): "
-        "'I'm here and ready to chat. How's the break going?'"
+        "This is friendly small talk, not a help request. Use one short friendly "
+        "sentence to say you are here in SentientOS and ready to chat, then ask "
+        "at most one easy question about the user's break. Do not mention models, "
+        "AI, feelings, emotions, physical sensations, or screen access. Never ask "
+        "what help is needed or claim you are playing or seeing the game. Example "
+        "(vary naturally): 'I'm here in SentientOS and ready to chat. How's the "
+        "break going?'"
     )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200
@@ -78,9 +80,9 @@ class GamingWorkloadPolicy:
         """Add trusted low-distraction guidance before untrusted chat data."""
         if mode == "normal":
             return prompt
-        marker = "[SESSION_HISTORY_DATA]"
+        marker = "[VERIFIED_RUNTIME_CONTEXT]"
         if (not isinstance(prompt, str) or not prompt.startswith("[SYSTEM_INSTRUCTION]\n")
-                or marker not in prompt):
+                or marker not in prompt or "[SESSION_HISTORY_DATA]" not in prompt):
             raise ValueError("gaming_chat_instruction_anchor_invalid")
         head, tail = prompt.split(marker, 1)
         instruction = cls.GAMING_CHAT_STYLE_INSTRUCTION
