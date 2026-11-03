@@ -89,11 +89,13 @@ class ChatSpeechOutput(Protocol):
 
 class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
-    __slots__ = ("_delegate", "_workload_mode", "_workload_lock")
+    __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
+                 "_residency_release")
     def __init__(self, invoker: GovernedLocalModelInvoker) -> None:
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
+        self._residency_release: Mapping[str, Any] | None = None
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         identity = getattr(self._delegate.model, "active_identity", None)
         return identity.to_dict() if identity is not None else {}
@@ -111,17 +113,30 @@ class DevelopmentLocalChatInference:
             return self._workload_mode
     def current_workload_state(self) -> dict[str, Any]:
         mode = self.current_workload_mode()
-        return {"mode": mode, "effective_mode": mode,
+        with self._workload_lock:
+            release = (dict(self._residency_release)
+                if self._residency_release is not None else None)
+        state: dict[str, Any] = {"mode": mode, "effective_mode": mode,
             "mode_source": "local_development_operator_selection",
             "foreground_game_detected": False,
             "workload_evidence": {"status": "operator_selected",
                 "source": "local_development_session"}}
+        if release is not None:
+            state["residency_release"] = release
+        return state
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> str:
         del game_process_names
         selected = GamingWorkloadPolicy.validate_mode(mode)
         with self._workload_lock:
+            previous = self._workload_mode
             self._workload_mode = selected
+        identity = getattr(self._delegate.model, "active_identity", None)
+        if (selected == "gaming" and previous != "gaming"
+                and getattr(identity, "engine", None) == "ollama"):
+            receipt = self._delegate.release_model_residency()
+            with self._workload_lock:
+                self._residency_release = receipt.to_dict()
         return selected
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,

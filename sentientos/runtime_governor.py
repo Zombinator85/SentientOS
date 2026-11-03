@@ -190,6 +190,7 @@ class RuntimeGovernor:
             "federated_control": ActionProfile("federated_control", priority=2, family="federated", local_safety=False, deferrable=True),
             "control_plane_task": ActionProfile("control_plane_task", priority=3, family="control_plane", local_safety=False, deferrable=True),
             "local_model_inference": ActionProfile("local_model_inference", priority=3, family="local_model", local_safety=True, deferrable=True),
+            "local_model_resource_release": ActionProfile("local_model_resource_release", priority=0, family="local_model", local_safety=True, deferrable=False),
             "amendment_apply": ActionProfile("amendment_apply", priority=4, family="amendment", local_safety=False, deferrable=True),
             "unknown": ActionProfile("unknown", priority=5, family="unknown", local_safety=False, deferrable=True),
         }
@@ -1040,6 +1041,10 @@ class RuntimeGovernor:
                 metadata=payload,
                 correlation_id=correlation_id,
             )
+        if normalized == "local_model_resource_release":
+            return self._admit_local_model_resource_release(
+                actor=actor, subject=subject, metadata=payload,
+                correlation_id=correlation_id)
         if normalized == "amendment_apply":
             return self._admit_amendment_apply(
                 actor=actor,
@@ -1136,6 +1141,27 @@ class RuntimeGovernor:
             return True
         except (ImportError, AttributeError, TypeError, ValueError, OverflowError):
             return False
+
+    def _admit_local_model_resource_release(
+        self, *, actor: str, subject: str, metadata: dict[str, object] | None,
+        correlation_id: str | None,
+    ) -> GovernorDecision:
+        """Admit a narrowly scoped, fail-safe local model residency release."""
+        payload = dict(metadata or {})
+        identity_digest = payload.get("model_identity_digest")
+        valid = (
+            payload.get("purpose") == "local_model_resource_release"
+            and payload.get("reason_code") == "gaming_mode_entered"
+            and isinstance(identity_digest, str)
+            and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is not None
+        )
+        return self._decision(
+            action_class="local_model_resource_release", allowed=valid,
+            reason=("model_resource_release_fail_safe" if valid
+                    else "model_resource_release_request_invalid"),
+            subject=subject, scope="local", origin=actor,
+            pressure=self.sample_pressure(), metadata=payload,
+            correlation_id=correlation_id)
 
     def _admit_local_model_inference(
         self,

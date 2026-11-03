@@ -145,6 +145,7 @@ def test_gaming_workload_requests_ollama_unload_after_chat_turn():
 
     class Invoker:
         model = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+        release_calls = 0
 
         def build_request(self, **kwargs):
             return kwargs
@@ -152,8 +153,16 @@ def test_gaming_workload_requests_ollama_unload_after_chat_turn():
         def invoke(self, request):
             return request
 
-    inference = DevelopmentLocalChatInference(Invoker())
+        def release_model_residency(self):
+            self.release_calls += 1
+            return SimpleNamespace(to_dict=lambda: {"status": "released"})
+
+    invoker = Invoker()
+    inference = DevelopmentLocalChatInference(invoker)
     inference.set_workload_mode("gaming")
+    assert invoker.release_calls == 1
+    assert inference.current_workload_state()["residency_release"] == {
+        "status": "released"}
     prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
     request = inference.generate(prompt=prompt, caller="test",
         correlation_id="gaming-ollama", budget=LocalModelInvocationBudget(),
