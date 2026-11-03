@@ -155,6 +155,23 @@ class _EchoBackend(_ModelBackend):
         return f"[{name}] {prompt}"
 
 
+def _ollama_chat_messages(prompt: str) -> list[dict[str, str]]:
+    """Keep the trusted application instruction in the model's system role."""
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ModelLoadError("ollama_prompt_required")
+    prefix = "[SYSTEM_INSTRUCTION]\n"
+    marker = "[SESSION_HISTORY_DATA]"
+    if prompt.startswith(prefix):
+        head, separator, tail = prompt[len(prefix):].partition(marker)
+        if not separator or not head.strip():
+            raise ModelLoadError("ollama_chat_instruction_boundary_invalid")
+        return [
+            {"role": "system", "content": head.strip()},
+            {"role": "user", "content": marker + tail},
+        ]
+    return [{"role": "user", "content": prompt.strip()}]
+
+
 class _OllamaBackend(_ModelBackend):
     """Digest-pinned Ollama inference on a numeric loopback endpoint only."""
 
@@ -242,7 +259,8 @@ class _OllamaBackend(_ModelBackend):
             "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
-        body = json.dumps({"model": self._model, "prompt": prompt, "stream": False,
+        messages = _ollama_chat_messages(prompt)
+        body = json.dumps({"model": self._model, "messages": messages, "stream": False,
                            "think": self._think, "keep_alive": keep_alive,
                            "options": options}, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
@@ -256,7 +274,7 @@ class _OllamaBackend(_ModelBackend):
                 raise ModelLoadError("ollama_request_already_active")
             self._active_connection = connection
         try:
-            connection.request("POST", "/api/generate", body=body,
+            connection.request("POST", "/api/chat", body=body,
                 headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             raw = response.read(1024 * 1024 + 1)
@@ -272,7 +290,8 @@ class _OllamaBackend(_ModelBackend):
             with self._active_request_lock:
                 if self._active_connection is connection:
                     self._active_connection = None
-        answer = payload.get("response")
+        message = payload.get("message")
+        answer = message.get("content") if isinstance(message, dict) else None
         if payload.get("done") is not True or not isinstance(answer, str) or not answer.strip():
             raise ModelLoadError("ollama_local_generation_invalid")
         def bounded_metric(name: str, maximum: int) -> int | None:
