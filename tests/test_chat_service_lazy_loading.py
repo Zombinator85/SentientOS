@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from types import SimpleNamespace
 
@@ -252,6 +253,17 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
         tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
+    identity = {
+        "engine": "test",
+        "semantic_artifact_identity": "qwen2.5-3b-test-digest",
+        "posture": "development_only",
+        "fallback": False,
+    }
+    invoker.model.active_identity = SimpleNamespace(**identity,
+        to_dict=lambda: dict(identity))
+    invoker.authority_map = SimpleNamespace(
+        record_for_active_identity=lambda _identity, _purpose:
+            SimpleNamespace(name="Qwen2.5 3B Instruct"))
     chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
     memory_queries = []
     original_retrieve = chat.CanonicalMemoryStore.retrieve
@@ -277,7 +289,17 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert "USER_DATA:" not in prompt
     assert "ASSISTANT_DATA:" not in prompt
     assert "MEMORY_DATA:" not in prompt
-    assert "[VERIFIED_RUNTIME_CONTEXT]\n{}" in prompt
+    runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
+        "\n[SESSION_HISTORY_DATA]", 1)[0]
+    runtime = json.loads(runtime_block)
+    assert runtime["system"]["name"] == "SentientOS"
+    assert runtime["assistant_role"] == (
+        "the active local model providing conversation inside SentientOS")
+    assert runtime["active_model"]["configured_candidate_label"] == "Qwen2.5 3B Instruct"
+    assert runtime["workload"]["effective_mode"] == "gaming"
+    assert runtime["capabilities"]["conversation_history"]["prior_turns_included"] == 0
+    assert runtime["capabilities"]["retrieved_memories_included"] == 0
+    assert runtime["capabilities"]["screen_observation"]["included_this_turn"] is False
     assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in prompt
     assert checkin.json()["context"]["selected_turn_count"] == 0
 
@@ -374,7 +396,7 @@ def test_development_automatic_mode_switches_profiles_from_fresh_observations():
     assert state["foreground_game_detected"] is False
     assert state["workload_evidence"]["process_name_digest"] == "a" * 64
 
-    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[SESSION_HISTORY_DATA]\nhello",
+    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nhello",
         caller="test", correlation_id="automatic-mode",
         budget=LocalModelInvocationBudget(), caller_linkage={})
     assert invoker.model is normal
@@ -417,7 +439,7 @@ def test_development_automatic_mode_falls_back_to_gaming_when_observation_stale(
     state = inference.current_workload_state()
     assert state["effective_mode"] == "gaming"
     assert state["mode_source"] == "foreground_observation_unavailable_conservative_gaming"
-    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[SESSION_HISTORY_DATA]\nhello",
+    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nhello",
         caller="test", correlation_id="stale-automatic-mode",
         budget=LocalModelInvocationBudget(), caller_linkage={})
     assert invoker.model is gaming
