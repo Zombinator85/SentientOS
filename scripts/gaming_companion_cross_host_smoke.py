@@ -232,14 +232,21 @@ def _windows_child() -> int:
                 renderer_generation_id="godot-demo-cross-host-test-1")
             relay_port = relay.start()
             environment = _secret_free_environment()
+            isolated_profile = temp_root / "profile"
             environment.update({
                 "SENTIENTOS_RENDERER_GENERATION_ID": "godot-demo-cross-host-test-1",
                 "SENTIENTOS_RENDERER_REPORT_RELAY_PORT": str(relay_port),
                 "XDG_CACHE_HOME": str(temp_root / "cache"),
                 "XDG_CONFIG_HOME": str(temp_root / "config"),
                 "XDG_DATA_HOME": str(temp_root / "data"),
+                "APPDATA": str(isolated_profile / "AppData" / "Roaming"),
+                "LOCALAPPDATA": str(isolated_profile / "AppData" / "Local"),
+                "HOME": str(isolated_profile),
+                "TEMP": str(temp_root / "temp"),
+                "TMP": str(temp_root / "temp"),
             })
-            for name in ("XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"):
+            for name in ("XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+                         "APPDATA", "LOCALAPPDATA", "HOME", "TEMP"):
                 Path(environment[name]).mkdir(parents=True, exist_ok=True)
             godot = subprocess.run([cfg["godot_executable"], "--headless",
                 "--path", str(project), "--script",
