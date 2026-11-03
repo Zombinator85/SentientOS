@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import hashlib, json, os, tempfile
+import hashlib, json, os, tempfile, ipaddress
+import urllib.parse
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,8 @@ from .config import ModelCandidate, ModelConfig, load_model_config
 from .local_model import ActiveModelIdentity, LocalModel, candidate_artifact_identity, candidate_configuration_digest
 from .storage import get_data_root
 
-SUPPORTED_ENGINES = {"llama_cpp", "transformers", "echo", "null", "auto"}
+SUPPORTED_ENGINES = {"llama_cpp", "transformers", "echo", "null", "ollama", "auto"}
+DEVELOPMENT_ENGINES = {"ollama"}
 PROVIDER_ENGINES = {"openai", "huggingface", "hf_inference", "anthropic", "ollama_remote", "http", "https", "api"}
 PRODUCTION_ENGINES = {"llama_cpp", "transformers"}
 SIMULATION_ENGINES = {"echo", "null"}
@@ -143,6 +145,10 @@ class LocalModelAuthorityMap:
                 record.disposition == "rootless_experimental_epistemic_candidate"
                 and identity.posture == "rootless_experimental"
                 and purpose == ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE)
+            development_chat_match = (
+                record.disposition == "development_only"
+                and identity.posture == "development_only"
+                and purpose == "local_user_chat")
             if (
                 record.runtime_eligibility_status == "eligible"
                 and (purpose in record.allowed_invocation_purposes or purpose == "local_model_commissioning_smoke")
@@ -155,7 +161,7 @@ class LocalModelAuthorityMap:
                 and observed_index == identity.candidate_index
                 and observed_path == identity.resolved_artifact_path
                 and (production_match or rootless_experimental_match
-                    or rootless_epistemic_match)
+                    or rootless_epistemic_match or development_chat_match)
                 and not identity.fallback
             ):
                 return record
@@ -211,6 +217,19 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         metadata, sidecar_digest, meta_reasons = _metadata(candidate); reasons.extend(meta_reasons)
         if engine_l in PROVIDER_ENGINES: reasons.append("provider_engine_blocked")
         if engine_l not in SUPPORTED_ENGINES: reasons.append("unsupported_engine")
+        if engine_l in DEVELOPMENT_ENGINES:
+            opts = candidate.options
+            endpoint = str(opts.get("api_base", "http://127.0.0.1:11434"))
+            try:
+                parsed_endpoint = urllib.parse.urlsplit(endpoint)
+                endpoint_ip = ipaddress.ip_address(parsed_endpoint.hostname or "")
+                if (parsed_endpoint.scheme != "http" or not endpoint_ip.is_loopback
+                        or parsed_endpoint.username or parsed_endpoint.password
+                        or parsed_endpoint.path not in {"", "/"} or parsed_endpoint.query
+                        or parsed_endpoint.fragment or parsed_endpoint.port not in {None, 11434}):
+                    raise ValueError
+            except (ValueError, TypeError):
+                reasons.append("development_endpoint_not_loopback")
         content_digest = None; artifact_size = None; semantic_artifact = "pathless_model"; resolved_path = None
         if candidate.path is None:
             if engine_l not in {"null", "echo", "transformers"}: reasons.append("artifact_path_missing")
@@ -231,25 +250,34 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
             if resolved_path is None and resolved is not None:
                 resolved_path = str(resolved)
             semantic_artifact = f"sha256:{content_digest}" if content_digest else f"unverified:{candidate.display_name()}"
+        if engine_l in DEVELOPMENT_ENGINES:
+            expected_manifest = str(candidate.options.get("manifest_sha256", "")).lower()
+            if (len(expected_manifest) != 64 or content_digest is None
+                    or expected_manifest != content_digest):
+                reasons.append("development_manifest_digest_unverified")
         custom = bool(candidate.options.get("allow_model_code_execution") or metadata.get("allow_model_code_execution"))
         cfg_digest = candidate_configuration_digest(candidate, config, engine_l)
         if excess: reasons.append("candidate_count_exceeded")
-        disposition = "simulation" if engine_l in SIMULATION_ENGINES else "production_candidate"
-        eligible = not reasons and engine_l in PRODUCTION_ENGINES
+        disposition = ("simulation" if engine_l in SIMULATION_ENGINES else
+                       "development_only" if engine_l in DEVELOPMENT_ENGINES else
+                       "production_candidate")
+        eligible = (not reasons and (engine_l in PRODUCTION_ENGINES
+                    or engine_l in DEVELOPMENT_ENGINES))
         if engine_l in SIMULATION_ENGINES and not reasons:
             reasons.append("simulation_backend_not_production_intelligence")
-        purposes = ("local_user_chat",) if engine_l in SIMULATION_ENGINES else (
+        purposes = (("local_user_chat",) if engine_l in
+                    (SIMULATION_ENGINES | DEVELOPMENT_ENGINES) else (
             "local_user_chat", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation",
             "resident_developmental_interpretation", "resident_developmental_retrieval_cognition",
             "resident_developmental_history_intervention_experiment",
             "resident_developmental_model_replacement_experiment",
-        )
+        ))
         record_seed = {"engine": engine_l, "semantic_artifact_identity": semantic_artifact, "configuration_digest": cfg_digest, "sidecar_metadata_digest": sidecar_digest}
         model_id = "lma-" + digest_payload(record_seed)[:24]
         if semantic_artifact in seen and seen[semantic_artifact] != cfg_digest: reasons.append("conflicting_duplicate_semantic_model")
         seen[semantic_artifact] = cfg_digest
         status = "eligible" if eligible else "blocked" if any(r for r in reasons if r not in {"simulation_backend_not_production_intelligence"}) else "degraded"
-        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "resolved_artifact_path": resolved_path, "observed_at": observation_time})
+        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture=("loopback_only" if engine_l in DEVELOPMENT_ENGINES else "blocked_local_files_only"), tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "resolved_artifact_path": resolved_path, "observed_at": observation_time})
         records.append(rec)
     semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION, "records": [r.to_dict() for r in records]}
     md = digest_payload(semantic); mid = "lmam-" + md[:24]

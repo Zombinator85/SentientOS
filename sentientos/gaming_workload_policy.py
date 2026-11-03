@@ -63,7 +63,7 @@ class GamingWorkloadPolicy:
         return cls.constrain_budget(mode, requested), lineage
 
     @classmethod
-    def apply_chat_response_style(cls, prompt: str, mode: EffectiveWorkloadMode) -> str:
+    def apply_chat_response_style(cls, prompt: str, mode: WorkloadMode) -> str:
         """Add the trusted low-distraction instruction before untrusted chat data."""
         if mode == "normal":
             return prompt

@@ -511,7 +511,9 @@ class GovernedLocalModelInvoker:
         production_identity = identity is not None and getattr(identity, "posture", None) == "production"
         rootless_experimental_identity = (identity is not None
             and getattr(identity, "posture", None) == "rootless_experimental")
-        if (production_identity or rootless_experimental_identity
+        development_identity = (identity is not None
+            and getattr(identity, "posture", None) == "development_only")
+        if (production_identity or rootless_experimental_identity or development_identity
                 or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke",
                     "maintenance_implementation", INTERVENTION_PURPOSE, MODEL_REPLACEMENT_PURPOSE}):
             if identity is None: reasons.append("active_model_identity_unavailable")

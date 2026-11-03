@@ -39,7 +39,7 @@ from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
 )
-from .gaming_workload_policy import GamingWorkloadPolicy
+from .gaming_workload_policy import GamingWorkloadPolicy, WorkloadMode
 from .conversation_session import (
     ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution,
@@ -87,20 +87,51 @@ class ChatSpeechOutput(Protocol):
     def close(self) -> None: ...
 
 
-class DevelopmentSimulationInference:
-    """Affirmative test/development-only adapter; never selected by production."""
-    __slots__ = ("_delegate",)
+class DevelopmentLocalChatInference:
+    """Affirmative local development adapter; never selected by production."""
+    __slots__ = ("_delegate", "_workload_mode", "_workload_lock")
     def __init__(self, invoker: GovernedLocalModelInvoker) -> None:
         self._delegate = invoker
+        self._workload_mode: WorkloadMode = "normal"
+        self._workload_lock = threading.RLock()
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         identity = getattr(self._delegate.model, "active_identity", None)
         return identity.to_dict() if identity is not None else {}
+    def current_workload_mode(self) -> WorkloadMode:
+        with self._workload_lock:
+            return self._workload_mode
+    def current_workload_state(self) -> dict[str, Any]:
+        mode = self.current_workload_mode()
+        return {"mode": mode, "effective_mode": mode,
+            "mode_source": "local_development_operator_selection",
+            "foreground_game_detected": False,
+            "workload_evidence": {"status": "operator_selected",
+                "source": "local_development_session"}}
+    def set_workload_mode(self, mode: str,
+                          game_process_names: tuple[str, ...] | list[str] = ()) -> str:
+        del game_process_names
+        selected = GamingWorkloadPolicy.validate_mode(mode)
+        with self._workload_lock:
+            self._workload_mode = selected
+        return selected
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,
                  caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
-        request = self._delegate.build_request(purpose="local_user_chat", prompt=prompt, caller=caller,
-            correlation_id=correlation_id, budget=budget, linkage=caller_linkage)
+        mode = self.current_workload_mode()
+        effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, mode)
+        effective_budget = GamingWorkloadPolicy.constrain_budget(mode, budget)
+        linkage = {**dict(caller_linkage), "workload_mode": mode,
+            "workload_evidence": {"status": "operator_selected",
+                "source": "local_development_session"}}
+        request = self._delegate.build_request(purpose="local_user_chat",
+            prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
+            budget=effective_budget, linkage=linkage)
         return self._delegate.invoke(request)
+
+
+# Backwards-compatible name for callers that used this adapter with test-only
+# echo/null models before it also supported explicitly authorized local engines.
+DevelopmentSimulationInference = DevelopmentLocalChatInference
 
 
 class ProductionChatComposition:
@@ -425,7 +456,7 @@ class PersistentConversationService:
                         and dict(verified.get("assistant_output_lineage", {}))
                             != dict(linkage["assistant_output_lineage"]))):
                 raise ChatRequestStateError("chat_request_response_receipt_conflict")
-        elif not isinstance(self._inference, DevelopmentSimulationInference):
+        elif not isinstance(self._inference, DevelopmentLocalChatInference):
             raise ChatRequestStateError("chat_request_recovery_verifier_unavailable")
         retention_state = user_turn.get("retention_state")
         if retention_state == "requested":
@@ -668,13 +699,40 @@ class PersistentConversationService:
                     # Prior transcript remains usable as untrusted chat context;
                     # it cannot establish a transition predecessor.
                     pass
-        history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
+        history_budget = self.context_budget_chars
+        gaming_development_turn = (
+            isinstance(self._inference, DevelopmentLocalChatInference)
+            and self._inference.current_workload_mode() == "gaming")
+        if gaming_development_turn:
+            # Start with a modest history window, then account for the complete
+            # trusted gaming instruction and prompt structure before invocation.
+            history_budget = min(history_budget, 1000)
+        history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation)
+        if gaming_development_turn:
+            while history_budget > 0:
+                effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
+                    prompt, "gaming")
+                overflow = (len(effective_prompt)
+                    - GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS)
+                if overflow <= 0:
+                    break
+                next_budget = max(0, history_budget - overflow)
+                if next_budget == history_budget:
+                    next_budget = 0
+                history_budget = next_budget
+                history = self.sessions.reconstruct(
+                    session["session_id"], budget_chars=history_budget,
+                    exclude_turn_id=user_turn["turn_id"])
+                prompt = assemble_local_chat_context(history=history,
+                    memory_snapshot=memory, current_message=message,
+                    verified_prior_runtime_lineage=predecessor_runtime_lineage,
+                    screen_observation=screen_observation)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
@@ -732,7 +790,7 @@ class PersistentConversationService:
             correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
             budget=LocalModelInvocationBudget(max_input_chars=8000), caller_linkage=linkage)
         accepted_statuses = {"admitted_completed"}
-        if isinstance(self._inference, DevelopmentSimulationInference):
+        if isinstance(self._inference, DevelopmentLocalChatInference):
             accepted_statuses.add("admitted_simulation")
         if receipt.status not in accepted_statuses or not receipt.output_text:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
@@ -750,9 +808,9 @@ class PersistentConversationService:
             "output_truncated": receipt.output_truncated,
         }
         request_linkage = receipt.request.get("linkage", {})
-        if isinstance(self._inference, DevelopmentSimulationInference):
+        if isinstance(self._inference, DevelopmentLocalChatInference):
             software_generation_attribution = {
-                "status": "development_simulation",
+                "status": "development_only",
                 "reason_code": "not_a_production_process_observation",
                 "generation_identity": None,
                 "process_instance_id": None,
@@ -1117,8 +1175,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
-                               data_root: Path | None = None) -> None:
-    """Explicitly install isolated echo/null/test inference."""
+                               data_root: Path | None = None,
+                               avatar_output_emitter: Any | None = None) -> None:
+    """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
     # data_root selects development transcript custody only; user memory stays
@@ -1127,21 +1186,31 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
     conversation_root = root / "conversations"
     if _storage_roots_overlap(memory_root, conversation_root):
         raise ValueError("user_memory_root_overlaps_transcript_custody")
+    avatar_output = None
+    if avatar_output_emitter is not None:
+        from control_plane import admit_request
+        from .chat_avatar_output import ChatAvatarOutputController
+        avatar_output = ChatAvatarOutputController(
+            avatar_output_emitter, admission_provider=admit_request)
     close_production_chat()
     _CONVERSATION_SERVICE = PersistentConversationService(
-        inference=DevelopmentSimulationInference(invoker),
+        inference=DevelopmentLocalChatInference(invoker),
         session_store=ConversationSessionStore(conversation_root),
-        memory_store=CanonicalMemoryStore(memory_root))
+        memory_store=CanonicalMemoryStore(memory_root),
+        avatar_output=avatar_output)
     _PRODUCTION_COMPOSITION = None
 
 
 def close_production_chat() -> None:
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     composition = _PRODUCTION_COMPOSITION
+    service = _CONVERSATION_SERVICE
     _PRODUCTION_COMPOSITION = None
     _CONVERSATION_SERVICE = None
     if composition is not None:
         composition.close()
+    elif service is not None:
+        service.close_outputs()
 
 
 def production_chat_ready() -> bool:
