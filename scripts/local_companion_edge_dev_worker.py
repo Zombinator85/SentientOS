@@ -1,6 +1,6 @@
 """Temporary Windows-side mTLS edge for the supervised local dev session."""
 from __future__ import annotations
-import base64, hashlib, hmac, json, os, socket, subprocess, sys, threading, time
+import base64, dataclasses, hashlib, hmac, json, os, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve()
@@ -12,6 +12,11 @@ from sentientos.gaming_companion_avatar_output import (
     WindowsEdgeAvatarCommandDispatchOwner, WindowsGodotAvatarStateQueue,
 )
 from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
+from sentientos.foreground_game_bridge import (
+    WindowsForegroundBridgePublisher, WindowsForegroundObservationPump,
+)
+from sentientos.foreground_game_detection import ForegroundGameDetector
 from sentientos.gaming_companion_tls_transport import (
     MIN_TLS_VERSION, CompanionBridgeMutualTLSRuntime,
 )
@@ -55,9 +60,29 @@ def main():
         return accepted
     dispatcher=WindowsEdgeAvatarCommandDispatchOwner(
         runtime=runtime,receipt_verifier=verify_receipt,renderer_sink=render)
-    godot=None;forwarder=None
+    godot=None;forwarder=None;foreground_pump=None
     try:
         port=runtime.start();dispatcher.start()
+        observer=cfg.get("foreground_observation")
+        if isinstance(observer,dict):
+            source_key=base64.b64decode(observer["source_key"])
+            observer_ack_key=base64.b64decode(observer["ack_key"])
+            acknowledgment_receiver=CompanionBridgeReceiver(
+                source_keys={observer["ack_source_id"]:observer_ack_key},
+                expected_generations={observer["ack_source_id"]:
+                    observer["ack_generation_id"]})
+            observation_client=CompanionBridgeLoopbackClient(
+                port=int(observer["port"]),
+                acknowledgment_receiver=acknowledgment_receiver,
+                timeout_seconds=1.5)
+            publisher=WindowsForegroundBridgePublisher(
+                detector=ForegroundGameDetector(),client=observation_client,
+                source_id=observer["source_id"],session_id="windows-game-observer-dev",
+                generation_id=observer["source_generation_id"],source_key=source_key)
+            foreground_pump=WindowsForegroundObservationPump(
+                publisher=publisher,process_names=observer["process_names"],
+                interval_seconds=1.0)
+            foreground_pump.start()
         env={key:value for key,value in os.environ.items()
              if not any(marker in key.upper() for marker in
                 ("API_KEY","TOKEN","SECRET","PASSWORD","CREDENTIAL","AUTH","PRIVATE_KEY","BEARER"))}
@@ -96,6 +121,17 @@ def main():
         if godot.poll() is not None:
             raise RuntimeError("godot_scene_exited_on_startup")
         print("READY "+str(port),flush=True)
+        status_stop=threading.Event()
+        status_thread=None
+        if foreground_pump is not None:
+            def report_foreground_status():
+                while not status_stop.wait(15.0):
+                    print("FOREGROUND_PUMP "+json.dumps(
+                        dataclasses.asdict(foreground_pump.status()),
+                        separators=(",",":")),flush=True)
+            status_thread=threading.Thread(target=report_foreground_status,
+                name="foreground-publisher-status",daemon=True)
+            status_thread.start()
         while True:
             line=sys.stdin.readline()
             if not line or line.strip()=="STOP": break
@@ -107,18 +143,30 @@ def main():
                     "state_file":str(state_path),"state_file_exists":state_path.is_file(),
                     "godot_running":godot.poll() is None}),flush=True)
     finally:
+        if "status_stop" in locals():
+            status_stop.set()
+            if status_thread is not None:
+                status_thread.join(timeout=1.0)
         if forwarder: forwarder.stop()
         if "report_stop" in locals():
             report_stop.set()
             report_socket.close()
             report_thread.join(timeout=1.0)
-        dispatcher.close()
-        runtime.close()
-        if godot and godot.poll() is None:
-            godot.terminate()
-            try: godot.wait(timeout=8)
-            except subprocess.TimeoutExpired:
-                godot.kill();godot.wait(timeout=3)
+        try:
+            if foreground_pump is not None:
+                foreground_pump.close()
+        finally:
+            try:
+                dispatcher.close()
+            finally:
+                try:
+                    runtime.close()
+                finally:
+                    if godot and godot.poll() is None:
+                        godot.terminate()
+                        try: godot.wait(timeout=8)
+                        except subprocess.TimeoutExpired:
+                            godot.kill();godot.wait(timeout=3)
     return 0
 
 if __name__=="__main__": raise SystemExit(main())

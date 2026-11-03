@@ -22,7 +22,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +33,58 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+class _LatestForegroundObservation:
+    """Drain verified bridge samples continuously and expose only a fresh latest value."""
+    def __init__(self, *, detector: Any, process_names: tuple[str, ...]) -> None:
+        from sentientos.foreground_game_detection import normalize_game_process_names
+        self._detector = detector
+        self._process_names = normalize_game_process_names(process_names)
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._sample = None
+        self._sampled_monotonic = 0.0
+        self._thread = threading.Thread(target=self._run,
+            name="sentientos-dev-foreground-drain", daemon=True)
+        self._thread.start()
+
+    def observe(self, process_names: tuple[str, ...] | list[str]):
+        from sentientos.foreground_game_detection import ForegroundGameObservation
+        from sentientos.foreground_game_detection import normalize_game_process_names
+        requested = normalize_game_process_names(process_names)
+        now = time.monotonic()
+        with self._lock:
+            sample = self._sample
+            sampled = self._sampled_monotonic
+        if requested != self._process_names or sample is None or now - sampled > 2.5:
+            return ForegroundGameObservation("observation_unavailable", None, None,
+                datetime.now(timezone.utc).isoformat())
+        return sample
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                sample = self._detector.observe(self._process_names)
+            except Exception:
+                sample = None
+            with self._lock:
+                self._sample = sample
+                self._sampled_monotonic = time.monotonic()
+            self._stop.wait(0.25)
+
+    def close(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2.0)
+        if self._thread.is_alive():
+            raise RuntimeError("foreground_observation_drain_shutdown_timeout")
+        self._detector.close()
+
+
 class _TemporaryCompanionEdge:
     """Own test-only Windows mTLS edge, Godot process, and sender."""
 
     def __init__(self, *, windows_python: Path, windows_checkout: Path,
-                 godot_executable: Path, godot_project: Path) -> None:
+                 godot_executable: Path, godot_project: Path,
+                 game_process_names: tuple[str, ...] = ()) -> None:
         from scripts.gaming_companion_cross_host_smoke import (
             _addresses, _contexts, _test_identities, _win_path, _win_temp,
             _secret_free_environment,
@@ -44,6 +93,8 @@ class _TemporaryCompanionEdge:
             BridgeChatAvatarOutputEmitter, MutualTLSAvatarCommandSender,
         )
         from sentientos.gaming_companion_bridge import CompanionBridgeReceiver
+        from sentientos.gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
+        from sentientos.foreground_game_bridge import BridgeForegroundGameDetector
         from sentientos.gaming_companion_tls_transport import (
             CompanionBridgeMutualTLSClient,
         )
@@ -53,6 +104,8 @@ class _TemporaryCompanionEdge:
         root = Path(self._temporary.name)
         self._edge_process: subprocess.Popen[str] | None = None
         self._sender: Any | None = None
+        self._foreground_runtime: Any | None = None
+        self.foreground_game_detector: Any | None = None
         self._lines: queue.Queue[str] = queue.Queue()
         self._report_file: Path | None = None
         try:
@@ -76,6 +129,37 @@ class _TemporaryCompanionEdge:
                 "godot_executable": _win_path(godot_executable),
                 "godot_project": _win_path(godot_project),
             }
+            if game_process_names:
+                observer_source_key = secrets.token_bytes(32)
+                observer_ack_key = secrets.token_bytes(32)
+                observer_source_id = "windows-game-observer"
+                observer_source_generation = "windows-game-observer-dev-1"
+                observer_ack_id = "wsl-game-observer-ack"
+                observer_ack_generation = "wsl-game-observer-ack-dev-1"
+                self._foreground_runtime = CompanionBridgeLoopbackRuntime(
+                    receiver=CompanionBridgeReceiver(
+                        source_keys={observer_source_id: observer_source_key},
+                        expected_generations={observer_source_id: observer_source_generation}),
+                    acknowledgment_source_id=observer_ack_id,
+                    acknowledgment_generation_id=observer_ack_generation,
+                    acknowledgment_key=observer_ack_key, queue_capacity=8,
+                    socket_timeout_seconds=1.5)
+                observation_port = self._foreground_runtime.start()
+                bridge_detector = BridgeForegroundGameDetector(
+                    runtime=self._foreground_runtime, source_id=observer_source_id,
+                    generation_id=observer_source_generation, max_observation_age_seconds=15.0)
+                self.foreground_game_detector = _LatestForegroundObservation(
+                    detector=bridge_detector, process_names=game_process_names)
+                config["foreground_observation"] = {
+                    "port": observation_port,
+                    "source_key": base64.b64encode(observer_source_key).decode("ascii"),
+                    "ack_key": base64.b64encode(observer_ack_key).decode("ascii"),
+                    "source_id": observer_source_id,
+                    "source_generation_id": observer_source_generation,
+                    "ack_source_id": observer_ack_id,
+                    "ack_generation_id": observer_ack_generation,
+                    "process_names": list(game_process_names),
+                }
             self._edge_process = subprocess.Popen(
                 [str(windows_python), _win_path(worker), _win_path(windows_checkout)],
                 cwd=str(ROOT), env=_secret_free_environment(), stdin=subprocess.PIPE,
@@ -133,6 +217,9 @@ class _TemporaryCompanionEdge:
                         handle.flush()
                 except (OSError, ValueError, TypeError):
                     pass
+            if rendered.startswith("FOREGROUND_PUMP "):
+                print("WINDOWS_EDGE "+rendered,flush=True)
+                continue
             target.put(rendered)
 
     def close(self) -> None:
@@ -155,7 +242,15 @@ class _TemporaryCompanionEdge:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=3)
-        self._temporary.cleanup()
+        try:
+            if self.foreground_game_detector is not None:
+                self.foreground_game_detector.close()
+                self.foreground_game_detector = None
+            elif self._foreground_runtime is not None:
+                self._foreground_runtime.close()
+                self._foreground_runtime = None
+        finally:
+            self._temporary.cleanup()
 
 
 def main() -> int:
@@ -163,8 +258,10 @@ def main() -> int:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument("--initial-workload-mode", choices=("normal", "gaming"),
+    parser.add_argument("--initial-workload-mode", choices=("normal", "gaming", "automatic"),
                         default="normal")
+    parser.add_argument("--game-process-name", action="append", default=[],
+                        help="Allowlisted Windows game executable basename for automatic mode")
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--windows-checkout", type=Path)
     parser.add_argument("--godot-exe", type=Path)
@@ -180,6 +277,11 @@ def main() -> int:
     config_path = os.environ.get("SENTIENTOS_MODEL_CONFIG")
     if not config_path or not Path(config_path).is_file():
         parser.error("SENTIENTOS_MODEL_CONFIG must identify the pinned local Ollama model")
+    if args.initial_workload_mode == "automatic":
+        if not args.game_process_name:
+            parser.error("automatic mode requires at least one --game-process-name allowlist entry")
+        if not all(value is not None for value in edge_args):
+            parser.error("automatic mode requires the supervised Windows foreground observer edge")
     state = args.state_dir.expanduser().resolve()
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(state, 0o700)
@@ -269,22 +371,29 @@ def main() -> int:
                 parser.error("a temporary companion edge executable or project is missing")
             edge = _TemporaryCompanionEdge(
                 windows_python=args.windows_python, windows_checkout=args.windows_checkout,
-                godot_executable=args.godot_exe, godot_project=args.godot_project)
+                godot_executable=args.godot_exe, godot_project=args.godot_project,
+                game_process_names=tuple(args.game_process_name))
         configure_development_chat(invoker=invoker, data_root=chat_state,
             avatar_output_emitter=edge.emitter if edge else None,
             model_profiles=model_profiles,
-            initial_workload_mode=args.initial_workload_mode)
+            initial_workload_mode=args.initial_workload_mode,
+            foreground_game_detector=(edge.foreground_game_detector if edge else None),
+            game_process_names=tuple(args.game_process_name))
+        initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
+                           else args.initial_workload_mode)
+        initial_model = model_profiles[initial_profile]
         print(json.dumps({
             "state": "running",
             "posture": "development_only",
             "host": args.host,
             "port": args.port,
-            "engine": model.active_identity.engine,
-            "model": model.active_identity.semantic_artifact_identity,
+            "engine": initial_model.active_identity.engine,
+            "model": initial_model.active_identity.semantic_artifact_identity,
             "model_profiles": {
                 name: profile.active_identity.semantic_artifact_identity
                 for name, profile in model_profiles.items()},
             "initial_workload_mode": args.initial_workload_mode,
+            "initial_effective_profile": initial_profile,
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "companion_identity_posture": (
