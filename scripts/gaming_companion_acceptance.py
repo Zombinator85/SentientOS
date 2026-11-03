@@ -258,7 +258,8 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                         "test_pair_provider_rejects_role_profile_mismatch_before_any_spawn",
                         "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
                         "test_edge_launch_denial_rolls_back_the_already_started_core",
-                        "test_process_profile_factory_uses_loaded_specs_without_starting_children"))
+                        "test_process_profile_factory_uses_loaded_specs_without_starting_children",
+                        "test_process_launch_receipt_is_scoped_to_installation_identity"))
                     else "blocked"),
                 "test_nodes": [
                     "test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_order",
@@ -267,6 +268,7 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                     "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
                     "test_edge_launch_denial_rolls_back_the_already_started_core",
                     "test_process_profile_factory_uses_loaded_specs_without_starting_children",
+                    "test_process_launch_receipt_is_scoped_to_installation_identity",
                 ],
                 "target_processes_spawned": False,
                 "installation_profiles_or_authority_provisioned": False,

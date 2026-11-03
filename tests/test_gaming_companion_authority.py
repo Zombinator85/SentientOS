@@ -117,23 +117,32 @@ def test_pair_and_process_launch_subjects_bind_runtime_identity_and_exact_comman
         generation=generation, manifest=manifest)
     assert process_subject["command_digest"] == "c" * 64
     assert process_subject["deployment_id"] == "glorp-companion"
-    other_installation = {**manifest, "installation_identity_ref": "install:other"}
-    assert process_launch_subject(role="wsl_core", command_digest="c" * 64,
-        generation=generation, manifest=other_installation) != process_subject
     with pytest.raises(CompanionAuthorityReceiptError,
                        match="companion_process_launch_subject_invalid"):
         process_launch_subject(role="wsl_core", command_digest="bad",
             generation=generation, manifest=manifest)
 
+
+def test_process_launch_receipt_is_scoped_to_installation_identity() -> None:
     private, public = _signer()
-    receipt = _receipt(private, receipt_type="process_launch", subject=process_subject)
+    manifest = {"deployment_id": "glorp-companion", "installation_identity_ref": "install:glorp",
+        "runtime_handoff_ref": "runtime-handoff:active", "software_generation_digest": "sha256:" + "b" * 64}
+    other_installation = {**manifest, "installation_identity_ref": "install:other"}
+    generation = BridgeGenerationPair(_record(), BridgeGenerationCustodyRecord(
+        "wsl-core", "core-generation-2", "posix:core-key", "fixture-operator-authority",
+        (NOW - timedelta(seconds=1)).isoformat(), "sha256:" + "d" * 64, "core-generation-1"))
+    subject = process_launch_subject(role="wsl_core", command_digest="c" * 64,
+        generation=generation, manifest=manifest)
+    receipt = _receipt(private, receipt_type="process_launch", subject=subject)
     verifier = SignedCompanionAuthorityVerifier({"fixture-operator-authority": public},
         clock=lambda: NOW)
+
     with pytest.raises(CompanionAuthorityReceiptError,
                        match="companion_authority_receipt_subject_mismatch"):
         verifier.authorize_process_launch(receipt, str(receipt["semantic_digest"]),
             role="wsl_core", command_digest="c" * 64, generation=generation,
             manifest=other_installation)
+
 
 
 @pytest.mark.parametrize("mutation,reason", [
