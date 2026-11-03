@@ -171,8 +171,8 @@ def test_linux_host_that_is_not_wsl_is_rejected(tmp_path: Path) -> None:
 def test_windows_dpapi_reader_unseals_current_user_key(tmp_path: Path) -> None:
     import ctypes
 
-    from sentientos.gaming_companion_tls_transport import (
-        read_windows_dpapi_bridge_source_key,
+    from sentientos.gaming_companion_platform_custody import (
+        CompanionCustodyReference, CompanionPlatformCustodyResolver,
     )
 
     class DataBlob(ctypes.Structure):
@@ -207,4 +207,8 @@ def test_windows_dpapi_reader_unseals_current_user_key(tmp_path: Path) -> None:
         ctypes.memset(protected.pbData, 0, protected.cbData)
         kernel32.LocalFree(protected.pbData)
 
-    assert read_windows_dpapi_bridge_source_key(protected_path) == plaintext
+    resolver = CompanionPlatformCustodyResolver(root=tmp_path,
+        references={"credential-store:test": CompanionCustodyReference(
+            "bridge_key", protected_path.name, "windows_dpapi")},
+        system_name="Windows", is_wsl2=False)
+    assert resolver.read_bridge_key("credential-store:test") == plaintext
