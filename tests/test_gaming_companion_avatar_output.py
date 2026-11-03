@@ -7,6 +7,7 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from avatar_state import AvatarStateEmitter
+from godot_avatar_receiver import AvatarStateForwarder
 from sentientos.gaming_companion_avatar_output import (
     BridgeChatAvatarOutputEmitter, WindowsEdgeAvatarCommandDispatchOwner,
     MutualTLSAvatarCommandSender, WindowsGodotAvatarStateQueue,
@@ -196,6 +197,14 @@ def test_admitted_chat_output_crosses_mutual_tls_into_edge_dispatcher(tmp_path):
         assert state["metadata"]["session_id"] == "session-1"
         assert state["metadata"]["output_mode"] == "chat_response_visual_only"
         assert state["workload_mode"] == "gaming"
+        forwarded = AvatarStateForwarder(tmp_path / "avatar_state.json")._read_state()
+        assert forwarded is not None
+        assert forwarded["workload_mode"] == "gaming"
+        assert forwarded["metadata"] == {
+            "session_id": "session-1", "turn_id": "turn-2",
+            "output_digest": "c" * 64,
+            "output_mode": "chat_response_visual_only",
+        }
         assert dispatcher.status().renderer_effect_proven is False
     finally:
         sender.close()
