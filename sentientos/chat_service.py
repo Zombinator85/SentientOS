@@ -50,6 +50,18 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
 from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _is_recent_session_recall_request(message: str) -> bool:
+    """Keep cross-session memories out of explicit recent-turn questions."""
+    normalized = " ".join(message.casefold().split())
+    markers = (
+        "in this conversation", "in this chat", "earlier in this chat",
+        "earlier in this conversation", "just before", "before you asked",
+        "what did i just say", "what was my last message",
+        "what was my previous message",
+    )
+    return any(marker in normalized for marker in markers)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 _PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
@@ -883,9 +895,15 @@ class PersistentConversationService:
             # Start with a modest history window, then account for the complete
             # trusted gaming instruction and prompt structure before invocation.
             history_budget = min(history_budget, 2000)
+        recent_session_recall = _is_recent_session_recall_request(message)
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
-                                            exclude_turn_id=user_turn["turn_id"])
-        memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
+            exclude_turn_id=user_turn["turn_id"],
+            include_roles=("user",) if recent_session_recall else None)
+        # For explicit recent-turn recall, the current transcript is the source
+        # of truth. Lexical long-term retrieval can otherwise over-weight older,
+        # topic-matching memories (for example, prior Cronos questions).
+        memory_query = "" if recent_session_recall else message
+        memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
         runtime_context = self._verified_runtime_context(
             identity=identity_payload, history=history, memory=memory,
             session_id=session["session_id"], screen_observation=screen_observation)
