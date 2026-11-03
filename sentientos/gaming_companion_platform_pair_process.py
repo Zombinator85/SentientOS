@@ -163,10 +163,16 @@ class GamingCompanionPlatformPairProcessProvider:
                     raise CompanionBridgeError("bridge_generation_pair_record_invalid")
                 return launch_spec, generation
 
+            def authorize_process_launch(role: str, command_digest: str,
+                    generation: BridgeGenerationPair, *,
+                    deployment: Mapping[str, object] = normalized) -> bool:
+                return self._installation.authority.authorize_process_launch(
+                    role, command_digest, generation, deployment)
+
             roles[role] = GamingCompanionProcessSupervisor(
                 process_factory=process_factory,
                 authority_receipt_verifier=self._verify_generation,
-                launch_authorizer=self._installation.authority.authorize_process_launch,
+                launch_authorizer=authorize_process_launch,
                 health_probe=self._health_probes[role],
                 force_stop_authorizer=self._force_stop.get(role),
                 max_restarts=self._max_restarts,

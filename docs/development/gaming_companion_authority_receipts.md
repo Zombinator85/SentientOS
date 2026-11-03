@@ -44,8 +44,13 @@ the receipt is current and no longer than the verifier's configured lifetime.
   generation digest.
 - `role_launch`: subject is the same deployment binding with action
   `launch_role` and the exact `windows_edge` or `wsl_core` role.
-- `process_launch`: subject is action `launch_process`, role, exact command
-  digest, and digest of the complete source/acknowledgment generation pair.
+- `process_launch`: subject is action `launch_process`, deployment ID,
+  installation identity reference, runtime handoff reference, software
+  generation digest, role, exact command digest, and digest of the complete
+  source/acknowledgment generation pair. The supervisor derives the deployment
+  binding from the same validated manifest used to compose the paired runtime;
+  a receipt for another installation or deployment cannot authorize this
+  process launch even when its command and generation-pair digest match.
 
 Generation receipts are stored as `receipt-<64 lowercase hex digest>.json`.
 Launch receipts are stored as `subject-<64 lowercase hex digest>.json`, where

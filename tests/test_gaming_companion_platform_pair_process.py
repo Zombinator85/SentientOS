@@ -54,10 +54,16 @@ def _pair(role: str, number: int = 1) -> BridgeGenerationPair:
     return BridgeGenerationPair(source, acknowledgment)
 
 
-def _installation(*, denied_process_role: str | None = None) -> CompanionPlatformInstallation:
+def _installation(*, denied_process_role: str | None = None,
+                  process_bindings: list[dict[str, object]] | None = None
+                  ) -> CompanionPlatformInstallation:
     authority = object.__new__(CompanionAuthorityCallbacks)
     authority.verify_generation = lambda _digest, _record: True
-    authority.authorize_process_launch = lambda role, _digest, _pair: role != denied_process_role
+    def authorize_process_launch(role, _digest, _pair, manifest):
+        if process_bindings is not None:
+            process_bindings.append(dict(manifest))
+        return role != denied_process_role
+    authority.authorize_process_launch = authorize_process_launch
     return CompanionPlatformInstallation("fixture-installation", "sha256:" + "c" * 64,
         custody=object(), authority=authority)  # type: ignore[arg-type]
 
@@ -88,6 +94,7 @@ def test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_orde
         tmp_path: Path) -> None:
     events: list[str] = []
     spawns: list[tuple[list[str], dict[str, str]]] = []
+    process_bindings: list[dict[str, object]] = []
 
     def spawner(argv, *, cwd, env, **kwargs):
         del cwd, kwargs
@@ -95,7 +102,7 @@ def test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_orde
         return _Child(len(spawns), events)
 
     provider = GamingCompanionPlatformPairProcessProvider(
-        installation=_installation(),
+        installation=_installation(process_bindings=process_bindings),
         launch_specs={"windows_edge": _spec("windows_edge", tmp_path),
                       "wsl_core": _spec("wsl_core", tmp_path)},
         generation_pair_factories={"windows_edge": lambda _previous: _pair("windows_edge"),
@@ -113,6 +120,8 @@ def test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_orde
     assert [_role_from_argv(argv) for argv, _env in spawns] == ["wsl_core", "windows_edge"]
     assert all(env["SENTIENTOS_COMPANION_ROLE"] == _role_from_argv(argv)
                for argv, env in spawns)
+    assert [binding["deployment_id"] for binding in process_bindings] == [
+        "glorp-prehardware", "glorp-prehardware"]
 
     pair.close()
     assert events == ["stop:2", "stop:1"]
