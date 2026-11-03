@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ssl
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -104,6 +105,9 @@ def test_edge_runtime_factory_requires_generation_receipts_before_reading_keys(t
 
 def test_edge_runtime_factory_wires_optional_durable_receipt_guard(tmp_path: Path) -> None:
     manifest = _reverse_mutual_tls_manifest()
+    manifest["repository_root"] = str(tmp_path)
+    manifest["python_executable"] = sys.executable
+    manifest["state_root"] = str(tmp_path / "runtime-state")
     server_context, _, _ = _certificate_bundle(tmp_path)
     pair = _generation_pair()
     guard = SQLiteAdmissionReceiptReplayGuard(
