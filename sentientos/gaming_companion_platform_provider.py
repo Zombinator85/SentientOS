@@ -26,6 +26,7 @@ from .gaming_companion_edge_runtime import (
     build_windows_edge_avatar_runtime,
 )
 from .gaming_companion_platform_custody import CompanionPlatformCustodyResolver
+from .gaming_companion_platform_installation import CompanionPlatformInstallation
 from .gaming_companion_tls_transport import BridgeGenerationCustodyRecord
 
 AdmissionReceiptBuilder = Callable[[Any], Mapping[str, str]]
@@ -60,6 +61,22 @@ class GamingCompanionPlatformRoleProvider:
         self._command_verifier = command_receipt_verifier
         self._system = system_name or platform.system()
         self._is_wsl2 = _detect_wsl2() if is_wsl2 is None else is_wsl2
+
+    @classmethod
+    def from_installation(cls, installation: CompanionPlatformInstallation, *,
+            windows_avatar_state_path: Path | str | None = None,
+            admission_receipt_builder: AdmissionReceiptBuilder | None = None,
+            command_receipt_verifier: CommandReceiptVerifier | None = None,
+            system_name: str | None = None,
+            is_wsl2: bool | None = None) -> GamingCompanionPlatformRoleProvider:
+        """Compose custody and authority from the same verified installation."""
+        if type(installation) is not CompanionPlatformInstallation:
+            raise CompanionBridgeError("companion_platform_installation_required")
+        return cls(custody=installation.custody, authority=installation.authority,
+            windows_avatar_state_path=windows_avatar_state_path,
+            admission_receipt_builder=admission_receipt_builder,
+            command_receipt_verifier=command_receipt_verifier,
+            system_name=system_name, is_wsl2=is_wsl2)
 
     def __call__(self, role: str, manifest: Mapping[str, Any]) -> (
             WindowsEdgeAvatarRuntime | WSLCoreGamingCompanionRuntime):

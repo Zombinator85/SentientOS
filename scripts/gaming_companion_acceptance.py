@@ -232,12 +232,14 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 "status": ("signed_catalog_fixture_passed"
                     if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
                         "test_signed_platform_catalog_builds_custody_and_authority_adapters",
+                        "test_verified_installation_composes_role_provider_without_rebinding_authority",
                         "test_platform_catalog_signature_binds_reference_paths_before_asset_access",
                         "test_platform_catalog_rejects_untrusted_receipt_and_path_escape",
                         "test_platform_catalog_rejects_duplicate_json_fields_and_open_permissions"))
                     else "blocked"),
                 "test_nodes": [
                     "test_signed_platform_catalog_builds_custody_and_authority_adapters",
+                    "test_verified_installation_composes_role_provider_without_rebinding_authority",
                     "test_platform_catalog_signature_binds_reference_paths_before_asset_access",
                     "test_platform_catalog_rejects_untrusted_receipt_and_path_escape",
                     "test_platform_catalog_rejects_duplicate_json_fields_and_open_permissions",

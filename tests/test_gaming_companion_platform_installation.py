@@ -15,6 +15,7 @@ from sentientos.gaming_companion_platform_installation import (
     CompanionPlatformInstallationCatalogError,
     load_companion_platform_installation,
 )
+from sentientos.gaming_companion_platform_provider import GamingCompanionPlatformRoleProvider
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -98,6 +99,24 @@ def test_signed_platform_catalog_builds_custody_and_authority_adapters(tmp_path:
     assert installation.custody.read_bridge_key(
         "credential-store:sentientos/edge-source") == b"e" * 32
     assert type(installation.authority).__name__ == "CompanionAuthorityCallbacks"
+
+
+def test_verified_installation_composes_role_provider_without_rebinding_authority(
+        tmp_path: Path) -> None:
+    root, _catalog, _path, receipt, public_key = _fixture(tmp_path)
+    installation = load_companion_platform_installation(
+        installation_root=root, catalog_relative_path="catalog.json",
+        catalog_receipt=receipt,
+        trusted_issuer_public_keys={"fixture-install-authority": public_key},
+        system_name="Linux", is_wsl2=True)
+
+    provider = GamingCompanionPlatformRoleProvider.from_installation(
+        installation, system_name="Linux", is_wsl2=True,
+        admission_receipt_builder=lambda _authorization: {
+            "receipt_id": "fixture-only", "semantic_digest": "f" * 64})
+
+    assert provider._custody is installation.custody
+    assert provider._authority is installation.authority
 
 
 def test_platform_catalog_signature_binds_reference_paths_before_asset_access(

@@ -346,6 +346,11 @@ without those hooks fails closed. This provider is fixture-tested on the
 managed Linux host with injected platform identity; it is not a claim of
 Windows/WSL execution or production commissioning. It does not yet supply the
 paired child-process command profile or OS service startup configuration.
+`GamingCompanionPlatformRoleProvider.from_installation(...)` composes the
+custody resolver and authority callbacks returned by one verified catalog load
+without asking the caller to rebind those security-sensitive objects. The
+application still supplies the Windows renderer verifier or governed WSL
+admission-receipt builder explicitly.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
