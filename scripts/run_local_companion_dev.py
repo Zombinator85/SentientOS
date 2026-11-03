@@ -197,6 +197,7 @@ def main() -> int:
     os.environ["SENTIENTOS_DATA_DIR"] = str(runtime)
     os.environ["MEMORY_DIR"] = str(memory)
     os.environ["SENTIENTOS_RUNTIME_STATE_ROOT"] = str(state / "runtime-state")
+    os.environ["SENTIENTOS_CONTROL_KERNEL_ROOT"] = str(state / "control-kernel")
     os.environ["SENTIENTOS_GOVERNOR_ROOT"] = str(state / "governor")
     os.environ["SENTIENTOS_FEDERATION_ROOT"] = str(state / "federation")
     os.environ["SENTIENTOS_REPO_ROOT"] = str(ROOT)
