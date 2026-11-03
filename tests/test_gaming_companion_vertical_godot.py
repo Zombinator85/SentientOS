@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 import pytest
+from tests.godot_runtime import godot_executable
 
 from control_plane import Decision, ReasonCode
 from control_plane.records import AuthorizationRecord
@@ -40,7 +41,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data(tmp_path):
-    godot = shutil.which("godot") or shutil.which("godot4")
+    godot = godot_executable()
     if godot is None:
         pytest.skip("Godot is not installed in this validation environment")
 

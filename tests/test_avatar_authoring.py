@@ -535,10 +535,8 @@ def test_configured_blender_authors_and_reopens_glb_candidate(tmp_path):
     assert wave_clip["control"]=="SentientRig/upper"
     assert wave_clip["keyframe_count"]>=12
 
-    godot=shutil.which("godot")
-    if godot is None:
-        godot=next((str(path) for path in (Path("/usr/local/bin/godot"),Path("/usr/bin/godot"),
-            Path("/usr/bin/godot4")) if path.is_file() and os.access(path,os.X_OK)),None)
+    from tests.godot_runtime import godot_executable
+    godot=godot_executable()
     if godot is not None:
         pointer_path=tmp_path/"adopted-body-pointer.json"
         initial_pointer=genesis_adopt(pointer_path=pointer_path,

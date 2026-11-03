@@ -400,6 +400,13 @@ Windows/WSL production custody, generation issuance, firewall policy,
 OS-process supervision under production authority, Godot rendering, audio,
 game observation, and gameplay impact remain unverified.
 
+The optional headless Godot probes accept the exact executable path through
+`SENTIENTOS_GODOT_EXECUTABLE`, so a portable Windows binary can be used without
+adding it to the system PATH. On 2026-11-03, the signed Godot 4.7.2 Windows
+console binary passed the renderer-report UDP probe, the speech interruption
+probe, and both avatar-demo headless checks. These checks ran in headless mode;
+they do not establish interactive rendering or gaming performance.
+
 ## GLORP acceptance sequence
 
 Do not start production commissioning until the required installation,
