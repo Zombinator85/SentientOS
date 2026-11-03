@@ -666,6 +666,24 @@ class LocalModel:
     active_identity: ActiveModelIdentity
 
     @classmethod
+    def load_candidate(cls, candidate_index: int, *,
+                       config: ModelConfig | None = None) -> "LocalModel":
+        """Load exactly one configured model candidate without fallback."""
+        ensure_mounts()
+        selected_config = config or load_model_config()
+        if (type(candidate_index) is not int
+                or not 0 <= candidate_index < len(selected_config.candidates)):
+            raise ModelLoadError("model_candidate_index_invalid")
+        candidate = selected_config.candidates[candidate_index]
+        backend, metadata = cls._initialise_backend(candidate, selected_config)
+        safe_backend = _NullBackend(candidate, metadata)
+        identity = cls._identity_for(candidate, selected_config, backend, metadata,
+                                     candidate_index)
+        return cls(backend=backend, metadata=backend.metadata,
+                   config=selected_config, _fallback_backend=safe_backend,
+                   active_identity=identity)
+
+    @classmethod
     def autoload(cls) -> "LocalModel":
         if os.getenv("SENTIENTOS_NODE_ONLY") == "1":
             ensure_mounts()

@@ -182,6 +182,22 @@ def test_ollama_active_request_can_be_cancelled(monkeypatch: pytest.MonkeyPatch,
     assert failures
 
 
+
+def test_local_model_load_candidate_selects_exact_model_without_fallback(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "data"))
+    _manifest, digest, candidate, config = _candidate(tmp_path)
+    opener = _Opener(digest)
+    monkeypatch.setattr("sentientos.local_model.urllib.request.build_opener",
+        lambda *_args: opener)
+
+    model = LocalModel.load_candidate(0, config=config)
+    assert model.active_identity.candidate_index == 0
+    assert model.active_identity.posture == "development_only"
+    assert model.active_identity.fallback is False
+    with pytest.raises(ModelLoadError, match="candidate_index"):
+        LocalModel.load_candidate(1, config=config)
+
 def test_ollama_backend_rejects_non_loopback_and_unpinned_manifest(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "data"))

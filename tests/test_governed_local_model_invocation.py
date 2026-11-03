@@ -75,6 +75,65 @@ def _invoker(tmp_path: Path, text: str = "ok"):
     return fake, GovernedLocalModelInvoker(model=fake, authority_map=authority, kernel=kernel, runtime_root=tmp_path / "runtime")
 
 
+
+def test_model_profile_change_during_admission_fails_closed_before_generation(
+        tmp_path: Path) -> None:
+    import hashlib
+    from sentientos.control_plane_kernel import AuthorityClass
+
+    manifest = tmp_path / "ollama-manifest.json"
+    manifest.write_text('{"model":"qwen3:8b"}\n', encoding="utf-8")
+    digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    candidate = ModelCandidate(path=manifest, engine="ollama", name="Qwen profile",
+        options={"api_base": "http://127.0.0.1:11434", "model": "qwen3:8b",
+            "manifest_sha256": digest, "num_gpu": 24, "keep_alive": "15m"})
+    config = ModelConfig([candidate], default_engine="ollama",
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    record = authority.records[0]
+    identity = ActiveModelIdentity(engine=record.engine,
+        resolved_artifact_path=str(manifest.resolve()),
+        semantic_artifact_identity=record.semantic_artifact_identity,
+        model_content_sha256=record.model_content_sha256,
+        artifact_size_bytes=record.artifact_size_bytes,
+        sidecar_metadata_digest=record.sidecar_metadata_digest,
+        configuration_digest=record.configuration_digest, candidate_index=0,
+        posture="development_only", fallback=False)
+
+    class IdentifiedModel(FakeModel):
+        def __init__(self, active_identity):
+            super().__init__()
+            self.active_identity = active_identity
+
+    active = IdentifiedModel(identity)
+    replacement_identity = ActiveModelIdentity(**{
+        **identity.to_dict(),
+        "semantic_artifact_identity": "sha256:" + "a" * 64,
+        "candidate_index": 1,
+        "configuration_digest": "b" * 64,
+    })
+    replacement = IdentifiedModel(replacement_identity)
+    kernel = ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+        decisions_path=tmp_path / "decisions.jsonl")
+    invoker = GovernedLocalModelInvoker(model=active, authority_map=authority,
+        kernel=kernel, runtime_root=tmp_path / "runtime")
+    original_admit = kernel.admit
+
+    def swap_after_admission(request):
+        if request.authority_class is AuthorityClass.LOCAL_MODEL_INFERENCE:
+            invoker.model = replacement
+        return original_admit(request)
+
+    kernel.admit = swap_after_admission
+    request = invoker.build_request(purpose="local_user_chat", prompt="hello",
+        caller="test", correlation_id="profile-transition-race")
+    receipt = invoker.invoke(request)
+
+    assert receipt.status == "backend_failure"
+    assert "active_model_request_identity_mismatch" in receipt.reason_codes
+    assert active.calls == replacement.calls == 0
+    assert receipt.effects["local_model_inference"] is False
+
 def test_admitted_chat_receipt_is_digest_bound(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path, "hello")
     req = inv.build_request(purpose="local_user_chat", prompt="hi", caller="test", correlation_id="c1")

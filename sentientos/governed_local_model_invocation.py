@@ -732,6 +732,12 @@ class GovernedLocalModelInvoker:
                             backend_entered = True
                         if not self._active_invocation_lock.acquire(blocking=False):
                             raise RuntimeError("model_invocation_already_active")
+                        latest_identity = getattr(self.model, "active_identity", None)
+                        if (identity is not None and
+                                (latest_identity is None
+                                 or request.active_model_identity != latest_identity.to_dict())):
+                            self._active_invocation_lock.release()
+                            raise RuntimeError("active_model_request_identity_mismatch")
                         active_release_event = threading.Event()
                         with self._active_state_lock:
                             self._active_release_event = active_release_event
@@ -828,6 +834,9 @@ class GovernedLocalModelInvoker:
                         if active_release_event is not None and active_release_event.is_set():
                             status = "cancelled"
                             reasons.append("cancelled_for_workload_transition")
+                        elif str(exc) == "active_model_request_identity_mismatch":
+                            status = "backend_failure"
+                            reasons.append("active_model_request_identity_mismatch")
                         else:
                             status = "backend_failure"
                             reasons.append(f"backend_failure:{exc.__class__.__name__}")

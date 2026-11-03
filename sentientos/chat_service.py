@@ -90,12 +90,21 @@ class ChatSpeechOutput(Protocol):
 class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
     __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
-                 "_residency_release")
-    def __init__(self, invoker: GovernedLocalModelInvoker) -> None:
+                 "_residency_release", "_model_profiles")
+    def __init__(self, invoker: GovernedLocalModelInvoker,
+                 model_profiles: Mapping[str, Any] | None = None) -> None:
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
         self._residency_release: Mapping[str, Any] | None = None
+        profiles = dict(model_profiles or {})
+        if set(profiles) - {"normal", "gaming"}:
+            raise ValueError("unsupported_local_model_profile")
+        if any(value is None for value in profiles.values()):
+            raise ValueError("local_model_profile_required")
+        if "normal" in profiles:
+            invoker.model = profiles["normal"]
+        self._model_profiles = profiles
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         identity = getattr(self._delegate.model, "active_identity", None)
         return identity.to_dict() if identity is not None else {}
@@ -130,13 +139,30 @@ class DevelopmentLocalChatInference:
         selected = GamingWorkloadPolicy.validate_mode(mode)
         with self._workload_lock:
             previous = self._workload_mode
-            self._workload_mode = selected
-        identity = getattr(self._delegate.model, "active_identity", None)
-        if (selected == "gaming" and previous != "gaming"
-                and getattr(identity, "engine", None) == "ollama"):
-            receipt = self._delegate.release_model_residency()
-            with self._workload_lock:
+            current_model = self._delegate.model
+            target_model = self._model_profiles.get(selected)
+            profile_changes = target_model is not None and target_model is not current_model
+            identity = getattr(current_model, "active_identity", None)
+            should_release = (
+                profile_changes
+                or (selected == "gaming" and previous != "gaming"
+                    and getattr(identity, "engine", None) == "ollama")
+            )
+            if should_release:
+                receipt = self._delegate.release_model_residency()
+                if receipt.status not in {"released", "already_unloaded",
+                                          "not_applicable"}:
+                    raise RuntimeError("local_model_profile_release_unconfirmed")
                 self._residency_release = receipt.to_dict()
+            if profile_changes:
+                target_identity = getattr(target_model, "active_identity", None)
+                authority_map = getattr(self._delegate, "authority_map", None)
+                resolver = getattr(authority_map, "record_for_active_identity", None)
+                if (target_identity is None or not callable(resolver)
+                        or resolver(target_identity, "local_user_chat") is None):
+                    raise RuntimeError("local_model_profile_authority_missing")
+                self._delegate.model = target_model
+            self._workload_mode = selected
         return selected
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,
@@ -1284,7 +1310,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                data_root: Path | None = None,
-                               avatar_output_emitter: Any | None = None) -> None:
+                               avatar_output_emitter: Any | None = None,
+                               model_profiles: Mapping[str, Any] | None = None,
+                               initial_workload_mode: str = "normal") -> None:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -1301,8 +1329,11 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         avatar_output = ChatAvatarOutputController(
             avatar_output_emitter, admission_provider=admit_request)
     close_production_chat()
+    inference = DevelopmentLocalChatInference(invoker, model_profiles)
+    if initial_workload_mode != "normal":
+        inference.set_workload_mode(initial_workload_mode)
     _CONVERSATION_SERVICE = PersistentConversationService(
-        inference=DevelopmentLocalChatInference(invoker),
+        inference=inference,
         session_store=ConversationSessionStore(conversation_root),
         memory_store=CanonicalMemoryStore(memory_root),
         avatar_output=avatar_output)
