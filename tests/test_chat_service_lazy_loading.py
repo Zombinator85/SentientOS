@@ -202,8 +202,8 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "You are the currently active conversational model within SentientOS" in prompt
     assert "use the configured model label from VERIFIED_RUNTIME_CONTEXT" in prompt
     assert "Do not add a generic model/AI limitations preamble or unrelated self-description" in prompt
-    assert "Do not confuse user-reported games with detected games" in prompt
-    assert "Avoid irrelevant privacy disclaimers" in prompt
+    assert "Telemetry confirms an allowlisted process is foreground, not its name" in prompt
+    assert "attribute game titles to the user" in prompt
     runtime_block = prompt.split("[VERIFIED_RUNTIME_CONTEXT]\n", 1)[1].split(
         "\n[SESSION_HISTORY_DATA]", 1)[0]
     runtime = json.loads(runtime_block)
