@@ -1572,7 +1572,12 @@ async def reconcile_workload_mode_endpoint() -> dict[str, Any]:
     try:
         return _get_conversation_service().reconcile_workload_state()
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail="Chat workload mode unavailable") from exc
+        detail = (
+            "Automatic game transition blocked because model residency release was not confirmed."
+            if str(exc) == "local_model_profile_release_unconfirmed"
+            else "Chat workload mode unavailable"
+        )
+        raise HTTPException(status_code=503, detail=detail) from exc
 
 
 @APP.post("/workload-mode")
@@ -2100,7 +2105,15 @@ async def root_page() -> HTMLResponse:
                     const status = document.getElementById('workload-status');
                     try {
                         const response = await fetch('/workload-mode/reconcile', { method: 'POST' });
-                        if (!response.ok) throw new Error('unavailable');
+                        if (!response.ok) {
+                            const failure = await response.json().catch(() => ({}));
+                            if (failure.detail ===
+                                    'Automatic game transition blocked because model residency release was not confirmed.') {
+                                status.textContent = 'Game detected; model release unconfirmed, gaming profile not switched';
+                                return;
+                            }
+                            throw new Error('unavailable');
+                        }
                         let data = await response.json();
                         if (control.value !== data.mode) {
                             const preference = readWorkloadPreference();

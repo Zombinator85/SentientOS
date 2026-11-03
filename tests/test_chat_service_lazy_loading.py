@@ -470,6 +470,55 @@ def test_automatic_workload_poll_releases_previous_model_when_game_enters_foregr
     assert invoker.release_calls == release_calls_in_manual_mode
 
 
+def test_failed_automatic_model_release_is_visible_and_does_not_switch_profiles(tmp_path):
+    chat = _reload()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    class MutableDetector:
+        foreground = False
+        def observe(self, _names):
+            return ForegroundGameObservation("available", self.foreground,
+                "c" * 64, "2026-11-03T20:00:00+00:00", {"source_id": "windows"})
+
+    class Invoker:
+        def __init__(self, model):
+            self.model = model
+            self.authority_map = SimpleNamespace(
+                record_for_active_identity=lambda identity, purpose: object()
+                if purpose == "local_user_chat" and identity is not None else None)
+            self.release_statuses = ["released", "released", "release_failed"]
+            self.resident = True
+        def release_model_residency(self):
+            status = self.release_statuses.pop(0)
+            if status == "released":
+                self.resident = False
+            return SimpleNamespace(status=status,
+                to_dict=lambda: {"status": status})
+
+    normal = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    gaming = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    detector = MutableDetector()
+    invoker = Invoker(normal)
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        model_profiles={"normal": normal, "gaming": gaming},
+        initial_workload_mode="automatic", foreground_game_detector=detector,
+        game_process_names=("Cronos-Win64-Shipping.exe",))
+    client = TestClient(chat.APP)
+    assert client.post("/workload-mode/reconcile").status_code == 200
+    assert invoker.model is normal
+    invoker.resident = True
+    detector.foreground = True
+
+    response = client.post("/workload-mode/reconcile")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Automatic game transition blocked because model residency release was not confirmed.")
+    assert invoker.model is normal
+    assert invoker.resident is True
+    assert "Game detected; model release unconfirmed, gaming profile not switched" in client.get("/").text
+
+
 def test_development_automatic_mode_falls_back_to_gaming_when_observation_stale():
     chat = _reload()
     from sentientos.foreground_game_detection import ForegroundGameObservation
