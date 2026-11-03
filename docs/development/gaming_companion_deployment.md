@@ -228,6 +228,15 @@ authority receipt metadata. The production composition clears output before it
 closes the session transport. Fixture coverage exercises the combined factory
 and the production owner lifecycle without contacting a target host.
 
+The executable local acceptance command also runs
+`tests/test_gaming_companion_bidirectional_runtime.py`. That scenario opens two
+real loopback mTLS listeners with generated fixture certificates, sends an
+authenticated Windows-edge performance observation to the core, then returns
+an admission-receipt-bound avatar command to the edge dispatcher. It proves
+both software transport directions and receipt-gated dispatch in one scenario.
+It does not use Windows, WSL2, operator credentials, private-host routing, or
+firewall policy; those remain separate target checks.
+
 `sentientos-gaming-companion-role` is the foreground executable for either
 `windows_edge` or `wsl_core`. It validates the closed v3 manifest, refuses an
 unsupported host before importing the platform provider, requires that provider
