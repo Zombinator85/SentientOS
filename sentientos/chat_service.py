@@ -910,13 +910,20 @@ class PersistentConversationService:
             history_budget = min(history_budget, 2000)
         recent_session_recall = _is_recent_session_recall_request(message)
         social_checkin = _is_social_checkin_request(message)
-        history_roles = ("user",) if recent_session_recall or social_checkin else None
+        history_roles: tuple[str, ...] | None
+        if recent_session_recall:
+            history_roles = ("user",)
+        elif social_checkin:
+            # A self-contained greeting should not inherit topic from an older
+            # user question and mistake the check-in for another request.
+            history_roles = ()
+        else:
+            history_roles = None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
-        # Exact recall and casual check-ins rely on the active transcript.
-        # Lexical long-term retrieval can otherwise over-weight topic-matching
-        # memories, while old assistant advice can make a greeting sound like
-        # another request for help.
+        # Exact recall and casual check-ins rely on the active message/history
+        # appropriate to that intent. Lexical long-term retrieval can otherwise
+        # over-weight topic-matching memories (for example, old Cronos advice).
         memory_query = "" if recent_session_recall or social_checkin else message
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
         runtime_context = self._verified_runtime_context(
@@ -931,7 +938,7 @@ class PersistentConversationService:
         if gaming_development_turn:
             while history_budget > 0:
                 effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
-                    prompt, "gaming")
+                    prompt, "gaming", social_checkin=social_checkin)
                 overflow = (len(effective_prompt)
                     - GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS)
                 if overflow <= 0:

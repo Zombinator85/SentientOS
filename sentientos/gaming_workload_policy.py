@@ -16,10 +16,17 @@ class GamingWorkloadPolicy:
 
     GAMING_CHAT_STYLE_ID = "gaming_chat_style_v1"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "User is gaming. Answer current intent in two short sentences max. For "
-        "greetings or company, respond warmly and ask at most one casual question. "
-        "Don't redirect to game help, repeat offers, rephrase the prompt, or give "
-        "advice unless asked. Don't infer game details."
+        "User is gaming. Answer the current intent in at most two short sentences. "
+        "For greetings or company, respond warmly and ask at most one casual "
+        "question. Do not offer game help or advice unless asked, repeat offers, "
+        "rephrase the prompt, or infer game details."
+    )
+    GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
+        "This is friendly small talk, not a help request. Answer 'How are you?' "
+        "directly: say you are here and ready to chat, then ask at most one easy "
+        "question about the user's break. Never ask what help is needed or claim "
+        "you are playing or experiencing the game. Example (vary naturally): "
+        "'I'm here and ready to chat. How's the break going?'"
     )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200
@@ -66,8 +73,9 @@ class GamingWorkloadPolicy:
         return cls.constrain_budget(mode, requested), lineage
 
     @classmethod
-    def apply_chat_response_style(cls, prompt: str, mode: WorkloadMode) -> str:
-        """Add the trusted low-distraction instruction before untrusted chat data."""
+    def apply_chat_response_style(cls, prompt: str, mode: WorkloadMode,
+                                  *, social_checkin: bool = False) -> str:
+        """Add trusted low-distraction guidance before untrusted chat data."""
         if mode == "normal":
             return prompt
         marker = "[SESSION_HISTORY_DATA]"
@@ -75,4 +83,7 @@ class GamingWorkloadPolicy:
                 or marker not in prompt):
             raise ValueError("gaming_chat_instruction_anchor_invalid")
         head, tail = prompt.split(marker, 1)
-        return head + cls.GAMING_CHAT_STYLE_INSTRUCTION + "\n" + marker + tail
+        instruction = cls.GAMING_CHAT_STYLE_INSTRUCTION
+        if social_checkin:
+            instruction += "\n" + cls.GAMING_SOCIAL_CHECKIN_INSTRUCTION
+        return head + instruction + "\n" + marker + tail
