@@ -36,6 +36,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_process_supervisor.py",
     "tests/test_gaming_companion_pair_supervisor.py",
     "tests/test_gaming_companion_pair_entrypoint.py",
+    "tests/test_gaming_companion_authority.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",

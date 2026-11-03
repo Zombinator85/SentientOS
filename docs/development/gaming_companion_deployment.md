@@ -281,16 +281,31 @@ Each process supervisor still validates its own generation receipts, launch
 authorization, readiness, and graceful shutdown. The coordinator issues no
 keys or generations and installs no OS service or firewall rule.
 
+The repository now includes `sentientos.gaming_companion_authority` as a
+concrete verifier/store adapter for signed companion authority receipts. It
+uses Ed25519 public keys supplied by the installed platform provider, checks
+the exact deployment or process-launch subject, expiry, allow decision,
+signature, and semantic digest, and reads receipts from a content-addressed
+store. It also verifies generation receipts against the full generation
+identity. The component cannot issue receipts or choose trusted issuer keys;
+the target installation must provision those through its authority channel.
+See [the receipt contract](gaming_companion_authority_receipts.md).
+`CompanionAuthorityCallbacks` exposes generation verification and pair, role,
+and process launch authorization in the shapes consumed by the existing
+runtime supervisors and entrypoints.
+
 ```text
 sentientos-gaming-companion-pair --manifest deployment.json \
   --provider sentientos_platform.windows_pair:build_supervisor \
   --launch-authorizer sentientos_platform.authority:verify_pair_launch
 ```
 
-The provider must be installed by the target operator and resolve the actual
-Windows DPAPI and WSL protected-file custody references. No such provider is
-shipped here, so the command blocks until the real platform adapter and
-deployment launch record are available.
+The pair lifecycle and signed-receipt verification primitives are shipped.
+The target installation still needs its custody resolver to bind manifest
+references to Windows DPAPI/Windows certificate custody and WSL protected
+files, and must provision its issuer public keys and operator-issued launch
+receipts. This cloud workspace has neither installation identity nor issuer
+trust anchor, so it cannot create or verify a GLORP launch approval.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
