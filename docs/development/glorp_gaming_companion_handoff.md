@@ -4,9 +4,9 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3405 are merged;
-PR #3405 advanced `main` to `8b454976` with the failure-digest test isolation
-fix. The previously reported
+**Current software status (2026-11-03):** PRs #3392 through #3406 are merged;
+PR #3406 advanced `main` to `17a78b55` with the GLORP cross-host smoke. The
+previously reported
 local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
 main commit. The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
@@ -21,8 +21,8 @@ the exact PR #3396 candidate passed 264 tests (0 failures, 0 errors, 23 skips).
 The acceptance report distinguishes executed software scenarios from
 target-host validation and production commissioning.
 
-The current GLORP campaign branch adds a separate-process Windows/WSL bridge
-smoke. Its exact run and scope are recorded below; it does not replace the
+The GLORP software increments include a separate-process Windows/WSL bridge
+smoke. Its exact runs and scope are recorded below; it does not replace the
 production custody, authority, renderer, or gameplay checks.
 
 **Campaign continuation update (2026-11-02; worktree parent
@@ -368,7 +368,9 @@ gameplay behavior.
 The opt-in command `scripts.gaming_companion_cross_host_smoke` starts one
 temporary Windows edge listener and the real WSL core listener on the private
 WSL route. It requires clean Windows and WSL checkouts at the same Git SHA, plus
-Python 3.11 environments with `requirements-codex.txt` installed. Example:
+Python 3.11 environments with `requirements-codex.txt` installed. The Windows
+environment also needs the repository's optional `psutil` dependency for the
+live per-process sample. Example:
 
 ```bash
 .venv/bin/python -m scripts.gaming_companion_cross_host_smoke \
@@ -379,17 +381,24 @@ Python 3.11 environments with `requirements-codex.txt` installed. Example:
 The command creates temporary TLS certificates and HMAC keys, passes the test
 keys to the Windows child over stdin, then removes the temporary directory. It
 opens two ephemeral listeners but changes no firewall rule, service, startup
-setting, or persistent host configuration. The admission callback is a test
-fixture, and the Windows sink is an in-memory queue; a pass does not prove a
-frame rendered or establish production commissioning.
+setting, or persistent host configuration. The Windows child samples its own
+PID through the real Windows process provider, publishes the report over mTLS,
+and the WSL core verifies its schema, freshness, identity, and authenticated
+transport. The sample exposes only a PID digest, CPU percentage, and RSS; no
+executable name or raw PID is returned. PresentMon remains unavailable in this
+smoke. The avatar admission callback is a test fixture and the Windows sink is
+an in-memory queue; a pass does not prove a frame rendered or establish
+production commissioning.
 
-On 2026-11-03, source `198a8dd2249890e745f64fd8df0ad19aa6a7cbc3` passed on GLORP:
+On 2026-11-03, source `f1b8dc2a772dc3cda20b628be21e6b59ce1ca9e2` passed on GLORP:
 `windows_to_wsl=passed`, `wsl_to_windows_queue=passed`, and
-`renderer_effect_proven=false`. This is real cross-process transport on the
-target host with fixture payloads and test identities. Windows/WSL production
-custody, generation issuance, firewall policy, OS-process supervision under
-production authority, Godot rendering, audio, game observation, and gameplay
-impact remain unverified.
+`renderer_effect_proven=false`. The disposable Windows child reported 0.0%
+process CPU and 38,883,328 bytes RSS; the PID was not exposed. This is a real
+Windows process sample transported to and verified by the WSL core, with
+temporary test identities. It is not a game process or frame-time observation.
+Windows/WSL production custody, generation issuance, firewall policy,
+OS-process supervision under production authority, Godot rendering, audio,
+game observation, and gameplay impact remain unverified.
 
 ## GLORP acceptance sequence
 
