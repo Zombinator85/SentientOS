@@ -110,7 +110,8 @@ class WindowsEdgeAvatarCommandDispatchOwner:
     def __init__(self, *, runtime: AvatarCommandRuntime,
                  receipt_verifier: ReceiptVerifier,
                  renderer_sink: RendererCommandSink,
-                 poll_interval_seconds: float = 0.05) -> None:
+                 poll_interval_seconds: float = 0.05,
+                 max_consumed_receipts: int = 8192) -> None:
         if not callable(getattr(runtime, "receive", None)):
             raise CompanionBridgeError("avatar_command_runtime_required")
         if not callable(receipt_verifier) or not callable(renderer_sink):
@@ -119,10 +120,16 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 or not isinstance(poll_interval_seconds, (int, float))
                 or not 0.01 <= poll_interval_seconds <= 1.0):
             raise CompanionBridgeError("avatar_command_poll_interval_invalid")
+        if (isinstance(max_consumed_receipts, bool)
+                or not isinstance(max_consumed_receipts, int)
+                or max_consumed_receipts < 1):
+            raise CompanionBridgeError("avatar_command_receipt_window_invalid")
         self._runtime = runtime
         self._verify = receipt_verifier
         self._sink = renderer_sink
         self._poll = float(poll_interval_seconds)
+        self._max_consumed_receipts = max_consumed_receipts
+        self._consumed_receipts: set[str] = set()
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._worker: threading.Thread | None = None
@@ -179,9 +186,21 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                 raise CompanionBridgeError("avatar_command_message_required")
             receipt_id = message.admission.get("receipt_id")
             semantic_digest = message.admission.get("semantic_digest")
-            if (not isinstance(receipt_id, str) or not isinstance(semantic_digest, str)
-                    or self._verify(receipt_id, semantic_digest, message) is not True):
+            if not isinstance(receipt_id, str) or not isinstance(semantic_digest, str):
                 raise CompanionBridgeError("avatar_command_admission_unverified")
+            with self._lock:
+                if receipt_id in self._consumed_receipts:
+                    raise CompanionBridgeError("avatar_command_admission_receipt_replayed")
+                if len(self._consumed_receipts) >= self._max_consumed_receipts:
+                    raise CompanionBridgeError("avatar_command_receipt_window_exhausted")
+            if self._verify(receipt_id, semantic_digest, message) is not True:
+                raise CompanionBridgeError("avatar_command_admission_unverified")
+            with self._lock:
+                if receipt_id in self._consumed_receipts:
+                    raise CompanionBridgeError("avatar_command_admission_receipt_replayed")
+                if len(self._consumed_receipts) >= self._max_consumed_receipts:
+                    raise CompanionBridgeError("avatar_command_receipt_window_exhausted")
+                self._consumed_receipts.add(receipt_id)
             if self._sink(message.payload, message) is not True:
                 raise CompanionBridgeError("avatar_command_renderer_queue_rejected")
         except Exception as exc:

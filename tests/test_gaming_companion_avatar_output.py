@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -255,6 +256,26 @@ def test_dispatch_requires_receipt_verification_before_renderer_queue():
     status = owner.status()
     assert (status.received, status.accepted, status.rejected) == (1, 1, 0)
     assert status.renderer_effect_proven is False
+
+
+def test_dispatch_rejects_reused_admission_receipt_without_second_queue_delivery():
+    message, admission = verified_command()
+    replay = replace(message, message_id="replayed-message", sequence=2)
+    verified = []
+    delivered = []
+    owner = WindowsEdgeAvatarCommandDispatchOwner(runtime=_Runtime(),
+        receipt_verifier=lambda receipt_id, digest, _message:
+            verified.append(receipt_id) is None
+            and (receipt_id, digest) ==
+                (admission["receipt_id"], admission["semantic_digest"]),
+        renderer_sink=lambda payload, _message:
+            delivered.append(dict(payload)) is None)
+
+    assert owner.dispatch_one(message) is True
+    assert owner.dispatch_one(replay) is False
+    assert verified == [admission["receipt_id"]]
+    assert delivered == [dict(message.payload)]
+    assert owner.status().last_failure == "avatar_command_admission_receipt_replayed"
 
 
 def test_dispatch_rejects_unverified_receipts_and_sink_denial_without_retry():
