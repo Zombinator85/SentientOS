@@ -206,8 +206,11 @@ class _TemporaryCompanionEdge:
 
     @staticmethod
     def _forward_lines(stream, target: queue.Queue[str], report_file: Path) -> None:
+        ready_seen = False
         for line in stream:
             rendered = line.rstrip()
+            if rendered.startswith("READY "):
+                ready_seen = True
             if rendered.startswith("RENDERER_REPORT "):
                 try:
                     report = json.loads(rendered[len("RENDERER_REPORT "):])
@@ -220,6 +223,11 @@ class _TemporaryCompanionEdge:
             if rendered.startswith("FOREGROUND_PUMP "):
                 print("WINDOWS_EDGE "+rendered,flush=True)
                 continue
+            if ready_seen and rendered and not rendered.startswith("READY "):
+                # Keep post-startup edge diagnostics visible. The queue is only
+                # consumed while waiting for READY, so otherwise worker errors
+                # disappear and bridge failures look like unexplained timeouts.
+                print("WINDOWS_EDGE "+rendered,flush=True)
             target.put(rendered)
 
     def close(self) -> None:
