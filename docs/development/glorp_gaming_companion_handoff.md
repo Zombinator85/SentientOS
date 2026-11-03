@@ -4,16 +4,18 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3409 and #3411 through #3417 are merged;
-main is at ac251710. PR #3411 verified the actual headless Godot avatar scene
+**Current software status (2026-11-03):** PRs #3392 through #3409 and #3411 through #3418 are merged;
+main is at 26f74b7b. PR #3411 verified the actual headless Godot avatar scene
 consuming the admitted Windows queue state over loopback UDP and returning its
 self-report over mTLS for temporary WSL capture. PRs #3412 and #3413 verified
 the Windows custody resolver with disposable CurrentUser DPAPI material and
 encrypted client/server mTLS identities. PRs #3414 and #3415 added bounded
 in-process admission-receipt replay protection and its fail-closed window
 test. PR #3417 verifies a lost-ack retry is rejected before a second queue
-delivery. PR #3410 was closed when its temporary stacked base was deleted; its
-unmerged implementation was carried forward and merged through #3411.
+delivery. PR #3418 records that replay result and explicitly leaves durable
+receipt custody across process restart unverified. PR #3410 was closed when its
+temporary stacked base was deleted; its unmerged implementation was carried
+forward and merged through #3411.
 The previously reported local commit b3b4fc6eff93978284857dbb9e2520c848d01633
 is an ancestor of the merged main history.
 The merged software includes GPU/VRAM-aware background admission,
@@ -478,6 +480,16 @@ sequence and the same admission receipt. The edge rejected the retry and
 invoked the renderer queue exactly once. This is one-process evidence; durable
 receipt consumption across a Windows edge process restart is still delegated
 to the installed verifier and has not been exercised with production custody.
+
+On 2026-11-03, the default cross-host smoke passed on current merged `main` at
+`26f74b7bf760d150d3302d0f6453fb12695476c9`, using clean Windows and WSL
+checkouts at the same SHA. `windows_to_wsl` and `wsl_to_windows_queue` passed;
+the Windows child reported 0.0% CPU and 39,768,064 bytes RSS with no raw PID
+exposed. The run started two ephemeral listeners, sent the fixture chat
+output, and reported Godot and renderer-report steps as `not_run`. It changed no
+firewall, service, or persistent host configuration and made no
+production-commissioning claim. This run verifies current cross-host transport and
+queue delivery only; it does not verify renderer application or game impact.
 
 ## GLORP acceptance sequence
 
