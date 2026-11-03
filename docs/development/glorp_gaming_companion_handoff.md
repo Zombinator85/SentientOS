@@ -4,14 +4,15 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3409 and #3411 through #3415 are merged;
+**Current software status (2026-11-03):** PRs #3392 through #3409 and #3411 through #3417 are merged;
 main is at ac251710. PR #3411 verified the actual headless Godot avatar scene
 consuming the admitted Windows queue state over loopback UDP and returning its
 self-report over mTLS for temporary WSL capture. PRs #3412 and #3413 verified
 the Windows custody resolver with disposable CurrentUser DPAPI material and
 encrypted client/server mTLS identities. PRs #3414 and #3415 added bounded
 in-process admission-receipt replay protection and its fail-closed window
-test. PR #3410 was closed when its temporary stacked base was deleted; its
+test. PR #3417 verifies a lost-ack retry is rejected before a second queue
+delivery. PR #3410 was closed when its temporary stacked base was deleted; its
 unmerged implementation was carried forward and merged through #3411.
 The previously reported local commit b3b4fc6eff93978284857dbb9e2520c848d01633
 is an ancestor of the merged main history.
@@ -469,6 +470,14 @@ before another authority-verifier or renderer-queue call, and a full bounded
 receipt window fails closed. The production owner keeps up to 8192 consumed
 receipt identifiers in process memory. Durable replay prevention across
 process restart remains the installed receipt verifier's responsibility.
+
+At source 13a11748, the focused avatar-output suite passed on GLORP Windows
+and WSL (13 passed each). The failure injection accepted the first command at
+the edge, dropped its acknowledgment, then resent with the next transport
+sequence and the same admission receipt. The edge rejected the retry and
+invoked the renderer queue exactly once. This is one-process evidence; durable
+receipt consumption across a Windows edge process restart is still delegated
+to the installed verifier and has not been exercised with production custody.
 
 ## GLORP acceptance sequence
 
