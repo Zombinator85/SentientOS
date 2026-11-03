@@ -90,13 +90,18 @@ class ChatSpeechOutput(Protocol):
 class DevelopmentLocalChatInference:
     """Affirmative local development adapter; never selected by production."""
     __slots__ = ("_delegate", "_workload_mode", "_workload_lock",
-                 "_residency_release", "_model_profiles")
+                 "_residency_release", "_model_profiles", "_foreground_game_detector",
+                 "_game_process_names", "_effective_workload_mode")
     def __init__(self, invoker: GovernedLocalModelInvoker,
-                 model_profiles: Mapping[str, Any] | None = None) -> None:
+                 model_profiles: Mapping[str, Any] | None = None,
+                 foreground_game_detector: Any | None = None) -> None:
         self._delegate = invoker
         self._workload_mode: WorkloadMode = "normal"
         self._workload_lock = threading.RLock()
         self._residency_release: Mapping[str, Any] | None = None
+        self._foreground_game_detector = foreground_game_detector
+        self._game_process_names: tuple[str, ...] = ()
+        self._effective_workload_mode = "normal"
         profiles = dict(model_profiles or {})
         if set(profiles) - {"normal", "gaming"}:
             raise ValueError("unsupported_local_model_profile")
@@ -118,70 +123,115 @@ class DevelopmentLocalChatInference:
         label = getattr(record, "name", None)
         return label if isinstance(label, str) and label else None
     def current_workload_mode(self) -> WorkloadMode:
-        with self._workload_lock:
-            return self._workload_mode
+        return self.current_workload_state()["effective_mode"]
     def current_workload_state(self) -> dict[str, Any]:
-        mode = self.current_workload_mode()
         with self._workload_lock:
+            configured = self._workload_mode
+            names = self._game_process_names
+            detector = self._foreground_game_detector
             release = (dict(self._residency_release)
                 if self._residency_release is not None else None)
-        state: dict[str, Any] = {"mode": mode, "effective_mode": mode,
-            "mode_source": "local_development_operator_selection",
-            "foreground_game_detected": False,
-            "workload_evidence": {"status": "operator_selected",
-                "source": "local_development_session"}}
+        if configured == "automatic":
+            try:
+                observed = detector.observe(names) if detector is not None else None
+            except Exception:
+                observed = None
+            if observed is not None and observed.status == "available":
+                foreground = observed.game_foreground
+                effective = "gaming" if foreground is True else "normal"
+                source = ("foreground_allowlist_match" if foreground is True
+                          else "foreground_allowlist_no_match")
+                evidence = {
+                    "status": observed.status, "source": source,
+                    "game_foreground": foreground,
+                    "process_name_digest": observed.process_name_digest,
+                    "observed_at": observed.observed_at,
+                    "transport_provenance": (dict(observed.transport_provenance)
+                        if observed.transport_provenance is not None else None),
+                }
+            else:
+                effective = "gaming"
+                evidence = {
+                    "status": (getattr(observed, "status", None)
+                               or "observation_unavailable"),
+                    "source": "foreground_observation_unavailable_conservative_gaming",
+                    "game_foreground": None, "process_name_digest": None,
+                    "observed_at": getattr(observed, "observed_at", None),
+                    "transport_provenance": None,
+                }
+            source = evidence["source"]
+        else:
+            effective = configured
+            source = "local_development_operator_selection"
+            evidence = {"status": "operator_selected",
+                "source": "local_development_session", "game_foreground": None,
+                "process_name_digest": None, "observed_at": None,
+                "transport_provenance": None}
+        state: dict[str, Any] = {
+            "mode": configured, "effective_mode": effective,
+            "mode_source": source,
+            "foreground_game_detected": evidence["game_foreground"] is True,
+            "workload_evidence": evidence,
+        }
         if release is not None:
             state["residency_release"] = release
         return state
     def set_workload_mode(self, mode: str,
                           game_process_names: tuple[str, ...] | list[str] = ()) -> str:
-        del game_process_names
         selected = GamingWorkloadPolicy.validate_mode(mode)
+        names = (normalize_game_process_names(game_process_names)
+                 if selected == "automatic" else ())
+        target_mode = "gaming" if selected == "automatic" else selected
         with self._workload_lock:
-            previous = self._workload_mode
-            current_model = self._delegate.model
-            target_model = self._model_profiles.get(selected)
-            profile_changes = target_model is not None and target_model is not current_model
-            identity = getattr(current_model, "active_identity", None)
-            should_release = (
-                profile_changes
-                or (selected == "gaming" and previous != "gaming"
-                    and getattr(identity, "engine", None) == "ollama")
-            )
-            if should_release:
-                receipt = self._delegate.release_model_residency()
-                if receipt.status not in {"released", "already_unloaded",
-                                          "not_applicable"}:
-                    raise RuntimeError("local_model_profile_release_unconfirmed")
-                self._residency_release = receipt.to_dict()
-            if profile_changes:
-                target_identity = getattr(target_model, "active_identity", None)
-                authority_map = getattr(self._delegate, "authority_map", None)
-                resolver = getattr(authority_map, "record_for_active_identity", None)
-                if (target_identity is None or not callable(resolver)
-                        or resolver(target_identity, "local_user_chat") is None):
-                    raise RuntimeError("local_model_profile_authority_missing")
-                self._delegate.model = target_model
+            self._select_profile_locked(target_mode)
             self._workload_mode = selected
+            self._game_process_names = names
         return selected
+    def _select_profile_locked(self, selected: str) -> None:
+        current_model = self._delegate.model
+        target_model = self._model_profiles.get(selected)
+        profile_changes = target_model is not None and target_model is not current_model
+        identity = getattr(current_model, "active_identity", None)
+        should_release = (
+            profile_changes
+            or (selected == "gaming" and self._effective_workload_mode != "gaming"
+                and getattr(identity, "engine", None) == "ollama")
+        )
+        if should_release:
+            receipt = self._delegate.release_model_residency()
+            if receipt.status not in {"released", "already_unloaded", "not_applicable"}:
+                raise RuntimeError("local_model_profile_release_unconfirmed")
+            self._residency_release = receipt.to_dict()
+        if profile_changes:
+            target_identity = getattr(target_model, "active_identity", None)
+            authority_map = getattr(self._delegate, "authority_map", None)
+            resolver = getattr(authority_map, "record_for_active_identity", None)
+            if (target_identity is None or not callable(resolver)
+                    or resolver(target_identity, "local_user_chat") is None):
+                raise RuntimeError("local_model_profile_authority_missing")
+            self._delegate.model = target_model
+        self._effective_workload_mode = selected
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,
                  caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
-        mode = self.current_workload_mode()
-        effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, mode)
-        effective_budget = GamingWorkloadPolicy.constrain_budget(mode, budget)
-        linkage = {**dict(caller_linkage), "workload_mode": mode,
-            "workload_evidence": {"status": "operator_selected",
-                "source": "local_development_session"}}
-        identity = getattr(self._delegate.model, "active_identity", None)
-        if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
-            # Keep GPU-backed development models available only for the duration
-            # of a gaming-mode turn; Ollama releases their VRAM after responding.
-            linkage["ollama_keep_alive"] = "0"
-        request = self._delegate.build_request(purpose="local_user_chat",
-            prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
-            budget=effective_budget, linkage=linkage)
-        return self._delegate.invoke(request)
+        workload_state = self.current_workload_state()
+        with self._workload_lock:
+            if workload_state["mode"] != self._workload_mode:
+                workload_state = self.current_workload_state()
+            mode = workload_state["effective_mode"]
+            if workload_state["mode"] == "automatic":
+                self._select_profile_locked(mode)
+            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, mode)
+            effective_budget = GamingWorkloadPolicy.constrain_budget(mode, budget)
+            linkage = {**dict(caller_linkage), "workload_mode": mode,
+                "workload_evidence": workload_state["workload_evidence"]}
+            identity = getattr(self._delegate.model, "active_identity", None)
+            if mode == "gaming" and getattr(identity, "engine", None) == "ollama":
+                linkage["ollama_keep_alive"] = "0"
+            request = self._delegate.build_request(purpose="local_user_chat",
+                prompt=effective_prompt, caller=caller, correlation_id=correlation_id,
+                budget=effective_budget, linkage=linkage)
+            return self._delegate.invoke(request)
 
 
 # Backwards-compatible name for callers that used this adapter with test-only
@@ -1312,7 +1362,9 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                data_root: Path | None = None,
                                avatar_output_emitter: Any | None = None,
                                model_profiles: Mapping[str, Any] | None = None,
-                               initial_workload_mode: str = "normal") -> None:
+                               initial_workload_mode: str = "normal",
+                               foreground_game_detector: Any | None = None,
+                               game_process_names: tuple[str, ...] | list[str] = ()) -> None:
     """Explicitly install governed local development chat inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
@@ -1329,9 +1381,10 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
         avatar_output = ChatAvatarOutputController(
             avatar_output_emitter, admission_provider=admit_request)
     close_production_chat()
-    inference = DevelopmentLocalChatInference(invoker, model_profiles)
+    inference = DevelopmentLocalChatInference(
+        invoker, model_profiles, foreground_game_detector=foreground_game_detector)
     if initial_workload_mode != "normal":
-        inference.set_workload_mode(initial_workload_mode)
+        inference.set_workload_mode(initial_workload_mode, game_process_names)
     _CONVERSATION_SERVICE = PersistentConversationService(
         inference=inference,
         session_store=ConversationSessionStore(conversation_root),

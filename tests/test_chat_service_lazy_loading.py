@@ -239,3 +239,104 @@ def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
     assert response.status_code == 200
     assert len(invoker.prompts[-1]) <= GamingWorkloadPolicy.GAMING_MAX_INPUT_CHARS
     assert "Turn 0: remember violet comet." in invoker.prompts[-1]
+
+
+def test_development_automatic_mode_switches_profiles_from_fresh_observations():
+    chat = _reload()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    class ProfileAuthority:
+        def record_for_active_identity(self, identity, purpose):
+            return object() if purpose == "local_user_chat" and identity is not None else None
+
+    class ProfileInvoker:
+        def __init__(self, model):
+            self.model = model
+            self.authority_map = ProfileAuthority()
+            self.release_calls = 0
+            self.requests = []
+        def release_model_residency(self):
+            self.release_calls += 1
+            return SimpleNamespace(status="already_unloaded",
+                to_dict=lambda: {"status": "already_unloaded"})
+        def build_request(self, **kwargs):
+            self.requests.append(kwargs)
+            return {**kwargs, "active_model_identity": self.model.active_identity}
+        def invoke(self, request):
+            return SimpleNamespace(status="admitted_simulation", output_text="ok",
+                request={"active_model_identity": request["active_model_identity"]})
+
+    class MutableDetector:
+        def __init__(self):
+            self.foreground = True
+        def observe(self, _names):
+            return ForegroundGameObservation("available", self.foreground,
+                "a" * 64, "2026-11-03T17:00:00+00:00", {"source_id": "windows"})
+
+    normal = SimpleNamespace(active_identity=SimpleNamespace(
+        engine="ollama", semantic_artifact_identity="hermes"))
+    gaming = SimpleNamespace(active_identity=SimpleNamespace(
+        engine="ollama", semantic_artifact_identity="qwen3"))
+    detector = MutableDetector()
+    invoker = ProfileInvoker(normal)
+    inference = chat.DevelopmentLocalChatInference(invoker,
+        {"normal": normal, "gaming": gaming}, foreground_game_detector=detector)
+
+    inference.set_workload_mode("automatic", ("Cronos-Win64-Shipping.exe",))
+    assert invoker.model is gaming
+    assert inference.current_workload_state()["mode_source"] == "foreground_allowlist_match"
+    detector.foreground = False
+    state = inference.current_workload_state()
+    assert state["mode"] == "automatic"
+    assert state["effective_mode"] == "normal"
+    assert state["foreground_game_detected"] is False
+    assert state["workload_evidence"]["process_name_digest"] == "a" * 64
+
+    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[SESSION_HISTORY_DATA]\nhello",
+        caller="test", correlation_id="automatic-mode",
+        budget=LocalModelInvocationBudget(), caller_linkage={})
+    assert invoker.model is normal
+
+
+def test_development_automatic_mode_falls_back_to_gaming_when_observation_stale():
+    chat = _reload()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("bridge_observation_expired", None, None,
+                "2026-11-03T17:00:00+00:00")
+
+    class Invoker:
+        def __init__(self, model):
+            self.model = model
+            self.authority_map = SimpleNamespace(
+                record_for_active_identity=lambda identity, purpose: object())
+            self.release_calls = 0
+        def release_model_residency(self):
+            self.release_calls += 1
+            return SimpleNamespace(status="released", to_dict=lambda: {"status": "released"})
+        def build_request(self, **kwargs):
+            return {"active_model_identity": self.model.active_identity, **kwargs}
+        def invoke(self, request):
+            return SimpleNamespace(request={"active_model_identity":
+                request["active_model_identity"]})
+
+    normal = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    gaming = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    invoker = Invoker(normal)
+    inference = chat.DevelopmentLocalChatInference(invoker,
+        {"normal": normal, "gaming": gaming}, foreground_game_detector=Detector())
+    inference.set_workload_mode("automatic", ("Cronos-Win64-Shipping.exe",))
+    with inference._workload_lock:
+        inference._select_profile_locked("normal")
+
+    state = inference.current_workload_state()
+    assert state["effective_mode"] == "gaming"
+    assert state["mode_source"] == "foreground_observation_unavailable_conservative_gaming"
+    inference.generate(prompt="[SYSTEM_INSTRUCTION]\nrole\n[SESSION_HISTORY_DATA]\nhello",
+        caller="test", correlation_id="stale-automatic-mode",
+        budget=LocalModelInvocationBudget(), caller_linkage={})
+    assert invoker.model is gaming
