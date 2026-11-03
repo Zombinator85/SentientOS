@@ -250,6 +250,115 @@ def test_production_identity_mismatch_is_blocked(tmp_path: Path) -> None:
     assert fake.calls == 0
 
 
+@pytest.mark.parametrize("engine,gpu_layers,device_type,expected_route", [
+    ("llama_cpp", 0, None, "cpu"),
+    ("llama_cpp", 16, None, "gpu"),
+    ("transformers", None, "cpu", "cpu"),
+    ("transformers", None, "cuda", "gpu"),
+    ("transformers", None, None, "unknown"),
+])
+def test_verified_loaded_model_accelerator_profile_reaches_inference_admission(
+        tmp_path: Path, engine: str, gpu_layers: int | None, device_type: str | None,
+        expected_route: str, monkeypatch) -> None:
+    from sentientos.local_model import LocalModel
+    from sentientos.host_resource_runtime import (
+        HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+        build_observation_plan,
+    )
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.runtime_governor import RuntimeGovernor
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+
+    class Backend:
+        def __init__(self):
+            self.engine = engine
+            self.metadata = {"engine": engine, "name": "profile-fixture"}
+            self.calls = 0
+            if engine == "transformers":
+                from types import SimpleNamespace
+                self._model = SimpleNamespace(
+                    device=SimpleNamespace(type=device_type))
+
+        def generate(self, prompt: str, history: list[str], generation: dict[str, object]) -> str:
+            self.calls += 1
+            return "answer"
+
+    class RecordingKernel(ControlPlaneKernel):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.requests = []
+
+        def admit(self, request):
+            self.requests.append(request)
+            return super().admit(request)
+
+    artifact = tmp_path / "profile.gguf"
+    artifact.write_bytes(b"verified fixture model")
+    candidate_options = {"gpu_layers": gpu_layers} if engine == "llama_cpp" else {}
+    candidate = ModelCandidate(path=artifact, engine=engine, name="profile-fixture",
+                               options=candidate_options)
+    config = ModelConfig(candidates=[candidate],
+        generation=GenerationConfig(max_new_tokens=8))
+    backend = Backend()
+    model = LocalModel.__new__(LocalModel)
+    model.backend = backend
+    model.metadata = dict(backend.metadata)
+    model.config = config
+    model._fallback_backend = backend
+    model.active_identity = LocalModel._identity_for(candidate, config, backend,
+                                                      model.metadata, 0)
+    authority = build_local_model_authority_map(config, allowed_roots=[tmp_path])
+    kernel = RecordingKernel(runtime_governor=RuntimeGovernor(),
+        phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "decisions.jsonl")
+    plan = build_observation_plan(specs=[
+        HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+            lambda observed_at=None: HostCollectorResult("cpu", "available", observed_at or "", "fixture",
+                                                          values={"utilization_percent": 20.0})),
+        HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+            lambda observed_at=None: HostCollectorResult("memory", "available", observed_at or "", "fixture",
+                values={"used_percent": 40.0})),
+        HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+            lambda observed_at=None: HostCollectorResult("disk", "available", observed_at or "", "fixture",
+                values={"used_percent": 30.0, "free_bytes": 1000})),
+    ])
+    evaluation = HostResourceRuntimeCoordinator(kernel=kernel,
+        runtime_state_root=tmp_path / "resource-state", plan=plan).run_cycle(
+            correlation_id=f"gpu-profile-{gpu_layers}")
+    assert evaluation is not None
+    assert kernel.observe_host_resource_evaluation(evaluation)
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
+        kernel=kernel, runtime_root=tmp_path / "runtime")
+    request = invoker.build_request(purpose="maintenance_implementation", prompt="hello",
+        caller="test", correlation_id=f"loaded-profile-{gpu_layers}")
+
+    receipt = invoker.invoke(request)
+
+    if expected_route != "cpu":
+        assert receipt.status == "deferred"
+        assert "runtime_governor:deferred_gpu_offload_telemetry_incomplete" in receipt.reason_codes
+        assert backend.calls == 0
+    else:
+        assert receipt.status == "admitted_completed"
+        assert backend.calls == 1
+    invocation_request = next(item for item in kernel.requests
+                              if item.action_kind == "local_model_inference")
+    profile = invocation_request.metadata.get("model_execution_profile")
+    assert profile == {
+        "schema_version": "sentientos.model_execution_profile:v1",
+        "engine": engine,
+        "accelerator_route": expected_route,
+        "gpu_layers": gpu_layers,
+        "configuration_digest": model.active_identity.configuration_digest,
+    }
+
+
 def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path)
     request = inv.build_request(

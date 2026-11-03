@@ -130,6 +130,90 @@ def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)
     return value
 
+
+def _verified_model_execution_profile(
+    model: Any, record: LocalModelAuthorityRecord | None,
+) -> dict[str, Any] | None:
+    """Describe only the exact load profile bound to a real loaded llama.cpp model."""
+    if record is None or record.engine not in {"llama_cpp", "transformers"}:
+        return None
+    try:
+        from .config import ModelConfig
+        from .local_model import ActiveModelIdentity, LocalModel, candidate_configuration_digest
+
+        if type(model) is not LocalModel:
+            return None
+        identity = getattr(model, "active_identity", None)
+        config = getattr(model, "config", None)
+        if (type(identity) is not ActiveModelIdentity or identity.fallback
+                or identity.engine != record.engine or identity.posture != "production"
+                or identity.configuration_digest != record.configuration_digest
+                or type(config) is not ModelConfig
+                or type(identity.candidate_index) is not int
+                or not isinstance(getattr(config, "candidates", None), list)
+                or not 0 <= identity.candidate_index < len(config.candidates)):
+            return None
+        candidate = config.candidates[identity.candidate_index]
+        engine = candidate.engine or config.default_engine
+        if engine == "auto":
+            engine = LocalModel._guess_engine(candidate)
+        if (str(engine).lower() != identity.engine
+                or candidate_configuration_digest(candidate, config, identity.engine)
+                    != identity.configuration_digest):
+            return None
+        layers: int | None = None
+        accelerator_route = "unknown"
+        if identity.engine == "llama_cpp":
+            layers_value = candidate.options.get("gpu_layers", 0)
+            if layers_value is None:
+                layers_value = 0
+            if type(layers_value) is int and 0 <= layers_value <= 256:
+                layers = layers_value
+                accelerator_route = "gpu" if layers > 0 else "cpu"
+        elif identity.engine == "transformers":
+            backend_model = getattr(getattr(model, "backend", None), "_model", None)
+            try:
+                device_map = getattr(backend_model, "hf_device_map", None)
+            except Exception:
+                device_map = None
+            if isinstance(device_map, Mapping) and device_map:
+                routes: list[str] = []
+                for device in device_map.values():
+                    if type(device) is int:
+                        routes.append("gpu")
+                    elif isinstance(device, str) and device.casefold().startswith(("cuda", "gpu")):
+                        routes.append("gpu")
+                    elif isinstance(device, str) and device.casefold() in {"cpu", "disk"}:
+                        routes.append("cpu")
+                    else:
+                        try:
+                            device_type = getattr(device, "type", None)
+                        except Exception:
+                            device_type = None
+                        routes.append("gpu" if device_type == "cuda" else
+                                      "cpu" if device_type == "cpu" else "unknown")
+                accelerator_route = ("gpu" if "gpu" in routes else
+                                     "unknown" if "unknown" in routes else "cpu")
+            else:
+                try:
+                    device = getattr(backend_model, "device", None)
+                    device_type = getattr(device, "type", None)
+                except Exception:
+                    device_type = None
+                if device_type == "cuda":
+                    accelerator_route = "gpu"
+                elif device_type == "cpu":
+                    accelerator_route = "cpu"
+        return {
+            "schema_version": "sentientos.model_execution_profile:v1",
+            "engine": identity.engine,
+            "accelerator_route": accelerator_route,
+            "gpu_layers": layers,
+            "configuration_digest": identity.configuration_digest,
+        }
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return None
+
 @dataclass(frozen=True)
 class LocalModelInvocationBudget:
     max_input_chars: int = 8000
@@ -449,7 +533,15 @@ class GovernedLocalModelInvoker:
 
         if not any(r for r in reasons if r not in {"simulation_backend"}):
             phase = LifecyclePhase(request.lifecycle_phase) if request.lifecycle_phase in LifecyclePhase._value2member_map_ else self.kernel.phase
-            cp_req = ControlActionRequest(action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE, actor=request.caller, target_subsystem="governed_local_model_invocation", requested_phase=phase, metadata={"correlation_id": request.correlation_id, "purpose": request.purpose, "request_digest": request.request_digest})
+            execution_profile = _verified_model_execution_profile(self.model, record)
+            admission_metadata: dict[str, Any] = {
+                "correlation_id": request.correlation_id,
+                "purpose": request.purpose,
+                "request_digest": request.request_digest,
+            }
+            if execution_profile is not None:
+                admission_metadata["model_execution_profile"] = execution_profile
+            cp_req = ControlActionRequest(action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE, actor=request.caller, target_subsystem="governed_local_model_invocation", requested_phase=phase, metadata=admission_metadata)
             decision = self.kernel.admit(cp_req); decision_payload = decision.to_dict(); admitted_ref = decision.admission_decision_ref
             if not decision.allowed: reasons += list(decision.reason_codes); status = _status_for_denial(decision.outcome.value)
             else:

@@ -207,3 +207,86 @@ def test_nvml_gpu_pressure_reaches_background_inference_admission(monkeypatch, t
     resource_evidence = decision.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
     assert resource_evidence["gpu_utilization_percent"] == 95.0
     assert resource_evidence["vram_utilization_percent"] == 92.0
+
+
+def test_gpu_offloaded_inference_requires_gpu_telemetry_and_recovers(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.0")
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(), phase=LifecyclePhase.MAINTENANCE,
+        decisions_path=tmp_path / "kernel.jsonl",
+    )
+
+    def resource_plan(include_gpu: bool):
+        specs = [
+            HostObservationCollectorSpec("cpu", True, ("linux", "unknown"), 1,
+                lambda observed_at=None: _result("cpu", utilization_percent=20.0)),
+            HostObservationCollectorSpec("memory", True, ("linux", "unknown"), 2,
+                lambda observed_at=None: _result("memory", used_percent=40.0)),
+            HostObservationCollectorSpec("disk", True, ("linux", "unknown"), 3,
+                lambda observed_at=None: _result("disk", used_percent=30.0, free_bytes=1000)),
+        ]
+        if include_gpu:
+            specs.append(HostObservationCollectorSpec("nvidia_gpu", False,
+                ("linux", "unknown"), 4, lambda observed_at=None: _result(
+                    "nvidia_gpu", device_count=1,
+                    devices=[{"index": 0, "gpu_utilization_percent": 15.0,
+                              "vram_utilization_percent": 35.0}])))
+        return build_observation_plan(specs=specs)
+
+    def observe(correlation_id: str, include_gpu: bool):
+        evaluation = HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path / correlation_id,
+            plan=resource_plan(include_gpu),
+        ).run_cycle(correlation_id=correlation_id)
+        assert evaluation is not None and validate_evaluation(evaluation).ok
+        assert kernel.observe_host_resource_evaluation(evaluation)
+        return evaluation
+
+    profile_digest = "a" * 64
+    gpu_profile = {"schema_version": "sentientos.model_execution_profile:v1",
+                   "engine": "llama_cpp", "accelerator_route": "gpu",
+                   "gpu_layers": 16,
+                   "configuration_digest": profile_digest}
+    cpu_profile = {**gpu_profile, "accelerator_route": "cpu", "gpu_layers": 0}
+
+    missing_gpu = observe("missing-gpu", include_gpu=False)
+    assert missing_gpu.snapshot.gpu_utilization_percent is None
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    cpu_only = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "cpu-profile",
+                  "model_execution_profile": cpu_profile},
+    ))
+    assert cpu_only.outcome == AdmissionOutcome.ALLOW
+    gpu_without_measurement = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "gpu-profile-missing",
+                  "model_execution_profile": gpu_profile},
+    ))
+    assert gpu_without_measurement.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor:deferred_gpu_offload_telemetry_incomplete" in gpu_without_measurement.reason_codes
+
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    measured_gpu = observe("gpu-measured", include_gpu=True)
+    assert measured_gpu.snapshot.gpu_utilization_percent == 15.0
+    assert measured_gpu.snapshot.vram_utilization_percent == 35.0
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    gpu_with_measurement = kernel.admit(ControlActionRequest(
+        action_kind="local_model_inference", authority_class=AuthorityClass.LOCAL_MODEL_INFERENCE,
+        actor="maintenance", target_subsystem="local_model",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"purpose": "maintenance_implementation", "correlation_id": "gpu-profile-ready",
+                  "model_execution_profile": gpu_profile},
+    ))
+    assert gpu_with_measurement.outcome == AdmissionOutcome.ALLOW
+    evidence = gpu_with_measurement.delegated_outcomes["runtime_governor"]["evidence_refs"]["host_resource_evidence"]
+    assert evidence["gpu_telemetry_available"] is True
+    assert evidence["gpu_utilization_percent"] == 15.0

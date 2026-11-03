@@ -17,6 +17,15 @@ seconds. A deferred admission does not reserve the correlation ID, enter the
 model backend, or debit a resource allocation. A later request with the same
 correlation ID can proceed after a fresh low-pressure observation.
 
+For a verified loaded llama.cpp model, the invoker derives the configured GPU
+layer count from the exact active model configuration and binds its digest into
+the inference admission. A GPU-offloaded background request is deferred when
+the current host epoch has no GPU/VRAM measurement. CPU-only llama.cpp profiles
+do not require an NVIDIA sample. For Transformers, the loaded model's device or
+device map is inspected; an unknown accelerator route requires GPU telemetry
+for background work. This route classification is not process-level GPU
+attribution and does not change a loaded model's offload configuration.
+
 Requests whose purpose is `local_user_chat` use the foreground path. This
 policy does not defer them on host-evidence absence or host pressure; their
 separate inference budgets and admission checks still apply.
@@ -39,6 +48,7 @@ GPU pressure.
 
 GPU/VRAM pressure reaches the same background admission check through NVML when
 that collector is available. The samples remain device-wide. Per-process GPU
-attribution and runtime-specific GPU-offload requirements are not established
-by this telemetry, and absent NVML data must not be interpreted as an idle
-device or as proof that a model used no accelerator.
+attribution is unavailable, and absent NVML data is never interpreted as an
+idle device. A known accelerator-backed model requires a current sample before
+background scheduling can proceed; foreground user chat remains responsive
+under its separate request budget and gaming-mode limits.
