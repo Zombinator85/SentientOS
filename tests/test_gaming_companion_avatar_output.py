@@ -402,3 +402,125 @@ def test_uncertain_ack_retry_with_same_admission_reaches_renderer_once():
             "avatar_command_admission_receipt_replayed")
     finally:
         sender.close()
+
+
+def test_sqlite_receipt_replay_guard_survives_dispatcher_process_restart(tmp_path):
+    import subprocess
+    import sys
+
+    from sentientos.gaming_companion_receipt_replay import (
+        SQLiteAdmissionReceiptReplayGuard,
+    )
+
+    message, _admission = verified_command()
+    replay = replace(message, message_id="after-restart", sequence=2)
+    database = tmp_path / "receipt-replay.sqlite3"
+    delivered = []
+    first = WindowsEdgeAvatarCommandDispatchOwner(
+        runtime=_Runtime(), receipt_verifier=lambda *_: True,
+        renderer_sink=lambda payload, _message: delivered.append(dict(payload)) is None,
+        receipt_replay_guard=SQLiteAdmissionReceiptReplayGuard(database),
+    )
+    assert first.dispatch_one(message) is True
+    assert delivered == [dict(message.payload)]
+
+    child = subprocess.run(
+        [sys.executable, "-c", """
+import sys
+from sentientos.gaming_companion_bridge import CompanionBridgeError
+from sentientos.gaming_companion_receipt_replay import SQLiteAdmissionReceiptReplayGuard
+
+guard = SQLiteAdmissionReceiptReplayGuard(sys.argv[1])
+try:
+    guard.preflight('admission-1')
+except CompanionBridgeError as exc:
+    print(exc.args[0])
+    raise SystemExit(0 if exc.args[0] == 'avatar_command_admission_receipt_replayed' else 2)
+raise SystemExit(1)
+""", str(database)],
+        capture_output=True, text=True, timeout=15, check=False,
+    )
+    assert child.returncode == 0, child.stdout + child.stderr
+
+    verifier_calls = []
+    second = WindowsEdgeAvatarCommandDispatchOwner(
+        runtime=_Runtime(),
+        receipt_verifier=lambda *args: verifier_calls.append(args) is None,
+        renderer_sink=lambda payload, _message: delivered.append(dict(payload)) is None,
+        receipt_replay_guard=SQLiteAdmissionReceiptReplayGuard(database),
+    )
+    assert second.dispatch_one(replay) is False
+    assert verifier_calls == []
+    assert delivered == [dict(message.payload)]
+    assert second.status().last_failure == "avatar_command_admission_receipt_replayed"
+
+
+def test_sqlite_receipt_replay_guard_claim_is_atomic_across_processes(tmp_path):
+    import subprocess
+    import sys
+
+    from sentientos.gaming_companion_receipt_replay import (
+        SQLiteAdmissionReceiptReplayGuard,
+    )
+
+    database = tmp_path / "receipt-race.sqlite3"
+    gate = tmp_path / "start-claims"
+    SQLiteAdmissionReceiptReplayGuard(database)
+    child = """
+import sys
+import time
+from pathlib import Path
+from sentientos.gaming_companion_bridge import CompanionBridgeError
+from sentientos.gaming_companion_receipt_replay import SQLiteAdmissionReceiptReplayGuard
+
+deadline = time.monotonic() + 5
+while not Path(sys.argv[2]).exists() and time.monotonic() < deadline:
+    time.sleep(0.01)
+if not Path(sys.argv[2]).exists():
+    raise SystemExit(3)
+try:
+    SQLiteAdmissionReceiptReplayGuard(sys.argv[1]).consume('one-shared-receipt')
+except CompanionBridgeError as exc:
+    if exc.args[0] != 'avatar_command_admission_receipt_replayed':
+        raise
+    print('replayed')
+else:
+    print('accepted')
+"""
+    processes = []
+    try:
+        for _ in range(2):
+            processes.append(subprocess.Popen(
+                [sys.executable, "-c", child, str(database), str(gate)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            ))
+        gate.touch()
+        outcomes = []
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=15)
+            assert process.returncode == 0, stdout + stderr
+            outcomes.append(stdout.strip())
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+
+    assert sorted(outcomes) == ["accepted", "replayed"]
+
+
+def test_sqlite_receipt_replay_guard_fails_closed_at_capacity(tmp_path):
+    from sentientos.gaming_companion_bridge import CompanionBridgeError
+    from sentientos.gaming_companion_receipt_replay import (
+        SQLiteAdmissionReceiptReplayGuard,
+    )
+
+    guard = SQLiteAdmissionReceiptReplayGuard(
+        tmp_path / "bounded-receipts.sqlite3", max_receipts=1)
+    guard.consume("first")
+    with pytest.raises(CompanionBridgeError,
+                       match="avatar_command_receipt_window_exhausted"):
+        guard.preflight("second")
+    with pytest.raises(CompanionBridgeError,
+                       match="avatar_command_receipt_window_exhausted"):
+        guard.consume("second")

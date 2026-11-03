@@ -21,6 +21,9 @@ from avatar_state import AvatarStateEmitter
 from .gaming_companion_bridge import encode_message
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage
 from .gaming_companion_tls_transport import CompanionBridgeMutualTLSClient
+from .gaming_companion_receipt_replay import (
+    AdmissionReceiptReplayGuard, InMemoryAdmissionReceiptReplayGuard,
+)
 
 
 class AvatarCommandRuntime(Protocol):
@@ -111,7 +114,8 @@ class WindowsEdgeAvatarCommandDispatchOwner:
                  receipt_verifier: ReceiptVerifier,
                  renderer_sink: RendererCommandSink,
                  poll_interval_seconds: float = 0.05,
-                 max_consumed_receipts: int = 8192) -> None:
+                 max_consumed_receipts: int = 8192,
+                 receipt_replay_guard: AdmissionReceiptReplayGuard | None = None) -> None:
         if not callable(getattr(runtime, "receive", None)):
             raise CompanionBridgeError("avatar_command_runtime_required")
         if not callable(receipt_verifier) or not callable(renderer_sink):
@@ -128,8 +132,15 @@ class WindowsEdgeAvatarCommandDispatchOwner:
         self._verify = receipt_verifier
         self._sink = renderer_sink
         self._poll = float(poll_interval_seconds)
-        self._max_consumed_receipts = max_consumed_receipts
-        self._consumed_receipts: set[str] = set()
+        if (receipt_replay_guard is not None and (
+                not callable(getattr(receipt_replay_guard, "preflight", None))
+                or not callable(getattr(receipt_replay_guard, "consume", None)))):
+            raise CompanionBridgeError("avatar_command_receipt_replay_guard_required")
+        self._receipt_replay_guard = (
+            receipt_replay_guard if receipt_replay_guard is not None
+            else InMemoryAdmissionReceiptReplayGuard(
+                max_receipts=max_consumed_receipts)
+        )
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._worker: threading.Thread | None = None
@@ -188,19 +199,10 @@ class WindowsEdgeAvatarCommandDispatchOwner:
             semantic_digest = message.admission.get("semantic_digest")
             if not isinstance(receipt_id, str) or not isinstance(semantic_digest, str):
                 raise CompanionBridgeError("avatar_command_admission_unverified")
-            with self._lock:
-                if receipt_id in self._consumed_receipts:
-                    raise CompanionBridgeError("avatar_command_admission_receipt_replayed")
-                if len(self._consumed_receipts) >= self._max_consumed_receipts:
-                    raise CompanionBridgeError("avatar_command_receipt_window_exhausted")
+            self._receipt_replay_guard.preflight(receipt_id)
             if self._verify(receipt_id, semantic_digest, message) is not True:
                 raise CompanionBridgeError("avatar_command_admission_unverified")
-            with self._lock:
-                if receipt_id in self._consumed_receipts:
-                    raise CompanionBridgeError("avatar_command_admission_receipt_replayed")
-                if len(self._consumed_receipts) >= self._max_consumed_receipts:
-                    raise CompanionBridgeError("avatar_command_receipt_window_exhausted")
-                self._consumed_receipts.add(receipt_id)
+            self._receipt_replay_guard.consume(receipt_id)
             if self._sink(message.payload, message) is not True:
                 raise CompanionBridgeError("avatar_command_renderer_queue_rejected")
         except Exception as exc:
