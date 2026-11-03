@@ -16,6 +16,7 @@ from .gaming_companion_avatar_output import (
     WindowsEdgeAvatarCommandDispatchOwner,
 )
 from .gaming_companion_bridge import CompanionBridgeError, CompanionBridgeReceiver
+from .gaming_companion_receipt_replay import AdmissionReceiptReplayGuard
 from .gaming_companion_deployment import SCHEMA_MUTUAL_TLS_REVERSE, validate_manifest
 from .gaming_companion_tls_transport import (
     BridgeGenerationPair,
@@ -84,15 +85,19 @@ class WindowsEdgeAvatarRuntime:
         return self.status()
 
 
-def build_windows_edge_avatar_runtime(*, manifest: Mapping[str, Any],
-        generation_pair_loader: GenerationPairLoader,
-        bridge_key_reader: BridgeKeyReader,
-        server_tls_context_factory: ServerTLSContextFactory,
-        generation_receipt_verifier: GenerationReceiptVerifier,
-        command_receipt_verifier: CommandReceiptVerifier,
-        renderer_sink: RendererCommandSink,
-        previous_generation_pair: BridgeGenerationPair | None = None,
-        poll_interval_seconds: float = 0.05) -> WindowsEdgeAvatarRuntime:
+def build_windows_edge_avatar_runtime(
+    *,
+    manifest: Mapping[str, Any],
+    generation_pair_loader: GenerationPairLoader,
+    bridge_key_reader: BridgeKeyReader,
+    server_tls_context_factory: ServerTLSContextFactory,
+    generation_receipt_verifier: GenerationReceiptVerifier,
+    command_receipt_verifier: CommandReceiptVerifier,
+    renderer_sink: RendererCommandSink,
+    previous_generation_pair: BridgeGenerationPair | None = None,
+    poll_interval_seconds: float = 0.05,
+    receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
+) -> WindowsEdgeAvatarRuntime:
     """Build, but do not start, the v3 Windows edge reverse-avatar runtime.
 
     Each resolver is called with the exact opaque reference from the manifest
@@ -142,6 +147,7 @@ def build_windows_edge_avatar_runtime(*, manifest: Mapping[str, Any],
         receipt_verifier=command_receipt_verifier,
         renderer_sink=renderer_sink,
         poll_interval_seconds=poll_interval_seconds,
+        receipt_replay_guard=receipt_replay_guard,
     )
     return WindowsEdgeAvatarRuntime(runtime=runtime, dispatcher=dispatcher)
 
