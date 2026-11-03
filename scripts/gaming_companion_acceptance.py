@@ -37,6 +37,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_pair_supervisor.py",
     "tests/test_gaming_companion_pair_entrypoint.py",
     "tests/test_gaming_companion_authority.py",
+    "tests/test_gaming_companion_platform_custody.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
@@ -198,6 +199,19 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 "test_node": "tests/test_gaming_companion_role_entrypoint.py",
                 "windows_or_wsl_process_launched": False,
                 "platform_provider_installed": False,
+            },
+            "platform_custody_resolution": {
+                "status": ("fixture_custody_policy_passed"
+                    if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
+                        "test_wsl_custody_resolves_generation_keys_and_mtls_contexts",
+                        "test_windows_custody_uses_dpapi_reader_for_opaque_key_reference"))
+                    else "blocked"),
+                "test_nodes": [
+                    "test_wsl_custody_resolves_generation_keys_and_mtls_contexts",
+                    "test_windows_custody_uses_dpapi_reader_for_opaque_key_reference",
+                ],
+                "windows_or_wsl_target_execution": False,
+                "installation_catalog_or_authority_provisioned": False,
             },
             "paired_role_coordinator": {
                 "status": executed_nodes.get(

@@ -300,12 +300,24 @@ sentientos-gaming-companion-pair --manifest deployment.json \
   --launch-authorizer sentientos_platform.authority:verify_pair_launch
 ```
 
-The pair lifecycle and signed-receipt verification primitives are shipped.
-The target installation still needs its custody resolver to bind manifest
-references to Windows DPAPI/Windows certificate custody and WSL protected
-files, and must provision its issuer public keys and operator-issued launch
-receipts. This cloud workspace has neither installation identity nor issuer
-trust anchor, so it cannot create or verify a GLORP launch approval.
+The repository now also includes
+sentientos.gaming_companion_platform_custody.CompanionPlatformCustodyResolver.
+It resolves opaque manifest references only through an installation-supplied
+reference catalog, confines files beneath a platform root, rejects traversal
+and reparse paths, reads WSL keys from private native-filesystem files or
+Windows keys through the DPAPI reader, validates generation records, and
+constructs mutually authenticated TLS contexts from provisioned CA and
+encrypted key files. Its tests exercise the Linux custody policy with fixtures
+and the Windows DPAPI seam with an injected reader; they do not execute on
+Windows or WSL2.
+
+This is the custody adapter used by a platform provider, not a provisioner or
+a complete host provider. The installation still owns the protected catalog
+loader, its root ACLs, pinned issuer public-key catalog, receipt store,
+installation identity, launch approvals, renderer state emitter, and the
+governed core admission-receipt binding. Those inputs cannot be created by the
+cloud checkout. The resolver never creates credentials, changes ACLs, issues
+receipts, starts listeners, or authorizes launch.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied

@@ -45,6 +45,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         assert "tests/test_gaming_companion_pair_supervisor.py" in command
         assert "tests/test_gaming_companion_pair_entrypoint.py" in command
         assert "tests/test_gaming_companion_authority.py" in command
+        assert "tests/test_gaming_companion_platform_custody.py" in command
         assert "tests/test_gaming_companion_bidirectional_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
@@ -52,8 +53,11 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         stdout.write(b"fixture acceptance output\n")
         junit = next(Path(item.split("=", 1)[1]) for item in command
                      if item.startswith("--junitxml="))
-        junit.write_text('<testsuite tests="11" failures="0" errors="0" skipped="2"/>',
-                         encoding="utf-8")
+        junit.write_text(
+            '<testsuite tests="11" failures="0" errors="0" skipped="2">'
+            '<testcase name="test_wsl_custody_resolves_generation_keys_and_mtls_contexts"/>'
+            '<testcase name="test_windows_custody_uses_dpapi_reader_for_opaque_key_reference"/>'
+            '</testsuite>', encoding="utf-8")
         return subprocess.CompletedProcess(command, 0)
 
     report = run_acceptance(manifest_path=manifest, results_dir=results,
@@ -80,6 +84,10 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert role_scenario["status"] == "lifecycle_and_host_rejection_fixtures_only"
     assert role_scenario["windows_or_wsl_process_launched"] is False
     assert role_scenario["platform_provider_installed"] is False
+    custody_scenario = report["real_software_scenarios"]["platform_custody_resolution"]
+    assert custody_scenario["status"] == "fixture_custody_policy_passed"
+    assert custody_scenario["windows_or_wsl_target_execution"] is False
+    assert custody_scenario["installation_catalog_or_authority_provisioned"] is False
     assert len(report["fixture_tests"]["log_sha256"]) == 64
     assert report["target_host_validation"]["status"] == "not_run"
     assert report["authority_effects_performed"] is False
