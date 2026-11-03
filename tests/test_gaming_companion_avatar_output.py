@@ -278,6 +278,27 @@ def test_dispatch_rejects_reused_admission_receipt_without_second_queue_delivery
     assert owner.status().last_failure == "avatar_command_admission_receipt_replayed"
 
 
+def test_dispatch_fails_closed_when_admission_receipt_window_is_full():
+    message, admission = verified_command()
+    later_admission = {**admission, "receipt_id": "admission-2"}
+    later_message = replace(message, message_id="second-message", sequence=2,
+                            admission=later_admission)
+    verified = []
+    delivered = []
+    owner = WindowsEdgeAvatarCommandDispatchOwner(runtime=_Runtime(),
+        receipt_verifier=lambda receipt_id, _digest, _message:
+            verified.append(receipt_id) is None,
+        renderer_sink=lambda payload, _message:
+            delivered.append(dict(payload)) is None,
+        max_consumed_receipts=1)
+
+    assert owner.dispatch_one(message) is True
+    assert owner.dispatch_one(later_message) is False
+    assert verified == [admission["receipt_id"]]
+    assert delivered == [dict(message.payload)]
+    assert owner.status().last_failure == "avatar_command_receipt_window_exhausted"
+
+
 def test_dispatch_rejects_unverified_receipts_and_sink_denial_without_retry():
     message, _ = verified_command()
     calls = []
