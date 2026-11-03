@@ -249,7 +249,9 @@ class DevelopmentLocalChatInference:
             mode = workload_state["effective_mode"]
             if workload_state["mode"] == "automatic":
                 self._select_profile_locked(mode)
-            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(prompt, mode)
+            social_checkin = caller_linkage.get("chat_response_style") == "social_checkin"
+            effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
+                prompt, mode, social_checkin=social_checkin)
             effective_budget = GamingWorkloadPolicy.constrain_budget(mode, budget)
             linkage = {**dict(caller_linkage), "workload_mode": mode,
                 "workload_evidence": workload_state["workload_evidence"]}
@@ -927,15 +929,18 @@ class PersistentConversationService:
         # over-weight topic-matching memories (for example, old Cronos advice).
         memory_query = "" if recent_session_recall or social_checkin else message
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
-        runtime_context = self._verified_runtime_context(
-            identity=identity_payload, history=history, memory=memory,
-            session_id=session["session_id"], screen_observation=screen_observation)
+        runtime_context: dict[str, Any] = {}
+        if not social_checkin:
+            runtime_context = self._verified_runtime_context(
+                identity=identity_payload, history=history, memory=memory,
+                session_id=session["session_id"], screen_observation=screen_observation)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
-            compact_history=gaming_development_turn)
+            compact_history=gaming_development_turn,
+            recent_session_recall=recent_session_recall)
         if gaming_development_turn:
             while history_budget > 0:
                 effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
@@ -951,16 +956,20 @@ class PersistentConversationService:
                 history = self.sessions.reconstruct(
                     session["session_id"], budget_chars=history_budget,
                     exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
-                runtime_context = self._verified_runtime_context(
-                    identity=identity_payload, history=history, memory=memory,
-                    session_id=session["session_id"], screen_observation=screen_observation)
+                runtime_context = {}
+                if not social_checkin:
+                    runtime_context = self._verified_runtime_context(
+                        identity=identity_payload, history=history, memory=memory,
+                        session_id=session["session_id"], screen_observation=screen_observation)
                 prompt = assemble_local_chat_context(history=history,
                     memory_snapshot=memory, current_message=message,
                     runtime_context=runtime_context,
                     verified_prior_runtime_lineage=predecessor_runtime_lineage,
                     screen_observation=screen_observation,
-                    compact_history=True)
+                    compact_history=True,
+                    recent_session_recall=recent_session_recall)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
+                   "chat_response_style": ("social_checkin" if social_checkin else "default"),
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
         if predecessor_runtime_lineage is not None:

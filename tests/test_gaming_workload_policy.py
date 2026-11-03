@@ -57,12 +57,13 @@ def test_normal_chat_does_not_receive_a_backend_thread_override() -> None:
 
 
 def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
-    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
     result = GamingWorkloadPolicy.apply_chat_response_style(prompt, "gaming")
 
     assert result.startswith("[SYSTEM_INSTRUCTION]\nBase rules.\n")
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
-        "[SESSION_HISTORY_DATA]")
+        "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
     assert "For greetings or company" in result
     assert "Do not offer game help or advice unless asked" in result
@@ -70,16 +71,19 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
 
 
 def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> None:
-    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nCURRENT_USER_MESSAGE: hi"
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]\nCURRENT_USER_MESSAGE: hi")
 
     result = GamingWorkloadPolicy.apply_chat_response_style(
         prompt, "gaming", social_checkin=True)
 
     guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
     assert guidance in result
-    assert result.index(guidance) < result.index("[SESSION_HISTORY_DATA]")
+    assert result.index(guidance) < result.index("[VERIFIED_RUNTIME_CONTEXT]")
     assert "Never ask what help is needed" in result
-    assert "claim you are playing or experiencing the game" in result
+    assert "one short friendly sentence to say you are here in SentientOS and ready to chat" in result
+    assert "Do not mention models, AI, feelings, emotions, physical sensations, or screen access" in result
+    assert "claim you are playing or seeing the game" in result
 
 
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
@@ -88,12 +92,12 @@ def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
 
 
 def test_user_text_resembling_prompt_marker_does_not_break_gaming_mode() -> None:
-    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]"
-        "\nCURRENT_USER_MESSAGE: literal [SESSION_HISTORY_DATA]")
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"
+        "\n[SESSION_HISTORY_DATA]\nCURRENT_USER_MESSAGE: literal [SESSION_HISTORY_DATA]")
 
     result = GamingWorkloadPolicy.apply_chat_response_style(prompt, "gaming")
 
     assert result.count("[SESSION_HISTORY_DATA]") == 2
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
-        "[SESSION_HISTORY_DATA]")
+        "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("CURRENT_USER_MESSAGE: literal [SESSION_HISTORY_DATA]")
