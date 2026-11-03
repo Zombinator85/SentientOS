@@ -7,6 +7,7 @@ import logging
 import hashlib
 import json
 import os
+import re
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -59,8 +60,24 @@ def _is_recent_session_recall_request(message: str) -> bool:
         "in this conversation", "in this chat", "earlier in this chat",
         "earlier in this conversation", "just before", "before you asked",
         "what did i just say", "what did i ask you", "what did i ask",
-        "what did i tell you", "what did i say i was", "what was i doing",
+        "what did i tell you", "what did you answer", "what did you say",
+        "what was your answer", "what was your response", "what did you reply",
+        "what did i say i was", "what was i doing",
         "what was my last message", "what was my previous message",
+    )
+    return any(marker in normalized for marker in markers)
+
+
+def _is_current_runtime_context_question(message: str) -> bool:
+    """Keep lexical memories from competing with verified live app and screen facts."""
+    normalized = " ".join(re.sub(
+        r"[^a-z0-9]+", " ", message.casefold()).split())
+    markers = (
+        "can you see my screen", "can you see what i am doing",
+        "what can you see", "what am i doing", "what am i looking at",
+        "what do you know about my current", "what game am i playing",
+        "what game is open", "what is on my screen", "is my screen visible",
+        "my current game", "current cronos session",
     )
     return any(marker in normalized for marker in markers)
 
@@ -944,7 +961,11 @@ class PersistentConversationService:
         social_checkin = _is_social_checkin_request(message)
         history_roles: tuple[str, ...] | None
         if recent_session_recall:
-            history_roles = ("user",)
+            asks_for_assistant_reply = any(marker in " ".join(
+                re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
+                for marker in ("what did you answer", "what did you say",
+                    "what was your answer", "what was your response", "what did you reply"))
+            history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
         elif social_checkin:
             # A self-contained greeting should not inherit topic from an older
             # user question and mistake the check-in for another request.
@@ -953,10 +974,12 @@ class PersistentConversationService:
             history_roles = None
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles)
-        # Exact recall and casual check-ins rely on the active message/history
-        # appropriate to that intent. Lexical long-term retrieval can otherwise
-        # over-weight topic-matching memories (for example, old Cronos advice).
-        memory_query = "" if recent_session_recall or social_checkin else message
+        # Exact recall, casual check-ins, and live runtime questions rely on the
+        # relevant transcript or verified runtime facts. Lexical retrieval can
+        # over-weight old prompts (for example, prior screen-visibility questions).
+        current_runtime_question = _is_current_runtime_context_question(message)
+        memory_query = ("" if recent_session_recall or social_checkin
+                        or current_runtime_question else message)
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
         # Keep casual check-ins independent of old transcript and retrieved
         # memories while still grounding the model in current, verified system
