@@ -242,7 +242,7 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
 
 
-def test_social_checkin_uses_user_context_without_stale_advice_or_matching_memories(
+def test_social_checkin_uses_only_current_message_without_stale_context(
         tmp_path, monkeypatch):
     chat = _reload(); client = TestClient(chat.APP)
     invoker = SimulationInvoker()
@@ -265,10 +265,12 @@ def test_social_checkin_uses_user_context_without_stale_advice_or_matching_memor
     assert checkin.status_code == 200
     assert memory_queries == ["I am taking a breather between fights in Cronos.", ""]
     prompt = invoker.prompts[-1]
-    assert "I am taking a breather between fights in Cronos." in prompt
+    assert "I am taking a breather between fights in Cronos." not in prompt
     assert "How are you doing? I am just taking a breather." in prompt
+    assert "USER_DATA:" not in prompt
     assert "ASSISTANT_DATA:" not in prompt
     assert "MEMORY_DATA:" not in prompt
+    assert checkin.json()["context"]["selected_turn_count"] == 0
 
 
 def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):

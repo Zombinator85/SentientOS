@@ -65,9 +65,21 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
         "[SESSION_HISTORY_DATA]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
     assert "For greetings or company" in result
-    assert "Don't redirect to game help" in result
-    assert "give advice unless asked" in result
+    assert "Do not offer game help or advice unless asked" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
+
+
+def test_gaming_social_checkin_guidance_is_specific_and_precedes_history() -> None:
+    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nCURRENT_USER_MESSAGE: hi"
+
+    result = GamingWorkloadPolicy.apply_chat_response_style(
+        prompt, "gaming", social_checkin=True)
+
+    guidance = GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION
+    assert guidance in result
+    assert result.index(guidance) < result.index("[SESSION_HISTORY_DATA]")
+    assert "Never ask what help is needed" in result
+    assert "claim you are playing or experiencing the game" in result
 
 
 def test_gaming_chat_style_rejects_an_unrecognized_prompt_layout() -> None:
