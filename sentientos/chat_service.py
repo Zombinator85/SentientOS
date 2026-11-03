@@ -706,14 +706,15 @@ class PersistentConversationService:
         if gaming_development_turn:
             # Start with a modest history window, then account for the complete
             # trusted gaming instruction and prompt structure before invocation.
-            history_budget = min(history_budget, 1000)
+            history_budget = min(history_budget, 2000)
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
-            screen_observation=screen_observation)
+            screen_observation=screen_observation,
+            compact_history=gaming_development_turn)
         if gaming_development_turn:
             while history_budget > 0:
                 effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
@@ -732,7 +733,8 @@ class PersistentConversationService:
                 prompt = assemble_local_chat_context(history=history,
                     memory_snapshot=memory, current_message=message,
                     verified_prior_runtime_lineage=predecessor_runtime_lineage,
-                    screen_observation=screen_observation)
+                    screen_observation=screen_observation,
+                    compact_history=True)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
