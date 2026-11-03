@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Run the loopback-only, GPU-backed local companion development service.
 
-Requires SENTIENTOS_MODEL_CONFIG to point at a digest-pinned Ollama candidate.
-All transcripts, invocation receipts, and process coordination stay in --state-dir.
+Requires SENTIENTOS_MODEL_CONFIG to point at one digest-pinned Ollama candidate
+or an ordered normal/gaming pair. All transcripts, invocation receipts, and
+process coordination stay in --state-dir.
 This process is a supervised development composition, never production serving.
 """
 from __future__ import annotations
@@ -162,6 +163,8 @@ def main() -> int:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--initial-workload-mode", choices=("normal", "gaming"),
+                        default="normal")
     parser.add_argument("--windows-python", type=Path)
     parser.add_argument("--windows-checkout", type=Path)
     parser.add_argument("--godot-exe", type=Path)
@@ -232,23 +235,27 @@ def main() -> int:
     )
 
     config = load_model_config()
-    if len(config.candidates) != 1 or config.candidates[0].engine != "ollama":
-        parser.error("development composition requires exactly one Ollama candidate")
-    candidate = config.candidates[0]
-    if candidate.path is None:
-        parser.error("Ollama development candidate requires a local manifest path")
-    authority = build_local_model_authority_map(
-        config, allowed_roots=[candidate.path.parent])
-    record = authority.records[0]
-    if (record.disposition != "development_only"
-            or record.runtime_eligibility_status != "eligible"
-            or record.allowed_invocation_purposes != ("local_user_chat",)):
-        parser.error("Ollama model authority is not eligible for local chat")
-    model = LocalModel.autoload()
-    if model.active_identity.posture != "development_only" or model.active_identity.fallback:
-        parser.error("the exact local development model did not load")
-    if authority.record_for_active_identity(model.active_identity, "local_user_chat") is None:
-        parser.error("loaded model does not match its local-chat authority record")
+    if not 1 <= len(config.candidates) <= 2 or any(
+            item.engine != "ollama" or item.path is None
+            for item in config.candidates):
+        parser.error("development composition requires one model or normal+gaming Ollama candidates")
+    allowed_roots = sorted({item.path.parent for item in config.candidates
+                             if item.path is not None}, key=str)
+    authority = build_local_model_authority_map(config, allowed_roots=allowed_roots)
+    for record in authority.records:
+        if (record.disposition != "development_only"
+                or record.runtime_eligibility_status != "eligible"
+                or record.allowed_invocation_purposes != ("local_user_chat",)):
+            parser.error("Ollama model authority is not eligible for local chat")
+    models = [LocalModel.load_candidate(index, config=config)
+              for index in range(len(config.candidates))]
+    for model in models:
+        if model.active_identity.posture != "development_only" or model.active_identity.fallback:
+            parser.error("the exact local development model did not load")
+        if authority.record_for_active_identity(model.active_identity, "local_user_chat") is None:
+            parser.error("loaded model does not match its local-chat authority record")
+    model = models[0]
+    model_profiles = {"normal": models[0], "gaming": models[-1]}
     atomic_write_json(state / "model-authority-map.json", authority.to_dict())
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         runtime_root=state / "invocations")
@@ -264,15 +271,20 @@ def main() -> int:
                 windows_python=args.windows_python, windows_checkout=args.windows_checkout,
                 godot_executable=args.godot_exe, godot_project=args.godot_project)
         configure_development_chat(invoker=invoker, data_root=chat_state,
-            avatar_output_emitter=edge.emitter if edge else None)
+            avatar_output_emitter=edge.emitter if edge else None,
+            model_profiles=model_profiles,
+            initial_workload_mode=args.initial_workload_mode)
         print(json.dumps({
             "state": "running",
             "posture": "development_only",
             "host": args.host,
             "port": args.port,
             "engine": model.active_identity.engine,
-            "model": candidate.options.get("model"),
-            "model_identity": model.active_identity.semantic_artifact_identity,
+            "model": model.active_identity.semantic_artifact_identity,
+            "model_profiles": {
+                name: profile.active_identity.semantic_artifact_identity
+                for name, profile in model_profiles.items()},
+            "initial_workload_mode": args.initial_workload_mode,
             "companion_output": ("temporary_mtls_windows_edge_and_godot"
                                  if edge else "not_configured"),
             "companion_identity_posture": (

@@ -70,6 +70,74 @@ def test_model_work_requires_explicit_simulation_composition(tmp_path):
     assert invoker.calls == 1
 
 
+
+def test_development_workload_mode_switches_authorized_model_profiles(tmp_path):
+    chat = _reload()
+
+    class ProfileAuthority:
+        def record_for_active_identity(self, identity, purpose):
+            return object() if purpose == "local_user_chat" and identity is not None else None
+
+    class ProfileInvoker:
+        def __init__(self, model):
+            self.model = model
+            self.authority_map = ProfileAuthority()
+            self.release_calls = 0
+
+        def release_model_residency(self):
+            self.release_calls += 1
+            return SimpleNamespace(status="released",
+                to_dict=lambda: {"status": "released"})
+
+    normal = SimpleNamespace(active_identity=SimpleNamespace(
+        engine="ollama", semantic_artifact_identity="hermes",
+        to_dict=lambda: {"engine": "ollama", "semantic_artifact_identity": "hermes"}))
+    gaming = SimpleNamespace(active_identity=SimpleNamespace(
+        engine="ollama", semantic_artifact_identity="qwen3",
+        to_dict=lambda: {"engine": "ollama", "semantic_artifact_identity": "qwen3"}))
+    invoker = ProfileInvoker(normal)
+    inference = chat.DevelopmentLocalChatInference(invoker,
+        {"normal": normal, "gaming": gaming})
+
+    assert inference.current_conversation_model_identity() == {
+        "engine": "ollama", "semantic_artifact_identity": "hermes"}
+    inference.set_workload_mode("gaming")
+    assert invoker.model is gaming
+    assert inference.current_workload_mode() == "gaming"
+    assert inference.current_conversation_model_identity()["semantic_artifact_identity"] == "qwen3"
+    inference.set_workload_mode("normal")
+    assert invoker.model is normal
+    assert inference.current_workload_mode() == "normal"
+    assert invoker.release_calls == 2
+
+
+def test_development_profile_switch_fails_closed_if_residency_release_fails():
+    chat = _reload()
+
+    class ProfileAuthority:
+        def record_for_active_identity(self, _identity, _purpose):
+            return object()
+
+    class ProfileInvoker:
+        def __init__(self, model):
+            self.model = model
+            self.authority_map = ProfileAuthority()
+
+        def release_model_residency(self):
+            return SimpleNamespace(status="release_failed",
+                to_dict=lambda: {"status": "release_failed"})
+
+    normal = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    gaming = SimpleNamespace(active_identity=SimpleNamespace(engine="ollama"))
+    invoker = ProfileInvoker(normal)
+    inference = chat.DevelopmentLocalChatInference(invoker,
+        {"normal": normal, "gaming": gaming})
+
+    with pytest.raises(RuntimeError, match="local_model_profile_release_unconfirmed"):
+        inference.set_workload_mode("gaming")
+    assert invoker.model is normal
+    assert inference.current_workload_mode() == "normal"
+
 def test_local_ui_recovers_session_transcript_after_service_restart(tmp_path):
     chat = _reload(); client = TestClient(chat.APP, client=("127.0.0.1", 1234))
     invoker = SimulationInvoker()

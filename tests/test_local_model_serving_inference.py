@@ -155,7 +155,8 @@ def test_gaming_workload_requests_ollama_unload_after_chat_turn():
 
         def release_model_residency(self):
             self.release_calls += 1
-            return SimpleNamespace(to_dict=lambda: {"status": "released"})
+            return SimpleNamespace(status="released",
+                to_dict=lambda: {"status": "released"})
 
     invoker = Invoker()
     inference = DevelopmentLocalChatInference(invoker)
