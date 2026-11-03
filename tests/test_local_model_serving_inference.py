@@ -125,12 +125,14 @@ def test_exact_serving_backed_generation_has_independent_admission_and_linkage(m
 def test_gaming_style_is_bound_into_the_exact_serving_prompt(monkeypatch, tmp_path, mode, style_expected):
     bridge, _, _, model, _, _ = setup(monkeypatch, tmp_path)
     bridge.set_workload_mode(mode)
-    prompt = "[SYSTEM_INSTRUCTION]\nBase rules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+    prompt = ("[SYSTEM_INSTRUCTION]\nBase rules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+              "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
 
     receipt = bridge.generate(prompt=prompt, caller="chat_service", correlation_id="gaming-style")
 
     observed_prompt = model.prompts[0]
-    instruction = "The user is in a gaming workload."
+    from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+    instruction = GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION
     assert (instruction in observed_prompt) is style_expected
     assert receipt.request["linkage"].get("workload_response_style") == (
         "gaming_chat_style_v1" if style_expected else None)
@@ -164,7 +166,8 @@ def test_gaming_workload_requests_ollama_unload_after_chat_turn():
     assert invoker.release_calls == 1
     assert inference.current_workload_state()["residency_release"] == {
         "status": "released"}
-    prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+    prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+              "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
     request = inference.generate(prompt=prompt, caller="test",
         correlation_id="gaming-ollama", budget=LocalModelInvocationBudget(),
         caller_linkage={})
@@ -208,12 +211,14 @@ def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt
         generation_id=source_generation, source_key=source_key)
     try:
         publisher.publish_once(("ExampleGame.exe",))
-        prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+        prompt = ("[SYSTEM_INSTRUCTION]\nRules.\n[VERIFIED_RUNTIME_CONTEXT]\n{}\n"
+              "[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
         receipt = bridge.generate(prompt=prompt, caller="chat_service", correlation_id="bridged-game")
 
         assert receipt.status == "admitted_completed"
         assert receipt.generation_config["max_new_tokens"] <= 96
-        assert "The user is in a gaming workload." in model.prompts[0]
+        from sentientos.gaming_workload_policy import GamingWorkloadPolicy
+        assert GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION in model.prompts[0]
         linkage = receipt.request["linkage"]
         assert linkage["workload_mode"] == "gaming"
         assert linkage["max_backend_threads"] == 2
