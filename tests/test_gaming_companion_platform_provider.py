@@ -16,6 +16,7 @@ from sentientos.gaming_companion_platform_custody import (
     CompanionPlatformCustodyResolver,
 )
 from sentientos.gaming_companion_platform_provider import GamingCompanionPlatformRoleProvider
+from sentientos.gaming_companion_receipt_replay import SQLiteAdmissionReceiptReplayGuard
 from sentientos.gaming_companion_tls_transport import BridgeGenerationCustodyRecord
 from tests.test_gaming_companion_deployment import _reverse_mutual_tls_manifest
 from tests.test_gaming_companion_tls_transport import _certificate_bundle
@@ -111,9 +112,11 @@ def _custody(root: Path, *, wsl: bool):
 def test_platform_provider_composes_windows_edge_with_custody_and_explicit_renderer_hooks(
         tmp_path: Path) -> None:
     resolver = _custody(tmp_path / "windows", wsl=False)
+    replay_guard = SQLiteAdmissionReceiptReplayGuard(tmp_path / "receipt-replays.sqlite3")
     provider = GamingCompanionPlatformRoleProvider(custody=resolver,
         authority=_authority(), windows_avatar_state_path=tmp_path / "avatar-state.json",
         command_receipt_verifier=lambda _receipt_id, _digest, _message: True,
+        receipt_replay_guard=replay_guard,
         system_name="Windows", is_wsl2=False)
 
     runtime = provider.create_runtime("windows_edge", _reverse_mutual_tls_manifest())
@@ -121,6 +124,7 @@ def test_platform_provider_composes_windows_edge_with_custody_and_explicit_rende
     assert type(runtime) is WindowsEdgeAvatarRuntime
     assert runtime.status().state == "stopped"
     assert runtime.status().renderer_effect_proven is False
+    assert runtime._dispatcher._receipt_replay_guard is replay_guard
 
 
 def test_platform_provider_composes_wsl_core_and_requires_governed_admission_hook(

@@ -27,6 +27,7 @@ from .gaming_companion_edge_runtime import (
 )
 from .gaming_companion_platform_custody import CompanionPlatformCustodyResolver
 from .gaming_companion_platform_installation import CompanionPlatformInstallation
+from .gaming_companion_receipt_replay import AdmissionReceiptReplayGuard
 from .gaming_companion_tls_transport import BridgeGenerationCustodyRecord
 
 AdmissionReceiptBuilder = Callable[[Any], Mapping[str, str]]
@@ -47,6 +48,7 @@ class GamingCompanionPlatformRoleProvider:
                  windows_avatar_state_path: Path | str | None = None,
                  admission_receipt_builder: AdmissionReceiptBuilder | None = None,
                  command_receipt_verifier: CommandReceiptVerifier | None = None,
+                 receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
                  system_name: str | None = None,
                  is_wsl2: bool | None = None) -> None:
         if type(custody) is not CompanionPlatformCustodyResolver:
@@ -59,6 +61,7 @@ class GamingCompanionPlatformRoleProvider:
             if windows_avatar_state_path is not None else None)
         self._admission_builder = admission_receipt_builder
         self._command_verifier = command_receipt_verifier
+        self._receipt_replay_guard = receipt_replay_guard
         self._system = system_name or platform.system()
         self._is_wsl2 = _detect_wsl2() if is_wsl2 is None else is_wsl2
 
@@ -67,6 +70,7 @@ class GamingCompanionPlatformRoleProvider:
             windows_avatar_state_path: Path | str | None = None,
             admission_receipt_builder: AdmissionReceiptBuilder | None = None,
             command_receipt_verifier: CommandReceiptVerifier | None = None,
+            receipt_replay_guard: AdmissionReceiptReplayGuard | None = None,
             system_name: str | None = None,
             is_wsl2: bool | None = None) -> GamingCompanionPlatformRoleProvider:
         """Compose custody and authority from the same verified installation."""
@@ -76,6 +80,7 @@ class GamingCompanionPlatformRoleProvider:
             windows_avatar_state_path=windows_avatar_state_path,
             admission_receipt_builder=admission_receipt_builder,
             command_receipt_verifier=command_receipt_verifier,
+            receipt_replay_guard=receipt_replay_guard,
             system_name=system_name, is_wsl2=is_wsl2)
 
     def __call__(self, role: str, manifest: Mapping[str, Any]) -> (
@@ -113,6 +118,7 @@ class GamingCompanionPlatformRoleProvider:
                 generation_receipt_verifier=self._verify_generation,
                 command_receipt_verifier=self._command_verifier,
                 renderer_sink=renderer.enqueue,
+                receipt_replay_guard=self._receipt_replay_guard,
             )
         self._require_wsl_core()
         if self._admission_builder is None:
