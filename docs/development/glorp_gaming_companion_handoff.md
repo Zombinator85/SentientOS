@@ -4,26 +4,29 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PRs #3392 through #3406 are merged;
-PR #3406 advanced `main` to `17a78b55` with the GLORP cross-host smoke. The
-previously reported
-local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
-main commit. The merged software includes GPU/VRAM-aware background admission,
+**Current software status (2026-11-03):** PRs #3392 through #3408 are merged;
+PR #3408 advanced `main` to `42ee2c35` with portable headless Godot validation.
+The current campaign branch adds a GLORP Windows-edge to WSL-core
+renderer-report run; its exact result is recorded below. The previously
+reported local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor
+of that main commit.
+The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
 child-process and paired-role supervision, renderer-report return, the
 adopted-body fixture round trip, speech timing delivery, and the expanded
 one-command acceptance workflow. PR #3396 adds an integrated software test of
 both authenticated transport directions. The target-only checklist is the
 `target_host_validation.required_checks` list emitted by
-`scripts/gaming_companion_acceptance.py`; none of those target checks is
+`scripts/gaming_companion_acceptance.py`; target-host checks below are not
 represented as completed by cloud fixtures. With Blender and Godot available,
 the exact PR #3396 candidate passed 264 tests (0 failures, 0 errors, 23 skips).
 The acceptance report distinguishes executed software scenarios from
 target-host validation and production commissioning.
 
-The GLORP software increments include a separate-process Windows/WSL bridge
-smoke. Its exact runs and scope are recorded below; it does not replace the
-production custody, authority, renderer, or gameplay checks.
+The GLORP software increments include separate-process Windows/WSL telemetry
+and renderer-report smokes. Their exact runs and scope are recorded below;
+they do not replace production custody, authority, interactive rendering, or
+gameplay checks.
 
 **Campaign continuation update (2026-11-02; worktree parent
 `c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
@@ -31,12 +34,13 @@ host-pressure deferral, a Windows performance observer, durable renderer-report
 capture, mTLS transport primitives, and an in-process generation-aware bridge
 supervisor. This continuation also adds governed speech timing/interruption
 events, a loopback renderer-report edge relay, and one-command local fixture
-acceptance. Focused local tests pass; hosted Required / Quality Gate has not run
-for this increment. The hardware and cross-platform claims below remain open.
+acceptance. Focused local tests pass; hosted Required / Quality Gate had not run
+for that cloud increment. Its hardware claims were open then; the later GLORP
+measurements below cover only their explicitly stated scenarios.
 
-This note records what the current source and tests establish. The hardware and
-cross-platform claims remain open until the WSL2/Windows system is exercised on
-the target host.
+This note records what the current source and tests establish. GLORP target-host
+probes now cover bounded process telemetry and a headless renderer-report
+return; hardware and cross-platform claims outside those probes remain open.
 
 ## Implemented and executed
 
@@ -375,20 +379,25 @@ live per-process sample. Example:
 ```bash
 .venv/bin/python -m scripts.gaming_companion_cross_host_smoke \
   --windows-checkout /mnt/c/SentientOS-edge \
-  --windows-python /mnt/c/SentientOS-edge/.venv/Scripts/python.exe
+  --windows-python /mnt/c/SentientOS-edge/.venv/Scripts/python.exe \
+  --godot-executable /mnt/c/path/to/Godot_v4.7.2-stable_win64_console.exe
 ```
 
 The command creates temporary TLS certificates and HMAC keys, passes the test
 keys to the Windows child over stdin, then removes the temporary directory. It
-opens two ephemeral listeners but changes no firewall rule, service, startup
-setting, or persistent host configuration. The Windows child samples its own
-PID through the real Windows process provider, publishes the report over mTLS,
-and the WSL core verifies its schema, freshness, identity, and authenticated
-transport. The sample exposes only a PID digest, CPU percentage, and RSS; no
-executable name or raw PID is returned. PresentMon remains unavailable in this
-smoke. The avatar admission callback is a test fixture and the Windows sink is
-an in-memory queue; a pass does not prove a frame rendered or establish
-production commissioning.
+opens two ephemeral listeners without Godot or four when the Godot report path
+is enabled. It changes no firewall rule, service, startup setting, or
+persistent host configuration. The Windows child samples its own PID through
+the real Windows process provider, publishes the report over mTLS, and the WSL
+core verifies its schema, freshness, identity, and authenticated transport.
+The sample exposes only a PID digest, CPU percentage, and RSS; no executable
+name or raw PID is returned. PresentMon remains unavailable in this smoke. With
+`--godot-executable`, the Windows child also runs the renderer probe headlessly,
+forwards its self-report through the loopback edge relay and mTLS, and the WSL
+core validates and captures it in a private temporary store that is deleted
+when the smoke exits. The avatar admission callback is a test fixture and the
+Windows sink is an in-memory queue; a pass does not prove a frame rendered or
+establish production commissioning.
 
 On 2026-11-03, source `f1b8dc2a772dc3cda20b628be21e6b59ce1ca9e2` passed on GLORP:
 `windows_to_wsl=passed`, `wsl_to_windows_queue=passed`, and
@@ -397,8 +406,8 @@ process CPU and 38,883,328 bytes RSS; the PID was not exposed. This is a real
 Windows process sample transported to and verified by the WSL core, with
 temporary test identities. It is not a game process or frame-time observation.
 Windows/WSL production custody, generation issuance, firewall policy,
-OS-process supervision under production authority, Godot rendering, audio,
-game observation, and gameplay impact remain unverified.
+OS-process supervision under production authority, interactive Godot rendering,
+audio, game observation, and gameplay impact remain unverified.
 
 The optional headless Godot probes accept the exact executable path through
 `SENTIENTOS_GODOT_EXECUTABLE`, so a portable Windows binary can be used without
@@ -406,6 +415,17 @@ adding it to the system PATH. On 2026-11-03, the signed Godot 4.7.2 Windows
 console binary passed the renderer-report UDP probe, the speech interruption
 probe, and both avatar-demo headless checks. These checks ran in headless mode;
 they do not establish interactive rendering or gaming performance.
+
+On 2026-11-03, source `98985abaa781e04aae3be93e74d7d07832321f26` passed the
+combined GLORP smoke with the same clean Windows and WSL SHA. The Windows child
+reported 0.0% CPU and 39,550,976 bytes RSS, with no raw PID exposed. The actual
+headless Godot probe emitted a renderer self-report; the Windows loopback relay
+forwarded it over mTLS and WSL captured it in the temporary evidence store.
+`windows_to_wsl`, `wsl_to_windows_queue`, `renderer_report_mtls`, and
+`renderer_report_wsl_capture` all passed. Both `renderer_effect_proven` and
+`renderer_report_effect_proven` remained false; report capture was temporary.
+This verifies transport and evidence custody on GLORP, not the renderer's
+independent physical effect, production custody, or production authority.
 
 ## GLORP acceptance sequence
 
@@ -494,15 +514,16 @@ as separate evidence classes.
 
 ## Target-host-only acceptance and prerequisites
 
-These checks are deferred for lack of GLORP access, not treated as a blocker for
-the software campaign:
+These checks are not prerequisites for continued software work. The bounded
+target-host observations above do not cover the following acceptance items:
 
 1. Windows API foreground PID/basename consistency and PresentMon process
    attribution. Requires Windows 11, an explicitly allowlisted running game,
    PresentMon, and a controlled foreground/non-game transition scenario.
-2. Windows per-process CPU/RSS sampling and optional GPU attribution. Requires
-   the selected process, Windows resource APIs or psutil, and a supported GPU
-   telemetry provider; absent fields must remain unavailable.
+2. Game-selected per-process CPU/RSS sampling and optional GPU attribution.
+   The smoke observed only its disposable child process. Game attribution still
+   requires an explicitly selected process, Windows resource APIs or psutil,
+   and a supported GPU telemetry provider; absent fields must remain unavailable.
 3. WSL2-to-Windows protected bridge route and firewall validation. Requires the
    provisioned WSL distribution, chosen private address mode, operator-approved
    firewall rule, CA/certificates, pinned peer identity, source key in each
@@ -511,9 +532,11 @@ the software campaign:
    both processes. Requires authorized credential/generation factories, the
    real WSL core and Windows edge launchers, injected process/service failures,
    and confirmation that uncertain messages are not replayed.
-5. Renderer report return and artifact loading. Requires the adopted body
-   artifact, current pointer/manifest/adoption chain, configured Godot import
-   support, the Windows renderer/relay, and a report-to-WSL transport run.
+5. Adopted-body artifact loading. The headless Godot self-report has now crossed
+   the Windows loopback relay and mTLS route into a temporary WSL capture store.
+   Artifact loading still requires the adopted body, current
+   pointer/manifest/adoption chain, configured Godot import support, and
+   authority-backed custody; the transport smoke does not exercise those.
 6. Audio playback and synchronization. Requires a local output device and
    actual backend, measured start/word/finish timing, cancellation while playing,
    and a renderer that consumes those timing events for visemes.
