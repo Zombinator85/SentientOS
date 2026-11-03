@@ -5,6 +5,8 @@ import os
 import hashlib
 import json
 import ipaddress
+import http.client
+import threading
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -193,6 +195,8 @@ class _OllamaBackend(_ModelBackend):
         self._base = f"http://{authority}:{port or 11434}"
         self._model = model
         self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        self._active_request_lock = threading.Lock()
+        self._active_connection: http.client.HTTPConnection | None = None
         self._timeout = float(timeout)
         if type(max_context_tokens) is not int or not 1 <= max_context_tokens <= 8192:
             raise ModelLoadError("ollama_context_limit_out_of_range")
@@ -223,6 +227,10 @@ class _OllamaBackend(_ModelBackend):
 
     def generate(self, prompt: str, history: Sequence[str],
                  generation: Dict[str, Any]) -> str:
+        return self.generate_with_metadata(prompt, history, generation)[0]
+
+    def generate_with_metadata(self, prompt: str, history: Sequence[str],
+                               generation: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         keep_alive = generation.get("keep_alive", self._keep_alive)
         if keep_alive not in {"0", "5m", "15m"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
@@ -237,11 +245,21 @@ class _OllamaBackend(_ModelBackend):
         body = json.dumps({"model": self._model, "prompt": prompt, "stream": False,
                            "think": self._think, "keep_alive": keep_alive,
                            "options": options}, separators=(",", ":")).encode("utf-8")
-        request = urllib.request.Request(self._base + "/api/generate", data=body,
-            headers={"Content-Type": "application/json"}, method="POST")
+        parsed = urllib.parse.urlsplit(self._base)
+        host = parsed.hostname
+        if host is None:
+            raise ModelLoadError("ollama_loopback_address_required")
+        connection = http.client.HTTPConnection(host, parsed.port,
+                                                timeout=self._timeout)
+        with self._active_request_lock:
+            if self._active_connection is not None:
+                raise ModelLoadError("ollama_request_already_active")
+            self._active_connection = connection
         try:
-            with self._opener.open(request, timeout=self._timeout) as response:
-                raw = response.read(1024 * 1024 + 1)
+            connection.request("POST", "/api/generate", body=body,
+                headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            raw = response.read(1024 * 1024 + 1)
             if len(raw) > 1024 * 1024:
                 raise ModelLoadError("ollama_response_oversized")
             payload = json.loads(raw.decode("utf-8"))
@@ -249,10 +267,50 @@ class _OllamaBackend(_ModelBackend):
             raise
         except Exception as exc:
             raise ModelLoadError("ollama_local_generation_failed") from exc
+        finally:
+            connection.close()
+            with self._active_request_lock:
+                if self._active_connection is connection:
+                    self._active_connection = None
         answer = payload.get("response")
         if payload.get("done") is not True or not isinstance(answer, str) or not answer.strip():
             raise ModelLoadError("ollama_local_generation_invalid")
-        return answer.strip()
+        def bounded_metric(name: str, maximum: int) -> int | None:
+            value = payload.get(name)
+            return value if type(value) is int and 0 <= value <= maximum else None
+        raw_finish_reason = payload.get("done_reason")
+        finish_reason = raw_finish_reason if raw_finish_reason in {"stop", "length"} else "unknown"
+        completion = {
+            "schema_version": "sentientos.ollama_completion_observation:v1",
+            "backend": "ollama", "finish_reason": finish_reason,
+            "completion_tokens": bounded_metric("eval_count", 131072),
+            "prompt_tokens": bounded_metric("prompt_eval_count", 131072),
+            "token_limit_reached": (True if finish_reason == "length" else
+                False if finish_reason == "stop" else None),
+            "total_duration_ns": bounded_metric("total_duration", 3_600_000_000_000),
+            "load_duration_ns": bounded_metric("load_duration", 3_600_000_000_000),
+            "prompt_eval_duration_ns": bounded_metric("prompt_eval_duration", 3_600_000_000_000),
+            "eval_duration_ns": bounded_metric("eval_duration", 3_600_000_000_000),
+        }
+        return answer.strip(), completion
+
+    def cancel_pending_generation(self) -> bool:
+        """Close the active loopback HTTP connection to cancel its Ollama request."""
+        with self._active_request_lock:
+            connection = self._active_connection
+        if connection is None:
+            return True
+        try:
+            if connection.sock is not None:
+                connection.sock.shutdown(2)
+            connection.close()
+            return True
+        except OSError:
+            try:
+                connection.close()
+                return True
+            except OSError:
+                return False
 
 
 class _TransformersBackend(_ModelBackend):
@@ -633,6 +691,11 @@ class LocalModel:
         if not isinstance(response, str) or not response.strip():
             raise ModelLoadError("active backend returned an empty response")
         return response, metadata
+
+    def cancel_pending_generation(self) -> bool:
+        """Delegate cancellation to a backend that supports terminating active work."""
+        cancel = getattr(self.backend, "cancel_pending_generation", None)
+        return bool(cancel()) if callable(cancel) else False
 
     @classmethod
     def _initialise_backend(
