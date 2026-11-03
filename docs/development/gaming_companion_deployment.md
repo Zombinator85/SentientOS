@@ -314,10 +314,25 @@ Windows or WSL2.
 This is the custody adapter used by a platform provider, not a provisioner or
 a complete host provider. The installation still owns the protected catalog
 loader, its root ACLs, pinned issuer public-key catalog, receipt store,
-installation identity, launch approvals, renderer state emitter, and the
-governed core admission-receipt binding. Those inputs cannot be created by the
+installation identity, launch approvals, renderer state path, and the governed
+core admission-receipt binding. Those inputs cannot be created by the
 cloud checkout. The resolver never creates credentials, changes ACLs, issues
 receipts, starts listeners, or authorizes launch.
+
+`sentientos.gaming_companion_platform_provider.GamingCompanionPlatformRoleProvider`
+now composes that resolver and the signed `CompanionAuthorityCallbacks` into
+the existing role factories. It builds the Windows reverse-avatar owner with
+the repository's Godot state queue and builds the WSL owner with both forward
+game-observation and reverse avatar transport. It verifies the role launch
+receipt before reading custody references and rejects the wrong host role.
+The target package must still instantiate it with the installed catalog and
+authority store, a local avatar state path and command-receipt verifier on
+Windows, and the governed admission-receipt builder on WSL. Construction
+without those hooks fails closed. This provider is fixture-tested on the
+managed Linux host with injected platform identity; it is not a claim of
+Windows/WSL execution or production commissioning. It does not yet supply the
+paired child-process command profile, installation catalog loader, or OS
+service startup configuration.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
