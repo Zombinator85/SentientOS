@@ -242,6 +242,35 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
     assert "MEMORY_DATA:" not in invoker.prompts[-1]
 
 
+def test_social_checkin_uses_user_context_without_stale_advice_or_matching_memories(
+        tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    session_id = client.post("/sessions").json()["session_id"]
+    first = client.post("/chat", json={"session_id": session_id,
+        "message": "I am taking a breather between fights in Cronos."})
+    assert first.status_code == 200
+    checkin = client.post("/chat", json={"session_id": session_id,
+        "message": "How are you doing? I am just taking a breather."})
+
+    assert checkin.status_code == 200
+    assert memory_queries == ["I am taking a breather between fights in Cronos.", ""]
+    prompt = invoker.prompts[-1]
+    assert "I am taking a breather between fights in Cronos." in prompt
+    assert "How are you doing? I am just taking a breather." in prompt
+    assert "ASSISTANT_DATA:" not in prompt
+    assert "MEMORY_DATA:" not in prompt
+
+
 def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
     from sentientos.gaming_workload_policy import GamingWorkloadPolicy
 
