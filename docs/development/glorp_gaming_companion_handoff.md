@@ -4,20 +4,24 @@
 **Host target:** Windows 11 + WSL2, RTX 3060 12 GB, Ryzen 5 5600X, 32 GB RAM  
 **Status:** software checkpoint in progress; not a deployable split-host release.
 
-**Current software status (2026-11-03):** PR #3392 and PR #3393 are merged;
-`main` is `3dfb7ed1444e5fa1e07139be5a32504080d811ca`. The previously reported
+**Current software status (2026-11-03):** PRs #3392, #3393, and #3394 are
+merged; `main` is `5575f1b5101bf9261f94dd99ea84da62bd7249a6`. The previously reported
 local commit `b3b4fc6eff93978284857dbb9e2520c848d01633` is an ancestor of that
 main commit. The merged software includes GPU/VRAM-aware background admission,
 reverse avatar output, role-specific edge/core entrypoints, authority-gated
 child-process supervision, renderer-report return, the adopted-body fixture
-round trip, and speech timing delivery. The current target-only checklist is
+round trip, speech timing delivery, and the expanded one-command acceptance
+workflow. This change adds paired-role startup/shutdown coordination on top of
+the existing per-role authority-gated supervisors. The current target-only checklist is
 the `target_host_validation.required_checks` list emitted by
 `scripts/gaming_companion_acceptance.py`; none of those target checks is
 represented as completed by cloud fixtures. After adding the screen-to-chat-
 to-Godot vertical scenario to the one-command acceptance workflow, local
 acceptance passed 254 tests (0 failures, 0 errors, 23 skips) with Blender and
-Godot available. Its report distinguishes executed software scenarios from
-target-host validation and production commissioning.
+Godot available. The paired-role coordinator candidate based on this main
+commit adds its start/rollback/shutdown scenarios to acceptance and passes 263
+tests (0 failures, 0 errors, 23 skips). Both reports distinguish executed
+software scenarios from target-host validation and production commissioning.
 
 **Campaign continuation update (2026-11-02; worktree parent
 `c4b200d930b1505232922f140cad95e14e223dee`):** this cloud increment adds
@@ -209,10 +213,10 @@ sequence remains on the GLORP checklist.
   high-water marks are process-local, so every restart needs newly issued source
   generations; uncertain deliveries are not replayed. Both in-process listener
   supervision and a separately tested local child-process supervisor are
-  available, and role-specific foreground entrypoints plus an authority-gated
-  child-process supervisor are implemented. No deployment coordinator starts
-  both Windows and WSL roles as one paired lifecycle, and the platform custody
-  provider packages are not present in this checkout. The
+  available, and role-specific foreground entrypoints, an authority-gated
+  child-process supervisor, and a paired-role lifecycle coordinator are
+  implemented. The coordinator does not provide the platform custody provider
+  packages, which remain absent from this checkout. The
   `BridgeChatAvatarOutputEmitter` now creates visual-only commands from an
   admitted chat response; `MutualTLSAvatarCommandSender` signs and transmits
   each command once using the protected edge mTLS client. On Windows,
@@ -232,15 +236,15 @@ sequence remains on the GLORP checklist.
   renderer state, and close the sender in order. Its factories resolve custody
   by exact reference and validate receipt ordering. The role factories and
   certificate-backed localhost route are fixture-tested. There is still
-  no paired-role coordinator, installed platform custody adapter, GLORP
+  no installed platform custody adapter, GLORP
   listener, or independent renderer observation; state-file delivery does not establish that a frame
   rendered.
 - **Topology and lifecycle:** the closed deployment manifest and read-only WSL2
   doctor now exist, but the doctor cannot observe Windows components or a live
   bridge from this cloud Linux environment. Bounded local child-process
-  supervision and role-specific executable entrypoints are tested, but there is
-  still no coordinated cross-platform startup/shutdown, installed production
-  custody-reference providers, OS service registration, firewall setup, or
+  supervision, role-specific executable entrypoints, and paired lifecycle
+  coordination are tested, but installed production custody-reference
+  providers, OS service registration, firewall setup, and
   target-host recovery validation. The Windows readiness and scheduled-task
   machinery remains specific to maintenance.
 - **Resource feedback:** the governor in `host_resource_governor.py` remains
