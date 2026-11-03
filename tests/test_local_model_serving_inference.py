@@ -163,6 +163,52 @@ def test_gaming_workload_requests_ollama_unload_after_chat_turn():
     assert request["linkage"]["ollama_keep_alive"] == "0"
 
 
+def test_development_chat_selects_gaming_profile_without_replacing_primary_model():
+    from sentientos.chat_service import DevelopmentLocalChatInference
+    from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
+
+    class Identity:
+        def __init__(self, label):
+            self.engine = "ollama"
+            self.label = label
+
+        def to_dict(self):
+            return {"engine": self.engine, "label": self.label}
+
+    class Invoker:
+        def __init__(self, label):
+            self.label = label
+            self.model = SimpleNamespace(active_identity=Identity(label))
+            self.authority_map = SimpleNamespace(
+                record_for_active_identity=lambda *_args: SimpleNamespace(name=label))
+
+        def build_request(self, **kwargs):
+            return {**kwargs, "selected_profile": self.label}
+
+        def invoke(self, request):
+            return request
+
+    primary = Invoker("hermes")
+    gaming = Invoker("qwen")
+    inference = DevelopmentLocalChatInference(primary, gaming)
+    assert inference.current_conversation_model_identity()["label"] == "hermes"
+    assert inference.current_workload_state()["selected_profile"] == "primary"
+    assert inference.current_workload_state()["selected_model_label"] == "hermes"
+    inference.set_workload_mode("gaming")
+    assert inference.current_conversation_model_identity()["label"] == "qwen"
+    assert inference.current_workload_state()["selected_profile"] == "gaming"
+    assert inference.current_workload_state()["selected_model_label"] == "qwen"
+    prompt = "[SYSTEM_INSTRUCTION]\nRules.\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello"
+
+    request = inference.generate(prompt=prompt, caller="test",
+        correlation_id="gaming-model-route", budget=LocalModelInvocationBudget(),
+        caller_linkage={})
+
+    assert request["selected_profile"] == "qwen"
+    assert request["linkage"]["ollama_keep_alive"] == "0"
+    assert primary.label == "hermes"
+
+
 def test_bridge_foreground_observation_controls_governed_chat_budget_and_receipt_lineage(
         monkeypatch, tmp_path):
     now = datetime.now(timezone.utc)
