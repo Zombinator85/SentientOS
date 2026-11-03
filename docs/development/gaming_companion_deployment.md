@@ -375,8 +375,10 @@ fields, duplicate JSON keys, extra command arguments, traversal paths, and
 non-Windows hosts. The profile is configuration, not approval: every actual
 spawn still needs a current signed process-launch receipt binding the exact
 spec digest and fresh generation pair. The loader sets no authority and never
-starts a child. The Windows file ACL and the installed executables have not
-been validated on GLORP.
+starts a child. `GamingCompanionPlatformPairProcessProvider.from_process_profile(...)`
+loads these specs directly into the pair owner; composition stays stopped until
+the caller separately starts the authorized supervisor. The Windows file ACL
+and the installed executables have not been validated on GLORP.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied

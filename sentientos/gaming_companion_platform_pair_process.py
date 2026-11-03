@@ -9,6 +9,7 @@ from __future__ import annotations
 import platform
 import subprocess
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Callable
 
 from .gaming_companion_authority import CompanionAuthorityCallbacks
@@ -23,6 +24,7 @@ from .gaming_companion_process_supervisor import (
     ProcessSpawner,
     validate_launch_spec,
 )
+from .gaming_companion_process_profile import load_companion_process_launch_profiles
 from .gaming_companion_tls_transport import (
     BridgeGenerationCustodyRecord,
     BridgeGenerationPair,
@@ -107,6 +109,34 @@ class GamingCompanionPlatformPairProcessProvider:
         self._pair_poll = float(pair_poll_interval_seconds)
         self._spawner = spawner
         self._system = system_name or platform.system()
+
+    @classmethod
+    def from_process_profile(cls, *, installation: CompanionPlatformInstallation,
+            profile_path: Path | str,
+            generation_pair_factories: Mapping[str, GenerationPairFactory],
+            health_probes: Mapping[str, HealthProbe],
+            force_stop_authorizers: Mapping[str, ForceStopAuthorizer] | None = None,
+            max_restarts: int = 3, process_poll_interval_seconds: float = 0.25,
+            pair_poll_interval_seconds: float = 0.25,
+            spawner: ProcessSpawner = subprocess.Popen,
+            system_name: str | None = None) -> GamingCompanionPlatformPairProcessProvider:
+        """Load installed command profiles and compose a stopped pair owner.
+
+        Reading the profile does not start children or grant launch authority.
+        Every process still needs a fresh, verified generation pair and an
+        exact-command launch receipt at spawn time.
+        """
+        resolved_system = system_name or platform.system()
+        launch_specs = load_companion_process_launch_profiles(
+            profile_path, system_name=resolved_system)
+        return cls(installation=installation, launch_specs=launch_specs,
+            generation_pair_factories=generation_pair_factories,
+            health_probes=health_probes,
+            force_stop_authorizers=force_stop_authorizers,
+            max_restarts=max_restarts,
+            process_poll_interval_seconds=process_poll_interval_seconds,
+            pair_poll_interval_seconds=pair_poll_interval_seconds,
+            spawner=spawner, system_name=resolved_system)
 
     def __call__(self, manifest: Mapping[str, object]) -> GamingCompanionPairSupervisor:
         """Return a stopped supervisor pair; no process starts during composition."""
