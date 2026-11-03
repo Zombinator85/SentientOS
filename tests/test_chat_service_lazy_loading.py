@@ -236,11 +236,7 @@ def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_
         "message": "When I was taking a breather between fights earlier, what did I ask you to do?"})
     assert recall.status_code == 200
 
-    assert memory_queries == [
-        ("I am taking a breather between fights in Cronos. Say something friendly, "
-         "then ask me one easy question to keep me company."),
-        "",
-    ]
+    assert memory_queries == ["", ""]
     assert "I am taking a breather between fights in Cronos." in invoker.prompts[-1]
     assert "ask me one easy question to keep me company" in invoker.prompts[-1]
     assert "USER_DATA:" in invoker.prompts[-1]
@@ -284,6 +280,17 @@ def test_social_checkin_uses_only_current_message_without_stale_context(
     assert "[VERIFIED_RUNTIME_CONTEXT]\n{}" in prompt
     assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in prompt
     assert checkin.json()["context"]["selected_turn_count"] == 0
+
+    explicit_checkin = client.post("/chat", json={"session_id": session_id,
+        "message": ("Quick chat test between fights: just tell me you are here with me, "
+                    "then ask one easy question.")})
+    assert explicit_checkin.status_code == 200
+    assert memory_queries == [
+        "I am taking a breather between fights in Cronos.", "", ""
+    ]
+    assert explicit_checkin.json()["context"]["selected_turn_count"] == 0
+    assert explicit_checkin.json()["context"]["selected_memory_count"] == 0
+    assert chat.GamingWorkloadPolicy.GAMING_SOCIAL_CHECKIN_INSTRUCTION in invoker.prompts[-1]
 
 
 def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):

@@ -16,10 +16,10 @@ class GamingWorkloadPolicy:
 
     GAMING_CHAT_STYLE_ID = "gaming_chat_style_v1"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "User is gaming. Answer the current intent in at most two short sentences. "
-        "For greetings or company, respond warmly and ask at most one casual "
-        "question. Do not offer game help or advice unless asked, repeat offers, "
-        "rephrase the prompt, or infer game details."
+        "User is gaming: answer the current intent in two short sentences at most. "
+        "For company, be warm and ask no more than one casual question. Do not "
+        "offer game help unless asked, repeat, rephrase, infer game details, claim "
+        "you are playing, or claim screen access."
     )
     GAMING_SOCIAL_CHECKIN_INSTRUCTION = (
         "This is friendly small talk, not a help request. Use one short friendly "
