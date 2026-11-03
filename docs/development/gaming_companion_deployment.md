@@ -46,7 +46,8 @@ python -m scripts.gaming_companion_acceptance \
 The command runs the repository test runner over host-pressure admission,
 governed local-model invocation, deployment validation, authenticated bridge
 runtime and loopback mTLS,
-in-process and child-process supervisor recovery, Windows-observer fixtures, renderer evidence, speech
+in-process, child-process, and paired-role supervisor recovery,
+Windows-observer fixtures, renderer evidence, speech
 interruption, and vertical chat/avatar scenarios. It also runs the fixture
 screen-capture → governed chat → headless Godot path when Godot is available;
 the report records a skip when it is unavailable. When Blender and Godot are
@@ -262,6 +263,26 @@ manifest reference, receipt verifier, or platform capability leaves the role
 blocked. Cloud tests exercise role lifecycle and host rejection with fixtures;
 they do not claim Windows execution or WSL2 target startup.
 
+`sentientos-gaming-companion-pair` is the Windows-side owner for both role
+processes. It verifies a deployment-level launch record before loading the
+platform provider, starts the WSL core before the Windows edge, and shuts them
+down in reverse order. If either role exhausts its independently authorized
+recovery budget, it stops its peer so the deployment cannot remain half-live.
+Each process supervisor still validates its own generation receipts, launch
+authorization, readiness, and graceful shutdown. The coordinator issues no
+keys or generations and installs no OS service or firewall rule.
+
+```text
+sentientos-gaming-companion-pair --manifest deployment.json \
+  --provider sentientos_platform.windows_pair:build_supervisor \
+  --launch-authorizer sentientos_platform.authority:verify_pair_launch
+```
+
+The provider must be installed by the target operator and resolve the actual
+Windows DPAPI and WSL protected-file custody references. No such provider is
+shipped here, so the command blocks until the real platform adapter and
+deployment launch record are available.
+
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
 CA context, and an exact certificate fingerprint pin. The client requires a
@@ -348,10 +369,11 @@ then signs the unchanged report as the Windows-edge relay and sends it through
 the mTLS bridge to the durable WSL capture owner. The authenticated transport
 principal is the relay; this does not prove which local process sent the UDP
 datagram or independently verify what the renderer reports. No Godot mTLS
-sender has been added. Role-specific foreground entrypoints and an
-authority-gated child-process supervisor now exist. There is not yet one
-deployment coordinator that resolves platform custody references and starts
-both Windows and WSL roles as a paired lifecycle. The relay-to-mTLS-to-durable-capture route has an offline socket
+sender has been added. Role-specific foreground entrypoints, an
+authority-gated child-process supervisor, and a paired-role lifecycle
+coordinator now exist. The coordinator still requires an installed platform
+provider to resolve custody references and launch both processes. The
+relay-to-mTLS-to-durable-capture route has an offline socket
 fixture and a headless Godot-to-relay-to-mTLS-to-store software test. No
 Windows/WSL run is claimed. A target-host test must establish
 Windows-to-WSL reachability under the selected networking mode, certificate and

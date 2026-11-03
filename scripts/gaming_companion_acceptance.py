@@ -34,6 +34,8 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_bridge_runtime.py",
     "tests/test_gaming_companion_supervisor.py",
     "tests/test_gaming_companion_process_supervisor.py",
+    "tests/test_gaming_companion_pair_supervisor.py",
+    "tests/test_gaming_companion_pair_entrypoint.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
     "tests/test_gaming_companion_role_entrypoint.py",
@@ -192,6 +194,17 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
             "paired_role_entrypoint": {
                 "status": "lifecycle_and_host_rejection_fixtures_only" if tests_passed else "blocked",
                 "test_node": "tests/test_gaming_companion_role_entrypoint.py",
+                "windows_or_wsl_process_launched": False,
+                "platform_provider_installed": False,
+            },
+            "paired_role_coordinator": {
+                "status": executed_nodes.get(
+                    "test_pair_starts_core_then_edge_and_shuts_down_edge_then_core",
+                    "not_run"),
+                "startup_rollback_test": executed_nodes.get(
+                    "test_edge_start_denial_rolls_back_already_started_core", "not_run"),
+                "peer_failure_shutdown_test": executed_nodes.get(
+                    "test_role_exhausting_recovery_stops_its_peer", "not_run"),
                 "windows_or_wsl_process_launched": False,
                 "platform_provider_installed": False,
             },
