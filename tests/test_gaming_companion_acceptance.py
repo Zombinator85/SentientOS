@@ -48,6 +48,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         assert "tests/test_gaming_companion_platform_custody.py" in command
         assert "tests/test_gaming_companion_platform_provider.py" in command
         assert "tests/test_gaming_companion_platform_installation.py" in command
+        assert "tests/test_gaming_companion_platform_pair_process.py" in command
         assert "tests/test_gaming_companion_bidirectional_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
@@ -56,7 +57,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         junit = next(Path(item.split("=", 1)[1]) for item in command
                      if item.startswith("--junitxml="))
         junit.write_text(
-            '<testsuite tests="16" failures="0" errors="0" skipped="2">'
+            '<testsuite tests="21" failures="0" errors="0" skipped="2">'
             '<testcase name="test_wsl_custody_resolves_generation_keys_and_mtls_contexts"/>'
             '<testcase name="test_windows_custody_uses_dpapi_reader_for_opaque_key_reference"/>'
             '<testcase name="test_platform_provider_composes_windows_edge_with_custody_and_explicit_renderer_hooks"/>'
@@ -66,6 +67,11 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
             '<testcase name="test_platform_catalog_signature_binds_reference_paths_before_asset_access"/>'
             '<testcase name="test_platform_catalog_rejects_untrusted_receipt_and_path_escape"/>'
             '<testcase name="test_platform_catalog_rejects_duplicate_json_fields_and_open_permissions"/>'
+            '<testcase name="test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_order"/>'
+            '<testcase name="test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning"/>'
+            '<testcase name="test_pair_provider_rejects_role_profile_mismatch_before_any_spawn"/>'
+            '<testcase name="test_pair_provider_rejects_invalid_manifest_before_supervisor_construction"/>'
+            '<testcase name="test_edge_launch_denial_rolls_back_the_already_started_core"/>'
             '</testsuite>', encoding="utf-8")
         return subprocess.CompletedProcess(command, 0)
 
@@ -81,7 +87,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert transport_scenario["target_windows_or_wsl_transport_claimed"] is False
     assert transport_scenario["firewall_validation_claimed"] is False
     assert report["read_only_deployment_doctor"]["host_mutation_performed"] is False
-    assert report["fixture_tests"]["tests"] == 16
+    assert report["fixture_tests"]["tests"] == 21
     assert report["fixture_tests"]["skipped"] == 2
     assert report["real_software_scenarios"]["blender_authored_glb_candidate"]["status"] == "not_run"
     assert report["real_software_scenarios"]["reverse_avatar_edge_composition"]["target_listener_started"] is False
@@ -106,6 +112,11 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert catalog_scenario["target_host_catalog_installed"] is False
     assert catalog_scenario["issuer_trust_anchor_provisioned"] is False
     assert catalog_scenario["production_commissioning_claimed"] is False
+    pair_provider = report["real_software_scenarios"]["platform_pair_process_provider"]
+    assert pair_provider["status"] == "fixture_pair_process_composition_passed"
+    assert pair_provider["target_processes_spawned"] is False
+    assert pair_provider["installation_profiles_or_authority_provisioned"] is False
+    assert pair_provider["production_commissioning_claimed"] is False
     assert len(report["fixture_tests"]["log_sha256"]) == 64
     assert report["target_host_validation"]["status"] == "not_run"
     assert report["authority_effects_performed"] is False

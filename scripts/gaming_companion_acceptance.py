@@ -40,6 +40,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_platform_custody.py",
     "tests/test_gaming_companion_platform_provider.py",
     "tests/test_gaming_companion_platform_installation.py",
+    "tests/test_gaming_companion_platform_pair_process.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
@@ -246,6 +247,26 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 ],
                 "target_host_catalog_installed": False,
                 "issuer_trust_anchor_provisioned": False,
+                "production_commissioning_claimed": False,
+            },
+            "platform_pair_process_provider": {
+                "status": ("fixture_pair_process_composition_passed"
+                    if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
+                        "test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_order",
+                        "test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning",
+                        "test_pair_provider_rejects_role_profile_mismatch_before_any_spawn",
+                        "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
+                        "test_edge_launch_denial_rolls_back_the_already_started_core"))
+                    else "blocked"),
+                "test_nodes": [
+                    "test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_order",
+                    "test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning",
+                    "test_pair_provider_rejects_role_profile_mismatch_before_any_spawn",
+                    "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
+                    "test_edge_launch_denial_rolls_back_the_already_started_core",
+                ],
+                "target_processes_spawned": False,
+                "installation_profiles_or_authority_provisioned": False,
                 "production_commissioning_claimed": False,
             },
             "paired_role_coordinator": {
