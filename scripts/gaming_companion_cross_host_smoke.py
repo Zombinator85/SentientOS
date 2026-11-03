@@ -224,6 +224,10 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
         raise ValueError("windows_smoke_runtime_missing")
     wsl_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         check=True, capture_output=True, text=True, timeout=3).stdout.strip()
+    wsl_dirty = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
+        check=True, capture_output=True, text=True, timeout=3).stdout.strip()
+    if wsl_dirty:
+        raise ValueError("wsl_checkout_must_be_clean")
     git_exe = Path("/mnt/c/Program Files/Git/cmd/git.exe")
     windows_checkout_arg = _win_path(windows_checkout)
     try:
@@ -268,8 +272,7 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
                 "observation_ack": base64.b64encode(observation_ack).decode(),
                 "avatar_key": base64.b64encode(avatar_key).decode(),
                 "avatar_ack": base64.b64encode(avatar_ack).decode()}
-            python = subprocess.run(["wslpath", "-u", str(windows_python)],
-                check=True, capture_output=True, text=True, timeout=3).stdout.strip()
+            python = str(windows_python)
             script = _win_path(windows_script)
             process = subprocess.Popen([python, script, "--windows-edge-child"],
                 cwd=str(ROOT), env=_secret_free_environment(), stdin=subprocess.PIPE,
@@ -327,7 +330,9 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
                 "chat_emitter": emitted["status"],
                 "renderer_effect_proven": edge_result["renderer_effect_proven"],
                 "credentials": "ephemeral test-only credentials",
+                "ephemeral_listeners_started": 2,
                 "firewall_changed": False, "services_installed": False,
+                "persistent_host_configuration_changed": False,
                 "production_commissioning_claimed": False,
                 "host_mutation_performed": False}
     finally:
@@ -360,6 +365,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run(windows_checkout=args.windows_checkout,
             windows_python=args.windows_python)
+    except subprocess.CalledProcessError as exc:
+        command = Path(str(exc.cmd[0])).name if exc.cmd else "command"
+        result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
+            "status": "blocked", "reason_code": f"{command}_failed_{exc.returncode}",
+            "host_mutation_performed": False, "production_commissioning_claimed": False}
     except Exception as exc:
         result = {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
             "status": "blocked", "reason_code": (
