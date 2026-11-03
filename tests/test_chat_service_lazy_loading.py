@@ -215,6 +215,33 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     assert "How are you doing in there?" in prompt
 
 
+def test_recent_session_recall_uses_transcript_without_cross_session_memory(tmp_path, monkeypatch):
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    session_id = client.post("/sessions").json()["session_id"]
+    first = client.post("/chat", json={"session_id": session_id,
+        "message": "I am taking a break before Cronos."})
+    assert first.status_code == 200
+    recall = client.post("/chat", json={"session_id": session_id,
+        "message": "Before you asked about Cronos earlier in this chat, what did I say I was doing?"})
+    assert recall.status_code == 200
+
+    assert memory_queries == ["I am taking a break before Cronos.", ""]
+    assert "I am taking a break before Cronos." in invoker.prompts[-1]
+    assert "USER_DATA:" in invoker.prompts[-1]
+    assert "ASSISTANT_DATA:" not in invoker.prompts[-1]
+    assert "MEMORY_DATA:" not in invoker.prompts[-1]
+
+
 def test_gaming_chat_trims_history_to_the_complete_input_ceiling(tmp_path):
     from sentientos.gaming_workload_policy import GamingWorkloadPolicy
 

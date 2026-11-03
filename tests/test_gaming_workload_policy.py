@@ -22,7 +22,7 @@ def test_gaming_mode_caps_each_turn_without_expanding_tighter_limits() -> None:
     actual = GamingWorkloadPolicy.constrain_budget("gaming", requested)
 
     assert actual == LocalModelInvocationBudget(max_input_chars=4000, max_output_chars=1200,
-        max_new_tokens=48, timeout_seconds=12, max_calls_per_correlation=1)
+        max_new_tokens=64, timeout_seconds=12, max_calls_per_correlation=1)
 
 
 def test_gaming_mode_does_not_expand_an_already_tighter_budget() -> None:
@@ -43,7 +43,7 @@ def test_effective_mode_and_budget_are_recorded_in_invocation_lineage() -> None:
     budget, lineage = GamingWorkloadPolicy.apply_to_chat_invocation(
         "gaming", requested, {"serving_session_id": "session-1"})
 
-    assert budget.max_new_tokens == 48
+    assert budget.max_new_tokens == 64
     assert lineage == {"serving_session_id": "session-1", "workload_mode": "gaming",
         "workload_evidence": {}, "workload_response_style": "gaming_chat_style_v1",
         "max_backend_threads": 2}
@@ -64,6 +64,9 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[SESSION_HISTORY_DATA]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    assert "For greetings or company" in result
+    assert "Don't redirect to game help" in result
+    assert "give advice unless asked" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 

@@ -16,14 +16,17 @@ class GamingWorkloadPolicy:
 
     GAMING_CHAT_STYLE_ID = "gaming_chat_style_v1"
     GAMING_CHAT_STYLE_INSTRUCTION = (
-        "The user is in a gaming workload. Reply like a friendly peer in a brief, "
-        "low-distraction style. Stay focused on what they asked; avoid long lists "
-        "and unsolicited advice. Workload status does not identify the game, so "
-        "do not infer its title or details."
+        "User is gaming. Answer current intent in two short sentences max. For "
+        "greetings or company, respond warmly and ask at most one casual question. "
+        "Don't redirect to game help, repeat offers, rephrase the prompt, or give "
+        "advice unless asked. Don't infer game details."
     )
     GAMING_MAX_INPUT_CHARS = 4000
     GAMING_MAX_OUTPUT_CHARS = 1200
-    GAMING_MAX_NEW_TOKENS = 48
+    # A 48-token live reply reached the hard cap and ended mid-sentence on
+    # GLORP. 64 keeps gaming replies short while leaving room for a complete
+    # sentence plus a brief follow-up question on the measured 3B profile.
+    GAMING_MAX_NEW_TOKENS = 64
     GAMING_TIMEOUT_SECONDS = 12.0
     GAMING_MAX_BACKEND_THREADS = 2
 
