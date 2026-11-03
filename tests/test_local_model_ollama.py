@@ -82,6 +82,13 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert sent["options"]["num_ctx"] == 4096
     assert sent["options"]["num_gpu"] == 99
 
+    backend.generate("Say hello", (), {"max_new_tokens": 96, "keep_alive": "0"})
+    assert json.loads(opener.requests[-1].data)["keep_alive"] == "0"
+    request_count = len(opener.requests)
+    with pytest.raises(ModelLoadError, match="ollama_keep_alive_invalid"):
+        backend.generate("Say hello", (), {"keep_alive": "unbounded"})
+    assert len(opener.requests) == request_count
+
 
 def test_ollama_backend_rejects_non_loopback_and_unpinned_manifest(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
