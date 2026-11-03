@@ -203,6 +203,9 @@ class DevelopmentLocalChatInference:
             "foreground_game_detected": evidence["game_foreground"] is True,
             "workload_evidence": evidence,
         }
+        if (configured == "automatic" and evidence["status"] == "available"
+                and evidence["game_foreground"] is True):
+            state["configured_game_process_names"] = list(names)
         if release is not None:
             state["residency_release"] = release
         return state
@@ -441,6 +444,11 @@ class PersistentConversationService:
             observation_status = workload.get("observation_status")
             if observation_status == "available" and type(workload.get("game_foreground")) is bool:
                 workload_context["game_foreground"] = workload["game_foreground"]
+                names = workload.get("configured_game_process_names")
+                if (workload["game_foreground"] is True
+                        and isinstance(names, (tuple, list))
+                        and all(isinstance(name, str) for name in names)):
+                    workload_context["configured_game_process_names"] = list(names)
             elif workload.get("mode_source") == "local_development_operator_selection":
                 workload_context["foreground_game_observation"] = "not_observed"
         except Exception:

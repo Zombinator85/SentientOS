@@ -131,7 +131,11 @@ class ProductionServingInferenceController:
                 "transport_provenance": (dict(observed.transport_provenance)
                     if observed.transport_provenance is not None else None),
             }
-        return {"mode": configured_mode, "effective_mode": effective, **evidence}
+        state = {"mode": configured_mode, "effective_mode": effective, **evidence}
+        if (configured_mode == "automatic" and evidence.get("observation_status") == "available"
+                and evidence.get("game_foreground") is True):
+            state["configured_game_process_names"] = list(names)
+        return state
 
     def _software_generation_attribution(self) -> dict[str, Any]:
         if self._runtime_handoff_id is None:
