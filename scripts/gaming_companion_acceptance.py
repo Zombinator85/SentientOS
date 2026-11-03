@@ -31,6 +31,7 @@ FIXTURE_TESTS = (
     "tests/test_governed_local_model_invocation.py",
     "tests/test_governed_local_model_resource_invocation_composition.py",
     "tests/test_gaming_companion_tls_transport.py",
+    "tests/test_gaming_companion_bridge_runtime.py",
     "tests/test_gaming_companion_supervisor.py",
     "tests/test_gaming_companion_process_supervisor.py",
     "tests/test_gaming_companion_edge_runtime.py",
@@ -44,6 +45,9 @@ FIXTURE_TESTS = (
     "tests/test_avatar_demo_cli.py",
     "tests/test_avatar_authoring.py::test_configured_blender_authors_and_reopens_glb_candidate",
     "tests/test_godot_renderer_report_integration.py",
+    "tests/test_godot_avatar_demo.py",
+    "tests/test_godot_avatar_receiver.py",
+    "tests/test_gaming_companion_vertical_godot.py",
     "tests/test_chat_avatar_output.py",
     "tests/test_chat_speech_output.py",
     "tests/test_chat_service_resource_allocation.py",
@@ -148,6 +152,15 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
             "log_sha256": hashlib.sha256(log_bytes).hexdigest(),
             "failure_class": runner_failure},
         "real_software_scenarios": {
+            "screen_observation_chat_to_godot": {
+                "status": executed_nodes.get(
+                    "test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data",
+                    "not_run"),
+                "test_node": "test_fixture_screen_observation_reaches_real_godot_without_persisting_screen_data",
+                "godot_renderer_executable": godot_path,
+                "raw_frame_retained": False,
+                "target_host_or_live_screen_capture_claimed": False,
+            },
             "blender_authored_glb_candidate": {
                 "status": blender_test_status,
                 "blender_executable": blender_path,

@@ -44,9 +44,12 @@ python -m scripts.gaming_companion_acceptance \
 ```
 
 The command runs the repository test runner over host-pressure admission,
-governed local-model invocation, deployment validation, loopback mTLS,
+governed local-model invocation, deployment validation, authenticated bridge
+runtime and loopback mTLS,
 in-process and child-process supervisor recovery, Windows-observer fixtures, renderer evidence, speech
-interruption, and vertical chat/avatar scenarios. When Blender and Godot are
+interruption, and vertical chat/avatar scenarios. It also runs the fixture
+screen-capture → governed chat → headless Godot path when Godot is available;
+the report records a skip when it is unavailable. When Blender and Godot are
 installed, it also runs an actual Blender GLB authoring and headless Godot
 candidate-rendering scenario and a separate fixture adoption round trip. The
 report distinguishes candidate preview from fixture adoption and records
@@ -345,12 +348,10 @@ then signs the unchanged report as the Windows-edge relay and sends it through
 the mTLS bridge to the durable WSL capture owner. The authenticated transport
 principal is the relay; this does not prove which local process sent the UDP
 datagram or independently verify what the renderer reports. No Godot mTLS
-sender has been added. A v2 deployment manifest,
-transport library, and bounded in-process listener supervisor with paired
-source/acknowledgment custody are available,
-but there is not yet one launcher that resolves all Windows/WSL custody
-references, starts both platform processes, and supervises cross-platform
-recovery. The relay-to-mTLS-to-durable-capture route has an offline socket
+sender has been added. Role-specific foreground entrypoints and an
+authority-gated child-process supervisor now exist. There is not yet one
+deployment coordinator that resolves platform custody references and starts
+both Windows and WSL roles as a paired lifecycle. The relay-to-mTLS-to-durable-capture route has an offline socket
 fixture and a headless Godot-to-relay-to-mTLS-to-store software test. No
 Windows/WSL run is claimed. A target-host test must establish
 Windows-to-WSL reachability under the selected networking mode, certificate and
@@ -464,9 +465,10 @@ pending utterances for that same conversation before inference begins. Revoking
 the grant also cancels its active and queued turns. Speech status is associated
 with the active or last played turn and does not expose another conversation's
 turn identifier. Tests exercise interruption, cancellation status, bounded
-queue behavior, and service-level interruption on a follow-up turn. This does
-not yet provide word/phoneme timing events for avatar visemes or establish
-Windows/WSL speaker routing; those remain open integration work.
+queue behavior, and service-level interruption on a follow-up turn. Word-start
+offsets and utterance/interruption boundaries reach the renderer as generic
+speech-activity timing. They are not phoneme or viseme claims. Windows/WSL
+speaker routing and target timing remain unmeasured.
 
 ## User-requested screen observations
 
