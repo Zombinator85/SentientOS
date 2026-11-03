@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from sentientos.gaming_companion_deployment import inspect_local
+from sentientos.gaming_companion_process_profile import (
+    CompanionProcessProfileError,
+    load_companion_process_launch_profiles,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_TESTS = (
@@ -74,7 +78,26 @@ def _write_private(path: Path, payload: bytes) -> None:
         os.fsync(stream.fileno())
 
 
+def _inspect_process_profile(path: Path | None, *,
+        system_name: str | None = None) -> dict[str, Any]:
+    if path is None:
+        return {"status": "not_supplied", "authority_granted": False,
+            "processes_started": False, "target_profile_provisioned": False}
+    try:
+        specs = load_companion_process_launch_profiles(path, system_name=system_name)
+    except (OSError, CompanionProcessProfileError) as exc:
+        reason = str(exc.args[0]) if exc.args else type(exc).__name__
+        return {"status": "blocked", "reason_code": reason,
+            "authority_granted": False, "processes_started": False,
+            "target_profile_provisioned": False}
+    return {"status": "bounded_profile_validated", "roles": sorted(specs),
+        "authority_granted": False, "processes_started": False,
+        "target_profile_provisioned": False}
+
+
 def run_acceptance(*, manifest_path: Path, results_dir: Path,
+                   process_profile_path: Path | None = None,
+                   profile_system_name: str | None = None,
                    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
                    ) -> dict[str, Any]:
     """Run the read-only doctor and reproducible fixture suite, retaining logs."""
@@ -86,6 +109,8 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
     if not isinstance(manifest_value, dict):
         raise ValueError("manifest_not_object")
     doctor = inspect_local(manifest_value)
+    process_profile = _inspect_process_profile(process_profile_path,
+        system_name=profile_system_name)
 
     if results_dir.exists() or results_dir.is_symlink():
         raise ValueError("results_directory_must_be_new")
@@ -153,6 +178,7 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
         "repository_head": git_head,
         "manifest_path": str(manifest_path.resolve()),
         "read_only_deployment_doctor": doctor,
+        "process_profile_preflight": process_profile,
         "fixture_tests": {"status": "passed" if tests_passed else "blocked",
             "command": command, "exit_code": exit_code, "junit_status": junit_status,
             **counts, "duration_seconds": round(duration, 3),
@@ -334,17 +360,22 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument("--process-profile", type=Path,
+        help="optional installed Windows/WSL child-process profile to validate without launching")
     parser.add_argument("--results-dir", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
-        report = run_acceptance(manifest_path=args.manifest, results_dir=args.results_dir)
+        report = run_acceptance(manifest_path=args.manifest, results_dir=args.results_dir,
+            process_profile_path=args.process_profile)
     except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
         report = {"schema_version": "sentientos.gaming_companion_acceptance:v1",
                   "status": "blocked", "reason": str(exc),
                   "authority_effects_performed": False,
                   "production_commissioning_claimed": False}
     print(json.dumps(report, sort_keys=True, separators=(",", ":")))
-    return 0 if report.get("status") == "local_fixture_validation_passed" else 2
+    profile_status = report.get("process_profile_preflight", {}).get("status")
+    profile_ready = profile_status in {None, "not_supplied", "bounded_profile_validated"}
+    return 0 if report.get("status") == "local_fixture_validation_passed" and profile_ready else 2
 
 
 if __name__ == "__main__":
