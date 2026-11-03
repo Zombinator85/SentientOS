@@ -365,6 +365,21 @@ readiness semantics, trust anchors, or authority. Cloud tests use fake child
 processes only; Windows child startup and WSL process behavior remain target
 checks.
 
+`sentientos.gaming_companion_process_profile.load_companion_process_launch_profiles`
+reads a bounded `sentientos.companion_process_launch_profiles:v1` JSON profile
+with exactly one Windows-edge and one WSL-core command. It accepts only the
+repository's role entrypoint command shape, absolute host and WSL interpreter
+paths, a matching `--role`/environment binding, a non-secret environment, and
+the exact manifest/provider/launch-authorizer arguments. It rejects unknown
+fields, duplicate JSON keys, extra command arguments, traversal paths, and
+non-Windows hosts. The profile is configuration, not approval: every actual
+spawn still needs a current signed process-launch receipt binding the exact
+spec digest and fresh generation pair. The loader sets no authority and never
+starts a child. `GamingCompanionPlatformPairProcessProvider.from_process_profile(...)`
+loads these specs directly into the pair owner; composition stays stopped until
+the caller separately starts the authorized supervisor. The Windows file ACL
+and the installed executables have not been validated on GLORP.
+
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
 CA context, and an exact certificate fingerprint pin. The client requires a

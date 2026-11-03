@@ -41,6 +41,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_platform_provider.py",
     "tests/test_gaming_companion_platform_installation.py",
     "tests/test_gaming_companion_platform_pair_process.py",
+    "tests/test_gaming_companion_process_profile.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
@@ -256,7 +257,8 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                         "test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning",
                         "test_pair_provider_rejects_role_profile_mismatch_before_any_spawn",
                         "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
-                        "test_edge_launch_denial_rolls_back_the_already_started_core"))
+                        "test_edge_launch_denial_rolls_back_the_already_started_core",
+                        "test_process_profile_factory_uses_loaded_specs_without_starting_children"))
                     else "blocked"),
                 "test_nodes": [
                     "test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_order",
@@ -264,10 +266,29 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                     "test_pair_provider_rejects_role_profile_mismatch_before_any_spawn",
                     "test_pair_provider_rejects_invalid_manifest_before_supervisor_construction",
                     "test_edge_launch_denial_rolls_back_the_already_started_core",
+                    "test_process_profile_factory_uses_loaded_specs_without_starting_children",
                 ],
                 "target_processes_spawned": False,
                 "installation_profiles_or_authority_provisioned": False,
                 "production_commissioning_claimed": False,
+            },
+            "platform_process_profiles": {
+                "status": ("bounded_profile_fixture_passed"
+                    if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
+                        "test_profile_loader_builds_closed_windows_and_wsl_role_specs",
+                        "test_profile_loader_rejects_extra_command_arguments_and_secret_environment",
+                        "test_profile_loader_rejects_duplicate_fields_and_untrusted_hosts",
+                        "test_profile_loader_rejects_path_escape_and_wrong_role_binding"))
+                    else "blocked"),
+                "test_nodes": [
+                    "test_profile_loader_builds_closed_windows_and_wsl_role_specs",
+                    "test_profile_loader_rejects_extra_command_arguments_and_secret_environment",
+                    "test_profile_loader_rejects_duplicate_fields_and_untrusted_hosts",
+                    "test_profile_loader_rejects_path_escape_and_wrong_role_binding",
+                ],
+                "authority_granted": False,
+                "processes_spawned": False,
+                "target_profile_provisioned": False,
             },
             "paired_role_coordinator": {
                 "status": executed_nodes.get(

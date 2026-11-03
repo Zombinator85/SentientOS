@@ -119,6 +119,38 @@ def test_installed_profiles_compose_authorized_core_first_pair_and_shutdown_orde
     assert pair.status().state == "stopped"
 
 
+def test_process_profile_factory_uses_loaded_specs_without_starting_children(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.gaming_companion_platform_pair_process as provider_module
+
+    roles = ("windows_edge", "wsl_core")
+    expected_specs = {role: _spec(role, tmp_path) for role in roles}
+    profile_path = tmp_path / "profiles.json"
+    profile_path.write_text("fixture", encoding="utf-8")
+    loaded_paths: list[Path] = []
+
+    def load_profiles(path, *, system_name):
+        assert system_name == "Windows"
+        loaded_paths.append(Path(path))
+        return expected_specs
+
+    monkeypatch.setattr(provider_module,
+        "load_companion_process_launch_profiles", load_profiles)
+    spawns: list[list[str]] = []
+    provider = GamingCompanionPlatformPairProcessProvider.from_process_profile(
+        installation=_installation(), profile_path=profile_path,
+        generation_pair_factories={role: lambda _previous, role=role: _pair(role)
+                                   for role in roles},
+        health_probes={role: lambda _child, _spec: True for role in roles},
+        spawner=lambda argv, **_kwargs: spawns.append(argv),
+        system_name="Windows")
+
+    pair = provider(_launch_manifest())
+    assert loaded_paths == [profile_path]
+    assert isinstance(pair, GamingCompanionPairSupervisor)
+    assert spawns == []
+
+
 def test_pair_provider_rejects_missing_roles_and_wrong_host_before_spawning(
         tmp_path: Path) -> None:
     spec_by_role = {role: _spec(role, tmp_path)
