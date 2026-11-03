@@ -352,6 +352,19 @@ without asking the caller to rebind those security-sensitive objects. The
 application still supplies the Windows renderer verifier or governed WSL
 admission-receipt builder explicitly.
 
+`sentientos.gaming_companion_platform_pair_process.GamingCompanionPlatformPairProcessProvider`
+composes two installed `CompanionProcessLaunchSpec` records into the existing
+core-first/edge-second process supervisor pair. It requires distinct role
+profiles, a generation-pair loader and readiness probe for each role, and the
+verified installation callbacks. Each process supervisor verifies the fresh
+generation records and exact command digest receipt before `Popen`; startup
+rolls back the core if the edge is denied, shutdown stops edge before core, and
+recovery continues to require newly verified generation records. The provider
+does not launch on non-Windows hosts or choose command paths, role profiles,
+readiness semantics, trust anchors, or authority. Cloud tests use fake child
+processes only; Windows child startup and WSL process behavior remain target
+checks.
+
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
 CA context, and an exact certificate fingerprint pin. The client requires a
