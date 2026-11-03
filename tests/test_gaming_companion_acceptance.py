@@ -46,6 +46,7 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
         assert "tests/test_gaming_companion_pair_entrypoint.py" in command
         assert "tests/test_gaming_companion_authority.py" in command
         assert "tests/test_gaming_companion_platform_custody.py" in command
+        assert "tests/test_gaming_companion_platform_provider.py" in command
         assert "tests/test_gaming_companion_bidirectional_runtime.py" in command
         assert check is False
         assert env["SENTIENTOS_TEST_RUN_DIR"].startswith(str(results / "test-state"))
@@ -57,6 +58,8 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
             '<testsuite tests="11" failures="0" errors="0" skipped="2">'
             '<testcase name="test_wsl_custody_resolves_generation_keys_and_mtls_contexts"/>'
             '<testcase name="test_windows_custody_uses_dpapi_reader_for_opaque_key_reference"/>'
+            '<testcase name="test_platform_provider_composes_windows_edge_with_custody_and_explicit_renderer_hooks"/>'
+            '<testcase name="test_platform_provider_composes_wsl_core_and_requires_governed_admission_hook"/>'
             '</testsuite>', encoding="utf-8")
         return subprocess.CompletedProcess(command, 0)
 
@@ -88,6 +91,10 @@ def test_acceptance_records_fixture_results_and_keeps_target_checks_deferred(tmp
     assert custody_scenario["status"] == "fixture_custody_policy_passed"
     assert custody_scenario["windows_or_wsl_target_execution"] is False
     assert custody_scenario["installation_catalog_or_authority_provisioned"] is False
+    provider_scenario = report["real_software_scenarios"]["platform_role_provider_composition"]
+    assert provider_scenario["status"] == "fixture_role_provider_composition_passed"
+    assert provider_scenario["windows_or_wsl_target_execution"] is False
+    assert provider_scenario["operator_authority_or_service_installation_performed"] is False
     assert len(report["fixture_tests"]["log_sha256"]) == 64
     assert report["target_host_validation"]["status"] == "not_run"
     assert report["authority_effects_performed"] is False

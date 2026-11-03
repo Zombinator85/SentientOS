@@ -38,6 +38,7 @@ FIXTURE_TESTS = (
     "tests/test_gaming_companion_pair_entrypoint.py",
     "tests/test_gaming_companion_authority.py",
     "tests/test_gaming_companion_platform_custody.py",
+    "tests/test_gaming_companion_platform_provider.py",
     "tests/test_gaming_companion_bidirectional_runtime.py",
     "tests/test_gaming_companion_edge_runtime.py",
     "tests/test_gaming_companion_core_runtime.py",
@@ -212,6 +213,19 @@ def run_acceptance(*, manifest_path: Path, results_dir: Path,
                 ],
                 "windows_or_wsl_target_execution": False,
                 "installation_catalog_or_authority_provisioned": False,
+            },
+            "platform_role_provider_composition": {
+                "status": ("fixture_role_provider_composition_passed"
+                    if tests_passed and all(executed_nodes.get(node) == "passed" for node in (
+                        "test_platform_provider_composes_windows_edge_with_custody_and_explicit_renderer_hooks",
+                        "test_platform_provider_composes_wsl_core_and_requires_governed_admission_hook"))
+                    else "blocked"),
+                "test_nodes": [
+                    "test_platform_provider_composes_windows_edge_with_custody_and_explicit_renderer_hooks",
+                    "test_platform_provider_composes_wsl_core_and_requires_governed_admission_hook",
+                ],
+                "windows_or_wsl_target_execution": False,
+                "operator_authority_or_service_installation_performed": False,
             },
             "paired_role_coordinator": {
                 "status": executed_nodes.get(
