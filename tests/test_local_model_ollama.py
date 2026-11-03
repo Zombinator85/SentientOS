@@ -55,14 +55,15 @@ class _HTTPConnection:
     def __init__(self, *_args, **_kwargs) -> None:
         self.body = b""
         self.sock = None
-    def request(self, _method: str, _path: str, *, body: bytes, headers: dict) -> None:
+    def request(self, _method: str, path: str, *, body: bytes, headers: dict) -> None:
         self.body = body
+        self.path = path
         type(self).last_body = body
     def getresponse(self):
         request = json.loads(self.body)
-        if request.get("prompt") == "" and request.get("keep_alive") == "0":
+        if self.path == "/api/generate" and request.get("prompt") == "" and request.get("keep_alive") == "0":
             return _HTTPResponse({"done": True, "response": "", "done_reason": "unload"})
-        return _HTTPResponse({"done": True, "response": "A real local answer.",
+        return _HTTPResponse({"done": True, "message": {"role": "assistant", "content": "A real local answer."},
             "total_duration": 123, "load_duration": 23,
             "prompt_eval_duration": 34, "eval_duration": 56,
             "eval_count": 7, "prompt_eval_count": 9})
@@ -106,12 +107,18 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert authority.records[0].provider_network_posture == "loopback_only"
     assert authority.record_for_active_identity(identity, "local_user_chat") is authority.records[0]
     assert authority.record_for_active_identity(identity, "maintenance_implementation") is None
-    assert backend.generate("Say hello", (), {"max_new_tokens": 96}) == "A real local answer."
+    prompt = ("[SYSTEM_INSTRUCTION]\nKeep this trusted instruction.\n"
+        "[VERIFIED_RUNTIME_CONTEXT]\n{}\n[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
+    assert backend.generate(prompt, (), {"max_new_tokens": 96}) == "A real local answer."
     sent = json.loads(_HTTPConnection.last_body)
     assert sent["model"] == "qwen3:8b"
     assert sent["stream"] is False
     assert sent["options"]["num_ctx"] == 4096
     assert sent["options"]["num_gpu"] == 99
+    assert sent["messages"] == [
+        {"role": "system", "content": "Keep this trusted instruction.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"},
+        {"role": "user", "content": "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"},
+    ]
 
     text, completion = backend.generate_with_metadata("Say hello", (), {"max_new_tokens": 96})
     assert text == "A real local answer."
