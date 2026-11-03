@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from typing import Callable, Protocol, cast
 
 from .gaming_companion_bridge import CompanionBridgeError, VerifiedBridgeMessage, encode_message
-from .gaming_companion_bridge_runtime import CompanionBridgeLoopbackClient
 from .windows_game_performance import GamePerformanceObservation, WindowsGamePerformanceObserver
 
 _SCHEMA = "sentientos.game_performance_observation:v1"
@@ -26,6 +25,10 @@ _MAX_AGE_SECONDS = 10.0
 
 class _PerformanceReceiver(Protocol):
     def receive(self, timeout: float | None = None) -> VerifiedBridgeMessage: ...
+
+
+class _PerformanceSender(Protocol):
+    def send(self, message: bytes) -> VerifiedBridgeMessage: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +53,12 @@ class WindowsGamePerformanceBridgePublisher:
     """Publish one observed Windows sample; uncertain sends are never replayed."""
 
     def __init__(self, *, observer: WindowsGamePerformanceObserver,
-                 client: CompanionBridgeLoopbackClient, source_id: str,
+                 client: _PerformanceSender, source_id: str,
                  session_id: str, generation_id: str, source_key: bytes,
                  process_id: int, clock: Callable[[], str] | None = None) -> None:
         if type(observer) is not WindowsGamePerformanceObserver:
             raise CompanionBridgeError("game_performance_observer_required")
-        if not isinstance(client, CompanionBridgeLoopbackClient):
+        if not callable(getattr(client, "send", None)):
             raise CompanionBridgeError("bridge_client_required")
         if not isinstance(source_key, bytes) or len(source_key) < 32:
             raise CompanionBridgeError("bridge_key_too_short")
@@ -137,7 +140,9 @@ class GamePerformanceBridgeDetector:
         for value, name, low, high in ((p95, "frame_p95", 0.0, 10_000.0),
                                        (cpu, "process_cpu", 0.0, 10_000.0)):
             if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
-                    or not math.isfinite(float(value)) or not low < float(value) <= high):
+                    or not math.isfinite(float(value))
+                    or (float(value) < low if name == "process_cpu" else float(value) <= low)
+                    or float(value) > high):
                 raise CompanionBridgeError("game_performance_" + name + "_invalid")
         if rss is not None and (type(rss) is not int or not 0 <= rss <= 2**63 - 1):
             raise CompanionBridgeError("game_performance_process_rss_invalid")

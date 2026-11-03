@@ -33,7 +33,7 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked():
     verifier = CompanionBridgeReceiver(source_keys={source_id: source_key},
         expected_generations={source_id: generation})
     observer = WindowsGamePerformanceObserver(system_provider=lambda: "Windows",
-        process_provider=lambda _pid: {"cpu_percent": 12.5, "rss_bytes": 1024},
+        process_provider=lambda _pid: {"cpu_percent": 0.0, "rss_bytes": 1024},
         frame_provider=lambda _pid: ((16.7, 51.0), "a" * 64))
     client = CompanionBridgeLoopbackClient(port=1,
         acknowledgment_receiver=CompanionBridgeReceiver(
@@ -60,7 +60,7 @@ def test_windows_performance_sample_is_signed_transported_and_shape_checked():
     assert sample.sequence == 1
     assert sample.frame_time_p95_ms == 51.0
     assert sample.hitch_count_over_50ms == 1
-    assert sample.process_cpu_percent == 12.5
+    assert sample.process_cpu_percent == 0.0
     assert sample.process_rss_bytes == 1024
     assert len(sample.payload_digest) == 64
     assert len(sample.message_id) == 64

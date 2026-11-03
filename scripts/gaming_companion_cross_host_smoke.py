@@ -34,16 +34,20 @@ from sentientos.gaming_companion_avatar_output import (
     MutualTLSAvatarCommandSender,
     WindowsEdgeAvatarCommandDispatchOwner,
 )
+from sentientos.game_performance_bridge import (
+    GamePerformanceBridgeDetector,
+    WindowsGamePerformanceBridgePublisher,
+)
 from sentientos.gaming_companion_bridge import (
     CompanionBridgeReceiver,
     VerifiedBridgeMessage,
-    encode_message,
 )
 from sentientos.gaming_companion_tls_transport import (
     MIN_TLS_VERSION,
     CompanionBridgeMutualTLSClient,
     CompanionBridgeMutualTLSRuntime,
 )
+from sentientos.windows_game_performance import WindowsGamePerformanceObserver
 
 
 def _private_ip(value: str) -> str:
@@ -172,13 +176,13 @@ def _windows_child() -> int:
                 source_keys={"wsl-core": base64.b64decode(cfg["observation_ack"])},
                 expected_generations={"wsl-core": "wsl-observation-ack-test-1"}),
             expected_server_certificate_sha256=cfg["wsl_pin"], timeout_seconds=3.0)
-        observation = encode_message(kind="observation", source_id="windows-edge",
-            session_id="cross-host-test", generation_id="windows-observation-test-1",
-            sequence=1, payload={"schema_version": "sentientos.cross_host_smoke:v1",
-                "direction": "windows_to_wsl", "fixture": True},
-            key=base64.b64decode(cfg["observation_key"]),
-            created_at=datetime.now(timezone.utc).isoformat())
-        client.send(observation)
+        publisher = WindowsGamePerformanceBridgePublisher(
+            observer=WindowsGamePerformanceObserver(), client=client,
+            source_id="windows-edge", session_id="cross-host-test",
+            generation_id="windows-observation-test-1",
+            source_key=base64.b64decode(cfg["observation_key"]),
+            process_id=os.getpid())
+        publisher.publish_once()
         incoming = runtime.receive(timeout=10.0)
         delivered: list[dict[str, object]] = []
 
@@ -290,9 +294,12 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
             if not ready.startswith("READY "):
                 raise RuntimeError("windows_listener_failed")
             edge_port = int(ready.split()[1])
-            observation = core.receive(timeout=10.0)
-            if observation.payload.get("direction") != "windows_to_wsl":
-                raise RuntimeError("windows_to_wsl_observation_invalid")
+            performance = GamePerformanceBridgeDetector(
+                receiver=core, source_id="windows-edge",
+                generation_provider=lambda: "windows-observation-test-1",
+            ).receive_once(timeout=10.0)
+            if performance.process_cpu_percent is None or performance.process_rss_bytes is None:
+                raise RuntimeError("windows_process_observation_unavailable")
             client = CompanionBridgeMutualTLSClient(address=windows_ip,
                 port=edge_port, server_hostname="windows-edge.test",
                 tls_context=wsl_client,
@@ -326,6 +333,10 @@ def run(*, windows_checkout: Path, windows_python: Path) -> dict[str, object]:
             return {"schema_version": "sentientos.gaming_companion_cross_host_smoke:v1",
                 "status": "passed" if edge_result["accepted"] else "blocked",
                 "source_sha": wsl_sha, "windows_to_wsl": "passed",
+                "windows_process_cpu_percent": performance.process_cpu_percent,
+                "windows_process_rss_bytes": performance.process_rss_bytes,
+                "windows_frame_time_source": "unsupported",
+                "windows_process_id_exposed": False,
                 "wsl_to_windows_queue": "passed" if edge_result["accepted"] else "blocked",
                 "chat_emitter": emitted["status"],
                 "renderer_effect_proven": edge_result["renderer_effect_proven"],
