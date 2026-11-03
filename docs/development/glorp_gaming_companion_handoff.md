@@ -632,3 +632,6 @@ target-host observations above do not cover the following acceptance items:
    inference latency/tokens per second, CPU/RAM/GPU/VRAM, temperature, and
    power readings where the providers support them. No improvement threshold
    has been established.
+
+
+The platform role provider now accepts an explicitly supplied receipt replay guard and forwards it to the Windows edge runtime. This makes the durable SQLite guard composable through the provider while leaving the in-memory default intact. GLORP has not configured or activated a production database; the installation must select a protected, installation-owned path before using durable claims.
