@@ -312,12 +312,26 @@ and the Windows DPAPI seam with an injected reader; they do not execute on
 Windows or WSL2.
 
 This is the custody adapter used by a platform provider, not a provisioner or
-a complete host provider. The installation still owns the protected catalog
-loader, its root ACLs, pinned issuer public-key catalog, receipt store,
-installation identity, launch approvals, renderer state path, and the governed
-core admission-receipt binding. Those inputs cannot be created by the
-cloud checkout. The resolver never creates credentials, changes ACLs, issues
-receipts, starts listeners, or authorizes launch.
+a complete host provider. `sentientos.gaming_companion_platform_installation`
+loads the `sentientos.companion_platform_custody_catalog:v1` document from a
+private installation directory, rejects duplicate JSON fields, unknown schema
+fields, unsafe paths, symlinks, open Linux permissions, and oversized catalogs,
+then verifies a detached `platform_catalog` authority receipt over the
+canonical catalog digest before constructing the resolver and receipt store.
+The catalog contains opaque custody references and confined relative paths;
+it cannot carry its own signing key. The loader accepts issuer public keys
+from an external trusted installation source and never creates or selects
+trust anchors, issues receipts, changes ACLs, or authorizes launch. On Linux it
+requires the current service account to own the catalog with mode `0600` or
+stricter. Target Windows ACL enforcement and DPAPI behavior remain to be
+verified on Windows.
+
+The installation still owns the protected catalog and root ACLs, pinned issuer
+public-key catalog, receipt store, installation identity, launch approvals,
+renderer state path, and the governed core admission-receipt binding. Those
+inputs cannot be created by the cloud checkout. The resolver never creates
+credentials, changes ACLs, issues receipts, starts listeners, or authorizes
+launch.
 
 `sentientos.gaming_companion_platform_provider.GamingCompanionPlatformRoleProvider`
 now composes that resolver and the signed `CompanionAuthorityCallbacks` into
@@ -331,8 +345,12 @@ Windows, and the governed admission-receipt builder on WSL. Construction
 without those hooks fails closed. This provider is fixture-tested on the
 managed Linux host with injected platform identity; it is not a claim of
 Windows/WSL execution or production commissioning. It does not yet supply the
-paired child-process command profile, installation catalog loader, or OS
-service startup configuration.
+paired child-process command profile or OS service startup configuration.
+`GamingCompanionPlatformRoleProvider.from_installation(...)` composes the
+custody resolver and authority callbacks returned by one verified catalog load
+without asking the caller to rebind those security-sensitive objects. The
+application still supplies the Windows renderer verifier or governed WSL
+admission-receipt builder explicitly.
 
 The executable transport is `sentientos.gaming_companion_tls_transport`. Its
 server requires TLS 1.2 or newer, a client certificate trusted by the supplied
