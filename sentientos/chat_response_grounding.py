@@ -100,6 +100,13 @@ _SCREEN_CAPABILITY_QUESTION = re.compile(
     r"(?:see|view|observe|access|watch)\b.{0,120}\b"
     r"(?:screen|display|game|gameplay)\b", re.IGNORECASE
 )
+_SCREEN_VISIBILITY_CLARIFICATION_REQUEST = re.compile(
+    r"\b(?:be clear|tell me|let me know|explain)\b.{0,80}\b"
+    r"(?:if|whether)\s+you\b.{0,24}\b(?:can(?:not|n't)?|"
+    r"could(?:not|n't)?|are able to)\b.{0,24}\b"
+    r"(?:see|view|observe|access|watch)\b.{0,64}\b"
+    r"(?:screen|display|game|gameplay)\b", re.IGNORECASE
+)
 
 _UNOBSERVED_CLAIM_PATTERNS = (
     re.compile(r"\bkeep(?:ing)? an eye on\b", re.IGNORECASE),
@@ -136,6 +143,7 @@ def is_direct_screen_activity_question(user_message: str) -> bool:
     return (
         _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
         or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+        or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )
 
@@ -157,6 +165,7 @@ def corrected_unobserved_game_status(
     activity_question = (
         _GAME_ACTIVITY_QUESTION.search(user_message) is not None
         or _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+        or _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
         or is_verified_current_game_context_question(user_message)
     )
     if (not (_GAME_STATUS_QUESTION.search(user_message)
@@ -225,6 +234,20 @@ def corrected_unobserved_game_status(
         capabilities = verified_runtime_context.get("capabilities")
         screen = capabilities.get("screen_observation") if isinstance(
             capabilities, Mapping) else None
+        if _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message):
+            unconfigured = isinstance(screen, Mapping) and screen.get("configured") is False
+            limitation = ("screen observation isn't configured" if unconfigured
+                          else "I don't have a screen observation this turn")
+            return (
+                f"I'm here with you, but {limitation}, so I can't see the gameplay.",
+                {
+                    "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+                    "reason_code": (
+                        "foreground_only_screen_observation_unconfigured"
+                        if unconfigured else "foreground_only_no_screen_observation"
+                    ),
+                },
+            )
         if isinstance(screen, Mapping) and screen.get("configured") is False:
             return (
                 f"I can confirm {label} is the foreground app, but screen observation "
@@ -358,10 +381,23 @@ def corrected_screen_capability_output(
     screen_observation_provenance: Mapping[str, Any] | None,
 ) -> tuple[str, dict[str, str] | None]:
     """Answer direct visibility questions from actual screen-source configuration."""
+    clarified_request = (
+        _SCREEN_VISIBILITY_CLARIFICATION_REQUEST.search(user_message) is not None
+    )
     if (screen_observation_configured
             or isinstance(screen_observation_provenance, Mapping)
-            or not _SCREEN_CAPABILITY_QUESTION.search(user_message)):
+            or (not _SCREEN_CAPABILITY_QUESTION.search(user_message)
+                and not clarified_request)):
         return output, None
+    if clarified_request:
+        response = (
+            "I'm here with you, but screen observation isn't configured, "
+            "so I can't see the gameplay."
+        )
+        return response, {
+            "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+            "reason_code": "screen_observation_not_configured",
+        }
     return SCREEN_CAPABILITY_CORRECTION, {
         "policy_id": SCREEN_CAPABILITY_POLICY_ID,
         "reason_code": "screen_observation_not_configured",

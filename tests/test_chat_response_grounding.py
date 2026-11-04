@@ -10,6 +10,7 @@ from sentientos.chat_response_grounding import (
     SOCIAL_INSTRUCTION_ECHO_POLICY_ID, SYSTEM_IDENTITY_POLICY_ID,
     corrected_social_instruction_echo, corrected_system_identity_output,
     corrected_unobserved_game_status,
+    is_direct_screen_activity_question,
     unobserved_gameplay_claim,
 )
 
@@ -135,6 +136,76 @@ def test_live_screen_activity_question_reports_unconfigured_source_accurately():
     assert attribution == {
         "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
         "reason_code": "foreground_only_screen_observation_unconfigured",
+    }
+
+
+def test_visibility_clarification_request_is_grounded_without_screen_capture():
+    message = (
+        "Hey SentientOS, I am playing Cronos. Give me a quick friendly check-in, "
+        "and be clear if you cannot see the gameplay."
+    )
+    assert is_direct_screen_activity_question(message)
+    text, attribution = corrected_unobserved_game_status(
+        "I can see that you are currently playing Cronos. Enjoy your game!",
+        user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "game_foreground": True,
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+            },
+            "capabilities": {"screen_observation": {"configured": False}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert text == (
+        "I\'m here with you, but screen observation isn\'t configured, "
+        "so I can\'t see the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_screen_observation_unconfigured",
+    }
+
+
+def test_unconfigured_visibility_clarification_gets_a_direct_honest_reply():
+    message = "Hey SentientOS, be clear if you cannot see the gameplay."
+    text, attribution = corrected_screen_capability_output(
+        "I can see the gameplay.",
+        user_message=message,
+        screen_observation_configured=False,
+        screen_observation_provenance=None,
+    )
+    assert text == (
+        "I'm here with you, but screen observation isn't configured, "
+        "so I can't see the gameplay."
+    )
+    assert attribution == {
+        "policy_id": SCREEN_CAPABILITY_POLICY_ID,
+        "reason_code": "screen_observation_not_configured",
+    }
+
+
+def test_visibility_clarification_uses_current_observation_status():
+    message = "Please be clear if you cannot see the game screen."
+    text, attribution = corrected_unobserved_game_status(
+        "I can see the game.",
+        user_message=message,
+        verified_runtime_context={
+            "workload": {
+                "game_foreground": True,
+                "configured_game_process_names": ["Cronos-Win64-Shipping.exe"],
+            },
+            "capabilities": {"screen_observation": {"configured": True}},
+        },
+        screen_observation_provenance=None,
+    )
+    assert text == (
+        "I\'m here with you, but I don\'t have a screen observation this turn, "
+        "so I can\'t see the gameplay."
+    )
+    assert attribution == {
+        "policy_id": CURRENT_GAME_STATUS_POLICY_ID,
+        "reason_code": "foreground_only_no_screen_observation",
     }
 
 
