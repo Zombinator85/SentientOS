@@ -1131,16 +1131,16 @@ class PersistentConversationService:
         response_text = receipt.output_text
         grounding_correction: Mapping[str, str] | None = None
         if not receipt.output_truncated:
-            screen_provenance = (request_linkage.get("screen_observation_provenance")
+            invocation_screen_provenance = (request_linkage.get("screen_observation_provenance")
                 if isinstance(request_linkage, Mapping) else None)
             response_text, grounding_correction = corrected_screen_capability_output(
                 receipt.output_text, user_message=message,
                 screen_observation_configured=self.screen_observation_configured(),
-                screen_observation_provenance=screen_provenance)
+                screen_observation_provenance=invocation_screen_provenance)
             if grounding_correction is None:
                 response_text, grounding_correction = corrected_gaming_output(
                     receipt.output_text, workload_mode=str(observed_workload_mode or "normal"),
-                    screen_observation_provenance=screen_provenance)
+                    screen_observation_provenance=invocation_screen_provenance)
         transcript_output_digest = digest_payload({"text": response_text})
         if grounding_correction is None:
             assistant_output_lineage = {
