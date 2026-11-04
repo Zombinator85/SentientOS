@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import queue
 
 from scripts.run_local_companion_dev import (
@@ -31,6 +32,34 @@ def test_forward_lines_surfaces_worker_output_after_ready(tmp_path, capsys) -> N
     assert capsys.readouterr().out == (
         "WINDOWS_EDGE RuntimeError: worker stopped\n"
     )
+
+
+def test_forward_lines_persists_avatar_state_acceptance_without_claiming_render(
+    tmp_path,
+) -> None:
+    lines: queue.Queue[str] = queue.Queue()
+    report_file = tmp_path / "renderer-reports.jsonl"
+    payload = {
+        "session_id": "session-123",
+        "turn_id": "turn-456",
+        "output_digest": "a" * 64,
+    }
+
+    _TemporaryCompanionEdge._forward_lines(
+        io.StringIO("READY 12345 67890\nAVATAR_ACCEPTED "
+                    + json.dumps(payload) + "\n"),
+        lines,
+        report_file,
+    )
+
+    event_path = tmp_path / "avatar-delivery-events.jsonl"
+    event = json.loads(event_path.read_text(encoding="utf-8"))
+    assert event["event"] == "windows_edge_avatar_state_accepted"
+    assert event["session_id"] == "session-123"
+    assert event["turn_id"] == "turn-456"
+    assert event["output_digest"] == "a" * 64
+    assert event["observed_at"]
+    assert "renderer_effect_proven" not in event
 
 
 def test_terminate_owned_process_tree_stops_windows_descendants(
