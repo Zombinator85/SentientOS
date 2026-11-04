@@ -49,6 +49,36 @@ class GamePerformanceObservation:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class PresentMonFrameTiming:
+    """One process-filtered PresentMon frame with a machine-clock timestamp."""
+
+    cpu_start_qpc_ms: float
+    frame_interval_ms: float
+    present_interval_ms: float | None
+    cpu_busy_ms: float | None
+    gpu_busy_ms: float | None
+    displayed_time_ms: float | None
+    display_status: str
+
+
+@dataclass(frozen=True, slots=True)
+class PresentMonTimelineSummary:
+    """Experiment summary using an explicitly selected frame-rate target."""
+
+    frame_count: int
+    frame_time_p50_ms: float
+    frame_time_p95_ms: float
+    frame_time_p99_ms: float
+    frame_time_max_ms: float
+    target_frame_interval_ms: float
+    missed_deadline_count: int
+    hitch_threshold_ms: float
+    long_frame_count: int
+    long_frame_cluster_count: int
+    dropped_presentation_count: int | None
+
+
 def summarize_frame_times_ms(values: Sequence[float]) -> tuple[float, float, float, int]:
     """Return nearest-rank p50/p95/p99 and >50 ms hitches for bounded samples."""
     if not isinstance(values, (list, tuple)) or not 1 <= len(values) <= MAX_PRESENTMON_ROWS:
@@ -119,6 +149,169 @@ def parse_presentmon_csv(raw: bytes, *, process_id: int) -> tuple[tuple[float, .
     if not times:
         raise GamePerformanceObservationError("presentmon_process_samples_missing")
     return tuple(times), hashlib.sha256(raw).hexdigest()
+
+
+def _optional_timeline_number(row: Mapping[str, str | None], column: str, *,
+                              invalid_reason: str,
+                              maximum: float = 10_000.0) -> float | None:
+    raw = row.get(column)
+    if raw is None or raw.strip().casefold() in {"", "na", "n/a"}:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise GamePerformanceObservationError(invalid_reason) from exc
+    if not math.isfinite(value) or value < 0 or value > maximum:
+        raise GamePerformanceObservationError(invalid_reason)
+    return round(value, 4)
+
+
+def parse_presentmon_timeline(
+    raw: bytes, *, process_id: int
+) -> tuple[tuple[PresentMonFrameTiming, ...], str]:
+    """Keep bounded per-frame timing for experiments that need event correlation.
+
+    Use PresentMon's qpc_time_ms option to populate CPUStartQPCTime.
+    The operational observer remains summary-only; this separate result keeps
+    the source clock and per-frame CPU/GPU/display values without process names.
+    """
+    if not isinstance(raw, bytes) or not raw or len(raw) > MAX_PRESENTMON_BYTES:
+        raise GamePerformanceObservationError("presentmon_input_size_invalid")
+    if type(process_id) is not int or process_id < 1:
+        raise GamePerformanceObservationError("game_process_id_invalid")
+    try:
+        text = raw.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text, newline=""))
+        headers = set(reader.fieldnames or ())
+        if not {"ProcessID", "CPUStartQPCTime"} <= headers:
+            raise GamePerformanceObservationError("presentmon_timeline_columns_missing")
+        display_interval_column = (
+            "MsBetweenDisplayChange" if "MsBetweenDisplayChange" in headers else None
+        )
+        present_interval_column = (
+            "MsBetweenPresents" if "MsBetweenPresents" in headers else None
+        )
+        if display_interval_column is None and present_interval_column is None:
+            raise GamePerformanceObservationError("presentmon_columns_missing")
+
+        frames: list[PresentMonFrameTiming] = []
+        rows_seen = 0
+        for row in reader:
+            rows_seen += 1
+            if rows_seen > MAX_PRESENTMON_ROWS:
+                raise GamePerformanceObservationError("presentmon_row_count_exceeded")
+            try:
+                row_pid = int(row["ProcessID"] or "")
+            except (TypeError, ValueError):
+                continue
+            if row_pid != process_id:
+                continue
+
+            qpc_ms = _optional_timeline_number(
+                row, "CPUStartQPCTime", invalid_reason="presentmon_timestamp_invalid",
+                maximum=1_000_000_000_000_000.0,
+            )
+            if qpc_ms is None:
+                raise GamePerformanceObservationError("presentmon_timestamp_invalid")
+            display_interval = (
+                _optional_timeline_number(
+                    row, display_interval_column,
+                    invalid_reason="presentmon_frame_time_invalid",
+                ) if display_interval_column else None
+            )
+            present_interval = (
+                _optional_timeline_number(
+                    row, present_interval_column,
+                    invalid_reason="presentmon_frame_time_invalid",
+                ) if present_interval_column else None
+            )
+            interval = display_interval if display_interval is not None else present_interval
+            if interval is None or interval <= 0:
+                raise GamePerformanceObservationError("presentmon_frame_time_invalid")
+
+            displayed_time = (
+                _optional_timeline_number(
+                    row, "DisplayedTime", invalid_reason="presentmon_display_time_invalid",
+                ) if "DisplayedTime" in headers else None
+            )
+            display_value = row.get("DisplayedTime", "")
+            if "DisplayedTime" not in headers:
+                display_status = "unavailable"
+            elif display_value is None or display_value.strip().casefold() in {"", "na", "n/a"}:
+                display_status = "not_displayed"
+            else:
+                display_status = "displayed"
+
+            frames.append(PresentMonFrameTiming(
+                cpu_start_qpc_ms=qpc_ms,
+                frame_interval_ms=interval,
+                present_interval_ms=present_interval,
+                cpu_busy_ms=(
+                    _optional_timeline_number(
+                        row, "MsCPUBusy", invalid_reason="presentmon_cpu_busy_invalid",
+                    ) if "MsCPUBusy" in headers else None
+                ),
+                gpu_busy_ms=(
+                    _optional_timeline_number(
+                        row, "MsGPUBusy", invalid_reason="presentmon_gpu_busy_invalid",
+                    ) if "MsGPUBusy" in headers else None
+                ),
+                displayed_time_ms=displayed_time,
+                display_status=display_status,
+            ))
+    except UnicodeError as exc:
+        raise GamePerformanceObservationError("presentmon_encoding_invalid") from exc
+    if not frames:
+        raise GamePerformanceObservationError("presentmon_process_samples_missing")
+    frames.sort(key=lambda frame: frame.cpu_start_qpc_ms)
+    return tuple(frames), hashlib.sha256(raw).hexdigest()
+
+
+def summarize_presentmon_timeline(
+    frames: Sequence[PresentMonFrameTiming], *,
+    target_frame_interval_ms: float,
+    hitch_threshold_ms: float,
+) -> PresentMonTimelineSummary:
+    """Summarize an experimental timeline without inferring the game's frame cap."""
+    if (not isinstance(frames, (list, tuple))
+            or not 1 <= len(frames) <= MAX_PRESENTMON_ROWS
+            or any(not isinstance(frame, PresentMonFrameTiming) for frame in frames)):
+        raise GamePerformanceObservationError("frame_timeline_invalid")
+    for value, reason in (
+        (target_frame_interval_ms, "target_frame_interval_invalid"),
+        (hitch_threshold_ms, "hitch_threshold_invalid"),
+    ):
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(float(value)) or not 0 < float(value) <= 10_000):
+            raise GamePerformanceObservationError(reason)
+
+    intervals = [frame.frame_interval_ms for frame in frames]
+    p50, p95, p99, _ = summarize_frame_times_ms(intervals)
+    long_flags = [interval > float(hitch_threshold_ms) for interval in intervals]
+    clusters = sum(flag and (index == 0 or not long_flags[index - 1])
+                   for index, flag in enumerate(long_flags))
+    statuses = {frame.display_status for frame in frames}
+    if not statuses <= {"displayed", "not_displayed", "unavailable"}:
+        raise GamePerformanceObservationError("presentmon_display_status_invalid")
+    dropped_count = (
+        None if "unavailable" in statuses
+        else sum(frame.display_status == "not_displayed" for frame in frames)
+    )
+    return PresentMonTimelineSummary(
+        frame_count=len(frames),
+        frame_time_p50_ms=p50,
+        frame_time_p95_ms=p95,
+        frame_time_p99_ms=p99,
+        frame_time_max_ms=round(max(intervals), 4),
+        target_frame_interval_ms=round(float(target_frame_interval_ms), 4),
+        missed_deadline_count=sum(
+            interval > float(target_frame_interval_ms) for interval in intervals
+        ),
+        hitch_threshold_ms=round(float(hitch_threshold_ms), 4),
+        long_frame_count=sum(long_flags),
+        long_frame_cluster_count=clusters,
+        dropped_presentation_count=dropped_count,
+    )
 
 
 def _windows_process_sample(process_id: int) -> Mapping[str, object] | None:
@@ -224,4 +417,7 @@ class WindowsGamePerformanceObserver:
 
 
 __all__ = ["GamePerformanceObservation", "GamePerformanceObservationError",
-           "WindowsGamePerformanceObserver", "parse_presentmon_csv", "summarize_frame_times_ms"]
+           "PresentMonFrameTiming", "PresentMonTimelineSummary",
+           "WindowsGamePerformanceObserver", "parse_presentmon_csv",
+           "parse_presentmon_timeline", "summarize_frame_times_ms",
+           "summarize_presentmon_timeline"]

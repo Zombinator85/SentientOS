@@ -10,7 +10,9 @@ from sentientos.windows_game_performance import (
     GamePerformanceObservationError,
     WindowsGamePerformanceObserver,
     parse_presentmon_csv,
+    parse_presentmon_timeline,
     summarize_frame_times_ms,
+    summarize_presentmon_timeline,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -116,3 +118,61 @@ def test_presentmon_file_read_is_bounded_and_provider_digest_is_validated(tmp_pa
     assert invalid.frame_time_sample_count == 0
     assert invalid.frame_time_source == "unavailable"
     assert "presentmon_observation_unavailable" in invalid.unsupported_reasons
+
+
+def test_presentmon_experimental_timeline_keeps_qpc_cpu_gpu_and_display_status() -> None:
+    raw = bytes((10,)).join((
+        b"ProcessID,CPUStartQPCTime,MsBetweenDisplayChange,MsBetweenPresents,"
+        b"MsCPUBusy,MsGPUBusy,DisplayedTime",
+        b"12,2016.7,33.3,16.7,31.2,28.4,33.3",
+        b"13,2020.0,60.0,60.0,55.0,50.0,60.0",
+        b"12,2000.0,16.7,16.6,8.2,7.4,NA",
+    )) + bytes((10,))
+    frames, source_digest = parse_presentmon_timeline(raw, process_id=12)
+    assert source_digest == hashlib.sha256(raw).hexdigest()
+    assert [frame.cpu_start_qpc_ms for frame in frames] == [2000.0, 2016.7]
+    assert frames[0].frame_interval_ms == 16.7
+    assert frames[0].present_interval_ms == 16.6
+    assert frames[0].cpu_busy_ms == 8.2
+    assert frames[0].gpu_busy_ms == 7.4
+    assert frames[0].display_status == "not_displayed"
+    assert frames[0].displayed_time_ms is None
+    assert frames[1].frame_interval_ms == 33.3
+    assert frames[1].display_status == "displayed"
+    assert frames[1].displayed_time_ms == 33.3
+
+
+def test_presentmon_experimental_timeline_requires_qpc_timestamp_and_valid_values() -> None:
+    with pytest.raises(GamePerformanceObservationError,
+                       match="presentmon_timeline_columns_missing"):
+        parse_presentmon_timeline(
+            b"ProcessID,MsBetweenPresents" + bytes((10,)) + b"12,16.6" + bytes((10,)),
+            process_id=12,
+        )
+    raw = (b"ProcessID,CPUStartQPCTime,MsBetweenPresents" + bytes((10,)) +
+           b"12,NA,16.6" + bytes((10,)))
+    with pytest.raises(GamePerformanceObservationError, match="presentmon_timestamp_invalid"):
+        parse_presentmon_timeline(raw, process_id=12)
+
+
+def test_presentmon_timeline_summary_uses_explicit_target_and_counts_hitch_clusters() -> None:
+    raw = bytes((10,)).join((
+        b"ProcessID,CPUStartQPCTime,MsBetweenDisplayChange,MsBetweenPresents,DisplayedTime",
+        b"12,1000.0,16.7,16.6,16.7",
+        b"12,1016.7,33.3,33.3,33.3",
+        b"12,1050.0,66.7,66.7,NA",
+        b"12,1116.7,70.0,70.0,NA",
+    )) + bytes((10,))
+    frames, _ = parse_presentmon_timeline(raw, process_id=12)
+    summary = summarize_presentmon_timeline(
+        frames, target_frame_interval_ms=16.8, hitch_threshold_ms=50.0,
+    )
+    assert summary.frame_count == 4
+    assert summary.frame_time_p50_ms == 33.3
+    assert summary.frame_time_p95_ms == 70.0
+    assert summary.frame_time_p99_ms == 70.0
+    assert summary.frame_time_max_ms == 70.0
+    assert summary.missed_deadline_count == 3
+    assert summary.long_frame_count == 2
+    assert summary.long_frame_cluster_count == 1
+    assert summary.dropped_presentation_count == 2
