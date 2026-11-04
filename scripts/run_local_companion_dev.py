@@ -33,6 +33,29 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def _parse_edge_ready(line: str) -> tuple[int, int]:
+    parts = line.split()
+    if len(parts) != 3 or parts[0] != "READY":
+        raise RuntimeError("temporary_windows_edge_ready_missing_godot_pid")
+    port, godot_pid = int(parts[1]), int(parts[2])
+    if not 1 <= port <= 65535 or godot_pid <= 0:
+        raise RuntimeError("temporary_windows_edge_invalid_ready_values")
+    return port, godot_pid
+
+
+def _kill_windows_process_tree(pid: int) -> None:
+    if pid <= 0:
+        raise ValueError("pid must be positive")
+    taskkill = shutil.which("taskkill.exe") or "/mnt/c/Windows/System32/taskkill.exe"
+    try:
+        subprocess.run(
+            [taskkill, "/T", "/F", "/PID", str(pid)],
+            check=False, capture_output=True, timeout=8,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 class _LatestForegroundObservation:
     """Drain verified bridge samples continuously and expose only a fresh latest value."""
     def __init__(self, *, detector: Any, process_names: tuple[str, ...]) -> None:
@@ -103,6 +126,7 @@ class _TemporaryCompanionEdge:
             prefix="sentientos-companion-dev-", dir=_win_temp())
         root = Path(self._temporary.name)
         self._edge_process: subprocess.Popen[str] | None = None
+        self._godot_pid: int | None = None
         self._sender: Any | None = None
         self._foreground_runtime: Any | None = None
         self.foreground_game_detector: Any | None = None
@@ -179,7 +203,7 @@ class _TemporaryCompanionEdge:
             ready = self._lines.get(timeout=20)
             if not ready.startswith("READY "):
                 raise RuntimeError("temporary_windows_edge_failed:" + ready[:128])
-            port = int(ready.split()[1])
+            port, self._godot_pid = _parse_edge_ready(ready)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
                 address=windows_ip, port=port, server_hostname="windows-edge.test",
@@ -252,6 +276,13 @@ class _TemporaryCompanionEdge:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=3)
+        # The worker can be force-stopped before its Python finally block has
+        # finished. Kill only the exact Windows Godot PID it reported at READY,
+        # before deleting the temporary profile that Godot holds open.
+        godot_pid = self._godot_pid
+        self._godot_pid = None
+        if godot_pid is not None:
+            _kill_windows_process_tree(godot_pid)
         try:
             if self.foreground_game_detector is not None:
                 self.foreground_game_detector.close()

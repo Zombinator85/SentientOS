@@ -121,7 +121,7 @@ def main():
         time.sleep(1.0)
         if godot.poll() is not None:
             raise RuntimeError("godot_scene_exited_on_startup")
-        print("READY "+str(port),flush=True)
+        print("READY "+str(port)+" "+str(godot.pid),flush=True)
         status_stop=threading.Event()
         status_thread=None
         if foreground_pump is not None:
