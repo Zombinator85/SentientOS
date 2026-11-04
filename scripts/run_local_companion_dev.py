@@ -468,6 +468,7 @@ class _TemporaryCompanionEdge:
             ready = _wait_for_edge_ready(
                 self._lines, self._edge_process, timeout_seconds=45.0)
             port, self._godot_pid = _parse_edge_ready(ready)
+            print(f"WINDOWS_EDGE READY port={port} godot_pid={self._godot_pid}", flush=True)
             _server_context, client_context = _contexts(ca, wsl["cert"], wsl["key"])
             client = CompanionBridgeMutualTLSClient(
                 address=windows_ip, port=port, server_hostname="windows-edge.test",

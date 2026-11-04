@@ -33,9 +33,15 @@ _ACCEPT_TIMEOUT_SECONDS = 0.2
 class CompanionBridgeTransportError(CompanionBridgeError):
     """Transport result with an explicit indication whether delivery is known."""
 
-    def __init__(self, code: str, *, delivery_state: str) -> None:
+    def __init__(self, code: str, *, delivery_state: str,
+                 failure_phase: str | None = None,
+                 failure_type: str | None = None,
+                 failure_errno: int | None = None) -> None:
         self.code = code
         self.delivery_state = delivery_state
+        self.failure_phase = failure_phase
+        self.failure_type = failure_type
+        self.failure_errno = failure_errno
         super().__init__(code)
 
 
