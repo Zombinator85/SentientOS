@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, ControlActionDecision, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
+from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, ControlActionDecision, ControlPlaneKernel, get_control_plane_kernel
 from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_nvidia_gpu_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
@@ -202,7 +202,10 @@ class HostResourceRuntimeCoordinator:
     def __init__(self, *, kernel: ControlPlaneKernel | None = None, runtime_state_root: Path | str | None = None, plan: HostObservationPlan | None = None, clock: Callable[[], str] | None = None) -> None:
         self.kernel=kernel or get_control_plane_kernel(); self.runtime_state_root=Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", tempfile.gettempdir()+"/sentientos_runtime")); self.plan=plan or build_observation_plan(); self.clock=clock or _now; self._epochs_by_correlation: dict[str, HostResourceRuntimeEvaluation] = {}; self.collector_call_count=0
     def request_admission(self, correlation_id: str) -> ControlActionDecision:
-        return self.kernel.admit(ControlActionRequest("host_resource_observation_epoch", AuthorityClass.OBSERVATION, "sentientosd", "host_resource_observation_runtime", LifecyclePhase.MAINTENANCE, {"correlation_id": correlation_id, "no_effect_authority": True}))
+        # Resource observation is also used by live runtime scheduling. Bind the
+        # request to the kernel current phase instead of hard-coding maintenance;
+        # this remains observation-only and never grants actuation authority.
+        return self.kernel.admit(ControlActionRequest("host_resource_observation_epoch", AuthorityClass.OBSERVATION, "sentientosd", "host_resource_observation_runtime", self.kernel.phase, {"correlation_id": correlation_id, "no_effect_authority": True}))
     def run_cycle(self, *, correlation_id: str, decision: ControlActionDecision | None = None) -> HostResourceRuntimeEvaluation | None:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)

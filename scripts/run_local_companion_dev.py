@@ -182,6 +182,66 @@ class _LatestScreenObservation:
             raise RuntimeError("screen_observation_drain_shutdown_timeout")
 
 
+class _HostResourceSampler:
+    """Feed fresh, read-only host telemetry to the live runtime governor."""
+
+    def __init__(self, *, interval_seconds: float = 15.0) -> None:
+        from sentientos.control_plane_kernel import get_control_plane_kernel
+        from sentientos.host_resource_runtime import (
+            HostObservationBudget, HostResourceRuntimeCoordinator,
+            build_observation_plan, default_collector_specs, summary_for_evaluation,
+        )
+
+        specs = tuple(spec for spec in default_collector_specs()
+                      if spec.collector_id in {"platform", "cpu", "memory", "nvidia_gpu"})
+        plan = build_observation_plan(specs=specs, budget=HostObservationBudget(
+            max_collectors=4, per_collector_timeout_seconds=1.0,
+            total_deadline_seconds=3.0, max_workers=4, retry_count=0,
+            max_serialized_result_bytes=65536))
+        self._coordinator = HostResourceRuntimeCoordinator(
+            kernel=get_control_plane_kernel(),
+            runtime_state_root=Path(os.environ["SENTIENTOS_RUNTIME_STATE_ROOT"]),
+            plan=plan)
+        self._interval = interval_seconds
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run,
+            name="sentientos-dev-host-resource-sampler", daemon=True)
+        self._summary = summary_for_evaluation
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            correlation_id = "companion-host-observation-" + uuid.uuid4().hex
+            try:
+                evaluation = self._coordinator.run_cycle(correlation_id=correlation_id)
+                if evaluation is not None:
+                    report = self._summary(evaluation)
+                    print(json.dumps({
+                        "event": "host_resource_observation",
+                        "evaluation_id": report["evaluation_id"],
+                        "status": report["status"],
+                        "pressure_labels": report["pressure_labels"],
+                        "collectors_called": evaluation.epoch.collectors_called,
+                        "gpu_utilization_percent": evaluation.snapshot.gpu_utilization_percent,
+                        "vram_utilization_percent": evaluation.snapshot.vram_utilization_percent,
+                    }), flush=True)
+                else:
+                    print(json.dumps({"event": "host_resource_observation",
+                                      "status": "admission_deferred"}), flush=True)
+            except Exception as exc:
+                print(json.dumps({"event": "host_resource_observation",
+                                  "status": "error",
+                                  "error_type": type(exc).__name__}), flush=True)
+            self._stop.wait(self._interval)
+
+    def close(self) -> None:
+        self._stop.set()
+        timeout = max(5.0, self._coordinator.plan.budget.total_deadline_seconds + 2.0)
+        self._thread.join(timeout=timeout)
+        if self._thread.is_alive():
+            raise RuntimeError("host_resource_sampler_shutdown_timeout")
+
+
 class _TemporaryCompanionEdge:
     """Own test-only Windows mTLS edge, Godot process, and sender."""
 
@@ -561,6 +621,7 @@ def main() -> int:
     invoker = GovernedLocalModelInvoker(model=model, authority_map=authority,
         runtime_root=state / "invocations")
     edge: _TemporaryCompanionEdge | None = None
+    host_resource_sampler: _HostResourceSampler | None = None
     try:
         if all(value is not None for value in edge_args):
             if (not args.windows_python.is_file()
@@ -581,6 +642,7 @@ def main() -> int:
             game_process_names=tuple(args.game_process_name),
             gaming_keep_alive=args.gaming_keep_alive,
             screen_observer=edge.screen_observer if edge else None)
+        host_resource_sampler = _HostResourceSampler()
         initial_profile = ("gaming" if args.initial_workload_mode == "automatic"
                            else args.initial_workload_mode)
         initial_model = model_profiles[initial_profile]
@@ -612,10 +674,16 @@ def main() -> int:
             from sentientos.chat_service import close_production_chat
             close_production_chat()
         finally:
-            if edge is not None:
-                edge.close()
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-            lock_handle.close()
+            try:
+                if host_resource_sampler is not None:
+                    host_resource_sampler.close()
+            finally:
+                try:
+                    if edge is not None:
+                        edge.close()
+                finally:
+                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                    lock_handle.close()
     return 0
 
 
