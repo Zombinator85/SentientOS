@@ -101,6 +101,8 @@ def test_fixture_screen_observation_reaches_real_godot_without_persisting_screen
         reply = app.chat("Quick check-in while I play", session_id=session_id,
                          observe_screen=True)
         assert "quest objective: find the observatory" in inference.calls[0]["prompt"]
+        assert "ocr_text_change" in inference.calls[0]["prompt"]
+        assert "does not identify visual or gameplay events" in inference.calls[0]["prompt"]
         assert "[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]" in inference.calls[0]["prompt"]
         persisted_session = app.sessions.load(session_id)
         assistant_turn = persisted_session["turns"][-1]

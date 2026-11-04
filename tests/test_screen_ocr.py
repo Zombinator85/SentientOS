@@ -85,6 +85,59 @@ def test_screen_ocr_enforces_sampling_interval_and_returns_provenance_only(
     second = ocr.snapshot()
     assert second is not None and second["captured_at"] == "2026-01-01T00:00:03Z"
 
+def test_screen_ocr_retries_identical_frame_after_transient_ocr_failure():
+    from sentientos.perception.screen_ocr import ScreenCaptureError
+
+    calls = []
+
+    def ocr(_payload):
+        calls.append("ocr")
+        if len(calls) == 1:
+            raise RuntimeError("temporary OCR failure")
+        return "objective: reach the observatory"
+
+    owner = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0),
+        capture_fn=lambda: {"frame": "same"},
+        ocr_fn=ocr,
+    )
+
+    with pytest.raises(ScreenCaptureError, match="screen_ocr_failed"):
+        owner.snapshot()
+    observation = owner.snapshot()
+
+    assert observation is not None
+    assert observation["text_change_kind"] == "initial"
+    assert calls == ["ocr", "ocr"]
+
+
+def test_screen_ocr_distinguishes_text_changes_from_frame_changes():
+    import hashlib
+
+    payloads = iter([
+        {"frame": "first", "text": "objective: reach the observatory"},
+        {"frame": "animated", "text": "objective: reach the observatory"},
+        {"frame": "objective-updated", "text": "objective: enter the observatory"},
+    ])
+    ocr = ScreenOCR(
+        ScreenConfig(enable=True, interval_s=0),
+        capture_fn=lambda: next(payloads),
+        ocr_fn=lambda payload: payload["text"],
+    )
+
+    initial = ocr.snapshot()
+    same_text = ocr.snapshot()
+    changed_text = ocr.snapshot()
+
+    assert initial is not None and initial["text_change_kind"] == "initial"
+    assert "previous_text_digest" not in initial
+    assert same_text is not None and same_text["text_change_kind"] == "unchanged"
+    assert same_text["previous_text_digest"] == hashlib.sha256(
+        initial["text"].encode("utf-8")).hexdigest()
+    assert changed_text is not None and changed_text["text_change_kind"] == "changed"
+    assert changed_text["previous_text_digest"] == same_text["previous_text_digest"]
+
+
 def test_screen_ocr_can_refresh_identical_capture_without_rerunning_ocr():
     captures = iter([
         {"rgb": b"one", "width": 1, "height": 1, "capture_digest": "a" * 64,
@@ -110,5 +163,7 @@ def test_screen_ocr_can_refresh_identical_capture_without_rerunning_ocr():
     assert first["text"] == second["text"] == "objective: observatory"
     assert second["captured_at"] == "2026-11-04T12:00:02Z"
     assert second["capture_digest"] == "a" * 64
+    assert second["text_change_kind"] == "unchanged"
+    assert second["previous_text_digest"]
     assert calls == ["ocr"]
     assert "rgb" not in second

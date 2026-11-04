@@ -23,12 +23,13 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
 )
 
-SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v1"
+SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v2"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _FIELDS = frozenset({
     "schema_version", "modality", "text", "captured_at", "backend",
     "capture_digest", "process_name_digest", "consent_id_digest",
     "capture_scope", "raw_frame_retained", "text_truncated",
+    "text_change_kind", "previous_text_digest",
 })
 _MAX_DRAIN = 32
 
@@ -62,6 +63,8 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
             or payload.get("capture_scope") != "allowlisted_foreground_game_client_area"
             or payload.get("raw_frame_retained") is not False
             or type(payload.get("text_truncated")) is not bool
+            or not isinstance(payload.get("text_change_kind"), str)
+            or payload["text_change_kind"] not in ("initial", "changed", "unchanged")
             or not isinstance(payload.get("backend"), str)
             or not payload["backend"] or len(payload["backend"]) > 64):
         raise ScreenObservationBridgeError("screen_observation_contract_invalid")
@@ -70,6 +73,16 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
         value = payload.get(field)
         if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
             raise ScreenObservationBridgeError("screen_observation_digest_invalid")
+    previous_digest = payload.get("previous_text_digest")
+    if payload["text_change_kind"] == "initial":
+        if previous_digest is not None:
+            raise ScreenObservationBridgeError("screen_observation_change_lineage_invalid")
+    elif not isinstance(previous_digest, str) or _DIGEST.fullmatch(previous_digest) is None:
+        raise ScreenObservationBridgeError("screen_observation_change_lineage_invalid")
+    current_text_digest = hashlib.sha256(payload["text"].encode("utf-8")).hexdigest()
+    if ((payload["text_change_kind"] == "unchanged")
+            != (previous_digest == current_text_digest)):
+        raise ScreenObservationBridgeError("screen_observation_change_lineage_invalid")
     return payload
 
 

@@ -835,10 +835,16 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         if (not isinstance(text, str) or len(text) > 1200 or not isinstance(capture_digest, str)
                 or len(capture_digest) != 64 or any(c not in "0123456789abcdef" for c in capture_digest)):
             raise ValueError("screen_observation_context_invalid")
+        change_kind = screen_observation.get("text_change_kind", "initial")
+        if (not isinstance(change_kind, str)
+                or change_kind not in ("initial", "changed", "unchanged")):
+            raise ValueError("screen_observation_context_invalid")
         data = {"text": text, "capture_digest": capture_digest,
                 "capture_scope": screen_observation.get("capture_scope"),
-                "captured_at": screen_observation.get("captured_at")}
+                "captured_at": screen_observation.get("captured_at"),
+                "ocr_text_change": change_kind}
         lines.extend(["[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]",
+            "This is OCR text from one consented screen capture. The change label compares OCR text only; it does not identify visual or gameplay events.",
             "SCREEN_DATA: " + json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))])
     lines.extend(["[CURRENT_USER_MESSAGE]", current_message])
     return "\n".join(lines)

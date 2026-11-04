@@ -846,7 +846,23 @@ class PersistentConversationService:
             screen_text = screen_observation.get("text")
             capture_digest = screen_observation.get("capture_digest")
             captured_at = screen_observation.get("captured_at")
+            text_change_kind = screen_observation.get("text_change_kind")
+            previous_text_digest = screen_observation.get("previous_text_digest")
+            current_text_digest = (
+                hashlib.sha256(screen_text.encode("utf-8")).hexdigest()
+                if isinstance(screen_text, str) and len(screen_text) <= 1200 else None)
+            change_lineage_valid = (
+                (text_change_kind == "initial" and previous_text_digest is None)
+                or (text_change_kind == "unchanged"
+                    and isinstance(previous_text_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
+                    and previous_text_digest == current_text_digest)
+                or (text_change_kind == "changed"
+                    and isinstance(previous_text_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
+                    and previous_text_digest != current_text_digest))
             if (screen_observation.get("modality") != "screen"
+                    or not change_lineage_valid
                     or screen_observation.get("raw_frame_retained") is not False
                     or not isinstance(screen_text, str) or not screen_text.strip()
                     or len(screen_text) > 1200
@@ -1070,8 +1086,13 @@ class PersistentConversationService:
                 "text_digest": hashlib.sha256(str(screen_observation["text"]).encode("utf-8")).hexdigest(),
                 "capture_scope": "allowlisted_foreground_game_client_area",
                 "captured_at": screen_observation["captured_at"],
+                "text_change_kind": screen_observation["text_change_kind"],
                 "raw_frame_retained": False,
             }
+            previous_text_digest = screen_observation.get("previous_text_digest")
+            if (isinstance(previous_text_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None):
+                screen_provenance["previous_text_digest"] = previous_text_digest
             for key in ("process_name_digest", "consent_id_digest"):
                 value = screen_observation.get(key)
                 if (isinstance(value, str) and len(value) == 64

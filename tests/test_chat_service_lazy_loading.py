@@ -846,6 +846,8 @@ def test_development_chat_only_uses_explicit_per_message_screen_observation(tmp_
         "capture_scope": "allowlisted_foreground_game_client_area",
         "raw_frame_retained": False,
         "text_truncated": False,
+        "text_change_kind": "initial",
+        "previous_text_digest": None,
         "bridge_message_provenance": {"source_id": "test-screen"},
     }
 

@@ -118,6 +118,9 @@ class ScreenOCR:
             if not self._config.refresh_unchanged_observation or self._last_observation is None:
                 return None
             refreshed = dict(self._last_observation)
+            refreshed["text_change_kind"] = "unchanged"
+            if self._last_text_digest is not None:
+                refreshed["previous_text_digest"] = self._last_text_digest
             captured_at = payload.get("captured_at")
             if (not isinstance(captured_at, str)
                     or not _UTC_TIMESTAMP.fullmatch(captured_at)):
@@ -129,7 +132,6 @@ class ScreenOCR:
                     refreshed[key] = value
             self._last_observation = refreshed
             return dict(refreshed)
-        self._last_hash = digest
         try:
             text = self._ocr_fn(payload)
         except Exception as exc:
@@ -150,8 +152,13 @@ class ScreenOCR:
         if char_total > limit:
             self._metrics.increment("sos_screen_ocr_throttled_total")
             return None
+        self._last_hash = digest
         self._last_failure_code = None
-        self._last_text_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        previous_text_digest = self._last_text_digest
+        text_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        text_change_kind = ("initial" if previous_text_digest is None else
+                            "unchanged" if text_digest == previous_text_digest else "changed")
+        self._last_text_digest = text_digest
         capture_digest = payload.get("capture_digest")
         if not isinstance(capture_digest, str) or not re.fullmatch(r"[a-f0-9]{64}", capture_digest):
             capture_digest = digest
@@ -170,7 +177,10 @@ class ScreenOCR:
             "capture_digest": capture_digest,
             "raw_frame_retained": False,
             "text_truncated": text_truncated,
+            "text_change_kind": text_change_kind,
         }
+        if previous_text_digest is not None:
+            observation["previous_text_digest"] = previous_text_digest
         if payload.get("capture_scope") == "allowlisted_foreground_game_client_area":
             observation["capture_scope"] = payload["capture_scope"]
         for key in ("process_name_digest", "consent_id_digest"):
