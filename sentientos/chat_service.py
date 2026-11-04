@@ -53,9 +53,10 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
-    corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
-    corrected_social_instruction_echo, corrected_system_identity_output,
-    corrected_unobserved_game_status,
+    CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
+    corrected_screen_capability_output, corrected_social_instruction_echo,
+    corrected_system_identity_output, corrected_unobserved_game_status,
+    is_direct_screen_activity_question, is_verified_current_game_context_question,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 
@@ -126,7 +127,8 @@ def _is_current_runtime_context_question(message: str) -> bool:
         and any(location in normalized for location in (
             "on screen", "in cronos", "in the game", "in gameplay"))
     )
-    return any(marker in normalized for marker in markers) or screen_activity_question
+    return (any(marker in normalized for marker in markers) or screen_activity_question
+            or is_verified_current_game_context_question(message))
 
 
 def _is_social_checkin_request(message: str) -> bool:
@@ -748,6 +750,108 @@ class PersistentConversationService:
             if self._speech_output is not None:
                 self._speech_output.close()
 
+    def _complete_deterministic_grounding_response(
+            self, *, session_id: str, user_turn: Mapping[str, Any],
+            response_text: str, correction: Mapping[str, str],
+            runtime_context: Mapping[str, Any], history: Any,
+            memory: Mapping[str, Any], on_content_chunk: Callable[[str], None] | None
+            ) -> ChatResponse:
+        """Persist a verified policy answer without invoking the language model."""
+        workload = runtime_context.get("workload")
+        names = workload.get("configured_game_process_names") if isinstance(
+            workload, Mapping) else None
+        evidence = {
+            "observation_status": workload.get("observation_status")
+                if isinstance(workload, Mapping) else None,
+            "game_foreground": workload.get("game_foreground")
+                if isinstance(workload, Mapping) else None,
+            "game_process_running": workload.get("game_process_running")
+                if isinstance(workload, Mapping) else None,
+            "configured_game_process_names": list(names)
+                if isinstance(names, (list, tuple)) else [],
+            "screen_observation_configured": (
+                isinstance(runtime_context.get("capabilities"), Mapping)
+                and isinstance(runtime_context["capabilities"].get("screen_observation"), Mapping)
+                and runtime_context["capabilities"]["screen_observation"].get("configured") is True
+            ),
+        }
+        decision_payload = {
+            "schema": "sentientos.deterministic_grounding_policy_decision:v1",
+            "session_id": session_id,
+            "source_user_turn_id": str(user_turn["turn_id"]),
+            "source_user_text_digest": str(user_turn["text_digest"]),
+            "policy_id": correction["policy_id"],
+            "reason_code": correction["reason_code"],
+            "evidence": evidence,
+            "output_digest": digest_payload({"text": response_text}),
+        }
+        decision_digest = digest_payload(decision_payload)
+        memory_digest = str(memory["snapshot_digest"])
+        policy_decision = {"payload": decision_payload, "digest": decision_digest}
+        assistant_output_lineage = {
+            "status": "deterministic_policy_output",
+            "policy_decision_digest": decision_digest,
+            "transcript_text_digest": digest_payload({"text": response_text}),
+        }
+        assistant = self.sessions.append_turn(session_id, role="assistant",
+            text=response_text, linkage={
+                "source_user_turn_id": str(user_turn["turn_id"]),
+                "response_origin": "deterministic_grounding_policy",
+                "policy_decision": policy_decision,
+                "assistant_output_lineage": assistant_output_lineage,
+                "context_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": memory_digest,
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+            })
+        if self._avatar_output is not None:
+            try:
+                publication: dict[str, Any] = {
+                    "session_id": session_id,
+                    "turn_id": str(assistant["turn_id"]),
+                    "text": response_text,
+                    "output_digest": digest_payload({"text": response_text}),
+                }
+                mode = workload.get("effective_mode") if isinstance(workload, Mapping) else None
+                if isinstance(mode, str) and mode in {"normal", "gaming"}:
+                    publication["workload_mode"] = mode
+                self._avatar_output.publish_response(**publication)
+            except Exception as exc:
+                LOGGER.warning("Avatar policy response publication failed: %s",
+                    getattr(exc, "code", type(exc).__name__))
+        if self._speech_output is not None:
+            try:
+                self._speech_output.publish_response(
+                    session_id=session_id, turn_id=str(assistant["turn_id"]),
+                    text=response_text, output_digest=digest_payload({"text": response_text}))
+            except Exception as exc:
+                LOGGER.warning("Local policy response speech failed: %s", type(exc).__name__)
+        if on_content_chunk is not None:
+            on_content_chunk(response_text)
+        return ChatResponse(response=response_text, session_id=session_id,
+            turn_id=str(assistant["turn_id"]),
+            context={
+                "conversation_snapshot_digest": history.snapshot_digest,
+                "memory_snapshot_digest": memory_digest,
+                "memory_retrieval_posture": memory.get("retrieval_posture", "unknown"),
+                "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
+                "memory_selection_posture": memory.get("selection_posture", "unknown_legacy"),
+                "omitted_memory_count": memory.get("omitted_memory_count"),
+                "selected_turn_count": len(history.turns),
+                "selected_memory_count": len(memory.get("memories", [])),
+                "response_origin": "deterministic_grounding_policy",
+                "policy_decision_digest": decision_digest,
+                "inference_timing": {
+                    "backend_metrics_status": "not_applicable",
+                    "reason_code": "deterministic_policy_response",
+                },
+            },
+            retention={"status": "not_requested"})
+
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
         session = self.sessions.load(session_id)
@@ -787,6 +891,89 @@ class PersistentConversationService:
         linkage = assistant.get("linkage", {})
         if not isinstance(linkage, Mapping):
             raise ChatRequestStateError("chat_request_response_lineage_invalid")
+        if linkage.get("response_origin") == "deterministic_grounding_policy":
+            decision = linkage.get("policy_decision")
+            payload = decision.get("payload") if isinstance(decision, Mapping) else None
+            decision_digest = decision.get("digest") if isinstance(decision, Mapping) else None
+            lineage = linkage.get("assistant_output_lineage")
+            source_digest = (user_turn.get("text_digest")
+                if isinstance(user_turn, Mapping) else None)
+            evidence = payload.get("evidence") if isinstance(payload, Mapping) else None
+            names = evidence.get("configured_game_process_names") if isinstance(
+                evidence, Mapping) else None
+            recomputed_text = ""
+            recomputed_correction = None
+            if (isinstance(evidence, Mapping) and isinstance(names, list)
+                    and isinstance(user_turn, Mapping)):
+                recomputed_text, recomputed_correction = corrected_unobserved_game_status(
+                    "", user_message=str(user_turn.get("text", "")),
+                    verified_runtime_context={
+                        "workload": {
+                            "game_foreground": evidence.get("game_foreground"),
+                            "configured_game_process_names": names,
+                        },
+                        "capabilities": {"screen_observation": {
+                            "configured": evidence.get("screen_observation_configured"),
+                        }},
+                    },
+                    screen_observation_provenance=None)
+            valid_policy_record = (
+                isinstance(payload, Mapping)
+                and payload.get("schema") == "sentientos.deterministic_grounding_policy_decision:v1"
+                and payload.get("session_id") == session_id
+                and payload.get("source_user_turn_id") == user_turn_id
+                and payload.get("source_user_text_digest") == source_digest
+                and isinstance(user_turn, Mapping)
+                and is_direct_screen_activity_question(str(user_turn.get("text", "")))
+                and payload.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
+                and payload.get("reason_code") in {
+                    "foreground_only_screen_observation_unconfigured",
+                    "foreground_only_no_screen_observation",
+                }
+                and isinstance(evidence, Mapping)
+                and evidence.get("observation_status") == "available"
+                and evidence.get("game_foreground") is True
+                and type(evidence.get("screen_observation_configured")) is bool
+                and isinstance(names, list) and bool(names)
+                and all(isinstance(name, str) and name for name in names)
+                and isinstance(decision_digest, str)
+                and decision_digest == digest_payload(dict(payload))
+                and payload.get("output_digest")
+                    == digest_payload({"text": str(assistant.get("text", ""))})
+                and isinstance(recomputed_correction, Mapping)
+                and recomputed_correction.get("policy_id") == payload.get("policy_id")
+                and recomputed_correction.get("reason_code") == payload.get("reason_code")
+                and str(assistant.get("text", "")) == recomputed_text
+                and isinstance(lineage, Mapping)
+                and lineage.get("status") == "deterministic_policy_output"
+                and lineage.get("policy_decision_digest") == decision_digest
+                and lineage.get("transcript_text_digest")
+                    == digest_payload({"text": str(assistant.get("text", ""))})
+            )
+            if not valid_policy_record:
+                raise ChatRequestStateError("chat_request_policy_response_lineage_invalid")
+            return ChatResponse(
+                response=str(assistant["text"]), session_id=session_id,
+                turn_id=str(assistant["turn_id"]),
+                context={
+                    "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
+                    "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
+                    "memory_retrieval_posture": linkage.get("memory_retrieval_posture", "unknown"),
+                    "legacy_sidecar_posture": linkage.get("legacy_sidecar_posture", "unknown_legacy"),
+                    "memory_selection_posture": linkage.get("memory_selection_posture", "unknown_legacy"),
+                    "omitted_memory_count": linkage.get("omitted_memory_count"),
+                    "selected_turn_count": linkage.get("selected_turn_count", 0),
+                    "selected_memory_count": linkage.get("selected_memory_count", 0),
+                    "response_origin": "deterministic_grounding_policy",
+                    "policy_decision_digest": decision_digest,
+                    "inference_timing": {
+                        "backend_metrics_status": "not_applicable",
+                        "reason_code": "deterministic_policy_response",
+                    },
+                    "recovered_without_inference": True,
+                },
+                retention={"status": "not_requested"},
+            )
         verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
         if callable(verifier):
             try:
@@ -1017,7 +1204,9 @@ class PersistentConversationService:
                 except Exception as exc:
                     LOGGER.warning("Local speech interruption failed: %s", type(exc).__name__)
         prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
-            if turn.get("role") == "assistant"), None)
+            if turn.get("role") == "assistant"
+            and isinstance(turn.get("linkage"), Mapping)
+            and isinstance(turn["linkage"].get("invocation_receipt_id"), str)), None)
         predecessor_identity_digest = str(session.get("model_identity_digest", ""))
         predecessor_identity: Mapping[str, Any] | None = None
         predecessor_runtime_lineage: Mapping[str, Any] | None = None
@@ -1163,6 +1352,24 @@ class PersistentConversationService:
             identity=identity_payload, history=history, memory=memory,
             session_id=session["session_id"],
             screen_observation=None if social_checkin else screen_observation)
+        direct_screen_activity_question = is_direct_screen_activity_question(message)
+        if (isinstance(self._inference, DevelopmentLocalChatInference)
+                and direct_screen_activity_question
+                and not retain and screen_observation is None):
+            policy_text, policy_correction = corrected_unobserved_game_status(
+                "", user_message=message, verified_runtime_context=runtime_context,
+                screen_observation_provenance=None)
+            if (policy_correction is not None
+                    and policy_correction.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
+                    and policy_correction.get("reason_code") in {
+                        "foreground_only_screen_observation_unconfigured",
+                        "foreground_only_no_screen_observation",
+                    }):
+                return self._complete_deterministic_grounding_response(
+                    session_id=session["session_id"], user_turn=user_turn,
+                    response_text=policy_text, correction=policy_correction,
+                    runtime_context=runtime_context, history=history, memory=memory,
+                    on_content_chunk=on_content_chunk)
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
