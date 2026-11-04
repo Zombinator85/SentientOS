@@ -119,6 +119,14 @@ _UNOBSERVED_CLAIM_PATTERNS = (
 )
 
 
+def is_direct_screen_activity_question(user_message: str) -> bool:
+    """Whether the user directly asks about current game-screen activity."""
+    return (
+        _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+        or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+    )
+
+
 def unobserved_gameplay_claim(output: str, *, workload_mode: str,
                               screen_observation_provenance: Mapping[str, Any] | None) -> bool:
     """Whether a gaming answer makes a visual/performance claim without screen evidence."""

@@ -53,9 +53,10 @@ from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CA
     sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
-    corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
-    corrected_social_instruction_echo, corrected_system_identity_output,
-    corrected_unobserved_game_status,
+    CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
+    corrected_screen_capability_output, corrected_social_instruction_echo,
+    corrected_system_identity_output, corrected_unobserved_game_status,
+    is_direct_screen_activity_question,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 
@@ -767,7 +768,11 @@ class PersistentConversationService:
                 if isinstance(workload, Mapping) else None,
             "configured_game_process_names": list(names)
                 if isinstance(names, (list, tuple)) else [],
-            "screen_observation_configured": False,
+            "screen_observation_configured": (
+                isinstance(runtime_context.get("capabilities"), Mapping)
+                and isinstance(runtime_context["capabilities"].get("screen_observation"), Mapping)
+                and runtime_context["capabilities"]["screen_observation"].get("configured") is True
+            ),
         }
         decision_payload = {
             "schema": "sentientos.deterministic_grounding_policy_decision:v1",
@@ -917,22 +922,26 @@ class PersistentConversationService:
                 and payload.get("session_id") == session_id
                 and payload.get("source_user_turn_id") == user_turn_id
                 and payload.get("source_user_text_digest") == source_digest
-                and payload.get("policy_id") == "verified_foreground_only_game_status_v1"
-                and payload.get("reason_code") == "foreground_only_screen_observation_unconfigured"
+                and isinstance(user_turn, Mapping)
+                and is_direct_screen_activity_question(str(user_turn.get("text", "")))
+                and payload.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
+                and payload.get("reason_code") in {
+                    "foreground_only_screen_observation_unconfigured",
+                    "foreground_only_no_screen_observation",
+                }
                 and isinstance(evidence, Mapping)
                 and evidence.get("observation_status") == "available"
                 and evidence.get("game_foreground") is True
-                and evidence.get("screen_observation_configured") is False
+                and type(evidence.get("screen_observation_configured")) is bool
                 and isinstance(names, list) and bool(names)
                 and all(isinstance(name, str) and name for name in names)
                 and isinstance(decision_digest, str)
                 and decision_digest == digest_payload(dict(payload))
                 and payload.get("output_digest")
                     == digest_payload({"text": str(assistant.get("text", ""))})
-                and recomputed_correction == {
-                    "policy_id": "verified_foreground_only_game_status_v1",
-                    "reason_code": "foreground_only_screen_observation_unconfigured",
-                }
+                and isinstance(recomputed_correction, Mapping)
+                and recomputed_correction.get("policy_id") == payload.get("policy_id")
+                and recomputed_correction.get("reason_code") == payload.get("reason_code")
                 and str(assistant.get("text", "")) == recomputed_text
                 and isinstance(lineage, Mapping)
                 and lineage.get("status") == "deterministic_policy_output"
@@ -1342,14 +1351,19 @@ class PersistentConversationService:
             identity=identity_payload, history=history, memory=memory,
             session_id=session["session_id"],
             screen_observation=None if social_checkin else screen_observation)
+        direct_screen_activity_question = is_direct_screen_activity_question(message)
         if (isinstance(self._inference, DevelopmentLocalChatInference)
+                and direct_screen_activity_question
                 and not retain and screen_observation is None):
             policy_text, policy_correction = corrected_unobserved_game_status(
                 "", user_message=message, verified_runtime_context=runtime_context,
                 screen_observation_provenance=None)
             if (policy_correction is not None
-                    and policy_correction.get("reason_code")
-                        == "foreground_only_screen_observation_unconfigured"):
+                    and policy_correction.get("policy_id") == CURRENT_GAME_STATUS_POLICY_ID
+                    and policy_correction.get("reason_code") in {
+                        "foreground_only_screen_observation_unconfigured",
+                        "foreground_only_no_screen_observation",
+                    }):
                 return self._complete_deterministic_grounding_response(
                     session_id=session["session_id"], user_turn=user_turn,
                     response_text=policy_text, correction=policy_correction,

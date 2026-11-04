@@ -173,6 +173,32 @@ def test_unconfigured_screen_status_uses_durable_policy_answer_without_model_inf
     assert invoker.calls == inference_calls + 1
 
 
+def test_unopted_screen_observation_uses_no_model_and_does_not_capture(tmp_path):
+    chat = _reload()
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    class Detector:
+        def observe(self, _names):
+            return ForegroundGameObservation("available", True, "c" * 64,
+                "2026-11-04T18:30:00+00:00")
+
+    captures = []
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic", foreground_game_detector=Detector(),
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        screen_observer=lambda: captures.append("capture"))
+    response = TestClient(chat.APP).post("/chat", json={
+        "message": "Can you tell what's happening on screen in Cronos right now?"
+    })
+
+    assert response.status_code == 200
+    assert "I don’t have a screen observation this turn" in response.json()["response"]
+    assert response.json()["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert invoker.calls == 0
+    assert captures == []
+
+
 def test_health_paths_do_not_load_model(monkeypatch):
     calls = []
     monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: calls.append("autoload"))
