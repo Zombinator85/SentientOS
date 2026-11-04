@@ -55,10 +55,24 @@ def test_screen_capability_question_does_not_claim_a_missing_source_can_be_enabl
         user_message="Can you see my game screen in this session?",
         screen_observation_configured=False, screen_observation_provenance=None)
     assert text == SCREEN_CAPABILITY_CORRECTION
+    assert "I can’t see the game" in text
+    assert "suggest next checks" in text
+    assert "clues you share in this conversation" in text
     assert correction == {
         "policy_id": SCREEN_CAPABILITY_POLICY_ID,
         "reason_code": "screen_observation_not_configured",
     }
+
+
+def test_combined_visibility_and_help_question_gets_both_parts_answered():
+    text, correction = corrected_screen_capability_output(
+        "I can help with that.",
+        user_message=("Can you see the gameplay itself right now? If not, what help can you still give me?"),
+        screen_observation_configured=False,
+        screen_observation_provenance=None,
+    )
+    assert text == SCREEN_CAPABILITY_CORRECTION
+    assert correction is not None
 
 
 def test_screen_capability_correction_respects_configured_source_and_current_evidence():

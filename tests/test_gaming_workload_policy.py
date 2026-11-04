@@ -65,13 +65,13 @@ def test_gaming_chat_style_is_trusted_and_precedes_untrusted_history() -> None:
     assert result.index(GamingWorkloadPolicy.GAMING_CHAT_STYLE_INSTRUCTION) < result.index(
         "[VERIFIED_RUNTIME_CONTEXT]")
     assert result.endswith("[SESSION_HISTORY_DATA]\nUSER_DATA: hello")
-    assert "ask follow-ups unless asked" in result
-    assert "one concise, complete sentence" in result
-    assert "never infer screen/gameplay details from process names" in result
-    assert "offer game help" in result
-    assert "claim to see or play" in result
-    assert "do not repeat a question the user already answered" in result
-    assert "give one practical check grounded only in the user's latest description" in result
+    assert "follow-ups only if asked" in result
+    assert "warm, concise replies" in result
+    assert "Don't infer unseen gameplay" in result
+    assert "Help or follow-ups only if asked" in result
+    assert "claim to see/play" in result
+    assert "don't repeat answered questions" in result
+    assert "suggest one practical step" in result
     assert GamingWorkloadPolicy.apply_chat_response_style(prompt, "normal") == prompt
 
 
