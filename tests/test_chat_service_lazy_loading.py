@@ -209,8 +209,9 @@ def test_friendly_greeting_prompt_uses_verified_sentientos_runtime_context(tmp_p
     prompt = invoker.prompts[-1]
     assert "You are the active local conversational model inside SentientOS" in prompt
     assert "use the configured model label when asked" in prompt
-    assert "skip generic limitations or unrelated self-description" in prompt
+    assert "without generic limitations; do not claim feelings or personal experiences" in prompt
     assert "For current screen/game questions, if workload.game_foreground is true, name configured_game_process_names" in prompt
+    assert "do not claim feelings or personal experiences" in prompt
     assert "Without CURRENT_SCREEN_OBSERVATION_UNTRUSTED, answer no to visibility questions" in prompt
     assert "Answer the current message directly and cover every requested part" in prompt
     assert "A foreground process confirms only the app is open" in prompt
