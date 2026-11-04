@@ -23,13 +23,14 @@ from .gaming_companion_bridge_runtime import (
     CompanionBridgeLoopbackRuntime,
 )
 
-SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v2"
+SCREEN_OBSERVATION_SCHEMA = "sentientos.game_screen_observation:v3"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _FIELDS = frozenset({
     "schema_version", "modality", "text", "captured_at", "backend",
     "capture_digest", "process_name_digest", "consent_id_digest",
     "capture_scope", "raw_frame_retained", "text_truncated",
     "text_change_kind", "previous_text_digest",
+    "visual_change_kind", "visual_change_score",
 })
 _MAX_DRAIN = 32
 
@@ -65,9 +66,20 @@ def _observation_payload(observation: Mapping[str, Any]) -> dict[str, Any]:
             or type(payload.get("text_truncated")) is not bool
             or not isinstance(payload.get("text_change_kind"), str)
             or payload["text_change_kind"] not in ("initial", "changed", "unchanged")
+            or payload.get("visual_change_kind") not in ("initial", "changed", "stable", "unknown")
+            or (payload.get("visual_change_score") is not None
+                and (isinstance(payload.get("visual_change_score"), bool)
+                     or not isinstance(payload.get("visual_change_score"), (int, float))
+                     or not math.isfinite(float(payload["visual_change_score"]))
+                     or not 0.0 <= float(payload["visual_change_score"]) <= 1.0))
             or not isinstance(payload.get("backend"), str)
             or not payload["backend"] or len(payload["backend"]) > 64):
         raise ScreenObservationBridgeError("screen_observation_contract_invalid")
+    if ((payload["visual_change_kind"] == "initial"
+            and payload["visual_change_score"] is not None)
+            or (payload["visual_change_kind"] in ("changed", "stable")
+                and payload["visual_change_score"] is None)):
+        raise ScreenObservationBridgeError("screen_observation_visual_change_invalid")
     _timestamp(payload.get("captured_at"))
     for field in ("capture_digest", "process_name_digest", "consent_id_digest"):
         value = payload.get(field)

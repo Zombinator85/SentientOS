@@ -109,7 +109,8 @@ def main():
                 expires_at=screen_cfg["consent_expires_at"])
             screen_owner=build_windows_game_screen_ocr(
                 config=ScreenConfig(enable=True,interval_s=2.0,ocr_backend="tesseract",
-                    refresh_unchanged_observation=True),
+                    refresh_unchanged_observation=True,
+                    visual_change_threshold=0.035),
                 consent_provider=lambda: consent,
                 tesseract_executable=tesseract_executable)
             screen_ack_key=base64.b64decode(screen_cfg["ack_key"])

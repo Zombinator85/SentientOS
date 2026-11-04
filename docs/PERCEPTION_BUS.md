@@ -140,3 +140,17 @@ Every perception event payload **must** include:
 - `perception.gaze` defaults to `raw_samples_retained=false`.
 - If raw gaze samples are retained, quarantine the raw sample file and emit only
   a reference field (`raw_samples_reference`) in the payload.
+
+
+#### Coarse screen-change gating
+
+When an operator explicitly enables the consented Windows game-screen OCR worker,
+it may compare a 32-by-18 grid of sampled luminance values before running OCR. The
+development worker uses a 3.5% changed-sample threshold; unchanged or smaller
+changes refresh bounded provenance without rerunning OCR. The comparison baseline
+advances only after OCR produces an accepted observation, so small changes can
+accumulate. Only a category and a 0-1 changed-sample fraction cross the authenticated
+bridge. They describe coarse pixel change and do not identify objects, gameplay
+events, or actions. Raw frames remain in the capture process and are discarded.
+The default threshold is disabled; screen observation remains opt-in and
+consent-gated.
