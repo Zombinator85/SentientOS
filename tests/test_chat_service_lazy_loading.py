@@ -40,6 +40,8 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
         "What can you tell from your live connection?")
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
+    assert chat._is_current_runtime_context_question(
+        "Can you tell what's happening on screen in Cronos right now?")
     assert chat._is_recent_session_recall_request(
         "What did I ask you first in this conversation?")
     assert chat._is_earliest_session_recall_request(
@@ -403,6 +405,50 @@ def test_verified_workload_context_names_only_confirmed_allowlisted_game(tmp_pat
     assert "Verified foreground game: Cronos (cronos-win64-shipping.exe)" in prompt
     assert "configured_game_process_names only to identify a confirmed foreground app" in prompt
     assert "game screen and actions are not observed this turn" in prompt
+
+
+def test_unconfigured_screen_activity_question_uses_verified_capability_fallback(
+        tmp_path, monkeypatch):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    memory_queries = []
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    class Detector:
+        def observe(self, names):
+            assert tuple(names) == ("cronos-win64-shipping.exe",)
+            return ForegroundGameObservation("available", True, "a" * 64,
+                "2026-11-04T16:00:00+00:00")
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("Cronos-Win64-Shipping.exe",),
+        foreground_game_detector=Detector())
+    prior = client.post("/chat", json={"message": "Let's talk about the project plan."})
+    session_id = prior.json()["session_id"]
+    response = client.post("/chat", json={"session_id": session_id,
+        "message": "Can you tell what's happening on screen in Cronos right now?"})
+
+    assert prior.status_code == response.status_code == 200
+    assert memory_queries == ["Let's talk about the project plan.", ""]
+    assert response.json()["response"] == (
+        "I can confirm Cronos is the foreground app, but screen observation "
+        "isn’t configured in this session, so I can’t tell what’s happening on screen."
+    )
+    assert response.json()["context"]["response_origin"] == "grounding_policy_fallback"
+    assert response.json()["context"]["selected_turn_count"] == 0
+    assert response.json()["context"]["selected_memory_count"] == 0
+    prompt = invoker.prompts[-1]
+    assert "screen_observation" in prompt
+    assert '\"configured\":false' in prompt
+    assert "Let's talk about the project plan." not in prompt
 
 
 def test_background_game_presence_is_grounded_without_claiming_screen_access(tmp_path):

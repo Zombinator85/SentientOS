@@ -121,7 +121,12 @@ def _is_current_runtime_context_question(message: str) -> bool:
         "what game is open", "which game is open", "what is on my screen", "is my screen visible",
         "my current game", "current cronos session",
     )
-    return any(marker in normalized for marker in markers)
+    screen_activity_question = (
+        ("happening" in normalized or "going on" in normalized)
+        and any(location in normalized for location in (
+            "on screen", "in cronos", "in the game", "in gameplay"))
+    )
+    return any(marker in normalized for marker in markers) or screen_activity_question
 
 
 def _is_social_checkin_request(message: str) -> bool:
@@ -1121,6 +1126,7 @@ class PersistentConversationService:
             recent_session_recall and _is_earliest_session_recall_request(message)
         )
         social_checkin = _is_social_checkin_request(message)
+        current_runtime_question = _is_current_runtime_context_question(message)
         self_contained_echo = _is_self_contained_text_echo_request(message)
         history_roles: tuple[str, ...] | None
         history_turn_limit: int | None = None
@@ -1134,9 +1140,9 @@ class PersistentConversationService:
                     "what was your response", "what did you reply"))
             history_roles = ("user", "assistant") if asks_for_assistant_reply else ("user",)
             history_turn_limit = 2 if asks_for_assistant_reply else 1
-        elif social_checkin or self_contained_echo:
-            # Self-contained check-ins and exact echo requests should not inherit
-            # unrelated transcript context and mistake it for the current request.
+        elif social_checkin or self_contained_echo or current_runtime_question:
+            # Self-contained requests and live runtime questions should not inherit
+            # unrelated transcript context and mistake it for current evidence.
             history_roles = ()
         else:
             history_roles = None
@@ -1146,7 +1152,6 @@ class PersistentConversationService:
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
-        current_runtime_question = _is_current_runtime_context_question(message)
         memory_query = ("" if recent_session_recall or social_checkin
                         or current_runtime_question or self_contained_echo else message)
         memory = self.memories.retrieve(memory_query, budget_chars=self.memory_budget_chars)
