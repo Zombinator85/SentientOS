@@ -83,6 +83,13 @@ _GAME_SCREEN_ACTIVITY_QUESTION = re.compile(
     r"(?:cronos|game|gameplay|screen)\b",
     re.IGNORECASE,
 )
+_VERIFIED_CURRENT_GAME_CONTEXT_QUESTION = re.compile(
+    r"\bwhat can (?:sentientos|you) (?:confidently )?"
+    r"(?:say|tell|confirm|verify)\b.{0,120}\b"
+    r"(?:current situation|current moment|this moment|right now)\b"
+    r".{0,120}\bwhat can (?:it|you) (?:not|cannot|can\s+not) see\b",
+    re.IGNORECASE,
+)
 SCREEN_CAPABILITY_CORRECTION = (
     "I can’t see the game in this session because screen observation isn’t configured; "
     "the per-message option alone won’t change that. I can still reason from what you "
@@ -119,11 +126,17 @@ _UNOBSERVED_CLAIM_PATTERNS = (
 )
 
 
+def is_verified_current_game_context_question(user_message: str) -> bool:
+    """Whether the user asks what the current system can verify and cannot see."""
+    return _VERIFIED_CURRENT_GAME_CONTEXT_QUESTION.search(user_message) is not None
+
+
 def is_direct_screen_activity_question(user_message: str) -> bool:
     """Whether the user directly asks about current game-screen activity."""
     return (
         _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
         or _GAME_ACTIVITY_QUESTION.search(user_message) is not None
+        or is_verified_current_game_context_question(user_message)
     )
 
 
@@ -144,6 +157,7 @@ def corrected_unobserved_game_status(
     activity_question = (
         _GAME_ACTIVITY_QUESTION.search(user_message) is not None
         or _GAME_SCREEN_ACTIVITY_QUESTION.search(user_message) is not None
+        or is_verified_current_game_context_question(user_message)
     )
     if (not (_GAME_STATUS_QUESTION.search(user_message)
              or activity_question

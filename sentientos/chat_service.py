@@ -56,7 +56,7 @@ from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, corrected_gaming_output, corrected_output_lineage,
     corrected_screen_capability_output, corrected_social_instruction_echo,
     corrected_system_identity_output, corrected_unobserved_game_status,
-    is_direct_screen_activity_question,
+    is_direct_screen_activity_question, is_verified_current_game_context_question,
 )
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 
@@ -127,7 +127,8 @@ def _is_current_runtime_context_question(message: str) -> bool:
         and any(location in normalized for location in (
             "on screen", "in cronos", "in the game", "in gameplay"))
     )
-    return any(marker in normalized for marker in markers) or screen_activity_question
+    return (any(marker in normalized for marker in markers) or screen_activity_question
+            or is_verified_current_game_context_question(message))
 
 
 def _is_social_checkin_request(message: str) -> bool:

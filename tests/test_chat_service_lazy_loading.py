@@ -38,6 +38,12 @@ def test_current_game_observation_question_skips_lexical_memory_retrieval():
     assert chat._is_current_runtime_context_question(
         "You said Cronos is open and that you cannot see the screen. "
         "What can you tell from your live connection?")
+    grounded_current_question = (
+        "While Cronos is foregrounded, what can SentientOS confidently say "
+        "about the current situation, and what can it not see?")
+    assert chat._is_current_runtime_context_question(grounded_current_question)
+    from sentientos.chat_response_grounding import is_direct_screen_activity_question
+    assert is_direct_screen_activity_question(grounded_current_question)
     assert not chat._is_current_runtime_context_question(
         "What do you think about the story in Cronos?")
     assert chat._is_current_runtime_context_question(
@@ -540,6 +546,49 @@ def test_unconfigured_screen_activity_question_uses_verified_capability_fallback
     assert response.json()["context"]["inference_timing"]["backend_metrics_status"] == "not_applicable"
     assert invoker.calls == 1
     assert len(invoker.prompts) == 1
+
+
+def test_verified_current_situation_uses_only_foreground_and_screen_evidence(
+        tmp_path, monkeypatch):
+    from sentientos.foreground_game_detection import ForegroundGameObservation
+
+    chat = _reload(); client = TestClient(chat.APP)
+    invoker = SimulationInvoker()
+    memory_queries = []
+
+    class Detector:
+        def observe(self, names):
+            assert tuple(names) == ("cronos-win64-shipping.exe",)
+            return ForegroundGameObservation("available", True, "c" * 64,
+                "2026-11-04T16:00:00+00:00")
+
+    original_retrieve = chat.CanonicalMemoryStore.retrieve
+    def capture_query(store, query, *, limit=4, budget_chars=2000):
+        memory_queries.append(query)
+        return original_retrieve(store, query, limit=limit, budget_chars=budget_chars)
+
+    monkeypatch.setattr(chat.CanonicalMemoryStore, "retrieve", capture_query)
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path,
+        initial_workload_mode="automatic",
+        game_process_names=("cronos-win64-shipping.exe",),
+        foreground_game_detector=Detector())
+    response = client.post("/chat", json={
+        "message": ("While Cronos is foregrounded, what can SentientOS confidently say "
+                    "about the current situation, and what can it not see?"),
+        "observe_screen": False,
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == (
+        "I can confirm Cronos is the foreground app, but screen observation "
+        "isn’t configured in this session, so I can’t tell what’s happening on screen."
+    )
+    assert body["context"]["response_origin"] == "deterministic_grounding_policy"
+    assert body["context"]["selected_memory_count"] == 0
+    assert body["context"]["selected_turn_count"] == 0
+    assert memory_queries == [""]
+    assert invoker.calls == 0
 
 
 def test_background_game_presence_is_grounded_without_claiming_screen_access(tmp_path):
