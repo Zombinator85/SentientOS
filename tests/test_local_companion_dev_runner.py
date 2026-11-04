@@ -185,3 +185,57 @@ def test_latest_screen_observation_drains_and_expires_cached_sample(monkeypatch)
         assert observer() is None
     finally:
         observer.close()
+
+
+
+def test_latest_screen_observation_adds_bounded_delta_and_drops_expired_baseline(monkeypatch):
+    import threading
+    import time
+
+    now = [10.0]
+    monkeypatch.setattr("scripts.run_local_companion_dev.time.monotonic",
+                        lambda: now[0])
+    samples = [
+        {"text": "Quest\nFind the key"},
+        {"text": "Quest\nOpen the gate"},
+        {"text": "Quest\nEnter the hall"},
+    ]
+    changed = threading.Event()
+
+    def provider():
+        if samples:
+            sample = samples.pop(0)
+            if not samples:
+                changed.set()
+            return sample
+        raise RuntimeError("bridge_receive_timeout")
+
+    observer = _LatestScreenObservation(provider=provider, max_age_seconds=5.0)
+    try:
+        deadline = time.perf_counter() + 1.0
+        first = None
+        while first is None and time.perf_counter() < deadline:
+            first = observer()
+            time.sleep(0.01)
+        assert first == {"text": "Quest\nFind the key"}
+
+        deadline = time.perf_counter() + 1.0
+        second = None
+        while (second is None or "text_delta" not in second) and time.perf_counter() < deadline:
+            second = observer()
+            time.sleep(0.01)
+        assert second["text_delta"]["added_lines"] == ["Open the gate"]
+        assert second["text_delta"]["removed_lines"] == ["Find the key"]
+
+        now[0] += 6.0
+        samples.append({"text": "Quest\nBoss room"})
+        deadline = time.perf_counter() + 1.0
+        third = None
+        while third is None or third.get("text") != "Quest\nBoss room":
+            if time.perf_counter() >= deadline:
+                raise AssertionError("new OCR sample was not observed")
+            third = observer()
+            time.sleep(0.01)
+        assert "text_delta" not in third
+    finally:
+        observer.close()

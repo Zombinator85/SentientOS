@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
 from .platform_fcntl import fcntl, require_flock
+from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .windows_handle_custody import read_explicit_file, verify_explicit_directory
 
 SCHEMA = "sentientos.conversation_session:v1"
@@ -843,8 +844,12 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                 "capture_scope": screen_observation.get("capture_scope"),
                 "captured_at": screen_observation.get("captured_at"),
                 "ocr_text_change": change_kind}
+        text_delta = screen_observation.get("text_delta")
+        if text_delta is not None:
+            data["ocr_line_delta"] = validate_ocr_text_line_delta(
+                text_delta, current_text=text)
         lines.extend(["[CURRENT_SCREEN_OBSERVATION_UNTRUSTED]",
-            "This is OCR text from one consented screen capture. The change label compares OCR text only; it does not identify visual or gameplay events.",
+            "This is OCR text from one consented screen capture. Text labels and line deltas compare OCR only; they do not identify visual or gameplay events.",
             "SCREEN_DATA: " + json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))])
     lines.extend(["[CURRENT_USER_MESSAGE]", current_message])
     return "\n".join(lines)

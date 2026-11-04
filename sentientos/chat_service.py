@@ -53,6 +53,7 @@ from .chat_response_grounding import (
     corrected_gaming_output, corrected_output_lineage, corrected_screen_capability_output,
     corrected_social_instruction_echo, corrected_unobserved_game_status,
 )
+from .perception.screen_text_delta import validate_ocr_text_line_delta
 
 LOGGER = logging.getLogger(__name__)
 
@@ -874,6 +875,13 @@ class PersistentConversationService:
                     and isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None
                     and previous_text_digest != current_text_digest))
+            text_delta = screen_observation.get("text_delta")
+            if text_delta is not None:
+                try:
+                    text_delta = validate_ocr_text_line_delta(
+                        text_delta, current_text=screen_text)
+                except ValueError as exc:
+                    raise RuntimeError("screen_observation_delta_contract_invalid") from exc
             if (screen_observation.get("modality") != "screen"
                     or not change_lineage_valid
                     or screen_observation.get("raw_frame_retained") is not False
@@ -1106,6 +1114,16 @@ class PersistentConversationService:
             if (isinstance(previous_text_digest, str)
                     and re.fullmatch(r"[0-9a-f]{64}", previous_text_digest) is not None):
                 screen_provenance["previous_text_digest"] = previous_text_digest
+            if isinstance(text_delta, Mapping):
+                screen_provenance["text_delta"] = {
+                    "previous_text_digest": text_delta["previous_text_digest"],
+                    "current_text_digest": text_delta["current_text_digest"],
+                    "added_line_digests": [hashlib.sha256(line.encode("utf-8")).hexdigest()
+                        for line in text_delta["added_lines"]],
+                    "removed_line_digests": [hashlib.sha256(line.encode("utf-8")).hexdigest()
+                        for line in text_delta["removed_lines"]],
+                    "truncated": text_delta["truncated"],
+                }
             for key in ("process_name_digest", "consent_id_digest"):
                 value = screen_observation.get(key)
                 if (isinstance(value, str) and len(value) == 64
