@@ -15,6 +15,7 @@ var _session_id := ""
 var _pending_action := ""
 var _next_after_profile := ""
 var _messages := PackedStringArray()
+var _chat_request_started_usec := 0
 
 
 func _ready() -> void:
@@ -118,6 +119,7 @@ func _send_message(submitted_text: String = "") -> void:
 	_message_input.editable = false
 	_send_button.disabled = true
 	_pending_action = "chat"
+	_chat_request_started_usec = Time.get_ticks_usec()
 	var request_body := JSON.stringify({
 		"message": message,
 		"session_id": _session_id,
@@ -233,14 +235,49 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			_send_button.disabled = false
 			var answer := str(parsed.get("response", ""))
 			_append_message("SentientOS", answer if not answer.is_empty() else "I couldn't produce a reply.")
+			var round_trip_ms := 0
+			if _chat_request_started_usec > 0:
+				round_trip_ms = int((Time.get_ticks_usec() - _chat_request_started_usec) / 1000)
+			_chat_request_started_usec = 0
+			var context_value: Variant = parsed.get("context", {})
+			var context: Dictionary = context_value if context_value is Dictionary else {}
+			var timing_value: Variant = context.get("inference_timing", {})
+			if timing_value is Dictionary:
+				var timing_summary := _format_inference_timing(timing_value, round_trip_ms)
+				if not timing_summary.is_empty():
+					_append_message("Timing", timing_summary)
 			_message_input.grab_focus()
 		_:
 			_fail_request("The local chat service returned an unexpected response.")
 
 
+func _format_inference_timing(timing: Dictionary, round_trip_ms: int) -> String:
+	var parts := PackedStringArray()
+	if round_trip_ms > 0:
+		parts.append("round trip %.1fs" % (float(round_trip_ms) / 1000.0))
+	var invocation_ms: Variant = timing.get("invocation_latency_ms")
+	if invocation_ms is int:
+		parts.append("invocation %.1fs" % (float(invocation_ms) / 1000.0))
+	if timing.get("backend_metrics_status") == "available":
+		var first_content: Variant = timing.get("first_content_chunk_duration_ns")
+		if first_content is int:
+			parts.append("first content %.1fs" % (float(first_content) / 1000000000.0))
+		var load_ns: Variant = timing.get("load_duration_ns")
+		if load_ns is int:
+			parts.append("load %.1fs" % (float(load_ns) / 1000000000.0))
+		var prompt_ns: Variant = timing.get("prompt_evaluation_duration_ns")
+		if prompt_ns is int:
+			parts.append("prompt %.1fs" % (float(prompt_ns) / 1000000000.0))
+		var generation_ns: Variant = timing.get("generation_duration_ns")
+		if generation_ns is int:
+			parts.append("decode %.1fs" % (float(generation_ns) / 1000000000.0))
+	return " · ".join(parts)
+
+
 func _fail_request(message: String) -> void:
 	_pending_action = ""
 	_next_after_profile = ""
+	_chat_request_started_usec = 0
 	_start_button.disabled = false
 	_resume_button.disabled = false
 	_start_button.text = "New chat"
